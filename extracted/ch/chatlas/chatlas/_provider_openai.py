@@ -14,7 +14,12 @@ from openai.types.responses.response_function_web_search import (
     ActionOpenPage,
     ResponseFunctionWebSearch,
 )
-from openai.types.responses.response_output_text import AnnotationURLCitation
+from openai.types.responses.response_output_text import (
+    AnnotationURLCitation as ResponseAnnotationURLCitation,
+)
+from openai.types.responses.response_output_text_annotation_added_event import (
+    AnnotationURLCitation as StreamAnnotationURLCitation,
+)
 from pydantic import BaseModel
 
 from ._chat import Chat
@@ -387,15 +392,17 @@ class OpenAIProvider(
             return [ContentText.model_construct(text=chunk.delta)]
         if chunk.type == "response.output_text.annotation.added":
             # https://platform.openai.com/docs/api-reference/responses-streaming/response/output_text/annotation_added
-            # annotation is a plain dict at runtime (SDK types it as `object`)
-            ann: dict = chunk.annotation  # type: ignore[assignment]
+            ann = chunk.annotation
+            if isinstance(ann, StreamAnnotationURLCitation):
+                ann = ann.model_dump()
+            if not isinstance(ann, dict):
+                return []
             if ann.get("type") == "url_citation":
                 return [
                     ContentCitation(
                         source=WebSource(url=ann["url"], title=ann.get("title")),
-                        # No grounded_span here: OpenAI streams the annotation
-                        # with start_index/end_index into text that hasn't fully
-                        # arrived yet, so the span is resolved on the final turn.
+                        # OpenAI's offsets delimit the inline citation marker,
+                        # not the answer text supported by the source.
                         extra=ann,
                     )
                 ]
@@ -497,13 +504,11 @@ class OpenAIProvider(
                     else:
                         contents.append(ContentText(text=x.text))
                         for a in x.annotations or []:
-                            if not isinstance(a, AnnotationURLCitation):
+                            if not isinstance(a, ResponseAnnotationURLCitation):
                                 continue
-                            grounded = x.text[a.start_index : a.end_index] or None
                             contents.append(
                                 ContentCitation(
                                     source=WebSource(url=a.url, title=a.title),
-                                    grounded_span=grounded,
                                     extra=a.model_dump(),
                                 )
                             )

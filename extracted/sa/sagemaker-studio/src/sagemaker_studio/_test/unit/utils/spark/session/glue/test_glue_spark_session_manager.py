@@ -114,7 +114,7 @@ def mock_internal_utils():
         "sagemaker_studio.utils.spark.session.spark_config_builder._generate_glue_catalog_spark_configs",
         return_value={},
     ), patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_workday_irc_spark_configs",
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_irc_spark_configs",
         return_value={},
     ):
         mock_utils.return_value._get_domain_region.return_value = "us-east-2"
@@ -732,7 +732,7 @@ def test_start_glue_session_scheduled_run_request_origin(mock_session_cls, mock_
         "sagemaker_studio.utils.spark.session.spark_config_builder._generate_glue_catalog_spark_configs",
         return_value={},
     ), patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_workday_irc_spark_configs",
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_irc_spark_configs",
         return_value={},
     ):
         mock_utils.return_value._get_domain_region.return_value = "us-east-2"

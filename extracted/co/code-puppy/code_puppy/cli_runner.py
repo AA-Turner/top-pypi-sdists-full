@@ -208,6 +208,14 @@ async def main():
         ),
     )
     parser.add_argument(
+        "--cwd",
+        action="store_true",
+        help=(
+            "With --resume, only list/consider sessions scoped to the current "
+            "working directory (opt-in; default shows all sessions unfiltered)"
+        ),
+    )
+    parser.add_argument(
         "--quick-resume",
         "-qr",
         nargs="?",
@@ -266,14 +274,19 @@ async def main():
         try:
             import pyfiglet
 
+            # Width-aware banner: full CODE PUPPY when it fits, PUP when
+            # the terminal is too narrow (phones, tight splits).
+            banner_columns = display_console.width
             intro_lines = pyfiglet.figlet_format(
-                startup_banner_text(), font="ansi_shadow"
+                startup_banner_text(banner_columns), font="ansi_shadow"
             ).split("\n")
 
             # Simple blue to green gradient (top to bottom)
             gradient_colors = ["bright_blue", "bright_cyan", "bright_green"]
             display_console.print("\n")
 
+            # Left-justified on purpose -- the full-screen splash handles
+            # the centered spectacle; this banner tops the scrollback.
             lines = []
             for line_num, line in enumerate(intro_lines):
                 if line.strip():
@@ -287,6 +300,18 @@ async def main():
             display_console.print("\n".join(lines))
         except ImportError:
             emit_system_message(t("cli.loading"))
+
+        # Powered-by tagline under the big banner (prints even without pyfiglet).
+        display_console.print(
+            f"[dim]{t('cli.banner.powered_by')}[/dim] "
+            "[link=https://github.com/pydantic/pydantic-ai-harness]"
+            "[cyan]https://github.com/pydantic/pydantic-ai-harness[/cyan][/link]"
+        )
+        display_console.print(
+            f"[dim]{t('cli.banner.observability_pitch')}[/dim] "
+            "[link=https://pydantic.dev/logfire]"
+            "[cyan]https://pydantic.dev/logfire[/cyan][/link]\n"
+        )
 
         # Truecolor warning moved to interactive_mode() so it prints last — max visibility.
 
@@ -304,6 +329,13 @@ async def main():
         set_model_name(early_model)
 
     ensure_config_exists()
+
+    # Opt-in Logfire observability — a no-op unless enable_logfire (or
+    # CODE_PUPPY_ENABLE_LOGFIRE) is set. Must run before agents spin up so
+    # pydantic-ai instrumentation catches every run.
+    from code_puppy.observability import configure_logfire
+
+    configure_logfire()
 
     # Validate cancel_agent_key configuration early
     try:
@@ -445,10 +477,17 @@ async def main():
             ResumeTargetError,
             resolve_or_create_resume_target,
         )
-        from code_puppy.session_storage import list_sessions, load_session
+        from code_puppy.session_storage import (
+            compute_scope_key,
+            list_sessions,
+            load_session,
+        )
 
         resume_target = args.resume
         sessions_dir = Path(AUTOSAVE_DIR)
+        # Opt-in via --cwd: only offer sessions scoped to the current directory.
+        # Default (flag absent) keeps the unfiltered listing byte-for-byte.
+        resume_scope_key = compute_scope_key(Path.cwd()) if args.cwd else None
 
         # Both headless and interactive accept ``-r missing-name`` (empty session);
         # typos still surface via the visible ``Created new session: NAME`` line.
@@ -462,7 +501,7 @@ async def main():
             emit_error(resolve_exc.message)
             if resolve_exc.hint:
                 emit_info(resolve_exc.hint)
-            available = list_sessions(sessions_dir)
+            available = list_sessions(sessions_dir, scope_key=resume_scope_key)
             if available:
                 emit_info(
                     t(

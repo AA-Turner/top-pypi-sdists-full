@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ovsdbapp
-Version: 2.18.0
+Version: 2.19.0
 Summary: A library for creating OVSDB applications
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

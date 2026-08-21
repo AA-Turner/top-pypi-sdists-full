@@ -49,6 +49,7 @@ class TestLearnedFusionStatsResponse(unittest.TestCase):
                 rollout_override = True,
                 config_rollout_pct = 1.337,
                 shadow_mode = True,
+                source = '',
                 warning = '',
                 hint = ''
             )

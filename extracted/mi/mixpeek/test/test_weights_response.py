@@ -45,6 +45,7 @@ class TestWeightsResponse(unittest.TestCase):
                     },
                 total_interactions = 56,
                 learner_count = 56,
+                source = '',
                 warning = '',
                 hint = ''
             )

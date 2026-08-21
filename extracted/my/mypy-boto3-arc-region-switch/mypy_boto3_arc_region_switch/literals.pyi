@@ -56,6 +56,7 @@ __all__ = (
     "PaginatorName",
     "PlanEvaluationStatusPassedWaiterName",
     "PlanExecutionCompletedWaiterName",
+    "RdsUngracefulBehaviorType",
     "RecoveryApproachType",
     "RegionToRunInType",
     "ResourceServiceName",
@@ -102,6 +103,7 @@ ExecutionBlockTypeType = Literal[
     "Parallel",
     "RdsCreateCrossRegionReplica",
     "RdsPromoteReadReplica",
+    "RdsSwitchoverReadReplica",
     "Route53HealthCheck",
 ]
 ExecutionEventTypeType = Literal[
@@ -165,6 +167,7 @@ NeptuneDefaultBehaviorType = Literal["failover", "switchoverOnly"]
 NeptuneUngracefulBehaviorType = Literal["failover"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
 PlanExecutionCompletedWaiterName = Literal["plan_execution_completed"]
+RdsUngracefulBehaviorType = Literal["promoteReadReplica"]
 RecoveryApproachType = Literal["activeActive", "activePassive"]
 RegionToRunInType = Literal[
     "activatingRegion", "activeRegion", "deactivatingRegion", "inactiveRegion"
@@ -182,8 +185,11 @@ ARCRegionswitchServiceName = Literal["arc-region-switch"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -488,6 +494,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

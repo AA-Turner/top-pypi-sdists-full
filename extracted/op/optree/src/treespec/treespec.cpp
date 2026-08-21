@@ -22,7 +22,7 @@ limitations under the License.
 #include <sstream>    // std::ostringstream
 #include <string>     // std::string
 #include <tuple>      // std::tuple
-#include <utility>    // std::move
+#include <utility>    // std::move, std::pair
 #include <vector>     // std::vector
 
 #include "optree/optree.h"
@@ -79,7 +79,8 @@ namespace optree {
 
         case PyTreeKind::Dict:
         case PyTreeKind::OrderedDict:
-        case PyTreeKind::DefaultDict: {
+        case PyTreeKind::DefaultDict:
+        case PyTreeKind::FrozenDict: {
             py::dict dict{};
             const scoped_critical_section2 cs{node.node_data, node.original_keys};
             if (node.kind == PyTreeKind::DefaultDict) [[unlikely]] {
@@ -89,8 +90,11 @@ namespace optree {
                                    ? py::reinterpret_borrow<py::list>(node.node_data)
                                    : TupleGetItemAs<py::list>(node.node_data, 1));
             if (node.original_keys) [[unlikely]] {
-                for (ssize_t i = 0; i < node.arity; ++i) {
-                    DictSetItem(dict, ListGetItem(node.original_keys, i), py::none());
+                // Seed the dict with keys in original insertion order (values default to `None`);
+                // the subsequent loop overwrites with actual children. Uses the dict-to-dict fast
+                // path since `node.original_keys` is a `dict[Key, None]`.
+                if (PyDict_Update(dict.ptr(), node.original_keys.ptr()) < 0) [[unlikely]] {
+                    throw py::error_already_set();
                 }
             }
             for (ssize_t i = 0; i < node.arity; ++i) {
@@ -106,6 +110,18 @@ namespace optree {
                     PyDefaultDictTypeObject(default_factory, std::move(dict)),
                     default_factory);
             }
+#if defined(OPTREE_HAS_FROZENDICT)
+            if (node.kind == PyTreeKind::FrozenDict) [[unlikely]] {
+                return PyFrozenDictTypeObject(std::move(dict));
+            }
+#else
+            if (node.kind == PyTreeKind::FrozenDict) [[unlikely]] {
+                // Unreachable: `FromPicklable` rejects `FrozenDict` on such builds. Kept so a
+                // future entry point cannot silently demote the mapping to a plain `dict`.
+                throw py::value_error(
+                    "PyTreeKind::FrozenDict requires Python 3.15+ (`frozendict` builtin).");
+            }
+#endif
             return dict;
         }
 
@@ -145,7 +161,8 @@ namespace optree {
 
         case PyTreeKind::Dict:
         case PyTreeKind::OrderedDict:
-        case PyTreeKind::DefaultDict: {
+        case PyTreeKind::DefaultDict:
+        case PyTreeKind::FrozenDict: {
             PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> storage;
             return storage
                 .call_once_and_store_result(
@@ -182,13 +199,36 @@ namespace optree {
     }
 }
 
+std::optional<py::object> PyTreeSpec::FindStaleCustomType(
+    const std::string &target_namespace) const {
+    for (const Node &node : m_traversal) {
+        if (node.kind == PyTreeKind::Custom) [[unlikely]] {
+            const auto registration =
+                (m_none_is_leaf
+                     ? PyTreeTypeRegistry::Lookup<NONE_IS_LEAF>(node.custom->type, target_namespace)
+                     : PyTreeTypeRegistry::Lookup<NONE_IS_NODE>(node.custom->type,
+                                                                target_namespace));
+            if (registration != node.custom) [[unlikely]] {
+                return node.custom->type;
+            }
+        }
+    }
+    return {};
+}
+
 // NOLINTNEXTLINE[readability-function-cognitive-complexity]
 /*static*/ std::tuple<ssize_t, ssize_t, ssize_t, ssize_t> PyTreeSpec::BroadcastToCommonSuffixImpl(
     std::vector<Node> &nodes,
     const std::vector<Node> &traversal,
     const ssize_t &pos,
     const std::vector<Node> &other_traversal,
-    const ssize_t &other_pos) {
+    const ssize_t &other_pos,
+    const ssize_t &depth) {
+    if (depth > MAX_RECURSION_DEPTH) [[unlikely]] {
+        PyErr_SetString(PyExc_RecursionError,
+                        "Maximum recursion depth exceeded during broadcasting the treespecs.");
+        throw py::error_already_set();
+    }
     const Node &root = traversal.at(pos);
     const Node &other_root = other_traversal.at(other_pos);
     EXPECT_GE(pos + 1,
@@ -233,6 +273,7 @@ namespace optree {
         .kind = root.kind,
         .arity = root.arity,
         .node_data = root.node_data,
+        .node_entries = root.node_entries,
         .custom = root.custom,
         .num_leaves = 0,
         .num_nodes = 1,
@@ -259,9 +300,11 @@ namespace optree {
 
         case PyTreeKind::Dict:
         case PyTreeKind::OrderedDict:
-        case PyTreeKind::DefaultDict: {
+        case PyTreeKind::DefaultDict:
+        case PyTreeKind::FrozenDict: {
             if (other_root.kind != PyTreeKind::Dict && other_root.kind != PyTreeKind::OrderedDict &&
-                other_root.kind != PyTreeKind::DefaultDict) [[unlikely]] {
+                other_root.kind != PyTreeKind::DefaultDict &&
+                other_root.kind != PyTreeKind::FrozenDict) [[unlikely]] {
                 std::ostringstream oss{};
                 oss << "PyTreeSpecs have incompatible node types; expected type: "
                     << NodeKindToString(root) << ", got: " << NodeKindToString(other_root) << ".";
@@ -272,15 +315,19 @@ namespace optree {
             const auto expected_keys = (root.kind != PyTreeKind::DefaultDict
                                             ? py::reinterpret_borrow<py::list>(root.node_data)
                                             : TupleGetItemAs<py::list>(root.node_data, 1));
-            auto other_keys = (other_root.kind != PyTreeKind::DefaultDict
-                                   ? py::reinterpret_borrow<py::list>(other_root.node_data)
-                                   : TupleGetItemAs<py::list>(other_root.node_data, 1));
+            const auto other_keys = (other_root.kind != PyTreeKind::DefaultDict
+                                         ? py::reinterpret_borrow<py::list>(other_root.node_data)
+                                         : TupleGetItemAs<py::list>(other_root.node_data, 1));
             const py::dict dict{};
             for (ssize_t i = 0; i < other_root.arity; ++i) {
                 DictSetItem(dict, ListGetItem(other_keys, i), py::int_(i));
             }
             if (!DictKeysEqual(expected_keys, dict)) [[unlikely]] {
-                TotalOrderSort(other_keys);
+                // Build the message from a sorted COPY of the keys. `other_keys` is a borrow of the
+                // argument spec's live `node_data`; sorting it in place would permute the keys
+                // while the child subtrees stay put, silently corrupting a spec the caller still
+                // holds.
+                const py::list sorted_other_keys = SortedDictKeys(dict);
                 const auto [missing_keys, extra_keys] = DictKeysDifference(expected_keys, dict);
                 std::ostringstream key_difference_sstream{};
                 if (ListGetSize(missing_keys) != 0) [[likely]] {
@@ -291,7 +338,7 @@ namespace optree {
                 }
                 std::ostringstream oss{};
                 oss << "dictionary key mismatch; expected key(s): " << PyRepr(expected_keys)
-                    << ", got key(s): " << PyRepr(other_keys) << key_difference_sstream.str()
+                    << ", got key(s): " << PyRepr(sorted_other_keys) << key_difference_sstream.str()
                     << ".";
                 throw py::value_error(oss.str());
             }
@@ -310,7 +357,12 @@ namespace optree {
                 other_cur = other_curs[py::cast<ssize_t>(DictGetItem(dict, key))];
                 const auto [num_nodes, other_num_nodes, new_num_nodes, new_num_leaves] =
                     // NOLINTNEXTLINE[misc-no-recursion]
-                    BroadcastToCommonSuffixImpl(nodes, traversal, cur, other_traversal, other_cur);
+                    BroadcastToCommonSuffixImpl(nodes,
+                                                traversal,
+                                                cur,
+                                                other_traversal,
+                                                other_cur,
+                                                depth + 1);
                 cur -= num_nodes;
                 nodes[start_num_nodes].num_nodes += new_num_nodes;
                 nodes[start_num_nodes].num_leaves += new_num_leaves;
@@ -389,7 +441,12 @@ namespace optree {
     for (ssize_t i = root.arity - 1; i >= 0; --i) {
         const auto [num_nodes, other_num_nodes, new_num_nodes, new_num_leaves] =
             // NOLINTNEXTLINE[misc-no-recursion]
-            BroadcastToCommonSuffixImpl(nodes, traversal, cur, other_traversal, other_cur);
+            BroadcastToCommonSuffixImpl(nodes,
+                                        traversal,
+                                        cur,
+                                        other_traversal,
+                                        other_cur,
+                                        depth + 1);
         cur -= num_nodes;
         other_cur -= other_num_nodes;
         nodes[start_num_nodes].num_nodes += new_num_nodes;
@@ -401,6 +458,7 @@ namespace optree {
             nodes[start_num_nodes].num_leaves};
 }
 
+// NOLINTNEXTLINE[readability-function-cognitive-complexity]
 std::unique_ptr<PyTreeSpec> PyTreeSpec::BroadcastToCommonSuffix(const PyTreeSpec &other) const {
     PYTREESPEC_SANITY_CHECK(*this);
     PYTREESPEC_SANITY_CHECK(other);
@@ -416,12 +474,36 @@ std::unique_ptr<PyTreeSpec> PyTreeSpec::BroadcastToCommonSuffix(const PyTreeSpec
         throw py::value_error(oss.str());
     }
 
+    const std::string &target_namespace = m_namespace.empty() ? other.m_namespace : m_namespace;
     auto treespec = std::make_unique<PyTreeSpec>();
     treespec->m_none_is_leaf = m_none_is_leaf;
-    if (other.m_namespace.empty()) [[likely]] {
-        treespec->m_namespace = m_namespace;
+    treespec->m_namespace = target_namespace;
+
+    if (!target_namespace.empty()) [[likely]] {
+        // The compatibility check above rejects two distinct non-empty namespaces, so the adopted
+        // namespace equals one side's namespace and at most the other (empty) side differs from it.
+        // Re-check only that side: adopting a namespace under which its custom nodes resolve to a
+        // different registration would silently rebind them (the result keeps the original ones).
+        std::optional<py::object> stale_type{};
+        if (target_namespace != m_namespace) [[unlikely]] {
+            EXPECT_EQ(target_namespace, other.m_namespace, "Namespace mismatch.");
+            EXPECT_TRUE(m_namespace.empty(), "Namespace mismatch.");
+            stale_type = FindStaleCustomType(target_namespace);
+        } else if (target_namespace != other.m_namespace) [[unlikely]] {
+            EXPECT_EQ(target_namespace, m_namespace, "Namespace mismatch.");
+            EXPECT_TRUE(other.m_namespace.empty(), "Namespace mismatch.");
+            stale_type = other.FindStaleCustomType(target_namespace);
+        }
+        if (stale_type) [[unlikely]] {
+            std::ostringstream oss{};
+            oss << "PyTreeSpecs cannot be merged: custom PyTree type " << PyRepr(*stale_type)
+                << " no longer resolves to its original registration in namespace "
+                << PyRepr(target_namespace) << ".";
+            throw py::value_error(oss.str());
+        }
     } else [[unlikely]] {
-        treespec->m_namespace = other.m_namespace;
+        EXPECT_TRUE(m_namespace.empty(), "Namespace mismatch.");
+        EXPECT_TRUE(other.m_namespace.empty(), "Namespace mismatch.");
     }
 
     const ssize_t num_nodes = GetNumNodes();
@@ -432,7 +514,8 @@ std::unique_ptr<PyTreeSpec> PyTreeSpec::BroadcastToCommonSuffix(const PyTreeSpec
                                     m_traversal,
                                     num_nodes - 1,
                                     other.m_traversal,
-                                    other_num_nodes - 1);
+                                    other_num_nodes - 1,
+                                    0);
     std::reverse(treespec->m_traversal.begin(), treespec->m_traversal.end());
     EXPECT_EQ(num_nodes_walked,
               num_nodes,
@@ -533,7 +616,7 @@ std::unique_ptr<PyTreeSpec> PyTreeSpec::Transform(const std::optional<py::functi
             subroot.num_leaves = 0;
             subroot.num_nodes = 1;
             for (ssize_t i = 0; i < node.arity; ++i) {
-                const auto &[num_leaves, num_nodes] = pending_num_leaves_nodes.back();
+                const auto [num_leaves, num_nodes] = pending_num_leaves_nodes.back();
                 pending_num_leaves_nodes.pop_back();
                 subroot.num_leaves += num_leaves;
                 subroot.num_nodes += num_nodes;
@@ -569,11 +652,28 @@ std::unique_ptr<PyTreeSpec> PyTreeSpec::Transform(const std::optional<py::functi
               "Number of transformed tree nodes mismatch.");
     treespec->m_none_is_leaf = m_none_is_leaf;
     treespec->m_namespace = common_registry_namespace;
+
+    // Reject a transform whose unified namespace would rebind a custom node to a different
+    // registration than the one it holds (the result keeps each node's original registration; e.g.
+    // a globally-resolved custom node from the input under a non-empty unified namespace). Only
+    // relevant for a non-empty namespace: an empty one resolves every custom node globally.
+    if (!common_registry_namespace.empty()) [[unlikely]] {
+        if (const auto &stale_type = treespec->FindStaleCustomType(common_registry_namespace))
+            [[unlikely]] {
+            std::ostringstream oss{};
+            oss << "PyTreeSpecs cannot be transformed: custom PyTree type " << PyRepr(*stale_type)
+                << " no longer resolves to its original registration in namespace "
+                << PyRepr(common_registry_namespace) << ".";
+            throw py::value_error(oss.str());
+        }
+    }
+
     treespec->m_traversal.shrink_to_fit();
     PYTREESPEC_SANITY_CHECK(*treespec);
     return treespec;
 }
 
+// NOLINTNEXTLINE[readability-function-cognitive-complexity]
 std::unique_ptr<PyTreeSpec> PyTreeSpec::Compose(const PyTreeSpec &inner) const {
     PYTREESPEC_SANITY_CHECK(*this);
     PYTREESPEC_SANITY_CHECK(inner);
@@ -589,12 +689,36 @@ std::unique_ptr<PyTreeSpec> PyTreeSpec::Compose(const PyTreeSpec &inner) const {
         throw py::value_error(oss.str());
     }
 
+    const std::string &target_namespace = m_namespace.empty() ? inner.m_namespace : m_namespace;
     auto treespec = std::make_unique<PyTreeSpec>();
     treespec->m_none_is_leaf = m_none_is_leaf;
-    if (inner.m_namespace.empty()) [[likely]] {
-        treespec->m_namespace = m_namespace;
+    treespec->m_namespace = target_namespace;
+
+    if (!target_namespace.empty()) [[likely]] {
+        // The compatibility check above rejects two distinct non-empty namespaces, so the adopted
+        // namespace equals one side's namespace and at most the other (empty) side differs from it.
+        // Re-check only that side: adopting a namespace under which its custom nodes resolve to a
+        // different registration would silently rebind them (the result keeps the original ones).
+        std::optional<py::object> stale_type{};
+        if (target_namespace != m_namespace) [[unlikely]] {
+            EXPECT_EQ(target_namespace, inner.m_namespace, "Namespace mismatch.");
+            EXPECT_TRUE(m_namespace.empty(), "Namespace mismatch.");
+            stale_type = FindStaleCustomType(target_namespace);
+        } else if (target_namespace != inner.m_namespace) [[unlikely]] {
+            EXPECT_EQ(target_namespace, m_namespace, "Namespace mismatch.");
+            EXPECT_TRUE(inner.m_namespace.empty(), "Namespace mismatch.");
+            stale_type = inner.FindStaleCustomType(target_namespace);
+        }
+        if (stale_type) [[unlikely]] {
+            std::ostringstream oss{};
+            oss << "PyTreeSpecs cannot be merged: custom PyTree type " << PyRepr(*stale_type)
+                << " no longer resolves to its original registration in namespace "
+                << PyRepr(target_namespace) << ".";
+            throw py::value_error(oss.str());
+        }
     } else [[unlikely]] {
-        treespec->m_namespace = inner.m_namespace;
+        EXPECT_TRUE(m_namespace.empty(), "Namespace mismatch.");
+        EXPECT_TRUE(inner.m_namespace.empty(), "Namespace mismatch.");
     }
 
     const ssize_t num_outer_leaves = GetNumLeaves();
@@ -634,6 +758,11 @@ ssize_t PyTreeSpec::PathsImpl(PathVector &paths,  // NOLINT[misc-no-recursion]
                               const ssize_t &depth) const {
     const Node &root = m_traversal.at(pos);
     EXPECT_GE(pos + 1, root.num_nodes, "PyTreeSpec::Paths() walked off start of array.");
+    if (depth > MAX_RECURSION_DEPTH) [[unlikely]] {
+        PyErr_SetString(PyExc_RecursionError,
+                        "Maximum recursion depth exceeded during walking the tree.");
+        throw py::error_already_set();
+    }
 
     ssize_t cur = pos - 1;
     // NOLINTNEXTLINE[misc-no-recursion]
@@ -677,7 +806,8 @@ ssize_t PyTreeSpec::PathsImpl(PathVector &paths,  // NOLINT[misc-no-recursion]
 
             case PyTreeKind::Dict:
             case PyTreeKind::OrderedDict:
-            case PyTreeKind::DefaultDict: {
+            case PyTreeKind::DefaultDict:
+            case PyTreeKind::FrozenDict: {
                 const scoped_critical_section cs{root.node_data};
                 const auto keys = (root.kind != PyTreeKind::DefaultDict
                                        ? py::reinterpret_borrow<py::list>(root.node_data)
@@ -732,6 +862,11 @@ ssize_t PyTreeSpec::AccessorsImpl(Span &accessors,  // NOLINT[misc-no-recursion]
 
     const Node &root = m_traversal.at(pos);
     EXPECT_GE(pos + 1, root.num_nodes, "PyTreeSpec::TypedPaths() walked off start of array.");
+    if (depth > MAX_RECURSION_DEPTH) [[unlikely]] {
+        PyErr_SetString(PyExc_RecursionError,
+                        "Maximum recursion depth exceeded during walking the tree.");
+        throw py::error_already_set();
+    }
 
     ssize_t cur = pos - 1;
     const py::object node_type = GetType(root);
@@ -787,7 +922,8 @@ ssize_t PyTreeSpec::AccessorsImpl(Span &accessors,  // NOLINT[misc-no-recursion]
 
             case PyTreeKind::Dict:
             case PyTreeKind::OrderedDict:
-            case PyTreeKind::DefaultDict: {
+            case PyTreeKind::DefaultDict:
+            case PyTreeKind::FrozenDict: {
                 const scoped_critical_section cs{root.node_data};
                 const auto keys = (root.kind != PyTreeKind::DefaultDict
                                        ? py::reinterpret_borrow<py::list>(root.node_data)
@@ -854,13 +990,14 @@ py::list PyTreeSpec::Entries() const {
         }
 
         case PyTreeKind::Dict:
-        case PyTreeKind::OrderedDict: {
+        case PyTreeKind::OrderedDict:
+        case PyTreeKind::FrozenDict: {
             const scoped_critical_section cs{root.node_data};
-            return py::getattr(root.node_data, "copy")();
+            return ListCopy(root.node_data);
         }
         case PyTreeKind::DefaultDict: {
             const scoped_critical_section cs{root.node_data};
-            return py::getattr(TupleGetItem(root.node_data, 1), "copy")();
+            return ListCopy(TupleGetItemAs<py::list>(root.node_data, 1));
         }
 
         case PyTreeKind::NumKinds:
@@ -894,7 +1031,8 @@ py::object PyTreeSpec::Entry(ssize_t index) const {
         }
 
         case PyTreeKind::Dict:
-        case PyTreeKind::OrderedDict: {
+        case PyTreeKind::OrderedDict:
+        case PyTreeKind::FrozenDict: {
             const scoped_critical_section cs{root.node_data};
             return ListGetItem(root.node_data, index);
         }
@@ -995,6 +1133,15 @@ py::object PyTreeSpec::GetType(const std::optional<Node> &node) const {
             return PyDefaultDictTypeObject;
         case PyTreeKind::Deque:
             return PyDequeTypeObject;
+        case PyTreeKind::FrozenDict:
+#if defined(OPTREE_HAS_FROZENDICT)
+            return PyFrozenDictTypeObject;
+#else
+            // The case label is unconditional to keep the switch exhaustive (and quiet MSVC
+            // C4061); unreachable here, as `FromPicklable` rejects such nodes on these builds.
+            throw py::value_error(
+                "PyTreeKind::FrozenDict requires Python 3.15+ (`frozendict` builtin).");
+#endif
         case PyTreeKind::NumKinds:
         default:
             INTERNAL_ERROR();

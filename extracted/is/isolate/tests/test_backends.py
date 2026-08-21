@@ -820,6 +820,7 @@ def test_isolate_server_logs_level_inference(isolate_server):
                 "print('[trace] hide!!!') or "
                 "print('[warning] warn1!!!') or "
                 "print('warn2!!! [warn]') or "
+                'print(\'{"event": "bad!!!", "level": "error"}\') or '
                 "print('default') or "
                 "__import__('time').sleep(0.5)",
             )
@@ -828,13 +829,14 @@ def test_isolate_server_logs_level_inference(isolate_server):
     user_logs = _filter_grpc_noise(
         [log for log in collected_logs if log.source == LogSource.USER]
     )
-    assert len(user_logs) == 6
+    assert len(user_logs) == 7
     assert [log.level for log in user_logs] == [
         LogLevel.DEBUG,
         LogLevel.ERROR,
         LogLevel.TRACE,
         LogLevel.WARNING,
         LogLevel.WARNING,
+        LogLevel.ERROR,
         LogLevel.INFO,
     ]
 

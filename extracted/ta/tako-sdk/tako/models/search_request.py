@@ -32,7 +32,7 @@ class SearchRequest(BaseModel):
     """
     Shared request for POST /api/v3/search and POST /api/v1/answer.
     """ # noqa: E501
-    query: StrictStr = Field(description="Natural language search query.")
+    query: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Natural language search query.")
     effort: Optional[SearchEffortLevel] = Field(default=None, description="Search effort level: 'fast' (default), 'instant', or 'deep'.")
     sources: Optional[Sources] = Field(default=None, description="Per-source settings. The search includes an index only if its key is present. Defaults to {data:{}, web:{}} (data and web, count 5 each). Tako accepts the legacy key 'tako' as a synonym for 'data'.")
     location: Optional[GeoLocation] = Field(default=None, description="Optional coordinates of the end user. Resolves the location for implicit-location queries (for example, weather). An explicit location in the query overrides these coordinates.")

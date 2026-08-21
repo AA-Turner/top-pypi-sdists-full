@@ -29,9 +29,10 @@ class ActivityResponse(BaseModel):
     Response containing recent learned fusion activity events.
     """ # noqa: E501
     events: List[ActivityEvent] = Field(description="List of recent activity events.")
+    source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
     hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
-    __properties: ClassVar[List[str]] = ["events", "warning", "hint"]
+    __properties: ClassVar[List[str]] = ["events", "source", "warning", "hint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +93,7 @@ class ActivityResponse(BaseModel):
 
         _obj = cls.model_validate({
             "events": [ActivityEvent.from_dict(_item) for _item in obj["events"]] if obj.get("events") is not None else None,
+            "source": obj.get("source"),
             "warning": obj.get("warning"),
             "hint": obj.get("hint")
         })

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm-tpu
-Version: 0.26.0
+Version: 0.27.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -53,7 +53,7 @@ Requires-Dist: partial-json-parser
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
-Requires-Dist: mistral_common[image]>=1.11.5
+Requires-Dist: mistral_common[image]>=1.11.6
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
@@ -87,7 +87,7 @@ Requires-Dist: ray[data]
 Requires-Dist: setuptools==78.1.0
 Requires-Dist: setuptools-rust>=1.9.0
 Requires-Dist: nixl==0.3.0
-Requires-Dist: tpu-inference==0.26.0
+Requires-Dist: tpu-inference==0.27.0
 Provides-Extra: zen
 Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench
@@ -116,7 +116,7 @@ Provides-Extra: deepstream
 Requires-Dist: nvidia-deepstream-videodecode-cu13>=9.0.2; extra == "deepstream"
 Provides-Extra: flashinfer
 Provides-Extra: helion
-Requires-Dist: helion==1.1.0; extra == "helion"
+Requires-Dist: helion==1.4.0; extra == "helion"
 Provides-Extra: grpc
 Requires-Dist: smg-grpc-servicer[vllm]>=0.5.2; extra == "grpc"
 Provides-Extra: otel

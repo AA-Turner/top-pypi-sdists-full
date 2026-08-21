@@ -5,7 +5,7 @@ import uuid
 from collections.abc import Callable
 from queue import Queue
 from types import TracebackType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.result import Ok, Result
@@ -15,8 +15,8 @@ from schemathesis.schemas import APIOperation
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+    from schemathesis.core.spec import Scheduler
     from schemathesis.engine.context import EngineContext
-    from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
     from schemathesis.generation.hypothesis.builder import HypothesisTestMode
 
 
@@ -31,6 +31,9 @@ class DefaultScheduler:
         """Get next API operation in a thread-safe manner."""
         with self.lock:
             return next(self.operations, None)
+
+    def release(self) -> None:
+        """No layers, hence nothing to release."""
 
 
 def split_results(
@@ -53,7 +56,7 @@ class WorkerPool:
     def __init__(
         self,
         workers_num: int,
-        scheduler: DefaultScheduler | LayeredScheduler,
+        scheduler: Scheduler,
         worker_factory: Callable,
         ctx: EngineContext,
         mode: HypothesisTestMode,
@@ -70,11 +73,18 @@ class WorkerPool:
         self.workers: list[threading.Thread] = []
         self.events_queue: Queue = Queue()
 
+    def _run_worker(self, **kwargs: Any) -> None:
+        try:
+            self.worker_factory(**kwargs)
+        finally:
+            # A worker stopping mid-operation must not block the layer barrier forever
+            self.scheduler.release()
+
     def start(self) -> None:
         """Start all worker threads."""
         for i in range(self.workers_num):
             worker = threading.Thread(
-                target=self.worker_factory,
+                target=self._run_worker,
                 kwargs={
                     "ctx": self.ctx,
                     "mode": self.mode,
@@ -99,4 +109,7 @@ class WorkerPool:
         return self
 
     def __exit__(self, ty: type[BaseException] | None, value: BaseException | None, tb: TracebackType | None) -> None:
+        if ty is not None:
+            # The consumer stopped reading events, so wind workers down instead of running the phase to the end.
+            self.ctx.stop()
         self.stop()

@@ -24,6 +24,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -57,6 +58,7 @@ from github.GithubObject import Attribute, CompletableGithubObject, NotSet, Opt
 from github.PaginatedList import PaginatedList
 
 if TYPE_CHECKING:
+    from github.DeploymentStatus import DeploymentStatus
     from github.GithubApp import GithubApp
     from github.NamedUser import NamedUser
     from github.Organization import Organization
@@ -189,7 +191,7 @@ class Deployment(CompletableGithubObject):
         self._completeIfNotSet(self._url)
         return self._url.value
 
-    def get_statuses(self) -> PaginatedList[github.DeploymentStatus.DeploymentStatus]:
+    def get_statuses(self) -> PaginatedList[DeploymentStatus]:
         """
         :calls: `GET /repos/{owner}/{repo}/deployments/{deployment_id}/statuses <https://docs.github.com/en/rest/reference/repos#list-deployments>`_
         """
@@ -201,7 +203,7 @@ class Deployment(CompletableGithubObject):
             headers={"Accept": self._get_accept_header()},
         )
 
-    def get_status(self, id_: int) -> github.DeploymentStatus.DeploymentStatus:
+    def get_status(self, id_: int) -> DeploymentStatus:
         """
         :calls: `GET /repos/{owner}/{repo}/deployments/{deployment_id}/statuses/{status_id}  <https://docs.github.com/en/rest/reference/repos#get-a-deployment>`_
         """
@@ -221,7 +223,7 @@ class Deployment(CompletableGithubObject):
         environment: Opt[str] = NotSet,
         environment_url: Opt[str] = NotSet,
         auto_inactive: Opt[bool] = NotSet,
-    ) -> github.DeploymentStatus.DeploymentStatus:
+    ) -> DeploymentStatus:
         """
         :calls: `POST /repos/{owner}/{repo}/deployments/{deployment_id}/statuses <https://docs.github.com/en/rest/reference/repos#create-a-deployment-status>`_
         """

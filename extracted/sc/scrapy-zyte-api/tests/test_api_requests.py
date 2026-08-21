@@ -15,15 +15,15 @@ from scrapy.downloadermiddlewares.httpcompression import ACCEPTED_ENCODINGS
 from scrapy.exceptions import CloseSpider
 from scrapy.http import Response, TextResponse
 from scrapy.http.cookies import CookieJar
+from scrapy.settings import Settings
 from scrapy.settings.default_settings import DEFAULT_REQUEST_HEADERS
 from scrapy.settings.default_settings import USER_AGENT as DEFAULT_USER_AGENT
-from scrapy.utils.defer import deferred_f_from_coro_f
 from twisted.internet.defer import Deferred, succeed
 from zyte_api import RequestError
 
 import scrapy_zyte_api._params as params_module
 from scrapy_zyte_api._cookies import _get_cookie_jar
-from scrapy_zyte_api._params import ANY_VALUE, _ParamParser
+from scrapy_zyte_api._params import ANY_VALUE, _load_mw_skip_headers, _ParamParser
 from scrapy_zyte_api.handler import _ScrapyZyteAPIBaseDownloadHandler
 from scrapy_zyte_api.responses import _process_response
 from scrapy_zyte_api.utils import (
@@ -37,6 +37,7 @@ from . import (
     SETTINGS,
     SETTINGS_T,
     UNSET,
+    deferred_f_from_coro_f,
     download_request,
     get_crawler,
     get_download_handler,
@@ -467,16 +468,15 @@ async def test_param_parser_output_side_effects(output, uses_zyte_api, mockserve
         handler._param_parser = mock.Mock()
         handler._param_parser.parse = mock.Mock(return_value=output)
         handler._download_request = mock.AsyncMock(side_effect=RuntimeError)
-        handler._fallback_handler = mock.Mock()
-        handler._fallback_handler.download_request = mock.AsyncMock(
-            side_effect=RuntimeError
-        )
+        fallback_handler = mock.Mock()
+        fallback_handler.download_request = mock.AsyncMock(side_effect=RuntimeError)
+        handler._get_fallback_handler = mock.Mock(return_value=fallback_handler)
         with pytest.raises(RuntimeError):
             await download_request(handler, request)
     if uses_zyte_api:
         handler._download_request.assert_called()
     else:
-        handler._fallback_handler.download_request.assert_called()
+        fallback_handler.download_request.assert_called()
 
 
 DEFAULT_AUTOMAP_PARAMS: dict[str, Any] = {
@@ -4027,6 +4027,22 @@ async def test_middleware_headers_default_custom():
         {"name": "Referer", "value": "https://referrer.example"},
         {"name": "User-Agent", "value": "foo/1.2.3"},
     ]
+
+
+def test_middleware_headers_no_engine():
+    """When reading the engine raises RuntimeError because the crawl has not
+    started, the headers that middlewares set are assumed to be the default
+    ones."""
+
+    class _Crawler:
+        settings = Settings()
+
+        @property
+        def engine(self):
+            raise RuntimeError
+
+    headers = _load_mw_skip_headers(_Crawler())
+    assert headers[b"accept-encoding"] == b", ".join(ACCEPTED_ENCODINGS)
 
 
 @deferred_f_from_coro_f

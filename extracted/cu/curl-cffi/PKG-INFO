@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curl_cffi
-Version: 0.16.0
+Version: 0.16.1
 Summary: libcurl ffi bindings for Python, with impersonation support.
 Author-email: lexiforest <infinitesheldon@gmail.com>
 License-Expression: MIT
@@ -30,7 +30,6 @@ Requires-Dist: charset_normalizer<4.0,>=3.3.2; extra == "dev"
 Requires-Dist: coverage<7.0,>=6.4.1; extra == "dev"
 Requires-Dist: cryptography<47.0,>=46.0.4; extra == "dev"
 Requires-Dist: httpx==0.23.1; extra == "dev"
-Requires-Dist: mypy<2.0,>=1.9.0; extra == "dev"
 Requires-Dist: pytest<9.0,>=8.1.1; extra == "dev"
 Requires-Dist: pytest-asyncio<1.0,>=0.23.6; extra == "dev"
 Requires-Dist: pytest-trio<1.0,>=0.8.0; extra == "dev"

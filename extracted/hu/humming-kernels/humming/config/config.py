@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import math
 from typing import ClassVar
 
@@ -7,6 +8,12 @@ import torch
 from humming import dtypes
 from humming.config.base import BaseHummingConfig
 from humming.config.enum import GemmType, MmaType, WeightScale2Type, WeightScaleType
+
+
+@functools.cache
+def _cuda_compiler_version(compiler_cls):
+    version = compiler_cls.signature().split("+", 1)[1]
+    return tuple(int(x) for x in version.split(".")[:2])
 
 
 @dataclasses.dataclass(kw_only=True, unsafe_hash=True)
@@ -42,7 +49,7 @@ class LayerConfig(BaseHummingConfig):
     # mma config
     mma_type: MmaType | None = None
 
-    # packed-K layout (wgmma + 8-bit activation only)
+    # packed-K layout (wgmma + 8-bit activation + even-bit weight only)
     use_packed_k_layout: bool | None = None
 
     _cpp_extra_names: ClassVar[tuple[str, ...]] = (
@@ -56,7 +63,37 @@ class LayerConfig(BaseHummingConfig):
         "has_channel_weight_scale",
         "has_tensor_weight_scale",
         "has_input_scale",
+        "use_native_dequant",
     )
+
+    @property
+    def use_native_dequant(self):
+        from humming.jit.runtime import KernelRuntime
+
+        cuda_version = _cuda_compiler_version(KernelRuntime._get_compiler())
+        major, minor = torch.cuda.get_device_capability()
+        sm = major * 10 + minor
+        native_low_bit_sm = sm >= 100
+        if self.mma_type != MmaType.MMA:
+            return False
+
+        accepted_b_dtype = tuple()
+        if self.a_dtype == dtypes.float16:
+            if sm >= 89 and cuda_version >= (11, 8):
+                accepted_b_dtype += (dtypes.float8e4m3, dtypes.float8e5m2)
+            if native_low_bit_sm and cuda_version >= (12, 7):
+                accepted_b_dtype += (dtypes.float4e2m1, dtypes.float6e3m2, dtypes.float6e2m3)
+
+        if self.a_dtype == dtypes.bfloat16 and native_low_bit_sm and cuda_version >= (13, 2):
+            accepted_b_dtype += (
+                dtypes.float4e2m1,
+                dtypes.float6e3m2,
+                dtypes.float6e2m3,
+                dtypes.float8e4m3,
+                dtypes.float8e5m2,
+            )
+
+        return self.b_dtype in accepted_b_dtype
 
     @property
     def mxmma_supported(self):
@@ -206,12 +243,14 @@ class LayerConfig(BaseHummingConfig):
             self.use_packed_k_layout = (
                 self.mma_type == MmaType.WGMMA
                 and self.a_dtype.num_bits == 8
+                and self.b_dtype.num_bits % 2 == 0
                 and not self.use_fused_e8m0_scale
                 and self.weight_scale_group_size == 128
             )
         elif self.use_packed_k_layout:
             assert self.mma_type == MmaType.WGMMA, "use_packed_k_layout requires wgmma"
             assert self.a_dtype.num_bits == 8, "use_packed_k_layout requires 8-bit activation"
+            assert self.b_dtype.num_bits % 2 == 0, "use_packed_k_layout requires even-bit weight"
             assert not self.use_fused_e8m0_scale, "packed_k_layout is incompatible with fused-e8m0"
 
         if type(self) is LayerConfig:
@@ -359,6 +398,7 @@ class TuningConfig(BaseHummingConfig):
     multi_cast_size_a: int = 1
     multi_cast_size_b: int = 1
 
+    use_pdl: bool = False
     raster_group_m: int = 1
 
     _cpp_extra_names: ClassVar[tuple[str, ...]] = (
@@ -376,6 +416,7 @@ class TuningConfig(BaseHummingConfig):
     }
 
     def __post_init__(self):
+        assert self.block_shape[0] <= 256
         if self.use_warp_spec is None:
             self.use_warp_spec = False
 

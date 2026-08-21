@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import pymongo
 from bson import json_util
@@ -39,7 +39,7 @@ class MongoZMQ:
     def _doc_to_json(self, doc: Any) -> str:
         return json.dumps(doc, default=json_util.default)
 
-    def add_document(self, doc: Dict) -> Optional[str]:
+    def add_document(self, doc: dict) -> Optional[str]:
         """
         Inserts a document (dictionary) into mongo database table
         """
@@ -50,7 +50,7 @@ class MongoZMQ:
             return f'Error: {e}'
         return None
 
-    def get_document_by_keys(self, keys: Dict[str, Any]) -> Union[Dict, str, None]:
+    def get_document_by_keys(self, keys: dict[str, Any]) -> Union[dict, str, None]:
         """
         Attempts to return a single document from database table that matches
         each key/value in keys dictionary.
@@ -71,7 +71,7 @@ class MongoZMQ:
             if len(msg) != 3:
                 error_msg = f'invalid message received: {msg}'
                 print(error_msg)
-                reply = [msg[0], error_msg]
+                reply = [msg[0], error_msg.encode()]
                 socket.send_multipart(reply)
                 continue
             id = msg[0]
@@ -81,11 +81,11 @@ class MongoZMQ:
             reply = [id]
             if operation == 'add':
                 self.add_document(contents)
-                reply.append("success")
+                reply.append(b"success")
             elif operation == 'get':
                 doc = self.get_document_by_keys(contents)
                 json_doc = self._doc_to_json(doc)
-                reply.append(json_doc)
+                reply.append(json_doc.encode())
             else:
                 print('unknown request')
             socket.send_multipart(reply)

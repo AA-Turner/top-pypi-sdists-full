@@ -54,6 +54,8 @@ class ToolCallResult(ToolCallRequest):
     payload: Optional[Any] = None
     result: Optional[Any] = None
     is_error: Optional[bool] = False
+    # The approval a held call waits on, so the UI ties the decision to this exact row.
+    approval_request_id: Optional[str] = None
 
 
 class TaskUpdateEventType(str, Enum):

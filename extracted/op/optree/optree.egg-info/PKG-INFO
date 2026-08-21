@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optree
-Version: 0.19.1
+Version: 0.20.0
 Summary: Optimized PyTree Utilities.
 Author: OpTree Contributors
 License-Expression: Apache-2.0
@@ -34,8 +34,9 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: typing-extensions>=4.6.0
+Requires-Dist: typing-extensions>=4.10.0
 Requires-Dist: typing-extensions>=4.12.0; python_version >= "3.13"
+Requires-Dist: typing-extensions>=4.14.0; python_version >= "3.15"
 Provides-Extra: attrs
 Requires-Dist: attrs; extra == "attrs"
 Provides-Extra: jax
@@ -58,12 +59,15 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: covdefaults; extra == "test"
 Requires-Dist: rich; extra == "test"
-Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Linux") and extra == "test"
-Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Darwin") and extra == "test"
-Requires-Dist: typing-extensions==4.6.0; (python_version < "3.13" and platform_system == "Windows") and extra == "test"
-Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Linux") and extra == "test"
-Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Darwin") and extra == "test"
-Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Windows") and extra == "test"
+Requires-Dist: typing-extensions==4.10.0; (python_version < "3.13" and platform_system == "Linux") and extra == "test"
+Requires-Dist: typing-extensions==4.10.0; (python_version < "3.13" and platform_system == "Darwin") and extra == "test"
+Requires-Dist: typing-extensions==4.10.0; (python_version < "3.13" and platform_system == "Windows") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and python_version < "3.15" and platform_system == "Linux") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and python_version < "3.15" and platform_system == "Darwin") and extra == "test"
+Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and python_version < "3.15" and platform_system == "Windows") and extra == "test"
+Requires-Dist: typing-extensions==4.14.0; (python_version >= "3.15" and platform_system == "Linux") and extra == "test"
+Requires-Dist: typing-extensions==4.14.0; (python_version >= "3.15" and platform_system == "Darwin") and extra == "test"
+Requires-Dist: typing-extensions==4.14.0; (python_version >= "3.15" and platform_system == "Windows") and extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx~=8.0; extra == "docs"
 Requires-Dist: sphinx-autoapi; extra == "docs"
@@ -261,6 +265,7 @@ OpTree out-of-the-box supports the following Python container types in the globa
 - [`collections.defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict)
 - [`collections.deque`](https://docs.python.org/3/library/collections.html#collections.deque)
 - [`PyStructSequence`](https://docs.python.org/3/c-api/tuple.html#struct-sequence-objects) types created by C API [`PyStructSequence_NewType`](https://docs.python.org/3/c-api/tuple.html#c.PyStructSequence_NewType)
+- [`frozendict`](https://docs.python.org/3/library/stdtypes.html#frozendict) (Python 3.15+)
 
 These types are considered non-leaf nodes in the tree.
 Python objects whose type is not registered are treated as leaf nodes.
@@ -288,7 +293,7 @@ The following examples show how to register custom types and use them with `tree
 # Register a custom type with lambda functions
 optree.register_pytree_node(
     set,
-    lambda s: (sorted(s), None),        # flatten: (set) -> (children, metadata)
+    lambda s: (sorted(s), None),  # flatten: (set) -> (children, metadata)
     lambda _, children: set(children),  # unflatten: (metadata, children) -> set
     namespace='set',
 )
@@ -296,9 +301,11 @@ optree.register_pytree_node(
 # Register a custom type into a namespace with accessor support
 import types
 
+
 # This can be whatever your container type is.
 class MyContainer(types.SimpleNamespace):
     """A simple container type based on SimpleNamespace."""
+
 
 # (Optional) Define a custom path entry type for your container for accessor support.
 # Here we showcase how to define one. In practice, you can use the built-in `optree.GetAttrEntry`.
@@ -309,14 +316,15 @@ class MyContainerEntry(optree.PyTreeEntry):
     def codify(self, node=''):
         return f'{node}.{self.entry}'
 
+
 optree.register_pytree_node(
     MyContainer,
-    flatten_func=lambda ct: (                 # flatten: (MyContainer) -> (children, metadata, entries)
+    flatten_func=lambda ct: (  # flatten: (MyContainer) -> (children, metadata, entries)
         list(vars(ct).values()),
         list(vars(ct).keys()),
         list(vars(ct).keys()),
     ),
-    unflatten_func=lambda keys, values: (     # unflatten: (metadata, children) -> MyContainer
+    unflatten_func=lambda keys, values: (  # unflatten: (metadata, children) -> MyContainer
         MyContainer(**dict(zip(keys, values)))
     ),
     path_entry_type=MyContainerEntry,
@@ -366,6 +374,7 @@ Users can also extend the pytree registry by decorating the custom class and def
 
 ```python
 from collections import UserDict
+
 
 @optree.register_pytree_node_class(namespace='mydict')
 class MyDict(UserDict):
@@ -438,12 +447,13 @@ There are several key attributes of the pytree type registry:
     > [!WARNING]
     > Any `PyTreeSpec` objects created before the unregistration still hold a reference to the old registration. Unflattening such a `PyTreeSpec` will use the **old** `unflatten_func`, not the newly registered one.
 
-3. **Built-in types cannot be re-registered.** The behavior of the types listed in [Built-in PyTree Node Types](#built-in-pytree-node-types) (e.g., key-sorted traversal for `dict` and `collections.defaultdict`) is fixed.
+3. **Built-in types cannot be re-registered.** The behavior of the types listed in [Built-in PyTree Node Types](#built-in-pytree-node-types) (e.g., key-sorted traversal for `dict`, `collections.defaultdict`, and `frozendict`) is fixed.
 
 4. **Inherited subclasses are not implicitly registered.** The registry lookup uses `type(obj) is registered_type` rather than `isinstance(obj, registered_type)`. Users need to register the subclasses explicitly. To register all subclasses, it is easy to implement with [`metaclass`](https://docs.python.org/3/reference/datamodel.html#metaclasses) or [`__init_subclass__`](https://docs.python.org/3/reference/datamodel.html#customizing-class-creation), for example:
 
     ```python
     from collections import UserDict
+
 
     @optree.register_pytree_node_class(namespace='mydict')
     class MyDict(UserDict):
@@ -465,6 +475,7 @@ There are several key attributes of the pytree type registry:
         @classmethod
         def __tree_unflatten__(cls, metadata, children):
             return cls(zip(metadata, children))
+
 
     # Subclasses will be automatically registered in namespace 'mydict'
     class MyAnotherDict(MyDict):
@@ -517,7 +528,7 @@ There are several key attributes of the pytree type registry:
 
 ### `None` is Non-leaf Node vs. `None` is Leaf
 
-The [`None`](https://docs.python.org/3/library/constants.html#None) object is Python's singleton for "no value" — analogous to `null` in other languages but also commonly used as a sentinel or implicit return value.
+The [`None`](https://docs.python.org/3/library/constants.html#None) object is Python's singleton for "no value", analogous to `null` in other languages but also commonly used as a sentinel or implicit return value.
 
 By default, the `None` object is considered a non-leaf node in the tree with arity 0, i.e., _**a non-leaf node that has no children**_.
 This is like the behavior of an empty tuple.
@@ -577,8 +588,8 @@ OrderedDict({
 
 The built-in Python dictionary ([`builtins.dict`](https://docs.python.org/3/library/stdtypes.html#dict)) is a mapping whose leaves are its values.
 Since [Python 3.7](https://docs.python.org/3/whatsnew/3.7.html), `dict` is guaranteed to be insertion ordered, but the equality operator (`==`) ignores key order.
-To ensure [referential transparency](https://en.wikipedia.org/wiki/Referential_transparency) — "equal `dict`" implies "equal ordering of leaves" — the leaves (values) are returned in key-sorted order.
-The same applies to [`collections.defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict).
+To ensure [referential transparency](https://en.wikipedia.org/wiki/Referential_transparency), where "equal `dict`" implies "equal ordering of leaves", the leaves (values) are returned in key-sorted order.
+The same applies to [`collections.defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict) and [`frozendict`](https://docs.python.org/3/library/stdtypes.html#frozendict) (Python 3.15+).
 
 ```python
 >>> optree.tree_flatten({'a': [1, 2], 'b': [3]})
@@ -643,7 +654,7 @@ False
 ([3, 1, 2], PyTreeSpec(OrderedDict({'b': [*], 'a': [*, *]})))
 ```
 
-To flatten [`builtins.dict`](https://docs.python.org/3/library/stdtypes.html#dict) and [`collections.defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict) objects with the insertion order preserved, use the `dict_insertion_ordered` context manager:
+To flatten [`builtins.dict`](https://docs.python.org/3/library/stdtypes.html#dict), [`collections.defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict), and [`frozendict`](https://docs.python.org/3/library/stdtypes.html#frozendict) (Python 3.15+) objects with the insertion order preserved, use the `dict_insertion_ordered` context manager:
 
 ```python
 >>> tree = {'b': (2, [3, 4]), 'a': 1, 'c': None, 'd': 5}

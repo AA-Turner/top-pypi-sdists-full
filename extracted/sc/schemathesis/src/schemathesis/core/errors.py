@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from requests import RequestException
 
     from schemathesis.config import OutputConfig
-    from schemathesis.core.compat import RefResolutionError
     from schemathesis.core.jsonschema import BundleError
 
 
@@ -336,21 +335,36 @@ class MalformedMediaType(ValueError):
     """Raised on parsing of incorrect media type."""
 
 
-class InvalidRegexPattern(InvalidSchema):
-    """Raised when a string pattern is not a valid regular expression."""
+class RejectedSchemaDefinition(InvalidSchema):
+    """Raised when a definition does not hold up as a JSON Schema under its own draft."""
+
+
+class UnsupportedSchema(InvalidSchema):
+    """Raised when a definition is valid but describes values no generator here can produce."""
 
     @classmethod
-    def from_hypothesis_jsonschema_message(cls, message: str) -> InvalidRegexPattern:
-        match = re.search(r"pattern='(.*?)'.*?\((.*?)\)", message)
-        if match:
-            message = f"Invalid regular expression. Pattern `{match.group(1)}` is not recognized - `{match.group(2)}`"
-        return cls(message)
+    def from_reason(cls, reason: str) -> UnsupportedSchema:
+        return cls(f"Failed to generate test cases for this API operation. Schemathesis does not support {reason}")
+
+
+class InvalidRegexPattern(InvalidSchema):
+    """Raised when a string pattern is not a valid regular expression."""
 
     @classmethod
     def from_jsonschema_rs_error(cls, error: ValidationError) -> InvalidRegexPattern:
         return cls(
             "Failed to generate test cases for this API operation because of "
             f"unsupported regular expression `{error.instance}`"
+        )
+
+
+class UnsupportedRegexPattern(InvalidRegexPattern):
+    """Raised when a valid pattern names constructs no value can be drawn from."""
+
+    @classmethod
+    def from_pattern(cls, pattern: str) -> UnsupportedRegexPattern:
+        return cls(
+            f"Failed to generate test cases for this API operation because of unsupported regular expression `{pattern}`"
         )
 
 
@@ -456,6 +470,10 @@ class UnboundPrefix(SerializationError):
 
     def __init__(self, prefix: str):
         super().__init__(UNBOUND_PREFIX_MESSAGE_TEMPLATE.format(prefix=prefix))
+
+
+class RefResolutionError(SchemathesisError):
+    """A reference the resolver could not follow."""
 
 
 class UnresolvableReference(SchemathesisError):

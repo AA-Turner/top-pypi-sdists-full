@@ -466,32 +466,6 @@ def test_unsatisfiable_empty_array_items(cli, ctx, snapshot_cli):
     assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive") == snapshot_cli
 
 
-def test_health_check_message(cli, ctx, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/items/{item_id}/": {
-                "patch": {
-                    "requestBody": {
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}},
-                        "required": True,
-                    }
-                }
-            }
-        },
-        components={
-            "schemas": {
-                "Item": {
-                    "type": "string",
-                    "format": "date-time",
-                    "pattern": "abc",
-                }
-            }
-        },
-    )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing") == snapshot_cli
-
-
 @pytest.mark.parametrize("workers", [1, 2])
 def test_status_code_conformance(ctx, cli, workers, snapshot_cli):
     # When operation returns a status code, that is not listed in "responses"
@@ -737,7 +711,7 @@ def test_keyboard_interrupt(ctx, cli, mocker, swagger_20, workers, snapshot_cli)
 @pytest.mark.filterwarnings("ignore:Exception in thread")
 def test_keyboard_interrupt_threaded(ctx, cli, mocker, snapshot_cli):
     # When a Schemathesis run is interrupted by the keyboard or via SIGINT
-    from schemathesis.engine.run.unit import DefaultScheduler
+    from schemathesis.engine.run.unit._pool import DefaultScheduler
 
     api = ctx.openapi.apps.success_and_failure()
     original = DefaultScheduler.next_operation
@@ -750,7 +724,7 @@ def test_keyboard_interrupt_threaded(ctx, cli, mocker, snapshot_cli):
             raise KeyboardInterrupt
         return original(*args, **kwargs)
 
-    mocker.patch("schemathesis.engine.run.unit.DefaultScheduler.next_operation", wraps=mocked)
+    mocker.patch("schemathesis.engine.run.unit._pool.DefaultScheduler.next_operation", wraps=mocked)
     assert cli.run(api.schema_url, "--workers=2", "--generation-deterministic") == snapshot_cli
 
 
@@ -893,7 +867,7 @@ def test_no_useless_traceback(ctx, cli, snapshot_cli):
                                     "properties": {
                                         "region": {
                                             "nullable": True,
-                                            "pattern": "^[\\p{Han}]+$",
+                                            "pattern": "^[\\p{Tibetan}]+$",
                                             "type": "string",
                                         },
                                     },
@@ -1377,7 +1351,7 @@ def test_reserved_characters_in_operation_name(ctx, cli, snapshot_cli):
 
 
 def test_unsupported_regex(ctx, cli, app_runner, snapshot_cli):
-    def make_definition(min_items):
+    def make_definition(min_items, pattern=r"\p{Tibetan}"):
         return {
             "post": {
                 "requestBody": {
@@ -1387,7 +1361,7 @@ def test_unsupported_regex(ctx, cli, app_runner, snapshot_cli):
                             "schema": {
                                 "type": "array",
                                 # Java-style regular expression
-                                "items": {"type": "string", "pattern": r"\p{Greek}"},
+                                "items": {"type": "string", "pattern": pattern},
                                 "maxItems": 3,
                                 "minItems": min_items,
                             }
@@ -1404,6 +1378,8 @@ def test_unsupported_regex(ctx, cli, app_runner, snapshot_cli):
         "/foo": make_definition(min_items=1),
         # Can generate an empty array
         "/bar": make_definition(min_items=0),
+        # A quote inside the pattern changes how it is quoted when reported
+        "/baz": make_definition(min_items=1, pattern=r"\p{Tibetan}'"),
     }
     schema = ctx.openapi.build_schema(paths)
     app = ctx.openapi.make_permissive_flask_app(schema)

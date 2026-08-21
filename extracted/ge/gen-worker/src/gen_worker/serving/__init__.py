@@ -1,56 +1,199 @@
-"""The ship-code-as-is serving layer (pgw#1372, program pgw#1367).
+"""The ship-code-as-is serving layer (pgw#1382 split; program pgw#1367).
 
-Authors ship code AS-IS: the endpoint class from ``endpoint.toml``'s
-``main =`` module is the whole serve surface — no catalog, no ModelSpec, no
-family registry, no codegen. The worker loads the class, calls
-``setup(ctx)``, and routes requests to handlers by function name. The EAGER
-path works standalone and first; adoption of compiled graphs is a bolt-on
-that swaps module forwards on the author's own objects (torchcg's
-``adopt_lane``) and hands the ordered hole list to the background mint
-(pgw#1371).
+Authors ship code AS-IS, split along state (pgw#1382):
 
-Seams, deliberately narrow:
+* ``Model[MT]`` — the STATEFUL class (weights, lanes, defaults, caches,
+  lifecycle, single-flight). The class header is the declaration surface:
+  model type via the generic parameter, weight-format lanes via ``lanes=``.
+* ``@entrypoint`` functions — STATELESS module-level request handlers
+  declaring their models (and adapters) by parameter annotation
+  (ctx-first: ``(ctx, payload, model, ...)``).
+* "endpoint" survives as the deployable-unit NOUN: the module named by
+  ``endpoint.toml``'s ``main =`` — its entrypoints plus the Model classes
+  they reference. No catalog, no ModelSpec, no codegen.
 
-* ``RequestContext`` here is the serving surface ``main_v2.py`` uses
-  (``ctx.checkpoint_dir``, ``ctx.lane``, ``ctx.checkpoint_defaults(T)``,
-  ``ctx.adapter``, ``ctx.is_trace`` + the base survivors).
-* Endpoint classes inherit the REQUIRED minimal base
-  (:class:`~gen_worker.serving.endpoint.Endpoint` — typed setup/teardown
-  hooks only; framework capabilities arrive via ctx ONLY, by ruling).
-  Module marking is imperative: ``self.pipe.unet = ctx.compile(self.pipe.unet)``.
-* The author-surface lane owns the ``@endpoint`` decorator (DATA: lanes);
-  this package only reads what it stamps
-  (``loader.ENDPOINT_ATTR`` -> :class:`~gen_worker.serving.loader.EndpointDeclaration`).
-* The hub is one ``GraphStore`` implementation behind th#2133's route
-  (:mod:`~gen_worker.serving.hub_store`); cozy-local is another
-  (torchcg's ``LocalGraphStore``). Same boot code, any store.
+The ctx splits with the state: ``LoadContext`` (checkpoint tree, lane,
+``load``/``compile``/``defaults`` seams) rides ``Model.load``/``unload``;
+``RequestContext`` (request facts + the salvaged base surface) rides
+entrypoints. The EAGER path works standalone and first; adoption of
+compiled graphs swaps module forwards on the author's own objects (torchcg
+``AdoptSession`` behind ``ctx.compile``) and hands the ordered hole list to
+the background mint (pgw#1371).
 """
 
-from .context import BoundAdapter, DeployBinding, ServeContext
-from .endpoint import Endpoint
-from .host import EndpointHost, ServeDispatchError
+from .context import (
+    Adapter,
+    DefaultsError,
+    DistillationAdapter,
+    DeployBinding,
+    LoadContext,
+    LoaderEngine,
+    RequestContext,
+)
+from .engine_runtime import (
+    EngineBootError,
+    EngineCommand,
+    EngineHandle,
+    EngineSpec,
+    LlamaServer,
+    VllmServer,
+    boot_engine,
+)
+from .envelope import (
+    AdapterRow,
+    DecodedRequest,
+    EnvelopeError,
+    decode_envelope,
+)
+from .entrypoints import (
+    ENTRYPOINT_ATTR,
+    EntrypointDeclarationError,
+    EntrypointSpec,
+    SlotSpec,
+    entrypoint,
+)
+from .host import EndpointHost, ModelInstance, ServeDispatchError
+from .mint import (
+    BackgroundMint,
+    MintCondemned,
+    MintFailure,
+    MintOutcome,
+    MintProgress,
+    MintedHole,
+    MissingProgram,
+    mint_holes,
+)
 from .loader import (
-    ENDPOINT_ATTR,
-    EndpointDeclaration,
     EndpointLoadError,
-    Handler,
     LoadedEndpoint,
     load_endpoint,
     load_endpoint_module,
 )
+from .self_mint import SelfMint, SelfMintStatus
+from .serve_adoption import ServeAdoption
+from .residency import (
+    Charge,
+    InstanceSizer,
+    Lease,
+    ModelBackend,
+    NeverFits,
+    ResidencyError,
+    ResidencyManager,
+    admission_charge,
+)
+from .serve_loop import (
+    BindingResolver,
+    InvokeOutcome,
+    ServeLoop,
+    manifest_sizer,
+)
+from .lane_spec import (
+    DYNAMIC,
+    STATIC,
+    DeclaredLane,
+    LaneDeclarationError,
+    LaneSpec,
+    Structural,
+    lane,
+)
+from .model import (
+    LaneContract,
+    Model,
+    ModelDeclarationError,
+    lane_handle,
+    model_declared_lanes,
+    model_lane_spec,
+    model_lanes,
+    model_marks_compile,
+    model_requires,
+    model_shapes,
+    model_structural,
+    model_type,
+)
+from .placement import (
+    DeviceFacts,
+    Shortfall,
+    device_facts,
+    shortfalls,
+    warn_if_degraded,
+)
 
 __all__ = [
-    "ENDPOINT_ATTR",
-    "BoundAdapter",
+    "boot_engine",
+    "VllmServer",
+    "LlamaServer",
+    "EngineSpec",
+    "EngineHandle",
+    "EngineCommand",
+    "EngineBootError",
+    "DeviceFacts",
+    "Shortfall",
+    "device_facts",
+    "shortfalls",
+    "warn_if_degraded",
+    "manifest_sizer",
+    "decode_envelope",
+    "ServeLoop",
+    "ResidencyManager",
+    "ResidencyError",
+    "Charge",
+    "NeverFits",
+    "ModelBackend",
+    "Lease",
+    "InvokeOutcome",
+    "InstanceSizer",
+    "EnvelopeError",
+    "DecodedRequest",
+    "BindingResolver",
+    "AdapterRow",
+    "ENTRYPOINT_ATTR",
+    "Adapter",
+    "BackgroundMint",
+    "DefaultsError",
     "DeployBinding",
-    "Endpoint",
-    "EndpointDeclaration",
+    "DistillationAdapter",
     "EndpointHost",
     "EndpointLoadError",
-    "Handler",
+    "EntrypointDeclarationError",
+    "EntrypointSpec",
+    "LaneContract",
+    "LoadContext",
     "LoadedEndpoint",
-    "ServeContext",
+    "LoaderEngine",
+    "MintCondemned",
+    "MintFailure",
+    "MintOutcome",
+    "MintProgress",
+    "MintedHole",
+    "MissingProgram",
+    "Model",
+    "ModelDeclarationError",
+    "ModelInstance",
+    "RequestContext",
     "ServeDispatchError",
+    "SlotSpec",
+    "entrypoint",
+    "lane_handle",
     "load_endpoint",
     "load_endpoint_module",
+    "mint_holes",
+    "SelfMint",
+    "SelfMintStatus",
+    "ServeAdoption",
+    "model_declared_lanes",
+    "model_lane_spec",
+    "model_lanes",
+    "admission_charge",
+    "model_marks_compile",
+    "model_requires",
+    "model_shapes",
+    "model_structural",
+    "model_type",
+    "DYNAMIC",
+    "STATIC",
+    "DeclaredLane",
+    "LaneDeclarationError",
+    "LaneSpec",
+    "Structural",
+    "lane",
 ]

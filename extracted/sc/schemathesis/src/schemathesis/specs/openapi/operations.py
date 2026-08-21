@@ -9,12 +9,12 @@ from packaging import version
 
 from schemathesis.core import INJECTED_PATH_PARAMETER_KEY
 from schemathesis.core.adapter import OperationParameter
-from schemathesis.core.compat import RefResolutionError
 from schemathesis.core.errors import (
     SCHEMA_ERROR_SUGGESTION,
     HookExecutionError,
     InfiniteRecursiveReference,
     InvalidSchema,
+    RefResolutionError,
     SchemaLocation,
 )
 from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
@@ -23,6 +23,7 @@ from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transforms import get_template_fields
 from schemathesis.core.transport import is_http_method_schema
+from schemathesis.filters import FilterUsage
 from schemathesis.hooks import HookContext, dispatch_before_init_operation, dispatch_before_process_path
 from schemathesis.schemas import APIOperation, OperationDefinition
 from schemathesis.specs.openapi.adapter import OpenApiResponses
@@ -40,6 +41,40 @@ HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "pa
 SCHEMA_PARSING_ERRORS = (KeyError, AttributeError, RefResolutionError, InvalidSchema, InfiniteRecursiveReference)
 
 _V3_1 = version.parse("3.1")
+
+
+def _named_after_placeholder(parameters: list[OperationParameter], path: str) -> list[OperationParameter]:
+    """Give a path parameter whose name is not text the placeholder it stands for.
+
+    A document converted from YAML 1.1 spells a parameter named `on` as the boolean `true`, and the
+    path template is the only place the original name survives.
+    """
+    unnamed = [
+        parameter
+        for parameter in parameters
+        # A body is the other kind of parameter here, and it carries no `in`.
+        if isinstance(parameter, OpenApiParameter)
+        and parameter.location is ParameterLocation.PATH
+        and not isinstance(parameter.definition.get("name"), str)
+    ]
+    if len(unnamed) != 1:
+        # With several of them, no placeholder can be told from another.
+        return parameters
+    target = unnamed[0]
+    claimed = {
+        parameter.name
+        for parameter in parameters
+        if parameter.definition.get("in") == "path" and parameter is not target
+    }
+    unclaimed = get_template_fields(path) - claimed
+    if len(unclaimed) != 1:
+        return parameters
+    recovered = OpenApiParameter.from_definition(
+        definition={**target.definition, "name": next(iter(unclaimed))},
+        name_to_uri=target.name_to_uri,
+        adapter=target.adapter,
+    )
+    return [recovered if parameter is target else parameter for parameter in parameters]
 
 
 @dataclass(slots=True)
@@ -155,6 +190,9 @@ class OperationLoader:
         # configured, every operation is selected and we skip the per-call dispatch.
         filters_active = not schema.filter_set.is_empty()
         should_skip = self._should_skip
+        usage = FilterUsage(schema.filter_set) if filters_active else None
+        # This walk skips what `iter_all` still yields, so a filter can look dead while its operation runs.
+        complete_walk = not schema.hooks.get_all_by_name("before_process_path")
         links_keyword = schema.adapter.links_keyword
         root_resolver = schema.root_resolver
 
@@ -169,10 +207,15 @@ class OperationLoader:
                 else:
                     path_resolver = root_resolver
                 for method, definition in path_item.items():
-                    if method not in HTTP_METHODS or not definition:
+                    if method not in HTTP_METHODS:
+                        continue
+                    if not definition:
+                        complete_walk = False
                         continue
                     statistic.operations.total += 1
                     is_selected = not should_skip(path, method, definition) if filters_active else True
+                    if usage is not None:
+                        usage.record(self._filter_context)
                     if is_selected:
                         statistic.operations.selected += 1
                         if "operationId" in definition:
@@ -187,6 +230,7 @@ class OperationLoader:
                             if is_selected:
                                 collected_links.extend(defined_links.values())
             except SCHEMA_PARSING_ERRORS:
+                complete_walk = False
                 continue
 
         def is_link_selected(link: dict) -> bool:
@@ -234,6 +278,8 @@ class OperationLoader:
         statistic.resource_pool.consumer_labels = sorted(consumer_labels)
         statistic.resource_pool.resources = len(resource_names)
 
+        if usage is not None and complete_walk:
+            statistic.unmatched_filters = usage.results()
         return statistic
 
     def _should_skip(self, path: str, method: str, definition: OperationObject) -> bool:
@@ -333,7 +379,7 @@ class OperationLoader:
                 cookies=OpenApiParameterSet(ParameterLocation.COOKIE, adapter=schema.adapter),
             )
         )
-        for parameter in parameters:
+        for parameter in _named_after_placeholder(parameters, path):
             operation.add_parameter(parameter)
         missing_parameter_names = get_template_fields(operation.path) - {
             parameter.name for parameter in operation.path_parameters

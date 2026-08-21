@@ -60,25 +60,39 @@ class Incidents(ServiceClass):
     def crowdscore(self: object, parameters: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Query environment wide CrowdScore and return the entity data.
 
+        DECOMMISSIONED: This operation is no longer available in CrowdStrike's API.
+        Calling this method will result in an error from the API.
+
+
         DEPRECATED: the Incidents API will be removed in March 2026.
-
-        Keyword arguments:
-        filter -- The filter expression that should be used to limit the results. FQL syntax.
-        limit -- The maximum number of records to return in this response. [Integer, 1-2500]
-                 Use with the offset parameter to manage pagination of results.
-        offset -- The offset to start retrieving records from. Integer.
-                  Use with the limit parameter to manage pagination of results.
-        parameters - full parameters payload, not required if using other keywords.
-        sort -- The property to sort by. FQL syntax. Ex: score.asc, timestamp.desc
-
-        This method only supports keywords for providing arguments.
-
-        Returns: dict object containing API response.
 
         HTTP Method: GET
 
         Swagger URL
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/CrowdScore
+
+        Keyword arguments
+        -----------------
+        filter : str
+            The filter expression that should be used to limit the results. FQL syntax.
+        limit : int
+            The maximum number of records to return in this response. [Integer, 1-2500]
+            Use with the offset parameter to manage pagination of results.
+        offset : int
+            The offset to start retrieving records from. Integer.
+            Use with the limit parameter to manage pagination of results.
+        parameters : dict
+            Full parameters payload. Not required if using other keywords.
+        sort : str
+            The property to sort by. FQL syntax. Ex: score.asc, timestamp.desc
+
+        This method only supports keywords for providing arguments.
+
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         return process_service_request(
             calling_object=self,
@@ -92,25 +106,36 @@ class Incidents(ServiceClass):
     def get_behaviors(self: object, body: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Get details on behaviors by providing behavior IDs.
 
+        DECOMMISSIONED: This operation is no longer available in CrowdStrike's API.
+        Calling this method will result in an error from the API.
+
+
         DEPRECATED: the Incidents API will be removed in March 2026.
 
-        Keyword arguments:
-        body -- full body payload, not required if ids are provided as keyword.
+        HTTP Method: POST
+
+        Swagger URL
+        -----------
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/GetBehaviors
+
+        Keyword arguments
+        -----------------
+        body : dict
+            full body payload, not required if ids are provided as keyword.
                 {
                     "ids": [
                         "string"
                     ]
                 }
-        ids -- Behavior ID(s) to retrieve. String or list of strings.
+        ids : str or list[str]
+            Behavior ID(s) to retrieve.
 
         This method only supports keywords for providing arguments.
 
-        Returns: dict object containing API response.
-
-        HTTP Method: POST
-
-        Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/GetBehaviors
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         if not body:
             body = generic_payload_list(submitted_keywords=kwargs, payload_value="ids")
@@ -136,36 +161,55 @@ class Incidents(ServiceClass):
 
         A maximum of 5000 incidents may be updated per request.
 
-        Keyword arguments:
-        action_parameters -- Action specific parameters. List of dictionaries.
-        add_comment -- Adds the provided value as a new comment on all the incidents in the ids list. String.
-        add_tag -- Adds the associated value as a new tag on all the incidents of the ids list.
-                   Overridden if action_parameters is specified. Multiple values may be provided.
-                   String, comma delimited string, or list.
-        delete_tag -- Deletes tags matching the value from all the incidents in the ids list.
-                      Overridden if action_parameters is specified. Multiple values may be provided.
-                      String, comma delimited string or list.
-        overwrite_detects - Overwrite related detections. Boolean.
-        unassign -- Unassigns all users from all of the incidents in the ids list.
-                    Overridden if action_parameters is specified. Boolean.
-        update_detects -- Update related detections. Boolean.
-        update_name -- Updates the name to the parameter value of all the incidents
-                       in the ids list. Overridden if action_parameters is specified. String.
-        update_assigned_to_v2 -- Assigns the user matching the UUID in the parameter
-                                 value to all of the incidents in the ids list. For information
-                                 on getting the UUID of a user, see Find existing users.
-                                 Overridden if action_parameters is specified. UUID string.
-        update_description -- Updates the description to the parameter value of all the
-                              incidents listed in the ids list.
-                              Overridden if action_parameters is specified. String.
-        update_status -- Updates the status to the parameter value of all the incidents
-                         in the ids list. Valid status values are 20, 25, 30, or 40:
-                            20: New
-                            25: Reopened
-                            30: In Progress
-                            40: Closed
-                         Overridden if action_parameters is specified. Integer string.
-        body -- full body payload, not required if ids is provided as keyword.
+        HTTP Method: POST
+
+        Swagger URL
+        -----------
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/PerformIncidentAction
+
+        Keyword arguments
+        -----------------
+        action_parameters : list[dict]
+            Action specific parameters.
+        add_comment : str
+            Adds the provided value as a new comment on all the incidents in the ids.
+        add_tag : list
+            Adds the associated value as a new tag on all the incidents of the ids list.
+            Overridden if action_parameters is specified. Multiple values may be provided.
+            String, comma delimited string, or.
+        delete_tag : list
+            Deletes tags matching the value from all the incidents in the ids list.
+            Overridden if action_parameters is specified. Multiple values may be provided.
+            String, comma delimited string or.
+        overwrite_detects : bool
+            Overwrite related detections.
+        unassign : bool
+            Unassigns all users from all of the incidents in the ids list.
+            Overridden if action_parameters is specified.
+        update_detects : bool
+            Update related detections.
+        update_name : str
+            Updates the name to the parameter value of all the incidents
+            in the ids list. Overridden if action_parameters is specified.
+        update_assigned_to_v2 : str
+            Assigns the user matching the UUID in the parameter
+            value to all of the incidents in the ids list. For information
+            on getting the UUID of a user, see Find existing users.
+            Overridden if action_parameters is specified. UUID.
+        update_description : str
+            Updates the description to the parameter value of all the
+            incidents listed in the ids list.
+            Overridden if action_parameters is specified.
+        update_status : str
+            Updates the status to the parameter value of all the incidents
+            in the ids list. Valid status values are 20, 25, 30, or 40:
+               20: New
+               25: Reopened
+               30: In Progress
+               40: Closed
+            Overridden if action_parameters is specified.
+        body : dict
+            full body payload, not required if ids is provided as keyword.
                 {
                     "action_parameters": [
                         {
@@ -177,17 +221,17 @@ class Incidents(ServiceClass):
                         "string"
                     ]
                 }
-        ids -- Incident ID(s) to perform actions against. String or list of strings.
-        parameters -- Full parameters payload, not required if using other keywords.
+        ids : str or list[str]
+            Incident ID(s) to perform actions against.
+        parameters : dict
+            Full parameters payload. Not required if using other keywords.
 
         This method only supports keywords for providing arguments.
 
-        Returns: dict object containing API response.
-
-        HTTP Method: POST
-
-        Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/PerformIncidentAction
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         if not body:
             body = generic_payload_list(submitted_keywords=kwargs, payload_value="ids")
@@ -211,25 +255,36 @@ class Incidents(ServiceClass):
     def get_incidents(self: object, body: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Get details on incidents by providing incident IDs.
 
+        DECOMMISSIONED: This operation is no longer available in CrowdStrike's API.
+        Calling this method will result in an error from the API.
+
+
         DEPRECATED: the Incidents API will be removed in March 2026.
 
-        Keyword arguments:
-        body -- full body payload, not required if ids are provided as keyword.
+        HTTP Method: POST
+
+        Swagger URL
+        -----------
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/GetIncidents
+
+        Keyword arguments
+        -----------------
+        body : dict
+            full body payload, not required if ids are provided as keyword.
                 {
                     "ids": [
                         "string"
                     ]
                 }
-        ids -- Incident ID(s) to retrieve. String or list of strings.
+        ids : str or list[str]
+            Incident ID(s) to retrieve.
 
         This method only supports keywords for providing arguments.
 
-        Returns: dict object containing API response.
-
-        HTTP Method: POST
-
-        Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/GetIncidents
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         if not body:
             body = generic_payload_list(submitted_keywords=kwargs, payload_value="ids")
@@ -245,25 +300,39 @@ class Incidents(ServiceClass):
     def query_behaviors(self: object, parameters: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Search for behaviors by providing an FQL filter, sorting, and paging details.
 
+        DECOMMISSIONED: This operation is no longer available in CrowdStrike's API.
+        Calling this method will result in an error from the API.
+
+
         DEPRECATED: the Incidents API will be removed in March 2026.
-
-        Keyword arguments:
-        filter -- The filter expression that should be used to limit the results. FQL syntax.
-        limit -- The maximum number of records to return in this response. [Integer, 1-500]
-                 Use with the offset parameter to manage pagination of results.
-        offset -- The offset to start retrieving records from. Integer.
-                  Use with the limit parameter to manage pagination of results.
-        parameters - full parameters payload, not required if using other keywords.
-        sort -- The property to sort by. FQL syntax. Ex: timestamp.desc
-
-        This method only supports keywords for providing arguments.
-
-        Returns: dict object containing API response.
 
         HTTP Method: GET
 
         Swagger URL
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/QueryBehaviors
+
+        Keyword arguments
+        -----------------
+        filter : str
+            The filter expression that should be used to limit the results. FQL syntax.
+        limit : int
+            The maximum number of records to return in this response. [Integer, 1-500]
+            Use with the offset parameter to manage pagination of results.
+        offset : int
+            The offset to start retrieving records from. Integer.
+            Use with the limit parameter to manage pagination of results.
+        parameters : dict
+            Full parameters payload. Not required if using other keywords.
+        sort : str
+            The property to sort by. FQL syntax. Ex: timestamp.desc
+
+        This method only supports keywords for providing arguments.
+
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         return process_service_request(
             calling_object=self,
@@ -277,31 +346,45 @@ class Incidents(ServiceClass):
     def query_incidents(self: object, parameters: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Search for incidents by providing an FQL filter, sorting, and paging details.
 
+        DECOMMISSIONED: This operation is no longer available in CrowdStrike's API.
+        Calling this method will result in an error from the API.
+
+
         DEPRECATED: the Incidents API will be removed in March 2026.
-
-        Keyword arguments:
-        filter -- The filter expression that should be used to limit the results. FQL syntax.
-        limit -- The maximum number of records to return in this response. [Integer, 1-500]
-                 Use with the offset parameter to manage pagination of results.
-        offset -- The offset to start retrieving records from. Integer.
-                  Use with the limit parameter to manage pagination of results.
-        parameters - full parameters payload, not required if using other keywords.
-        sort -- The property to sort by. FQL syntax. Ex: state.asc, name.desc
-                Available sort fields:
-                assigned_to                 sort_score
-                assigned_to_name            start
-                end                         state
-                modified_timestamp          status
-                name
-
-        This method only supports keywords for providing arguments.
-
-        Returns: dict object containing API response.
 
         HTTP Method: GET
 
         Swagger URL
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/incidents/QueryIncidents
+
+        Keyword arguments
+        -----------------
+        filter : str
+            The filter expression that should be used to limit the results. FQL syntax.
+        limit : int
+            The maximum number of records to return in this response. [Integer, 1-500]
+            Use with the offset parameter to manage pagination of results.
+        offset : int
+            The offset to start retrieving records from. Integer.
+            Use with the limit parameter to manage pagination of results.
+        parameters : dict
+            Full parameters payload. Not required if using other keywords.
+        sort : str
+            The property to sort by. FQL syntax. Ex: state.asc, name.desc
+            Available sort fields:
+            assigned_to                 sort_score
+            assigned_to_name            start
+            end                         state
+            modified_timestamp          status
+            name
+
+        This method only supports keywords for providing arguments.
+
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         return process_service_request(
             calling_object=self,

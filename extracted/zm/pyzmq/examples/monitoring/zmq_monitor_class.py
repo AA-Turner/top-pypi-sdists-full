@@ -31,7 +31,7 @@ while True:
 import asyncio
 import threading
 import time
-from typing import Any, Dict
+from typing import Any
 
 import zmq
 from zmq.utils.monitor import recv_monitor_message
@@ -70,7 +70,7 @@ def event_monitor_thread_async(
         while True:
             try:
                 while monitor.poll():
-                    evt: Dict[str, Any] = {}
+                    evt: dict[str, Any] = {}
                     mon_evt = await recv_monitor_message(monitor)
                     evt.update(mon_evt)
                     evt['description'] = EVENT_MAP[evt['event']]
@@ -117,7 +117,7 @@ def event_monitor_thread(monitor: zmq.Socket) -> None:
     while True:
         try:
             while monitor.poll():
-                evt: Dict[str, Any] = {}
+                evt: dict[str, Any] = {}
                 mon_evt = recv_monitor_message(monitor)
                 evt.update(mon_evt)
                 evt['description'] = EVENT_MAP[evt['event']]

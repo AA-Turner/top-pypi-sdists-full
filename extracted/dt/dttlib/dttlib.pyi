@@ -576,7 +576,11 @@ class NDS2Cache:
     Data source that gets all its data directly from an NDS2 server (no local caching).
     """
     def __new__(
-        cls, size_bytes: builtins.int, default_file_path: builtins.str
+        cls,
+        size_bytes: builtins.int,
+        default_file_path: builtins.str,
+        url_text: builtins.str,
+        replay: Replay,
     ) -> NDS2Cache: ...
     def as_ref(self) -> DataSource: ...
 
@@ -699,6 +703,17 @@ class PipDuration:
         """
 
 class PipInstant:
+    def __add__(self, other: PipDuration) -> PipInstant: ...
+    def __sub__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Subtract a duration to get an instant,
+        or subtract a instant to get the difference as a duration.
+        """
+    @staticmethod
+    def now() -> PipInstant:
+        r"""
+        return the current time
+        """
     def to_gpst_pips(self) -> builtins.int:
         r"""
         Return the number of steps since the GPS epoch.
@@ -776,17 +791,36 @@ class PipInstant:
         r"""
         Return the rate of the units in Hz
         """
-    def __add__(self, other: PipDuration) -> PipInstant: ...
-    def __sub__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Subtract a duration to get an instant,
-        or subtract a instant to get the difference as a duration.
-        """
-    @staticmethod
-    def now() -> PipInstant:
-        r"""
-        return the current time
-        """
+
+class Replay:
+    class NoReplay(Replay):
+        __match_args__ = ((),)
+        def __new__(cls) -> Replay.NoReplay: ...
+        def __len__(self) -> builtins.int: ...
+        def __getitem__(self, key: builtins.int) -> typing.Any: ...
+
+    class Id(Replay):
+        __match_args__ = ("_0",)
+        @property
+        def _0(self) -> builtins.str: ...
+        def __new__(cls, _0: builtins.str) -> Replay.Id: ...
+        def __len__(self) -> builtins.int: ...
+        def __getitem__(self, key: builtins.int) -> typing.Any: ...
+
+    class TimeBased(Replay):
+        __match_args__ = (
+            "_0",
+            "_1",
+        )
+        @property
+        def _0(self) -> PipInstant: ...
+        @property
+        def _1(self) -> PipInstant: ...
+        def __new__(cls, _0: PipInstant, _1: PipInstant) -> Replay.TimeBased: ...
+        def __len__(self) -> builtins.int: ...
+        def __getitem__(self, key: builtins.int) -> typing.Any: ...
+
+    ...
 
 class ResponseToUser:
     r"""
@@ -1066,34 +1100,6 @@ class TestParams:
     def default_fft_params() -> TestParams: ...
 
 class ThumpDuration:
-    def __sub__(self, other: ThumpDuration) -> ThumpDuration: ...
-    def __add__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Add a duration to get a combined duration
-        or Add a instant to get a new instant
-        """
-    def __mul__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Multiply by a number to get a scaled duration
-        """
-    def __rmul__(self, other: typing.Any) -> typing.Any: ...
-    def __truediv__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Divide by a float or number to get a scaled duration
-        Divide by a duration to get a ratio.
-        """
-    def __floordiv__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Divide by a float or number to get a scaled duration
-        Divide by a duration to get a ratio
-        """
-    def __mod__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Get the remainder from an equivalent integer division
-        """
-    def __neg__(self) -> typing.Any: ...
-    def __pos__(self) -> typing.Any: ...
-    def __abs__(self) -> typing.Any: ...
     @staticmethod
     def freq_hz_to_period(rate_hz: builtins.float) -> ThumpDuration:
         r"""
@@ -1182,8 +1188,47 @@ class ThumpDuration:
         r"""
         Return the rate of the units in Hz
         """
+    def __sub__(self, other: ThumpDuration) -> ThumpDuration: ...
+    def __add__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Add a duration to get a combined duration
+        or Add a instant to get a new instant
+        """
+    def __mul__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Multiply by a number to get a scaled duration
+        """
+    def __rmul__(self, other: typing.Any) -> typing.Any: ...
+    def __truediv__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Divide by a float or number to get a scaled duration
+        Divide by a duration to get a ratio.
+        """
+    def __floordiv__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Divide by a float or number to get a scaled duration
+        Divide by a duration to get a ratio
+        """
+    def __mod__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Get the remainder from an equivalent integer division
+        """
+    def __neg__(self) -> typing.Any: ...
+    def __pos__(self) -> typing.Any: ...
+    def __abs__(self) -> typing.Any: ...
 
 class ThumpInstant:
+    def __add__(self, other: ThumpDuration) -> ThumpInstant: ...
+    def __sub__(self, other: typing.Any) -> typing.Any:
+        r"""
+        Subtract a duration to get an instant,
+        or subtract a instant to get the difference as a duration.
+        """
+    @staticmethod
+    def now() -> ThumpInstant:
+        r"""
+        return the current time
+        """
     def to_gpst_thumps(self) -> builtins.int:
         r"""
         Return the number of steps since the GPS epoch.
@@ -1260,17 +1305,6 @@ class ThumpInstant:
     def rate_hz() -> builtins.int:
         r"""
         Return the rate of the units in Hz
-        """
-    @staticmethod
-    def now() -> ThumpInstant:
-        r"""
-        return the current time
-        """
-    def __add__(self, other: ThumpDuration) -> ThumpInstant: ...
-    def __sub__(self, other: typing.Any) -> typing.Any:
-        r"""
-        Subtract a duration to get an instant,
-        or subtract a instant to get the difference as a duration.
         """
 
 class TimeDomainArray:

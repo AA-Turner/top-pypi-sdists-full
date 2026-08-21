@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.10.7
+Version: 0.11.0
 Summary: Citations and bibliography formatter
 Author-email: Brecht Machiels <brecht@mos6581.org>
 License-Expression: BSD-2-Clause-Views
@@ -85,13 +85,9 @@ cite references and render the bibliography.
 
 ## CSL Compatibility
 
-Currently, citeproc-py passes almost 60% of the (relevant) tests in the
+Currently, citeproc-py passes about 60% of the tests in the
 [citeproc-test suite](https://github.com/citation-style-language/test-suite).
-However, it is more than 60% complete, as
-citeproc-py doesn't take care of double spaces and repeated punctuation
-marks yet, making a good deal of the tests fail. In addition, the
-following features have not yet been implemented (there are probably
-some I forgot though):
+A non-exhaustive list of functionality that is missing includes:
 
 -  disambiguation/year-suffix
 -  et-al-subsequent-min/et-al-subsequent-use-first
@@ -144,6 +140,22 @@ If you want git to fully ignore the submodule, you can type
 ```bash
 git update-index --assume-unchanged citeproc/data/schema
 ```
+
+# v0.11.0 (Thu Aug 20 2026)
+
+#### 🚀 Enhancement
+
+- test: refresh citeproc seam expectations [#208](https://github.com/citeproc-py/citeproc-py/pull/208) ([@tomatotomata](https://github.com/tomatotomata))
+- fix: normalize punctuation at formatter seams [#208](https://github.com/citeproc-py/citeproc-py/pull/208) ([@tomatotomata](https://github.com/tomatotomata))
+- Update compatability description [#208](https://github.com/citeproc-py/citeproc-py/pull/208) ([@tmorrell](https://github.com/tmorrell))
+- Normalize whitespace and duplicate punctuation at string seams [#208](https://github.com/citeproc-py/citeproc-py/pull/208) ([@tmorrell](https://github.com/tmorrell))
+
+#### Authors: 2
+
+- Tom Morrell ([@tmorrell](https://github.com/tmorrell))
+- tomatotomata ([@tomatotomata](https://github.com/tomatotomata))
+
+---
 
 # v0.10.7 (Mon Aug 10 2026)
 

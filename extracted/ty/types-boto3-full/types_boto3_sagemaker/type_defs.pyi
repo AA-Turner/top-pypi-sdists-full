@@ -247,6 +247,7 @@ from .literals import (
     OrderKeyType,
     OutputCompressionTypeType,
     ParameterTypeType,
+    PartnerAppAuthTypeType,
     PartnerAppStatusType,
     PartnerAppTypeType,
     PipelineExecutionStatusType,
@@ -1257,6 +1258,8 @@ __all__ = (
     "HyperbandStrategyConfigTypeDef",
     "IamIdentityTypeDef",
     "IamPolicyConstraintsTypeDef",
+    "IdcConfigInputTypeDef",
+    "IdcConfigOutputTypeDef",
     "IdentityProviderOAuthSettingTypeDef",
     "IdleSettingsTypeDef",
     "ImageClassificationJobConfigTypeDef",
@@ -3197,6 +3200,9 @@ class CreatePartnerAppPresignedUrlRequestTypeDef(TypedDict):
     ExpiresInSeconds: NotRequired[int]
     SessionExpirationDurationInSeconds: NotRequired[int]
 
+class IdcConfigInputTypeDef(TypedDict):
+    InstanceArn: str
+
 class PartnerAppMaintenanceConfigTypeDef(TypedDict):
     MaintenanceWindowStart: NotRequired[str]
 
@@ -4056,6 +4062,10 @@ class DescribePartnerAppRequestTypeDef(TypedDict):
 class ErrorInfoTypeDef(TypedDict):
     Code: NotRequired[str]
     Reason: NotRequired[str]
+
+class IdcConfigOutputTypeDef(TypedDict):
+    InstanceArn: str
+    ApplicationArn: NotRequired[str]
 
 class DescribePipelineDefinitionForExecutionRequestTypeDef(TypedDict):
     PipelineExecutionArn: str
@@ -6588,6 +6598,7 @@ class CreateMlflowAppRequestTypeDef(TypedDict):
     Name: str
     ArtifactStoreUri: str
     RoleArn: str
+    KmsKeyId: NotRequired[str]
     ModelRegistrationMode: NotRequired[ModelRegistrationModeType]
     WeeklyMaintenanceWindowStart: NotRequired[str]
     AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
@@ -10862,6 +10873,7 @@ class DescribeMlflowAppResponseTypeDef(TypedDict):
     ArtifactStoreUri: str
     MlflowVersion: str
     RoleArn: str
+    KmsKeyId: str
     Status: MlflowAppStatusType
     ModelRegistrationMode: ModelRegistrationModeType
     AccountDefaultStatus: AccountDefaultStatusType
@@ -11326,12 +11338,13 @@ DescribePartnerAppResponseTypeDef = TypedDict(
         "Tier": str,
         "Version": str,
         "ApplicationConfig": PartnerAppConfigOutputTypeDef,
-        "AuthType": Literal["IAM"],
+        "AuthType": PartnerAppAuthTypeType,
         "EnableIamSessionBasedIdentity": bool,
         "Error": ErrorInfoTypeDef,
         "EnableAutoMinorVersionUpgrade": bool,
         "CurrentVersionEolDate": datetime,
         "AvailableUpgrade": AvailableUpgradeTypeDef,
+        "IdcConfig": IdcConfigOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -12387,10 +12400,11 @@ CreatePartnerAppRequestTypeDef = TypedDict(
         "Type": PartnerAppTypeType,
         "ExecutionRoleArn": str,
         "Tier": str,
-        "AuthType": Literal["IAM"],
+        "AuthType": PartnerAppAuthTypeType,
         "KmsKeyId": NotRequired[str],
         "MaintenanceConfig": NotRequired[PartnerAppMaintenanceConfigTypeDef],
         "ApplicationConfig": NotRequired[PartnerAppConfigUnionTypeDef],
+        "IdcConfig": NotRequired[IdcConfigInputTypeDef],
         "EnableIamSessionBasedIdentity": NotRequired[bool],
         "EnableAutoMinorVersionUpgrade": NotRequired[bool],
         "ClientToken": NotRequired[str],
@@ -12403,6 +12417,8 @@ class UpdatePartnerAppRequestTypeDef(TypedDict):
     MaintenanceConfig: NotRequired[PartnerAppMaintenanceConfigTypeDef]
     Tier: NotRequired[str]
     ApplicationConfig: NotRequired[PartnerAppConfigUnionTypeDef]
+    IdcConfig: NotRequired[IdcConfigInputTypeDef]
+    AuthType: NotRequired[PartnerAppAuthTypeType]
     EnableIamSessionBasedIdentity: NotRequired[bool]
     EnableAutoMinorVersionUpgrade: NotRequired[bool]
     AppVersion: NotRequired[str]

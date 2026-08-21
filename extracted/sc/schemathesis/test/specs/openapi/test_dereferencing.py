@@ -1,3 +1,4 @@
+import gc
 import json
 import platform
 from pathlib import Path
@@ -5,13 +6,15 @@ from pathlib import Path
 import pytest
 from flask import Flask, jsonify
 from hypothesis import HealthCheck, given, settings
+from hypothesis.errors import Unsatisfiable
 from jsonschema_rs import Draft4Validator
 from werkzeug.exceptions import InternalServerError
 
 import schemathesis
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.jsonschema.resolver import resolve_reference
+from schemathesis.core.jsonschema.resolver import load_file_uri, resolve_reference
 from schemathesis.core.result import Ok
+from schemathesis.core.transforms import get_template_fields
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.specs.openapi.stateful import dependencies
 from test.utils import as_param, get_schema_path, integer
@@ -111,7 +114,6 @@ def test_drop_recursive_references_from_the_last_resolution_level(ctx, definitio
 @pytest.mark.parametrize(
     "definition",
     [
-        USER_REFERENCE,
         {
             "type": "object",
             "additionalProperties": False,
@@ -135,13 +137,36 @@ def test_drop_recursive_references_from_the_last_resolution_level(ctx, definitio
     ],
 )
 @pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows due to recursion")
-def test_non_removable_recursive_references(ctx, definition):
-    schema = ctx.openapi.build_schema({})
-    build_schema_with_recursion(schema, definition)
-    schema = schemathesis.openapi.from_dict(schema)
+def test_recursion_with_no_finite_value(ctx, definition):
+    # Every value these schemas admit would have to be infinitely deep
+    raw_schema = ctx.openapi.build_schema({})
+    build_schema_with_recursion(raw_schema, definition)
+    schema = schemathesis.openapi.from_dict(raw_schema)
 
-    with pytest.raises(InvalidSchema):
-        schema["/users"]["POST"]
+    @given(case=schema["/users"]["POST"].as_strategy())
+    @settings(max_examples=1, deadline=None)
+    def test(case):
+        pass
+
+    with pytest.raises(Unsatisfiable):
+        test()
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows due to recursion")
+def test_recursion_asserting_nothing(ctx):
+    # A definition that is only a pointer back to itself never asserts anything, so any body clears it.
+    raw_schema = ctx.openapi.build_schema({})
+    build_schema_with_recursion(raw_schema, USER_REFERENCE)
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    drawn = []
+
+    @given(case=schema["/users"]["POST"].as_strategy())
+    @settings(max_examples=1, deadline=None)
+    def test(case):
+        drawn.append(case.body)
+
+    test()
+    assert drawn
 
 
 def test_nested_recursive_references(ctx):
@@ -1459,3 +1484,44 @@ def test_embedded_schema_dialect_declaration(ctx, version, body_schema):
         assert isinstance(case.body, dict)
 
     test()
+
+
+def test_external_path_items_reparsed_after_document_eviction(ctx):
+    # See GH-4414. Specs with many external files evict documents mid-run; re-reading them must not
+    # let one operation pick up another's path parameter.
+    count = 100
+    schema_path = ctx.openapi.write_schema(
+        {f"/items/{index}/{{op{index}_id}}": {"$ref": f"./paths/op{index}.json"} for index in range(count)},
+        version="3.0.3",
+    )
+    directory = Path(str(schema_path)).parent / "paths"
+    directory.mkdir()
+    for index in range(count):
+        (directory / f"op{index}.json").write_text(
+            json.dumps(
+                {
+                    "get": {
+                        "parameters": [
+                            {"name": f"op{index}_id", "in": "path", "required": True, "schema": {"type": "string"}}
+                        ],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            )
+        )
+
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    corrupted = []
+    for _ in range(3):
+        for result in schema.get_all_operations():
+            assert isinstance(result, Ok)
+            operation = result.ok()
+            names = {parameter.name for parameter in operation.path_parameters}
+            if names != get_template_fields(operation.path):
+                corrupted.append((operation.label, sorted(names)))
+        # Eviction is size-driven, so drop the cached documents outright to reach the same state
+        # without a spec large enough to overflow it.
+        load_file_uri.cache_clear()
+        gc.collect()
+    assert corrupted == []

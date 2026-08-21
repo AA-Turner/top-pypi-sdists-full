@@ -20,6 +20,15 @@ pub(crate) fn generate_json_report(
         fix_suggestions: &report.fix_analysis.fix_suggestions,
         warnings: &report.warnings,
         maintenance_issues: &report.maintenance_issues,
+        partial: !report.failed_sources.is_empty(),
+        failed_sources: &report.failed_sources,
+        failing: report
+            .fail_summary
+            .as_ref()
+            .map(|(count, threshold)| FailingView {
+                count: *count,
+                threshold,
+            }),
     };
     Ok(serde_json::to_string_pretty(&view)?)
 }
@@ -40,6 +49,20 @@ struct JsonReportView<'a> {
     fix_suggestions: &'a [FixSuggestion],
     warnings: &'a [String],
     maintenance_issues: &'a [MaintenanceIssue],
+    /// True when one or more vulnerability sources failed to fetch — findings are incomplete.
+    partial: bool,
+    /// Names of the sources that failed to fetch (empty on a full scan).
+    failed_sources: &'a [String],
+    /// Why the run exits non-zero on vulnerabilities: how many findings met the `fail_on`
+    /// threshold, and the threshold itself. `null` when nothing triggered the exit condition.
+    failing: Option<FailingView<'a>>,
+}
+
+/// The vulnerability exit reason surfaced to machine consumers (mirrors the human "FAILING" line).
+#[derive(Serialize)]
+struct FailingView<'a> {
+    count: usize,
+    threshold: &'a str,
 }
 
 #[cfg(test)]
@@ -106,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_json_maintenance_issue_type_lowercase() {
-        // Regression test: Phase 3 switched from Display (.to_string() → "DEPRECATED")
+        // Regression test: serialization switched from Display (.to_string() → "DEPRECATED")
         // to direct serde serialization (→ "deprecated"). Verifies the serde path.
         let dependency_stats = DependencyStats {
             total_packages: 3,
@@ -177,6 +200,48 @@ mod tests {
 
         assert_eq!(json["vulnerabilities"][0]["is_direct"], true);
         assert_eq!(json["vulnerabilities"][1]["is_direct"], false);
+    }
+
+    #[test]
+    fn test_json_suppression_and_partial_surfaced() {
+        use crate::vulnerability::database::SuppressionReason;
+        let mut report = create_test_report();
+        report.matches[0].suppressed = Some(SuppressionReason::IgnoredPackage);
+        let report = report.with_failed_sources(vec!["osv".to_string()]);
+
+        let output = generate_json_report(&report).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+        // Suppressed findings stay in the list (never dropped) and are tagged.
+        assert_eq!(json["vulnerabilities"].as_array().unwrap().len(), 1);
+        assert_eq!(json["total_vulnerabilities"], 1);
+        assert_eq!(json["vulnerabilities"][0]["suppressed"], "ignored_package");
+
+        // Partial-scan state is always present (false/empty on a clean scan).
+        assert_eq!(json["partial"], true);
+        assert_eq!(json["failed_sources"][0], "osv");
+    }
+
+    #[test]
+    fn test_json_partial_defaults_present_on_clean_scan() {
+        let report = create_test_report();
+        let output = generate_json_report(&report).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(json["partial"], false);
+        assert_eq!(json["failed_sources"].as_array().unwrap().len(), 0);
+        // Not suppressed → field omitted entirely.
+        assert!(json["vulnerabilities"][0]["suppressed"].is_null());
+        // No fail_on trigger → failing is present but null.
+        assert!(json["failing"].is_null());
+    }
+
+    #[test]
+    fn test_json_failing_reason_surfaced() {
+        let report = create_test_report().with_fail_summary(Some((2, "high".to_string())));
+        let output = generate_json_report(&report).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(json["failing"]["count"], 2);
+        assert_eq!(json["failing"]["threshold"], "high");
     }
 
     #[test]

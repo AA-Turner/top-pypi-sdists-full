@@ -1,28 +1,12 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 from json import loads
 from logging import getLogger
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from opentelemetry.context import (
-    _SUPPRESS_INSTRUMENTATION_KEY,
-    attach,
-    detach,
-    set_value,
-)
+from opentelemetry.instrumentation.utils import suppress_instrumentation
 from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.semconv.resource import (
     CloudPlatformValues,
@@ -46,15 +30,12 @@ class AzureVMResourceDetector(ResourceDetector):
     def detect(self) -> "Resource":
         attributes = {}
         if not _can_ignore_vm_detect():
-            token = attach(set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
-            metadata_json = _get_azure_vm_metadata()
-            if not metadata_json:
-                return Resource(attributes)
-            for attribute_key in _EXPECTED_AZURE_AMS_ATTRIBUTES:
-                attributes[attribute_key] = _get_attribute_from_metadata(
-                    metadata_json, attribute_key
-                )
-            detach(token)
+            with suppress_instrumentation():
+                metadata_json = _get_azure_vm_metadata()
+                if not metadata_json:
+                    return Resource(attributes)
+                for attribute_key in _EXPECTED_AZURE_AMS_ATTRIBUTES:
+                    attributes[attribute_key] = _get_attribute_from_metadata(metadata_json, attribute_key)
         return Resource(attributes)
 
 

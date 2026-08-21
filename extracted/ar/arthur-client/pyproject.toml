@@ -1,6 +1,6 @@
 [project]
 name = "arthur-client"
-version = "1.4.2448"
+version = "1.4.2472"
 description = "Arthur Python API Client Library"
 readme = "README.md"
 license = { text = "MIT" }

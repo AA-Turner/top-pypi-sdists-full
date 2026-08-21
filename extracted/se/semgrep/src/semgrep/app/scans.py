@@ -43,9 +43,8 @@ from semgrep.parsing_data import ParsingData
 from semgrep.rule import Rule
 from semgrep.rule_match import RuleMatch
 from semgrep.state import get_state
-from semgrep.subproject import (
-    subproject_to_stats,
-)
+from semgrep.subproject import collect_skipped_subprojects
+from semgrep.subproject import subproject_to_stats
 from semgrep.target_manager import ALL_PRODUCTS
 from semgrep.telemetry import scan_info_to_attrs
 from semgrep.types import FilteredMatches
@@ -213,6 +212,16 @@ class ScanHandler:
         if self.scan_response:
             return self.scan_response.engine_params.scan_all_deps_in_diff_scan
         return True
+
+    @property
+    def is_partial_scan(self) -> bool:
+        """
+        True when this scan was restricted to a subset of the deployment's rules
+        (see --x-partial-scan-rule-id). Such a scan resolves dependencies only
+        for the ecosystems those rules evaluate, so it must tell the app which
+        subprojects it deliberately left out.
+        """
+        return self.scan_metadata.partial_scan_rule_ids is not None
 
     @property
     def symbol_analysis(self) -> bool:
@@ -692,6 +701,7 @@ class ScanHandler:
         commit_date: str,
         lockfile_dependencies: Dict[str, List[out.FoundDependency]],
         dependency_parser_errors: List[DependencyParserError],
+        changed_dependency_sources: Optional[List[out.Fpath]],
         all_subprojects: List[Union[out.UnresolvedSubproject, out.ResolvedSubproject]],
         contributions: out.Contributions,
         engine_requested: "EngineType",
@@ -762,10 +772,22 @@ class ScanHandler:
             rule_ids=rule_ids,
             contributions=contributions,
         )
+        # Subprojects a partial scan chose not to resolve, so that the app does
+        # not treat the dependencies they would have contributed as removed.
+        # Left absent for other scans, which resolve every subproject they are
+        # meant to report on.
+        skipped_subprojects = (
+            collect_skipped_subprojects(all_subprojects)
+            if self.is_partial_scan
+            else None
+        )
+
         if self.dependency_query:
             self.ci_scan_results.dependencies = out.CiScanDependencies(
                 lockfile_dependencies
             )
+            self.ci_scan_results.skipped_subprojects = skipped_subprojects
+        self.ci_scan_results.changed_dependency_sources = changed_dependency_sources
 
         findings_and_ignores = self.ci_scan_results.to_json()
 
@@ -803,8 +825,10 @@ class ScanHandler:
 
         complete = out.CiScanComplete(
             dependencies=out.CiScanDependencies(value=lockfile_dependencies),
+            skipped_subprojects=skipped_subprojects,
             exit_code=cli_suggested_exit_code,
             dependency_parser_errors=dependency_parser_errors,
+            changed_dependency_sources=changed_dependency_sources,
             stats=out.CiScanCompleteStats(
                 findings=len(
                     [match for match in all_matches if not match.from_transient_scan]

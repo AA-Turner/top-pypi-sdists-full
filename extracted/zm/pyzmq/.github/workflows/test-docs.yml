@@ -20,6 +20,9 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   LANG: C.UTF-8
   SPHINXOPTS: "-W"
@@ -28,15 +31,18 @@ jobs:
   test-docs:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install libzmq
         run: |
+          sudo apt-get -y update
           sudo apt-get -y install libzmq3-dev
 
       - name: Install pyzmq

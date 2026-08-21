@@ -69,6 +69,13 @@ class TestCollectionsApi(unittest.TestCase):
         """
         pass
 
+    def test_import_collection(self) -> None:
+        """Test case for import_collection
+
+        Import external documents into a collection
+        """
+        pass
+
     def test_infer_import_schema(self) -> None:
         """Test case for infer_import_schema
 

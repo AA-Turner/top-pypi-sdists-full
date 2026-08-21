@@ -760,6 +760,7 @@ async def report_tool_call_result(
     preview_length: int = DEFAULT_PREVIEW_LENGTH,
     skip_truncation: bool = False,
     plan_task_id: Optional[str] = None,
+    approval_request_id: Optional[str] = None,
 ) -> None:
     """Push a ``ToolCallResult`` event for the given task. Fire-and-forget.
 
@@ -790,6 +791,7 @@ async def report_tool_call_result(
             result=shaped,
             is_error=is_error,
             plan_task_id=plan_task_id,
+            approval_request_id=approval_request_id,
         )
         await _push_event(
             task=task, event_type=TaskUpdateEventType.ToolCallResult, data=data
@@ -821,12 +823,17 @@ async def report_steer_applied(task: "Task", messages: list) -> None:
     routed: the UI must never be told a steer landed on a task that never read it.
     """
     for message in messages or []:
-        payload = message.model_dump() if hasattr(message, "model_dump") else dict(message or {})
+        payload = (
+            message.model_dump()
+            if hasattr(message, "model_dump")
+            else dict(message or {})
+        )
         await _push_event(
             task,
             TaskUpdateEventType.GatewaySteerApplied,
             {
-                "conversation_id": getattr(task, "parent_execution", None) or getattr(task, "id", ""),
+                "conversation_id": getattr(task, "parent_execution", None)
+                or getattr(task, "id", ""),
                 "message_id": str(payload.get("id") or ""),
                 "at": "child",
                 "execution_id": getattr(task, "id", ""),

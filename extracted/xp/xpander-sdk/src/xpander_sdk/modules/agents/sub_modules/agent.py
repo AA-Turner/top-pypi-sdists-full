@@ -55,7 +55,7 @@ from xpander_sdk.models.generic import LLMCredentials
 from xpander_sdk.modules.agents.models.knowledge_bases import AgentKnowledgeBase
 from xpander_sdk.modules.knowledge_bases.knowledge_bases_module import KnowledgeBases
 from xpander_sdk.modules.knowledge_bases.sub_modules.knowledge_base import KnowledgeBase
-from xpander_sdk.modules.tasks.models.task import AgentExecutionInput
+from xpander_sdk.modules.tasks.models.task import AgentExecutionInput, AttachmentRef
 from xpander_sdk.modules.tasks.sub_modules.task import Task
 from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
     ToolInvocationResult,
@@ -530,6 +530,7 @@ class Agent(XPanderSharedModel):
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
         tool_call_limit: Optional[int] = None,
+        attachments: Optional[List[AttachmentRef]] = None,
     ) -> Task:
         """
         Asynchronously create a new task and link it to this agent.
@@ -585,7 +586,11 @@ class Agent(XPanderSharedModel):
                 payload={
                     "id": existing_task_id,
                     "input": AgentExecutionInput(
-                        text=prompt, files=file_urls, user=user_details, principal=principal
+                        text=prompt,
+                        files=file_urls,
+                        attachments=attachments or [],
+                        user=user_details,
+                        principal=principal,
                     ).to_request_dict(),
                     "payload_extension": tool_call_payload_extension,
                     "source": source,

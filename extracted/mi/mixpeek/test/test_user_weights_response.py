@@ -48,6 +48,7 @@ class TestUserWeightsResponse(unittest.TestCase):
                 alpha_beta = {
                     'key' : { }
                     },
+                source = '',
                 warning = '',
                 hint = ''
             )

@@ -8,6 +8,8 @@ Authors
 # Copyright (C) PyZMQ Developers
 # Distributed under the terms of the Modified BSD License.
 
+from __future__ import annotations
+
 import warnings
 
 bytes = bytes
@@ -15,8 +17,8 @@ unicode = str
 basestring = (str,)
 
 
-def cast_bytes(s, encoding='utf8', errors='strict'):
-    """cast unicode or bytes to bytes"""
+def cast_bytes(s: str | bytes, encoding: str = 'utf8', errors: str = 'strict') -> bytes:
+    """cast str or bytes to bytes"""
     warnings.warn(
         "zmq.utils.strtypes is deprecated in pyzmq 23.",
         DeprecationWarning,
@@ -30,8 +32,8 @@ def cast_bytes(s, encoding='utf8', errors='strict'):
         raise TypeError(f"Expected unicode or bytes, got {s!r}")
 
 
-def cast_unicode(s, encoding='utf8', errors='strict'):
-    """cast bytes or unicode to unicode"""
+def cast_unicode(s: str | bytes, encoding: str = 'utf8', errors: str = 'strict') -> str:
+    """cast bytes or str to str"""
     warnings.warn(
         "zmq.utils.strtypes is deprecated in pyzmq 23.",
         DeprecationWarning,

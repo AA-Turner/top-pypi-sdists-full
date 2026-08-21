@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import _thread
 import platform
 import sys
+import threading
+import time
 from dataclasses import asdict
 from unittest.mock import ANY
 
@@ -721,9 +724,7 @@ def test_skip_operations_with_recursive_references(ctx, schema_with_recursive_re
     stream = EventStream(schema).execute()
     # Then it causes an error with a proper error message
     stream.assert_after_execution_status(Status.ERROR)
-    assert "Schema `#/components/schemas/Node` has a required reference to itself" in str(
-        stream.find(events.NonFatalError).info
-    )
+    assert "Cannot generate test data for request body" in str(stream.find(events.NonFatalError).info)
 
 
 @pytest.mark.parametrize(
@@ -838,7 +839,7 @@ def test_unsupported_regex_removed_with_warning(ctx):
                                     "properties": {
                                         "region": {
                                             "nullable": True,
-                                            "pattern": "^[\\w\\s\\-\\/\\p{Greek},.#;:()']+$",
+                                            "pattern": "^[\\w\\s\\-\\/\\p{Tibetan},.#;:()']+$",
                                             "type": "string",
                                         },
                                     },
@@ -857,7 +858,7 @@ def test_unsupported_regex_removed_with_warning(ctx):
     # Then the pattern is removed and a warning is emitted
     warnings = list(schema.analysis.iter_warnings())
     assert len(warnings) > 0
-    assert any("^[\\w\\s\\-\\/\\p{Greek},.#;:()']+$" in w.message for w in warnings)
+    assert any("^[\\w\\s\\-\\/\\p{Tibetan},.#;:()']+$" in w.message for w in warnings)
 
 
 def test_unsupported_regex_in_parameter_removed_with_warning(ctx):
@@ -871,7 +872,7 @@ def test_unsupported_regex_in_parameter_removed_with_warning(ctx):
                             "name": "id",
                             "in": "path",
                             "required": True,
-                            "schema": {"type": "string", "pattern": "\\p{Greek}+"},
+                            "schema": {"type": "string", "pattern": "\\p{Tibetan}+"},
                         }
                     ],
                     "responses": {"200": {"description": "OK"}},
@@ -882,7 +883,7 @@ def test_unsupported_regex_in_parameter_removed_with_warning(ctx):
     # Then the pattern is removed and a warning is emitted
     warnings = list(schema.analysis.iter_warnings())
     assert len(warnings) > 0
-    assert any("\\p{Greek}+" in w.message for w in warnings)
+    assert any("\\p{Tibetan}+" in w.message for w in warnings)
 
 
 def test_invalid_header_in_example(ctx):
@@ -1150,6 +1151,49 @@ def test_finish(event_stream):
     event = event_stream.finish()
     assert isinstance(event, events.EngineFinished)
     assert next(event_stream, None) is None
+
+
+def _stream_until_scenario_started(schema):
+    stream = from_schema(schema).execute()
+    for event in stream:
+        if isinstance(event, events.ScenarioStarted):
+            return stream
+    raise AssertionError("No scenario was started")
+
+
+def test_abandoned_event_stream_stops_workers(ctx):
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.phases.update(phases=["fuzzing"])
+    stream = _stream_until_scenario_started(schema)
+
+    stream.generator.close()
+
+    assert stream.stop_event.is_set()
+
+
+def test_abandoned_event_stream_absorbs_interrupt_during_shutdown(ctx):
+    # Ctrl-C arriving while abandoned workers wind down must not resume the closed generator.
+    api = ctx.openapi.apps.slow()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.phases.update(phases=["fuzzing"])
+    stream = _stream_until_scenario_started(schema)
+    # Wait for a request to be in flight - the 0.5s the app sleeps is the window the interrupt has to land in.
+    deadline = time.monotonic() + 10
+    while not any(request.path == "/api/slow" for request in api.requests):
+        assert time.monotonic() < deadline, "The app received no requests"
+        time.sleep(0.001)
+
+    interrupt = threading.Timer(0.1, _thread.interrupt_main)
+    interrupt.start()
+    try:
+        stream.generator.close()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        interrupt.cancel()
+
+    assert stream.stop_event.is_set()
 
 
 @pytest.mark.parametrize(

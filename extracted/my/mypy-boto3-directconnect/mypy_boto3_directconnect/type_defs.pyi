@@ -514,6 +514,8 @@ class UpdateVirtualInterfaceAttributesRequestTypeDef(TypedDict):
     mtu: NotRequired[int]
     enableSiteLink: NotRequired[bool]
     virtualInterfaceName: NotRequired[str]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class VirtualGatewayTypeDef(TypedDict):
@@ -626,6 +628,7 @@ class DirectConnectGatewayTypeDef(TypedDict):
     ownerAccount: NotRequired[str]
     directConnectGatewayState: NotRequired[DirectConnectGatewayStateType]
     stateChangeError: NotRequired[str]
+    totalPrefixPoolAllocations: NotRequired[int]
     tags: NotRequired[list[TagTypeDef]]
 
 class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -655,6 +658,8 @@ class NewPrivateVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -709,6 +714,8 @@ class NewTransitVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class ResourceTagTypeDef(TypedDict):
@@ -831,6 +838,8 @@ class VirtualInterfaceResponseTypeDef(TypedDict):
     awsLogicalDeviceId: str
     tags: list[TagTypeDef]
     siteLinkEnabled: bool
+    prefixPoolAllocatedCountIpv4: int
+    prefixPoolAllocatedCountIpv6: int
     rateLimit: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -862,6 +871,8 @@ class VirtualInterfaceTypeDef(TypedDict):
     awsLogicalDeviceId: NotRequired[str]
     tags: NotRequired[list[TagTypeDef]]
     siteLinkEnabled: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class ConnectionResponseTypeDef(TypedDict):
@@ -889,6 +900,10 @@ class ConnectionResponseTypeDef(TypedDict):
     macSecKeys: list[MacSecKeyTypeDef]
     rateLimiterStatus: RateLimiterStatusTypeDef
     partnerInterconnectMacSecCapable: bool
+    prefixPoolSizeIpv4: int
+    prefixPoolSizeIpv6: int
+    prefixPoolUnallocatedCountIpv4: int
+    prefixPoolUnallocatedCountIpv6: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ConnectionTypeDef(TypedDict):
@@ -916,6 +931,10 @@ class ConnectionTypeDef(TypedDict):
     macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
     rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
     partnerInterconnectMacSecCapable: NotRequired[bool]
+    prefixPoolSizeIpv4: NotRequired[int]
+    prefixPoolSizeIpv6: NotRequired[int]
+    prefixPoolUnallocatedCountIpv4: NotRequired[int]
+    prefixPoolUnallocatedCountIpv6: NotRequired[int]
 
 class CreateBGPPeerRequestTypeDef(TypedDict):
     virtualInterfaceId: NotRequired[str]
@@ -1130,6 +1149,10 @@ class LagResponseTypeDef(TypedDict):
     macSecCapable: bool
     encryptionMode: str
     macSecKeys: list[MacSecKeyTypeDef]
+    prefixPoolSizeIpv4: int
+    prefixPoolSizeIpv6: int
+    prefixPoolUnallocatedCountIpv4: int
+    prefixPoolUnallocatedCountIpv6: int
     rateLimiterStatus: RateLimiterStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1155,6 +1178,10 @@ class LagTypeDef(TypedDict):
     macSecCapable: NotRequired[bool]
     encryptionMode: NotRequired[str]
     macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
+    prefixPoolSizeIpv4: NotRequired[int]
+    prefixPoolSizeIpv6: NotRequired[int]
+    prefixPoolUnallocatedCountIpv4: NotRequired[int]
+    prefixPoolUnallocatedCountIpv6: NotRequired[int]
     rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
 
 class LagsTypeDef(TypedDict):

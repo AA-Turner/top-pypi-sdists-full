@@ -7,6 +7,8 @@ from ..const import (
     ENDPOINT_URL_METERS,
     ENDPOINT_URL_METERS_READINGS,
     PHASENAMES,
+    STORAGE_CT_FALLBACK_TO_ONE_CHANNEL,
+    PhaseNames,
     SupportedFeatures,
 )
 from ..exceptions import ENDPOINT_PROBE_EXCEPTIONS, EnvoyAuthenticationRequired
@@ -140,6 +142,14 @@ class EnvoyMetersUpdater(EnvoyUpdater):
         For backward compatibility, ctmeter_production/ctmeter_consumption/ctmeter_storage
         and their phase equivalents are still set to reference the corresponding entries in
         ctmeters[CtType] and ctmeters_phases[CtType].
+
+        Envoy firmware D8.3.6087, /ivp/meters/readings for split, 2 phase storage CT
+        intermittently reports zero values on one phase. Aggregated data then
+        drops to the other phase values resulting in incorrect storage data.
+        In this case, return None in the storage CT and storage CT zero Phase data to
+        avoid callers processing incorrect data. This has been reported for L1 phase
+        being zero, Code also tests for the reverse case of L2 being zero.
+
         :param envoy_data: EnvoyData structure to store data to
         """
         # get the meter status and readings from the envoy
@@ -173,6 +183,34 @@ class EnvoyMetersUpdater(EnvoyUpdater):
                 if phase_data := _meter_data_for_phases(phase_range, meter, ct_status):
                     envoy_data.ctmeters_phases[meter_type] = phase_data
 
+                # As of D8.3.6087, /ivp/meters/readings is intermittently reporting incorrect storage
+                # CT lifetime energy values on split-phase system. One storage channel reports all
+                # zeros and the aggregate value becomes equal to the other non-zero channel.
+                # if
+                #   meter type is storage,
+                #   phaseMode == "split",
+                #   phaseCount == 2,
+                #   one channel reports all zeros,
+                #   the aggregate lifetime value suddenly drops to other channel value.
+                if (
+                    # as of fw D8.3.6087
+                    self._envoy_version >= STORAGE_CT_FALLBACK_TO_ONE_CHANNEL
+                    # only for storage CT
+                    and meter_type == CtType.STORAGE
+                    # in split mode phase operation
+                    and self._common_properties.phase_mode == EnvoyPhaseMode.SPLIT
+                    # with dual phase setup
+                    and self._common_properties.phase_count == 2
+                    and (zero_phase := _find_zero_phase_for_storage_anomaly(envoy_data))
+                ):
+                    _LOGGER.debug(
+                        "Storage CT one phase all zero, returning None for aggregate and zero phase %s",
+                        zero_phase,
+                    )
+                    # Return None for aggregate and L1 phase
+                    envoy_data.ctmeters[CtType.STORAGE] = None
+                    envoy_data.ctmeters_phases[CtType.STORAGE][zero_phase] = None
+
                 # Next part is for backward compatibility
                 # May plan to remove in some future breaking change version
                 if meter_type == CtType.PRODUCTION:
@@ -201,11 +239,61 @@ class EnvoyMetersUpdater(EnvoyUpdater):
 
 def _meter_data_for_phases(
     phase_range: int, meter: dict[str, Any], ct_data: CtMeterData
-) -> dict[str, EnvoyMeterData]:
+) -> dict[str, EnvoyMeterData | None]:
     """Build a dictionary of phase data for multi-phase setups."""
-    meter_data_by_phase: dict[str, EnvoyMeterData] = {
+    meter_data_by_phase: dict[str, EnvoyMeterData | None] = {
         PHASENAMES[phase_idx]: data
         for phase_idx in range(phase_range)
         if (data := EnvoyMeterData.from_phase(meter, ct_data, phase_idx))
     }
     return meter_data_by_phase
+
+
+def _verify_zero_phase_for_storage_anomaly(
+    agg_data: EnvoyMeterData,
+    impacted_data: EnvoyMeterData,
+    unimpacted_data: EnvoyMeterData,
+) -> bool:
+    """
+    Identify if zero data is present for impacted data and agg data is equal
+    to unimpacted data. Verify for energy delivered and received.
+    Do not verify activePower, even though reports state all values are zero,
+    testing lifetime energy values is sufficient detection and rule out
+    any case of issue data sample taken during idle battery state.
+    """
+    return (
+        impacted_data.energy_delivered == 0
+        and unimpacted_data.energy_delivered != 0
+        and unimpacted_data.energy_delivered == agg_data.energy_delivered
+        and impacted_data.energy_received == 0
+        and unimpacted_data.energy_received != 0
+        and unimpacted_data.energy_received == agg_data.energy_received
+    )
+
+
+def _find_zero_phase_for_storage_anomaly(envoy_data: EnvoyData) -> PhaseNames | None:
+    """
+    Identify which phase has the storage ct anomaly, if any.
+    Zero data in one phase and non-zero in other, aggregate
+    values equal to non-zero phase.
+
+    :returns: phasename with zeros if phase anomaly was identified, or None if not
+    """
+    if (
+        # return None if not all data is present, doesn't meet anomaly
+        not (agg_data := envoy_data.ctmeters[CtType.STORAGE])
+        or not (storage_phases := envoy_data.ctmeters_phases.get(CtType.STORAGE))
+        or not (l1_data := storage_phases.get(PhaseNames.PHASE_1))
+        or not (l2_data := storage_phases.get(PhaseNames.PHASE_2))
+    ):
+        return None
+
+    l1_impacted = _verify_zero_phase_for_storage_anomaly(agg_data, l1_data, l2_data)
+    l2_impacted = _verify_zero_phase_for_storage_anomaly(agg_data, l2_data, l1_data)
+
+    # If Neither or both impacted return None
+    # all data is fine or all data is zero
+    if (l1_impacted and l2_impacted) or (not l1_impacted and not l2_impacted):
+        return None
+
+    return PhaseNames.PHASE_1 if l1_impacted else PhaseNames.PHASE_2

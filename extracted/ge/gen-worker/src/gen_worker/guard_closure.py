@@ -316,9 +316,6 @@ def contract_pins(
     text_len = getattr(cfg, "text_len", None)
     if text_len is not None:
         ints.add(int(text_len))
-    bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
-    if bucket:
-        ints.add(bucket)
     dynamic = tuple(getattr(cfg, "dynamic", ()) or ())
     for d in dynamic:
         ints.add(int(getattr(d, "min", 0)))
@@ -447,43 +444,6 @@ def extract_target_guards(
             entry=index, guards=tuple(records),
         ))
     return graphs
-
-
-def extract(pipeline: Any, cfg: Any) -> ClosureReport:
-    """Classified guard sets for every compiled graph on an armed pipeline
-    (whole-graph targets via the marker's originals; regional targets via
-    the repeated-block forwards — same enumeration the in-memory compile
-    probe trusts)."""
-    # CYCLE (see manifest_digest): compile_cache reaches back here via registry.
-    from . import compile_cache as cc
-
-    marker = getattr(pipeline, cc._MARKER_ATTR, None) or {}
-    graphs: List[GraphGuards] = []
-    seen_codes: set = set()
-    for _owner, attr, fn in marker.get("originals") or ():
-        code = _code_of(fn)
-        if code is None or id(code) in seen_codes:
-            continue
-        seen_codes.add(id(code))
-        graphs.extend(extract_target_guards(fn, str(attr), cfg))
-    for mod in marker.get("regional_mods") or ():
-        try:
-            children = list(mod.modules())
-        except Exception:
-            logger.warning(
-                "guard-closure: could not enumerate regional submodules of "
-                "%s", type(mod).__name__, exc_info=True)
-            continue
-        for child in children:
-            fwd = getattr(type(child), "forward", None)
-            code = _code_of(fwd)
-            if code is None or id(code) in seen_codes:
-                continue
-            seen_codes.add(id(code))
-            graphs.extend(extract_target_guards(
-                fwd, f"{type(child).__name__}.forward", cfg))
-    graphs.sort(key=lambda g: (g.target, g.code, g.entry))
-    return ClosureReport(graphs=tuple(graphs))
 
 
 # ---------------------------------------------------------------------------
@@ -799,11 +759,6 @@ def establish_posture() -> Dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def audit_armed(pipeline: Any, cfg: Any) -> ClosureReport:
-    """The auditable diagnostics view of an armed pipeline's guard closure."""
-    return extract(pipeline, cfg)
-
-
 # ---------------------------------------------------------------------------
 # Boundary canonicalization (the single compiled-graph ingress)
 # ---------------------------------------------------------------------------
@@ -902,13 +857,11 @@ __all__ = [
     "RUNTIME_STATE",
     "STRUCTURAL",
     "UNPROVEN",
-    "audit_armed",
     "canonical_ingress",
     "canonical_strides",
     "classify",
     "contract_pins",
     "establish_posture",
-    "extract",
     "extract_target_guards",
     "posture_snapshot",
 ]

@@ -44,12 +44,13 @@ import warnings
 from contextvars import copy_context
 from logging import Logger, getLogger
 from typing import Dict, Optional, Union
+import requests
 from ._base_falcon_auth import BaseFalconAuth
 from ._bearer_token import BearerToken
 from .._log import LogFacility
 from .._constant import MIN_TOKEN_RENEW_WINDOW, MAX_TOKEN_RENEW_WINDOW
 from ._interface_config import InterfaceConfiguration
-from .._enum import TokenFailReason
+from .._enum import TokenFailReason, BaseURL
 from .._util import (
     autodiscover_region,
     confirm_base_url,
@@ -60,6 +61,10 @@ from .._util import (
     review_provided_credentials
     )
 from .._error import InvalidCredentials, NoAuthenticationMechanism
+
+
+# Default base URL, used to detect whether the caller specified one.
+_DEFAULT_BASE_URL = f"https://{BaseURL.US1.value}"
 
 
 # pylint: disable=R0902,R0904
@@ -89,7 +94,8 @@ class FalconInterface(BaseFalconAuth):
                  debug_record_count: Optional[int] = None,
                  sanitize_log: Optional[bool] = None,
                  pythonic: Optional[bool] = False,
-                 environment: Optional[Dict[str, str]] = None
+                 environment: Optional[Dict[str, str]] = None,
+                 session: Optional[requests.Session] = None
                  ) -> "FalconInterface":
         """Construct an instance of the FalconInterface class."""
         # Set the pythonic behavior mode.
@@ -97,12 +103,19 @@ class FalconInterface(BaseFalconAuth):
         if isinstance(pythonic, bool):
             self._pythonic = pythonic
 
+        # A base URL specified by the caller takes precedence over any cloud
+        # region derived during authentication.
+        base_url_provided: bool = (
+            base_url is not None and confirm_base_url(base_url) != _DEFAULT_BASE_URL
+        )
+
         # Setup our configuration object using the provided keywords.
         self._config: InterfaceConfiguration = InterfaceConfiguration(base_url=base_url,
                                                                       proxy=proxy,
                                                                       timeout=timeout,
                                                                       user_agent=user_agent,
-                                                                      ssl_verify=ssl_verify
+                                                                      ssl_verify=ssl_verify,
+                                                                      session=session
                                                                       )            # \ o /
         # ____ _  _ ___ _  _ ____ _  _ ___ _ ____ ____ ___ _ ____ _  _                 |
         # |__| |  |  |  |__| |___ |\ |  |  | |    |__|  |  | |  | |\ |                / \
@@ -164,10 +177,10 @@ class FalconInterface(BaseFalconAuth):
                     # Attempt to retrieve the cloud region from the same object.
                     # Fall back to our previously set default on failure.
                     try:
-                        if cvar.cs_cloud:
+                        if cvar.cs_cloud and not base_url_provided:
                             self._config.base_url = confirm_base_url(cvar.cs_cloud)
                     except AttributeError:
-                        if self.token_value:
+                        if self.token_value and not base_url_provided:
                             self._config.base_url = confirm_base_url(os.getenv("CS_CLOUD", "auto"))
                     self._auth_style = "CONTEXT"
                     break
@@ -307,7 +320,7 @@ class FalconInterface(BaseFalconAuth):
                 returned = perform_request(method="POST", endpoint=target_url, data=data_payload,
                                            headers={}, verify=self.ssl_verify, proxy=self.proxy,
                                            timeout=self.timeout, user_agent=self.user_agent,
-                                           log_util=self.log, authenticating=True,
+                                           session=self.session, log_util=self.log, authenticating=True,
                                            sanitize=self.sanitize_log
                                            )
                 _returned_headers = returned["headers"]
@@ -363,8 +376,8 @@ class FalconInterface(BaseFalconAuth):
                 returned = perform_request(method="POST", endpoint=target_url, data=data_payload,
                                            headers=header_payload, verify=self.ssl_verify,
                                            proxy=self.proxy, timeout=self.timeout,
-                                           user_agent=self.user_agent, log_util=self.log,
-                                           sanitize=self.sanitize_log
+                                           user_agent=self.user_agent, session=self.session,
+                                           log_util=self.log, sanitize=self.sanitize_log
                                            )
                 if stateful:
                     self.bearer_token: BearerToken = BearerToken()
@@ -428,6 +441,15 @@ class FalconInterface(BaseFalconAuth):
     @proxy.setter
     def proxy(self, value: Dict[str, str]):
         self.config.proxy = value
+
+    @property
+    def session(self) -> Optional[requests.Session]:
+        """Return the requests.Session in use, if one was provided."""
+        return self.config.session
+
+    @session.setter
+    def session(self, value: Optional[requests.Session]):
+        self.config.session = value
 
     @property
     def user_agent(self) -> str:

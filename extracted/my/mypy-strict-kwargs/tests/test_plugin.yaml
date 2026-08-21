@@ -2826,3 +2826,130 @@
   out: |-
     main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
     main:18: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+# mypy has its own plugin hooks for these names.  The plugin offers a
+# hook for every name, and mypy consults only the first plugin which
+# offers one, so its hooks run here before the transformation.
+- case: mypy_own_signature_hooks_still_run
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    import dataclasses
+    from functools import singledispatch
+    from typing import TypedDict
+
+
+    class Options(TypedDict, total=False):
+        timeout: int
+
+
+    @dataclasses.dataclass
+    class Point:
+        x: int
+        y: int
+
+
+    @singledispatch
+    def describe(value: object) -> str:
+        return "object"
+
+
+    @describe.register
+    def _(value: int) -> str:
+        return "int"
+
+
+    def use_typed_dict(options: Options) -> None:
+        reveal_type(options.get("timeout"))
+        reveal_type(options.setdefault("timeout", 5))
+        reveal_type(options.pop("timeout"))
+
+
+    def use_replace(point: Point) -> None:
+        reveal_type(dataclasses.replace(point, x=1))
+        dataclasses.replace(point, nonexistent=1)
+
+
+    def use_singledispatch() -> None:
+        describe(1)
+  out: |-
+    main:27: note: Revealed type is "int | None"
+    main:28: error: Too many positional arguments for "setdefault" of "TypedDict"  [call-arg]
+    main:28: note: Revealed type is "int"
+    main:29: error: Too many positional arguments for "pop" of "TypedDict"  [call-arg]
+    main:29: note: Revealed type is "int"
+    main:33: note: Revealed type is "main.Point"
+    main:34: error: Unexpected keyword argument "nonexistent" for "replace" of "Point"  [call-arg]
+
+# Overloaded callables are not signature-transformed (mypy matches
+# variants against each item), so positional misuse is reported from the
+# function/method hook instead of as a generic call-overload error.
+- case: overloaded_call_reports_call_arg
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from typing import overload
+
+
+    @overload
+    def f(x: int) -> int: ...
+
+
+    @overload
+    def f(x: str) -> str: ...
+
+
+    def f(x: int | str) -> int | str:
+        return x
+
+
+    class C:
+        @overload
+        def method(self, x: int) -> int: ...
+
+        @overload
+        def method(self, x: str) -> str: ...
+
+        def method(self, x: int | str) -> int | str:
+            return x
+
+
+    def use(c: C) -> None:
+        str(1)
+        f(1)
+        c.method(1)
+        str(object=1)
+        f(x=1)
+        c.method(x=1)
+  out: |-
+    main:28: error: Too many positional arguments for "str"  [call-arg]
+    main:29: error: Too many positional arguments for "f"  [call-arg]
+    main:30: error: Too many positional arguments for "method" of "C"  [call-arg]
+
+# A star-argument of unknown length is not guessed at for overloaded
+# callees, matching the conservative ``super()`` checks.
+- case: overloaded_call_star_argument_is_not_guessed
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from typing import overload
+
+
+    @overload
+    def f(x: int) -> int: ...
+
+
+    @overload
+    def f(x: str) -> str: ...
+
+
+    def f(x: int | str) -> int | str:
+        return x
+
+
+    def use(values: tuple[int, ...]) -> None:
+        f(*values)
+  out: ""

@@ -141,7 +141,7 @@ def test_generate_s3tables_spark_configs_ignores_non_federated(mock_utils_and_pr
     return_value={},
 )
 @patch(
-    f"{_CONFIG_BUILDER_PATH}._generate_workday_irc_spark_configs",
+    f"{_CONFIG_BUILDER_PATH}._generate_irc_spark_configs",
     return_value={},
 )
 def test_generate_spark_configs_combines_all(mock_workday, mock_glue, mock_s3, mock_catalog):
@@ -152,9 +152,9 @@ def test_generate_spark_configs_combines_all(mock_workday, mock_glue, mock_s3, m
 
 
 # -------------------------------------------------------------------
-# Tests for _generate_workday_irc_spark_configs
+# Tests for _generate_irc_spark_configs
 # -------------------------------------------------------------------
-def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_project):
+def test_generate_irc_spark_configs_single_catalog(mock_utils_and_project):
     mock_conn = MagicMock()
     mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
     mock_conn._spark_catalog_configs.return_value = {
@@ -165,7 +165,7 @@ def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_projec
     }
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
 
     assert conf["spark.sql.catalog.wd_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
     assert conf["spark.sql.catalog.wd_catalog.type"] == "rest"
@@ -179,7 +179,7 @@ def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_projec
     )
 
 
-def test_generate_workday_irc_spark_configs_multiple_catalogs(mock_utils_and_project):
+def test_generate_irc_spark_configs_multiple_catalogs(mock_utils_and_project):
     mock_conn = MagicMock()
     mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
     mock_conn._spark_catalog_configs.return_value = {
@@ -190,7 +190,7 @@ def test_generate_workday_irc_spark_configs_multiple_catalogs(mock_utils_and_pro
     }
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
 
     assert conf["spark.sql.catalog.cat_a.uri"] == "https://wd.example.com"
     assert conf["spark.sql.catalog.cat_b.uri"] == "https://wd.example.com"
@@ -198,23 +198,23 @@ def test_generate_workday_irc_spark_configs_multiple_catalogs(mock_utils_and_pro
     assert conf["spark.sql.catalog.cat_b.warehouse"] == "cat_b"
 
 
-def test_generate_workday_irc_spark_configs_no_workday_connections(mock_utils_and_project):
+def test_generate_irc_spark_configs_no_irc_connections(mock_utils_and_project):
     mock_conn = MagicMock()
     mock_conn.type = "ATHENA"
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
     assert conf == {}
 
 
-def test_generate_workday_irc_spark_configs_no_connections(mock_utils_and_project):
+def test_generate_irc_spark_configs_no_connections(mock_utils_and_project):
     mock_utils_and_project.connections = []
 
-    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
     assert conf == {}
 
 
-def test_generate_workday_irc_spark_configs_mixed_connections(mock_utils_and_project):
+def test_generate_irc_spark_configs_mixed_connections(mock_utils_and_project):
     mock_athena = MagicMock()
     mock_athena.type = "ATHENA"
 
@@ -228,8 +228,99 @@ def test_generate_workday_irc_spark_configs_mixed_connections(mock_utils_and_pro
     }
     mock_utils_and_project.connections = [mock_athena, mock_workday]
 
-    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
 
     assert "spark.sql.catalog.wdc" in conf
     assert conf["spark.sql.catalog.wdc.token"] == "t"
     mock_athena._spark_catalog_configs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "connection_type",
+    [
+        "DATABRICKSICEBERGRESTCATALOG",
+        "SNOWFLAKEICEBERGRESTCATALOG",
+        "ICEBERGRESTCATALOG",
+    ],
+)
+def test_generate_irc_spark_configs_new_types(mock_utils_and_project, connection_type):
+    """The non-Workday IRC types produce catalog configs without a realm header."""
+    mock_conn = MagicMock()
+    mock_conn.type = connection_type
+    mock_conn._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["unity_catalog"]',
+        "INSTANCE_URL": "https://example.cloud.databricks.com/api/2.1/unity-catalog/iceberg-rest",
+        "ACCESS_TOKEN": "vendor_token",
+    }
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
+
+    assert conf["spark.sql.catalog.unity_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
+    assert conf["spark.sql.catalog.unity_catalog.type"] == "rest"
+    assert (
+        conf["spark.sql.catalog.unity_catalog.uri"]
+        == "https://example.cloud.databricks.com/api/2.1/unity-catalog/iceberg-rest"
+    )
+    assert conf["spark.sql.catalog.unity_catalog.warehouse"] == "unity_catalog"
+    assert conf["spark.sql.catalog.unity_catalog.token"] == "vendor_token"
+    assert (
+        conf["spark.sql.catalog.unity_catalog.header.X-Iceberg-Access-Delegation"]
+        == "vended-credentials"
+    )
+    # No TENANT_ID, so no Polaris realm header should be emitted.
+    assert "spark.sql.catalog.unity_catalog.header.Polaris-Realm" not in conf
+
+
+def test_generate_irc_spark_configs_handles_none_catalog_configs(mock_utils_and_project):
+    """A connection with no backing Glue connection is skipped rather than raising."""
+    mock_conn = MagicMock()
+    mock_conn.type = "DATABRICKSICEBERGRESTCATALOG"
+    mock_conn._spark_catalog_configs.return_value = None
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
+    assert conf == {}
+
+
+def test_generate_irc_spark_configs_skips_missing_source_catalog_list(mock_utils_and_project):
+    """A connection without SOURCE_CATALOG_LIST is skipped rather than raising."""
+    mock_conn = MagicMock()
+    mock_conn.type = "ICEBERGRESTCATALOG"
+    mock_conn._spark_catalog_configs.return_value = {
+        "INSTANCE_URL": "https://example.com",
+        "ACCESS_TOKEN": "tok",
+    }
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
+    assert conf == {}
+
+
+def test_generate_irc_spark_configs_multiple_irc_connections(mock_utils_and_project):
+    """Workday and Databricks connections coexist, each with its own headers."""
+    mock_workday = MagicMock()
+    mock_workday.type = "WORKDAYICEBERGRESTCATALOG"
+    mock_workday._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["wd_cat"]',
+        "INSTANCE_URL": "https://wd.example.com",
+        "ACCESS_TOKEN": "wd_token",
+        "TENANT_ID": "wd_realm",
+    }
+
+    mock_databricks = MagicMock()
+    mock_databricks.type = "DATABRICKSICEBERGRESTCATALOG"
+    mock_databricks._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["db_cat"]',
+        "INSTANCE_URL": "https://db.example.com",
+        "ACCESS_TOKEN": "db_token",
+    }
+
+    mock_utils_and_project.connections = [mock_workday, mock_databricks]
+
+    conf = spark_config_builder._generate_irc_spark_configs(mock_utils_and_project)
+
+    assert conf["spark.sql.catalog.wd_cat.token"] == "wd_token"
+    assert conf["spark.sql.catalog.wd_cat.header.Polaris-Realm"] == "wd_realm"
+    assert conf["spark.sql.catalog.db_cat.token"] == "db_token"
+    assert "spark.sql.catalog.db_cat.header.Polaris-Realm" not in conf

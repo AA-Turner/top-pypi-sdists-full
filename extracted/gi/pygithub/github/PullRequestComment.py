@@ -27,6 +27,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -49,7 +50,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import github.GithubObject
 import github.NamedUser
@@ -58,6 +59,10 @@ import github.Reaction
 from github import Consts
 from github.GithubObject import Attribute, CompletableGithubObject, NotSet
 from github.PaginatedList import PaginatedList
+
+if TYPE_CHECKING:
+    from github.NamedUser import NamedUser
+    from github.Reaction import Reaction
 
 
 class PullRequestComment(CompletableGithubObject):
@@ -103,7 +108,7 @@ class PullRequestComment(CompletableGithubObject):
         self._subject_type: Attribute[str] = NotSet
         self._updated_at: Attribute[datetime] = NotSet
         self._url: Attribute[str] = NotSet
-        self._user: Attribute[github.NamedUser.NamedUser] = NotSet
+        self._user: Attribute[NamedUser] = NotSet
 
     def __repr__(self) -> str:
         return self.get__repr__({"id": self._id.value, "user": self._user.value})
@@ -249,7 +254,7 @@ class PullRequestComment(CompletableGithubObject):
         return self._url.value
 
     @property
-    def user(self) -> github.NamedUser.NamedUser:
+    def user(self) -> NamedUser:
         self._completeIfNotSet(self._user)
         return self._user.value
 
@@ -274,7 +279,7 @@ class PullRequestComment(CompletableGithubObject):
         self._useAttributes(data)
         self._set_complete()
 
-    def get_reactions(self) -> PaginatedList[github.Reaction.Reaction]:
+    def get_reactions(self) -> PaginatedList[Reaction]:
         """
         :calls: `GET /repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions
                 <https://docs.github.com/en/rest/reference/reactions#list-reactions-for-a-pull-request-review-comment>`_
@@ -288,7 +293,7 @@ class PullRequestComment(CompletableGithubObject):
             headers={"Accept": Consts.mediaTypeReactionsPreview},
         )
 
-    def create_reaction(self, reaction_type: str) -> github.Reaction.Reaction:
+    def create_reaction(self, reaction_type: str) -> Reaction:
         """
         :calls: `POST /repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions
                 <https://docs.github.com/en/rest/reference/reactions#create-reaction-for-a-pull-request-review-comment>`_

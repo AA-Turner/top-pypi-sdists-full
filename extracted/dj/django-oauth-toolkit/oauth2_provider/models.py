@@ -2,18 +2,19 @@ import hashlib
 import logging
 import time
 import uuid
+from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import Callable, Optional, Union
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import urlparse, urlsplit
 
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.hashers import identify_hasher, make_password
 from django.core.exceptions import ImproperlyConfigured, ValidationError
-from django.db import models, router, transaction
+from django.db import IntegrityError, models, router, transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -97,6 +98,31 @@ class TokenChecksumField(models.CharField):
         return super().pre_save(model_instance, add)
 
 
+def set_token_value(token_instance: "AbstractAccessToken | AbstractRefreshToken", raw_token: str) -> None:
+    """
+    Assign the raw token to a token instance, redacting the value stored at rest
+    when COMPLIANT_BCP_RFC9700_TOKEN_STORAGE is enabled (RFC 9700).
+
+    The lookup checksum (``token_checksum``) is always derived from the raw token;
+    when redacting, the raw value is stashed on ``_raw_token`` (used only to compute
+    the checksum, see :class:`TokenChecksumField`) and the ``token`` column is left
+    blank so the reusable token is never persisted.
+
+    Plaintext storage is an ambient config posture exercised on every token
+    issuance, so (unlike the request-time gates) it is surfaced by the ``--deploy``
+    system check ``W006`` rather than a per-token warning here. See
+    :mod:`oauth2_provider.bcp`.
+    """
+    if oauth2_settings.COMPLIANT_BCP_RFC9700_TOKEN_STORAGE:
+        token_instance._raw_token = raw_token
+        token_instance.token = ""
+    else:
+        token_instance.token = raw_token
+        # Clear any stale redaction marker so a later save recomputes the checksum
+        # from this plaintext token rather than a previously stashed raw value.
+        token_instance._raw_token = None
+
+
 class AbstractApplication(models.Model):
     """
     An Application instance represents a Client on the Authorization server.
@@ -168,56 +194,69 @@ class AbstractApplication(models.Model):
     id = models.BigAutoField(primary_key=True)
     # 255 rather than 100 so a Client ID Metadata Document URL fits (CIMD uses
     # the client's https URL as its client_id).
-    client_id = models.CharField(max_length=255, unique=True, default=generate_client_id, db_index=True)
+    client_id = models.CharField(
+        max_length=255, unique=True, default=generate_client_id, db_index=True, verbose_name=_("client ID")
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="%(app_label)s_%(class)s",
         null=True,
         blank=True,
         on_delete=models.CASCADE,
+        verbose_name=_("user"),
     )
 
     redirect_uris = models.TextField(
         blank=True,
         help_text=_("Allowed URIs list, space separated"),
+        verbose_name=_("redirect URIs"),
     )
     post_logout_redirect_uris = models.TextField(
         blank=True,
         help_text=_("Allowed Post Logout URIs list, space separated"),
         default="",
+        verbose_name=_("post logout redirect URIs"),
     )
-    client_type = models.CharField(max_length=32, choices=CLIENT_TYPES)
-    authorization_grant_type = models.CharField(max_length=44, choices=GRANT_TYPES)
+    client_type = models.CharField(max_length=32, choices=CLIENT_TYPES, verbose_name=_("client type"))
+    authorization_grant_type = models.CharField(
+        max_length=44, choices=GRANT_TYPES, verbose_name=_("authorization grant type")
+    )
     client_secret = ClientSecretField(
         max_length=255,
         blank=True,
         default=generate_client_secret,
         db_index=True,
         help_text=_("Client secret for authentication"),
+        verbose_name=_("client secret"),
     )
-    hash_client_secret = models.BooleanField(default=True)
-    name = models.CharField(max_length=255, blank=True)
-    skip_authorization = models.BooleanField(default=False)
+    hash_client_secret = models.BooleanField(default=True, verbose_name=_("hash client secret"))
+    name = models.CharField(max_length=255, blank=True, verbose_name=_("name"))
+    skip_authorization = models.BooleanField(default=False, verbose_name=_("skip authorization"))
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
-    algorithm = models.CharField(max_length=5, choices=ALGORITHM_TYPES, default=NO_ALGORITHM, blank=True)
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
+    updated = models.DateTimeField(auto_now=True, verbose_name=_("updated"))
+    algorithm = models.CharField(
+        max_length=5, choices=ALGORITHM_TYPES, default=NO_ALGORITHM, blank=True, verbose_name=_("algorithm")
+    )
     allowed_origins = models.TextField(
         blank=True,
         help_text=_("Allowed origins list to enable CORS, space separated"),
         default="",
+        verbose_name=_("allowed origins"),
     )
     registration_source = models.CharField(
         max_length=32,
         choices=RegistrationSource.choices,
         default=RegistrationSource.MANUAL,
         help_text=_("How this application was registered (manual, DCR per RFC 7591, or CIMD)"),
+        verbose_name=_("registration source"),
     )
     cimd_expires_at = models.DateTimeField(
         null=True,
         blank=True,
         default=None,
         help_text=_("When the cached Client ID Metadata Document should be re-fetched"),
+        verbose_name=_("CIMD expires at"),
     )
 
     class Meta:
@@ -237,27 +276,33 @@ class AbstractApplication(models.Model):
                 return self.redirect_uris.split().pop(0)
             raise errors.MissingRedirectURIError()
 
-        assert False, (
-            "If you are using implicit, authorization_code "
-            "or all-in-one grant_type, you must define "
-            "redirect_uris field in your Application model"
-        )
+        # No redirect_uris registered (e.g. a client_credentials application used
+        # in a flow that requires one). Raise an oauthlib error so the endpoint
+        # returns a spec-compliant 400 instead of an uncaught AssertionError/500
+        # (the assert would also be stripped entirely under `python -O`). See #958.
+        raise errors.MissingRedirectURIError()
 
-    def redirect_uri_allowed(self, uri):
+    def redirect_uri_allowed(self, uri: str) -> bool:
         """
         Checks if given url is one of the items in :attr:`redirect_uris` string
 
         :param uri: Url to check
         """
-        return redirect_to_uri_allowed(uri, self.redirect_uris.split())
+        allowed, reasons = check_redirect_to_uri_allowed(uri, self.redirect_uris.split())
+        if not allowed:
+            _log_registered_uri_mismatch("redirect_uri", uri, self.client_id, reasons)
+        return allowed
 
-    def post_logout_redirect_uri_allowed(self, uri):
+    def post_logout_redirect_uri_allowed(self, uri: str) -> bool:
         """
         Checks if given URI is one of the items in :attr:`post_logout_redirect_uris` string
 
         :param uri: URI to check
         """
-        return redirect_to_uri_allowed(uri, self.post_logout_redirect_uris.split())
+        allowed, reasons = check_redirect_to_uri_allowed(uri, self.post_logout_redirect_uris.split())
+        if not allowed:
+            _log_registered_uri_mismatch("post_logout_redirect_uri", uri, self.client_id, reasons)
+        return allowed
 
     def origin_allowed(self, origin):
         """
@@ -267,7 +312,13 @@ class AbstractApplication(models.Model):
         """
         return self.allowed_origins and is_origin_allowed(origin, self.allowed_origins.split())
 
-    def clean(self):
+    def clean(self) -> None:
+        """Validate the application, reporting each problem on the field it belongs to.
+
+        Raises a :class:`~django.core.exceptions.ValidationError` keyed by field name, so
+        callers get a per-field ``message_dict`` and a ModelForm renders each message next
+        to its input. Every problem found is reported, not just the first one.
+        """
         from django.core.exceptions import ValidationError
 
         grant_types = (
@@ -279,6 +330,15 @@ class AbstractApplication(models.Model):
             AbstractApplication.GRANT_IMPLICIT,
             AbstractApplication.GRANT_OPENID_HYBRID,
         )
+
+        # Errors are keyed by the field they belong to and raised together at the end,
+        # rather than raised one at a time as they are found. Keying them means
+        # ``full_clean()`` reports them per field (``ValidationError.message_dict``) and a
+        # ModelForm -- the admin and the built-in application views both use one -- renders
+        # each message next to the offending input instead of as an anonymous non-field
+        # error at the top of the form. Collecting them means a single submit reports every
+        # problem at once instead of one per round trip.
+        field_errors = defaultdict(list)
 
         redirect_uris = self.redirect_uris.strip().split()
         allowed_schemes = set(s.lower() for s in self.get_allowed_schemes())
@@ -292,12 +352,17 @@ class AbstractApplication(models.Model):
                 allow_hostname_wildcard=oauth2_settings.ALLOW_URI_WILDCARDS,
             )
             for uri in redirect_uris:
-                validator(uri)
+                try:
+                    validator(uri)
+                except ValidationError as exc:
+                    field_errors["redirect_uris"].extend(exc.error_list)
 
         elif self.authorization_grant_type in grant_types:
-            raise ValidationError(
-                _("redirect_uris cannot be empty with grant_type {grant_type}").format(
-                    grant_type=self.authorization_grant_type
+            field_errors["redirect_uris"].append(
+                ValidationError(
+                    _("redirect_uris cannot be empty with grant_type {grant_type}").format(
+                        grant_type=self.authorization_grant_type
+                    )
                 )
             )
         allowed_origins = self.allowed_origins.strip().split()
@@ -309,11 +374,16 @@ class AbstractApplication(models.Model):
                 allow_hostname_wildcard=oauth2_settings.ALLOW_URI_WILDCARDS,
             )
             for uri in allowed_origins:
-                validator(uri)
+                try:
+                    validator(uri)
+                except ValidationError as exc:
+                    field_errors["allowed_origins"].extend(exc.error_list)
 
         if self.algorithm == AbstractApplication.RS256_ALGORITHM:
             if not oauth2_settings.OIDC_RSA_PRIVATE_KEY:
-                raise ValidationError(_("You must set OIDC_RSA_PRIVATE_KEY to use RSA algorithm"))
+                field_errors["algorithm"].append(
+                    ValidationError(_("You must set OIDC_RSA_PRIVATE_KEY to use RSA algorithm"))
+                )
 
         if self.algorithm == AbstractApplication.HS256_ALGORITHM:
             if any(
@@ -322,24 +392,35 @@ class AbstractApplication(models.Model):
                     self.client_type == Application.CLIENT_PUBLIC,
                 )
             ):
-                raise ValidationError(_("You cannot use HS256 with public grants or clients"))
+                field_errors["algorithm"].append(
+                    ValidationError(_("You cannot use HS256 with public grants or clients"))
+                )
             if not self.client_secret:
-                raise ValidationError(
-                    _("You cannot use HS256 without a client secret; it is the HMAC signing key.")
+                field_errors["client_secret"].append(
+                    ValidationError(
+                        _("You cannot use HS256 without a client secret; it is the HMAC signing key.")
+                    )
                 )
             # For HS256 the client secret is the shared HMAC signing key, so it must be stored
             # unhashed. Reject both the intent to hash (the flag) and an already-hashed stored
             # value (e.g. the flag was toggled after the secret was hashed, or a legacy row), so
             # the misconfiguration surfaces here instead of only failing later at signing time.
-            if self.hash_client_secret or self._client_secret_is_hashed(self.client_secret):
-                raise ValidationError(
-                    _(
-                        "You cannot use HS256 with a hashed client secret. For HS256 the client "
-                        "secret is the shared signing key and must be stored unhashed so the relying "
-                        "party can verify the token; set hash_client_secret=False and store an "
-                        "unhashed client_secret on this application."
+            # The error goes on whichever field has to change: the flag when it is still set,
+            # otherwise the already-hashed secret itself, which has to be re-entered unhashed.
+            elif self.hash_client_secret or self._client_secret_is_hashed(self.client_secret):
+                field_errors["hash_client_secret" if self.hash_client_secret else "client_secret"].append(
+                    ValidationError(
+                        _(
+                            "You cannot use HS256 with a hashed client secret. For HS256 the client "
+                            "secret is the shared signing key and must be stored unhashed so the relying "
+                            "party can verify the token; set hash_client_secret=False and store an "
+                            "unhashed client_secret on this application."
+                        )
                     )
                 )
+
+        if field_errors:
+            raise ValidationError(field_errors)
 
     def get_absolute_url(self):
         return reverse("oauth2_provider:detail", args=[str(self.pk)])
@@ -436,26 +517,37 @@ class AbstractGrant(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(app_label)s_%(class)s"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s",
+        verbose_name=_("user"),
     )
-    code = models.CharField(max_length=255, unique=True)  # code comes from oauthlib
-    application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL, on_delete=models.CASCADE)
-    expires = models.DateTimeField()
-    redirect_uri = models.TextField()
-    scope = models.TextField(blank=True)
+    code = models.CharField(max_length=255, unique=True, verbose_name=_("code"))  # code comes from oauthlib
+    application = models.ForeignKey(
+        oauth2_settings.APPLICATION_MODEL, on_delete=models.CASCADE, verbose_name=_("application")
+    )
+    expires = models.DateTimeField(verbose_name=_("expires"))
+    redirect_uri = models.TextField(verbose_name=_("redirect URI"))
+    scope = models.TextField(blank=True, verbose_name=_("scope"))
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
+    updated = models.DateTimeField(auto_now=True, verbose_name=_("updated"))
 
-    code_challenge = models.CharField(max_length=128, blank=True, default="")
+    code_challenge = models.CharField(
+        max_length=128, blank=True, default="", verbose_name=_("code challenge")
+    )
     code_challenge_method = models.CharField(
-        max_length=10, blank=True, default="", choices=CODE_CHALLENGE_METHODS
+        max_length=10,
+        blank=True,
+        default="",
+        choices=CODE_CHALLENGE_METHODS,
+        verbose_name=_("code challenge method"),
     )
 
-    nonce = models.CharField(max_length=255, blank=True, default="")
-    claims = models.TextField(blank=True)
+    nonce = models.CharField(max_length=255, blank=True, default="", verbose_name=_("nonce"))
+    claims = models.TextField(blank=True, verbose_name=_("claims"))
 
-    resource = ResourceJSONField(blank=True, default=list)
+    resource = ResourceJSONField(blank=True, default=list, verbose_name=_("resource"))
 
     def is_expired(self):
         """
@@ -466,8 +558,19 @@ class AbstractGrant(models.Model):
 
         return timezone.now() >= self.expires
 
-    def redirect_uri_allowed(self, uri):
-        return uri == self.redirect_uri
+    def redirect_uri_allowed(self, uri: str) -> bool:
+        allowed = uri == self.redirect_uri
+        if not allowed and logger.isEnabledFor(logging.DEBUG):
+            # Never log self.code alongside this: an authorization code in a log
+            # file is a credential, which is why __str__ below omits it too.
+            logger.debug(
+                "redirect_uri %s does not match the redirect_uri %s recorded on grant #%s at "
+                "authorization time; RFC 6749 section 4.1.3 requires them to be identical",
+                _loggable_uri(uri),
+                _loggable_uri(self.redirect_uri),
+                self.pk,
+            )
+        return allowed
 
     def __str__(self):
         # Never render the authorization code itself: __str__ appears in the admin
@@ -506,6 +609,7 @@ class AbstractAccessToken(models.Model):
         blank=True,
         null=True,
         related_name="%(app_label)s_%(class)s",
+        verbose_name=_("user"),
     )
     source_refresh_token = models.OneToOneField(
         # unique=True implied by the OneToOneField
@@ -514,13 +618,15 @@ class AbstractAccessToken(models.Model):
         blank=True,
         null=True,
         related_name="refreshed_access_token",
+        verbose_name=_("source refresh token"),
     )
-    token = models.TextField()
+    token = models.TextField(verbose_name=_("token"))
     token_checksum = TokenChecksumField(
         max_length=64,
         blank=False,
         unique=True,
         db_index=True,
+        verbose_name=_("token checksum"),
     )
     id_token = models.OneToOneField(
         oauth2_settings.ID_TOKEN_MODEL,
@@ -528,21 +634,23 @@ class AbstractAccessToken(models.Model):
         blank=True,
         null=True,
         related_name="access_token",
+        verbose_name=_("ID token"),
     )
     application = models.ForeignKey(
         oauth2_settings.APPLICATION_MODEL,
         on_delete=models.CASCADE,
         blank=True,
         null=True,
+        verbose_name=_("application"),
     )
 
-    expires = models.DateTimeField()
-    scope = models.TextField(blank=True)
+    expires = models.DateTimeField(verbose_name=_("expires"))
+    scope = models.TextField(blank=True, verbose_name=_("scope"))
 
-    resource = ResourceJSONField(blank=True, default=list)
+    resource = ResourceJSONField(blank=True, default=list, verbose_name=_("resource"))
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
+    updated = models.DateTimeField(auto_now=True, verbose_name=_("updated"))
 
     def is_valid(self, scopes=None):
         """
@@ -650,28 +758,91 @@ class AbstractRefreshToken(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(app_label)s_%(class)s"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s",
+        verbose_name=_("user"),
     )
-    token = models.TextField()
+    token = models.TextField(verbose_name=_("token"))
     token_checksum = TokenChecksumField(
         max_length=64,
         blank=False,
+        verbose_name=_("token checksum"),
     )
-    application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL, on_delete=models.CASCADE)
+    application = models.ForeignKey(
+        oauth2_settings.APPLICATION_MODEL, on_delete=models.CASCADE, verbose_name=_("application")
+    )
     access_token = models.OneToOneField(
         oauth2_settings.ACCESS_TOKEN_MODEL,
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name="refresh_token",
+        verbose_name=_("access token"),
     )
-    token_family = models.UUIDField(null=True, blank=True, editable=False)
+    token_family = models.UUIDField(null=True, blank=True, editable=False, verbose_name=_("token family"))
 
-    resource = ResourceJSONField(blank=True, default=list)
+    resource = ResourceJSONField(blank=True, default=list, verbose_name=_("resource"))
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
-    revoked = models.DateTimeField(null=True)
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
+    updated = models.DateTimeField(auto_now=True, verbose_name=_("updated"))
+    revoked = models.DateTimeField(null=True, verbose_name=_("revoked"))
+
+    @classmethod
+    def revoke_family(cls, token_family: uuid.UUID | None) -> None:
+        """
+        Revoke every live refresh token sharing ``token_family`` and delete the family's
+        access tokens, in a constant number of queries.
+
+        This is the set-based equivalent of calling :meth:`revoke` on each member of the
+        family, which is what reuse protection needs: a rotating client adds a row to its
+        family on every refresh, so revoking row by row cost one ``SELECT ... FOR UPDATE``
+        round trip per token ever issued to that session, paid again on every replay of the
+        stale token (#1809). A model that overrides :meth:`revoke` to do more should
+        override this too.
+
+        Rows are not locked up front: unlike rotation this path mints nothing, so there is
+        no read-then-write to protect. The statements take their locks in the same order as
+        :meth:`revoke` -- refresh token, then access token -- so a concurrent rotation in
+        the family cannot deadlock against the sweep.
+
+        Falls back to revoking row by row if the bulk write hits the uniqueness of
+        ``(token_checksum, revoked)``; see the handler below and #1816.
+        """
+        if not token_family:
+            return
+
+        access_token_model = get_access_token_model()
+        access_token_database = router.db_for_write(access_token_model)
+
+        try:
+            with transaction.atomic(using=access_token_database):
+                now = timezone.now()
+                # ``updated`` is ``auto_now``, which a queryset update does not trigger.
+                cls.objects.filter(token_family=token_family, revoked__isnull=True).update(
+                    revoked=now, updated=now
+                )
+                # Deleting is what ``AccessToken.revoke()`` does, and ``access_token`` is
+                # ``SET_NULL``, so this clears the pointer on the rows revoked above as well.
+                # The family is re-read rather than snapshotted before the update, so a member
+                # rotated in concurrently loses its access token too and is left an orphan,
+                # which ``validate_refresh_token`` rejects. Sub-selecting through the forward
+                # FK avoids the reverse accessor, whose name a swapped model may change.
+                access_token_model.objects.filter(
+                    pk__in=cls.objects.filter(token_family=token_family).values("access_token_id")
+                ).delete()
+        except IntegrityError:
+            # Uniqueness is ``(token_checksum, revoked)``, so one shared timestamp cannot
+            # cover two live members holding the same checksum -- a state the constraint
+            # ought to forbid outright but does not, since NULLs compare distinct and live
+            # rows have ``revoked`` NULL (#1816). Reuse detection must not raise on the way
+            # to ``invalid_grant``, so fall back to the pre-#1809 sweep, which gives every
+            # row its own ``timezone.now()``. This costs a locking SELECT per family member
+            # again, but only for a family that is already in a state it cannot reach by
+            # rotating: the ``revoke()`` per row is the whole point of the fallback.
+            # Delete once #1816 takes ``revoked`` out of the unique key.
+            for related_rt in cls.objects.filter(token_family=token_family):
+                related_rt.revoke()
 
     def revoke(self):
         """
@@ -706,6 +877,11 @@ class AbstractRefreshToken(models.Model):
             "token_checksum",
             "revoked",
         )
+        indexes = [
+            # ``revoke_family()`` filters on ``token_family`` on the ``/token/`` path,
+            # and without an index that is a scan of the whole refresh token table.
+            models.Index(fields=["token_family"]),
+        ]
 
 
 class RefreshToken(AbstractRefreshToken):
@@ -737,19 +913,21 @@ class AbstractIDToken(models.Model):
         blank=True,
         null=True,
         related_name="%(app_label)s_%(class)s",
+        verbose_name=_("user"),
     )
-    jti = models.UUIDField(unique=True, default=uuid.uuid4, editable=False, verbose_name="JWT Token ID")
+    jti = models.UUIDField(unique=True, default=uuid.uuid4, editable=False, verbose_name=_("JWT Token ID"))
     application = models.ForeignKey(
         oauth2_settings.APPLICATION_MODEL,
         on_delete=models.CASCADE,
         blank=True,
         null=True,
+        verbose_name=_("application"),
     )
-    expires = models.DateTimeField()
-    scope = models.TextField(blank=True)
+    expires = models.DateTimeField(verbose_name=_("expires"))
+    scope = models.TextField(blank=True, verbose_name=_("scope"))
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
+    updated = models.DateTimeField(auto_now=True, verbose_name=_("updated"))
 
     def is_valid(self, scopes=None):
         """
@@ -839,19 +1017,24 @@ class AbstractDeviceGrant(models.Model):
         null=True,
         blank=True,
         on_delete=models.CASCADE,
+        verbose_name=_("user"),
     )
     # Uniqueness is enforced by the unique_device_code UniqueConstraint (Meta.constraints);
     # adding unique=True here would create a redundant duplicate index (MySQL warns ER_DUP_INDEX 1831).
-    device_code = models.CharField(max_length=100)
-    user_code = models.CharField(max_length=100)
-    scope = models.TextField(blank=True)
-    interval = models.IntegerField(default=5)
-    expires = models.DateTimeField()
+    device_code = models.CharField(max_length=100, verbose_name=_("device code"))
+    user_code = models.CharField(max_length=100, verbose_name=_("user code"))
+    scope = models.TextField(blank=True, verbose_name=_("scope"))
+    interval = models.IntegerField(default=5, verbose_name=_("interval"))
+    expires = models.DateTimeField(verbose_name=_("expires"))
     status = models.CharField(
-        max_length=64, blank=True, choices=DEVICE_FLOW_STATUS, default=AUTHORIZATION_PENDING
+        max_length=64,
+        blank=True,
+        choices=DEVICE_FLOW_STATUS,
+        default=AUTHORIZATION_PENDING,
+        verbose_name=_("status"),
     )
-    client_id = models.CharField(max_length=100, db_index=True)
-    last_checked = models.DateTimeField(auto_now=True)
+    client_id = models.CharField(max_length=100, db_index=True, verbose_name=_("client ID"))
+    last_checked = models.DateTimeField(auto_now=True, verbose_name=_("last checked"))
 
     def is_expired(self):
         """
@@ -967,6 +1150,54 @@ def get_refresh_token_admin_class():
     return refresh_token_admin_class
 
 
+def refresh_token_expire_timedelta():
+    """Return ``REFRESH_TOKEN_EXPIRE_SECONDS`` as a ``timedelta``, or ``None`` when refresh
+    tokens do not age-expire (the setting is unset, ``0``, or ``timedelta(0)``).
+
+    Raises ``ImproperlyConfigured`` for a non-numeric, out-of-range, or negative value
+    (like ``REFRESH_TOKEN_GRACE_PERIOD_SECONDS``) so that both the validation-time
+    enforcement and ``clear_expired`` fail the same way on a misconfiguration instead of
+    raising an opaque ``TypeError``/``OverflowError``.
+    """
+    value = oauth2_settings.REFRESH_TOKEN_EXPIRE_SECONDS
+    if not value:
+        return None
+    if not isinstance(value, timedelta):
+        try:
+            value = timedelta(seconds=value)
+        except (TypeError, OverflowError):
+            raise ImproperlyConfigured("REFRESH_TOKEN_EXPIRE_SECONDS must be either a timedelta or seconds")
+    if value < timedelta(0):
+        raise ImproperlyConfigured("REFRESH_TOKEN_EXPIRE_SECONDS must not be negative")
+    return value
+
+
+def revoke_access_token(access_token: AbstractAccessToken) -> None:
+    """
+    Revoke an access token and, if present, its bound refresh token.
+
+    Deleting the access token on its own leaves the refresh token usable (the
+    ``RefreshToken.access_token`` FK is ``SET_NULL``), so it can still be exchanged for a fresh
+    access token, defeating the revocation. Per :rfc:`7009#section-2.1` revoking an access token
+    MAY also revoke the bound refresh token; revoking the refresh token also deletes the bound
+    access token, so it covers both. When there is no refresh token, revoke the access token
+    directly (which deletes it).
+
+    The bound refresh token is looked up with a forward query on the refresh token model rather
+    than the reverse ``access_token.refresh_token`` accessor, whose name depends on the
+    ``related_name`` a swapped refresh token model may override.
+
+    This is the single revoke path shared by the ``/revoke/`` endpoint, the
+    ``AuthorizedTokenDeleteView``, and the admin "Revoke selected access tokens" action. Whether a
+    refresh token may *survive* access-token revocation is a policy deferred to 4.x (see #1786).
+    """
+    refresh_token = get_refresh_token_model().objects.filter(access_token=access_token).first()
+    if refresh_token is not None:
+        refresh_token.revoke()
+    else:
+        access_token.revoke()
+
+
 def clear_expired():
     def batch_delete(queryset, query):
         CLEAR_EXPIRED_TOKENS_BATCH_SIZE = oauth2_settings.CLEAR_EXPIRED_TOKENS_BATCH_SIZE
@@ -994,7 +1225,6 @@ def clear_expired():
     id_token_model = get_id_token_model()
     grant_model = get_grant_model()
     REFRESH_TOKEN_GRACE_PERIOD_SECONDS = oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS
-    REFRESH_TOKEN_EXPIRE_SECONDS = oauth2_settings.REFRESH_TOKEN_EXPIRE_SECONDS
 
     if REFRESH_TOKEN_GRACE_PERIOD_SECONDS:
         try:
@@ -1007,14 +1237,9 @@ def clear_expired():
             raise ImproperlyConfigured(e)
         refresh_revoked_at = now - REFRESH_TOKEN_GRACE_PERIOD_SECONDS
 
-    if REFRESH_TOKEN_EXPIRE_SECONDS:
-        if not isinstance(REFRESH_TOKEN_EXPIRE_SECONDS, timedelta):
-            try:
-                REFRESH_TOKEN_EXPIRE_SECONDS = timedelta(seconds=REFRESH_TOKEN_EXPIRE_SECONDS)
-            except TypeError:
-                e = "REFRESH_TOKEN_EXPIRE_SECONDS must be either a timedelta or seconds"
-                raise ImproperlyConfigured(e)
-        refresh_expire_at = now - REFRESH_TOKEN_EXPIRE_SECONDS
+    refresh_token_expire_delta = refresh_token_expire_timedelta()
+    if refresh_token_expire_delta:
+        refresh_expire_at = now - refresh_token_expire_delta
 
     if oauth2_settings.REFRESH_TOKEN_REUSE_PROTECTION:
         # Revoked refresh tokens are what allows reuse of a rotated token to
@@ -1031,8 +1256,30 @@ def clear_expired():
     else:
         logger.info("refresh_revoked_at is %s. No revoked refresh tokens deleted.", refresh_revoked_at)
 
+    # Orphaned refresh tokens: non-revoked, but their access token is gone
+    # (``RefreshToken.access_token`` is SET_NULL, so deleting an access token out of band
+    # leaves the refresh token behind with a NULL FK). The toolkit no longer produces
+    # these -- both the RFC 7009 ``/revoke/`` endpoint and the admin view revoke the bound
+    # refresh token when an access token is revoked -- so any that remain came from an
+    # out-of-band deletion and are stale. Delete them regardless of
+    # REFRESH_TOKEN_EXPIRE_SECONDS: there is no access token to anchor an expiry on, and a
+    # surviving orphan could re-mint access tokens, defeating whatever removed the access
+    # token in the first place. This is also the case that could previously live in the DB
+    # forever, because the age join below can never match a NULL access token (#746).
+    orphan_query = models.Q(revoked__isnull=True, access_token__isnull=True)
+    orphans = refresh_token_model.objects.filter(orphan_query)
+
+    orphans_deleted_no = batch_delete(orphans, orphan_query)
+    logger.info("%s Orphaned refresh tokens deleted", orphans_deleted_no)
+
     if refresh_expire_at:
-        expired_query = models.Q(access_token__expires__lt=refresh_expire_at)
+        # Idle expiry: a refresh token is reclaimed REFRESH_TOKEN_EXPIRE_SECONDS after its
+        # paired access token expires. ``access_token.expires`` advances on every refresh,
+        # so an actively-used token slides forward and only dormant ones are reaped. Orphans
+        # (NULL access token) are handled above; this join deliberately ignores them.
+        # ``__lte`` so a token whose access token expired exactly at the cutoff is reclaimed,
+        # matching AccessToken.is_expired() (``now >= expires``) and validation-time expiry.
+        expired_query = models.Q(revoked__isnull=True, access_token__expires__lte=refresh_expire_at)
         expired = refresh_token_model.objects.filter(expired_query)
 
         expired_deleted_no = batch_delete(expired, expired_query)
@@ -1059,11 +1306,98 @@ def clear_expired():
     logger.info("%s Expired grant tokens deleted", grants_deleted_no)
 
 
-def redirect_to_uri_allowed(uri, allowed_uris):
-    """
-    Checks if a given uri can be redirected to based on the provided allowed_uris configuration.
+# Neither side of the comparison is trusted to be bounded.  The requested URI is
+# client input, and the registered URIs only look like operator configuration: under
+# RFC 7591 dynamic registration and CIMD they are supplied by the registrant, and
+# neither path caps their length or their number.  256 characters is well past any
+# legitimate redirect URI, and 10 candidates past any legitimate client, while both
+# stay short enough that a flood of junk cannot fill the log.
+_MAX_LOGGED_URI_LENGTH = 256
+_MAX_LOGGED_CANDIDATES = 10
 
-    On top of exact matches, this function also handles loopback IPs based on RFC 8252.
+
+def _loggable_uri(uri: Optional[str]) -> str:
+    """
+    Render a client-supplied URI for inclusion in a log message.
+
+    The value is truncated, and rendered with ``repr()`` so that control
+    characters -- CR/LF above all -- are escaped rather than forging log lines.
+
+    :param uri: URI to render
+    """
+    if uri is None:
+        return "None"
+    if len(uri) > _MAX_LOGGED_URI_LENGTH:
+        uri = uri[:_MAX_LOGGED_URI_LENGTH] + "...[truncated]"
+    return repr(uri)
+
+
+def _format_uri_mismatch_reasons(reasons: list[tuple[Optional[str], str]]) -> str:
+    """
+    Render the reasons collected by :func:`check_redirect_to_uri_allowed` as one
+    log-friendly string.
+
+    Candidates are rendered through :func:`_loggable_uri` for the same reason the
+    requested URI is: a registered URI can be registrant-supplied and unbounded.
+
+    :param reasons: ``(candidate, reason)`` pairs; a ``None`` candidate is a
+        rejection of the requested URI itself rather than of a registered one
+    """
+    if not reasons:
+        return "no URIs are registered"
+    listed = "; ".join(
+        reason if candidate is None else "{0}: {1}".format(_loggable_uri(candidate), reason)
+        for candidate, reason in reasons[:_MAX_LOGGED_CANDIDATES]
+    )
+    remaining = len(reasons) - _MAX_LOGGED_CANDIDATES
+    if remaining > 0:
+        listed += "; ...and {0} further registered URI(s) not listed".format(remaining)
+    return listed
+
+
+def _log_registered_uri_mismatch(
+    uri_type: str, uri: str, client_id: str, reasons: list[tuple[Optional[str], str]]
+) -> None:
+    """
+    Log why a client-supplied URI matched none of the URIs registered for a client.
+
+    Without this the mismatch reaches the developer as nothing but oauthlib's bare
+    "Mismatching redirect URI." (see #681).  The detail is deliberately confined to
+    the log and must never be added to the error response: that response is
+    rendered to whoever made the request, so it would let an unauthenticated caller
+    read back a client's registered URIs by sending a junk URI with a known
+    client_id.
+
+    :param uri_type: name of the parameter being checked, for the log message
+    :param uri: the client-supplied URI that was rejected
+    :param client_id: client whose registered URIs were checked
+    :param reasons: ``(candidate, reason)`` pairs from :func:`check_redirect_to_uri_allowed`
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    logger.debug(
+        "%s %s does not match any %s registered for client_id %r: %s",
+        uri_type,
+        _loggable_uri(uri),
+        uri_type,
+        client_id,
+        _format_uri_mismatch_reasons(reasons),
+    )
+
+
+def check_redirect_to_uri_allowed(
+    uri: str, allowed_uris: list[str]
+) -> tuple[bool, list[tuple[Optional[str], str]]]:
+    """
+    Same check as :func:`redirect_to_uri_allowed`, additionally reporting why the
+    URI was rejected.
+
+    Returns ``(allowed, reasons)``.  ``reasons`` is only meaningful when
+    ``allowed`` is ``False``: it holds one ``(candidate, reason)`` pair for every
+    registered URI that failed to match, plus pairs with a ``None`` candidate for
+    rejections of the requested URI itself.  A reason names the component that
+    differs instead of echoing the requested URI back, which callers log once and
+    only after passing it through :func:`_loggable_uri`.
 
     :param uri: URI to check
     :param allowed_uris: A list of URIs that are allowed
@@ -1072,21 +1406,60 @@ def redirect_to_uri_allowed(uri, allowed_uris):
     if not isinstance(allowed_uris, list):
         raise ValueError("allowed_uris must be a list")
 
-    parsed_uri = urlparse(uri)
-    uqs_set = set(parse_qsl(parsed_uri.query))
+    reasons: list[tuple[Optional[str], str]] = []
+
+    # urlsplit() rather than urlparse(): urlparse() peels ";params" off the last
+    # path segment into a separate attribute, so comparing .path alone would let a
+    # request smuggle "/cb;evil=1" past a registered "/cb".  urlsplit() leaves the
+    # parameters in .path, where they are compared like the rest of it.
+    parsed_uri = urlsplit(uri)
+
+    # RFC 6749 section 3.1.2: "The endpoint URI MUST NOT include a fragment
+    # component."  Test the raw string rather than .fragment, which is "" both for
+    # a URI with no fragment and for one ending in a bare "#" -- the latter is a
+    # (empty) fragment component and is not the registered URI.  A percent-encoded
+    # %23 is not a fragment delimiter and is unaffected.
+    if "#" in uri:
+        return False, [(None, "the requested URI has a fragment, which RFC 6749 section 3.1.2 forbids")]
+
+    # Credentials are not part of a registered callback and must not ride along on
+    # the request; without this "https://evil@example.com/cb" would match a
+    # registered "https://example.com/cb", since only .hostname is compared below.
+    if "@" in parsed_uri.netloc:
+        return False, [(None, "the requested URI carries userinfo credentials in its authority")]
+
     for allowed_uri in allowed_uris:
-        parsed_allowed_uri = urlparse(allowed_uri)
+        # A registered URI carrying a fragment or credentials cannot authorize
+        # anything: the request forms that would match it are rejected above.
+        if "#" in allowed_uri:
+            reasons.append((allowed_uri, "the registered URI has a fragment and can never match"))
+            continue
+
+        parsed_allowed_uri = urlsplit(allowed_uri)
+
+        if "@" in parsed_allowed_uri.netloc:
+            reasons.append(
+                (allowed_uri, "the registered URI carries userinfo credentials and can never match")
+            )
+            continue
 
         if parsed_allowed_uri.scheme != parsed_uri.scheme:
             # match failed, continue
+            reasons.append((allowed_uri, "scheme differs"))
             continue
 
         """ check hostname """
-        if oauth2_settings.ALLOW_URI_WILDCARDS and parsed_allowed_uri.hostname.startswith("*"):
+        # A private-use URI scheme redirect (RFC 8252 §7.1) has no naming
+        # authority, so hostname is None on either side; guard before matching.
+        allowed_hostname = parsed_allowed_uri.hostname
+        uri_hostname = parsed_uri.hostname
+        if oauth2_settings.ALLOW_URI_WILDCARDS and allowed_hostname and allowed_hostname.startswith("*"):
             """ wildcard hostname """
-            if not parsed_uri.hostname.endswith(parsed_allowed_uri.hostname[1:]):
+            if not uri_hostname or not uri_hostname.endswith(allowed_hostname[1:]):
+                reasons.append((allowed_uri, "hostname does not match the registered wildcard"))
                 continue
-        elif parsed_allowed_uri.hostname != parsed_uri.hostname:
+        elif allowed_hostname != uri_hostname:
+            reasons.append((allowed_uri, "hostname differs"))
             continue
 
         # From RFC 8252 (Section 7.3)
@@ -1112,21 +1485,54 @@ def redirect_to_uri_allowed(uri, allowed_uris):
         )
         """ check port """
         if not allowed_uri_is_loopback and parsed_allowed_uri.port != parsed_uri.port:
+            reasons.append((allowed_uri, "port differs"))
             continue
 
         """ check path """
         if parsed_allowed_uri.path != parsed_uri.path:
+            reasons.append((allowed_uri, "path differs"))
             continue
 
         """ check querystring """
-        aqs_set = set(parse_qsl(parsed_allowed_uri.query))
-        if not aqs_set.issubset(uqs_set):
+        # RFC 9700 section 2.1 requires exact matching of the redirect URI (see
+        # also OpenID Connect Core section 3.1.2.1, which mandates RFC 3986
+        # section 6.2.1 Simple String Comparison).  This previously tested that
+        # the registered query was a *subset* of the requested one, which let a
+        # request carry query parameters that were never registered: an attacker
+        # could append parameters to an otherwise-legitimate redirect URI and
+        # have the authorization server reflect them into the client's callback
+        # alongside the authorization code (RFC 9700 section 4.1).
+        #
+        # .query is "" both when there is no query component and when there is an
+        # empty one ("https://example.com/cb?"), which are different URIs under
+        # simple string comparison, so the delimiter's presence is compared too.
+        # A "?" cannot appear in a scheme, authority or path -- the first one always
+        # opens the query -- so testing the raw string is equivalent to testing for
+        # the component.  A percent-encoded %3F is not a delimiter and is unaffected.
+        if ("?" in allowed_uri) != ("?" in uri):
+            reasons.append((allowed_uri, "one URI has a query component and the other does not"))
+            continue
+        if parsed_allowed_uri.query != parsed_uri.query:
+            reasons.append((allowed_uri, "query string differs"))
             continue  # circuit break
 
-        return True
+        return True, []
 
     # if uris matched then it's not allowed
-    return False
+    return False, reasons
+
+
+def redirect_to_uri_allowed(uri: str, allowed_uris: list[str]) -> bool:
+    """
+    Checks if a given uri can be redirected to based on the provided allowed_uris configuration.
+
+    On top of exact matches, this function also handles loopback IPs based on RFC 8252.
+
+    :param uri: URI to check
+    :param allowed_uris: A list of URIs that are allowed
+    """
+    allowed, _reasons = check_redirect_to_uri_allowed(uri, allowed_uris)
+    return allowed
 
 
 def is_origin_allowed(origin, allowed_origins):

@@ -43,6 +43,7 @@ class TestActivityResponse(unittest.TestCase):
                         user_id = '', 
                         details = { }, )
                     ],
+                source = '',
                 warning = '',
                 hint = ''
             )

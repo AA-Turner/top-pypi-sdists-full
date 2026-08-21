@@ -11,6 +11,7 @@ from hypothesis.errors import FailedHealthCheck, InvalidArgument, Unsatisfiable
 from hypothesis.reporting import with_reporter
 
 from schemathesis.config import OutputConfig
+from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.jsonschema.bundler import unbundle
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.output import truncate_json
@@ -18,7 +19,10 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.hypothesis.examples import generate_one
 
 if TYPE_CHECKING:
+    from hypothesis.strategies import SearchStrategy
+
     from schemathesis.schemas import APIOperation
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiComponent
 
 
 def ignore(_: str) -> None:
@@ -98,9 +102,23 @@ def is_empty_strategy_error(exc: InvalidArgument) -> bool:
     return "because it has no values" in message or "no elements can be drawn from the element strategy" in message
 
 
-def find_unsatisfiable_parameter(operation: APIOperation) -> UnsatisfiableParameter | None:
-    from hypothesis_jsonschema import from_schema
+def _parameter_strategy(
+    operation: APIOperation, parameter: OpenApiComponent, location: ParameterLocation
+) -> SearchStrategy:
+    from schemathesis.specs.openapi._hypothesis import make_positive_strategy
 
+    return make_positive_strategy(
+        parameter.optimized_schema,
+        operation.label,
+        location,
+        parameter.media_type,
+        operation.schema.config.generation_for(operation=operation, phase="fuzzing"),
+        operation.schema.adapter.jsonschema_validator_cls,
+        name_to_uri=parameter.name_to_uri,
+    )
+
+
+def find_unsatisfiable_parameter(operation: APIOperation) -> UnsatisfiableParameter | None:
     for location, container in (
         (ParameterLocation.QUERY, operation.query),
         (ParameterLocation.PATH, operation.path_parameters),
@@ -110,8 +128,8 @@ def find_unsatisfiable_parameter(operation: APIOperation) -> UnsatisfiableParame
     ):
         for parameter in container:
             try:
-                generate_one(from_schema(parameter.optimized_schema))
-            except (Unsatisfiable, InvalidArgument):
+                generate_one(_parameter_strategy(operation, parameter, location))
+            except (Unsatisfiable, InvalidArgument, InvalidSchema):
                 if location == ParameterLocation.BODY:
                     name = parameter.media_type
                 else:
@@ -143,6 +161,17 @@ def build_unsatisfiable_error(
         message += "\n\nTip: Review all parameters and request body schemas for conflicting constraints"
 
     return Unsatisfiable(message)
+
+
+class UnsatisfiableSchema(Unsatisfiable):
+    """A schema that admits no value at all, as opposed to one Hypothesis gave up on."""
+
+
+def build_unsatisfiable_schema_error(operation: APIOperation) -> UnsatisfiableSchema:
+    return UnsatisfiableSchema(f"""Cannot generate test data for {operation.label}
+
+This usually means:
+{UNSATISFIABILITY_CAUSE}""")
 
 
 HEALTH_CHECK_CAUSES = {
@@ -210,10 +239,10 @@ def _extract_health_check_reason(exc: FailedHealthCheck | InvalidArgument) -> He
         return HealthCheck.filter_too_much
     elif "too_slow" in message or "too slow" in message:
         return HealthCheck.too_slow
-    elif ("large_base_example" in message or "can never generate an example, because min_size" in message) or (
-        isinstance(exc, InvalidArgument)
-        and message.endswith("larger than hypothesis is designed to handle")
-        or "can never generate an example, because min_size is larger than hypothesis supports" in message
+    elif (
+        "large_base_example" in message
+        or "because min_size is larger than hypothesis supports" in message
+        or (isinstance(exc, InvalidArgument) and message.endswith("larger than hypothesis is designed to handle"))
     ):
         return HealthCheck.large_base_example
 
@@ -222,7 +251,6 @@ def _extract_health_check_reason(exc: FailedHealthCheck | InvalidArgument) -> He
 
 def find_slow_parameter(operation: APIOperation, reason: HealthCheck) -> SlowParameter | None:
     from hypothesis.errors import FailedHealthCheck
-    from hypothesis_jsonschema import from_schema
 
     for location, container in (
         (ParameterLocation.QUERY, operation.query),
@@ -233,8 +261,8 @@ def find_slow_parameter(operation: APIOperation, reason: HealthCheck) -> SlowPar
     ):
         for parameter in container:
             try:
-                generate_one(from_schema(parameter.optimized_schema), suppress_health_check=[])
-            except (FailedHealthCheck, Unsatisfiable, InvalidArgument):
+                generate_one(_parameter_strategy(operation, parameter, location), suppress_health_check=[])
+            except (FailedHealthCheck, Unsatisfiable, InvalidArgument, InvalidSchema):
                 if location == ParameterLocation.BODY:
                     name = parameter.media_type
                 else:

@@ -7,15 +7,14 @@ from typing import TYPE_CHECKING, Any, cast
 import jsonschema_rs
 
 from schemathesis.core import NOT_SET, NotSet, media_types
-from schemathesis.core.compat import RefResolutionError
-from schemathesis.core.errors import InvalidSchema, MalformedMediaType
+from schemathesis.core.errors import InvalidSchema, MalformedMediaType, RefResolutionError
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
-from schemathesis.core.jsonschema.bundler import Bundle, bundle_for_validation
+from schemathesis.core.jsonschema.bundler import Bundle, bundle
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.transport import expand_status_code
 from schemathesis.specs.openapi import types
-from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
+from schemathesis.specs.openapi.adapter.protocol import ResponseAdapter
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.converter import to_json_schema
 
@@ -52,7 +51,7 @@ class OpenApiResponse:
     definition: Mapping[str, Any]
     resolver: Resolver
     scope: str
-    adapter: SpecificationAdapter
+    adapter: ResponseAdapter
 
     __slots__ = (
         "status_code",
@@ -131,7 +130,7 @@ class OpenApiResponse:
             return self._sse_validator
         from schemathesis.specs.openapi.content_keywords import SseValidator as _SseValidator
 
-        self._sse_validator = _SseValidator(schema, self.adapter)
+        self._sse_validator = _SseValidator(schema, self.adapter.jsonschema_validator_cls)
         return self._sse_validator
 
     def get_raw_schema(self) -> JsonSchema | None:
@@ -175,7 +174,7 @@ class OpenApiResponses:
     _inner: dict[str, OpenApiResponse]
     resolver: Resolver
     scope: str
-    adapter: SpecificationAdapter
+    adapter: ResponseAdapter
 
     @classmethod
     def from_definition(
@@ -183,7 +182,7 @@ class OpenApiResponses:
         definition: types.v3.Responses | types.v2.Responses,
         resolver: Resolver,
         scope: str,
-        adapter: SpecificationAdapter,
+        adapter: ResponseAdapter,
     ) -> OpenApiResponses:
         """Build new collection of responses from their raw definition."""
         return cls(
@@ -256,7 +255,7 @@ def _iter_resolved_responses(
     definition: types.v3.Responses | types.v2.Responses,
     resolver: Resolver,
     scope: str,
-    adapter: SpecificationAdapter,
+    adapter: ResponseAdapter,
 ) -> Iterator[tuple[str, OpenApiResponse]]:
     """Iterate and resolve response definitions."""
     for key, response in definition.items():
@@ -338,7 +337,7 @@ def _prepare_schema(
     merge_ref_siblings: bool = False,
 ) -> Bundle:
     try:
-        bundled = bundle_for_validation(schema, resolver)
+        bundled = bundle(schema, resolver)
     except RefResolutionError as exc:
         raise InvalidSchema.from_reference_resolution_error(exc, None, None) from None
     # Do not clone the schema, as bundling already does it
@@ -518,7 +517,7 @@ class OpenApiResponseHeader:
     definition: Mapping[str, Any]
     resolver: Resolver
     scope: str
-    adapter: SpecificationAdapter
+    adapter: ResponseAdapter
 
     __slots__ = ("name", "definition", "resolver", "scope", "adapter", "_bundle", "_validator")
 
@@ -564,7 +563,7 @@ def _iter_resolved_headers(
     definition: types.v3.Headers | types.v2.Headers,
     resolver: Resolver,
     scope: str,
-    adapter: SpecificationAdapter,
+    adapter: ResponseAdapter,
 ) -> Iterator[tuple[str, OpenApiResponseHeader]]:
     """Iterate and resolve header definitions."""
     for name, header in definition.items():

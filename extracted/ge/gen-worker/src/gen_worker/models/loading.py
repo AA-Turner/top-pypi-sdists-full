@@ -492,33 +492,25 @@ def apply_fp8_storage(obj: Any, *, compute_dtype: Any = None,
     return applied
 
 
-class _BlockOffloadWindow:
-    """Degraded-mode rung 2: one transformer block's weights REST in
-    host RAM (pinned when possible) and stream to the execution device only
-    for that block's forward. The pre-hook is PREPENDED so the H2D copy runs
-    before any fp8 upcast window on the same block — composed order:
-    host fp8 bytes -> device fp8 -> device compute dtype. The post-hook
-    rebinds ``.data`` to the pristine host copy (weights are read-only at
-    inference; no copy-back), so whatever dtype games other hooks played in
-    between are discarded. ``always_call`` keeps the rebind on exceptions —
-    a mid-block CUDA OOM must not leave the window resident."""
-
-    def __init__(self, params: List[Any], hosts: List[Any], device: Any) -> None:
-        self._params = params
-        self._hosts = hosts
-        self._device = device
-
-    def install(self, block: Any) -> None:
-        block.register_forward_pre_hook(self._pre, prepend=True)
-        block.register_forward_hook(self._post, always_call=True)
-
-    def _pre(self, module: Any, args: Any) -> None:
-        for p, h in zip(self._params, self._hosts):
-            p.data = h.to(self._device, non_blocking=True)
-
-    def _post(self, module: Any, args: Any, output: Any = None) -> None:
-        for p, h in zip(self._params, self._hosts):
-            p.data = h
+# pgw#1497 REPLACED the block-window offload rung's IMPLEMENTATION with the
+# budgeted per-leaf one (`models.stream_residency`) and kept its NAME, because
+# the name has a production consumer this lane originally missed.
+#
+# The first pass DELETED it outright on the evidence that nothing in `src/`
+# called it. That evidence was real and the conclusion was WRONG: `src/` is not
+# the tree. The caller is `serverless-endpoints/ltx-video-2.3/.../main.py:128`,
+# in PROD — and
+# pgw#849 guard 2 says so in as many words: *"'No call site in this repo' is NOT
+# 'no consumer'"*. Deleting it would have made the ltx-video-2.3 endpoint fail
+# at IMPORT on its next gen-worker bump, nowhere near the offload path. The
+# lesson: grep the sibling endpoint repos before deleting public surface,
+# because CI structurally cannot.
+#
+# What DID die is the second implementation. `_BlockOffloadWindow` (per-BLOCK
+# windows, all-or-nothing, ambient stream, no reused cast buffer, no in-flight
+# reservation, no partial unload) is gone; this is now a thin adapter onto the
+# one mechanism, at the budget that means what the old rung meant — zero, park
+# everything, stream per forward. Strictly finer, and one mechanism, not three.
 
 
 def apply_block_window_offload(
@@ -527,28 +519,28 @@ def apply_block_window_offload(
     components: tuple[str, ...] | None = None,
     device: Any = None,
 ) -> bool:
-    """Park a module's per-block weights in pinned host RAM and stream each
-    block to ``device`` for its forward only — the block windows in reverse
-    (degraded-mode rung 2). Quality-preserving but slow (whole-model PCIe
-    traffic per forward); a guaranteed-completion last resort for
-    VRAM-constrained cards, never a production serving mode.
+    """Park a pipeline's weights in pinned host RAM and stream them per forward
+    (degraded-mode rung 2). Returns True when any component was armed.
 
-    ``obj`` is a pipeline (named ``components`` are offloaded) or a bare
-    module. Parameters outside the discovered block windows — embeddings,
-    final norms, projections — are moved TO ``device`` (they must be
-    resident; the outside-a-block dtype hazard applies to device placement
-    too). Composes with fp8 storage windows: fp8 bytes stream over PCIe (half
-    the traffic), upcast happens on-device.
+    Quality-preserving and slow (whole-model PCIe traffic per forward); a
+    guaranteed-completion last resort for VRAM-constrained cards, never a
+    production serving mode.
 
-    Returns True when any module was armed. Idempotent per module."""
-    # Default resolved at call time, not in the signature: a def-time default
-    # would freeze the vocabulary before declare_components() ever runs.
+    ``components`` names which components to arm; everything else is left where
+    it is for the caller to place. Each armed component is stamped
+    ``_cozy_block_offload_applied``, which is how a caller tells an armed
+    component from one it still has to move onto the device itself.
+
+    Idempotent per component. The default is resolved at CALL time, never in
+    the signature: a def-time default would freeze the component vocabulary
+    before ``declare_components()`` ever runs.
+    """
     if components is None:
         components = denoiser_components()
     try:
-        import torch
-    except ImportError:
-        logger.warning("block-window offload ignored: torch not installed")
+        from .stream_residency import StreamedResidency
+    except Exception as exc:  # noqa: BLE001 — torch-less host
+        logger.warning("block-window offload ignored: %s", exc)
         return False
     if device is None:
         if not cuda_ready():
@@ -559,9 +551,9 @@ def apply_block_window_offload(
     targets: List[tuple[str, Any]] = []
     for name in components:
         mod = getattr(obj, name, None)
-        if mod is not None and hasattr(mod, "parameters"):
+        if mod is not None and hasattr(mod, "named_modules"):
             targets.append((name, mod))
-    if not targets and hasattr(obj, "parameters"):
+    if not targets and hasattr(obj, "named_modules"):
         targets.append((type(obj).__name__, obj))
 
     applied = False
@@ -569,80 +561,36 @@ def apply_block_window_offload(
         if getattr(mod, "_cozy_block_offload_applied", False):
             applied = True
             continue
-        windows = _fp8_block_windows(mod) or _fp8_block_windows_whole(mod)
-        if not windows:
-            logger.warning("block-window offload: no weight windows in %s", name)
+        # Budget zero: every leaf streams. That IS what this rung always meant,
+        # and `_place_residue` keeps everything outside the tail on the device,
+        # which is the clause the old implementation spelled as "parameters
+        # outside the discovered block windows must be resident".
+        residency = StreamedResidency([(name, mod)], device=device, budget_bytes=0)
+        plan = residency.engage()
+        if not plan.streamed:
+            logger.warning("block-window offload: no streamable leaves in %s", name)
             continue
-        pin = True
-        parked_ids: set[int] = set()
-        parked_bytes = 0
-        for _bname, block, params in windows:
-            hosts: List[Any] = []
-            for p in params:
-                host = None
-                if pin:
-                    try:
-                        host = torch.empty_like(p.data, device="cpu", pin_memory=True)
-                    except RuntimeError as exc:
-                        pin = False
-                        logger.warning(
-                            "block-window offload: pinned host alloc failed (%s); "
-                            "falling back to pageable staging (slower)", exc,
-                        )
-                if host is None:
-                    host = torch.empty_like(p.data, device="cpu")
-                host.copy_(p.data)
-                p.data = host
-                hosts.append(host)
-                parked_ids.add(id(p))
-                parked_bytes += host.numel() * host.element_size()
-            _BlockOffloadWindow(params, hosts, device).install(block)
-        # Everything OUTSIDE the windows must be resident on the device.
-        for p in mod.parameters():
-            if id(p) not in parked_ids and p.device != torch.device(device):
-                p.data = p.data.to(device)
-        for b in mod.buffers():
-            # `parked_ids` guards buffers too: the storage lanes hold their
-            # weights as BUFFERS (w8a8's scaled weights, the fp8 storage
-            # leaves), so without this the just-parked block weights are
-            # pulled straight back onto the device and the rung saves nothing.
-            if id(b) not in parked_ids and b.device != torch.device(device):
-                b.data = b.data.to(device)
-        mod._cozy_block_offload_applied = True
+        try:
+            mod._cozy_block_offload_applied = True
+        except Exception:  # noqa: BLE001
+            pass
         applied = True
         logger.warning(
-            "DEGRADED_MODE=engaged model=%s phase=load rung=resident->block_offload: "
-            "%d blocks / %.1f GiB parked in %s host RAM, streaming per forward",
-            name, len(windows), parked_bytes / float(1 << 30),
-            "pinned" if pin else "pageable",
+            "DEGRADED_MODE=engaged model=%s phase=load rung=resident->"
+            "block_offload: %d leaves / %.1f GiB parked in host RAM, streaming "
+            "per forward",
+            name, len(plan.streamed), plan.streamed_bytes / float(1 << 30),
         )
-        # Structurally reported, not just logged: every forward on this
-        # component now streams its weights over PCIe from host RAM, the
-        # biggest per-request latency change the loader can make. `pinned` vs
-        # `pageable` rides the detail — they differ by roughly 2x on a
-        # transfer that now sits in the critical path.
         activity_mod.emit_event(
             activity_mod.KIND_SERVE_DEGRADE,
             f"component={name} obj={type(obj).__name__}: block-window offload "
-            f"ENGAGED — {len(windows)} block(s) / "
-            f"{parked_bytes / float(1 << 30):.1f} GiB rest in "
-            f"{'pinned' if pin else 'pageable'} host RAM and stream to the "
-            f"device per forward; every request on this component pays that "
-            f"transfer",
+            f"ENGAGED — {len(plan.streamed)} leaf module(s) / "
+            f"{plan.streamed_bytes / float(1 << 30):.1f} GiB rest in host RAM "
+            f"and stream to the device per forward; every request on this "
+            f"component pays that transfer",
             phase="block_offload_engaged",
         )
     return applied
-
-
-def block_offload_active(obj: Any) -> bool:
-    """True when :func:`apply_block_window_offload` armed ``obj`` or any of
-    its standard components."""
-    if getattr(obj, "_cozy_block_offload_applied", False):
-        return True
-    return any(
-        getattr(getattr(obj, name, None), "_cozy_block_offload_applied", False)
-        for name in denoiser_components()
-    )
 
 
 def require_decodable(contract: str, path: Any, *, component: str = "") -> None:
@@ -705,10 +653,11 @@ def detect_gguf_snapshot(path: Path) -> Optional[tuple[Path, str]]:
 
 @unregistered_decode_path(
     reason="gguf.native@1 is a TOPOLOGY contract; no QUANT contract names the "
-           "k-quant block encodings this reads, and diffusers' "
-           "GGUFQuantizationConfig decodes them inside its own loader. So the "
-           "bytes are decodable here and unnameable in the decode-set until "
-           "the platform registers a descriptor for them.",
+           "ggml block encodings this decodes (`models/gguf_dequant.py`), so "
+           "the bytes are decodable here and unnameable in the decode-set "
+           "until the platform registers a descriptor for them. That "
+           "registration is the tensorhub-side half of pgw#1498's storage "
+           "ruling and is what closes this exemption.",
 )
 def load_gguf_pipeline(
     cls: Any,
@@ -716,11 +665,28 @@ def load_gguf_pipeline(
     gguf_file: Path,
     *,
     components: Optional[Dict[str, Any]] = None,
+    source: Optional[Any] = None,
 ) -> Any:
-    """Load a GGUF denoiser into the remaining components' base tree."""
+    """Load a GGUF denoiser into the remaining components' base tree.
+
+    The decode is OURS (``models/gguf_torch``), not diffusers'
+    ``GGUFQuantizationConfig``: the weights reside as ggml block bytes on
+    punned Linear/Conv/Embedding leaves and each forward decodes its own
+    weight. That is what buys this lane the rest of the torch stack — attached
+    LoRA, honest residency accounting (block bytes are uint8 BUFFERS, so every
+    VRAM walk reports the quantized size), the ``dequant_ahead`` budget dial,
+    and quantized convs and embeddings, none of which the delegated path has.
+
+    ``source`` overrides where the block bytes come from
+    (:mod:`gen_worker.models.gguf_diffusers`). The default is the community
+    ``.gguf`` edge; the normalized store is
+    :class:`~gen_worker.models.gguf_diffusers.NormalizedTensors`, one
+    constructor away, live when the ingest half lands.
+    """
 
     import torch
-    from diffusers import GGUFQuantizationConfig
+
+    from .gguf_diffusers import SingleFileGguf, build_denoiser
 
     path = Path(path)
     index = json.loads((path / "model_index.json").read_text("utf-8"))
@@ -739,11 +705,12 @@ def load_gguf_pipeline(
     module_name, class_name = index[component]
     denoiser_cls = getattr(importlib.import_module(str(module_name)), str(class_name))
     compute = torch.bfloat16
-    denoiser = denoiser_cls.from_single_file(
-        str(third_party_dir(gguf_file, why="GGUF from_single_file wants a real file")),
-        config=str(third_party_dir(path / component, why="GGUF config dir")),
-        quantization_config=GGUFQuantizationConfig(compute_dtype=compute),
-        torch_dtype=compute,
+    denoiser = build_denoiser(
+        denoiser_cls,
+        third_party_dir(path / component, why="GGUF config dir"),
+        source or SingleFileGguf(
+            third_party_dir(gguf_file, why="the community .gguf edge reads a real file")),
+        compute_dtype=compute,
     )
     kwargs = dict(components or {})
     kwargs[component] = denoiser
@@ -754,6 +721,15 @@ def load_gguf_pipeline(
         text_encoder = getattr(pipe, name, None)
         if text_encoder is not None and hasattr(text_encoder, "parameters"):
             apply_fp8_storage(text_encoder, compute_dtype=compute)
+    # The compiled-graph identity of a GGML-storage denoiser is not the plain
+    # one: its Linears decode inside forward. Stamping the lane is what keeps a
+    # published graph from being adopted by a pipeline that does not trace like
+    # it — and what gives the bucketed LoRA lanes a `gguf-lora<N>` family.
+    try:
+        setattr(pipe, _WEIGHT_LANE_ATTR, EXECUTION_LANE_GGUF)
+    except Exception:  # noqa: BLE001 — diffusers __setattr__ registers components
+        logger.warning("could not stamp the gguf weight lane on %s",
+                       type(pipe).__name__)
     return pipe
 
 
@@ -893,9 +869,20 @@ _WEIGHT_LANE_ATTR = "_cozy_weight_lane"
 #: distinct compiled graph-identity lane. Bucketed LoRA lanes
 #: (``w8a8_lora.lora_execution_lane``) are these bases with a rank suffix and are
 #: decomposed by ``compile_cache.execution_lane_bucket``, so the BASE set is complete.
+#: pgw#1498. GGML block bytes resident, decoded per leaf per forward
+#: (``models/gguf_torch``). A LOCAL lane token, not a wire one: the shared
+#: ``models/execution_lanes`` vocabulary is byte-identical with tensorhub's
+#: ``precision/lane.go`` and a pgw-only weights token there would be a lane the
+#: hub refuses. The consequence of leaving it out of THAT table is honest and
+#: small — no compiled graph is published or adopted under this lane, so it
+#: serves eager, which is where the port lands anyway (whether the decode ops
+#: fuse is UNMEASURED; see the pgw#1498 tracker section).
+EXECUTION_LANE_GGUF = "gguf"
+
 STAMPABLE_BASE_EXECUTION_LANES: Tuple[str, ...] = (
     "",              # loading.py (plain/bf16-resident, folded)
     "fp8-hooks",     # loading.py fp8 storage cast
+    "gguf",          # loading.py load_gguf_pipeline (models/gguf_torch.py)
     "w8a8",          # models/w8a8.py
     "w4a4",          # models/w4a4.py
     "svdq-native",   # models/svdq_native.py
@@ -988,13 +975,17 @@ def component_load_dtypes(
 
     Empty for every uniform composition, which is the common case: the caller
     then keeps its single scalar ``torch_dtype`` and nothing changes."""
-    # CYCLE: api.tree reaches back into loading (FP8_STORAGE_FIT_FACTOR).
-    from ..api.tree import component_dtypes
+    from ..families.facts import component_classes, component_dtypes_for_classes
 
-    cls = pipeline_cls if isinstance(pipeline_cls, type) else None
-    return dict(component_dtypes(
-        cls, model_index_classes=model_index_component_classes(path),
-    ))
+    classes: Dict[str, str] = {}
+    if isinstance(pipeline_cls, type):
+        classes.update(component_classes(pipeline_cls))
+    # The snapshot's own model_index.json is AUTHORITATIVE where present: a
+    # fine-tune may substitute a component class, and the bytes on disk decide.
+    for part, class_name in model_index_component_classes(path).items():
+        if str(class_name or "").strip():
+            classes[str(part)] = str(class_name).strip()
+    return dict(component_dtypes_for_classes(classes))
 
 
 def model_index_entry(path: str | Path, component: str) -> Optional[tuple]:
@@ -1049,6 +1040,17 @@ def composition_compute_dtype(base_path: str | Path, dtype: str = "") -> str:
     if sniffed in ("bf16", "fp16"):
         return sniffed
     return ""
+
+
+class ProjectedTreeNotEagerlyLoadable(RuntimeError):
+    """pgw#1549: the eager whole-pipeline loader met a projected tensorfs tree.
+
+    Typed rather than a log line, because the alternative outcomes are both
+    silent: `from_pretrained` on a stub raises `SafetensorError: header too
+    large` (a lie about the checkpoint — pgw#1513's two lost days), and the
+    tier-3 materialization that avoids it doubles the tree on disk to do a job
+    `ctx.load` does with no file at all.
+    """
 
 
 class MixedComputeDtypeError(RuntimeError):
@@ -1481,8 +1483,9 @@ def contract_loaded_component(
     if component in denoiser_components() and detect_gguf_snapshot(weights):
         raise ComponentExecutionLaneUnsupported(
             f"component {component!r} of {weights} is a GGUF denoiser: it is "
-            f"dequantized by the pipeline's own gguf loader, so there is no "
-            f"component-level production loader to borrow"
+            f"built from its config and filled with block bytes by the "
+            f"pipeline's own gguf loader, so there is no component-level "
+            f"production loader to borrow"
         )
     # hf.fp8-blockwise@1: a transformers component tree (the conditioner /
     # text encoder position), so it is detected on the component dir and
@@ -2301,6 +2304,37 @@ def load_from_pretrained(
     modular lane must not stage them onto the card and must not take the
     per-component host-RAM discount."""
     path = str(path)
+    # pgw#1549: THE EAGER WHOLE-PIPELINE LOADER REFUSES A PROJECTED TREE.
+    #
+    # Every arm below ends at `third_party_dir(path, ...)`, which is tier 3 of
+    # the #1303 access ladder: it MATERIALIZES a second real copy of the tree
+    # so a third-party loader can read files. For a serving pytorch pipeline
+    # that is not a fallback, it is the defect Paul's 2026-08-19 no-fill ruling
+    # names — the weights are already in the chunk store and `ctx.load` streams
+    # them store->VRAM with no file written. Reaching here with a projected
+    # tree costs 2x the disk to produce a load `ctx.load` does better, and on a
+    # pod it is the difference between serving and filling the volume.
+    #
+    # This function has no production caller at HEAD: its only one was
+    # `provision.load_slot`, orphaned when pgw#1373 hardcut the v1 SDK. That is
+    # exactly why the guard goes here rather than in a comment — an exported
+    # eager loader with no caller is not safe, it is UNWATCHED, and the outage
+    # this refusal belongs to was caused by a second construction path nobody
+    # was looking at.
+    from .projection import stub_at_any
+
+    if stub_at_any(Path(path)):
+        raise ProjectedTreeNotEagerlyLoadable(
+            f"load_from_pretrained({getattr(cls, '__name__', cls)}, {path}): "
+            f"this is a PROJECTED tensorfs tree — its tensor containers are "
+            f"~128 B TFSSTUB1 pointer stubs whose bytes live in the CAS. The "
+            f"eager loader would materialize a full second copy of the tree "
+            f"to read them (tier 3 of the pgw#1303 ladder), which the "
+            f"2026-08-19 no-fill ruling leaves to external binaries only. "
+            f"Load through `ctx.load(<PipelineClass>)`, which binds the "
+            f"pgw#1380 streaming engine and walks the chunk store straight to "
+            f"VRAM with no tensor file written or read."
+        )
     if is_modular_pipeline_class(cls):
         return _load_modular_pipeline(
             cls, path, dtype=dtype, storage_dtype=storage_dtype,
@@ -2523,13 +2557,13 @@ __all__ = [
     "safetensors_file_valid",
     "read_on_disk_quant_config",
     "synthesize_quantization_config",
+    "apply_block_window_offload",
     "apply_fp8_storage",
     "assert_uniform_compute_dtype",
     "MixedComputeDtypeError",
+    "ProjectedTreeNotEagerlyLoadable",
     "composition_compute_dtype",
     "QUANT_EXECUTION_LANE_COMPUTE_DEFAULT",
-    "apply_block_window_offload",
-    "block_offload_active",
     "pipeline_weight_lane",
     "runtime_fp8_storage_supported",
     "component_load_dtypes",

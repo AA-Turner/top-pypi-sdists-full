@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: itkwasm
-Version: 1.0b200
+Version: 1.0b201
 Summary: Python interface to itk-wasm WebAssembly (Wasm) modules.
 Project-URL: Home, https://itkwasm.readthedocs.io
 Project-URL: Source, https://github.com/InsightSoftwareConsortium/ITK-Wasm

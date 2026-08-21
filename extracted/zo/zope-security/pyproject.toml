@@ -1,7 +1,5 @@
-# 
-# Generated from:
-# https://github.com/zopefoundation/meta/tree/master/config/c-code
-
+# Generated with zope.meta (https://zopemeta.readthedocs.io/) from:
+# https://github.com/zopefoundation/meta/tree/master/src/zope/meta/c-code
 [build-system]
 requires = [
     "setuptools",
@@ -12,10 +10,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zope.security"
-version = "8.3"
+version = "8.4"
 description = "Zope Security Framework"
 keywords = ["zope", "security", "policy", "principal", "permission"]
-readme = "README.rst"
+dynamic = ["readme"]
 requires-python = ">=3.10"
 license = "ZPL-2.1"
 authors = [
@@ -38,6 +36,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Internet :: WWW/HTTP",
@@ -107,3 +106,12 @@ source = [
     ".tox/*/lib/python*/site-packages/",
     ".tox/pypy*/site-packages/",
 ]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGES.rst"]}
+
+
+[tool.zest-releaser]
+create-wheel = false
+extra-message = ""
+upload-pypi = false

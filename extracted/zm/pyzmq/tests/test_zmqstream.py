@@ -134,9 +134,11 @@ async def test_shadow_socket(context):
 
 
 async def test_shadow_socket_close(context, caplog):
-    with warnings.catch_warnings(record=True) as records, context.socket(
-        zmq.PUSH
-    ) as push, context.socket(zmq.PULL) as pull:
+    with (
+        warnings.catch_warnings(record=True) as records,
+        context.socket(zmq.PUSH) as push,
+        context.socket(zmq.PULL) as pull,
+    ):
         push.linger = pull.linger = 0
         port = push.bind_to_random_port('tcp://127.0.0.1')
         pull.connect(f'tcp://127.0.0.1:{port}')

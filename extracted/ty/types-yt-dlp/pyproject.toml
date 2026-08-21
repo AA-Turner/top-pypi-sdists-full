@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-yt-dlp"
-version = "2026.7.4.20260807"
+version = "2026.8.19.20260821"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for yt-dlp"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) package. It can be used by type checkers
 to check code that uses `yt-dlp`. This version of
 `types-yt-dlp` aims to provide accurate annotations for
-`yt-dlp==2026.7.4`.
+`yt-dlp==2026.8.19`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,12 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.3.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [mypy](https://www.mypy-lang.org/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).
+[`9a0198f83bc8d3ab5dc0f79989f77612df53105f`](https://github.com/python/typeshed/commit/9a0198f83bc8d3ab5dc0f79989f77612df53105f).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: funasr
-Version: 1.4.2
+Version: 1.4.3
 Summary: OpenAI-compatible speech recognition toolkit with WebSocket streaming, vLLM acceleration, and llama.cpp/GGUF edge runtime.
 Home-page: https://github.com/modelscope/FunASR
 Author: Speech Lab of Alibaba Group
@@ -58,6 +58,8 @@ Requires-Dist: tensorboardX
 Requires-Dist: oss2
 Provides-Extra: train
 Requires-Dist: rapidfuzz>=3.0.0; extra == "train"
+Provides-Extra: silero
+Requires-Dist: silero-vad>=6.0.0; extra == "silero"
 Provides-Extra: all
 Requires-Dist: torch_optimizer; extra == "all"
 Requires-Dist: fairscale; extra == "all"
@@ -312,6 +314,12 @@ from funasr import AutoModel
 model = AutoModel(model="paraformer-zh", vad_model="fsmn-vad", punc_model="ct-punc", spk_model="cam++", device="cuda")
 result = model.generate(input="https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_audio/asr_example_zh.wav", hotword="关键词 20")
 
+# Optional Silero VAD (install first: python -m pip install "funasr[silero]")
+model = AutoModel(
+    model="paraformer-zh", vad_model="silero-vad", device="cuda",
+    vad_kwargs={"silero_threshold": 0.5, "silero_min_silence_duration_ms": 100},
+)
+result = model.generate(input="audio.wav")
 
 # Streaming real-time (feed audio chunk by chunk)
 import soundfile as sf
@@ -447,6 +455,7 @@ asset is published.
 
 ## What's new
 
+- 2026/08/21: **v1.4.3 on PyPI** — `AutoModel(vad_model="silero-vad")` now offers an optional Silero VAD adapter with millisecond segments, configurable thresholds, 8/16 kHz input, ONNX mode, and bounded segment lengths. Upgrade with `python -m pip install -U "funasr==1.4.3"`; enable the adapter with `python -m pip install -U "funasr[silero]==1.4.3"`. Speaker diarization with a known speaker count now routes large embedding sets through fixed-K clustering instead of memory-heavy dense spectral clustering. [Release ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.3)
 - 2026/08/14: **v1.4.2 on PyPI** — punctuation-aware sentence alignment now preserves subtitle segmentation when a punctuation token boundary splits a timestamped ASR word. Distributed training now synchronizes DDP/FSDP gradients on the final microbatch of each accumulation window and initializes DeepSpeed/FSDP mode from the resolved configuration. The tagged source also includes llama.cpp SRT output and the v0.2.0 AMD Vulkan submission updates. Install with `python -m pip install -U "funasr==1.4.2"`. [Release ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.2)
 - 2026/08/11: **llama.cpp runtime v0.2.0** — pins upstream llama.cpp at `803b7fca` and publishes nine SHA-256-listed Linux, macOS, and Windows archives from one tested workflow. Fun-ASR-Nano, SenseVoice, and Paraformer CLIs can now write SRT subtitles; Vulkan startup reports actionable AMD diagnostics and a CPU fallback. The AMD Windows Vulkan crash fix still awaits confirmation on the reporter's hardware. [Download matrix & quickstart ->](https://www.funasr.com/en/deploy/llama-cpp.html) · [Release ->](https://github.com/modelscope/FunASR/releases/tag/runtime-llamacpp-v0.2.0)
 - 2026/08/04: **v1.4.1 on PyPI** — the Hugging Face `paraformer-en` alias now resolves to the official English checkpoint instead of silently downloading the Chinese model. This patch also includes Fun-ASR-Nano LoRA fine-tuning and safer checkpoint handling; the tagged source adds JSONL timestamp output, SenseVoice TensorRT deployment, and the OpenClaw realtime transcription integration. Install with `python -m pip install -U "funasr==1.4.1"`. [Release ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.1)

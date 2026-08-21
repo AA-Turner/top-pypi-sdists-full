@@ -38,6 +38,8 @@
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Aidan McNay <acm289@cornell.edu>                              #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Mathieu Parent <math.parent@etik.com>                         #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -62,7 +64,7 @@ from __future__ import annotations
 import urllib.parse
 from datetime import datetime
 from os.path import basename
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from typing_extensions import deprecated
 
@@ -72,6 +74,10 @@ from github.GithubObject import Attribute, CompletableGithubObject, NotSet, Opt,
 from github.PaginatedList import PaginatedList
 
 from . import Consts
+
+if TYPE_CHECKING:
+    from github.GitReleaseAsset import GitReleaseAsset
+    from github.NamedUser import NamedUser
 
 
 class GitRelease(CompletableGithubObject):
@@ -88,9 +94,9 @@ class GitRelease(CompletableGithubObject):
     """
 
     def _initAttributes(self) -> None:
-        self._assets: Attribute[list[github.GitReleaseAsset.GitReleaseAsset]] = NotSet
+        self._assets: Attribute[list[GitReleaseAsset]] = NotSet
         self._assets_url: Attribute[str] = NotSet
-        self._author: Attribute[github.NamedUser.NamedUser] = NotSet
+        self._author: Attribute[NamedUser] = NotSet
         self._body: Attribute[str] = NotSet
         self._body_html: Attribute[str] = NotSet
         self._body_text: Attribute[str] = NotSet
@@ -122,7 +128,7 @@ class GitRelease(CompletableGithubObject):
         return self.get__repr__({"name": self._name.value})
 
     @property
-    def assets(self) -> list[github.GitReleaseAsset.GitReleaseAsset]:
+    def assets(self) -> list[GitReleaseAsset]:
         self._completeIfNotSet(self._assets)
         return self._assets.value
 
@@ -132,7 +138,7 @@ class GitRelease(CompletableGithubObject):
         return self._assets_url.value
 
     @property
-    def author(self) -> github.NamedUser.NamedUser:
+    def author(self) -> NamedUser:
         self._completeIfNotSet(self._author)
         return self._author.value
 
@@ -318,7 +324,7 @@ class GitRelease(CompletableGithubObject):
 
     def upload_asset(
         self, path: str, label: str = "", content_type: Opt[str] = NotSet, name: Opt[str] = NotSet
-    ) -> github.GitReleaseAsset.GitReleaseAsset:
+    ) -> GitReleaseAsset:
         """
         :calls: `POST /repos/{owner}/{repo}/releases/{release_id}/assets <https://docs.github.com/en/rest/releases/assets?apiVersion=2022-11-28#upload-a-release-assett>`__
         """
@@ -350,7 +356,7 @@ class GitRelease(CompletableGithubObject):
         name: str,
         content_type: Opt[str] = NotSet,
         label: str = "",
-    ) -> github.GitReleaseAsset.GitReleaseAsset:
+    ) -> GitReleaseAsset:
         """
         Uploads an asset.
 
@@ -378,7 +384,7 @@ class GitRelease(CompletableGithubObject):
         )
         return github.GitReleaseAsset.GitReleaseAsset(self._requester, resp_headers, data, completed=True)
 
-    def get_assets(self) -> PaginatedList[github.GitReleaseAsset.GitReleaseAsset]:
+    def get_assets(self) -> PaginatedList[GitReleaseAsset]:
         """
         :calls: `GET /repos/{owner}/{repo}/releases/{release_id}/assets <https://docs.github.com/en/rest/releases/assets?apiVersion=2022-11-28#get-a-release-asset>`_
         """
@@ -445,7 +451,8 @@ class GitRelease(CompletableGithubObject):
         elif "url" in attributes and attributes["url"] and isinstance(attributes["url"], str):
             quoted_tag_name = attributes["url"].split("/")[-1]
             tag_name = urllib.parse.unquote(quoted_tag_name)
-            self._tag_name = self._makeStringAttribute(tag_name)
+            if tag_name != "latest":
+                self._tag_name = self._makeStringAttribute(tag_name)
         if "tarball_url" in attributes:
             self._tarball_url = self._makeStringAttribute(attributes["tarball_url"])
         if "target_commitish" in attributes:

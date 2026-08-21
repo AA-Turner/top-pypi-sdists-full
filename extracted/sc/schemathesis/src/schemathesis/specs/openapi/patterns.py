@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections.abc import Callable
 from functools import lru_cache
 from typing import Any, Literal, TypeAlias, TypeGuard
 
+import jsonschema_rs
+
 from schemathesis.core.errors import InternalError
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
 
 # Unicode property escape translations (PCRE/Java/JS -> Python approximations)
 # These cover Latin-based scripts which handle the majority of real-world APIs
@@ -31,53 +35,25 @@ _GRAPH_CLASS = r"!-~\u00A1-\u00AC\u00AE-\u00FF"
 _PRINT_CLASS = rf" {_GRAPH_CLASS}"
 # Blank (horizontal whitespace)
 _BLANK_CLASS = r" \t"
+# Scripts, kept to the blocks the validating engine agrees are part of them
+_HAN_CLASS = (
+    r"\u2E80-\u2E99\u2E9B-\u2EF3\u2F00-\u2FD5\u3005\u3007\u3021-\u3029\u3038-\u303B"
+    r"\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFA6D\uFA70-\uFAD9"
+)
+_GREEK_CLASS = (
+    r"\u0370-\u0373\u0375-\u0377\u037A-\u037D\u0384\u0386\u0388-\u038A\u038C\u038E-\u03A1"
+    r"\u03A3-\u03E1\u03F0-\u03FF\u1F00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45"
+)
+_CYRILLIC_CLASS = r"\u0400-\u0481\u048A-\u052F\u1C80-\u1C88\u2DE0-\u2DFF\uA640-\uA69F"
+_HIRAGANA_CLASS = r"\u3041-\u3096\u309D-\u309F"
+_KATAKANA_CLASS = r"\u30A1-\u30FA\u30FD-\u30FF\u31F0-\u31FF\uFF66-\uFF6F\uFF71-\uFF9D"
+_HANGUL_CLASS = (
+    r"\u1100-\u11FF\u3131-\u318E\uA960-\uA97C\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB"
+    r"\uFFA0-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC"
+)
 
-# Order matters - check bracketed forms first to avoid double-bracketing
+# Escapes standing on their own; the ones inside a class are inlined before these run.
 _UNICODE_PROPERTY_MAP = (
-    # Bracketed forms (must come first)
-    (r"[\p{L}]", f"[{_LETTER_CLASS}]"),
-    (r"[\p{Lu}]", f"[{_LETTER_UPPER_CLASS}]"),
-    (r"[\p{Ll}]", f"[{_LETTER_LOWER_CLASS}]"),
-    (r"[\p{Lo}]", f"[{_OTHER_LETTER_CLASS}]"),
-    (r"[\p{N}]", f"[{_DIGIT_CLASS}]"),
-    (r"[\p{Nd}]", f"[{_DIGIT_CLASS}]"),
-    (r"[\p{Alpha}]", f"[{_LETTER_CLASS}]"),
-    (r"[\p{Digit}]", f"[{_DIGIT_CLASS}]"),
-    (r"[\p{XDigit}]", f"[{_XDIGIT_CLASS}]"),
-    (r"[\p{Alnum}]", f"[{_ALNUM_CLASS}]"),
-    (r"[\p{Space}]", f"[{_SPACE_CLASS}]"),
-    (r"[\p{Z}]", f"[{_SPACE_CLASS}]"),
-    (r"[\p{Zs}]", f"[{_SPACE_CLASS}]"),
-    (r"[\p{P}]", f"[{_PUNCT_CLASS}]"),
-    (r"[\p{Punct}]", f"[{_PUNCT_CLASS}]"),
-    (r"[\p{M}]", f"[{_MARK_CLASS}]"),
-    (r"[\p{S}]", f"[{_SYMBOL_CLASS}]"),
-    (r"[\p{C}]", f"[{_CONTROL_CLASS}]"),
-    (r"[\p{Cntrl}]", f"[{_CONTROL_CLASS}]"),
-    (r"[\p{ASCII}]", f"[{_ASCII_CLASS}]"),
-    (r"[\p{Graph}]", f"[{_GRAPH_CLASS}]"),
-    (r"[\p{Print}]", f"[{_PRINT_CLASS}]"),
-    (r"[\p{Blank}]", f"[{_BLANK_CLASS}]"),
-    (r"[\p{Upper}]", f"[{_LETTER_UPPER_CLASS}]"),
-    (r"[\p{IsLetter}]", f"[{_LETTER_CLASS}]"),
-    (r"[\P{L}]", f"[^{_LETTER_CLASS}]"),
-    (r"[\P{N}]", f"[^{_DIGIT_CLASS}]"),
-    (r"[\P{Nd}]", f"[^{_DIGIT_CLASS}]"),
-    (r"[\P{C}]", f"[^{_CONTROL_CLASS}]"),
-    (r"[\P{M}]", f"[^{_MARK_CLASS}]"),
-    # Shorthand forms in brackets (single-letter properties without braces)
-    (r"[\pL]", f"[{_LETTER_CLASS}]"),
-    (r"[\pN]", f"[{_DIGIT_CLASS}]"),
-    (r"[\pP]", f"[{_PUNCT_CLASS}]"),
-    (r"[\pM]", f"[{_MARK_CLASS}]"),
-    (r"[\pS]", f"[{_SYMBOL_CLASS}]"),
-    (r"[\pC]", f"[{_CONTROL_CLASS}]"),
-    (r"[\pZ]", f"[{_SPACE_CLASS}]"),
-    (r"[\PL]", f"[^{_LETTER_CLASS}]"),
-    (r"[\PN]", f"[^{_DIGIT_CLASS}]"),
-    (r"[\PC]", f"[^{_CONTROL_CLASS}]"),
-    (r"[\PM]", f"[^{_MARK_CLASS}]"),
-    # Standalone forms with braces
     (r"\p{L}", f"[{_LETTER_CLASS}]"),
     (r"\p{Lu}", f"[{_LETTER_UPPER_CLASS}]"),
     (r"\p{Ll}", f"[{_LETTER_LOWER_CLASS}]"),
@@ -103,6 +79,12 @@ _UNICODE_PROPERTY_MAP = (
     (r"\p{Blank}", f"[{_BLANK_CLASS}]"),
     (r"\p{Upper}", f"[{_LETTER_UPPER_CLASS}]"),
     (r"\p{IsLetter}", f"[{_LETTER_CLASS}]"),
+    (r"\p{Greek}", f"[{_GREEK_CLASS}]"),
+    (r"\p{Cyrillic}", f"[{_CYRILLIC_CLASS}]"),
+    (r"\p{Han}", f"[{_HAN_CLASS}]"),
+    (r"\p{Hiragana}", f"[{_HIRAGANA_CLASS}]"),
+    (r"\p{Katakana}", f"[{_KATAKANA_CLASS}]"),
+    (r"\p{Hangul}", f"[{_HANGUL_CLASS}]"),
     (r"\P{L}", f"[^{_LETTER_CLASS}]"),
     (r"\P{N}", f"[^{_DIGIT_CLASS}]"),
     (r"\P{Nd}", f"[^{_DIGIT_CLASS}]"),
@@ -149,7 +131,16 @@ _UNICODE_PROPERTY_RAW_MAP: dict[str, str] = {
     "Blank": _BLANK_CLASS,
     "Upper": _LETTER_UPPER_CLASS,
     "IsLetter": _LETTER_CLASS,
+    "Greek": _GREEK_CLASS,
+    "Cyrillic": _CYRILLIC_CLASS,
+    "Han": _HAN_CLASS,
+    "Hiragana": _HIRAGANA_CLASS,
+    "Katakana": _KATAKANA_CLASS,
+    "Hangul": _HANGUL_CLASS,
 }
+# Script classes are the blocks the validating engine agrees are part of a script, not the whole of
+# it, so complementing one would admit characters the script still claims.
+_PARTIAL_SCRIPT_CLASSES = frozenset({"Greek", "Cyrillic", "Han", "Hiragana", "Katakana", "Hangul"})
 # Single-letter shorthand (`\pL`, `\pN`, ...) raw equivalents.
 _UNICODE_SHORTHAND_RAW_MAP: dict[str, str] = {
     "L": _LETTER_CLASS,
@@ -180,11 +171,239 @@ _POSIX_CLASS_RAW_MAP: dict[str, str] = {
 }
 
 
-_PCRE_CLASS_SET_OPERATORS = ("||", "&&", "~~")
+# `||` is absent here on purpose: the engine behind validation has no such operator, so the two
+# characters name a literal `|` and Python reads them the same way.
+_PCRE_CLASS_SET_OPERATORS = ("&&", "~~")
+
+_MAX_CODEPOINT = sys.maxunicode
+_SURROGATES = (0xD800, 0xDFFF)
+
+_Interval: TypeAlias = tuple[int, int]
+
+
+def _merged(intervals: list[_Interval]) -> list[_Interval]:
+    out: list[_Interval] = []
+    for low, high in sorted(intervals):
+        if out and low <= out[-1][1] + 1:
+            out[-1] = (out[-1][0], max(out[-1][1], high))
+        else:
+            out.append((low, high))
+    return out
+
+
+def _complemented(intervals: list[_Interval]) -> list[_Interval]:
+    # Surrogates join the set being complemented, so no gap can carry one: no JSON string holds them,
+    # and Hypothesis turns them down as literals.
+    out: list[_Interval] = []
+    cursor = 0
+    for low, high in _merged([*intervals, _SURROGATES]):
+        if low > cursor:
+            out.append((cursor, low - 1))
+        cursor = max(cursor, high + 1)
+    if cursor <= _MAX_CODEPOINT:
+        out.append((cursor, _MAX_CODEPOINT))
+    return out
+
+
+def _intersected(left: list[_Interval], right: list[_Interval]) -> list[_Interval]:
+    out: list[_Interval] = []
+    for low, high in _merged(left):
+        for other_low, other_high in _merged(right):
+            start, end = max(low, other_low), min(high, other_high)
+            if start <= end:
+                out.append((start, end))
+    return _merged(out)
+
+
+def _symmetric_difference(left: list[_Interval], right: list[_Interval]) -> list[_Interval]:
+    only_left = _intersected(left, _complemented(right))
+    only_right = _intersected(right, _complemented(left))
+    return _merged([*only_left, *only_right])
+
+
+def _serialize_intervals(intervals: list[_Interval]) -> str:
+    return "".join(_serialize_range(low, high) for low, high in _merged(intervals))
+
+
+def _complement_class(raw: str) -> str:
+    """Raw class contents admitting every codepoint `raw` turns down."""
+    intervals = _class_intervals(f"[{raw}]")
+    # Every class this is called with is spelled as literals and ranges, so it reads back as one set.
+    assert intervals is not None, raw
+    return _serialize_intervals(_complemented(intervals))
+
+
+def _class_intervals(cls: str) -> list[_Interval] | None:
+    """The codepoints a flat `[...]` admits, or `None` when it names something beyond literals and ranges."""
+    parsed = _parse_regex(cls)
+    if parsed is None or len(parsed) != 1:
+        return None
+    op, value = parsed[0]
+    # A one-member class is optimized down to the member itself.
+    if op == LITERAL:
+        return [(value, value)]
+    if op != sre.IN:
+        return None
+    items = list(value)
+    negated = bool(items) and items[0][0] == sre.NEGATE
+    intervals: list[_Interval] = []
+    for item_op, item_value in items[1:] if negated else items:
+        if item_op == LITERAL:
+            intervals.append((item_value, item_value))
+        elif item_op == sre.RANGE:
+            intervals.append(item_value)
+        else:
+            return None
+    return _complemented(intervals) if negated else _merged(intervals)
+
+
+def _serialize_range(low: int, high: int) -> str:
+    if low == high:
+        return _serialize_literal_in_class(low)
+    return f"{_serialize_literal_in_class(low)}-{_serialize_literal_in_class(high)}"
+
+
+def _class_extent(pattern: str, start: int) -> int | None:
+    """Index just past the `]` closing the class opened at `start`, or `None` when it never closes."""
+    i = start + 1
+    if pattern[i : i + 1] == "^":
+        i += 1
+    # A `]` opening the contents is a member, not the close.
+    if pattern[i : i + 1] == "]":
+        i += 1
+    depth = 0
+    n = len(pattern)
+    while i < n:
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "[":
+            if pattern[i + 1 : i + 2] == ":":
+                end = pattern.find(":]", i + 2)
+                if end == -1:
+                    return None
+                i = end + 2
+                continue
+            depth += 1
+        elif ch == "]":
+            if depth == 0:
+                return i + 1
+            depth -= 1
+        i += 1
+    return None
+
+
+def _has_set_algebra(body: str) -> bool:
+    """Whether the class body leans on constructs Python `re` reads differently, if at all."""
+    i = 0
+    n = len(body)
+    while i < n:
+        if body[i] == "\\":
+            i += 2
+            continue
+        if body[i : i + 2] in _PCRE_CLASS_SET_OPERATORS:
+            return True
+        if body[i] == "[" and body[i + 1 : i + 2] != ":":
+            return True
+        i += 1
+    return False
+
+
+def _split_class_operands(body: str) -> tuple[list[str], list[str]]:
+    """The class body cut at its set operators, and the operators themselves."""
+    operands: list[str] = []
+    operators: list[str] = []
+    start = 0
+    i = 0
+    n = len(body)
+    while i < n:
+        ch = body[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "[":
+            end = body.find(":]", i + 2) + 2 if body[i + 1 : i + 2] == ":" else _class_extent(body, i)
+            if end is None or end <= i:
+                return [body], []
+            i = end
+            continue
+        if body[i : i + 2] in _PCRE_CLASS_SET_OPERATORS:
+            operands.append(body[start:i])
+            operators.append(body[i : i + 2])
+            i += 2
+            start = i
+            continue
+        i += 1
+    operands.append(body[start:])
+    return operands, operators
+
+
+def _operand_intervals(operand: str) -> list[_Interval] | None:
+    """The codepoints one side of a set operator admits; its members add up."""
+    intervals: list[_Interval] = []
+    chunk: list[str] = []
+    i = 0
+    n = len(operand)
+    while i < n:
+        ch = operand[i]
+        if ch == "\\":
+            chunk.append(operand[i : i + 2])
+            i += 2
+            continue
+        if ch == "[" and operand[i + 1 : i + 2] != ":":
+            end = _class_extent(operand, i)
+            if end is None:
+                return None
+            nested = _resolved_class(operand[i + 1 : end - 1])
+            if nested is None:
+                return None
+            nested_intervals = _class_intervals(nested)
+            if nested_intervals is None:
+                return None
+            intervals.extend(nested_intervals)
+            i = end
+            continue
+        chunk.append(ch)
+        i += 1
+    if chunk:
+        flat = _inline_unicode_in_classes(f"[{''.join(chunk)}]")
+        if flat is None:
+            return None
+        own = _class_intervals(flat)
+        if own is None:
+            return None
+        intervals.extend(own)
+    return _merged(intervals)
+
+
+def _resolved_class(body: str) -> str | None:
+    """A class body with set operators and nested classes worked out, spelled as a flat `[...]`."""
+    negated = body.startswith("^")
+    if negated:
+        body = body[1:]
+    operands, operators = _split_class_operands(body)
+    intervals = _operand_intervals(operands[0])
+    if intervals is None:
+        return None
+    for operator, operand in zip(operators, operands[1:], strict=True):
+        current = _operand_intervals(operand)
+        if current is None:
+            return None
+        intervals = _intersected(intervals, current) if operator == "&&" else _symmetric_difference(intervals, current)
+    if negated:
+        intervals = _complemented(intervals)
+    if not intervals:
+        # Python has no spelling for a class admitting nothing.
+        return None
+    return f"[{_serialize_intervals(intervals)}]"
+
+
+_BRACE_HEX_DIGITS = re.compile(r"[0-9A-Fa-f]{1,6}\Z")
 
 
 def _inline_unicode_in_classes(pattern: str) -> str | None:
-    r"""Inline `\p{X}` and `[:X:]` raw class contents inside `[...]`; bail out on `\P{X}` / `[:^X:]` (uncomposable)."""
+    r"""Inline `\p{X}`, `\P{X}` and `[:X:]` class contents inside `[...]`; bail out on `[:^X:]` (uncomposable)."""
     out: list[str] = []
     i = 0
     in_class = False
@@ -193,7 +412,17 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
         ch = pattern[i]
         if ch == "\\" and i + 1 < n:
             next_ch = pattern[i + 1]
-            # `[^contents]` cannot compose with sibling class members in standard regex.
+            # `[^contents]` cannot compose with sibling class members, so the complement is spelled out.
+            if in_class and next_ch == "P" and i + 2 < n and pattern[i + 2] == "{":
+                end = pattern.find("}", i + 3)
+                name = pattern[i + 3 : end] if end != -1 else ""
+                raw = None if name in _PARTIAL_SCRIPT_CLASSES else _UNICODE_PROPERTY_RAW_MAP.get(name)
+                # An unknown name, or one standing for part of a script, has nothing to turn inside out.
+                if raw is None:
+                    return None
+                out.append(_complement_class(raw))
+                i = end + 1
+                continue
             if in_class and next_ch == "P":
                 return None
             if in_class and next_ch == "p" and i + 2 < n:
@@ -212,6 +441,18 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
                         out.append(raw)
                         i += 3
                         continue
+            # `\x{...}` is how PCRE spells a codepoint; Python wants a fixed-width escape.
+            if next_ch == "x" and pattern[i + 2 : i + 3] == "{":
+                end = pattern.find("}", i + 3)
+                digits = pattern[i + 3 : end] if end != -1 else ""
+                if not _BRACE_HEX_DIGITS.match(digits):
+                    return None
+                code = int(digits, 16)
+                if code > _MAX_CODEPOINT:
+                    return None
+                out.append(f"\\u{code:04x}" if code <= 0xFFFF else f"\\U{code:08x}")
+                i = end + 1
+                continue
             # Other escapes (`\[`, `\]`, `\\`, unknown `\p{Greek}`) pass through unchanged.
             out.append(pattern[i : i + 2])
             i += 2
@@ -220,6 +461,13 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
         # would change semantics (`||` becomes a literal `|`, `&&` a literal `&`, etc.).
         if in_class and pattern[i : i + 2] in _PCRE_CLASS_SET_OPERATORS:
             return None
+        # A run of pipes names one literal `|` here, but Python reserves the spelling for a set
+        # operator it does not have yet and warns about it.
+        if in_class and ch == "|" and pattern[i + 1 : i + 2] == "|":
+            while i < n and pattern[i] == "|":
+                i += 1
+            out.append("\\|")
+            continue
         # POSIX character class `[:name:]` nested inside `[...]`.
         if in_class and ch == "[" and i + 1 < n and pattern[i + 1] == ":":
             end = pattern.find(":]", i + 2)
@@ -240,9 +488,44 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
         if in_class and ch == "[":
             return None
         if ch == "[" and not in_class:
+            class_end = _class_extent(pattern, i)
+            if class_end is not None and _has_set_algebra(pattern[i + 1 : class_end - 1]):
+                resolved = _resolved_class(pattern[i + 1 : class_end - 1])
+                if resolved is None:
+                    return None
+                out.append(resolved)
+                i = class_end
+                continue
             in_class = True
         elif ch == "]" and in_class:
             in_class = False
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _python_named_groups(pattern: str) -> str:
+    """`(?<name>...)` as Python spells it, leaving lookbehind and literal text alone."""
+    out: list[str] = []
+    in_class = False
+    i = 0
+    n = len(pattern)
+    while i < n:
+        ch = pattern[i]
+        if ch == "\\" and i + 1 < n:
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        if in_class:
+            if ch == "]":
+                in_class = False
+        elif ch == "[":
+            in_class = True
+        # `(?<=` and `(?<!` open a lookbehind, which Python reads as it is.
+        elif pattern.startswith("(?<", i) and pattern[i + 3 : i + 4] not in ("=", "!"):
+            out.append("(?P<")
+            i += 3
+            continue
         out.append(ch)
         i += 1
     return "".join(out)
@@ -256,12 +539,15 @@ def normalize_regex(pattern: object) -> str | None:
     - PCRE Unicode property escapes (\p{L}, \pL, etc.) -> Python equivalents
     - POSIX character classes ([:alnum:], [:digit:], etc.) -> Python equivalents
     - Python anchors (\A, \Z) -> Rust-compatible equivalents (^, $)
+    - Named groups ((?<name>...)) -> Python equivalents
 
     Returns the translated pattern if successful, None if translation failed
     or the result is not a valid Python regex.
     """
     if not isinstance(pattern, str):
         return None
+    named_groups = _python_named_groups(pattern)
+    has_named_group = named_groups != pattern
     # Check for both braced (\p{L}) and shorthand (\pL) forms
     has_braced = r"\p{" in pattern or r"\P{" in pattern
     has_shorthand = any(
@@ -270,13 +556,18 @@ def normalize_regex(pattern: object) -> str | None:
     )
     # Check for POSIX character classes like `[:alnum:]` (only valid inside `[...]`)
     has_posix = "[:" in pattern and ":]" in pattern
+    # PCRE class-set operators and brace hex escapes, neither of which Python `re` reads
+    has_class_algebra = any(operator in pattern for operator in _PCRE_CLASS_SET_OPERATORS)
+    has_brace_hex = r"\x{" in pattern
     # Check for Python-specific anchors that need Rust translation
     has_python_anchors = pattern.startswith(r"\A") or pattern.endswith(r"\Z")
 
-    if not has_braced and not has_shorthand and not has_posix and not has_python_anchors:
+    if not any(
+        (has_braced, has_shorthand, has_posix, has_python_anchors, has_class_algebra, has_brace_hex, has_named_group)
+    ):
         return None  # No translation needed
 
-    translated = _inline_unicode_in_classes(pattern)
+    translated = _inline_unicode_in_classes(named_groups)
     if translated is None:
         return None
     for pcre_escape, python_equiv in _UNICODE_PROPERTY_MAP:
@@ -299,6 +590,16 @@ def normalize_regex(pattern: object) -> str | None:
 
 
 _POSIX_CLASS_RE = re.compile(r"\[\[:\^?[a-zA-Z]+:\]")
+
+
+@lru_cache(maxsize=256)
+def is_valid_jsonschema_rs_regex(pattern: str) -> bool:
+    """Whether the engine behind validation and canonicalization can compile the pattern."""
+    try:
+        jsonschema_rs.Draft202012Validator({"pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS)
+        return True
+    except jsonschema_rs.ValidationError:
+        return False
 
 
 def is_valid_python_regex(pattern: object) -> TypeGuard[str]:
@@ -326,10 +627,13 @@ except ImportError:
 
 ANCHOR = sre.AT
 REPEATS: tuple[int, ...]
+POSSESSIVE_REPEATS: tuple[int, ...]
 if hasattr(sre, "POSSESSIVE_REPEAT"):
     REPEATS = (sre.MIN_REPEAT, sre.MAX_REPEAT, sre.POSSESSIVE_REPEAT)
+    POSSESSIVE_REPEATS = (sre.POSSESSIVE_REPEAT,)
 else:
     REPEATS = (sre.MIN_REPEAT, sre.MAX_REPEAT)
+    POSSESSIVE_REPEATS = ()
 LITERAL = sre.LITERAL
 NOT_LITERAL = sre.NOT_LITERAL
 IN = sre.IN
@@ -387,6 +691,40 @@ def pattern_length_bounds(pattern: str) -> tuple[int, int | None]:
     min_length = _calculate_min_repetition_length(parsed)
     max_length = _calculate_max_repetition_length(parsed)
     return (min_length, None if max_length == MAXREPEAT else max_length)
+
+
+# Anchors, lookaround and back-references make a match depend on where in the string it is tried,
+# so an empty match at position 0 is no longer guaranteed.
+_POSITION_DEPENDENT_OPS = frozenset({sre.AT, sre.ASSERT, sre.ASSERT_NOT, sre.GROUPREF, sre.GROUPREF_EXISTS})
+
+
+def _is_position_dependent(nodes: list[_Node]) -> bool:
+    for op, value in nodes:
+        if op in _POSITION_DEPENDENT_OPS:
+            return True
+        if op == sre.SUBPATTERN:
+            if _is_position_dependent(list(value[3])):
+                return True
+        elif op in REPEATS:
+            if _is_position_dependent(list(value[2])):
+                return True
+        elif op == sre.BRANCH:
+            if any(_is_position_dependent(list(alternative)) for alternative in value[1]):
+                return True
+    return False
+
+
+@lru_cache
+def matches_every_string(pattern: str) -> bool:
+    """Return True if every string contains a match, so no value can violate `pattern`.
+
+    JSON Schema `pattern` is a substring search, so a pattern that accepts the empty string
+    matches at position 0 of anything. Conservative: unknown constructs answer False.
+    """
+    parsed = _parse_regex(pattern)
+    if parsed is None or _is_position_dependent(parsed):
+        return False
+    return all(op in REPEATS and value[0] == 0 for op, value in parsed)
 
 
 @lru_cache
@@ -719,6 +1057,14 @@ def _transform(parsed: list[_Node], min_length: int | None, max_length: int | No
         case ("anchored_multi", leading, parts, trailing):
             return _transform_anchored_multi(leading, parts, trailing, min_length, max_length)
 
+        case ("leading_anchor_multi", leading, parts):
+            distributed = _distribute_multi(parts, min_length, max_length)
+            if distributed is None:
+                return None
+            if max_length is not None:
+                return [leading, *distributed, _AT_END]
+            return [leading, *distributed]
+
         case ("unanchored_multi", parts):
             distributed = _distribute_multi(parts, min_length, max_length)
             if distributed is None:
@@ -738,6 +1084,7 @@ _Structure: TypeAlias = (
     | tuple[Literal["trailing_anchor"], _Node, _Node]
     | tuple[Literal["both_anchors"], _Node, _Node, _Node]
     | tuple[Literal["anchored_multi"], _Node, list[_Node], _Node]
+    | tuple[Literal["leading_anchor_multi"], _Node, list[_Node]]
     | tuple[Literal["unanchored_multi"], list[_Node]]
     | tuple[Literal["unknown"]]
 )
@@ -745,7 +1092,7 @@ _Structure: TypeAlias = (
 
 def _classify_structure(nodes: list[_Node]) -> _Structure:
     """Classify pattern structure for dispatch."""
-    _CONTENT_OPS = (LITERAL, NOT_LITERAL, IN, sre.ANY, *REPEATS)
+    _CONTENT_OPS = (LITERAL, NOT_LITERAL, IN, sre.ANY, sre.SUBPATTERN, *REPEATS)
     match nodes:
         case [content]:
             return ("single", content)
@@ -757,21 +1104,34 @@ def _classify_structure(nodes: list[_Node]) -> _Structure:
             return ("both_anchors", leading, content, trailing)
         case [(sre.AT, _) as leading, *parts, (sre.AT, _) as trailing] if all(op in _CONTENT_OPS for op, _ in parts):
             return ("anchored_multi", leading, parts, trailing)
+        case [(sre.AT, _) as leading, *parts] if len(parts) >= 2 and all(op in _CONTENT_OPS for op, _ in parts):
+            return ("leading_anchor_multi", leading, parts)
         case [*parts] if len(parts) >= 2 and all(op in _CONTENT_OPS for op, _ in parts):
             return ("unanchored_multi", parts)
         case _:
             return ("unknown",)
 
 
-def _transform_node(node: _Node, min_l: int | None, max_l: int | None) -> _Node | None:
-    """Transform a single content node."""
+def _transform_node(node: _Node, min_l: int | None, max_l: int | None, *, anchored: bool = False) -> _Node | None:
+    """Transform a single content node; `anchored` content matches exactly one char, so the budget may only narrow it."""
     op, value = node
     if op in REPEATS:
         return _transform_repeat(op, value, min_l, max_l)
-    if op in (LITERAL, NOT_LITERAL, IN) and max_l != 0:
-        return _wrap_as_repeat(node, min_l, max_l)
-    if op == sre.ANY:
-        return _transform_repeat(sre.MAX_REPEAT, (1, 1, [(sre.ANY, None)]), min_l, max_l)
+    if op == sre.SUBPATTERN:
+        # A group around a single item just relabels it - rewrite the item and put it back inside the group.
+        group, add_flags, del_flags, inner = value
+        inner_nodes = list(inner)
+        if len(inner_nodes) != 1:
+            return None
+        result = _transform_node(inner_nodes[0], min_l, max_l, anchored=anchored)
+        if result is None:
+            return None
+        return (sre.SUBPATTERN, (group, add_flags, del_flags, [result]))
+    if op in (LITERAL, NOT_LITERAL, IN, sre.ANY):
+        if anchored:
+            return _transform_repeat(sre.MAX_REPEAT, (1, 1, [node]), min_l, max_l)
+        if max_l != 0:
+            return _wrap_as_repeat(node, min_l, max_l)
     return None
 
 
@@ -838,11 +1198,7 @@ def _transform_anchored_single(
     elif op in REPEATS and len(value[2]) == 1 and value[2][0][0] == sre.IN and _matches_anything(value[2][0][1]):
         content = (op, (value[0], value[1], [(sre.ANY, None)]))
 
-    op, value = content
-    if op == LITERAL and ((min_l is not None and min_l > 1) or (max_l is not None and max_l < 1)):
-        return None
-
-    result = _transform_node(content, min_l, max_l)
+    result = _transform_node(content, min_l, max_l, anchored=True)
     if result is None:
         return None
     return [leading, result, trailing]
@@ -864,11 +1220,18 @@ def _transform_anchored_multi(
 
 def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) -> list[_Node] | None:
     """Distribute a length budget across the quantified parts; the caller adds any anchors."""
+    if any(op in POSSESSIVE_REPEATS for op, _ in parts):
+        # A possessive part keeps everything it took, so what follows it never gets those characters
+        # back - a rewritten count would admit strings the pattern itself rejects.
+        return None
     fixed_length = 0
     quantifier_bounds = []
     repetition_lengths = []
     repetition_max_lengths = []
     quantified_indices = []
+
+    # Slots reached through a group, by part index, so the rewrite puts them back inside it.
+    group_headers: dict[int, tuple[int, int, int]] = {}
 
     for idx, (op, value) in enumerate(parts):
         if op in (LITERAL, NOT_LITERAL, IN, sre.ANY):
@@ -879,6 +1242,22 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
             repetition_lengths.append(_calculate_min_repetition_length(subpattern))
             repetition_max_lengths.append(_calculate_max_repetition_length(list(subpattern)))
             quantified_indices.append(idx)
+        elif op == sre.SUBPATTERN:
+            group, add_flags, del_flags, inner = value
+            inner_nodes = list(inner)
+            if len(inner_nodes) == 1 and inner_nodes[0][0] in REPEATS:
+                min_repeat, max_repeat, subpattern = inner_nodes[0][1]
+                quantifier_bounds.append((min_repeat, max_repeat))
+                repetition_lengths.append(_calculate_min_repetition_length(subpattern))
+                repetition_max_lengths.append(_calculate_max_repetition_length(list(subpattern)))
+                quantified_indices.append(idx)
+                group_headers[idx] = (group, add_flags, del_flags)
+                continue
+            inner_min = _calculate_min_repetition_length(inner_nodes)
+            if inner_min != _calculate_max_repetition_length(inner_nodes):
+                # Only a group of a known length can be paid for out of the budget.
+                return None
+            fixed_length += inner_min
 
     adj_min = None if min_l is None else min_l - fixed_length
     adj_max = None if max_l is None else max_l - fixed_length
@@ -906,14 +1285,18 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
     # bounds that actually enforce maxLength.
     exact_length = adj_min == adj_max
     pinned: set[int] = set()
+    # Slots dropped to zero repetitions; left open-ended, generation hunts forever for the only matches that fit.
+    collapsed: set[int] = set()
     has_unbounded_pinned = False
     for dist_idx in range(len(quantifier_bounds)):
-        part_idx = quantified_indices[dist_idx]
-        _, (orig_min, orig_max, inner_subpattern) = parts[part_idx]
+        orig_min, orig_max = quantifier_bounds[dist_idx]
         rep_len_max = repetition_max_lengths[dist_idx]
         rep_len_min = repetition_lengths[dist_idx]
         inner_variable = rep_len_min != rep_len_max
-        if inner_variable and rep_len_max == MAXREPEAT:
+        if exact_length and inner_variable and orig_min == 0 and rep_len_min > 0:
+            # Every repetition costs a character the other slots already spent - unless it can match empty.
+            collapsed.add(dist_idx)
+        elif inner_variable and rep_len_max == MAXREPEAT:
             pinned.add(dist_idx)
             has_unbounded_pinned = True
         elif inner_variable and exact_length:
@@ -925,7 +1308,7 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
         elif not exact_length and orig_min == 0 and 0 < orig_max < MAXREPEAT and not inner_variable:
             pinned.add(dist_idx)
 
-    if pinned:
+    if pinned or collapsed:
         sum_pinned_min = 0
         sum_pinned_max = 0
         for dist_idx in pinned:
@@ -935,17 +1318,16 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
             sum_pinned_max += max_r * rep_len
 
         np_adj_min = None if adj_min is None else max(0, adj_min - sum_pinned_min)
-        # Pinned slots with unbounded contribution mean we cannot enforce maxLength
-        # via the rewrite. Drop the upper budget; minLength still holds because
-        # each pinned slot's minimum contribution is finite.
+        # A pinned slot can carry more than its minimum, so the total cannot be pinned to maxLength -
+        # but leaving the rest open-ended aims generation orders of magnitude past it, for nothing.
         if has_unbounded_pinned:
-            np_adj_max = None
+            np_adj_max = None if adj_max is None else max(0, adj_max - sum_pinned_min)
         else:
             np_adj_max = None if adj_max is None else adj_max - sum_pinned_max
         if np_adj_max is not None and np_adj_max < 0:
             return None
 
-        np_indices = [i for i in range(len(quantifier_bounds)) if i not in pinned]
+        np_indices = [i for i in range(len(quantifier_bounds)) if i not in pinned and i not in collapsed]
         if not np_indices:
             # All slots pinned — the rewrite would just re-emit the original bounds.
             return None
@@ -961,7 +1343,9 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
         distribution: list[tuple[int, int]] = []
         np_iter = iter(np_distribution)
         for dist_idx in range(len(quantifier_bounds)):
-            if dist_idx in pinned:
+            if dist_idx in collapsed:
+                distribution.append((0, 0))
+            elif dist_idx in pinned:
                 distribution.append(quantifier_bounds[dist_idx])
             else:
                 distribution.append(next(np_iter))
@@ -980,8 +1364,7 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
     for dist_idx, (new_min, new_max) in enumerate(distribution):
         if dist_idx in pinned:
             continue
-        part_idx = quantified_indices[dist_idx]
-        _, (orig_min, orig_max, inner_subpattern) = parts[part_idx]
+        orig_min, orig_max = quantifier_bounds[dist_idx]
         if (new_min, new_max) == (orig_min, orig_max):
             continue
         # For exact-length cases the rewrite picks one concrete shape. Collapsing
@@ -995,6 +1378,13 @@ def _distribute_multi(parts: list[_Node], min_l: int | None, max_l: int | None) 
     for dist_idx, part_idx in enumerate(quantified_indices):
         op, value = parts[part_idx]
         new_min, new_max = distribution[dist_idx]
+        header = group_headers.get(part_idx)
+        if header is not None:
+            _, _, _, inner = value
+            _, _, subpattern = list(inner)[0][1]
+            repeat = (sre.MAX_REPEAT, (new_min, new_max, subpattern))
+            new_parts[part_idx] = (sre.SUBPATTERN, (*header, [repeat]))
+            continue
         _, _, subpattern = value
         new_parts[part_idx] = (sre.MAX_REPEAT, (new_min, new_max, subpattern))
 
@@ -1265,6 +1655,9 @@ def _calculate_max_repetition_length(subpattern: list[_Node]) -> int:
             total += inner_max
         elif op in REPEATS:
             _, max_repeat, inner_pattern = value
+            if max_repeat == 0:
+                # Never repeated, so however long the inner pattern could get, none of it is matched.
+                continue
             if max_repeat == MAXREPEAT:
                 return MAXREPEAT
             inner_max = _calculate_max_repetition_length(list(inner_pattern))
@@ -1305,3 +1698,261 @@ def _build_quantifier(minimum: int | None, maximum: int | None) -> str:
     if minimum == maximum:
         return f"{{{minimum}}}"
     return f"{{{minimum or 0},{maximum}}}"
+
+
+# Every length a pattern can match is tracked as one bit of an integer, so lengths past this point
+# would make the walk cost more than the search it is meant to replace.
+_MAX_ANALYSED_LENGTH = 4096
+
+
+def _length_analysis_limit(min_length: int | None, max_length: int | None) -> int | None:
+    """The highest length worth walking for this window, or `None` when the window is out of reach."""
+    ceiling = min_length if max_length is None else max_length
+    if ceiling is None or ceiling > _MAX_ANALYSED_LENGTH:
+        return None
+    return ceiling
+
+
+def _window_mask(min_length: int | None, max_length: int | None, limit: int) -> int:
+    low = min_length or 0
+    high = limit if max_length is None else min(max_length, limit)
+    if low > high:
+        return 0
+    return ((1 << (high - low + 1)) - 1) << low
+
+
+def _concat_lengths(left: int, right: int, limit: int) -> int:
+    """Lengths reachable by putting a `left` match in front of a `right` one."""
+    if left == 0 or right == 0:
+        return 0
+    full = (1 << (limit + 1)) - 1
+    # An unbroken run of reachable lengths at the top shifts as one block, so only the gapped
+    # part below it costs a step - which is what keeps this affordable on `.*`-style patterns.
+    dense_from = (full & ~left).bit_length()
+    lowest_right = (right & -right).bit_length() - 1
+    result = (full << (dense_from + lowest_right)) & full
+    head = left & ((1 << dense_from) - 1)
+    while head:
+        result |= right << ((head & -head).bit_length() - 1)
+        head &= head - 1
+    return result & full
+
+
+def _power_lengths(base: int, exponent: int, limit: int) -> int:
+    """Lengths reachable by putting `exponent` matches of `base` in a row.
+
+    Callers cap the exponent so the shortest run still fits under `limit`, which is what keeps
+    every intermediate product non-empty.
+    """
+    result = 1
+    while exponent:
+        if exponent & 1:
+            result = _concat_lengths(result, base, limit)
+        exponent >>= 1
+        if exponent:
+            base = _concat_lengths(base, base, limit)
+    return result
+
+
+def _repeat_lengths(inner: int, min_repeat: int, max_repeat: int, limit: int) -> int:
+    if inner == 0:
+        # The body matches nothing, so skipping it entirely is all that is left.
+        return 1 if min_repeat == 0 else 0
+    if inner == 1:
+        return 1
+    lowest = (inner & -inner).bit_length() - 1
+    if lowest > 0 and min_repeat > limit // lowest:
+        return 0
+    base = _power_lengths(inner, min(min_repeat, limit), limit)
+    extra = limit if max_repeat == MAXREPEAT else min(max_repeat - min_repeat, limit)
+    if extra <= 0:
+        return base
+    # Letting the body match empty turns "up to `extra` more repetitions" into a single power.
+    return _concat_lengths(base, _power_lengths(inner | 1, extra, limit), limit)
+
+
+def _node_lengths(node: _Node, limit: int) -> int | None:
+    """Lengths a single node can match, or `None` when it names something the walk cannot follow."""
+    op, value = node
+    if op in (LITERAL, NOT_LITERAL, IN, sre.ANY):
+        return 0b10
+    # Anchors and lookaround match no characters of their own; ignoring what they demand of the
+    # surrounding text only ever admits more lengths, never fewer.
+    if op in (sre.AT, sre.ASSERT, sre.ASSERT_NOT):
+        return 0b1
+    if op == sre.SUBPATTERN:
+        return _nodes_lengths(list(value[3]), limit)
+    if op in REPEATS:
+        min_repeat, max_repeat, subpattern = value
+        inner = _nodes_lengths(list(subpattern), limit)
+        if inner is None:
+            return None
+        return _repeat_lengths(inner, min_repeat, max_repeat, limit)
+    if op == sre.BRANCH:
+        total = 0
+        for alternative in value[1]:
+            current = _nodes_lengths(list(alternative), limit)
+            if current is None:
+                return None
+            total |= current
+        return total
+    if op == getattr(sre, "ATOMIC_GROUP", None):
+        return _nodes_lengths(list(value), limit)
+    return None
+
+
+def _nodes_lengths(nodes: list[_Node], limit: int) -> int | None:
+    result = 1
+    for node in nodes:
+        current = _node_lengths(node, limit)
+        if current is None:
+            return None
+        result = _concat_lengths(result, current, limit)
+        if result == 0:
+            return 0
+    return result
+
+
+@lru_cache(maxsize=256)
+def _pattern_lengths(pattern: str, limit: int) -> int | None:
+    parsed = _parse_regex(pattern)
+    if parsed is None:
+        return None
+    return _nodes_lengths(parsed, limit)
+
+
+@lru_cache(maxsize=256)
+def pattern_length_is_unreachable(pattern: str, min_length: int | None, max_length: int | None) -> bool:
+    """Whether no string of a length inside the window matches the pattern end to end.
+
+    A min/max pair cannot see that a length falls in a hole between two reachable sizes, which is
+    where generation spends its whole budget before giving up. Unknown constructs answer False.
+    """
+    limit = _length_analysis_limit(min_length, max_length)
+    if limit is None:
+        return False
+    reachable = _pattern_lengths(pattern, limit)
+    if reachable is None:
+        return False
+    return not reachable & _window_mask(min_length, max_length, limit)
+
+
+def _pick_length(available: int, rest: int, remaining: int) -> int | None:
+    """The shortest this node can be while leaving the rest of the pattern a length it can reach."""
+    candidates = available & ((1 << (remaining + 1)) - 1)
+    while candidates:
+        choice = (candidates & -candidates).bit_length() - 1
+        if rest >> (remaining - choice) & 1:
+            return choice
+        candidates &= candidates - 1
+    return None
+
+
+def _restrict_nodes(nodes: list[_Node], target: int, limit: int) -> list[_Node] | None:
+    """The nodes narrowed to matches of exactly `target` characters, or `None` when the shape resists."""
+    lengths = []
+    for node in nodes:
+        current = _node_lengths(node, limit)
+        # Reached only after the walk vetted these very nodes, so a length is always there.
+        assert current is not None
+        lengths.append(current)
+    # What the nodes after each position can still absorb, so no choice strands the remainder.
+    suffixes = [1] * (len(nodes) + 1)
+    for index in range(len(nodes) - 1, -1, -1):
+        suffixes[index] = _concat_lengths(lengths[index], suffixes[index + 1], limit)
+    result: list[_Node] = []
+    remaining = target
+    for index, node in enumerate(nodes):
+        choice = _pick_length(lengths[index], suffixes[index + 1], remaining)
+        if choice is None:
+            return None
+        restricted = _restrict_node(node, choice, limit)
+        if restricted is None:
+            return None
+        result.extend(restricted)
+        remaining -= choice
+    return result if remaining == 0 else None
+
+
+def _restrict_node(node: _Node, length: int, limit: int) -> list[_Node] | None:
+    op, value = node
+    if op in (sre.AT, sre.ASSERT, sre.ASSERT_NOT):
+        return [node] if length == 0 else None
+    if op in (LITERAL, NOT_LITERAL, IN, sre.ANY):
+        return [node] if length == 1 else None
+    if op == sre.SUBPATTERN:
+        group, add_flags, del_flags, inner = value
+        restricted = _restrict_nodes(list(inner), length, limit)
+        if restricted is None:
+            return None
+        return [(sre.SUBPATTERN, (group, add_flags, del_flags, restricted))]
+    if op == sre.BRANCH:
+        for alternative in value[1]:
+            restricted = _restrict_nodes(list(alternative), length, limit)
+            if restricted is not None:
+                return [(sre.BRANCH, (None, [restricted]))]
+        return None
+    # A possessive part keeps every character it took, so what follows it never gets those back -
+    # a rewritten count would admit strings the pattern itself rejects.
+    if op in REPEATS and op not in POSSESSIVE_REPEATS:
+        return _restrict_repeat(value, length, limit)
+    return None
+
+
+def _restrict_repeat(value: _RepeatValue, length: int, limit: int) -> list[_Node] | None:
+    min_repeat, max_repeat, subpattern = value
+    body = list(subpattern)
+    inner = _nodes_lengths(body, limit)
+    if inner is None or inner == 0:
+        # A body matching nothing leaves only the option of skipping the repeat altogether.
+        return [] if inner == 0 and min_repeat == 0 else None
+    lowest = (inner & -inner).bit_length() - 1
+    highest = inner.bit_length() - 1
+    if length == 0:
+        # Repetitions that match no characters add nothing to the text, so dropping them is exact.
+        return [] if min_repeat == 0 or lowest == 0 else None
+    # Only a body whose reachable lengths run without gaps lets a budget be split evenly across
+    # repetitions; anything else needs a search this walk deliberately does not do.
+    if highest == 0 or inner != ((1 << (highest - lowest + 1)) - 1) << lowest:
+        return None
+    # `length` came off this repeat's own reachable set, so a count that fits always exists.
+    count = max(min_repeat, 1, -(-length // highest))
+    base, remainder = divmod(length, count)
+    parts: list[_Node] = []
+    for piece_length, piece_count in ((base + 1, remainder), (base, count - remainder)):
+        if piece_count == 0 or piece_length == 0:
+            continue
+        piece = _restrict_nodes(body, piece_length, limit)
+        if piece is None:
+            return None
+        parts.append((sre.MAX_REPEAT, (piece_count, piece_count, piece)))
+    return parts
+
+
+@lru_cache(maxsize=256)
+def pin_pattern_length(pattern: str, min_length: int | None, max_length: int | None) -> str:
+    """Rewrite the pattern so every match has one length inside the window.
+
+    Rejection sampling never lands on a window far from the sizes a pattern emits on its own, so the
+    length has to be spelled into the pattern. Shapes that resist the rewrite come back unchanged.
+    """
+    limit = _length_analysis_limit(min_length, max_length)
+    if limit is None:
+        return pattern
+    try:
+        parsed = sre_parse.parse(pattern)
+        nodes = list(parsed)
+        reachable = _nodes_lengths(nodes, limit)
+        if reachable is None:
+            return pattern
+        window = reachable & _window_mask(min_length, max_length, limit)
+        if window == 0:
+            return pattern
+        restricted = _restrict_nodes(nodes, (window & -window).bit_length() - 1, limit)
+        if restricted is None:
+            return pattern
+        updated = _serialize(restricted, global_flags=parsed.state.flags & ~_DEFAULT_FLAGS)
+        re.compile(updated)
+        return updated
+    except (re.error, InternalError):
+        return pattern

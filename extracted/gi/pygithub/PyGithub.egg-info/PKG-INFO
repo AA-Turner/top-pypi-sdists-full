@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyGithub
-Version: 2.9.1
+Version: 2.10.0
 Summary: Use the full Github API v3
 Author-email: Vincent Jacques <vincent@vincent-jacques.net>
 Project-URL: Documentation, https://pygithub.readthedocs.io/en/stable/
@@ -14,13 +14,14 @@ Classifier: License :: OSI Approved :: GNU Library or Lesser General Public Lice
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: COPYING.LESSER

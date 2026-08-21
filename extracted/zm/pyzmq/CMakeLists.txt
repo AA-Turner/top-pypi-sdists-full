@@ -35,8 +35,9 @@ option(PYZMQ_LIBZMQ_RPATH "Add $ZMQ_PREFIX/lib to $RPATH (true by default). Set 
 
 # anything new should start with PYZMQ_
 option(PYZMQ_NO_BUNDLE "Prohibit building bundled libzmq. Useful for repackaging, to allow default search for libzmq and requiring it to succeed." OFF)
+# sync with buildutils/bundle.py
 set(PYZMQ_LIBZMQ_VERSION "4.3.5" CACHE STRING "libzmq version when bundling")
-set(PYZMQ_LIBSODIUM_VERSION "1.0.20" CACHE STRING "libsodium version when bundling")
+set(PYZMQ_LIBSODIUM_VERSION "1.0.22-stable" CACHE STRING "libsodium version when bundling")
 set(PYZMQ_LIBZMQ_URL "" CACHE STRING "full URL to download bundled libzmq")
 set(PYZMQ_LIBSODIUM_URL "" CACHE STRING "full URL to download bundled libsodium")
 set(PYZMQ_LIBSODIUM_CONFIGURE_ARGS "" CACHE STRING "semicolon-separated list of arguments to pass to ./configure for bundled libsodium")
@@ -91,7 +92,7 @@ if(ZMQ_DRAFT_API)
 endif()
 
 if (PYZMQ_LIBSODIUM_VERSION AND NOT PYZMQ_LIBSODIUM_URL)
-  set(PYZMQ_LIBSODIUM_URL "https://github.com/jedisct1/libsodium/releases/download/${PYZMQ_LIBSODIUM_VERSION}-RELEASE/libsodium-${PYZMQ_LIBSODIUM_VERSION}.tar.gz")
+  set(PYZMQ_LIBSODIUM_URL "https://download.libsodium.org/libsodium/releases/libsodium-${PYZMQ_LIBSODIUM_VERSION}.tar.gz")
 endif()
 
 if (PYZMQ_LIBZMQ_VERSION AND NOT PYZMQ_LIBZMQ_URL)

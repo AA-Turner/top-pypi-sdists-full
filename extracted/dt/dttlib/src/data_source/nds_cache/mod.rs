@@ -1,6 +1,8 @@
 mod gap_handler;
+pub(crate) mod replay;
 
 use super::buffer::Buffer;
+use crate::data_source::nds_cache::replay::Replay;
 use crate::data_source::{
     ChannelQuery, DataBlock, DataBlockReceiver, DataBlockSender, DataSource, DataSourceFeatures,
     DataSourceRef,
@@ -67,6 +69,10 @@ pub struct NDS2Cache {
     _default_file_path: String,
 
     size_bytes: usize,
+
+    url_text: String,
+
+    replay: Replay,
 }
 
 /// How far ahead is "run forever"
@@ -131,10 +137,10 @@ impl DataSource for NDS2Cache {
     }
 
     fn update_scope_data(&self, rc: Box<RunContext>, view: &mut ScopeView) -> Result<(), DTTError> {
-        if let Some(tx) = &view.span_update_tx {
-            if view.span.online {
-                return tx.send(view.span.span_pip).map_err(|e| e.into());
-            }
+        if let Some(tx) = &view.span_update_tx
+            && view.span.online
+        {
+            return tx.send(view.span.span_pip).map_err(|e| e.into());
         }
 
         view.reset_count += 1;
@@ -262,7 +268,7 @@ impl NDS2Cache {
         if cache_handle.get().is_none() {
             let size = self.size_bytes;
 
-            let cache = init(size).await?;
+            let cache = init(size, &self.url_text, self.replay.clone().into()).await?;
 
             cache_handle.get_or_init(move || cache);
         }
@@ -275,7 +281,6 @@ impl NDS2Cache {
     }
 
     /// transform from nds_cache_rs buffers to dttlib buffers
-
     /// Produce a watch channel that always has the latest
     /// result from the cache
     async fn start_scope_view_get_latest(
@@ -601,10 +606,17 @@ async fn send_block(
 #[cfg_attr(feature = "python", pymethods)]
 impl NDS2Cache {
     #[new]
-    pub fn new(size_bytes: usize, default_file_path: String) -> Self {
+    pub fn new(
+        size_bytes: usize,
+        default_file_path: String,
+        url_text: String,
+        replay: Replay,
+    ) -> Self {
         Self {
             _default_file_path: default_file_path,
             size_bytes,
+            url_text,
+            replay,
         }
     }
 

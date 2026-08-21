@@ -104,11 +104,31 @@ class EagerPhase(StrEnum):
     #: above — `phase` on `self_mint_skipped`/`self_mint_started`, and the
     #: request row's `fallback_reason` — while living as bare literals in
     #: `serving_mode` and `executor`. That is exactly the two-lists-of-literals
-    #: drift channel this enum was created to close, and only
-    #: `MINT_IN_PROGRESS` had ever been pinned to it. `serving_mode`'s
-    #: `POSTURE_*` names are now ALIASES of these members, so there is one
-    #: vocabulary and the values are unchanged (the hub's grouped history is
-    #: untouched).
+    #: drift channel this enum was created to close.
+    #:
+    #: ⚠️ pgw#1480, MEASURED at `2af52988`: **that closure did not survive the
+    #: v2 hardcut, and this comment was still describing the world as it was
+    #: meant to be.** `serving_mode` and `executor` are GONE, so the
+    #: `POSTURE_*` aliases this text used to promise do not exist — the only
+    #: `POSTURE_*` constants in the tree are `receipts.py`'s
+    #: `armed`/`local`/`unset`, an unrelated vocabulary. **18 of this enum's 23
+    #: members are referenced nowhere outside this file, and not one of the 183
+    #: `phase=` emit sites in `src/gen_worker` feeds from this enum at all.**
+    #: A phase member nothing references cannot fire, so a proof condition
+    #: written against its ABSENCE passes unconditionally — which is what
+    #: se#780 nearly spent an 80 GB rental discovering.
+    #:
+    #: WIRE-OR-DELETE
+    #: per member is a RULING and not a lint decision, because the hub groups
+    #: historical `worker_activity_events` by these values.
+    #:
+    #: ✅ **`BOOT_ENDED_UNCOMPILED` IS WIRED (pgw#1480 fix).** Its emitter is
+    #: `ServeAdoption._say_boot_end` (`serving/serve_adoption.py`), on kind
+    #: `self_mint_skipped` — the wire contract this docstring always claimed —
+    #: keyed on three facts (the release DECLARED, zero armed graph
+    #: specializations, no mint in flight), never on a timer. Its census row is
+    #: gone, so the gate now guards the reference rather than excusing it.
+    #: The other 17 remain censused and dead.
 
     #: The arming brain has not answered yet (boot in flight, setup unfinished).
     ARM_PENDING = "arm_pending"
@@ -235,7 +255,7 @@ class CompiledGraphAdoption:
     #: adoption to that object's own warmup proof (its cache hit/miss deltas)
     #: instead of attributing another slot's evidence to it.
     pipeline_id: int = 0
-    #: pgw#1176: WHICH graph class this attempt was about, and the ``cg-key-v1`` key
+    #: pgw#1176: WHICH graph specialization this attempt was about, and the ``cg-key-v1`` key
     #: it was about. A boot resolves a KEY SET, so an attempt that MISSED has
     #: no artifact ``ref`` BY CONSTRUCTION — and a miss is the most common
     #: per-entry outcome there is. These two carry the identity a ref-less

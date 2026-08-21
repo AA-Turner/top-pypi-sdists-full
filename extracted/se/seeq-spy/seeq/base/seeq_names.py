@@ -365,6 +365,7 @@ class SeeqNames:
         hierarchy_node_text_column = 'node_text_column'
         items_table_join_suffix = '_join'
         materialized_table_join_suffix = '_mt_join'
+        group_count_column = 'Group Count'
         class Parameters:
             property_name = 'propertyName'
             property_names = 'propertyNames'

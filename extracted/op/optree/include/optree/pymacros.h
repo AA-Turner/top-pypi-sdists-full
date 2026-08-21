@@ -38,9 +38,19 @@ limitations under the License.
     (PYBIND11_VERSION_HEX >= 0x030002F0 /* pybind11 3.0.2 */) &&                                   \
     (defined(PYBIND11_HAS_SUBINTERPRETER_SUPPORT) &&                                               \
      NONZERO_OR_EMPTY(PYBIND11_HAS_SUBINTERPRETER_SUPPORT))
+// NOLINTNEXTLINE[cppcoreguidelines-macro-to-enum,modernize-macro-to-enum]
 #    define OPTREE_HAS_SUBINTERPRETER_SUPPORT 1
 #else
 #    undef OPTREE_HAS_SUBINTERPRETER_SUPPORT
+#endif
+
+// `PyFrozenDict_Type` is CPython-only API (`Include/cpython/dictobject.h`), and PyPy reports the
+// `PY_VERSION_HEX` it emulates, so exclude it explicitly as the macro above does.
+#if !defined(PYPY_VERSION) && (PY_VERSION_HEX >= 0x030F00A7 /* Python 3.15.0a7+ */)
+// NOLINTNEXTLINE[cppcoreguidelines-macro-to-enum,modernize-macro-to-enum]
+#    define OPTREE_HAS_FROZENDICT 1
+#else
+#    undef OPTREE_HAS_FROZENDICT
 #endif
 
 namespace py = pybind11;
@@ -71,6 +81,19 @@ inline constexpr Py_ALWAYS_INLINE bool Py_IsConstant(PyObject *x) noexcept {
 }
 #define Py_IsConstant(x) Py_IsConstant(x)
 
+// `PyStructSequence_UnnamedField` is declared `extern` with hidden visibility (so it is not an
+// exported dynamic symbol for extension modules) before Python 3.11.0a2, where it became
+// `PyAPI_DATA`. Referencing it directly leaves an undefined symbol that makes the module fail to
+// import on those versions. Its value is the stable marker "unnamed field", and callers only ever
+// use it by value (never by pointer identity), so fall back to that literal there.
+inline const char *PyStructSequenceUnnamedField() noexcept {
+#if PY_VERSION_HEX >= 0x030B00A2  // Python 3.11.0a2
+    return PyStructSequence_UnnamedField;
+#else
+    return "unnamed field";
+#endif
+}
+
 using interpid_t = decltype(PyInterpreterState_GetID(nullptr));
 
 #if defined(PYBIND11_HAS_SUBINTERPRETER_SUPPORT) &&                                                \
@@ -81,15 +104,17 @@ using interpid_t = decltype(PyInterpreterState_GetID(nullptr));
 }
 
 [[nodiscard]] inline interpid_t GetCurrentPyInterpreterID() {
+    // This sits on the flatten path (twice per leaf, via the `Is*Instance` caches), so it tests the
+    // documented failure returns rather than probing the global error state.
     PyInterpreterState *interp = PyInterpreterState_Get();
-    if (PyErr_Occurred() != nullptr) [[unlikely]] {
-        throw py::error_already_set();
-    }
     if (interp == nullptr) [[unlikely]] {
+        if (PyErr_Occurred() != nullptr) [[unlikely]] {
+            throw py::error_already_set();
+        }
         throw std::runtime_error("Failed to get the current Python interpreter state.");
     }
     const interpid_t interpid = PyInterpreterState_GetID(interp);
-    if (PyErr_Occurred() != nullptr) [[unlikely]] {
+    if (interpid < 0) [[unlikely]] {
         throw py::error_already_set();
     }
     return interpid;

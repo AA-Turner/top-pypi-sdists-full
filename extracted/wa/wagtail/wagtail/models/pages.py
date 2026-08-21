@@ -35,7 +35,7 @@ from modelcluster.fields import ParentalKey
 from modelcluster.models import (
     ClusterableModel,
 )
-from treebeard.mp_tree import MP_Node
+from treebeard.mp_tree import MP_Node, MP_NodeManager
 
 from wagtail.actions.copy_for_translation import CopyPageForTranslationAction
 from wagtail.actions.copy_page import CopyPageAction
@@ -139,7 +139,7 @@ def get_streamfield_names(model_class):
     )
 
 
-class BasePageManager(models.Manager):
+class BasePageManager(MP_NodeManager):
     def get_queryset(self):
         return self._queryset_class(self.model).order_by("path")
 
@@ -1181,6 +1181,7 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
             # Aliases don't have revisions, so update fields that would normally be updated by save_revision
             alias_updated.draft_title = alias_updated.title
             alias_updated.latest_revision_created_at = self.latest_revision_created_at
+            alias_updated.last_published_at = self.last_published_at
 
             alias_updated.save(clean=False)
 

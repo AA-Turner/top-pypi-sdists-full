@@ -31,9 +31,8 @@ byte-identical — ``from gen_worker import endpoint`` still works, and so does
 table the eager block used to spell out. ``if TYPE_CHECKING`` keeps the eager
 spelling for type checkers, which never execute it.
 
-``scripts/lint_serve_role_closure.py`` is what holds this: with the eager block
-back, the whole serve role reaches ``diffusers``/``transformers`` and the fence
-names the modules. ``gen_worker.model``'s own ``__init__`` is the same shape
+With the eager block back, the whole serve role would reach
+``diffusers``/``transformers``. ``gen_worker.model``'s own ``__init__`` is the same shape
 for the same reason, one layer down.
 """
 
@@ -51,35 +50,6 @@ if TYPE_CHECKING:  # pragma: no cover - the eager spelling, for type checkers on
         Hub,
         ModelRef,
         ModelScope,
-    )
-    from .api.compile_axis import (
-        AxisClass,
-        CompileAxis,
-    )
-    from .api.decorators import (
-        AcceptsReferences,
-        Compile,
-        ConfigParam,
-        DynamicDim,
-        NoWarmup,
-        Resources,
-        endpoint,
-        variant_of,
-        worker_function,
-    )
-    from .api.model_base import (
-        Adapter,
-        LoadContext,
-        Model,
-    )
-    from .api.derive import (
-        DeclarationMismatch,
-        assert_blockers,
-        assert_faithful,
-        cfg_image_classes,
-        class_set_delta,
-        contract_delta,
-        override_delta,
     )
     from .api.errors import (
         AuthError,
@@ -99,51 +69,16 @@ if TYPE_CHECKING:  # pragma: no cover - the eager spelling, for type checkers on
         ValidationError,
         WorkerError,
     )
-    from .api.export_contract import (
-        Arg,
-        Dim,
-        Fork,
-        GraphClass,
-        Input,
-        MintBlocker,
-        import_export_declaration,
-        register_export_declaration,
-    )
-    from .api.formula import (
-        RuntimeFormula,
-    )
-    from .api.jobs import (
-        job,
-    )
     from .api.progress import (
         diffusers_step_callback,
-    )
-    from .api.slot import (
-        OBJECTIVES,
-        ObjectiveMismatchError,
-        ResolvedSlot,
-        Slot,
-        resolve_slot,
-    )
-    from .api.streaming import (
-        BatchItemDelta,
-        Done,
-        Error,
-        IncrementalTokenDelta,
-        StreamItem,
-        StreamResult,
-        TokenUsage,
-        iter_transformers_text_deltas,
     )
     from .api.types import (
         Asset,
         AudioAsset,
         ExpectedOutput,
         ImageAsset,
-        ImageFormat,
         MediaAsset,
         PromptRole,
-        StringEnum,
         Tensors,
         VideoAsset,
     )
@@ -171,7 +106,6 @@ if TYPE_CHECKING:  # pragma: no cover - the eager spelling, for type checkers on
         raise_for_hub_error,
     )
     from .models.provision import (
-        arm_compile,
         report_applied_attention,
         report_applied_lane,
         report_attention_backend,
@@ -181,12 +115,33 @@ if TYPE_CHECKING:  # pragma: no cover - the eager spelling, for type checkers on
         LayoutRequirements,
         RequirementTerms,
     )
-    from .serving.endpoint import Endpoint
+    from .io import ImageFormat
     from .request_context import (
         JobContext,
-        RequestContext,
         TrainingMetric,
     )
+    from .serving.context import (
+        Adapter,
+        DistillationAdapter,
+        LoadContext,
+        RequestContext,
+    )
+    from .serving.engine_runtime import (
+        EngineBootError,
+        EngineHandle,
+        EngineSpec,
+        LlamaServer,
+        VllmServer,
+    )
+    from .serving.deltas import (
+        Delta,
+        ItemDelta,
+        TokenDelta,
+        iter_transformers_text_deltas,
+    )
+    from .serving.entrypoints import entrypoint
+    from .api.resources import Resources
+    from .serving.model import Model
     from .subproc import (
         ProcessStalledError,
         run_process,
@@ -211,13 +166,9 @@ _SUBMODULES: Final[tuple[str, ...]] = ("io",)
 #: reproduced verbatim under ``if TYPE_CHECKING`` above, so the two cannot say
 #: different things without mypy noticing.
 _EXPORTS: Final[dict[str, str]] = {
-    "AcceptsReferences": "api.decorators",
-    "Arg": "api.export_contract",
     "Asset": "api.types",
     "AudioAsset": "api.types",
     "AuthError": "api.errors",
-    "AxisClass": "api.compile_axis",
-    "BatchItemDelta": "api.streaming",
     "Binding": "api.binding",
     "CanceledError": "api.errors",
     "ChildCallError": "api.errors",
@@ -227,110 +178,112 @@ _EXPORTS: Final[dict[str, str]] = {
     "ChildRequestCanceledError": "api.errors",
     "ChildRequestFailedError": "api.errors",
     "Civitai": "api.binding",
-    "Compile": "api.decorators",
-    "CompileAxis": "api.compile_axis",
-    "ConfigParam": "api.decorators",
-    "DeclarationMismatch": "api.derive",
-    "Dim": "api.export_contract",
-    "Model": "api.model_base",
-    "Done": "api.streaming",
-    "DynamicDim": "api.decorators",
-    # pgw#1372's serving.endpoint base predates the ratified Model/entrypoint
-    # split; it stays exported until that lane cuts over.
-    "Endpoint": "serving.endpoint",
-    "Adapter": "api.model_base",
-    "LoadContext": "api.model_base",
-    "Error": "api.streaming",
+    # pgw#1382: the Model/Endpoint split author surface. Model is the
+    # stateful class; @entrypoint marks stateless module-level functions;
+    # ctx splits into LoadContext (load moment) + RequestContext (request
+    # moment); Adapter slots are explicit entrypoint parameters.
+    "Adapter": "serving.context",
+    # pgw#1421: the ENGINE-HOSTED tier's author surface. A spec DECLARES the
+    # engine (`LlamaServer`/`VllmServer`); `ctx.engine(spec)` boots and
+    # supervises it and hands back an `EngineHandle` with a `base_url`. This
+    # is F3's eager-permanent world — external binaries only.
+    "EngineBootError": "serving.engine_runtime",
+    "EngineHandle": "serving.engine_runtime",
+    "EngineSpec": "serving.engine_runtime",
+    "LlamaServer": "serving.engine_runtime",
+    "VllmServer": "serving.engine_runtime",
+    "Resources": "api.resources",
+    "DistillationAdapter": "serving.context",
+    # pgw#1576: INCREMENTAL OUTPUT. `@entrypoint(streams=<type>)` declares the
+    # chunk type, `ctx.emit(chunk)` puts one on the droppable JobProgress lane,
+    # and the entrypoint still RETURNS its terminal struct on the authoritative
+    # one — two wire channels, and the declaration names both.
+    "Delta": "serving.deltas",
+    "ItemDelta": "serving.deltas",
+    "TokenDelta": "serving.deltas",
+    "iter_transformers_text_deltas": "serving.deltas",
     "ExpectedOutput": "api.types",
     "FamilyGeometry": "geometry",
     "FatalError": "api.errors",
     "FetchedUrl": "url_fetch",
     "FitMode": "geometry",
     "FitPlan": "geometry",
-    "Fork": "api.export_contract",
     "GenerationDefaults": "families",
-    "GraphClass": "api.export_contract",
     "HF": "api.binding",
     "Hub": "api.binding",
     "HubApiError": "hub_error",
     "HubError": "hub_error",
     "IllegalCombination": "api.errors",
     "ImageAsset": "api.types",
-    "ImageFormat": "api.types",
-    "IncrementalTokenDelta": "api.streaming",
-    "Input": "api.export_contract",
+    "ImageFormat": "io",
     "JobContext": "request_context",
     "LayoutDeclarationError": "models.tensor_layout_contract",
+    "LoadContext": "serving.context",
     "LayoutRequirements": "models.tensor_layout_contract",
     "MediaAsset": "api.types",
-    "MintBlocker": "api.export_contract",
+    "Model": "serving.model",
+    # pgw#1599 — the lane declaration surface. The demand TERM ALGEBRA lives
+    # in `gen_worker.demand` (`from gen_worker.demand import const, per_mp_batch,
+    # GiB, MiB`), deliberately namespaced: `const` is too common a word to own
+    # at the package root.
+    "DYNAMIC": "serving.lane_spec",
+    "DeclaredLane": "serving.lane_spec",
+    "LaneDeclarationError": "serving.lane_spec",
+    "LaneSpec": "serving.lane_spec",
+    "STATIC": "serving.lane_spec",
+    "Structural": "serving.lane_spec",
+    "lane": "serving.lane_spec",
     "ModelRef": "api.binding",
     "ModelScope": "api.binding",
-    "NoWarmup": "api.decorators",
-    "OBJECTIVES": "api.slot",
-    "ObjectiveMismatchError": "api.slot",
     "OutputSize": "geometry",
     "OutputTooLargeError": "api.errors",
     "ProcessStalledError": "subproc",
     "PromptRole": "api.types",
     "RefCompatibilitySurprise": "api.errors",
-    "RequestContext": "request_context",
+    # pgw#1382: THE RequestContext is the serving one (request facts +
+    # salvaged base surface); JobContext stays on the base module.
+    "RequestContext": "serving.context",
     "RequirementTerms": "models.tensor_layout_contract",
-    "ResolvedSlot": "api.slot",
     "ResourceError": "api.errors",
-    "Resources": "api.decorators",
     "RestoreResult": "geometry",
     "RetryableError": "api.errors",
-    "RuntimeFormula": "api.formula",
-    "Slot": "api.slot",
     "SnapshotBuildFailedError": "api.errors",
-    "StreamItem": "api.streaming",
-    "StreamResult": "api.streaming",
-    "StringEnum": "api.types",
     "Tensors": "api.types",
     "TextLengthExceededError": "text_pin",
-    "TokenUsage": "api.streaming",
     "TrainingMetric": "request_context",
     "ValidationError": "api.errors",
     "VideoAsset": "api.types",
     "WorkerError": "api.errors",
-    "arm_compile": "models.provision",
-    "assert_blockers": "api.derive",
-    "assert_faithful": "api.derive",
-    "cfg_image_classes": "api.derive",
-    "class_set_delta": "api.derive",
-    "contract_delta": "api.derive",
     "diffusers_step_callback": "api.progress",
-    "endpoint": "api.decorators",
+    "entrypoint": "serving.entrypoints",
     "fetch_bytes": "url_fetch",
     "fit_to_native": "geometry",
     "for_request": "view",
-    "import_export_declaration": "api.export_contract",
-    "iter_transformers_text_deltas": "api.streaming",
-    "job": "api.jobs",
     "nearest_bucket": "geometry",
-    "override_delta": "api.derive",
     "pad_text_sequence": "text_pin",
     "parse_hub_error": "hub_error",
     "raise_for_hub_error": "hub_error",
-    "register_export_declaration": "api.export_contract",
     "report_applied_attention": "models.provision",
     "report_applied_lane": "models.provision",
     "report_attention_backend": "models.provision",
-    "resolve_slot": "api.slot",
     "restore": "geometry",
     "run_process": "subproc",
     "set_upscaler": "geometry",
-    "variant_of": "api.decorators",
-    "worker_function": "api.decorators",
 }
-
 
 def __getattr__(name: str) -> Any:
     if name in _SUBMODULES:
         return import_module(f"{__name__}.{name}")
     module = _EXPORTS.get(name)
     if module is None:
+        # pgw#1373: a DELETED v1 name refuses by name, naming the migration.
+        # A bare AttributeError here is the silent-absent state the tracker's
+        # typed-refusal rule forbids — 27 endpoints would each read
+        # "cannot import name 'endpoint'" and learn nothing.
+        from .v1_deleted import REPLACEMENTS, refuse
+
+        if name in REPLACEMENTS:
+            raise refuse(name)
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     return getattr(import_module(f"{__name__}.{module}"), name)
 
@@ -340,46 +293,35 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
-    # The decorators + bindings.
+    # pgw#1382: the Model/Endpoint split author surface.
     "Adapter",
+    "DistillationAdapter",
+    "ImageFormat",
     "LoadContext",
     "Model",
-    "endpoint",
+    "Resources",
+    "entrypoint",
+    # pgw#1576: incremental output — the declared chunk types + the
+    # transformers text-delta helper.
+    "Delta",
+    "ItemDelta",
+    "TokenDelta",
+    "iter_transformers_text_deltas",
+    # pgw#1421: the engine-hosted tier (external binaries only).
+    "EngineBootError",
+    "EngineHandle",
+    "EngineSpec",
+    "LlamaServer",
+    "VllmServer",
+    # The decorators + bindings.
     # pgw#1294: run-once submitted functions. Same (ctx, payload) -> Struct
     # contract as @endpoint, so one body promotes between them unchanged.
-    "job",
-    "variant_of",
-    "worker_function",
-    "AcceptsReferences",
-    "Resources",
     # pgw#1313 — the one requirement vocabulary, at both levels.
     "LayoutRequirements",
     "RequirementTerms",
     "LayoutDeclarationError",
-    "Compile",
-    "CompileAxis",
-    "AxisClass",
-    "DynamicDim",
     # pgw#739 export-declaration vocabulary.
-    "Dim",
-    "Fork",
-    "GraphClass",
-    "Input",
-    "Arg",
     # pgw#1115: a mint refusal is DATA on the declaration.
-    "MintBlocker",
-    "register_export_declaration",
-    "DeclarationMismatch",
-    "assert_blockers",
-    "assert_faithful",
-    "cfg_image_classes",
-    "class_set_delta",
-    "contract_delta",
-    "override_delta",
-    "import_export_declaration",
-    "ConfigParam",
-    "NoWarmup",
-    "arm_compile",
     # pgw#1104: the serve-time recipe reports the lane it APPLIED.
     "report_applied_attention",
     "report_applied_lane",
@@ -410,18 +352,11 @@ __all__ = [
     "ModelScope",
     # Curated model-selection (payload `model=` placement key).
     # Hub-resolved model slots (pgw#520) + the per-family defaults vocabulary.
-    "Slot",
-    "ResolvedSlot",
-    "resolve_slot",
     "GenerationDefaults",
     # pgw#654 objective vocabulary (checkpoint training-objective facts).
-    "OBJECTIVES",
-    "ObjectiveMismatchError",
     # Context types.
     "RequestContext",
     "JobContext",
-    # pgw#1372: the required minimal endpoint base class.
-    "Endpoint",
     "TrainingMetric",
     # Per-step progress helper for diffusers pipelines.
     "diffusers_step_callback",
@@ -453,23 +388,20 @@ __all__ = [
     "ChildRequestCanceledError",
     "ChildRequestFailedError",
     # Streaming signals.
-    "BatchItemDelta",
-    "Done",
-    "Error",
-    "IncrementalTokenDelta",
-    "StreamItem",
-    "StreamResult",
-    "TokenUsage",
-    "iter_transformers_text_deltas",
     # Payload + media helpers.
     "Asset",
     "AudioAsset",
     "ExpectedOutput",
     "ImageAsset",
-    "ImageFormat",
     "MediaAsset",
     "PromptRole",
-    "StringEnum",
+    "DYNAMIC",
+    "DeclaredLane",
+    "LaneDeclarationError",
+    "LaneSpec",
+    "STATIC",
+    "Structural",
+    "lane",
     "Tensors",
     "VideoAsset",
     "io",

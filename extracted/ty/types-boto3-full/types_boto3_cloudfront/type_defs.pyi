@@ -51,6 +51,7 @@ from .literals import (
     MinimumProtocolVersionType,
     OriginAccessControlOriginTypesType,
     OriginAccessControlSigningBehaviorsType,
+    OriginAccessControlSigningProtocolsType,
     OriginGroupSelectionCriteriaType,
     OriginProtocolPolicyType,
     OriginRequestPolicyCookieBehaviorType,
@@ -920,7 +921,7 @@ class KeyValueStoreTypeDef(TypedDict):
 
 class OriginAccessControlConfigTypeDef(TypedDict):
     Name: str
-    SigningProtocol: Literal["sigv4"]
+    SigningProtocol: OriginAccessControlSigningProtocolsType
     SigningBehavior: OriginAccessControlSigningBehaviorsType
     OriginAccessControlOriginType: OriginAccessControlOriginTypesType
     Description: NotRequired[str]
@@ -1533,7 +1534,7 @@ class OriginAccessControlSummaryTypeDef(TypedDict):
     Id: str
     Description: str
     Name: str
-    SigningProtocol: Literal["sigv4"]
+    SigningProtocol: OriginAccessControlSigningProtocolsType
     SigningBehavior: OriginAccessControlSigningBehaviorsType
     OriginAccessControlOriginType: OriginAccessControlOriginTypesType
 

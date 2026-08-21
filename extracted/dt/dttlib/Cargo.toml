@@ -7,7 +7,7 @@ authors = ["Erik von Reis <erik.vonreis@ligo.org>"]
 edition = "2024"
 homepage = "https://git.ligo.org/cds/software/cr-tools/dtt_rust"
 repository = "https://git.ligo.org/cds/software/cr-tools/dtt_rust"
-version = "0.10.9"
+version = "0.11.1"
 
 [package]
 name = "dttlib"
@@ -81,8 +81,8 @@ pyo3-log = {version="0.12"}
 num-rational = {version = "0.4"}
 
 # ligo
-nds2_client_rs = { git="https://git.ligo.org/erik.vonreis/nds_client_rs.git", tag = "dev_2", optional = true }
-nds-cache-rs = { git = "https://git.ligo.org/cds/software/cr_tools/nds-cache-rs.git", tag = "dev_37"}
+nds2_client_rs = { git="https://git.ligo.org/erik.vonreis/nds_client_rs.git", tag = "dev_3", optional = true }
+nds-cache-rs = { git = "https://git.ligo.org/cds/software/cr_tools/nds-cache-rs.git", tag = "dev_38"}
 ligo_hires_gps_time = {workspace = true}
 
 # workspace
@@ -144,6 +144,7 @@ maintenance = { status = "actively-developed" }
 #pyo3-stub-gen = {path="../rust/pyo3-stub-gen/pyo3-stub-gen"}
 #pyo3-stub-gen = {git="https://github.com/evonreis/pyo3-stub-gen.git", branch="rich_enum" }
 #ligo_hires_gps_time = {git="https://git.ligo.org/cds/software/cr_tools/ligo_hires_gps_time.git", tag="0.6.2"}
+#arrakis-rs = { path = "../arrakis-rs" }
 
 [patch.'https://git.ligo.org/ngdd/arrakis-rs.git']
 #arrakis-rs = { path = "../arrakis-rs" }

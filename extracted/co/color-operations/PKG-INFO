@@ -1,51 +1,27 @@
 Metadata-Version: 2.4
 Name: color-operations
-Version: 0.2.0
+Version: 0.4.0
 Summary: Apply basic color-oriented image operations.
-Home-page: https://github.com/vincentsarago/color-operations
-Author: Charlie Loyd
-Author-email: charlie@mapbox.com
-Maintainer: Vincent Sarago
-Maintainer-email: vincent@developmentseed.com
-License: MIT
+Project-URL: Homepage, https://github.com/vincentsarago/color-operations
+Project-URL: Source, https://github.com/vincentsarago/color-operations
+Project-URL: Issues, https://github.com/vincentsarago/color-operations/issues
+Author-email: Charlie Loyd <charlie@mapbox.com>
+Maintainer-email: Vincent Sarago <vincent@developmentseed.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Cython
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Requires-Python: >=3.11
 Requires-Dist: numpy
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: colormath==2.0.2; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: bump-my-version; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Description-Content-Type: text/markdown
 
 # color-operations (fork of [**rio-color**](https://github.com/mapbox/rio-color) )
 
@@ -79,13 +55,16 @@ python -m pip install -U pip
 python -m pip install color-operations
 ```
 
-Build from source
+or build from source
+
+We recommand using [`uv`](https://docs.astral.sh/uv) as project manager for development.
+
+See https://docs.astral.sh/uv/getting-started/installation/ for installation 
 
 ```
 git checkout https://github.com/vincentsarago/color-operations.git
 cd color-operations
-python -m pip install -U pip
-python -m pip install -e .
+uv sync
 ```
 
 ## Operations

@@ -2101,6 +2101,17 @@ struct mjv_averageCamera {
   }
 };
 
+struct mjv_camera2GLCamera {
+  static constexpr char name[] = "mjv_camera2GLCamera";
+  static constexpr char doc[] = "Converts a mjvCamera to a mjvGLCamera.";
+  using type = mjvGLCamera (const mjModel *, const mjData *, const mjvCamera *);
+  static constexpr auto param_names = std::make_tuple("model", "data", "mjv_camera");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjv_camera2GLCamera;
+  }
+};
+
 struct mjv_select {
   static constexpr char name[] = "mjv_select";
   static constexpr char doc[] = "Select geom, flex or skin with mouse; return bodyid; -1: none selected.";
@@ -4686,6 +4697,17 @@ struct mjs_setToOrientation {
   }
 };
 
+struct mjs_setToPID {
+  static constexpr char name[] = "mjs_setToPID";
+  static constexpr char doc[] = "Set actuator to PID controller.";
+  using type = const char * (mjsActuator *, double, double (*)[1], double (*)[1], double (*)[1], double (*)[1], double (*)[1], double, int);
+  static constexpr auto param_names = std::make_tuple("actuator", "kp", "kv", "dampratio", "ki", "imax", "slewmax", "inheritrange", "ctrlspec");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjs_setToPID);
+  }
+};
+
 struct mjs_setToDamper {
   static constexpr char name[] = "mjs_setToDamper";
   static constexpr char doc[] = "Set actuator to activate damper; return error if any.";
@@ -4734,7 +4756,7 @@ struct mjs_setToDCMotor {
   static constexpr char name[] = "mjs_setToDCMotor";
   static constexpr char doc[] = "Set actuator to DC motor; return error if any.";
   using type = const char * (mjsActuator *, double (*)[2], double, double (*)[3], double (*)[3], double (*)[2], double (*)[3], double (*)[6], double (*)[6], double (*)[5], int);
-  static constexpr auto param_names = std::make_tuple("actuator", "motorconst", "resistance", "nominal", "saturation", "inductance", "cogging", "controller", "thermal", "lugre", "input_mode");
+  static constexpr auto param_names = std::make_tuple("actuator", "motorconst", "resistance", "nominal", "saturation", "inductance", "cogging", "controller", "thermal", "lugre", "ctrlspec");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return *reinterpret_cast<type*>(&::mjs_setToDCMotor);

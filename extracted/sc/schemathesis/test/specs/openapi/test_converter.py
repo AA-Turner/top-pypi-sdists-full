@@ -271,27 +271,29 @@ def test_validation_schema_preserves_if_then_else():
                 "required": ["success"],
             },
         ),
+        # `^[abc\d]$` matches exactly one character, so a wider length range is unsatisfiable
+        # and both bounds have to stay as keywords.
         (
             {
                 "minLength": 3,
                 "maxLength": 40,
                 "pattern": r"^[abc\d]$",
             },
-            {"pattern": r"^[abc\d]{3,40}$"},
+            {"minLength": 3, "maxLength": 40, "pattern": r"^[abc\d]$"},
         ),
         (
             {
                 "maxLength": 40,
                 "pattern": r"^[abc\d]$",
             },
-            {"pattern": r"^[abc\d]{1,40}$"},
+            {"pattern": r"^[abc\d]{1}$"},
         ),
         (
             {
                 "minLength": 3,
                 "pattern": r"^[abc\d]$",
             },
-            {"pattern": r"^[abc\d]{3,}$"},
+            {"minLength": 3, "pattern": r"^[abc\d]$"},
         ),
         (
             {
@@ -540,6 +542,21 @@ def test_pattern_translation_invalid_result():
     assert result == {"type": "string"}
 
 
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"^[A-Za-z \p{Tibetan}\p{Thaana}]*$",
+        r"[\p{Tibetan}&&[^|:/]]+",
+        r"\p{Script=Latin}",
+    ],
+)
+def test_pattern_the_validator_enforces_is_kept(pattern):
+    # Dropping it would draw values the API turns down, and nothing downstream would notice.
+    schema = {"type": "string", "pattern": pattern}
+    result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
+    assert result["pattern"] == pattern
+
+
 def test_nested_object_required_array_not_duplicated():
     # GH-3460: Nested `required` arrays should not cause duplicates in parent's `required`
     schema = {
@@ -667,6 +684,90 @@ def test_non_nullable_type_enum_still_rejects_null():
     converted = to_json_schema({"type": "string", "enum": ["N", "E"]}, nullable_keyword="nullable")
     validator = make_validator_for(converted)
     assert not validator.is_valid(None)
+
+
+def test_discriminator_pin_reads_nullable_anyof_tag(ctx):
+    # OpenAPI 3.1 spells a nullable tag as `anyOf`, putting its literal one level below the property.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [{"$ref": "#/components/schemas/ItemReference"}],
+                                    "discriminator": {"propertyName": "type"},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "ItemReference": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "anyOf": [
+                                {"type": "string", "enum": ["item_reference"], "default": "item_reference"},
+                                {"type": "null"},
+                            ]
+                        }
+                    },
+                    "required": ["type"],
+                }
+            }
+        },
+    )
+    validator = make_validator(
+        schema["/items"]["POST"].body[0].optimized_schema, schema.adapter.jsonschema_validator_cls
+    )
+    assert validator.is_valid({"type": "item_reference"})
+
+
+def test_discriminator_pin_falls_back_when_tag_has_several_candidates(ctx):
+    # Two literals under one tag are ambiguous, so neither may be picked over the schema name.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [{"$ref": "#/components/schemas/Ambiguous"}],
+                                    "discriminator": {"propertyName": "type"},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Ambiguous": {
+                    "type": "object",
+                    "properties": {"type": {"anyOf": [{"const": "first"}, {"const": "second"}]}},
+                    "required": ["type"],
+                }
+            }
+        },
+    )
+    validator = make_validator(
+        schema["/items"]["POST"].body[0].optimized_schema, schema.adapter.jsonschema_validator_cls
+    )
+    assert not validator.is_valid({"type": "first"})
+    assert not validator.is_valid({"type": "second"})
 
 
 def test_discriminator_pin_skipped_for_polymorphic_branch_target(ctx):

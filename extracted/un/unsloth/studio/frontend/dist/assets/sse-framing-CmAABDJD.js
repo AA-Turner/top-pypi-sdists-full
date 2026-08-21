@@ -1,0 +1,1 @@
+var e=/\r?\n\r?\n/;function t(t){let n=t.match(e),r=n?.index;return r===void 0||!n?null:{event:t.slice(0,r),remainder:t.slice(r+n[0].length)}}export{t};

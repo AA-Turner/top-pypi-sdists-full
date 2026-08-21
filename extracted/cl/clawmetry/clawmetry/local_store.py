@@ -1622,13 +1622,23 @@ def _daemon_registered() -> bool:
     right back to reclaim it. Stealing it there starves the daemon's ingest and
     blanks every snapshot read (Models/Embodied go empty). Only a true
     single-process boot (no file at all — tests / dev / first run) lets a
-    non-owner open the writer. Best-effort; any error -> False (allow)."""
+    non-owner open the writer. Best-effort; any error -> False (allow).
+
+    The daemon only owns ITS file. When this process is pointed at a
+    different DuckDB (``DB_PATH`` != the daemon's ``db_path``) it is not a
+    non-owner of that daemon's store — it is the sole user of another file
+    and must open it directly. Proxying here sent pytest fixture writes
+    into the live store (see ``local_server.discovery_serves_this_db``)."""
     try:
         import json as _j
 
         with open(os.path.expanduser("~/.clawmetry/local_query.json")) as _f:
-            pid = _j.load(_f).get("pid")
-        return bool(pid) and int(pid) != os.getpid()
+            disc = _j.load(_f)
+        pid = disc.get("pid")
+        if not pid or int(pid) == os.getpid():
+            return False
+        from clawmetry.local_server import discovery_serves_this_db
+        return discovery_serves_this_db(disc, db_path=DB_PATH)
     except Exception:
         return False
 
@@ -2452,6 +2462,59 @@ class LocalStore:
             log.debug("local store: update_session_location failed for %s",
                       session_id, exc_info=True)
             return False
+
+    def get_session_location(
+        self,
+        session_id: str,
+        agent_type: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Read one session's ``cwd`` / ``git_branch`` / decoded ``metadata``.
+
+        Companion read for :meth:`update_session_location`, added for the
+        process-control cwd backfill (the cloud Stop/Pause relay carries no
+        cwd, so the daemon looks the directory up here before resolving the
+        session to a pid).
+
+        ``agent_type`` scopes the lookup: the table is keyed
+        ``(agent_type, session_id)``, and an unscoped match could hand back a
+        DIFFERENT runtime's directory for a colliding id — which would then
+        be used to pick a process to signal. Goes through ``_fetch`` so it
+        takes the same lock as every other read rather than touching the
+        connection directly. Returns None when unknown; never raises.
+        """
+        sid = _clean_str(session_id)
+        if not sid:
+            return None
+        try:
+            if agent_type:
+                rows = self._fetch(
+                    "SELECT cwd, git_branch, metadata FROM sessions "
+                    "WHERE agent_type = ? AND session_id = ? LIMIT 1",
+                    [str(agent_type), sid],
+                )
+            else:
+                rows = self._fetch(
+                    "SELECT cwd, git_branch, metadata FROM sessions "
+                    "WHERE session_id = ? LIMIT 1",
+                    [sid],
+                )
+        except Exception:
+            log.debug("local store: get_session_location failed for %s",
+                      sid, exc_info=True)
+            return None
+        if not rows:
+            return None
+        row = rows[0]
+        meta: dict[str, Any] = {}
+        if row[2]:
+            try:
+                decoded = json.loads(row[2])
+                if isinstance(decoded, dict):
+                    meta = decoded
+            except Exception:
+                pass
+        return {"session_id": sid, "cwd": row[0], "git_branch": row[1],
+                "metadata": meta}
 
     def apply_session_attention(self, items: list[dict[str, Any]]) -> int:
         """Publish the daemon's INFERRED "needs you" pass onto session rows.
@@ -3393,16 +3456,40 @@ class LocalStore:
             ])
 
     def ingest_subagent(self, sa: dict[str, Any]) -> None:
-        """Upsert one subagent rollup row. Required: subagent_id."""
+        """Upsert one subagent rollup row. Required: subagent_id.
+
+        The ``data`` blob is MERGED with the existing row's blob (new keys
+        win, absent keys survive) rather than replaced wholesale. Two writers
+        legitimately enrich the same row — the sessions.json snapshot pass
+        (label/status/age, every 60s) and the orchestration registry pass
+        (prompt/reply/parent, per sync cycle) — and before the merge the more
+        frequent snapshot writer silently wiped the registry's prompt/reply
+        every minute. Stale-key risk is bounded: readers gate the live-only
+        fields on status (e.g. ``nowTool`` only renders while running).
+        """
         sid = sa.get("subagent_id")
         if not sid:
             raise ValueError("subagent must include 'subagent_id'")
         atype = sa.get("agent_type") or "openclaw"
-        data_blob = _to_blob({k: v for k, v in sa.items()
-                              if k not in {"subagent_id", "agent_type",
-                                           "parent_session_id", "spawned_at",
-                                           "ended_at", "task", "status",
-                                           "cost_usd", "token_count"}})
+        new_extra = {k: v for k, v in sa.items()
+                     if k not in {"subagent_id", "agent_type",
+                                  "parent_session_id", "spawned_at",
+                                  "ended_at", "task", "status",
+                                  "cost_usd", "token_count"}}
+        try:
+            prev = self._fetch(
+                "SELECT data FROM subagents WHERE agent_type = ? AND subagent_id = ?",
+                [atype, sid])
+            if prev and prev[0] and prev[0][0] is not None:
+                decoded = _decode_data_blob_rows([(prev[0][0],)], ["data"])
+                old_extra = decoded[0].get("data") if decoded else None
+                if isinstance(old_extra, dict):
+                    merged = dict(old_extra)
+                    merged.update(new_extra)
+                    new_extra = merged
+        except Exception:
+            pass  # merge is best-effort; a fresh blob is still correct
+        data_blob = _to_blob(new_extra)
         now_ms = int(time.time() * 1000)
         with self._write_lock:
             self._conn.execute("""
@@ -8003,6 +8090,72 @@ class LocalStore:
                 "runtime": agent_type or "",
             })
         return out
+
+    def query_subagents_lite(
+        self,
+        *,
+        parent_session_ids: list[str] | None = None,
+        parent_like: list[str] | None = None,
+        since_ms: int | None = None,
+        limit: int = 2000,
+    ) -> list[dict[str, Any]]:
+        """Subagent rows straight off the ``subagents`` table — NO events join.
+
+        The orchestration surfaces (per-session fan-out tree, the Activity
+        tab's per-run "N workflows · M agents · running X" header) poll
+        often and only need the rollup columns + the ``data`` blob the
+        family adapters stamp (kind / workflowRunId / prompt / reply /
+        nowTool …). ``query_subagents`` derives cost from the events table
+        through a CTE that scans every sub-agent event; that is right for
+        the Agents tab but far too heavy for a 5-second Activity refresh.
+        Family-runtime rows carry cache-aware cost/tokens from the adapter
+        directly on the row, so this is exact for them; OpenClaw rows may
+        read low on cost here (use ``query_subagents`` when cost matters).
+
+        ``parent_session_ids`` matches the stored ``parent_session_id``
+        verbatim — callers pass every form they hold (bare uuid, runtime-
+        prefixed); ``parent_like`` adds SQL LIKE patterns (``%:<uuid>`` for
+        "any runtime prefix", ``%:<uuid>::%`` for "any grandchild", i.e. a
+        workflow run's agents). The two are OR-ed. Read-only -> [].
+        """
+        clauses: list[str] = []
+        params: list[Any] = []
+        parent_terms: list[str] = []
+        if parent_session_ids:
+            ids = [str(x) for x in parent_session_ids if x][:500]
+            if ids:
+                parent_terms.append(
+                    "parent_session_id IN (" + ",".join("?" * len(ids)) + ")")
+                params.extend(ids)
+        if parent_like:
+            pats = [str(x) for x in parent_like if x][:20]
+            for pat in pats:
+                parent_terms.append("parent_session_id LIKE ?")
+                params.append(pat)
+        if (parent_session_ids or parent_like) and not parent_terms:
+            return []
+        if parent_terms:
+            clauses.append("(" + " OR ".join(parent_terms) + ")")
+        if since_ms is not None:
+            clauses.append("updated_at >= ?")
+            params.append(int(since_ms))
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = f"""
+            SELECT agent_type, subagent_id, parent_session_id, spawned_at,
+                   ended_at, task, status, cost_usd, token_count, data, updated_at
+            FROM subagents
+            {where}
+            ORDER BY spawned_at DESC
+            LIMIT ?
+        """
+        params.append(int(limit))
+        cols = ["agent_type", "subagent_id", "parent_session_id", "spawned_at",
+                "ended_at", "task", "status", "cost_usd", "token_count",
+                "data", "updated_at"]
+        try:
+            return _decode_data_blob_rows(self._fetch(sql, params), cols)
+        except Exception:
+            return []
 
     def query_subagents(
         self,

@@ -21,6 +21,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -43,11 +44,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import github.GithubObject
 import github.HookResponse
 from github.GithubObject import Attribute, CompletableGithubObject, NotSet, Opt, is_optional, is_optional_list
+
+if TYPE_CHECKING:
+    from github.HookResponse import HookResponse
 
 
 class Hook(CompletableGithubObject):
@@ -71,7 +75,7 @@ class Hook(CompletableGithubObject):
         self._deliveries_url: Attribute[str] = NotSet
         self._events: Attribute[list[str]] = NotSet
         self._id: Attribute[int] = NotSet
-        self._last_response: Attribute[github.HookResponse.HookResponse] = NotSet
+        self._last_response: Attribute[HookResponse] = NotSet
         self._name: Attribute[str] = NotSet
         self._ping_url: Attribute[str] = NotSet
         self._test_url: Attribute[str] = NotSet
@@ -113,7 +117,7 @@ class Hook(CompletableGithubObject):
         return self._id.value
 
     @property
-    def last_response(self) -> github.HookResponse.HookResponse:
+    def last_response(self) -> HookResponse:
         self._completeIfNotSet(self._last_response)
         return self._last_response.value
 

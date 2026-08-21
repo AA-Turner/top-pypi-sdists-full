@@ -7,9 +7,9 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import _utils  # 
 from sagemaker_studio.utils.spark.session.spark_config_builder import logger  # noqa: F401
 from sagemaker_studio.utils.spark.session.spark_config_builder import (  # noqa: F401
     DEFAULT_SPARK_PROPS,
+    _generate_irc_spark_configs,
     _generate_s3tables_spark_configs,
     _generate_spark_catalog_spark_configs,
-    _generate_workday_irc_spark_configs,
     _get_account_id_from_arn,
 )
 from sagemaker_studio.utils.spark.session.spark_config_builder import (  # noqa: F401

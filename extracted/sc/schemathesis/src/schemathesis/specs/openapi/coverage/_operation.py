@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
-from schemathesis.core.jsonschema import make_validator
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator
 from schemathesis.core.media_types import FORM_MEDIA_TYPES, MEDIA_TYPE_STRATEGIES, find_media_type_strategy
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.timing import Instant
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.parameters import ContainerName
     from schemathesis.core.transport import HttpMethod
-    from schemathesis.resources import ExtraDataSource, PoolDraw
+    from schemathesis.resources import PoolDraw, ResourcePool
     from schemathesis.schemas import APIOperation, ParameterSet
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
 
@@ -131,6 +131,15 @@ class TemplateValue:
     kwargs: dict[str, Any]
     raw: dict[str, Any]
     components: dict[ParameterLocation, ComponentInfo]
+
+
+def _replay(
+    first: GeneratedValue, rest: Generator[GeneratedValue, None, None] | None = None
+) -> Generator[GeneratedValue, None, None]:
+    """Hand a value back to the front of the generator it came off."""
+    yield first
+    if rest is not None:
+        yield from rest
 
 
 def _stringify_value(val: Any, container_name: str) -> Any:
@@ -373,7 +382,7 @@ def iter_coverage_cases(
     generate_duplicate_query_parameters: bool,
     unexpected_methods: set[str],
     generation_config: GenerationConfig,
-    extra_data_source: ExtraDataSource | None = None,
+    extra_data_source: ResourcePool | None = None,
     unexpected_methods_seen: set[tuple[str, str]] | None = None,
     error_feedback: ErrorFeedbackStore | None = None,
 ) -> Generator[Case, None, None]:
@@ -566,6 +575,11 @@ def iter_coverage_cases(
         if parameter.is_required and value.generation_mode == GenerationMode.NEGATIVE:
             has_unsatisfiable_required_parameter = True
         template.add_parameter(location, name, value)
+        if value.generation_mode == GenerationMode.NEGATIVE:
+            # The seeded value only ever ships under some other method, so a parameter left with
+            # nothing else would go untested under its own.
+            following = next(gen, None)
+            gen = _replay(value) if following is None else _replay(following, gen)
         generators[(location, name)] = gen
     template_time = instant.elapsed
     has_required_body = operation.body and any(b.is_required for b in operation.body)
@@ -994,15 +1008,25 @@ def iter_coverage_cases(
         def _combination_schema(
             combination: dict[str, Any], _required: set[str], _parameter_set: ParameterSet
         ) -> dict[str, Any]:
-            return {
-                "properties": {
-                    parameter.name: parameter.optimized_schema
-                    for parameter in _parameter_set
-                    if parameter.name in combination
-                },
+            properties = {
+                parameter.name: parameter.optimized_schema
+                for parameter in _parameter_set
+                if parameter.name in combination
+            }
+            schema: dict[str, Any] = {
+                "properties": properties,
                 "required": list(_required),
                 "additionalProperties": False,
             }
+            # Each parameter keeps its bundled definitions next to itself, but their references point at
+            # the document root - which is this schema, not the parameter it came from.
+            bundle: dict[str, Any] = {}
+            for property_schema in properties.values():
+                if isinstance(property_schema, dict):
+                    bundle.update(property_schema.get(BUNDLE_STORAGE_KEY) or {})
+            if bundle:
+                schema[BUNDLE_STORAGE_KEY] = bundle
+            return schema
 
         def _yield_negative(
             subschema: dict[str, Any], _location: ParameterLocation, is_required: bool

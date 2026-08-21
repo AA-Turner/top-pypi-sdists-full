@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 import zmq
 
@@ -21,16 +21,16 @@ class MongoZMQClient:
         self._socket = self._context.socket(zmq.DEALER)
         self._socket.connect(connect_addr)
 
-    def _send_recv_msg(self, msg: List[bytes]) -> str:
+    def _send_recv_msg(self, msg: list[bytes]) -> str:
         self._socket.send_multipart(msg)
         return self._socket.recv_multipart()[0].decode("utf8")
 
-    def get_doc(self, keys: Dict[str, Any]) -> Dict:
+    def get_doc(self, keys: dict[str, Any]) -> dict:
         msg = [b'get', json.dumps(keys).encode("utf8")]
         json_str = self._send_recv_msg(msg)
         return json.loads(json_str)
 
-    def add_doc(self, doc: Dict) -> str:
+    def add_doc(self, doc: dict) -> str:
         msg = [b'add', json.dumps(doc).encode("utf8")]
         return self._send_recv_msg(msg)
 

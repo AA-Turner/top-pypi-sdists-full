@@ -34,7 +34,7 @@ dependencies = [
     "numpy",
     "scipy",
     "ml_dtypes",
-    "ai-edge-litert==2.1.6",
+    "ai-edge-litert==2.2.0",
     "litert-lm-builder",
 ]
 

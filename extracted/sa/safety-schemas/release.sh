@@ -19,7 +19,7 @@ fi
 
 # Pull the latest changes from the main branch
 echo "Pulling latest changes..."
-#git pull origin main
+git pull origin main
 
 # Verify the latest commit
 echo "Verifying the latest commit..."

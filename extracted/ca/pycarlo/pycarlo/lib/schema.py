@@ -2581,6 +2581,7 @@ class DataCollectorScheduleModelDeleteReason(pycarlo.lib.types.Enum):
     * `PLATFORM_AGENT_DELETED`: platform_agent_deletec
     * `RULE_DELETED`: rule_deleted
     * `SIZE_COLLECTION_DISABLED`: size_collection_disabled
+    * `TRACE_EXPORT_DISABLED`: trace_export_disabled
     """
 
     __schema__ = schema
@@ -2595,6 +2596,7 @@ class DataCollectorScheduleModelDeleteReason(pycarlo.lib.types.Enum):
         "PLATFORM_AGENT_DELETED",
         "RULE_DELETED",
         "SIZE_COLLECTION_DISABLED",
+        "TRACE_EXPORT_DISABLED",
     )
 
 
@@ -2808,38 +2810,6 @@ class DataSourceType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("SQL", "TABLE")
-
-
-class DatabricksJobRunModelStatus(pycarlo.lib.types.Enum):
-    """Enumeration Choices:
-
-    * `BLOCKED`: BLOCKED
-    * `CANCELLED`: CANCELLED
-    * `ERROR`: ERROR
-    * `FAILED`: FAILED
-    * `SKIPPED`: SKIPPED
-    * `SUCCEEDED`: SUCCEEDED
-    * `TIMED_OUT`: TIMED_OUT
-    """
-
-    __schema__ = schema
-    __choices__ = ("BLOCKED", "CANCELLED", "ERROR", "FAILED", "SKIPPED", "SUCCEEDED", "TIMED_OUT")
-
-
-class DatabricksTaskRunModelStatus(pycarlo.lib.types.Enum):
-    """Enumeration Choices:
-
-    * `BLOCKED`: BLOCKED
-    * `CANCELLED`: CANCELLED
-    * `ERROR`: ERROR
-    * `FAILED`: FAILED
-    * `SKIPPED`: SKIPPED
-    * `SUCCEEDED`: SUCCEEDED
-    * `TIMED_OUT`: TIMED_OUT
-    """
-
-    __schema__ = schema
-    __choices__ = ("BLOCKED", "CANCELLED", "ERROR", "FAILED", "SKIPPED", "SUCCEEDED", "TIMED_OUT")
 
 
 Date = sgqlc.types.datetime.Date
@@ -6653,13 +6623,14 @@ class Provider(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
     * `AZURE_DEVOPS`None
+    * `BITBUCKET`None
     * `GITHUB`None
     * `GITHUB_ACTION_TRIGGER`None
     * `GITLAB`None
     """
 
     __schema__ = schema
-    __choices__ = ("AZURE_DEVOPS", "GITHUB", "GITHUB_ACTION_TRIGGER", "GITLAB")
+    __choices__ = ("AZURE_DEVOPS", "BITBUCKET", "GITHUB", "GITHUB_ACTION_TRIGGER", "GITLAB")
 
 
 class ProvisioningSchema(pycarlo.lib.types.Enum):
@@ -8218,6 +8189,43 @@ class StorageEncryptionType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("AMAZON_S3_SSE", "MONTE_CARLO_KMS")
+
+
+class StorageOptimizationSortDirection(pycarlo.lib.types.Enum):
+    """Direction a storage optimization candidate list is sorted in.
+
+    Enumeration Choices:
+
+    * `ASC`None
+    * `DESC`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ASC", "DESC")
+
+
+class StorageOptimizationSortField(pycarlo.lib.types.Enum):
+    """Field a storage optimization candidate list is sorted by.
+
+    Enumeration Choices:
+
+    * `daysSinceLatestRead`None
+    * `fullTableId`None
+    * `riskTier`None
+    * `tableCategory`None
+    * `tableName`None
+    * `totalByteCount`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "daysSinceLatestRead",
+        "fullTableId",
+        "riskTier",
+        "tableCategory",
+        "tableName",
+        "totalByteCount",
+    )
 
 
 class StorageTypeEnum(pycarlo.lib.types.Enum):
@@ -17436,7 +17444,7 @@ class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tableCategories"
     )
     """Filter candidates to the given derived table categories
-    (temporary, ad_hoc, archive_snapshot, production, other). Null or
+    (temporary, ad_hoc, archive_snapshot, other, production). Null or
     empty list applies no filter.
     """
 
@@ -22704,12 +22712,17 @@ class AgentHealthEvidence(sgqlc.types.Type):
         "id",
         "title",
         "summary",
+        "significance",
+        "what_happened",
+        "what_it_led_to",
+        "what_caused_it",
         "node_id",
         "canonical_node_id",
         "tool_name",
         "category",
         "focus_area",
         "issue_type",
+        "family",
         "granularity",
         "severity",
         "confidence",
@@ -22728,6 +22741,30 @@ class AgentHealthEvidence(sgqlc.types.Type):
 
     summary = sgqlc.types.Field(String, graphql_name="summary")
     """What was observed and why it matters."""
+
+    significance = sgqlc.types.Field(String, graphql_name="significance")
+    """One-line framing of why this occurrence matters — the lead-in to
+    the whatHappened / whatItLedTo / whatCausedIt story. Null on
+    reports produced before typed evidence shipped.
+    """
+
+    what_happened = sgqlc.types.Field(String, graphql_name="whatHappened")
+    """The concrete observed behavior, told on one representative
+    occurrence. A non-empty value is what makes an evidence row an
+    example — the issue-level exampleCount counts exactly these rows.
+    Null on reports produced before typed evidence shipped.
+    """
+
+    what_it_led_to = sgqlc.types.Field(String, graphql_name="whatItLedTo")
+    """The consequence of the behavior — what the user saw or what went
+    wrong downstream. Null on reports produced before typed evidence
+    shipped.
+    """
+
+    what_caused_it = sgqlc.types.Field(String, graphql_name="whatCausedIt")
+    """The diagnosed cause of the behavior. Null on reports produced
+    before typed evidence shipped.
+    """
 
     node_id = sgqlc.types.Field(String, graphql_name="nodeId")
     """Agent graph node the fact is anchored to."""
@@ -22755,6 +22792,13 @@ class AgentHealthEvidence(sgqlc.types.Type):
     """Stable taxonomy slug (e.g. error_rate, tool_cycle, chokepoint);
     `other` is the escape hatch. The taxonomy may grow, so this is a
     string rather than an enum.
+    """
+
+    family = sgqlc.types.Field(String, graphql_name="family")
+    """Mechanism family within the issue type, stamped when evidence is
+    grouped into issues (e.g. unsupported-figure/misunderstood-sql).
+    Finer-grained than issueType and free-form like it. Null on
+    reports produced before typed evidence shipped.
     """
 
     granularity = sgqlc.types.Field(AgentHealthGranularity, graphql_name="granularity")
@@ -22804,7 +22848,18 @@ class AgentHealthEvidenceSample(sgqlc.types.Type):
     """Deep-link target for one observed occurrence of an evidence fact."""
 
     __schema__ = schema
-    __field_names__ = ("span_id", "trace_id", "trace_start_time", "trace_end_time")
+    __field_names__ = (
+        "span_id",
+        "trace_id",
+        "trace_start_time",
+        "trace_end_time",
+        "thread_id",
+        "turn_index",
+        "part",
+        "step_name",
+        "label",
+        "origin",
+    )
     span_id = sgqlc.types.Field(String, graphql_name="spanId")
     """Span id of the sampled occurrence."""
 
@@ -22835,6 +22890,41 @@ class AgentHealthEvidenceSample(sgqlc.types.Type):
     from the trace store at read time — legacy findings need no
     backfill. Null when the trace can no longer be found (expired
     retention or lookup failure); fall back to the finding window.
+    """
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """Conversation thread the sampled occurrence belongs to — the handle
+    for a conversation deep-link. Null when the occurrence is not
+    conversation-scoped, and on reports produced before conversation
+    anchoring shipped.
+    """
+
+    turn_index = sgqlc.types.Field(Int, graphql_name="turnIndex")
+    """Zero-based index of the cited turn within threadId's conversation
+    — matches the conversation API's turnIndex. Null like threadId.
+    """
+
+    part = sgqlc.types.Field(String, graphql_name="part")
+    """Which part of the turn the sample cites (e.g. 'summary table'). A
+    display hint, not a coordinate — a wrong part still opens the
+    right turn.
+    """
+
+    step_name = sgqlc.types.Field(String, graphql_name="stepName")
+    """Name of the trace step (span) the sample anchors to — display text
+    for the trace deep-link.
+    """
+
+    label = sgqlc.types.Field(String, graphql_name="label")
+    """Human-readable one-liner naming what this sample shows (e.g. 'the
+    turn stating $4.2M').
+    """
+
+    origin = sgqlc.types.Field(String, graphql_name="origin")
+    """How the sample was chosen: 'detector' (cited by the detecting
+    rule), 'error_spans' (pulled from the node's error spans), or
+    'fallback' (a generic example trace). Consumers may hide fallback
+    samples. Null on reports produced before origins shipped.
     """
 
 
@@ -23044,7 +23134,14 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     """A remediation addressing one or more issues."""
 
     __schema__ = schema
-    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids", "is_actionable_fix")
+    __field_names__ = (
+        "id",
+        "title",
+        "sub_bullets",
+        "addresses_issue_ids",
+        "is_actionable_fix",
+        "fix_where",
+    )
     id = sgqlc.types.Field(String, graphql_name="id")
     """Action id."""
 
@@ -23065,6 +23162,13 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     """True when this action is a directly-applicable fix — a concrete
     grounded change to apply; False when it only offers investigation
     leads.
+    """
+
+    fix_where = sgqlc.types.Field(String, graphql_name="fixWhere")
+    """Where the fix lands — the platform surface or location to apply
+    the change in (e.g. 'Snowflake Intelligence → semantic model').
+    Present only on fix-disposed actions (isActionableFix true);
+    always null otherwise.
     """
 
 
@@ -23453,6 +23557,8 @@ class AgentSpanNode(sgqlc.types.Type):
         "count",
         "is_leaf",
         "is_tool_call",
+        "container_span_name",
+        "multi_parent",
     )
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
 
@@ -23470,6 +23576,10 @@ class AgentSpanNode(sgqlc.types.Type):
     is_leaf = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isLeaf")
 
     is_tool_call = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isToolCall")
+
+    container_span_name = sgqlc.types.Field(String, graphql_name="containerSpanName")
+
+    multi_parent = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="multiParent")
 
 
 class AgentSpanTree(sgqlc.types.Type):
@@ -32852,9 +32962,10 @@ class DataCollectorSchedule(sgqlc.types.Type):
     )
     """Schedule for the PLATFORM_TRACE_EXPORT job that ships this agent's
     traces as OTLP-JSON to the account's AO ingest bucket (AO-914).
-    The export builder resolves its agent through this FK. Created via
-    support tooling for the M1 steel thread; automatic
-    creation/backfill behind a per-account flag arrives in M2.
+    The export builder resolves its agent through this FK. Written by
+    the support enable flow and, on accounts with
+    CONFIG_PLATFORM_TRACE_EXPORT_ENABLED set, by the registration hook
+    at agent (re-)registration.
 
     Arguments:
 
@@ -33498,134 +33609,6 @@ class DataSourceSchema(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SchemaField"))),
         graphql_name="fields",
     )
-
-
-class DatabricksJobConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("DatabricksJobEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class DatabricksJobEdge(sgqlc.types.Type):
-    """A Relay edge containing a `DatabricksJob` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("DatabricksJob", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class DatabricksJobRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("DatabricksJobRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class DatabricksJobRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `DatabricksJobRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("DatabricksJobRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class DatabricksJobRunsConnection(sgqlc.types.relay.Connection):
-    """Databricks job executions response"""
-
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges", "edge_count", "total_count")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("DatabricksJobRunsEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-    edge_count = sgqlc.types.Field(Int, graphql_name="edgeCount")
-    """Total number of edges returned (page count)"""
-
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of edges matching filter (total count)"""
-
-
-class DatabricksJobRunsEdge(sgqlc.types.Type):
-    """A Relay edge containing a `DatabricksJobRuns` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("DatabricksJobRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class DatabricksTaskConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("DatabricksTaskEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class DatabricksTaskEdge(sgqlc.types.Type):
-    """A Relay edge containing a `DatabricksTask` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("DatabricksTask", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class DatabricksTaskRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("DatabricksTaskRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class DatabricksTaskRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `DatabricksTaskRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("DatabricksTaskRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
 
 
 class DatabricksWarehouseResponse(sgqlc.types.Type):
@@ -36056,10 +36039,6 @@ class EtlContainer(sgqlc.types.Type):
         "airflowtaskmodel_set",
         "airflowdagrunmodel_set",
         "airflowtaskrunmodel_set",
-        "databricksjobmodel_set",
-        "databrickstaskmodel_set",
-        "databricksjobrunmodel_set",
-        "databrickstaskrunmodel_set",
         "job_count",
         "webhook_status",
         "push_events",
@@ -36221,102 +36200,6 @@ class EtlContainer(sgqlc.types.Type):
     airflowtaskrunmodel_set = sgqlc.types.Field(
         sgqlc.types.non_null(AirflowTaskRunConnection),
         graphql_name="airflowtaskrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    databricksjobmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksJobConnection),
-        graphql_name="databricksjobmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    databrickstaskmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksTaskConnection),
-        graphql_name="databrickstaskmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    databricksjobrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksJobRunConnection),
-        graphql_name="databricksjobrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    databrickstaskrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksTaskRunConnection),
-        graphql_name="databrickstaskrunmodelSet",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -72703,6 +72586,8 @@ class PiiScanFindingSampleRows(sgqlc.types.Type):
         "has_error",
         "error",
         "sampling_disabled",
+        "sampling_disabled_reason",
+        "sampling_disabled_message",
         "sampling_restricted",
     )
     columns = sgqlc.types.Field(
@@ -72732,6 +72617,12 @@ class PiiScanFindingSampleRows(sgqlc.types.Type):
     """Whether sample rows are unavailable because data sampling is
     disabled.
     """
+
+    sampling_disabled_reason = sgqlc.types.Field(String, graphql_name="samplingDisabledReason")
+    """Machine-readable reason sample rows are unavailable, when known."""
+
+    sampling_disabled_message = sgqlc.types.Field(String, graphql_name="samplingDisabledMessage")
+    """User-facing reason sample rows are unavailable, when known."""
 
     sampling_restricted = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="samplingRestricted"
@@ -74079,8 +73970,6 @@ class Query(sgqlc.types.Type):
         "get_etl_group_v3",
         "get_etl_groups_v3",
         "get_etl_task_performance_v3",
-        "get_databricks_job_runs",
-        "get_databricks_task_runs",
         "get_etl_job",
         "get_etl_task",
         "get_etl_jobs",
@@ -74615,13 +74504,27 @@ class Query(sgqlc.types.Type):
                         StorageOptimizationCandidatesFilter, graphql_name="filter", default=None
                     ),
                 ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        StorageOptimizationSortField, graphql_name="orderBy", default=None
+                    ),
+                ),
+                (
+                    "order_direction",
+                    sgqlc.types.Arg(
+                        StorageOptimizationSortDirection,
+                        graphql_name="orderDirection",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
     """(experimental) Get tables that are candidates for storage
-    optimization, sorted by size (largest first). Scoped to a single
-    warehouse when 'resourceId' is given, otherwise to every warehouse
-    in the account.
+    optimization, largest first unless 'orderBy' or 'orderDirection'
+    says otherwise. Scoped to a single warehouse when 'resourceId' is
+    given, otherwise to every warehouse in the account.
 
     Arguments:
 
@@ -74631,9 +74534,28 @@ class Query(sgqlc.types.Type):
     * `first` (`Int`): Maximum number of candidates to return per page
       (default: 50) (default: `50`)
     * `after` (`String`): Cursor from a previous page's endCursor to
-      fetch the next page
+      fetch the next page. A cursor carries the sort it was issued
+      under. Reusing one after 'orderBy' or 'orderDirection' changes
+      is rejected; start again from the first page instead.
     * `filter` (`StorageOptimizationCandidatesFilter`): Optional
       filters applied to the candidate results
+    * `order_by` (`StorageOptimizationSortField`): Field to sort
+      candidates by, applied to every candidate matching the filter
+      rather than to the returned page alone. Defaults to
+      totalByteCount. A candidate with no recorded size sorts as zero
+      bytes. A candidate with no risk tier sorts last in either
+      direction. A candidate that was never read sorts as the stalest.
+      tableCategory ranks by cleanup safety rather than
+      alphabetically, from safest to remove to least safe: temporary,
+      ad_hoc, archive_snapshot, other, production. Safest-first is the
+      ASC order; 'orderDirection' defaults to DESC. An unrecognised or
+      unset category sorts last in either direction. tableName sorts
+      by table name, breaking ties on project then dataset;
+      fullTableId sorts the fully qualified identifier
+      ('project:dataset.table') instead. Either way an unset name
+      sorts last in either direction.
+    * `order_direction` (`StorageOptimizationSortDirection`):
+      Direction to sort 'orderBy' in. Defaults to DESC.
     """
 
     get_scheduled_reports = sgqlc.types.Field(
@@ -78890,68 +78812,6 @@ class Query(sgqlc.types.Type):
     * `paging` (`EtlTaskPerformanceV3PagingInput`): Relay-style cursor
       pagination plus task-summary sort field and direction. Defaults
       to the first 20 by LAST_RUN_START_TIME.
-    """
-
-    get_databricks_job_runs = sgqlc.types.Field(
-        DatabricksJobRunsConnection,
-        graphql_name="getDatabricksJobRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
-                ("table_mcon", sgqlc.types.Arg(String, graphql_name="tableMcon", default=None)),
-                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-            )
-        ),
-    )
-    """(experimental) List of runs for a given job
-
-    Arguments:
-
-    * `first` (`Int`): When paging forward: the number of items to
-      return (page size)
-    * `after` (`String`): When paging forward: the cursor of the last
-      item on the previous page of results
-    * `last` (`Int`): When paging backward: the number of items to
-      return (page size)
-    * `before` (`String`): When paging backward: the cursor of the
-      first item on the next page of results
-    * `job_mcon` (`String`): Job MCON to filter by
-    * `table_mcon` (`String`): Table MCON to filter by
-    * `from_date` (`DateTime`): Filter date range start
-    * `to_date` (`DateTime`): Filter date range end
-    """
-
-    get_databricks_task_runs = sgqlc.types.Field(
-        sgqlc.types.list_of("DatabricksTaskRun"),
-        graphql_name="getDatabricksTaskRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "job_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
-                    ),
-                ),
-                (
-                    "job_run_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobRunId", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) List of runs for a given job
-
-    Arguments:
-
-    * `job_mcon` (`String!`): Job MCON to filter by
-    * `job_run_id` (`String!`): Job Run Id to filter by
     """
 
     get_etl_job = sgqlc.types.Field(
@@ -84093,8 +83953,12 @@ class Query(sgqlc.types.Type):
       traces
     * `trace_id` (`String!`): Trace ID to retrieve
     * `trace_start_time` (`DateTime`): Start time of the trace
-      (inclusive)
-    * `trace_end_time` (`DateTime`): End time of the trace (inclusive)
+      (inclusive). When both bounds are omitted the server resolves
+      them from the trace itself; providing exactly one bound scans a
+      one-day window anchored to it.
+    * `trace_end_time` (`DateTime`): End time of the trace
+      (inclusive). Same omitted/single-bound behavior as
+      traceStartTime.
     """
 
     get_agent_span_groups = sgqlc.types.Field(
@@ -98750,15 +98614,15 @@ class QueryListObject(sgqlc.types.Type):
 
     runtime = sgqlc.types.Field(Int, graphql_name="runtime")
 
-    rows_produced = sgqlc.types.Field(Int, graphql_name="rowsProduced")
+    rows_produced = sgqlc.types.Field(BigInt, graphql_name="rowsProduced")
 
-    rows_updated = sgqlc.types.Field(Int, graphql_name="rowsUpdated")
+    rows_updated = sgqlc.types.Field(BigInt, graphql_name="rowsUpdated")
 
-    rows_inserted = sgqlc.types.Field(Int, graphql_name="rowsInserted")
+    rows_inserted = sgqlc.types.Field(BigInt, graphql_name="rowsInserted")
 
-    rows_deleted = sgqlc.types.Field(Int, graphql_name="rowsDeleted")
+    rows_deleted = sgqlc.types.Field(BigInt, graphql_name="rowsDeleted")
 
-    bytes_deleted = sgqlc.types.Field(Int, graphql_name="bytesDeleted")
+    bytes_deleted = sgqlc.types.Field(BigInt, graphql_name="bytesDeleted")
 
     rows_produced_float = sgqlc.types.Field(Float, graphql_name="rowsProducedFloat")
 
@@ -99468,6 +99332,9 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
         "run_uuid",
         "report_window_start",
         "report_window_end",
+        "issue_type",
+        "has_actionable_fix",
+        "example_count",
         "issue",
         "linear_ticket",
         "jira_ticket",
@@ -99535,6 +99402,28 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
     report_window_end = sgqlc.types.Field(DateTime, graphql_name="reportWindowEnd")
     """End of the selected snapshot's run window; null like
     reportWindowStart.
+    """
+
+    issue_type = sgqlc.types.Field(String, graphql_name="issueType")
+    """Stable taxonomy slug of the issue's mechanism (e.g.
+    unsupported_figure) — read off the cited evidence, which is typed
+    homogeneously per issue. Free-form like the evidence rows'
+    issueType (the taxonomy may grow). Null on reports produced before
+    typed evidence shipped.
+    """
+
+    has_actionable_fix = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasActionableFix"
+    )
+    """True when any recommended action is a directly-applicable fix (its
+    isActionableFix is true); false when the actions only offer
+    investigation leads.
+    """
+
+    example_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="exampleCount")
+    """Number of evidence rows carrying a non-empty whatHappened — the
+    definition of an 'example', so consumers derive nothing
+    themselves. 0 on reports produced before typed evidence shipped.
     """
 
     issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
@@ -115170,369 +115059,6 @@ class DataSourceTable(sgqlc.types.Type, DataSourceInterface):
     )
 
 
-class DatabricksJob(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "account",
-        "generates_incidents",
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "mcon",
-        "job_id",
-        "job_name",
-        "job_description",
-        "settings",
-        "change_time",
-        "delete_time",
-        "creator",
-        "run_as",
-        "workspace_id",
-        "last_run_date",
-        "last_webhook_received",
-        "runs",
-        "etl_type",
-        "source_tables",
-        "dest_tables",
-        "recent_run_count",
-        "generates_alerts",
-        "tasks",
-        "job_url",
-        "webhook_status",
-    )
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    generates_incidents = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesIncidents"
-    )
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    job_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobName")
-    """Job Name"""
-
-    job_description = sgqlc.types.Field(String, graphql_name="jobDescription")
-    """Job Description"""
-
-    settings = sgqlc.types.Field(JSONString, graphql_name="settings")
-    """Databricks Job settings"""
-
-    change_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="changeTime")
-    """Time when job was last modified"""
-
-    delete_time = sgqlc.types.Field(DateTime, graphql_name="deleteTime")
-    """Time when job was deleted"""
-
-    creator = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="creator")
-    """User who created the job"""
-
-    run_as = sgqlc.types.Field(String, graphql_name="runAs")
-    """User used to run the job"""
-
-    workspace_id = sgqlc.types.Field(String, graphql_name="workspaceId")
-    """Databricks Workspace where the job exists"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
-
-    last_webhook_received = sgqlc.types.Field(DateTime, graphql_name="lastWebhookReceived")
-    """Timestamp of the last webhook event received for this job"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksJobRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Job associated with the run
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    etl_type = sgqlc.types.Field(sgqlc.types.non_null(EtlType), graphql_name="etlType")
-    """Etl type of the job"""
-
-    source_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="sourceTables"
-    )
-    """Tables read from in this job"""
-
-    dest_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="destTables"
-    )
-    """Tables modified in this job"""
-
-    recent_run_count = sgqlc.types.Field(Int, graphql_name="recentRunCount")
-    """Number of runs of this job within the last 30 days"""
-
-    generates_alerts = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts"
-    )
-    """Whether this job generates alerts when it fails"""
-
-    tasks = sgqlc.types.Field(sgqlc.types.list_of("DatabricksTask"), graphql_name="tasks")
-    """Tasks in this job"""
-
-    job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
-    """Url of the job page in the original Databricks environment"""
-
-    webhook_status = sgqlc.types.Field(WebhookStatus, graphql_name="webhookStatus")
-    """Webhook status info for this job"""
-
-
-class DatabricksJobRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "job_id",
-        "run_id",
-        "started_at",
-        "finished_at",
-        "compute_ids",
-        "termination_code",
-        "status",
-        "trigger_type",
-        "run_type",
-        "run_name",
-        "job_parameters",
-        "run_url",
-        "associated_job",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Run ID"""
-
-    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
-    """Time the run started. 'period_start_time' in Databricks"""
-
-    finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
-    """Time the run ended. 'period_end_time' in Databricks"""
-
-    compute_ids = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="computeIds"
-    )
-    """The ids of the compute for this task run"""
-
-    termination_code = sgqlc.types.Field(String, graphql_name="terminationCode")
-    """termination code for the run"""
-
-    status = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksJobRunModelStatus), graphql_name="status"
-    )
-    """Final status of the run. 'result_state' in Databricks"""
-
-    trigger_type = sgqlc.types.Field(String, graphql_name="triggerType")
-    """trigger type for the job"""
-
-    run_type = sgqlc.types.Field(String, graphql_name="runType")
-    """run type for the job"""
-
-    run_name = sgqlc.types.Field(String, graphql_name="runName")
-    """run name for the job run"""
-
-    job_parameters = sgqlc.types.Field(JSONString, graphql_name="jobParameters")
-    """Databricks Job Run parameters"""
-
-    run_url = sgqlc.types.Field(String, graphql_name="runUrl")
-    """Url of the run page in the original Databricks environment"""
-
-    associated_job = sgqlc.types.Field(DatabricksJob, graphql_name="associatedJob")
-    """Job associated with the run"""
-
-
-class DatabricksTask(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "account",
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "mcon",
-        "dbx_job_id",
-        "task_id",
-        "change_time",
-        "delete_time",
-        "depends_on",
-        "runs",
-    )
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    dbx_job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dbxJobId")
-    """Job ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    change_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="changeTime")
-    """Time when task was last modified"""
-
-    delete_time = sgqlc.types.Field(DateTime, graphql_name="deleteTime")
-    """Time when task was deleted"""
-
-    depends_on = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="dependsOn"
-    )
-    """The task ids of the upstream dependencies for this task"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksTaskRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Task associated with the run
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-
-class DatabricksTaskRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "job_id",
-        "run_id",
-        "started_at",
-        "finished_at",
-        "compute_ids",
-        "termination_code",
-        "status",
-        "job_run_id",
-        "task_id",
-        "associated_task",
-        "task_mcon",
-        "job_mcon",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Run ID"""
-
-    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
-    """Time the run started. 'period_start_time' in Databricks"""
-
-    finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
-    """Time the run ended. 'period_end_time' in Databricks"""
-
-    compute_ids = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="computeIds"
-    )
-    """The ids of the compute for this task run"""
-
-    termination_code = sgqlc.types.Field(String, graphql_name="terminationCode")
-    """termination code for the run"""
-
-    status = sgqlc.types.Field(
-        sgqlc.types.non_null(DatabricksTaskRunModelStatus), graphql_name="status"
-    )
-    """Final status of the run. 'result_state' in Databricks"""
-
-    job_run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobRunId")
-    """Job Run ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    associated_task = sgqlc.types.Field(DatabricksTask, graphql_name="associatedTask")
-    """Task associated with the run"""
-
-    task_mcon = sgqlc.types.Field(String, graphql_name="taskMcon")
-    """MCON of Task for provided task_id"""
-
-    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of Job for provided job_id"""
-
-
 class DatadogIncident(sgqlc.types.Type, NodeWithUUID):
     __schema__ = schema
     __field_names__ = (
@@ -118707,9 +118233,10 @@ class PlatformAgent(sgqlc.types.Type, Node):
     )
     """Schedule for the PLATFORM_TRACE_EXPORT job that ships this agent's
     traces as OTLP-JSON to the account's AO ingest bucket (AO-914).
-    The export builder resolves its agent through this FK. Created via
-    support tooling for the M1 steel thread; automatic
-    creation/backfill behind a per-account flag arrives in M2.
+    The export builder resolves its agent through this FK. Written by
+    the support enable flow and, on accounts with
+    CONFIG_PLATFORM_TRACE_EXPORT_ENABLED set, by the registration hook
+    at agent (re-)registration.
     """
 
     recommendations_generated_at = sgqlc.types.Field(
@@ -122617,12 +122144,12 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowDag, DatabricksJob, DbtJob)
+    __types__ = (AirflowDag, DbtJob)
 
 
 class ETLTaskUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowTask, DatabricksTask)
+    __types__ = (AirflowTask,)
 
 
 class ExceptionMetadataRowValue(sgqlc.types.Union):

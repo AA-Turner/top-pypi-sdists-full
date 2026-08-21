@@ -145,29 +145,47 @@ def generate_s3_access_grants_configs(proj) -> dict:
     return {}
 
 
-def _generate_workday_irc_spark_configs(proj):
+def _generate_irc_spark_configs(proj):
+    """Generate Spark catalog configs for every Iceberg REST Catalog connection.
+
+    Covers all connection types listed in SUPPORTED_IRC_GLUE_CONNECTION_TYPES. Each
+    connection resolves to one Spark catalog per entry in its SOURCE_CATALOG_LIST.
+    """
     import json
+
+    from sagemaker_studio.connections.connection import SUPPORTED_IRC_GLUE_CONNECTION_TYPES
 
     conf = {}
     connections = proj.connections
     for connection in connections:
-        if connection.type == "WORKDAYICEBERGRESTCATALOG":
-            spark_catalog_configs = connection._spark_catalog_configs()
-            catalog_names = json.loads(spark_catalog_configs["SOURCE_CATALOG_LIST"])
-            for catalog_name in catalog_names:
-                rest_uri = spark_catalog_configs["INSTANCE_URL"]
-                access_token = spark_catalog_configs["ACCESS_TOKEN"]
-                realm = spark_catalog_configs["TENANT_ID"]
+        if connection.type not in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+            continue
 
-                conf[f"spark.sql.catalog.{catalog_name}"] = "org.apache.iceberg.spark.SparkCatalog"
-                conf[f"spark.sql.catalog.{catalog_name}.type"] = "rest"
-                conf[f"spark.sql.catalog.{catalog_name}.uri"] = rest_uri
-                conf[f"spark.sql.catalog.{catalog_name}.warehouse"] = catalog_name
-                conf[f"spark.sql.catalog.{catalog_name}.header.Polaris-Realm"] = realm
-                conf[f"spark.sql.catalog.{catalog_name}.token"] = access_token
-                conf[f"spark.sql.catalog.{catalog_name}.header.X-Iceberg-Access-Delegation"] = (
-                    "vended-credentials"
-                )
+        spark_catalog_configs = connection._spark_catalog_configs()
+        # Returns None when the connection has no backing Glue connection.
+        if not spark_catalog_configs:
+            continue
+
+        source_catalog_list = spark_catalog_configs.get("SOURCE_CATALOG_LIST")
+        if not source_catalog_list:
+            continue
+
+        rest_uri = spark_catalog_configs["INSTANCE_URL"]
+        access_token = spark_catalog_configs["ACCESS_TOKEN"]
+        # Polaris backed catalogs (currently Workday) scope requests to a realm.
+        # Vendors that do not use a realm simply omit TENANT_ID.
+        realm = spark_catalog_configs.get("TENANT_ID")
+
+        for catalog_name in json.loads(source_catalog_list):
+            catalog_prefix = f"spark.sql.catalog.{catalog_name}"
+            conf[catalog_prefix] = "org.apache.iceberg.spark.SparkCatalog"
+            conf[f"{catalog_prefix}.type"] = "rest"
+            conf[f"{catalog_prefix}.uri"] = rest_uri
+            conf[f"{catalog_prefix}.warehouse"] = catalog_name
+            conf[f"{catalog_prefix}.token"] = access_token
+            conf[f"{catalog_prefix}.header.X-Iceberg-Access-Delegation"] = "vended-credentials"
+            if realm:
+                conf[f"{catalog_prefix}.header.Polaris-Realm"] = realm
 
     return conf
 
@@ -179,7 +197,7 @@ def generate_spark_configs(account_id):
     spark_props.update(_generate_spark_catalog_spark_configs(account_id))
     spark_props.update(_generate_s3tables_spark_configs(proj))
     spark_props.update(_generate_glue_catalog_spark_configs(proj))
-    spark_props.update(_generate_workday_irc_spark_configs(proj))
+    spark_props.update(_generate_irc_spark_configs(proj))
     return spark_props
 
 

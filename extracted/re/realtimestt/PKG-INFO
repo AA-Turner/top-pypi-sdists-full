@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: realtimestt
-Version: 1.0.2
+Version: 1.0.4
 Summary: A fast Voice Activity Detection and Transcription System
 Home-page: https://github.com/KoljaB/RealTimeSTT
 Author: Kolja Beigel
@@ -13,6 +13,7 @@ License-File: LICENSE
 Requires-Dist: PyAudio==0.2.14
 Requires-Dist: webrtcvad-wheels==2.0.14
 Requires-Dist: halo==0.0.31
+Requires-Dist: colorama==0.4.6
 Requires-Dist: torch
 Requires-Dist: torchaudio
 Requires-Dist: scipy==1.17.1
@@ -29,9 +30,17 @@ Requires-Dist: pywhispercpp; extra == "whispercpp"
 Provides-Extra: openai-whisper
 Requires-Dist: openai-whisper; extra == "openai-whisper"
 Provides-Extra: sherpa-onnx
-Requires-Dist: sherpa-onnx; extra == "sherpa-onnx"
+Requires-Dist: sherpa-onnx==1.13.4; extra == "sherpa-onnx"
 Provides-Extra: sherpa
-Requires-Dist: sherpa-onnx; extra == "sherpa"
+Requires-Dist: sherpa-onnx==1.13.4; extra == "sherpa"
+Provides-Extra: server
+Requires-Dist: fastapi<1,>=0.115; extra == "server"
+Requires-Dist: uvicorn[standard]<1,>=0.30; extra == "server"
+Requires-Dist: silero-vad[onnx-cpu]>=6.2.1; python_version >= "3.8" and extra == "server"
+Provides-Extra: production-server
+Requires-Dist: fastapi<1,>=0.115; extra == "production-server"
+Requires-Dist: uvicorn[standard]<1,>=0.30; extra == "production-server"
+Requires-Dist: silero-vad[onnx-cpu]>=6.2.1; python_version >= "3.8" and extra == "production-server"
 Provides-Extra: silero-vad
 Requires-Dist: silero-vad>=6.2.1; python_version >= "3.8" and extra == "silero-vad"
 Provides-Extra: silero
@@ -76,6 +85,14 @@ Provides-Extra: qwen3-asr
 Requires-Dist: qwen-asr; extra == "qwen3-asr"
 Provides-Extra: qwen-vllm
 Requires-Dist: qwen-asr[vllm]; extra == "qwen-vllm"
+Provides-Extra: funasr
+Requires-Dist: funasr; extra == "funasr"
+Provides-Extra: fun-asr
+Requires-Dist: funasr; extra == "fun-asr"
+Provides-Extra: fun-asr
+Requires-Dist: funasr; extra == "fun-asr"
+Provides-Extra: sensevoice
+Requires-Dist: funasr; extra == "sensevoice"
 Provides-Extra: kroko-builder
 Requires-Dist: huggingface_hub; extra == "kroko-builder"
 Provides-Extra: porcupine
@@ -104,7 +121,9 @@ Provides-Extra: all
 Requires-Dist: faster-whisper==1.2.1; extra == "all"
 Requires-Dist: pywhispercpp; extra == "all"
 Requires-Dist: openai-whisper; extra == "all"
-Requires-Dist: sherpa-onnx; extra == "all"
+Requires-Dist: sherpa-onnx==1.13.4; extra == "all"
+Requires-Dist: fastapi<1,>=0.115; extra == "all"
+Requires-Dist: uvicorn[standard]<1,>=0.30; extra == "all"
 Requires-Dist: silero-vad[onnx-cpu]>=6.2.1; python_version >= "3.8" and extra == "all"
 Requires-Dist: transformers; extra == "all"
 Requires-Dist: nemo_toolkit[asr]; extra == "all"
@@ -112,6 +131,7 @@ Requires-Dist: torch==2.8.0; (python_version >= "3.10" and python_version < "3.1
 Requires-Dist: torchaudio==2.8.0; (python_version >= "3.10" and python_version < "3.12" and platform_system != "Windows") and extra == "all"
 Requires-Dist: omnilingual-asr>=0.2.0; (python_version >= "3.10" and python_version < "3.12" and platform_system != "Windows") and extra == "all"
 Requires-Dist: qwen-asr; extra == "all"
+Requires-Dist: funasr; extra == "all"
 Requires-Dist: huggingface_hub; extra == "all"
 Requires-Dist: pvporcupine==1.9.5; extra == "all"
 Requires-Dist: openwakeword>=0.6.0; extra == "all"
@@ -140,9 +160,15 @@ Main ASR backend only, without the faster packaged Silero ONNX Runtime VAD:
 
     pip install "realtimestt[faster-whisper]"
 
-Core package only, without a transcription engine or wake-word backend:
+Base recorder/audio runtime, without a transcription engine or wake-word
+backend:
 
     pip install realtimestt
+
+The base install still includes microphone/audio support, WebRTC VAD, recorder
+VAD logic, websocket client/server dependencies, and shared audio utilities. It
+does not install `faster-whisper`, Porcupine, OpenWakeWord, or another optional
+ASR/wake-word backend unless you request the matching extra.
 
 Install multiple extras by separating them with commas:
 
@@ -155,6 +181,7 @@ Available extras include:
 - whisper-cpp: whisper.cpp backend through pywhispercpp
 - openai-whisper: original OpenAI Whisper Python backend
 - sherpa-onnx: sherpa-onnx CPU backends
+- server/production-server: versioned FastAPI HTTP and WebSocket ASR server
 - silero-vad: packaged Silero model assets and PyTorch wrapper
 - silero-onnx/silero-onnx-cpu: fastest Silero VAD CPU ONNX Runtime backend
 - silero-onnx-gpu: installs Silero's ONNX GPU runtime extra for experiments
@@ -164,12 +191,18 @@ Available extras include:
 - moonshine, granite, cohere: aliases for the Transformers dependency set
 - qwen: Qwen ASR backend
 - qwen-vllm: Qwen ASR with vLLM extras
+- funasr: experimental FunASR/SenseVoice backend
 - kroko-builder: helper command for building/installing Kroko-ONNX plus Hugging Face model downloads
 - porcupine: Porcupine wake-word backend
 - openwakeword: OpenWakeWord wake-word backend
 - wakewords: both wake-word backends
 - recommended/default: faster-whisper backend plus fast Silero CPU ONNX VAD
 - all: all PyPI-installable optional backends
+
+Install the pinned Nemotron live and Parakeet final model bundles into a
+persistent verified cache:
+
+    stt-install-sherpa-models --root ./models/sherpa-onnx --model all
 
 WebRTC VAD is installed with the core package. AudioToTextRecorder also
 initializes a Silero VAD path. Install the recommended/default or
@@ -220,8 +253,34 @@ wake words, and direct access to audio streams. It is designed for assistants,
 dictation tools, browser streaming servers, and prototypes that need to turn
 speech into text with only a few lines of code.
 
-The recommended default path uses `faster_whisper`. Other engines are available
-through install extras when their optional dependencies and models are present.
+The general-purpose default path uses `faster_whisper`. Other engines are
+available through install extras when their optional dependencies and models
+are present.
+
+## Recommended Engine Profiles
+
+- **CUDA / GPU:** Keep using the established `faster_whisper` CUDA setup. It
+  remains the recommended general-purpose GPU path.
+- **CPU:** For production streaming on Linux x86-64, the strongly recommended
+  profile is
+  `sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8` for fast,
+  replaceable realtime text together with
+  `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` for the single authoritative
+  final transcript. Nemotron processes only new audio frames during the turn;
+  Parakeet then refines the complete turn once at finalization. This pairing
+  provides substantially better CPU streaming behavior than repeatedly
+  retranscribing a growing audio buffer while preserving a high-quality final.
+
+Install the CPU server stack and both pinned model bundles with:
+
+```bash
+python -m pip install "RealtimeSTT[server,sherpa-onnx]"
+stt-install-sherpa-models --root ./models/sherpa-onnx --model all
+```
+
+See the [production server guide](RealtimeSTT_server/PRODUCTION_SERVER.md) for
+the authenticated HTTP/WebSocket deployment recipe and exact pinned model
+directories.
 
 ### Support RealtimeSTT
 
@@ -356,8 +415,10 @@ audio, logging, and executor injection.
 - Direct microphone input or application-fed audio chunks.
 - Event callbacks for recording, VAD, realtime text, transcription, and wake
   word state.
-- A FastAPI browser streaming server example with multi-user session isolation,
-  shared inference resources, metrics, and health endpoints.
+- A packaged production FastAPI server with versioned HTTP/WebSocket contracts,
+  session isolation, bounded shared inference resources, authentication, and
+  readiness/capabilities endpoints.
+- A browser streaming reference app for source checkouts.
 
 ## Documentation
 
@@ -369,6 +430,8 @@ audio, logging, and executor injection.
   parameter reference.
 - [Transcription engines](docs/transcription-engines.md): engine selection and
   setup links.
+- [Custom transcription engines](docs/custom-transcription-engines.md): public
+  base class, executor integration, streaming sessions, and contribution guide.
 - [Wake words](docs/wake-words.md): Porcupine and OpenWakeWord setup.
 - [External audio](docs/external-audio.md): feeding audio without a microphone.
 - [Testing](docs/testing.md): maintained unit and opt-in golden test workflow.
@@ -376,6 +439,8 @@ audio, logging, and executor injection.
   legacy experiments under `tests/`.
 - [FastAPI server](docs/fastapi-server.md): browser server configuration,
   protocol, metrics, and deployment notes.
+- [Production server](RealtimeSTT_server/PRODUCTION_SERVER.md): packaged remote
+  HTTP/WebSocket API, authentication, limits, and deployment recipe.
 - [Troubleshooting](docs/troubleshooting.md): common install, audio, CUDA,
   model, dependency, and runtime errors.
 - [Engine licenses](docs/licenses.md): license notes for optional engine
@@ -393,24 +458,42 @@ Engine-specific references:
 - [Meta Omnilingual ASR](docs/engines/omnilingual-asr.md)
 - [Granite/Qwen Transformers engines](docs/engines/hf-transformers.md)
 - [Cohere Transcribe](docs/engines/cohere.md)
+- [FunASR](docs/engines/funasr.md)
 
-## Server Example
+## Production Server
 
-The browser FastAPI reference server lives in `example_fastapi_server` and is
-intended for source checkouts. It is not installed by the PyPI wheel; keeping it
-source-only keeps the wheel lean and avoids adding web-server dependencies for
-users who only need the recorder/API library.
+The supported remote server is packaged as an optional install. It binds to
+loopback by default and exposes versioned health, readiness, capabilities,
+raw-PCM final transcription, and ordered streaming WebSocket endpoints.
+Direct non-loopback binds require both a bearer token and Uvicorn TLS
+certificate/key files; for a reverse-proxy deployment, keep the server on
+loopback and terminate TLS at the proxy.
 
 ```bash
-python -m pip install -r example_fastapi_server/requirements.txt
-python example_fastapi_server/server.py --host 0.0.0.0 --port 8010
+python -m pip install "RealtimeSTT[server,faster-whisper]"
+stt-server-production --host 127.0.0.1 --port 8010
 ```
 
-For pip-only installs, use the Python recorder/API examples instead. If you
-want the FastAPI reference server, clone the repository or install from Git.
+For CPU INT8 deployment, the recommended pairing is
+`sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8` for live hypotheses
+and `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` for authoritative final
+transcription. Install `RealtimeSTT[server,sherpa-onnx]` and both pinned model
+bundles into persistent storage before following the server recipe. The
+`server` extra includes the local Silero ONNX VAD runtime used by legacy
+recorder-backed server paths. The versioned production WebSocket path owns its
+turn state and does not derive finalization from recorder VAD, so production
+startup does not need an interactive Torch Hub download:
 
-Open `http://localhost:8010`. See [docs/fastapi-server.md](docs/fastapi-server.md)
-for engine recipes, websocket protocol details, health checks, and metrics.
+```bash
+stt-install-sherpa-models --root ./models/sherpa-onnx --model all
+```
+
+See
+[PRODUCTION_SERVER.md](RealtimeSTT_server/PRODUCTION_SERVER.md).
+
+The interactive browser reference app remains in `example_fastapi_server` for
+source checkouts. See [docs/fastapi-server.md](docs/fastapi-server.md) for its
+UI, engine recipes, protocol details, and metrics.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastspec
-Version: 0.2.1
+Version: 0.2.3
 Summary: Dynamic OpenAPI, Discovery, and GraphQL spec client for Python — turn any API spec into a fully-typed async client with attribute chaining, streaming, and file uploads
 Author-email: Kerem Turgutlu <keremturgutlu@gmail.com>
 License-Expression: Apache-2.0

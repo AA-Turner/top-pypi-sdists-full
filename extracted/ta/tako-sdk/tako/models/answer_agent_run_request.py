@@ -32,7 +32,7 @@ class AnswerAgentRunRequest(BaseModel):
     """ # noqa: E501
     query: StrictStr = Field(description="Natural-language request for the answer agent.")
     thread_id: Optional[UUID] = Field(default=None, description="Existing thread to continue (follow-up). Omit to start a new thread.")
-    effort: Optional[AnswerAgentEffort] = Field(default=None, description="Answer-agent effort. Only 'medium' is currently supported.")
+    effort: Optional[AnswerAgentEffort] = Field(default=None, description="The effort level. 'medium' is the default. 'high' makes the model reason more on the same data, and the run takes longer. The effort is fixed for the life of a thread: a follow-up that sends a different effort gets a 409 response with the code 'effort_mismatch'.")
     source_indexes: Optional[List[StrictStr]] = Field(default=None, description="Which sources the agent may use: 'data' (curated knowledge), 'web' (open-web search), or both. Defaults to ['data', 'web']. Tako accepts the legacy value 'tako' as a synonym for 'data'.")
     locale: Optional[StrictStr] = Field(default='en-US', description="BCP-47 locale. Drives the language of the agent's answer and the locale used when rendering card preview images. Defaults to en-US.")
     timezone: Optional[StrictStr] = Field(default=None, description="IANA timezone (for example, 'America/New_York'). The agent uses it to render dates and times in card preview images. It does not affect the returned data.")

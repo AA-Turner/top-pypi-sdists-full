@@ -16,6 +16,235 @@ class Sm90H20Heuristics(DeviceHeuristics):
     sm_version: int = 90
 
     @classmethod
+    def _get_small_m_dense_override(
+        cls,
+        layer_config: LayerConfig,
+        shape_m: int,
+        block_shape_m: int,
+    ) -> dict | None:
+        """Pick a small-M dense tile from resource and parallelism estimates."""
+        a_bits = layer_config.a_dtype.num_bits
+        b_bits = layer_config.b_dtype.num_bits
+        shape_n, shape_k = layer_config.shape_n, layer_config.shape_k
+        if shape_m > block_shape_m or a_bits not in (8, 16) or shape_n % 128:
+            return None
+        if a_bits == 8 and (not layer_config.b_dtype.is_integer_type or b_bits > 4):
+            return None
+
+        num_sms = cls.get_num_sms()
+        warp_k = 512 // a_bits
+        reference_k = 2 * warp_k
+        reference_tiles = math.ceil(shape_m / block_shape_m) * (shape_n // 128) * (shape_k // reference_k)
+        tiles_per_sm = reference_tiles / num_sms
+
+        def make_config(block_n, block_k, warp_n, warp_k, num_stages, use_tma, overlap=False):
+            config = {
+                "block_shape": (block_shape_m, block_n, block_k),
+                "warp_shape": (block_shape_m, warp_n, warp_k),
+                "use_stream_k": True,
+                "num_sms": num_sms,
+                "num_stages": num_stages,
+                "num_ctas_per_sm": 1,
+                "use_tma": use_tma,
+                "use_warp_spec": use_tma,
+                "use_mbarrier": use_tma,
+            }
+            if overlap:
+                config["reduce_overlap_last_stage_only"] = True
+            return config
+
+        max_output_values = 6 * 1024
+        wide_k = 2 * reference_k if a_bits == 16 or b_bits >= 4 else reference_k
+        wide_num_iters = math.ceil(shape_m / block_shape_m) * (shape_n // 256) * (shape_k // wide_k)
+        stage4_slice = max(4, math.ceil(wide_num_iters / num_sms / 4) * 4)
+        stage4_active_ctas = min(num_sms, math.ceil(wide_num_iters / stage4_slice))
+        if (
+            block_shape_m * 256 <= max_output_values
+            and shape_n % 256 == 0
+            and shape_k % wide_k == 0
+            and shape_k // wide_k >= 4 * 4
+            and stage4_active_ctas * 2 >= num_sms
+        ):
+            block_shape = (block_shape_m, 256, wide_k)
+            stage_scores = []
+            for num_stages in range(4, 7):
+                smem_size = estimate_smem_size_layer(layer_config, block_shape, GemmType.DENSE, num_stages)
+                if smem_size > cls.max_smem_size * 0.8:
+                    continue
+                slice_iters = math.ceil(wide_num_iters / num_sms / num_stages) * num_stages
+                active_ctas = min(num_sms, math.ceil(wide_num_iters / slice_iters))
+                pipeline_gain = 0.05 * min(b_bits, 4) / 4
+                stage_scores.append((active_ctas * (1 + pipeline_gain * num_stages), num_stages))
+            if stage_scores:
+                return make_config(256, wide_k, 64, warp_k, max(stage_scores)[1], True, overlap=True)
+
+        if a_bits != 16 or block_shape_m * 128 > max_output_values:
+            return None
+        k_pipeline_turns = shape_k // warp_k
+        if k_pipeline_turns <= 32:
+            return None
+        if k_pipeline_turns <= 64 and tiles_per_sm <= 6 and shape_k % warp_k == 0:
+            return make_config(128, warp_k, 32, warp_k, 4, False)
+        if shape_k % reference_k == 0 and shape_n // 128 <= math.ceil(num_sms / 8):
+            return make_config(128, reference_k, 32, reference_k, 4, True)
+        return None
+
+    @classmethod
+    def _fit_dense_block_m_to_output_grid(
+        cls,
+        layer_config: LayerConfig,
+        shape_m: int,
+        block_m: int,
+        block_n: int,
+        block_k: int,
+    ) -> int:
+        """Expose enough dense output tiles without sacrificing M reuse."""
+        num_n_tiles = layer_config.shape_n // block_n
+        current_m_tiles = math.ceil(shape_m / block_m)
+
+        # Stream-K slices provide less useful parallelism than distinct output tiles.
+        stream_k_grid_gain = 1.0
+        current_output_tiles = current_m_tiles * num_n_tiles
+        if layer_config.shape_k <= 1024:
+            if current_output_tiles >= math.ceil(cls.get_num_sms() * 0.5):
+                return block_m
+        else:
+            if current_output_tiles >= math.ceil(cls.get_num_sms() * 0.2):
+                return block_m
+            stream_k_grid_gain = min(4.5, layer_config.shape_k / (12 * block_k))
+        target_wave_fraction = 0.8
+        if layer_config.shape_k > 1024:
+            target_wave_fraction = max(0.5, 1 - layer_config.shape_k / (8 * 1024))
+        target_output_tiles = math.ceil(cls.get_num_sms() * target_wave_fraction / stream_k_grid_gain)
+        if current_output_tiles >= target_output_tiles:
+            return block_m
+
+        current_padded_rows = current_m_tiles * block_m
+        candidates = []
+        padding_safe_candidates = []
+        min_stream_k_block_m = 16 if layer_config.shape_k > 1024 and block_m >= 32 else 8
+        for candidate_m in range(8, block_m, 8):
+            if layer_config.a_dtype == dtypes.int8 and candidate_m > 32 and candidate_m % 16:
+                continue
+            candidate_m_tiles = math.ceil(shape_m / candidate_m)
+            padded_rows = candidate_m_tiles * candidate_m
+            if padded_rows > current_padded_rows * 1.05:
+                continue
+            padding_safe_candidates.append(candidate_m)
+            if candidate_m_tiles * num_n_tiles < target_output_tiles:
+                continue
+            if candidate_m < min_stream_k_block_m:
+                continue
+            candidates.append(candidate_m)
+        if candidates:
+            return max(candidates)
+        if layer_config.shape_k <= 1024 and padding_safe_candidates:
+            return min(padding_safe_candidates)
+        if layer_config.shape_k > 1024 and block_m >= 32:
+            reuse_candidates = [candidate_m for candidate_m in padding_safe_candidates if candidate_m >= 16]
+            if reuse_candidates:
+                return max(reuse_candidates)
+        return block_m
+
+    @classmethod
+    def _tune_long_k_moe_residency(
+        cls,
+        layer_config: LayerConfig,
+        shape_m: int,
+        gemm_type: GemmType,
+        config: dict,
+    ) -> None:
+        """Trade excess pipeline storage for more resident MoE CTAs."""
+        block_m, block_n, block_k = config["block_shape"]
+        if layer_config.shape_k <= 1024 or block_m > 32:
+            return
+
+        num_stages = 4
+        warp_shape = config["warp_shape"]
+        smem_size = estimate_smem_size_layer(
+            layer_config,
+            config["block_shape"],
+            gemm_type,
+            num_stages,
+            warp_shape=warp_shape,
+            mma_accum_bits=16 if config["use_f16_accum"] else 32,
+        )
+        num_threads = math.prod(config["block_shape"]) // math.prod(warp_shape) * 32
+        # Cap residency at three CTAs to preserve register headroom.
+        num_experts = layer_config.num_experts
+        if shape_m < num_experts:
+            estimated_m_blocks = shape_m
+        else:
+            blocks_per_expert = math.ceil(shape_m / num_experts / block_m)
+            estimated_m_blocks = num_experts * blocks_per_expert
+        num_sms_physical = cls.get_num_sms()
+
+        if layer_config.shape_n >= 1024 and layer_config.shape_n % 512 == 0:
+            wide_block_n = 512
+        elif layer_config.shape_n >= 512 and layer_config.shape_n % 256 == 0:
+            wide_block_n = 256
+        else:
+            wide_block_n = 0
+        wide_block_k = 64
+        wide_warp_n = 64
+        wide_num_stages = 3
+        wide_output_tiles = 0
+        if wide_block_n:
+            wide_output_tiles = estimated_m_blocks * (layer_config.shape_n // wide_block_n)
+        expert_tile_fill = shape_m / (estimated_m_blocks * block_m)
+        has_wide_grid = wide_output_tiles >= 2 * num_sms_physical
+        underfilled_expert_tiles = expert_tile_fill < 0.5 or (
+            expert_tile_fill <= 0.5 and (has_wide_grid or layer_config.b_dtype.num_bits < 4)
+        )
+        wide_k_tiles = layer_config.shape_k // wide_block_k
+        stream_k_grid_gain = min(16, max(4, wide_k_tiles // (2 * wide_num_stages)))
+        stream_k_can_fill_grid = (
+            layer_config.b_dtype.num_bits <= 4
+            and wide_output_tiles * stream_k_grid_gain >= 3 * num_sms_physical
+            and wide_k_tiles >= 64
+        )
+        has_wide_tile = wide_block_n > 0 and block_m * wide_block_n <= 8 * 1024
+        wide_n_aligned = wide_block_n > 0 and layer_config.shape_n % wide_block_n == 0
+        wide_k_aligned = layer_config.shape_k % wide_block_k == 0
+        has_wide_parallelism = has_wide_grid or stream_k_can_fill_grid
+        is_wide_tile_legal = has_wide_tile and wide_n_aligned and wide_k_aligned
+        use_wide_moe_tile = is_wide_tile_legal and underfilled_expert_tiles and has_wide_parallelism
+        if use_wide_moe_tile:
+            wide_block_shape = (block_m, wide_block_n, wide_block_k)
+            wide_warp_shape = (block_m, wide_warp_n, wide_block_k)
+            wide_smem_size = estimate_smem_size_layer(
+                layer_config,
+                wide_block_shape,
+                gemm_type,
+                wide_num_stages,
+                warp_shape=wide_warp_shape,
+                mma_accum_bits=16 if config["use_f16_accum"] else 32,
+            )
+            wide_num_threads = math.prod(wide_block_shape) // math.prod(wide_warp_shape) * 32
+            wide_num_ctas = min(3, cls.max_smem_size // wide_smem_size, 1024 // wide_num_threads)
+            if wide_num_ctas >= 1:
+                config.update(
+                    block_shape=wide_block_shape,
+                    warp_shape=wide_warp_shape,
+                    num_stages=wide_num_stages,
+                    num_ctas_per_sm=wide_num_ctas,
+                    num_sms=num_sms_physical,
+                )
+                return
+
+        num_output_tiles = estimated_m_blocks * (layer_config.shape_n // block_n)
+        num_ctas_per_sm = min(3, cls.max_smem_size // smem_size, 1024 // num_threads)
+        if num_output_tiles < num_sms_physical:
+            num_ctas_per_sm = min(num_ctas_per_sm, 2)
+        if num_ctas_per_sm < 1:
+            return
+
+        k_tiles = layer_config.shape_k // block_k
+        useful_ctas = num_output_tiles * math.ceil(k_tiles / num_stages)
+        num_sms = min(num_sms_physical, math.ceil(useful_ctas / num_ctas_per_sm))
+        config.update(num_stages=num_stages, num_ctas_per_sm=num_ctas_per_sm, num_sms=max(1, num_sms))
+
+    @classmethod
     def get_base_config(
         cls,
         a_dtype: dtypes.DataType,
@@ -79,7 +308,6 @@ class Sm90H20Heuristics(DeviceHeuristics):
         use_batch_invariant: bool = False,
         gemm_type: GemmType = GemmType.DENSE,
     ):
-        # 1. base config
         group_size = layer_config.input_scale_group_size or layer_config.weight_scale_group_size
         is_moe = gemm_type != GemmType.DENSE
         a_dtype = layer_config.a_dtype
@@ -104,7 +332,6 @@ class Sm90H20Heuristics(DeviceHeuristics):
             warp_shape_n = min(warp_shape_n, block_shape_n // 4)
         assert warp_shape_n >= min_warp_shape_n
 
-        # 2. block_shape_m and warp_shape_m
         if not layer_config.num_experts:
             if shape_m <= block_shape_m:
                 block_shape_m = math.ceil(shape_m / 8) * 8
@@ -192,8 +419,22 @@ class Sm90H20Heuristics(DeviceHeuristics):
             if smem_size * num_ctas_per_sm < cls.max_smem_size:
                 num_stages = num_stages_new
 
+        if not is_moe:
+            block_shape_m = cls._fit_dense_block_m_to_output_grid(
+                layer_config,
+                shape_m,
+                block_shape_m,
+                block_shape_n,
+                block_shape_k,
+            )
+            warp_shape_m = block_shape_m
+            num_blocks_m = math.ceil(shape_m / block_shape_m)
+
         if num_ctas_per_sm == 1:
             factor = min(4.5, layer_config.shape_k / (3 * block_shape_k))
+            if layer_config.shape_k > 1024:
+                # Keep at least two stage-4 turns per Stream-K slice.
+                factor = min(9, max(factor, layer_config.shape_k / (8 * block_shape_k)))
             num_sms = min(num_sms, math.ceil(num_blocks_n * num_blocks_m * factor))
 
         while layer_config.shape_k % block_shape_k != 0:
@@ -226,9 +467,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
                 config["use_tma_a"] = False
                 config["use_tma_c"] = False
 
-            # Small-K MoE down-gemm: size the persistent grid for ~5 output tiles
-            # per CTA — here num_sms is the grid factor (a launch param, GEMM
-            # bit-identical) and is intentionally set above the physical SM count.
+            # num_sms is a launch grid factor here and may exceed the physical SM count.
             if config["num_ctas_per_sm"] > 1 and shape_m >= 24576:
                 tiles_per_cta = 5
                 block_m, block_n, _ = config["block_shape"]
@@ -236,7 +475,11 @@ class Sm90H20Heuristics(DeviceHeuristics):
                 sms_target = num_tiles / (config["num_ctas_per_sm"] * tiles_per_cta)
                 config["num_sms"] = max(config["num_sms"], 1 << round(math.log2(sms_target)))
 
-        if block_shape_m >= 48 and num_ctas_per_sm <= 2 and num_warps <= 8 and not is_moe:
+        has_tma_tile = block_shape_m >= 48
+        has_tma_resources = num_ctas_per_sm <= 2 and num_warps <= 8
+        has_tma_pipeline = layer_config.shape_k // block_shape_k >= 24
+        use_dense_tma = not is_moe and has_tma_tile and has_tma_resources and has_tma_pipeline
+        if use_dense_tma:
             config["use_tma"] = True
             config["use_warp_spec"] = True
             config["use_mbarrier"] = True
@@ -244,8 +487,13 @@ class Sm90H20Heuristics(DeviceHeuristics):
         elif config["num_stages"] == 4 and block_shape_m <= 32:
             block_shape = (block_shape_m, block_shape_n, block_shape_k)
             smem_size = estimate_smem_size_layer(layer_config, block_shape, gemm_type, 5)
-            if smem_size * num_ctas_per_sm < cls.max_smem_size:
+            if smem_size * num_ctas_per_sm < cls.max_smem_size and not config["use_stream_k"]:
                 config["num_stages"] = 5
+
+        if not is_moe and not use_batch_invariant:
+            config.update(cls._get_small_m_dense_override(layer_config, shape_m, block_shape_m) or {})
+        elif is_moe and not use_batch_invariant:
+            cls._tune_long_k_moe_residency(layer_config, shape_m, gemm_type, config)
 
         if use_batch_invariant:
             warp_shape_k = 512 // layer_config.a_dtype.num_bits

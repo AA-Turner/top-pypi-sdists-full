@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, cast
 import jsonschema_rs
 from hypothesis import event, note, reject
 from hypothesis import strategies as st
-from hypothesis_jsonschema import from_schema
 from requests.structures import CaseInsensitiveDict
 
 from schemathesis import auths
@@ -38,9 +37,8 @@ from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import prepare_urlencoded
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis import custom_formats_cache
-from schemathesis.generation.jsonschema import Alphabet, StrategyContext
-from schemathesis.generation.jsonschema.strategy import UnsupportedView
-from schemathesis.generation.jsonschema.strategy import from_schema as canonical_from_schema
+from schemathesis.generation.hypothesis.reporting import build_unsatisfiable_schema_error
+from schemathesis.generation.jsonschema import EMPTY_STRATEGY, Alphabet, build
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
@@ -66,7 +64,9 @@ from schemathesis.specs.openapi.formats import (
     HEADER_FORMAT,
     INVALID_HEADER_CHARS,
     STRING_FORMATS,
+    get_alphabet_format_strategies,
     get_default_format_strategies,
+    header_alphabet,
     header_values,
 )
 from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS, get_header_format_strategies
@@ -76,8 +76,8 @@ from schemathesis.specs.openapi.negative import (
     wrap_flatmap_hook_for_generated_value,
     wrap_map_hook_for_generated_value,
 )
-from schemathesis.specs.openapi.negative.mutations import MutationMetadata
-from schemathesis.specs.openapi.negative.utils import can_negate, is_binary_format
+from schemathesis.specs.openapi.negative.mutations import MutationMetadata, has_negatable_target
+from schemathesis.specs.openapi.negative.utils import is_binary_format
 from schemathesis.transport.serialization import quote_all
 
 if TYPE_CHECKING:
@@ -107,6 +107,10 @@ StrategyFactory = Callable[
 
 
 def _draw(draw: st.DrawFn, strategy: st.SearchStrategy, operation: APIOperation) -> Any:
+    if strategy is EMPTY_STRATEGY:
+        # Drawing from an empty strategy only rejects the input, which reads as "nothing to generate here"
+        # in phases that recover from rejection - stateful testing would report success without testing this.
+        raise build_unsatisfiable_schema_error(operation)
     try:
         return draw(strategy)
     except jsonschema_rs.ValidationError as exc:
@@ -574,9 +578,10 @@ def _maybe_set_optional_body(
     """Add NOT_SET option to strategy for optional body parameters."""
     if _body_required_per_feedback(operation, error_feedback):
         return strategy
-    if (
-        not parameter.is_required
-        and draw(st.floats(min_value=0.0, max_value=1.0, allow_infinity=False, allow_nan=False, allow_subnormal=False))
+    if not parameter.is_required and (
+        # An optional body whose schema admits no value can only be omitted.
+        strategy is EMPTY_STRATEGY
+        or draw(st.floats(min_value=0.0, max_value=1.0, allow_infinity=False, allow_nan=False, allow_subnormal=False))
         < OPTIONAL_BODY_RATE
     ):
         strategy |= _JUST_NOT_SET
@@ -961,7 +966,16 @@ def can_negate_path_parameters(operation: APIOperation) -> bool:
     parameters = cast(OpenApiParameterSet, operation.path_parameters).schema["properties"]
     if not parameters:
         return True
-    return any(can_negate(parameter) for parameter in parameters.values())
+    # A path value always serializes to a string, so a type change is invisible on the wire and the
+    # constraint keywords the mutator will accept are the whole negatable surface.
+    return any(
+        has_negatable_target(
+            parameter,
+            location=ParameterLocation.PATH,
+            allow_extra_parameters=operation.schema.config.generation.allow_extra_parameters,
+        )
+        for parameter in parameters.values()
+    )
 
 
 def can_negate_headers(operation: APIOperation, location: ParameterLocation) -> bool:
@@ -1004,23 +1018,19 @@ def get_parameters_strategy(
     return _NONE_STRATEGY
 
 
-def jsonify_python_specific_types(value: dict[str, Any]) -> dict[str, Any]:
-    """Convert Python-specific values to their JSON equivalents."""
-    stack: list = [value]
-    while stack:
-        item = stack.pop()
-        if isinstance(item, dict):
-            for key, sub_item in item.items():
-                if isinstance(sub_item, bool):
-                    item[key] = "true" if sub_item else "false"
-                elif sub_item is None:
-                    item[key] = "null"
-                elif isinstance(sub_item, dict):
-                    stack.append(sub_item)
-                elif isinstance(sub_item, list):
-                    stack.extend(item)
-        elif isinstance(item, list):
-            stack.extend(item)
+def jsonify_python_specific_types(value: Any) -> Any:
+    """Convert Python-specific values to their JSON equivalents.
+
+    Builds a new value: the input may be a spec-declared example that every other case reuses.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, dict):
+        return {key: jsonify_python_specific_types(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [jsonify_python_specific_types(item) for item in value]
     return value
 
 
@@ -1067,6 +1077,10 @@ def _build_custom_formats_uncached(
 
             custom_formats[HEADER_FORMAT] = header_strategy()
     custom_formats.update(get_header_format_strategies(mode))
+    # Pinned to the character set in force, since this map goes to callers that cannot supply one.
+    alphabet = Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec).as_strategy()
+    for name, make_strategy in get_alphabet_format_strategies().items():
+        custom_formats[name] = make_strategy(alphabet)
     return custom_formats
 
 
@@ -1182,37 +1196,51 @@ def make_positive_strategy(
     target_descriptors: tuple | None = None,
 ) -> st.SearchStrategy:
     """Strategy for generating values that fit the schema."""
-    custom_formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
     schema = snapped_float32_clone(schema)
-    strategy = _canonical_strategy_or_none(schema, generation_config, validator_cls)
-    if strategy is not None:
-        return strategy
-    return from_schema(
+    return _canonical_strategy(schema, generation_config, validator_cls, location=location)
+
+
+def _canonical_strategy(
+    schema: JsonSchema,
+    generation_config: GenerationConfig,
+    validator_cls: type[jsonschema_rs.Validator],
+    *,
+    location: ParameterLocation | None = None,
+) -> st.SearchStrategy[JsonValue]:
+    """Strategy for a fully modeled document; raises `UnsupportedSchema` when the schema is not one."""
+    if location is not None and location.is_in_header:
+        # What a header may carry is a rule about characters, so it is spelled as one: every string
+        # in the container obeys it, and the length and pattern keywords around it keep working.
+        alphabet = header_alphabet(generation_config)
+        formats = _build_header_formats(generation_config, GenerationMode.POSITIVE)
+    else:
+        alphabet = Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec)
+        formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
+    return build(
         schema,
-        custom_formats=custom_formats,
-        allow_x00=generation_config.allow_x00,
-        codec=generation_config.codec,
+        draft=CANONICALIZE_DRAFT_BY_VALIDATOR[validator_cls],
+        formats=formats,
+        alphabet=alphabet,
     )
 
 
-def _canonical_strategy_or_none(
-    schema: JsonSchema, generation_config: GenerationConfig, validator_cls: type[jsonschema_rs.Validator]
-) -> st.SearchStrategy[JsonValue] | None:
-    """Strategy for a fully modeled document; `None` routes to hypothesis-jsonschema."""
-    try:
-        canonical = jsonschema_rs.canonicalize(schema, draft=CANONICALIZE_DRAFT_BY_VALIDATOR[validator_cls])
-    except (jsonschema_rs.ValidationError, jsonschema_rs.canonical.CanonicalizationError):
-        return None
-    if canonical.kind == "raw":
-        return None
-    # Handle unsatisfiability via `hypothesis-jsonschema` for now
-    if not canonical.is_satisfiable():
-        return None
-    context = StrategyContext(alphabet=Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec))
-    try:
-        return canonical_from_schema(canonical, context)
-    except UnsupportedView:
-        return None
+def _build_header_formats(generation_config: GenerationConfig, mode: GenerationMode) -> dict[str, st.SearchStrategy]:
+    """Format generators for a header container, minus the one the alphabet replaces.
+
+    Leaving the plain header-value generator in would hand every plain string an opaque strategy
+    that no length or pattern keyword can steer.
+    """
+    cache_key = (id(generation_config), mode, "header")
+    cached = custom_formats_cache.get(cache_key)
+    if cached is not MISSING:
+        return cached
+    formats = {
+        name: strategy
+        for name, strategy in _build_custom_formats(generation_config, mode).items()
+        if name != HEADER_FORMAT
+    }
+    custom_formats_cache[cache_key] = formats
+    return formats
 
 
 def _can_skip_header_filter(schema: dict[str, Any]) -> bool:

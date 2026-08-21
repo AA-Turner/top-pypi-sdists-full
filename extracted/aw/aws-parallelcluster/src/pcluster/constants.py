@@ -23,10 +23,8 @@ PCLUSTER_AMI_ID_REGEX = r"^ami-[0-9a-z]{8}$|^ami-[0-9a-z]{17}$"
 
 CIDR_ALL_IPS = "0.0.0.0/0"
 
-SUPPORTED_SCHEDULERS = ["slurm", "awsbatch"]
-SCHEDULERS_SUPPORTING_IMDS_SECURED = ["slurm"]
+SUPPORTED_SCHEDULERS = ["slurm"]
 SUPPORTED_OSES = [
-    "alinux2",
     "alinux2023",
     "ubuntu2204",
     "ubuntu2404",
@@ -35,11 +33,10 @@ SUPPORTED_OSES = [
     "rhel9",
     "rocky9",
 ]
-SUPPORTED_OSES_FOR_SCHEDULER = {"slurm": SUPPORTED_OSES, "awsbatch": ["alinux2", "alinux2023"]}
 UNSUPPORTED_OSES_FOR_MICRO_NANO = ["ubuntu2204", "ubuntu2404", "rhel8", "rocky8", "rhel9", "rocky9"]
-UNSUPPORTED_OSES_FOR_P6E_GB200 = ["rhel8", "rocky8", "alinux2", "rhel9"]
+UNSUPPORTED_OSES_FOR_P6E_GB200 = ["rhel8", "rocky8", "rhel9"]
 SUPPORTED_OSES_FOR_P6E_GB200 = list(set(SUPPORTED_OSES) - set(UNSUPPORTED_OSES_FOR_P6E_GB200))
-UNSUPPORTED_OSES_FOR_P6_B300 = ["alinux2"]
+UNSUPPORTED_OSES_FOR_P6_B300 = []
 SUPPORTED_OSES_FOR_P6_B300 = list(set(SUPPORTED_OSES) - set(UNSUPPORTED_OSES_FOR_P6_B300))
 UNSUPPORTED_OSES_FOR_DCV = []
 UNSUPPORTED_OSES_FOR_NON_GPU_DCV = ["rocky9", "rhel9"]
@@ -53,7 +50,6 @@ SUPPORTED_ARCHITECTURES = ["x86_64", "arm64"]
 SUPPORTED_OSES_FOR_ARCHITECTURE = {"x86_64": SUPPORTED_OSES, "arm64": SUPPORTED_OSES}
 NVIDIA_OPENRM_UNSUPPORTED_INSTANCE_TYPES = ["p3", "p3dn", "p2", "g3", "g3s", "g2"]
 SLURM = "slurm"
-AWSBATCH = "awsbatch"
 
 
 #  Capacity Reservation Platform types we support.
@@ -62,7 +58,6 @@ CR_PLATFORM_RHEL = "Red Hat Enterprise Linux"
 
 
 CAPACITY_RESERVATION_OS_MAP = {
-    "alinux2": CR_PLATFORM_LINUX_UNIX,
     "alinux2023": CR_PLATFORM_LINUX_UNIX,
     "ubuntu2204": CR_PLATFORM_LINUX_UNIX,
     "ubuntu2404": CR_PLATFORM_LINUX_UNIX,
@@ -73,7 +68,6 @@ CAPACITY_RESERVATION_OS_MAP = {
 }
 
 OS_MAPPING = {
-    "alinux2": {"user": "ec2-user"},
     "alinux2023": {"user": "ec2-user"},
     "ubuntu2204": {"user": "ubuntu"},
     "ubuntu2404": {"user": "ubuntu"},
@@ -84,7 +78,6 @@ OS_MAPPING = {
 }
 
 OS_TO_IMAGE_NAME_PART_MAP = {
-    "alinux2": "amzn2-hvm",
     "alinux2023": "amzn2023-hvm",
     "ubuntu2204": "ubuntu-2204-lts-hvm",
     "ubuntu2404": "ubuntu-2404-lts-hvm",
@@ -97,12 +90,6 @@ OS_TO_IMAGE_NAME_PART_MAP = {
 PRIVATE_OSES = ["rocky8", "rocky9"]
 
 IMAGE_NAME_PART_TO_OS_MAP = {value: key for key, value in OS_TO_IMAGE_NAME_PART_MAP.items()}
-
-# Describe the list of requirements to be satisfied by the Pcluster AWS Batch CLI to manage the cluster.
-# It must be in the form <package-name><comparison-operator><version>
-# It can contain multiple items separated by a colon.
-# i.e. aws-parallelcluster-awsbatch-cli>=2.0.0,aws-parallelcluster-awsbatch-cli<3.0.0
-AWSBATCH_CLI_REQUIREMENTS = "aws-parallelcluster-awsbatch-cli<2.0.0"
 
 
 FSX_SSD_THROUGHPUT = {"PERSISTENT_1": [50, 100, 200], "PERSISTENT_2": [125, 250, 500, 1000]}
@@ -169,9 +156,9 @@ MAX_NEW_STORAGE_COUNT = {"efs": 1, "fsx": 1, "raid": 1}
 MAX_EXISTING_STORAGE_COUNT = {"efs": 20, "fsx": 20, "raid": 0}
 
 COOKBOOK_PACKAGES_VERSIONS = {
-    "parallelcluster": "3.15.1",
-    "cookbook": "aws-parallelcluster-cookbook-3.15.1",
-    "chef": "18.4.12",
+    "parallelcluster": "3.16.0",
+    "cookbook": "aws-parallelcluster-cookbook-3.16.0",
+    "chef": "19.3.14",
     "ami": "dev",
 }
 
@@ -249,10 +236,20 @@ NODEJS_INCOMPATIBLE_VERSION_RANGE = ["13.0.0", "13.6.0"]
 
 NODE_BOOTSTRAP_TIMEOUT = 2100
 
+# Default time budget (seconds) for retrieving EC2 instance info after a CreateFleet launch,
+# to tolerate EC2 API eventual consistency.
+COMPUTE_INSTANCE_INFO_TIMEOUT = 90
+
 # DirectoryService
 DIRECTORY_SERVICE_RESERVED_SETTINGS = {"id_provider": "ldap"}
 
 DEFAULT_EPHEMERAL_DIR = "/scratch"
+
+# Dedicated ParallelCluster-managed directory used to stage bootstrap files (dna.json, extra.json,
+# wait_condition_handle.txt, bootstrap.sh) instead of /tmp, so bootstrap works when /tmp is mounted
+# with noexec. Defined once here and referenced by cluster_stack.py (cfn-init) and the user_data
+# templates (via the PclusterTmpDir Fn::Sub variable).
+PCLUSTER_TMP_DIR = "/opt/parallelcluster/tmp"
 
 LAMBDA_VPC_ACCESS_MANAGED_POLICY = "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 

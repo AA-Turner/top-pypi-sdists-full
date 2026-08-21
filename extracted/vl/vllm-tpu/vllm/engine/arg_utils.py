@@ -42,6 +42,7 @@ from vllm.config import (
     DiffusionConfig,
     ECTransferConfig,
     EPLBConfig,
+    FaultToleranceConfig,
     KernelConfig,
     KVEventsConfig,
     KVTransferConfig,
@@ -85,7 +86,12 @@ from vllm.config.model import (
     RunnerOption,
     TokenizerMode,
 )
-from vllm.config.multimodal import MMCacheType, MMEncoderTPMode, MMTensorIPC
+from vllm.config.multimodal import (
+    MMCacheType,
+    MMEncoderTPMode,
+    MMHasherAlgorithm,
+    MMTensorIPC,
+)
 from vllm.config.observability import DetailedTraceModules
 from vllm.config.parallel import (
     All2AllBackend,
@@ -101,10 +107,7 @@ from vllm.logger import init_logger, suppress_logging
 from vllm.platforms import CpuArchEnum, current_platform
 from vllm.plugins import load_general_plugins
 from vllm.ray.lazy_utils import is_in_ray_actor, is_ray_initialized
-from vllm.transformers_utils.config import (
-    is_interleaved,
-    maybe_override_with_speculators,
-)
+from vllm.transformers_utils.config import maybe_override_with_speculators
 from vllm.transformers_utils.repo_utils import get_model_path
 from vllm.transformers_utils.utils import is_cloud_storage
 from vllm.utils.argparse_utils import (
@@ -249,17 +252,19 @@ def get_type_hints(type_hint: TypeHint) -> set[TypeHint]:
 
 NEEDS_HELP = (
     any("--help" in arg for arg in sys.argv)  # vllm SUBCOMMAND --help
-    or (argv0 := sys.argv[0]).endswith("mkdocs")  # mkdocs SUBCOMMAND
-    or argv0.endswith("mkdocs/__main__.py")  # python -m mkdocs SUBCOMMAND
+    or "mkdocs" in sys.modules  # mkdocs SUBCOMMAND
 )
 
 
 def _maybe_add_docs_url(cls: Any) -> str:
     """Generate API docs URL for a vllm config class."""
-    if not cls.__module__.startswith("vllm.config"):
+    import vllm.config
+
+    name = cls.__name__
+    if getattr(vllm.config, name, None) is not cls:
         return ""
     version = f"v{VLLM_VERSION}" if "dev" not in VLLM_VERSION else "latest"
-    return f"\n\nAPI docs: https://docs.vllm.ai/en/{version}/api/vllm/config/#vllm.config.{cls.__name__}"
+    return f"\n\nAPI docs: https://docs.vllm.ai/en/{version}/api/vllm/config/#vllm.config.{name}"
 
 
 def _expand_json_human_readable_numbers(val: str) -> str:
@@ -566,6 +571,9 @@ class EngineArgs:
     mm_processor_cache_type: MMCacheType | None = (
         MultiModalConfig.mm_processor_cache_type
     )
+    mm_hasher_algorithm: MMHasherAlgorithm = get_field(
+        MultiModalConfig, "mm_hasher_algorithm"
+    )
     mm_shm_cache_max_object_size_mb: int = (
         MultiModalConfig.mm_shm_cache_max_object_size_mb
     )
@@ -586,6 +594,7 @@ class EngineArgs:
     renderer_num_workers: int = 1
     skip_mm_profiling: bool = MultiModalConfig.skip_mm_profiling
     video_pruning_rate: float | None = MultiModalConfig.video_pruning_rate
+    video_pruning_method: str = MultiModalConfig.video_pruning_method
     mm_tensor_ipc: MMTensorIPC = MultiModalConfig.mm_tensor_ipc
     mm_ipc_gpu_memory_gb: float = MultiModalConfig.mm_ipc_gpu_memory_gb
     # LoRA fields
@@ -722,6 +731,11 @@ class EngineArgs:
     optimization_level: OptimizationLevel = VllmConfig.optimization_level
     performance_mode: PerformanceMode = VllmConfig.performance_mode
 
+    fault_tolerance_config: FaultToleranceConfig = get_field(
+        ParallelConfig, "fault_tolerance_config"
+    )
+    enable_fault_tolerance: bool = ParallelConfig.enable_fault_tolerance
+
     kv_offloading_size: float | None = CacheConfig.kv_offloading_size
     kv_offloading_backend: KVOffloadingBackend = CacheConfig.kv_offloading_backend
     tokens_only: bool = False
@@ -735,6 +749,7 @@ class EngineArgs:
 
     fail_on_environ_validation: bool = False
     gdn_prefill_backend: Literal["flashinfer", "triton", "cutedsl"] | None = None
+    kda_prefill_backend: Literal["auto", "triton", "flashkda"] | None = None
 
     def __post_init__(self):
         # support `EngineArgs(compilation_config={...})`
@@ -753,6 +768,16 @@ class EngineArgs:
         if isinstance(self.weight_transfer_config, dict):
             self.weight_transfer_config = WeightTransferConfig(
                 **self.weight_transfer_config
+            )
+        if isinstance(self.fault_tolerance_config, dict):
+            if not self.enable_fault_tolerance:
+                logger.warning(
+                    "--fault-tolerance-config was passed. Fault tolerance is being "
+                    "automatically enabled."
+                )
+                self.enable_fault_tolerance = True
+            self.fault_tolerance_config = FaultToleranceConfig(
+                **self.fault_tolerance_config
             )
         if isinstance(self.ir_op_priority, dict):
             self.ir_op_priority = IrOpPriorityConfig(**self.ir_op_priority)
@@ -1151,6 +1176,12 @@ class EngineArgs:
         parallel_group.add_argument(
             "--worker-extension-cls", **parallel_kwargs["worker_extension_cls"]
         )
+        parallel_group.add_argument(
+            "--enable-fault-tolerance", **parallel_kwargs["enable_fault_tolerance"]
+        )
+        parallel_group.add_argument(
+            "--fault-tolerance-config", **parallel_kwargs["fault_tolerance_config"]
+        )
 
         # KV cache arguments
         cache_kwargs = get_kwargs(CacheConfig)
@@ -1273,6 +1304,9 @@ class EngineArgs:
             "--mm-processor-cache-type", **multimodal_kwargs["mm_processor_cache_type"]
         )
         multimodal_group.add_argument(
+            "--mm-hasher-algorithm", **multimodal_kwargs["mm_hasher_algorithm"]
+        )
+        multimodal_group.add_argument(
             "--mm-shm-cache-max-object-size-mb",
             **multimodal_kwargs["mm_shm_cache_max_object_size_mb"],
         )
@@ -1311,6 +1345,10 @@ class EngineArgs:
 
         multimodal_group.add_argument(
             "--video-pruning-rate", **multimodal_kwargs["video_pruning_rate"]
+        )
+        multimodal_group.add_argument(
+            "--video-pruning-method",
+            **multimodal_kwargs["video_pruning_method"],
         )
         multimodal_group.add_argument(
             "--mm-tensor-ipc", **multimodal_kwargs["mm_tensor_ipc"]
@@ -1611,12 +1649,20 @@ class EngineArgs:
             default=None,
             help="Select GDN prefill backend.",
         )
+        parser.add_argument(
+            "--kda-prefill-backend",
+            dest="kda_prefill_backend",
+            choices=["auto", "triton", "flashkda"],
+            default=None,
+            help="Select KDA prefill backend.",
+        )
         return parser
 
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace):
         # Get the list of attributes of this dataclass.
         attrs = [attr.name for attr in dataclasses.fields(cls)]
+
         # Set the attributes from the parsed arguments.
         engine_args = cls(
             **{attr: getattr(args, attr) for attr in attrs if hasattr(args, attr)}
@@ -1677,6 +1723,7 @@ class EngineArgs:
             mm_processor_cache_gb=self.mm_processor_cache_gb,
             mm_processor_cache_type=self.mm_processor_cache_type,
             mm_shm_cache_max_object_size_mb=self.mm_shm_cache_max_object_size_mb,
+            mm_hasher_algorithm=self.mm_hasher_algorithm,
             mm_encoder_only=self.mm_encoder_only,
             mm_encoder_tp_mode=self.mm_encoder_tp_mode,
             mm_encoder_attn_backend=self.mm_encoder_attn_backend,
@@ -1693,6 +1740,7 @@ class EngineArgs:
             override_attention_dtype=self.override_attention_dtype,
             logits_processors=self.logits_processors,
             video_pruning_rate=self.video_pruning_rate,
+            video_pruning_method=self.video_pruning_method,
             mm_tensor_ipc=self.mm_tensor_ipc,
             mm_ipc_gpu_memory_gb=self.mm_ipc_gpu_memory_gb,
             io_processor_plugin=self.io_processor_plugin,
@@ -1883,7 +1931,8 @@ class EngineArgs:
         self._set_default_chunked_prefill_and_prefix_caching_args(model_config)
         self._set_default_reasoning_config_args()
         sliding_window: int | None = None
-        if not is_interleaved(model_config.hf_text_config):
+        layer_types = getattr(model_config.hf_text_config, "layer_types", None)
+        if layer_types is None or all(lt == "sliding_attention" for lt in layer_types):
             # Only set CacheConfig.sliding_window if the model is all sliding
             # window. Otherwise CacheConfig.sliding_window will override the
             # global layers in interleaved sliding window models.
@@ -2022,6 +2071,12 @@ class EngineArgs:
         data_parallel_external_lb = (
             self.data_parallel_external_lb or self.data_parallel_rank is not None
         )
+        if self.enable_fault_tolerance and not data_parallel_external_lb:
+            raise ValueError(
+                "Fault tolerance requires external load balancer mode "
+                "(--data-parallel-external-lb or --data-parallel-rank). "
+                "Internal LB mode is not supported."
+            )
         if (
             self.data_parallel_size > 1
             and data_parallel_external_lb
@@ -2179,6 +2234,8 @@ class EngineArgs:
             _api_process_count=self._api_process_count,
             _api_process_rank=self._api_process_rank,
             assigned_physical_gpu_ids=self._resolve_device_ids(),
+            enable_fault_tolerance=self.enable_fault_tolerance,
+            fault_tolerance_config=self.fault_tolerance_config,
             numa_bind=self.numa_bind,
             numa_bind_nodes=self.numa_bind_nodes,
             numa_bind_cpus=self.numa_bind_cpus,
@@ -2394,6 +2451,8 @@ class EngineArgs:
 
         if self.gdn_prefill_backend is not None:
             self.additional_config["gdn_prefill_backend"] = self.gdn_prefill_backend
+        if self.kda_prefill_backend is not None:
+            self.additional_config["kda_prefill_backend"] = self.kda_prefill_backend
 
         config = VllmConfig(
             model_config=model_config,

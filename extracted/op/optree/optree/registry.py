@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import builtins
 import contextlib
 import dataclasses
 import functools
@@ -38,6 +39,7 @@ from optree.accessors import (
     StructSequenceEntry,
 )
 from optree.typing import (
+    KT,
     Children,
     MetaData,
     PyTreeKind,
@@ -50,10 +52,9 @@ from optree.utils import safe_zip, total_order_sorted, unzip2
 
 
 if TYPE_CHECKING:
-    import builtins
     from collections.abc import Collection, Generator, Iterable
 
-    from optree.typing import KT, VT, CustomTreeNode, FlattenFunc, UnflattenFunc
+    from optree.typing import VT, CustomTreeNode, FlattenFunc, UnflattenFunc
 
     # pylint: disable-next=invalid-name
     CustomTreeNodeType = TypeVar('CustomTreeNodeType', bound=type[CustomTreeNode])
@@ -68,6 +69,8 @@ __all__ = [
 
 
 SLOTS = {'slots': True} if sys.version_info >= (3, 10) else {}  # Python 3.10+
+if sys.version_info >= (3, 15) and _C.OPTREE_HAS_FROZENDICT:  # pragma: >=3.15 cover
+    from builtins import frozendict  # pylint: disable=no-name-in-module
 
 
 @dataclasses.dataclass(init=True, repr=True, eq=True, frozen=True, **SLOTS)
@@ -226,16 +229,27 @@ def pytree_node_registry_get(  # noqa: C901
         )
 
     if cls is None:
-        namespaces = frozenset({namespace, ''})
         with __REGISTRY_LOCK:
+            # Collect the global handlers first, then let the named namespace override them for the
+            # same type, mirroring the single-class lookup below, which checks the named namespace
+            # before falling back to the global one. Otherwise a later global registration would
+            # shadow the named handler in the returned dict.
             registry = {
                 handler.type: handler
                 for handler in _NODETYPE_REGISTRY.values()
-                if handler.namespace in namespaces
+                if handler.namespace == ''
             }
+            if namespace != '':
+                registry.update(
+                    (handler.type, handler)
+                    for handler in _NODETYPE_REGISTRY.values()
+                    if handler.namespace == namespace
+                )
         if _C.is_dict_insertion_ordered(namespace):
             registry[dict] = _DICT_INSERTION_ORDERED_REGISTRY_ENTRY
             registry[defaultdict] = _DEFAULTDICT_INSERTION_ORDERED_REGISTRY_ENTRY
+            if sys.version_info >= (3, 15) and _C.OPTREE_HAS_FROZENDICT:  # pragma: >=3.15 cover
+                registry[frozendict] = _FROZENDICT_INSERTION_ORDERED_REGISTRY_ENTRY
         return registry
 
     if namespace != '':
@@ -248,6 +262,9 @@ def pytree_node_registry_get(  # noqa: C901
             return _DICT_INSERTION_ORDERED_REGISTRY_ENTRY
         if cls is defaultdict:
             return _DEFAULTDICT_INSERTION_ORDERED_REGISTRY_ENTRY
+        if sys.version_info >= (3, 15) and _C.OPTREE_HAS_FROZENDICT:  # pragma: >=3.15 cover
+            if cls is frozendict:
+                return _FROZENDICT_INSERTION_ORDERED_REGISTRY_ENTRY
 
     handler = _NODETYPE_REGISTRY.get(cls)
     if handler is not None:
@@ -581,7 +598,7 @@ def register_pytree_node_class(  # noqa: C901
         # Add dunder-styled wrapper methods to the class
         # pylint: disable=no-member
 
-        @functools.wraps(cls.tree_flatten)
+        @functools.wraps(cls.tree_flatten)  # type: ignore[attr-defined]
         def __tree_flatten__(  # noqa: N807
             self: CustomTreeNode[T],
             /,
@@ -589,7 +606,13 @@ def register_pytree_node_class(  # noqa: C901
             return self.tree_flatten()  # type: ignore[attr-defined]
 
         @classmethod  # type: ignore[misc]
-        @functools.wraps(getattr(cls.tree_unflatten, '__func__', cls.tree_unflatten))
+        @functools.wraps(
+            getattr(  # type: ignore[arg-type]
+                cls.tree_unflatten,  # type: ignore[attr-defined]
+                '__func__',
+                cls.tree_unflatten,  # type: ignore[attr-defined]
+            ),
+        )
         def __tree_unflatten__(  # noqa: N807
             cls: type[CustomTreeNode[T]],
             metadata: MetaData,
@@ -600,13 +623,13 @@ def register_pytree_node_class(  # noqa: C901
 
         # pylint: enable=no-member
 
-        cls.__tree_flatten__ = __tree_flatten__
-        cls.__tree_unflatten__ = __tree_unflatten__
+        cls.__tree_flatten__ = __tree_flatten__  # type: ignore[method-assign]
+        cls.__tree_unflatten__ = __tree_unflatten__  # type: ignore[method-assign,assignment]
 
     register_pytree_node(
-        cls,
+        cls,  # type: ignore[arg-type]
         methodcaller('__tree_flatten__'),
-        cls.__tree_unflatten__,
+        cls.__tree_unflatten__,  # type: ignore[arg-type]
         path_entry_type=path_entry_type,
         namespace=namespace,
     )
@@ -671,8 +694,10 @@ def dict_insertion_ordered(mode: bool, /, *, namespace: str) -> Generator[None]:
     """Context manager to temporarily set the dictionary sorting mode.
 
     This context manager is used to temporarily set the dictionary sorting mode for a specific
-    namespace. The dictionary sorting mode is used to determine whether the keys of a dictionary
+    namespace. The dictionary sorting mode determines whether the keys of the unordered dictionary
+    types, :class:`dict`, :class:`collections.defaultdict`, and :class:`frozendict` (Python 3.15+),
     should be sorted or keep the insertion order when flattening a pytree.
+    :class:`collections.OrderedDict` always keeps the insertion order and is unaffected.
 
     >>> tree = {'b': (2, [3, 4]), 'a': 1, 'c': None, 'd': 5}
     >>> tree_flatten(tree)  # doctest: +IGNORE_WHITESPACE
@@ -713,6 +738,63 @@ def dict_insertion_ordered(mode: bool, /, *, namespace: str) -> Generator[None]:
             _C.set_dict_insertion_ordered(prev, namespace)
 
 
+class DictMetaData(list[KT]):
+    """Metadata for :class:`dict`, :class:`collections.defaultdict`, and :class:`frozendict` pytree nodes.
+
+    A :class:`list` subclass holding the dict keys in the canonical traversal order for the
+    active dict-ordering mode: sorted by default, or in ``dict.keys()`` insertion order when
+    :func:`dict_insertion_ordered` is active for the namespace. The list payload preserves
+    backward compatibility with code that treats dict treespec metadata as a plain ``list[KT]``
+    (e.g. iteration, indexing, equality with a plain list).
+
+    The additional :attr:`original_keys` attribute records the keys in the original ``dict.keys()``
+    insertion order, captured before any sorting at flatten time. It enables :func:`tree_unflatten`
+    to reconstruct dictionaries with their original key iteration order preserved, while children
+    are still traversed in the canonical order so that equal dictionaries flatten to the same leaves
+    in sorted mode.
+
+    This Python implementation mirrors the C++ ``Node`` data type, which stores ``node_data``
+    (traversal-order keys) and ``original_keys`` (insertion-order keys) separately.
+    """
+
+    __slots__: ClassVar[tuple[str, ...]] = ('original_keys',)
+
+    original_keys: dict[KT, None]
+
+    def __init__(
+        self,
+        keys: Iterable[KT] = (),
+        /,
+        *,
+        original_keys: Iterable[KT] | None = None,
+        check_keys_consistency: bool = True,
+    ) -> None:
+        super().__init__(keys)
+        if original_keys is None:
+            self.original_keys = dict.fromkeys(self)
+        else:
+            self.original_keys = dict.fromkeys(original_keys)
+            if len(self.original_keys) != len(self):
+                raise ValueError(
+                    f'`original_keys` must have the same length as `keys`, '
+                    f'got {len(self.original_keys)} != {len(self)}.',
+                )
+            if check_keys_consistency and set(self.original_keys) != set(self):
+                raise ValueError(
+                    '`original_keys` must have the same keys as `keys`, '
+                    f'got {set(self.original_keys)} != {set(self)}.',
+                )
+
+    def __getnewargs_ex__(self, /) -> tuple[tuple[list[KT]], dict[str, Any]]:
+        return (
+            (list(self),),
+            {
+                'original_keys': list(self.original_keys),
+                'check_keys_consistency': False,
+            },
+        )
+
+
 def _sorted_items(items: Iterable[tuple[KT, VT]], /) -> list[tuple[KT, VT]]:
     return total_order_sorted(items, key=itemgetter(0))
 
@@ -722,7 +804,7 @@ def _none_flatten(_: None, /) -> tuple[tuple[()], None]:
 
 
 def _none_unflatten(_: None, children: Iterable[Any], /) -> None:
-    sentinel = object()
+    sentinel = object()  # pylint: disable=redefined-builtin
     if next(iter(children), sentinel) is not sentinel:
         raise ValueError('Expected no children.')
 
@@ -745,11 +827,22 @@ def _list_unflatten(_: None, children: Iterable[T], /) -> list[T]:
 
 def _dict_flatten(dct: dict[KT, VT], /) -> tuple[tuple[VT, ...], list[KT], tuple[KT, ...]]:
     keys, values = unzip2(_sorted_items(dct.items()))
-    return values, list(keys), keys
+    return (
+        values,
+        DictMetaData(
+            keys,
+            # Passing a dict will use CPython's `dict_dict_fromkeys` fast path in `dict.fromkeys()`
+            original_keys=dct,
+            check_keys_consistency=False,
+        ),
+        keys,
+    )
 
 
-def _dict_unflatten(keys: list[KT], values: Iterable[VT], /) -> dict[KT, VT]:
-    return dict(safe_zip(keys, values))
+def _dict_unflatten(metadata: list[KT], values: Iterable[VT], /) -> dict[KT, VT]:
+    output: dict[KT, VT] = dict.fromkeys(getattr(metadata, 'original_keys', []))  # type: ignore[assignment]
+    output.update(safe_zip(metadata, values))
+    return output
 
 
 def _dict_insertion_ordered_flatten(
@@ -761,7 +854,16 @@ def _dict_insertion_ordered_flatten(
     tuple[KT, ...],
 ]:
     keys, values = unzip2(dct.items())
-    return values, list(keys), keys
+    return (
+        values,
+        DictMetaData(
+            keys,
+            # Passing a dict will use CPython's `dict_dict_fromkeys` fast path in `dict.fromkeys()`
+            original_keys=dct,
+            check_keys_consistency=False,
+        ),
+        keys,
+    )
 
 
 def _dict_insertion_ordered_unflatten(keys: list[KT], values: Iterable[VT], /) -> dict[KT, VT]:
@@ -936,3 +1038,46 @@ _DEFAULTDICT_INSERTION_ORDERED_REGISTRY_ENTRY = PyTreeNodeRegistryEntry(
     path_entry_type=MappingEntry,
     kind=PyTreeKind.DEFAULTDICT,
 )
+
+if sys.version_info >= (3, 15) and _C.OPTREE_HAS_FROZENDICT:  # pragma: >=3.15 cover
+
+    def _frozendict_flatten(
+        dct: frozendict[KT, VT],
+        /,
+    ) -> tuple[tuple[VT, ...], list[KT], tuple[KT, ...]]:
+        return _dict_flatten(dct)  # type: ignore[arg-type]
+
+    def _frozendict_unflatten(
+        metadata: list[KT],
+        values: Iterable[VT],
+        /,
+    ) -> frozendict[KT, VT]:
+        return frozendict(_dict_unflatten(metadata, values))
+
+    def _frozendict_insertion_ordered_flatten(
+        dct: frozendict[KT, VT],
+        /,
+    ) -> tuple[tuple[VT, ...], list[KT], tuple[KT, ...]]:
+        return _dict_insertion_ordered_flatten(dct)  # type: ignore[arg-type]
+
+    def _frozendict_insertion_ordered_unflatten(
+        metadata: list[KT],
+        values: Iterable[VT],
+        /,
+    ) -> frozendict[KT, VT]:
+        return frozendict(_dict_insertion_ordered_unflatten(metadata, values))
+
+    _NODETYPE_REGISTRY[frozendict] = PyTreeNodeRegistryEntry(
+        frozendict,
+        _frozendict_flatten,
+        _frozendict_unflatten,
+        path_entry_type=MappingEntry,
+        kind=PyTreeKind.FROZENDICT,
+    )
+    _FROZENDICT_INSERTION_ORDERED_REGISTRY_ENTRY = PyTreeNodeRegistryEntry(
+        frozendict,
+        _frozendict_insertion_ordered_flatten,
+        _frozendict_insertion_ordered_unflatten,
+        path_entry_type=MappingEntry,
+        kind=PyTreeKind.FROZENDICT,
+    )

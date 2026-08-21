@@ -5,7 +5,7 @@ schemaVersion: 1.0
 constants:
   - ChefVersion:
       type: string
-      value: 18.8.54
+      value: 19.3.14
   - FailExitCode:
       type: string
       value: 1
@@ -23,7 +23,6 @@ phases:
               . /etc/os-release
               RELEASE="${!ID}${!VERSION_ID:+.${!VERSION_ID}}"
               case "$RELEASE" in
-                amzn.2) echo 'alinux2' ;;
                 amzn.2023) echo 'alinux2023' ;;
                 ubuntu.22*) echo 'ubuntu2204' ;;
                 ubuntu.24*) echo 'ubuntu2404' ;;
@@ -141,6 +140,9 @@ phases:
                 [[ $OS =~ rocky ]] && yum versionlock rocky-release rocky-repos
                 [[ $OS =~ rhel ]] && yum versionlock redhat-release
               else
+                # Refresh the package index first: the index inherited from the base AMI can still
+                # reference package versions already rotated out of the pool, which fails the fetch.
+                apt-get -y update
                 apt-get -y install linux-headers-$(uname -r) linux-modules-extra-$(uname -r)
                 apt-mark hold linux-aws linux-base linux-headers-aws linux-image-aws linux-modules-extra-aws
               fi
@@ -208,7 +210,7 @@ phases:
               
               OS="{{ build.OperatingSystemName.outputs.stdout }}"
               ChefVersion={{ ChefVersion }}
-              [[ $OS == alinux2 ]] && ChefVersion=18.4.12
+              [ -n "${CfnParamCincVersion}" ] && ChefVersion="${CfnParamCincVersion}"
               
               curl --retry 3 -L $CINC_URL | bash -s -- -v $ChefVersion
               
@@ -221,8 +223,14 @@ phases:
               mkdir -p /etc/chef && sudo chown -R root:root /etc/chef
               delays=(1 2 4 8 16 32 64 128 256)
               for i in {0..8}; do
-                curl -L -o /etc/chef/aws-parallelcluster-cookbook.tgz "$COOKBOOK_URL" && break
-                echo "Curl attempt $((i+1)) failed, retrying in ${!delays[$i]}s..."
+                HTTP_CODE=$(curl -sS -L -w '%{http_code}' -o /etc/chef/aws-parallelcluster-cookbook.tgz "$COOKBOOK_URL")
+                if [[ "$HTTP_CODE" -eq 200 ]]; then
+                  echo "Cookbook download succeeded (HTTP $HTTP_CODE)"
+                  break
+                fi
+                echo "Cookbook download attempt $((i+1)) failed with HTTP $HTTP_CODE. Response body:"
+                cat /etc/chef/aws-parallelcluster-cookbook.tgz
+                echo ""
                 sleep ${!delays[$i]}
               done
               
@@ -247,6 +255,11 @@ phases:
             - |
               set -ex
               . /opt/parallelcluster/system_info
+
+              # Validate cookbook version matches expected ParallelCluster version
+              ACTUAL_COOKBOOK_VER=$(awk -F\' '/^version/{print $2}' /etc/chef/cookbooks/aws-parallelcluster-entrypoints/metadata.rb)
+              [ "${!ACTUAL_COOKBOOK_VER}" = "${CfnParamCookbookVersion}" ] || { echo "Cookbook version mismatch: expected ${CfnParamCookbookVersion}, found ${!ACTUAL_COOKBOOK_VER}"; exit 1; }
+
               echo "Calling chef-client with /etc/parallelcluster/image_dna.json"
               cat /etc/parallelcluster/image_dna.json
               cinc-client --local-mode --config /etc/chef/client.rb --log_level info --force-formatter --no-color --chef-zero-port 8889 --json-attributes /etc/parallelcluster/image_dna.json --override-runlist aws-parallelcluster-entrypoints::install
@@ -286,12 +299,3 @@ phases:
               # Final cleanup
               rm -f /opt/parallelcluster/system_info
               /usr/local/sbin/ami_cleanup.sh "${CfnParamIsOfficialAmiBuild}"
-
-  - name: validate
-    steps:
-      - name: PClusterValidate
-        action: ExecuteBash
-        inputs:
-          commands:
-            - |
-              echo "Check ParallelCluster software stack has been installed"

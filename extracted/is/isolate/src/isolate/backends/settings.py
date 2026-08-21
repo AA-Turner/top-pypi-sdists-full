@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -22,6 +23,38 @@ JSON_LOGS = os.getenv("ISOLATE_JSON_LOGS", "0") == "1"
 
 DEFAULT_SERIALIZATION_METHOD = "pickle"
 
+_JSON_LOG_LEVEL_FIELDS = ("level", "levelname", "severity")
+_LOG_LEVEL_NAMES: dict[str, LogLevel] = {
+    "error": LogLevel.ERROR,
+    "warning": LogLevel.WARNING,
+    "warn": LogLevel.WARNING,
+    "info": LogLevel.INFO,
+    "debug": LogLevel.DEBUG,
+    "trace": LogLevel.TRACE,
+}
+
+
+def _structured_log_level(line: str) -> LogLevel | None:
+    if not line.lstrip().startswith("{"):
+        return None
+
+    try:
+        record = json.loads(line)
+    except (ValueError, RecursionError):
+        return None
+
+    if not isinstance(record, dict):
+        return None
+
+    for field in _JSON_LOG_LEVEL_FIELDS:
+        value = record.get(field)
+        if isinstance(value, str):
+            level = _LOG_LEVEL_NAMES.get(value.strip().lower())
+            if level is not None:
+                return level
+
+    return None
+
 
 @dataclass(frozen=True)
 class IsolateSettings:
@@ -35,7 +68,7 @@ class IsolateSettings:
         self.log_hook(self._infer_log_level(log))
 
     def _infer_log_level(self, log: Log) -> Log:
-        """Infer the log level if it's correctly set."""
+        """Infer a semantic level from user stdout/stderr records."""
         if log.level not in (LogLevel.STDOUT, LogLevel.STDERR):
             # We should only infer the log level for stdout/stderr logs.
             return log
@@ -43,20 +76,15 @@ class IsolateSettings:
         if log.source in (LogSource.BUILDER, LogSource.BRIDGE):
             return replace(log, level=LogLevel.TRACE)
 
-        line = log.message_str().lower()
+        line = log.message_str()
 
-        if line.startswith("error") or "[error]" in line:
-            return replace(log, level=LogLevel.ERROR)
-        if line.startswith("warning") or "[warning]" in line:
-            return replace(log, level=LogLevel.WARNING)
-        if line.startswith("warn") or "[warn]" in line:
-            return replace(log, level=LogLevel.WARNING)
-        if line.startswith("info") or "[info]" in line:
-            return replace(log, level=LogLevel.INFO)
-        if line.startswith("debug") or "[debug]" in line:
-            return replace(log, level=LogLevel.DEBUG)
-        if line.startswith("trace") or "[trace]" in line:
-            return replace(log, level=LogLevel.TRACE)
+        if level := _structured_log_level(line):
+            return replace(log, level=level)
+
+        line = line.lower()
+        for name, level in _LOG_LEVEL_NAMES.items():
+            if line.startswith(name) or f"[{name}]" in line:
+                return replace(log, level=level)
 
         # Default all to INFO level, even STDERR
         return replace(log, level=LogLevel.INFO)

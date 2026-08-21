@@ -31,9 +31,10 @@ class WeightsResponse(BaseModel):
     feature_weights: Dict[str, FeatureWeight] = Field(description="Per-feature weight distribution keyed by feature_uri.")
     total_interactions: StrictInt = Field(description="Total number of interactions across all features.")
     learner_count: StrictInt = Field(description="Number of unique users with personal-level weights.")
+    source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
     hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
-    __properties: ClassVar[List[str]] = ["feature_weights", "total_interactions", "learner_count", "warning", "hint"]
+    __properties: ClassVar[List[str]] = ["feature_weights", "total_interactions", "learner_count", "source", "warning", "hint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,6 +102,7 @@ class WeightsResponse(BaseModel):
             else None,
             "total_interactions": obj.get("total_interactions"),
             "learner_count": obj.get("learner_count"),
+            "source": obj.get("source"),
             "warning": obj.get("warning"),
             "hint": obj.get("hint")
         })

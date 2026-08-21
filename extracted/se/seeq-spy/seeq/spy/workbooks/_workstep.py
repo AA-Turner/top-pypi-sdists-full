@@ -178,6 +178,11 @@ class Workstep(Item):
                 f'No changes for Workstep {pushed_workbook_id}/{pushed_worksheet_id}/{self.id} -- skipping')
             return self.id
 
+        # Item ID substitution in _apply_map() can collapse multiple distinct source item IDs onto the same
+        # destination ID (e.g. when the item map resolves two source items to one existing target item), which
+        # introduces duplicate Display Items that the validation above -- performed before mapping -- can't see.
+        workstep_to_push._validate_before_push()
+
         workstep_input = WorkstepInputV1(data=_common.safe_json_dumps(workstep_to_push.data))
         if not context.dry_run:
             workstep_output = workbooks_api.create_workstep(workbook_id=pushed_workbook_id,

@@ -244,8 +244,10 @@ class Endpoints(dict):
     def __init__(__self__, *,
                  accessanalyzer: Optional[_builtins.str] = None,
                  account: Optional[_builtins.str] = None,
+                 accountaccess: Optional[_builtins.str] = None,
                  acm: Optional[_builtins.str] = None,
                  acmpca: Optional[_builtins.str] = None,
+                 agentregistry: Optional[_builtins.str] = None,
                  amg: Optional[_builtins.str] = None,
                  amp: Optional[_builtins.str] = None,
                  amplify: Optional[_builtins.str] = None,
@@ -344,6 +346,7 @@ class Endpoints(dict):
                  devopsguru: Optional[_builtins.str] = None,
                  directconnect: Optional[_builtins.str] = None,
                  directoryservice: Optional[_builtins.str] = None,
+                 directoryservicedata: Optional[_builtins.str] = None,
                  dlm: Optional[_builtins.str] = None,
                  dms: Optional[_builtins.str] = None,
                  docdb: Optional[_builtins.str] = None,
@@ -413,6 +416,7 @@ class Endpoints(dict):
                  kms: Optional[_builtins.str] = None,
                  lakeformation: Optional[_builtins.str] = None,
                  lambda_: Optional[_builtins.str] = None,
+                 lambdacore: Optional[_builtins.str] = None,
                  lambdamicrovms: Optional[_builtins.str] = None,
                  launchwizard: Optional[_builtins.str] = None,
                  lex: Optional[_builtins.str] = None,
@@ -561,8 +565,10 @@ class Endpoints(dict):
         """
         :param _builtins.str accessanalyzer: Use this to override the default service endpoint URL
         :param _builtins.str account: Use this to override the default service endpoint URL
+        :param _builtins.str accountaccess: Use this to override the default service endpoint URL
         :param _builtins.str acm: Use this to override the default service endpoint URL
         :param _builtins.str acmpca: Use this to override the default service endpoint URL
+        :param _builtins.str agentregistry: Use this to override the default service endpoint URL
         :param _builtins.str amg: Use this to override the default service endpoint URL
         :param _builtins.str amp: Use this to override the default service endpoint URL
         :param _builtins.str amplify: Use this to override the default service endpoint URL
@@ -661,6 +667,7 @@ class Endpoints(dict):
         :param _builtins.str devopsguru: Use this to override the default service endpoint URL
         :param _builtins.str directconnect: Use this to override the default service endpoint URL
         :param _builtins.str directoryservice: Use this to override the default service endpoint URL
+        :param _builtins.str directoryservicedata: Use this to override the default service endpoint URL
         :param _builtins.str dlm: Use this to override the default service endpoint URL
         :param _builtins.str dms: Use this to override the default service endpoint URL
         :param _builtins.str docdb: Use this to override the default service endpoint URL
@@ -730,6 +737,7 @@ class Endpoints(dict):
         :param _builtins.str kms: Use this to override the default service endpoint URL
         :param _builtins.str lakeformation: Use this to override the default service endpoint URL
         :param _builtins.str lambda_: Use this to override the default service endpoint URL
+        :param _builtins.str lambdacore: Use this to override the default service endpoint URL
         :param _builtins.str lambdamicrovms: Use this to override the default service endpoint URL
         :param _builtins.str launchwizard: Use this to override the default service endpoint URL
         :param _builtins.str lex: Use this to override the default service endpoint URL
@@ -880,10 +888,14 @@ class Endpoints(dict):
             pulumi.set(__self__, "accessanalyzer", accessanalyzer)
         if account is not None:
             pulumi.set(__self__, "account", account)
+        if accountaccess is not None:
+            pulumi.set(__self__, "accountaccess", accountaccess)
         if acm is not None:
             pulumi.set(__self__, "acm", acm)
         if acmpca is not None:
             pulumi.set(__self__, "acmpca", acmpca)
+        if agentregistry is not None:
+            pulumi.set(__self__, "agentregistry", agentregistry)
         if amg is not None:
             pulumi.set(__self__, "amg", amg)
         if amp is not None:
@@ -1080,6 +1092,8 @@ class Endpoints(dict):
             pulumi.set(__self__, "directconnect", directconnect)
         if directoryservice is not None:
             pulumi.set(__self__, "directoryservice", directoryservice)
+        if directoryservicedata is not None:
+            pulumi.set(__self__, "directoryservicedata", directoryservicedata)
         if dlm is not None:
             pulumi.set(__self__, "dlm", dlm)
         if dms is not None:
@@ -1218,6 +1232,8 @@ class Endpoints(dict):
             pulumi.set(__self__, "lakeformation", lakeformation)
         if lambda_ is not None:
             pulumi.set(__self__, "lambda_", lambda_)
+        if lambdacore is not None:
+            pulumi.set(__self__, "lambdacore", lambdacore)
         if lambdamicrovms is not None:
             pulumi.set(__self__, "lambdamicrovms", lambdamicrovms)
         if launchwizard is not None:
@@ -1527,6 +1543,14 @@ class Endpoints(dict):
 
     @_builtins.property
     @pulumi.getter
+    def accountaccess(self) -> Optional[_builtins.str]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "accountaccess")
+
+    @_builtins.property
+    @pulumi.getter
     def acm(self) -> Optional[_builtins.str]:
         """
         Use this to override the default service endpoint URL
@@ -1540,6 +1564,14 @@ class Endpoints(dict):
         Use this to override the default service endpoint URL
         """
         return pulumi.get(self, "acmpca")
+
+    @_builtins.property
+    @pulumi.getter
+    def agentregistry(self) -> Optional[_builtins.str]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "agentregistry")
 
     @_builtins.property
     @pulumi.getter
@@ -2327,6 +2359,14 @@ class Endpoints(dict):
 
     @_builtins.property
     @pulumi.getter
+    def directoryservicedata(self) -> Optional[_builtins.str]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "directoryservicedata")
+
+    @_builtins.property
+    @pulumi.getter
     def dlm(self) -> Optional[_builtins.str]:
         """
         Use this to override the default service endpoint URL
@@ -2876,6 +2916,14 @@ class Endpoints(dict):
         Use this to override the default service endpoint URL
         """
         return pulumi.get(self, "lambda_")
+
+    @_builtins.property
+    @pulumi.getter
+    def lambdacore(self) -> Optional[_builtins.str]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "lambdacore")
 
     @_builtins.property
     @pulumi.getter

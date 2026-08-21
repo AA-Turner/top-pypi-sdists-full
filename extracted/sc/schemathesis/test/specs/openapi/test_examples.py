@@ -279,6 +279,36 @@ def test_examples_phase_keeps_examples_when_schema_too_malformed_to_validate(ctx
     assert 5e-324 in values
 
 
+def test_examples_phase_skips_properties_it_cannot_generate(ctx):
+    # Barring a keyed shape has no form to draw from, so that property contributes nothing.
+    undrawable = {"not": {"type": "object", "patternProperties": {"^a": {"type": "string"}}}}
+    operation = ctx.openapi.load_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "a": {"type": "string", "examples": ["given"]},
+                                        "b": undrawable,
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )["/r"]["POST"]
+    assert [example.value for example in extract_from_schemas(operation)] == [{"a": "given"}]
+
+
 def test_extract_top_level(operation):
     top_level_examples = list(extract_top_level(operation))
     extracted = [example_to_dict(example) for example in top_level_examples]
@@ -2817,6 +2847,21 @@ def test_property_without_example_is_generated(ctx, body_schema, expected):
     assert _extract_json_body_examples(ctx, body_schema) == expected
 
 
+def test_generated_property_honors_its_format(ctx):
+    # A value its own format rejects is dropped, leaving the property missing from the example.
+    assert _extract_json_body_examples(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "example": "Alice"},
+                "pointer": {"type": "string", "format": "relative-json-pointer"},
+            },
+            "required": ["name", "pointer"],
+        },
+    ) == [{"media_type": "application/json", "value": {"name": "Alice", "pointer": "0#"}}]
+
+
 @pytest.mark.parametrize(
     "body_schema",
     [
@@ -3699,3 +3744,51 @@ def test_pool_injected_body_with_multiple_media_types_does_not_crash(ctx):
     assert strategies
     for strategy in strategies:
         examples.generate_one(strategy)
+
+
+def test_generated_property_with_recursive_ref(ctx):
+    # The generated sibling carries an unresolvable self-reference; extraction must still produce the example.
+    schema = ctx.openapi.load_schema(
+        {
+            "/orders": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["Items", "Fulfilment"],
+                                    "properties": {
+                                        "Fulfilment": {
+                                            "type": "object",
+                                            "example": {"Method": "Delivery"},
+                                            "properties": {"Method": {"type": "string"}},
+                                        },
+                                        "Items": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Item": {
+                    "type": "object",
+                    "properties": {
+                        "Name": {"type": "string"},
+                        "Items": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                    },
+                }
+            }
+        },
+    )
+
+    extracted = [example.value for example in extract_from_schemas(schema["/orders"]["POST"])]
+
+    assert len(extracted) == 1
+    assert extracted[0]["Fulfilment"] == {"Method": "Delivery"}
+    assert isinstance(extracted[0]["Items"], list)

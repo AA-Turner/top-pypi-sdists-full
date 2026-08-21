@@ -196,7 +196,9 @@ __all__ = [
 
 # Pin-message header doubles as the re-harvest marker across optimizer instances.
 _PIN_HEADER = "Skill playbooks already loaded in this task"
-_PLAYBOOK_SPAN_RE = re.compile(r'<skill_playbook\s+name="([^"]+)".*?(?:</skill_playbook>|\Z)', re.DOTALL)
+_PLAYBOOK_SPAN_RE = re.compile(
+    r'<skill_playbook\s+name="([^"]+)".*?(?:</skill_playbook>|\Z)', re.DOTALL
+)
 
 
 @dataclass
@@ -431,17 +433,46 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
     #  Token estimation
     # ------------------------------------------------------------------ #
 
-    @staticmethod
-    def _estimate_tokens(messages: List[Message]) -> int:
-        """Rough token count: ~4 chars per token, with 1.2x safety margin.
+    # Coarse per-attachment token reserves. Media base64 must NOT be counted as
+    # text (a 5MB image is ~6.7M chars ≈ 2M "tokens" and would trigger compaction
+    # that isn't needed). An image's cost is ~fixed per tile regardless of bytes, so
+    # images reserve a flat amount; docs/audio/video scale with size so a large PDF
+    # is not under-counted (which would skip needed compaction). Divisors deliberately
+    # over-reserve rather than under-count; precise per-provider math is future work.
+    _MEDIA_TOKEN_RESERVE = {
+        "images": 1300,
+        "files": 3000,
+        "audio": 1000,
+        "videos": 5000,
+    }
+    _MEDIA_BYTES_PER_TOKEN = {"files": 33, "audio": 1000, "videos": 500}
+
+    @classmethod
+    def _estimate_tokens(cls, messages: List[Message]) -> int:
+        """Rough token count: ~4 chars per token, 1.2x margin, media reserved per-part not by base64.
 
         The chars/4 heuristic underestimates real token counts because it
         misses multi-byte characters, special tokens, and structured message
         overhead.  The 20% padding aligns the trigger with ~80% of the
         context window — the threshold used by production agentic systems.
         """
-        raw = len(json.dumps([m.to_dict() for m in messages], default=str)) // 4
-        return int(raw * 1.2)
+        total = 0.0
+        for m in messages:
+            d = m.to_dict()
+            for key, flat in cls._MEDIA_TOKEN_RESERVE.items():
+                parts = d.pop(key, None)  # drop the base64 blob from the char count
+                if not parts:
+                    continue
+                per_byte = cls._MEDIA_BYTES_PER_TOKEN.get(key)
+                if per_byte is None:  # images: flat, cost is not byte-proportional
+                    total += flat * len(parts)
+                    continue
+                for part in parts:
+                    b64 = part.get("content") if isinstance(part, dict) else None
+                    approx_bytes = (len(b64) * 3 // 4) if isinstance(b64, str) else 0
+                    total += max(flat, approx_bytes // per_byte)
+            total += (len(json.dumps(d, default=str)) // 4) * 1.2
+        return int(total)
 
     @staticmethod
     def _estimate_tokens_for_text(text: str) -> int:
@@ -706,7 +737,7 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
                         f"compaction attempts; aborting instead of spinning near overflow"
                     )
                 delay = min(
-                    EMERGENCY_CONNECTIVITY_RETRY_BASE_DELAY * (2 ** attempt),
+                    EMERGENCY_CONNECTIVITY_RETRY_BASE_DELAY * (2**attempt),
                     EMERGENCY_CONNECTIVITY_RETRY_MAX_DELAY,
                 )
                 logger.warning(
@@ -918,7 +949,10 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         """Upsert one playbook span, newest-wins, bounded by PINNED_SKILLS_MAX."""
         if len(playbook) > PINNED_SKILL_MAX_CHARS:
             cut = PINNED_SKILL_MAX_CHARS - 60
-            playbook = playbook[:cut] + "\n[truncated - full files in ./skills/]\n</skill_playbook>"
+            playbook = (
+                playbook[:cut]
+                + "\n[truncated - full files in ./skills/]\n</skill_playbook>"
+            )
         self._pinned_skill_playbooks.pop(name, None)
         self._pinned_skill_playbooks[name] = playbook
         while len(self._pinned_skill_playbooks) > PINNED_SKILLS_MAX:
@@ -936,7 +970,11 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         """
         for msg in messages:
             role = getattr(msg, "role", None)
-            if role == "user" and isinstance(msg.content, str) and msg.content.startswith(_PIN_HEADER):
+            if (
+                role == "user"
+                and isinstance(msg.content, str)
+                and msg.content.startswith(_PIN_HEADER)
+            ):
                 for m in re.finditer(_PLAYBOOK_SPAN_RE, msg.content):
                     self._pin_skill_playbook(m.group(1), m.group(0))
                 continue
@@ -956,8 +994,7 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         if not self._pinned_skill_playbooks:
             return ""
         return (
-            _PIN_HEADER
-            + ", kept across context compaction. "
+            _PIN_HEADER + ", kept across context compaction. "
             "Follow them from wherever the accompanying context summary says you are - do not "
             "restart them and do not load these skills again:\n"
             + "\n".join(self._pinned_skill_playbooks.values())
@@ -997,9 +1034,7 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
                 else {}
             )
             cid = (
-                body.get("context_id")
-                if isinstance(body, dict)
-                else None
+                body.get("context_id") if isinstance(body, dict) else None
             ) or tool_args.get("context_id")
             if isinstance(cid, str) and cid.strip():
                 context_id = cid.strip()
@@ -1017,8 +1052,8 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
             self.stats.get("tool_results_compressed", 0) + 1
         )
         self.stats["original_size"] = self.stats.get("original_size", 0) + original_len
-        self.stats["compressed_size"] = (
-            self.stats.get("compressed_size", 0) + len(replacement)
+        self.stats["compressed_size"] = self.stats.get("compressed_size", 0) + len(
+            replacement
         )
         logger.info(
             f"[context-optimizer] layer 1: re-offloaded stale context-retrieve "

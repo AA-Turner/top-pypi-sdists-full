@@ -3,6 +3,19 @@
 #include <humming/utils/base.cuh>
 
 
+CUDA_INLINE void griddepcontrol_wait() {
+#if (__CUDA_ARCH__ >= 900)
+  asm volatile("griddepcontrol.wait;" ::: "memory");
+#endif
+}
+
+CUDA_INLINE void griddepcontrol_launch_dependents() {
+#if (__CUDA_ARCH__ >= 900)
+  asm volatile("griddepcontrol.launch_dependents;");
+#endif
+}
+
+
 template <uint32_t kNumSyncThreads, uint32_t kNumThreads, uint32_t kBarrierId = 1>
 CUDA_INLINE uint32_t sync_part_threads() {
   if constexpr (kNumSyncThreads == kNumThreads) {
@@ -126,16 +139,17 @@ void mbarrier_wait(void *barrier, bool phase_parity, const char *timeout_message
 #endif
 #else
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+  uint32_t suspend_time_hint = 10000000;
   asm volatile("{\n"
                "  .reg .pred p;\n"
                "  waitLoop:\n"
-               "  mbarrier.try_wait.parity.shared::cta.b64 p, [%0], %1;\n"
+               "  mbarrier.try_wait.parity.shared::cta.b64 p, [%0], %1, %2;\n"
                "  @p bra done;\n"
                "  bra waitLoop;\n"
                "  done:\n"
                "}\n"
                :
-               : "r"(smem_int_mbar), "r"((uint32_t)phase_parity)
+               : "r"(smem_int_mbar), "r"((uint32_t)phase_parity), "r"(suspend_time_hint)
                : "memory");
 #else
   asm volatile("{\n"

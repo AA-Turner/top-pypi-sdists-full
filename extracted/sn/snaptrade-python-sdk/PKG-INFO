@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.0.4
+Version: 13.0.7
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.0.4-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.4)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.0.7-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.7)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -111,7 +111,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.0.4
+pip install snaptrade-python-sdk==13.0.7
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -1408,11 +1408,11 @@ Experimental and subject to change without notice.
 
 Returns the accounts that belong to the specified connection for the authenticated user, using the `kind`-discriminated account shape.
 
-Each item in the response carries a `kind` field (currently only `investment` is implemented) that determines which additional fields are present -- see the `ConnectionAccount` schema.
+Each item in the response carries a `kind` field (currently `investment` and `deposit` are implemented) that determines which additional fields are present -- see the `ConnectionAccount` schema.
 
-On Pay as you Go / Real-time, this endpoint refreshes each account's opening date, funding date, and market value live from the brokerage on each call.
+On Pay as you Go / Real-time, this endpoint refreshes each account's opening date and total net value (`net_value`) live from the institution on each call, along with funding date for `investment` accounts.
 
-On Pay as you Go / Daily, this endpoint returns Daily data. Daily data is cached and refreshed once a day. Exact refresh timing may vary by brokerage. To force a refresh, use the [manual refresh endpoint](/reference/Connections/Connections_refreshBrokerageAuthorization).
+On Pay as you Go / Daily, this endpoint returns Daily data. Daily data is cached and refreshed once a day. Exact refresh timing may vary by institution. To force a refresh, use the [manual refresh endpoint](/reference/Connections/Connections_refreshBrokerageAuthorization).
 
 Check your API key on the [Customer Dashboard billing page](https://dashboard.snaptrade.com/settings/billing) to see whether your plan includes real-time data.
 
@@ -1422,14 +1422,14 @@ Check your API key on the [Customer Dashboard billing page](https://dashboard.sn
 ```python
 list_connection_accounts_response = (
     snaptrade.experimental_endpoints.list_connection_accounts(
-        authorization_id="87b24961-b51e-4db8-9226-f198f6518a89",
+        connection_id="87b24961-b51e-4db8-9226-f198f6518a89",
     )
 )
 ```
 
 #### ⚙️ Parameters<a id="⚙️-parameters"></a>
 
-##### authorization_id: `str`<a id="authorization_id-str"></a>
+##### connection_id: `str`<a id="connection_id-str"></a>
 
 #### 🔄 Return<a id="🔄-return"></a>
 
@@ -1437,7 +1437,7 @@ list_connection_accounts_response = (
 
 #### 🌐 Endpoint<a id="🌐-endpoint"></a>
 
-`/connections/{authorizationId}/accounts` `get`
+`/connections/{connectionId}/accounts` `get`
 
 [🔙 **Back to Table of Contents**](#table-of-contents)
 

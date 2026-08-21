@@ -12,6 +12,7 @@ from pathlib import Path
 
 import httpx
 
+from stashai import release
 from stashvfs import VfsClientError
 
 
@@ -101,6 +102,7 @@ class StashClient:
         headers = kwargs.pop("headers", {})
         headers.update(self._headers())
         resp = self._http.request(method, path, headers=headers, **kwargs)
+        release.note_latest(resp.headers.get(release.LATEST_VERSION_HEADER, ""))
         if not resp.is_success:
             detail = ""
             try:
@@ -252,6 +254,12 @@ class StashClient:
     def get_skill_text(self, slug: str) -> str:
         resp = self._request("GET", f"/api/v1/skills/{slug}", params={"format": "text"})
         return resp.text
+
+    def get_source_skill_text(self, doc_id: str) -> str:
+        """A source-backed skill has no publish slug — it is addressed by the
+        document that backs it."""
+        resp = self._request("GET", f"/api/v1/me/source-skills/{doc_id}")
+        return resp.json().get("combined", "")
 
     def snapshot_source_into_skill(self, skill_id: str, source_id: str, path: str) -> dict:
         return self._post(
@@ -863,9 +871,8 @@ class StashClient:
     def delete_session(self, session_row_id: str) -> None:
         self._delete(f"/api/v1/me/sessions/{session_row_id}")
 
-    def get_transcript_events(self, session_id: str) -> list:
-        data = self._get(f"/api/v1/me/transcripts/{session_id}/events")
-        return data.get("events", []) if isinstance(data, dict) else data
+    def get_transcript_events(self, session_id: str, limit: int, offset: int = 0) -> dict:
+        return self._get(f"/api/v1/me/transcripts/{session_id}/events", limit=limit, offset=offset)
 
     def export_transcript_jsonl(self, session_id: str) -> str:
         return self._request(

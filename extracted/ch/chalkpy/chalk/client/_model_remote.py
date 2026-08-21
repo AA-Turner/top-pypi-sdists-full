@@ -247,6 +247,9 @@ class ModelCallHandle:
         self._cursor = ""
         self._poll_count = 0
         self._chunks: List[bytes] = []
+        self._done = False
+        self._result: Any = None
+        self._error: Optional[ModelRemoteError] = None
 
     @property
     def call_id(self) -> str:
@@ -259,6 +262,11 @@ class ModelCallHandle:
         Raises ``ModelRemoteError`` if the call failed, or ``TimeoutError`` if
         ``timeout`` seconds elapse first.
         """
+        if self._error is not None:
+            raise self._error
+        if self._done:
+            return self._result
+
         deadline = None if timeout is None else time.monotonic() + timeout
         last_status = "unknown"
 
@@ -271,10 +279,13 @@ class ModelCallHandle:
             self._chunks.extend(result.chunks)
 
             if result.is_failed:
-                raise ModelRemoteError(result.error_message or f"Model call {self._call_id} failed")
+                self._error = ModelRemoteError(result.error_message or f"Model call {self._call_id} failed")
+                raise self._error
 
             if result.is_completed:
-                return _decode_first_value(self._chunks)
+                self._result = _decode_first_value(self._chunks)
+                self._done = True
+                return self._result
 
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError(

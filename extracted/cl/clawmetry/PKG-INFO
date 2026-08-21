@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.737
+Version: 0.12.750
 Summary: ClawMetry - Real-time observability for 22 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -30,6 +30,7 @@ Requires-Dist: cryptography>=3.0
 Requires-Dist: duckdb>=0.10
 Requires-Dist: websocket-client>=1.6
 Requires-Dist: truststore>=0.8; python_version >= "3.10"
+Requires-Dist: certifi>=2024.2.2
 Provides-Extra: otel
 Requires-Dist: opentelemetry-proto>=1.20.0; extra == "otel"
 Requires-Dist: protobuf>=4.21.0; extra == "otel"
@@ -139,7 +140,7 @@ the same machine. Docker instructions: [docs/DOCKER.md](docs/DOCKER.md).
 | [NemoClaw / OpenShell](docs/NEMOCLAW.md) | Sandboxed NVIDIA NemoClaw setups |
 | [Docker](docs/DOCKER.md) | Image, compose, volume mounts |
 | [Architecture](ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) | How it works inside; running from source |
-| [Telemetry](docs/TELEMETRY.md) | The anonymous install ping, and how to turn it off |
+| [Telemetry](docs/TELEMETRY.md) | The anonymous install and desktop-open pings, and how to turn them off |
 
 ## Screenshots
 

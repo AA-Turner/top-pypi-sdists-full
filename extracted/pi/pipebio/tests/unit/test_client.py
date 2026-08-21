@@ -1,7 +1,11 @@
 import os
+import warnings
+from zipfile import ZipFile
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 from pipebio.pipebio_client import DOWNLOAD_READ_TIMEOUT_SECONDS, PipebioClient
 from pipebio.models.export_format import ExportFormat
 from pipebio.models.job_type import JobType
@@ -381,6 +385,305 @@ class TestDownloadExportOutput:
             mock_session_class.return_value = MagicMock()
             return PipebioClient(url='https://test-api.pipebio.com')
 
+    def test_export_passes_allow_deleted_entities(self):
+        client = self._client()
+        client.user = {'org': {'id': 'org-1'}}
+        client.entities.get = MagicMock(
+            return_value={'name': 'document', 'ownerId': 'project-1'}
+        )
+        client.jobs.create = MagicMock(return_value='job-1')
+
+        with patch.object(
+            client,
+            'download_export_output',
+            return_value=['/tmp/document.tsv'],
+        ):
+            result = client.export(
+                'entity-1',
+                ExportFormat.TSV,
+                destination_folder='/tmp',
+                destination_filename='document.tsv',
+                allow_deleted_entities=True,
+            )
+
+        assert result == ['/tmp/document.tsv']
+        assert client.entities.get.call_args.kwargs['allow_deleted'] is True
+        assert client.jobs.create.call_args.kwargs['allow_deleted_entities'] is True
+
+    def test_export_to_path_returns_single_export_output(self, tmp_path):
+        client = self._client()
+        client.export = MagicMock(return_value=[str(tmp_path / 'result.tsv')])
+        destination = tmp_path / 'nested' / 'requested.tsv'
+
+        result = client.export_to_path(
+            'entity-1',
+            destination,
+            format=ExportFormat.CSV,
+            params={'filter': 'name = "example"'},
+            timeout_seconds=60,
+            read_timeout_seconds=30,
+            allow_deleted_entities=True,
+        )
+
+        assert result == str(tmp_path / 'result.tsv')
+        client.export.assert_called_once_with(
+            'entity-1',
+            ExportFormat.CSV,
+            destination_folder=str(destination.parent),
+            destination_filename='requested.tsv',
+            params={'filter': 'name = "example"'},
+            timeout_seconds=60,
+            read_timeout_seconds=30,
+            allow_deleted_entities=True,
+        )
+
+    def test_export_to_path_preserves_archive_destination_and_warns(self, tmp_path):
+        client = self._client()
+        client.user = {'org': {'id': 'org-1'}}
+        client.entities.get = MagicMock(
+            return_value={'name': 'document', 'ownerId': 'project-1'}
+        )
+        client.jobs.create = MagicMock(return_value='job-1')
+        destination = tmp_path / 'requested.parquet'
+        job = {
+            'status': 'COMPLETE',
+            'params': {'fileName': 'document', 'format': 'PARQUET'},
+            'outputLinks': [{'url': 'https://one'}],
+        }
+
+        with patch.object(client.jobs, 'poll_job', return_value=job), \
+             patch(
+                 'pipebio.pipebio_client.urlopen',
+                 side_effect=self._mock_urlopen([b'zip-bytes']),
+             ):
+            with pytest.warns(UserWarning, match='ZIP archive'):
+                result = client.export_to_path(
+                    'entity-1',
+                    destination,
+                    format=ExportFormat.PARQUET,
+                )
+
+        assert result == str(destination)
+        assert destination.read_bytes() == b'zip-bytes'
+
+    def test_export_default_dotted_filename_does_not_warn(self, tmp_path):
+        client = self._client()
+        client.user = {'org': {'id': 'org-1'}}
+        client.entities.get = MagicMock(
+            return_value={'name': 'IGHV3-23.001', 'ownerId': 'project-1'}
+        )
+        client.jobs.create = MagicMock(return_value='job-1')
+        job = {
+            'status': 'COMPLETE',
+            'params': {'fileName': 'IGHV3-23.001', 'format': 'TSV'},
+            'outputLinks': [{'url': 'https://one'}],
+        }
+
+        with patch.object(client.jobs, 'poll_job', return_value=job), \
+             patch(
+                 'pipebio.pipebio_client.urlopen',
+                 side_effect=self._mock_urlopen([b'tsv-bytes']),
+             ), \
+             warnings.catch_warnings():
+            warnings.simplefilter('error', UserWarning)
+            outputs = client.export(
+                'entity-1',
+                ExportFormat.TSV,
+                destination_folder=str(tmp_path),
+            )
+
+        assert outputs == [str(tmp_path / 'IGHV3-23.001')]
+
+    def test_export_to_path_explains_multiple_output_failure(self, tmp_path):
+        client = self._client()
+        client.export = MagicMock(return_value=[
+            str(tmp_path / 'result_1.tsv'),
+            str(tmp_path / 'result_2.tsv'),
+        ])
+
+        with pytest.raises(ValueError, match=r'use client\.export\(\)'):
+            client.export_to_path('entity-1', tmp_path / 'requested.tsv')
+
+    def test_export_to_path_explains_empty_output_failure(self, tmp_path):
+        client = self._client()
+        client.export = MagicMock(return_value=[])
+
+        with pytest.raises(ValueError, match='produced no output files'):
+            client.export_to_path('entity-1', tmp_path / 'requested.tsv')
+
+    def test_iter_sequence_records_uses_parquet(self, tmp_path):
+        client = self._client()
+        parquet_file = tmp_path / 'part-0.parquet'
+        pq.write_table(
+            pa.table(
+                {
+                    'id': ['seq-1', 'seq-2'],
+                    'name': ['Example', 'Another'],
+                    'sequence': ['ATGC', 'GGCC'],
+                    'annotations': ['{}', '{}'],
+                    'type': ['DNA', 'DNA'],
+                }
+            ),
+            parquet_file,
+        )
+        second_parquet_file = tmp_path / 'part-1.parquet'
+        pq.write_table(
+            pa.table(
+                {
+                    'id': ['seq-3'],
+                    'name': [None],
+                    'sequence': ['TTAA'],
+                    'annotations': [None],
+                    'type': ['DNA'],
+                }
+            ),
+            second_parquet_file,
+        )
+        archive = tmp_path / 'export.zip'
+        with ZipFile(archive, 'w') as zip_file:
+            zip_file.write(
+                parquet_file,
+                arcname='export/document - entity-1.parquet/part-0.parquet',
+            )
+            zip_file.write(
+                second_parquet_file,
+                arcname='export/document - entity-1.parquet/part-1.parquet',
+            )
+        client.export = MagicMock(return_value=[str(archive)])
+
+        records = list(client.iter_sequence_records(['12345']))
+
+        assert records == [
+            (
+                '12345##@##seq-1',
+                {
+                    'id': 'seq-1',
+                    'name': 'Example',
+                    'sequence': 'ATGC',
+                    'annotations': '{}',
+                    'type': 'DNA',
+                },
+            ),
+            (
+                '12345##@##seq-2',
+                {
+                    'id': 'seq-2',
+                    'name': 'Another',
+                    'sequence': 'GGCC',
+                    'annotations': '{}',
+                    'type': 'DNA',
+                },
+            ),
+            (
+                '12345##@##seq-3',
+                {
+                    'id': 'seq-3',
+                    'name': '',
+                    'sequence': 'TTAA',
+                    'annotations': '',
+                    'type': 'DNA',
+                },
+            ),
+        ]
+        assert not archive.exists()
+
+        call = client.export.call_args
+        assert call.args == ('12345', ExportFormat.PARQUET)
+        assert call.kwargs == {
+            'destination_folder': ANY,
+            'destination_filename': 'sequences.zip',
+            'timeout_seconds': None,
+            'read_timeout_seconds': DOWNLOAD_READ_TIMEOUT_SECONDS,
+            'allow_deleted_entities': True,
+        }
+        assert not os.path.exists(call.kwargs['destination_folder'])
+
+    def test_iter_sequence_records_preserves_values_delimited_exports_rewrite(
+        self, tmp_path
+    ):
+        """Pin the migration contract: Parquet cells arrive unsanitized.
+
+        Each of these values is altered by the server-side sanitization the
+        delimited formats apply, so they would not survive a TSV transport.
+        """
+        client = self._client()
+        parquet_file = tmp_path / 'part-0.parquet'
+        pq.write_table(
+            pa.table(
+                {
+                    'id': ['seq-1', 'seq-2', 'seq-3', 'seq-4'],
+                    'name': [
+                        '=HYPERLINK("http://evil","x")',
+                        '   ',
+                        'tab\there',
+                        '-not-a-number',
+                    ],
+                    'sequence': ['ATGC', 'GGCC', 'TTAA', 'CCGG'],
+                    'annotations': ['{}', '{}', '{}', '{}'],
+                    'type': ['DNA', 'DNA', 'DNA', 'DNA'],
+                }
+            ),
+            parquet_file,
+        )
+        archive = tmp_path / 'export.zip'
+        with ZipFile(archive, 'w') as zip_file:
+            zip_file.write(
+                parquet_file,
+                arcname='export/document - entity-1.parquet/part-0.parquet',
+            )
+        client.export = MagicMock(return_value=[str(archive)])
+
+        names = [
+            record['name'] for _compound_id, record in client.iter_sequence_records(['12345'])
+        ]
+
+        assert names == [
+            '=HYPERLINK("http://evil","x")',
+            '   ',
+            'tab\there',
+            '-not-a-number',
+        ]
+
+    def test_iter_sequence_records_uses_dataset_ids_for_folder_exports(self, tmp_path):
+        client = self._client()
+        first_file = tmp_path / 'part-0.parquet'
+        second_file = tmp_path / 'part-1.parquet'
+        for path, sequence_id in (
+            (first_file, 'seq-1'),
+            (second_file, 'seq-2'),
+        ):
+            pq.write_table(
+                pa.table(
+                    {
+                        'id': [sequence_id],
+                        'name': ['Example'],
+                        'sequence': ['ATGC'],
+                        'annotations': ['{}'],
+                        'type': ['DNA'],
+                    }
+                ),
+                path,
+            )
+
+        archive = tmp_path / 'folder-export.zip'
+        with ZipFile(archive, 'w') as zip_file:
+            zip_file.write(
+                first_file,
+                arcname='folder/first - entity-1.parquet/part-0.parquet',
+            )
+            zip_file.write(
+                second_file,
+                arcname='folder/second - entity-2.parquet/part-0.parquet',
+            )
+        client.export = MagicMock(return_value=[str(archive)])
+
+        records = list(client.iter_sequence_records(['folder-1']))
+
+        assert [compound_id for compound_id, _ in records] == [
+            'entity-1##@##seq-1',
+            'entity-2##@##seq-2',
+        ]
+
     @staticmethod
     def _mock_urlopen(bodies, read_sizes=None):
         """Build a urlopen mock returning each body in turn, as a context manager.
@@ -516,6 +819,27 @@ class TestDownloadExportOutput:
             )
 
         assert outputs == [str(tmp_path / 'from-job.tsv')]
+
+    def test_archive_output_warns_but_preserves_requested_filename(self, tmp_path):
+        client = self._client()
+        job = {
+            "status": "COMPLETE",
+            "params": {"fileName": "database-export", "format": "DUCKDB"},
+            "outputLinks": [{"url": "https://one"}],
+        }
+
+        with patch.object(client.jobs, 'poll_job', return_value=job), \
+             patch('pipebio.pipebio_client.urlopen',
+                   side_effect=self._mock_urlopen([b'zip-bytes'])):
+            with pytest.warns(UserWarning, match='ZIP archive'):
+                outputs = client.download_export_output(
+                    'job-1',
+                    destination_folder=str(tmp_path),
+                    destination_filename='database-export.duckdb',
+                )
+
+        assert outputs == [str(tmp_path / 'database-export.duckdb')]
+        assert (tmp_path / 'database-export.duckdb').read_bytes() == b'zip-bytes'
 
     def test_failed_job_raises(self, tmp_path):
         client = self._client()

@@ -1,0 +1,18 @@
+version: '3.0'
+
+ai-installation:
+  default-action: deny
+  allow:
+    mcp-servers:
+      - identifiers:
+          - "mcp-server:remote:mcp.linear.app/sse"
+      - ai-assistant: claude-code
+        identifiers:
+          - "mcp-server:stdio:npm:@acme/db-mcp"
+  deny:
+    mcp-servers:
+      block-on-any-of:
+        servers:
+          - ai-assistant: codex
+            identifiers:
+              - "mcp-server:remote:evil.example.com/mcp"

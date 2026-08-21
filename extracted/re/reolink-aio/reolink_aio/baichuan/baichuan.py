@@ -31,6 +31,7 @@ from ..enums import (
     ANTI_FLICKER_MAP,
     AntiFlickerEnum,
     BatteryEnum,
+    BatteryModeEnum,
     ConnectionEnum,
     DayNightEnum,
     EncodingEnum,
@@ -190,17 +191,20 @@ class Baichuan:
         self._active_scene: int = -1
         self._day_night_state: dict[int, str] = {}
         self._dev_type: str = ""
+        self._wired_power: bool = False
 
         # channel states
         self._dev_info: dict[int | None, dict[str, str]] = {}
         self._network_info: dict[int | None, dict[str, str]] = {}
         self._wifi_connection: dict[int, bool] = {}
+        self._battery_mode: dict[int, str] = {}
         self._ptz_running: dict[int, bool] = {}
         self._ptz_position: dict[int, dict[str, str]] = {}
         self._ptz_patrol_cruising: dict[int, bool | None] = {}
         self._privacy_mode: dict[int, bool] = {}
         self._ai_detect: dict[int, dict[str, dict[int, dict[str, Any]]]] = {}
         self._tamper_states: dict[int, bool] = {}
+        self._tamper_enabled: dict[int, bool] = {}
         self._hardwired_chime_settings: dict[int, dict[str, str | int]] = {}
         self._ir_brightness: dict[int, int] = {}
         self._cry_sensitivity: dict[int, int] = {}
@@ -1023,6 +1027,7 @@ class Baichuan:
                         "lowPower": ("lowPowerFlag", int),
                         "temperature": ("temperature", int),
                         "voltage": ("voltage", int),
+                        "powerSupplyStatus": ("powerSupplyStatus", str),
                     },
                 )
                 if data["chargeStatus"] == "none":
@@ -1033,6 +1038,7 @@ class Baichuan:
                     _LOGGER.warning("BatteryInfo cmd_id %s push contained unknown chargeStatus: %s, assuming discharging", cmd_id, data["chargeStatus"])
                     data["chargeStatus"] = BatteryEnum.discharging.value
                 self.http_api._battery.setdefault(channel, {}).update(data)
+                self._wired_power = data.get("powerSupplyStatus") == "normal"
                 if cmd_id == 252:
                     _LOGGER.debug("Reolink %s TCP event channel %s, BatteryInfo", self.http_api.nvr_name, channel)
 
@@ -1240,6 +1246,46 @@ class Baichuan:
                         _LOGGER.debug("Reolink %s TCP yolo event channel %s, %s: True", self.http_api.nvr_name, channel, yolo_type)
                         self._ai_yolo_600.setdefault(channel, {})[yolo_type] = True
 
+        elif cmd_id == 626:  # BatteryMode
+            if mess_id is None:
+                return
+            channel = mess_id % 256 - 1
+            if channel < 0 or channel > 100:
+                return
+            channels.add(channel)
+            data = get_keys_from_xml(
+                root, {"batteryMode": ("batteryMode", int), "recEnable": ("recEnable", int), "recordTimeSec": ("recordTimeSec", int), "aiExtendRecord": ("postRecAi", bool)}
+            )
+
+            rec_set = self.http_api._recording_settings.setdefault(channel, {})
+            if "recEnable" in data:
+                rec_set.setdefault("schedule", {})["enable"] = data["recEnable"]
+                if self.http_api.api_version("GetRec") >= 1:
+                    rec_set["scheduleEnable"] = data["recEnable"]
+            if post_rec := TIME_INT_SEC_TO_STR.get(data.get("recordTimeSec", 0), ""):
+                rec_set["postRec"] = post_rec
+            if "postRecAi" in data:
+                rec_set["postRecAi"] = data["postRecAi"]
+
+            pir_data = get_keys_from_xml(root, {"pirEnable": ("enable", int), "pirSensitive": ("sensitive", int), "pirCdSec": ("interval", int)})
+            self.http_api._pir.setdefault(channel, {}).update(pir_data)
+
+            if (bat_mode := data.get("batteryMode")) is not None:
+                try:
+                    self._battery_mode[channel] = BatteryModeEnum(bat_mode).name
+                except ValueError:
+                    _LOGGER.debug("Reolink %s unknown battery mode int %s", self.http_api.nvr_name, bat_mode)
+
+        elif cmd_id == 655:  # aiExtendRecord
+            if mess_id is None:
+                return
+            channel = mess_id % 256 - 1
+            if channel < 0 or channel > 100:
+                return
+            channels.add(channel)
+            data = {"postRecAi": get_value_from_xml(root, "enable", int) == 1}
+            self.http_api._recording_settings.setdefault(channel, {}).update(data)
+
         elif cmd_id == 677:  # IO input
             for event_list in root.findall(".//statusList"):
                 channel = self._get_channel_from_xml_element(event_list, "channel")
@@ -1326,6 +1372,15 @@ class Baichuan:
                 if state is not None:
                     self._privacy_mode[channel] = state
                     _LOGGER.debug("Reolink %s TCP event channel %s, Privacy mode: %s", self.http_api.nvr_name, channel, state)
+
+        elif cmd_id == 763:  # Tamper alarm
+            if mess_id is None:
+                return
+            channel = mess_id % 256 - 1
+            if channel < 0 or channel > 100:
+                return
+            channels.add(channel)
+            self._tamper_enabled[channel] = get_value_from_xml(root, "enable", int) == 1
 
         # call the callbacks
         for cmd in cmd_ids:
@@ -1654,11 +1709,13 @@ class Baichuan:
             if "sleep" in data:
                 self._privacy_mode[0] = data["sleep"]
             # channels
-            if self._first_login and ("channelNum" in data or "analogChnNum" in data) and not self.http_api._is_nvr:
-                num_stream_channels = data.get("channelNum", data["analogChnNum"])
+            if self._first_login and not self.http_api._is_nvr:
+                num_stream_channels = data.get("channelNum", 0)
                 num_channels = data.get("analogChnNum", 0)
                 if num_channels <= 0:
                     num_channels = num_stream_channels
+                if num_stream_channels <= 0:
+                    num_stream_channels = num_channels
                 if num_channels > 0:
                     self.http_api._channels.clear()
                     self.http_api._num_channels = num_channels
@@ -1671,7 +1728,7 @@ class Baichuan:
                     self.http_api._is_dual_lens = not self.http_api._is_nvr and num_stream_channels > self.http_api._num_channels
 
         self.http_api._enc_range = {}
-        for info in root.findall(".//StreamInfo"):
+        for info in root.findall(".//StreamInfo"):  # cmd_id 146
             channelBits = get_value_from_xml(info, "channelBits", int)
             if channelBits is None:
                 continue
@@ -1773,6 +1830,7 @@ class Baichuan:
 
         # Host capabilities
         self.capabilities.setdefault(None, set())
+        self.http_api._is_battery = not self.http_api.is_nvr and self.api_version("battery", 0) > 0
         for channel in self.http_api._stream_channels:
             self.capabilities.setdefault(channel, set())
         if self.api_version("reboot") > 0:
@@ -1792,16 +1850,16 @@ class Baichuan:
             self.capabilities[None].add("wifi")
         if self.api_version("rtsp") > 0 and self.http_api._rtsp_port is not None:
             self.capabilities[None].add("RTSP")
-        if self.api_version("onvif") > 0 and self.http_api._onvif_port is not None:
+        if self.api_version("onvif") > 0 and self.http_api._onvif_port is not None and not self.http_api.is_battery:
             self.capabilities[None].add("ONVIF")
         if self.http_api.is_hub and ((self.api_version("doorbellVersion") >> 0) & 1 or (self.api_version("doorbellVersion") >> 4) & 1):
             host_coroutines.append(("dingdonglist", self.GetDingDongList()))
         if self.api_version("timeFormat") > 0:
             self.capabilities[None].add("sync_time")
 
-        self.http_api._is_battery = not self.http_api.is_nvr and self.api_version("battery", 0) > 0
-        if self.api_version("webhook") > 0 and self.http_api.is_battery:
+        if self.http_api.is_battery:
             host_coroutines.append((806, self.send(cmd_id=806)))
+            host_coroutines.append(("battery_info", self.get_battery_info(0)))  # determine "wired_power"
 
         if host_coroutines:
             try:
@@ -2010,7 +2068,9 @@ class Baichuan:
                 coroutines.append(("GetAudioNoise", channel, self.GetAudioNoise(channel)))
 
             if self.api_version("motion", channel, no_key_return=1) == 0 or self._dev_type == "light":
-                self.capabilities[channel].add("PIR")
+                self.capabilities[channel].add("PIR_sensitivity")
+                if not self.http_api.is_battery or not self._wired_power:
+                    self.capabilities[channel].add("PIR")
             if self.http_api.supported(channel, "PIR") or self.supported(channel, "PIR"):
                 # check for pir interval compatability
                 coroutines.append(("GetPirInfo", channel, self.GetPirInfo(channel)))
@@ -2031,6 +2091,9 @@ class Baichuan:
                 self.capabilities[channel].add("frame_rate")
             if self.http_api.bit_rate(channel) is not None:
                 self.capabilities[channel].add("bit_rate")
+
+            if (self.api_version("recordCfg") >> 8) & 1:  # bit 8, aiExtendRecord
+                coroutines.append((655, channel, self._send_and_parse(655, channel)))
 
             newIspCfg = self.api_version("newIspCfg", channel)
             if (newIspCfg >> 0) & 1 and self.http_api.daynight_state(channel) is not None:  # 1th bit (1), shift 0
@@ -2094,6 +2157,8 @@ class Baichuan:
                 elif cmd_id == 551:  # taken item
                     self.capabilities[channel].add("ai_taken_item")
                     self._parse_xml(cmd_id, result)
+                elif cmd_id == 655:  # aiExtendRecord
+                    self.capabilities[channel].add("post_rec_ai")
                 elif cmd_id == "wifi":
                     self.capabilities[channel].add("wifi")
                 elif cmd_id == "rules":
@@ -2295,6 +2360,9 @@ class Baichuan:
             if self.http_api.supported(channel, "PIR") and inc_cmd("GetPirInfo", channel):
                 coroutines.append(self.GetPirInfo(channel))
 
+            if self.supported(channel, "tamper") and inc_cmd("763", channel):
+                coroutines.append(self._send_and_parse(763, channel))
+
             if self.supported(channel, "ptz_position") and inc_cmd("GetPtzCurPos", channel):
                 coroutines.append(self.get_ptz_position(channel))
 
@@ -2309,6 +2377,18 @@ class Baichuan:
 
             if self.supported(channel, "noise_reduction") and inc_cmd("439", channel):
                 coroutines.append(self.GetAudioNoise(channel))
+
+            if self.http_api.is_battery:
+                if self.supported(channel, "ai_crossline") and inc_cmd("527", channel):
+                    coroutines.append(self._send_and_parse(527, channel))
+                if self.supported(channel, "ai_intrusion") and inc_cmd("529", channel):
+                    coroutines.append(self._send_and_parse(529, channel))
+                if self.supported(channel, "ai_linger") and inc_cmd("531", channel):
+                    coroutines.append(self._send_and_parse(531, channel))
+                if self.supported(channel, "ai_forgotten_item") and inc_cmd("549", channel):
+                    coroutines.append(self._send_and_parse(549, channel))
+                if self.supported(channel, "ai_taken_item") and inc_cmd("551", channel):
+                    coroutines.append(self._send_and_parse(551, channel))
 
         # chimes
         for chime_id, chime in self.http_api._chime_list.items():
@@ -3626,12 +3706,13 @@ class Baichuan:
     @http_cmd(["GetRecV20", "GetRec"])
     async def GetRec(self, channel: int, **_kwargs) -> None:
         """Get the recording info"""
-        mess81, mess54 = await asyncio.gather(
-            self.send(cmd_id=81, channel=channel),
-            self.send(cmd_id=54, channel=channel),
-        )
-        self._parse_xml(81, mess81)
-        self._parse_xml(54, mess54)
+        coroutines: list[Coroutine] = [
+            self._send_and_parse(81, channel),
+            self._send_and_parse(54, channel),
+        ]
+        if self.supported(channel, "post_rec_ai"):
+            coroutines.append(self._send_and_parse(655, channel))
+        await asyncio.gather(*coroutines)
 
     @http_cmd(["SetRecV20", "SetRec"])
     async def SetRecV20(self, **kwargs) -> None:
@@ -3661,6 +3742,10 @@ class Baichuan:
             xml = XML.tostring(xml_body, encoding="unicode")
             xml = xmls.XML_HEADER + xml
             await self.send(cmd_id=55, channel=channel, body=xml)
+            if postRec is not None and self.supported(channel, "post_rec_ai"):
+                enable_ai = 1 if postRec == "Auto" else 0
+                xml = xmls.SetPostRecAi.format(enable=enable_ai)
+                await self.send(cmd_id=656, channel=channel, body=xml)
 
     @http_cmd("SetNetPort")
     async def SetNetPort(self, **kwargs) -> None:
@@ -3812,6 +3897,13 @@ class Baichuan:
         xml = XML.tostring(xml_body, encoding="unicode")
         xml = xmls.XML_HEADER + xml
         await self.send(cmd_id=231, channel=channel, body=xml)
+
+    async def set_tamper(self, channel: int, enable: bool) -> None:
+        """Set the tamper alarm"""
+        enable_int = 1 if enable else 0
+        xml = xmls.SetTamper.format(enable=enable_int)
+        await self.send(cmd_id=764, channel=channel, body=xml)
+        await self._send_and_parse(763, channel)
 
     @http_cmd("GetAutoFocus")
     async def GetAutoFocus(self, **kwargs) -> None:
@@ -4386,6 +4478,9 @@ class Baichuan:
 
     def tamper_state(self, channel: int) -> bool:
         return self._tamper_states.get(channel, False)
+
+    def tamper_enabled(self, channel: int) -> bool:
+        return self._tamper_enabled.get(channel, False)
 
     def smart_type_list(self, channel: int) -> list[str]:
         return list(self._ai_detect.get(channel, {}).keys())

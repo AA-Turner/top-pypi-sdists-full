@@ -32,7 +32,15 @@ class TestModels:
                      "root['$defs']['DeniedVulnerabilityConfig']",
                      "root['$defs']['PackageDefinition']",
                      "root['$defs']['VulnerabilityDefinition']",
-                     "root['$defs']['PackageEcosystem']"}
+                     "root['$defs']['PackageEcosystem']",
+                     "root['properties']['ai_installation']",
+                     "root['$defs']['ConfigModel']['properties']['ai_installation']",
+                     "root['$defs']['AiInstallationConfig']",
+                     "root['$defs']['AllowedAiInstallationConfig']",
+                     "root['$defs']['DeniedAiInstallationConfig']",
+                     "root['$defs']['DeniedMcpServersConfig']",
+                     "root['$defs']['DeniedMcpServersCriteria']",
+                     "root['$defs']['McpServerDefinition']"}
 
 
     _COMMON_PYDANTIC_EXCLUDE_PATHS = {

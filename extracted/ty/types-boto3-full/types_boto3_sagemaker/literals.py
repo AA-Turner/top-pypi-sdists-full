@@ -1886,7 +1886,7 @@ OptimizationJobStatusType = Literal[
 OrderKeyType = Literal["Ascending", "Descending"]
 OutputCompressionTypeType = Literal["GZIP", "NONE"]
 ParameterTypeType = Literal["Categorical", "Continuous", "FreeText", "Integer"]
-PartnerAppAuthTypeType = Literal["IAM"]
+PartnerAppAuthTypeType = Literal["IAM", "IDC"]
 PartnerAppStatusType = Literal[
     "Available", "Creating", "Deleted", "Deleting", "Failed", "UpdateFailed", "Updating"
 ]

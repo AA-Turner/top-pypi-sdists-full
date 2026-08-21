@@ -24,6 +24,7 @@ from xpander_sdk.modules.tasks.utils.files import (
     _FETCH_TIMEOUT,
     _MAX_INLINE_TEXT_CHARS,
     _download,
+    _looks_like_pdf,
     _pdf_markdown_or_none,
     _sniff_image,
     fetch_file,
@@ -33,6 +34,11 @@ from xpander_sdk.modules.tasks.utils.model_capabilities import (
     ModelCapabilities,
     media_pipeline_disabled,
 )
+
+# Decode-bomb ceiling: a small file can declare a huge canvas that allocates
+# gigabytes on decode. We check the declared pixel count from the header (no full
+# decode) and refuse above this, so an oversized image is rejected, not OOM'd.
+_MAX_IMAGE_PIXELS = int(os.getenv("XPANDER_MAX_IMAGE_PIXELS", str(40_000_000)))
 
 # Formats Pillow can rescue but providers reject as-is (kept out of
 # files._IMAGE_SIGNATURES so the legacy passthrough gate stays strict).
@@ -48,8 +54,11 @@ _JPEG_QUALITY_STEPS = (85, 65, 50)
 _SCANNED_PDF_CHARS_PER_PAGE = 50
 
 SCANNED_PDF_NOTE = "appears to be a scanned PDF (no extractable text); use an OCR tool on the URL to read it"
-HUGE_FILE_NOTE = "too large to attach inline; fetch it via your tools/workspace using the URL"
+HUGE_FILE_NOTE = (
+    "too large to attach inline; fetch it via your tools/workspace using the URL"
+)
 NO_INJECTION_NOTE = "content is NOT included in this message; fetch it via your tools/workspace using the URL"
+NOT_A_PDF_NOTE = "the link did not return a PDF (it may have expired); fetch it via your tools/workspace using the URL"
 PDF_AS_TEXT_NOTE = (
     "included as extracted text; any images, charts or diagrams it contains are not part of "
     "that text, so use a tool on the URL if you need to see them"
@@ -60,9 +69,23 @@ def _pillow():
     try:
         from PIL import Image as PILImage
 
+        # Do not set PILImage.MAX_IMAGE_PIXELS here: it is process-global (thread-unsafe)
+        # and would make the header-only probe in _too_many_pixels raise. The explicit
+        # pixel check refuses a bomb before any full decode instead.
         return PILImage
     except Exception:
         return None
+
+
+def _too_many_pixels(data: bytes, pil_module) -> bool:
+    """Whether the image header declares more pixels than the decode ceiling (header only, no full decode)."""
+    try:
+        with pil_module.open(BytesIO(data)) as probe:
+            w, h = probe.size
+        return (w * h) > _MAX_IMAGE_PIXELS
+    except Exception:
+        # An unreadable header is handled by the real decode / sniff downstream.
+        return False
 
 
 def _pypdf():
@@ -91,8 +114,14 @@ def _agno_image_from_bytes(content: bytes, fmt: str, mime: str):
     )
 
 
-def _transform_image(data: bytes, caps: ModelCapabilities, pil_module) -> Tuple[bytes, str, str]:
+def _transform_image(
+    data: bytes, caps: ModelCapabilities, pil_module
+) -> Tuple[bytes, str, str]:
     """Decode, downscale to the long-edge target, and re-encode under the byte cap; raises when unrescuable."""
+    # Refuse before decoding when the header declares more pixels than the ceiling -
+    # explicit and thread-safe, unlike mutating the global warnings filter.
+    if _too_many_pixels(data, pil_module):
+        raise ValueError(f"image canvas exceeds the {_MAX_IMAGE_PIXELS}px ceiling")
     img = pil_module.open(BytesIO(data))
     img.load()
 
@@ -151,22 +180,30 @@ def prepare_image(
         raise ValueError(f"non-image content-type {ctype!r}: {url}")
 
     sniffed = _sniff_image(content)
-    if sniffed is not None and len(content) <= caps.max_image_bytes:
-        fmt, mime = sniffed
-        return _agno_image_from_bytes(content, fmt, mime)
-
     pil_module = _pillow()
+    if sniffed is not None and len(content) <= caps.max_image_bytes:
+        # Pass bytes through byte-identical only when the declared canvas is also
+        # within budget. A small file declaring a huge canvas (decompression bomb)
+        # falls through to the transform path, which refuses it before decoding.
+        if pil_module is None or not _too_many_pixels(content, pil_module):
+            fmt, mime = sniffed
+            return _agno_image_from_bytes(content, fmt, mime)
+
     if pil_module is None:
         # Legacy behavior without Pillow: validate-or-drop at the legacy ceiling.
         if sniffed is None:
             raise ValueError(f"bytes are not a supported image: {url}")
-        raise ValueError(f"image exceeds {caps.max_image_bytes} bytes and Pillow is unavailable: {url}")
+        raise ValueError(
+            f"image exceeds {caps.max_image_bytes} bytes and Pillow is unavailable: {url}"
+        )
 
     if sniffed is None and _sniff_convertible(content) is None:
         raise ValueError(f"bytes are not a supported image: {url}")
 
     data, fmt, mime = _transform_image(content, caps, pil_module)
-    logger.info(f"transformed image {url} -> {fmt} {len(data)} bytes (was {len(content)})")
+    logger.info(
+        f"transformed image {url} -> {fmt} {len(data)} bytes (was {len(content)})"
+    )
     return _agno_image_from_bytes(data, fmt, mime)
 
 
@@ -237,6 +274,11 @@ def prepare_pdf(
     except ValueError:
         return "url_only", None, HUGE_FILE_NOTE
 
+    # A .pdf URL's extension is not trustworthy - an expired/redirected presigned link
+    # returns HTML with HTTP 200. Do not attach non-PDF bytes as a PDF.
+    if not _looks_like_pdf(content):
+        return "url_only", None, NOT_A_PDF_NOTE
+
     native_possible = caps.supports_native_pdf and len(content) <= caps.max_pdf_bytes
 
     # Text-based PDFs: the Markdown carries the same content at roughly a third of the
@@ -250,7 +292,9 @@ def prepare_pdf(
         if not (native_possible and len(markdown) > budget):
             # Only a model that could have rendered the pages loses anything by reading text.
             return "text", markdown, (PDF_AS_TEXT_NOTE if native_possible else None)
-        logger.debug(f"pdf markdown ({len(markdown)} chars) exceeds the inline cap; attaching natively: {url}")
+        logger.debug(
+            f"pdf markdown ({len(markdown)} chars) exceeds the inline cap; attaching natively: {url}"
+        )
 
     if native_possible:
         try:
@@ -260,7 +304,9 @@ def prepare_pdf(
             return "file", _agno_file_from_bytes(content, url), None
         if page_count <= caps.max_pdf_pages:
             return "file", _agno_file_from_bytes(content, url), None
-        truncated, kept, total = _truncate_pdf(content, caps.max_pdf_pages, pypdf_module)
+        truncated, kept, total = _truncate_pdf(
+            content, caps.max_pdf_pages, pypdf_module
+        )
         note = f"attached first {kept} of {total} pages; full file at the URL"
         return "file", _agno_file_from_bytes(truncated, url), note
 
@@ -271,14 +317,20 @@ def prepare_pdf(
         text, page_count = _extract_pdf_text(content, pypdf_module)
     except Exception as e:
         logger.warning(f"pdf text extraction failed for {url}: {e}")
-        return "url_only", None, HUGE_FILE_NOTE if len(content) > caps.max_pdf_bytes else SCANNED_PDF_NOTE
+        return (
+            "url_only",
+            None,
+            HUGE_FILE_NOTE if len(content) > caps.max_pdf_bytes else SCANNED_PDF_NOTE,
+        )
 
     if len(text.strip()) / page_count < _SCANNED_PDF_CHARS_PER_PAGE:
         return "url_only", None, SCANNED_PDF_NOTE
     return "text", text, None
 
 
-async def aprepare_image(url: str, caps: ModelCapabilities, known_size: Optional[int] = None):
+async def aprepare_image(
+    url: str, caps: ModelCapabilities, known_size: Optional[int] = None
+):
     """prepare_image off the event loop (Pillow decode/encode is CPU-bound)."""
     return await asyncio.to_thread(prepare_image, url, caps, known_size)
 

@@ -1,8 +1,9 @@
 use crate::decision_graph::cleaner::VariableCleaner;
+use crate::decision_graph::schema_dict;
 use crate::decision_graph::tracer::NodeTracer;
 use crate::decision_graph::walker::{GraphWalker, NodeData, StableDiDecisionGraph};
 use crate::engine::EvaluationTraceKind;
-use crate::model::{DecisionContent, DecisionNodeKind};
+use crate::model::{DecisionNodeKind, GraphContent};
 use crate::nodes::custom::CustomNodeHandler;
 use crate::nodes::decision::DecisionNodeHandler;
 use crate::nodes::decision_table::DecisionTableNodeHandler;
@@ -20,25 +21,25 @@ use ahash::{HashMap, HashMapExt};
 use petgraph::algo::is_cyclic_directed;
 use petgraph::matrix_graph::Zero;
 use serde::ser::SerializeMap;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::cell::RefCell;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use zen_expression::variable::{ToVariable, Variable};
-use zen_types::decision::DecisionNode;
+use zen_types::decision::{DecisionNode, InputNodeContent, OutputNodeContent};
 
 #[derive(Debug)]
 pub struct DecisionGraph {
     initial_graph: StableDiDecisionGraph,
     graph: StableDiDecisionGraph,
     config: DecisionGraphConfig,
+    parent_nodes: Option<Variable>,
 }
 
 #[derive(Debug)]
 pub struct DecisionGraphConfig {
-    pub content: Arc<DecisionContent>,
+    pub content: Arc<GraphContent>,
     pub trace: bool,
     pub iteration: u8,
     pub max_depth: u8,
@@ -52,11 +53,16 @@ impl DecisionGraph {
             initial_graph: graph.clone(),
             graph,
             config,
+            parent_nodes: None,
         })
     }
 
+    pub(crate) fn set_parent_nodes(&mut self, nodes: Option<Variable>) {
+        self.parent_nodes = nodes;
+    }
+
     fn build_graph(
-        content: &DecisionContent,
+        content: &GraphContent,
     ) -> Result<StableDiDecisionGraph, DecisionGraphValidationError> {
         let mut graph = StableDiDecisionGraph::new();
         let mut index_map = HashMap::with_capacity(content.nodes.len());
@@ -106,11 +112,41 @@ impl DecisionGraph {
         Ok(())
     }
 
-    fn build_node_context(&self, node: &DecisionNode, input: Variable) -> NodeContextBase {
+    async fn validation_schema(
+        &self,
+        node_id: &str,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<Option<(Arc<serde_json::Value>, u64)>, String> {
+        let Some(schema) = schema else {
+            return Ok(None);
+        };
+        if let Some(resolved) = &self.config.content.resolved_schemas {
+            return Ok(resolved.get(node_id).cloned());
+        }
+        if !schema_dict::schema_references_dictionary(schema) {
+            return Ok(None);
+        }
+
+        let dictionaries = schema_dict::load_import_dictionaries(
+            self.config.extensions.loader(),
+            &self.config.content.imports,
+        )
+        .await?;
+        schema_dict::resolve_schema(schema, &dictionaries)
+            .map(|resolved| Some((Arc::new(resolved.0), resolved.1)))
+    }
+
+    fn build_node_context(
+        &self,
+        node: &DecisionNode,
+        input: Variable,
+        nodes: Option<Variable>,
+    ) -> NodeContextBase {
         NodeContextBase {
             id: node.id.clone(),
             name: node.name.clone(),
             input,
+            nodes,
             extensions: self.config.extensions.clone(),
             iteration: self.config.iteration,
             trace: match self.config.trace {
@@ -145,17 +181,43 @@ impl DecisionGraph {
             }
 
             let node = &self.graph[nid];
-            let start = Instant::now();
-            let (input, input_trace) = walker.incoming_node_data(&self.graph, nid, true);
-            let mut base_ctx = self.build_node_context(node.deref(), input);
+            let start = self.config.trace.then(Instant::now);
+            let (input, input_trace) = walker.incoming_node_data(&self.graph, nid);
+            let mut base_ctx = self.build_node_context(node.deref(), input, walker.nodes_context());
 
             let node_execution = match &node.kind {
                 DecisionNodeKind::InputNode { content } => {
                     base_ctx.input = context.clone();
-                    handle_node(base_ctx, content.clone(), InputNodeHandler).await
+                    match self
+                        .validation_schema(&node.id, content.schema.as_deref())
+                        .await
+                    {
+                        Err(message) => base_ctx.error(message),
+                        Ok(None) => handle_node(base_ctx, content.clone(), InputNodeHandler).await,
+                        Ok(Some((schema, salt))) => {
+                            base_ctx.config.validation_salt = salt;
+                            let resolved = InputNodeContent {
+                                schema: Some(schema),
+                            };
+                            handle_node(base_ctx, resolved, InputNodeHandler).await
+                        }
+                    }
                 }
                 DecisionNodeKind::OutputNode { content } => {
-                    handle_node(base_ctx, content.clone(), OutputNodeHandler).await
+                    match self
+                        .validation_schema(&node.id, content.schema.as_deref())
+                        .await
+                    {
+                        Err(message) => base_ctx.error(message),
+                        Ok(None) => handle_node(base_ctx, content.clone(), OutputNodeHandler).await,
+                        Ok(Some((schema, salt))) => {
+                            base_ctx.config.validation_salt = salt;
+                            let resolved = OutputNodeContent {
+                                schema: Some(schema),
+                            };
+                            handle_node(base_ctx, resolved, OutputNodeHandler).await
+                        }
+                    }
                 }
                 DecisionNodeKind::SwitchNode { .. } => Ok(NodeResponse {
                     output: input_trace.clone(),
@@ -178,14 +240,19 @@ impl DecisionGraph {
                 }
             };
 
-            tracer.record_execution(node.deref(), input_trace, &node_execution, start.elapsed());
+            tracer.record_execution(
+                node.deref(),
+                input_trace,
+                &node_execution,
+                start.map(|s| s.elapsed()).unwrap_or_default(),
+            );
 
             let output = match node_execution {
                 Ok(ok) => ok.output,
                 Err(err) => {
-                    let mut cleaner = VariableCleaner::new();
                     let trace = tracer.into_traces();
                     if let Some(t) = &trace {
+                        let mut cleaner = VariableCleaner::new();
                         t.values().for_each(|v| {
                             cleaner.clean(&v.input);
                             cleaner.clean(&v.output);
@@ -203,11 +270,21 @@ impl DecisionGraph {
                 }
             };
 
+            let nodes_view = match (&node.kind, &self.parent_nodes) {
+                (DecisionNodeKind::InputNode { .. }, Some(parent_nodes)) => {
+                    let view = output.depth_clone(1);
+                    view.dot_insert(Variable::nodes_key().as_ref(), parent_nodes.clone());
+                    Some(view)
+                }
+                _ => None,
+            };
+
             walker.set_node_data(
                 nid,
                 NodeData {
-                    name: Rc::from(node.name.deref()),
+                    name: zen_types::symbol::Symbol::from(node.name.deref()),
                     data: output,
+                    nodes_view,
                 },
             );
 
@@ -237,18 +314,41 @@ impl DecisionGraph {
         Ok(DecisionGraphResponse {
             performance: format!("{:.1?}", root_start.elapsed()),
             result,
-            trace,
+            trace: trace.map(EvaluationTrace::Graph),
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum EvaluationTrace {
+    Graph(HashMap<Arc<str>, DecisionGraphTrace>),
+    Policy(crate::policy::Trace),
+}
+
+impl EvaluationTrace {
+    pub fn as_graph(&self) -> Option<&HashMap<Arc<str>, DecisionGraphTrace>> {
+        match self {
+            Self::Graph(m) => Some(m),
+            Self::Policy(_) => None,
+        }
+    }
+
+    pub fn into_graph(self) -> Option<HashMap<Arc<str>, DecisionGraphTrace>> {
+        match self {
+            Self::Graph(m) => Some(m),
+            Self::Policy(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DecisionGraphResponse {
     pub performance: String,
     pub result: Variable,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub trace: Option<HashMap<Arc<str>, DecisionGraphTrace>>,
+    pub trace: Option<EvaluationTrace>,
 }
 
 impl DecisionGraphResponse {
@@ -264,7 +364,25 @@ impl DecisionGraphResponse {
         map.serialize_entry("performance", &self.performance)?;
         map.serialize_entry("result", &self.result)?;
         if let Some(trace) = &self.trace {
-            map.serialize_entry("trace", &mode.serialize_trace(&trace.to_variable()))?;
+            match trace {
+                EvaluationTrace::Graph(graph_trace) => {
+                    map.serialize_entry(
+                        "trace",
+                        &mode.serialize_trace(&graph_trace.to_variable()),
+                    )?;
+                }
+                EvaluationTrace::Policy(policy_trace) => match mode {
+                    EvaluationTraceKind::String | EvaluationTraceKind::ReferenceString => {
+                        map.serialize_entry(
+                            "trace",
+                            &serde_json::to_string(policy_trace).unwrap_or_default(),
+                        )?;
+                    }
+                    _ => {
+                        map.serialize_entry("trace", policy_trace)?;
+                    }
+                },
+            }
         }
 
         map.end()

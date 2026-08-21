@@ -51,6 +51,7 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
     mod.doc() = "Optimized PyTree Utilities. (C extension module built from " +
                 std::string(__FILE_RELPATH_FROM_PROJECT_ROOT__) + ")";
     mod.attr("Py_TPFLAGS_BASETYPE") = py::int_(Py_TPFLAGS_BASETYPE);
+    mod.attr("PyStructSequence_UnnamedField") = py::str(PyStructSequenceUnnamedField());
 
     // Meta information during build
     py::dict BUILDTIME_METADATA{};
@@ -111,6 +112,11 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
     BUILDTIME_METADATA["OPTREE_HAS_READ_WRITE_LOCK"] = py::bool_(true);
 #else
     BUILDTIME_METADATA["OPTREE_HAS_READ_WRITE_LOCK"] = py::bool_(false);
+#endif
+#if defined(OPTREE_HAS_FROZENDICT)
+    BUILDTIME_METADATA["OPTREE_HAS_FROZENDICT"] = py::bool_(true);
+#else
+    BUILDTIME_METADATA["OPTREE_HAS_FROZENDICT"] = py::bool_(false);
 #endif
 
     mod.attr("BUILDTIME_METADATA") = std::move(BUILDTIME_METADATA);
@@ -290,6 +296,7 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
         .value("DEFAULTDICT", PyTreeKind::DefaultDict, "A collections.defaultdict.")
         .value("DEQUE", PyTreeKind::Deque, "A collections.deque.")
         .value("STRUCTSEQUENCE", PyTreeKind::StructSequence, "A PyStructSequence.")
+        .value("FROZENDICT", PyTreeKind::FrozenDict, "A frozendict (Python 3.15+).")
         .finalize();
     auto PyTreeKindTypeObject = py::getattr(mod, "PyTreeKind");
 #else
@@ -305,7 +312,8 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
             .value("ORDEREDDICT", PyTreeKind::OrderedDict, "A collections.OrderedDict.")
             .value("DEFAULTDICT", PyTreeKind::DefaultDict, "A collections.defaultdict.")
             .value("DEQUE", PyTreeKind::Deque, "A collections.deque.")
-            .value("STRUCTSEQUENCE", PyTreeKind::StructSequence, "A PyStructSequence.");
+            .value("STRUCTSEQUENCE", PyTreeKind::StructSequence, "A PyStructSequence.")
+            .value("FROZENDICT", PyTreeKind::FrozenDict, "A frozendict (Python 3.15+).");
 #endif
     auto * const PyTreeKind_Type = reinterpret_cast<PyTypeObject *>(PyTreeKindTypeObject.ptr());
     PyTreeKind_Type->tp_name = "optree.PyTreeKind";
@@ -504,13 +512,32 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
                              "Return a string representation of the treespec.")
         .def_method_pos_only("__hash__", &PyTreeSpec::HashValue, "Return the hash of the treespec.")
         .def_method_pos_only("__len__", &PyTreeSpec::GetNumLeaves, "Number of leaves in the tree.")
-        .def(py::pickle([](const PyTreeSpec &t) -> py::object { return t.ToPickleable(); },
+        // Known limitation: pybind11's `tp_new` only allocates the wrapper, so between
+        // `cls.__new__(cls)` and `__setstate__` a method call reads uninitialized memory (undefined
+        // behavior, and `PYTREESPEC_SANITY_CHECK` cannot catch it). Only the GC is covered, by the
+        // `is_holder_constructed` guards in `PyTpTraverse` / `PyTpClear`.
+        .def(py::pickle([](const PyTreeSpec &t) -> py::object { return t.ToPicklable(); },
                         [](const py::object &o) -> std::unique_ptr<PyTreeSpec> {
-                            return PyTreeSpec::FromPickleable(o);
+                            return PyTreeSpec::FromPicklable(o);
                         }),
              "Serialization support for PyTreeSpec.",
              py::arg("state"),
-             py::pos_only());
+             py::pos_only())
+        .def(
+            "__reduce__",
+            [](const py::handle &self) -> py::object {
+                // pybind11's pickle support (`__getstate__`/`__setstate__`) reconstructs via the
+                // protocol >= 2 `copyreg.__newobj__` reduction. At protocol 0/1 the default
+                // reduction goes through `object.__new__`, which pybind11 rejects with an
+                // untranslated C++ exception that aborts the interpreter. Return the `__newobj__`
+                // reduction explicitly so every protocol reconstructs via `cls.__new__(cls)`.
+                const py::object newobj = py::module_::import("copyreg").attr("__newobj__");
+                return py::make_tuple(newobj,
+                                      py::make_tuple(py::type::handle_of(self)),
+                                      self.attr("__getstate__")());
+            },
+            "Reduce the treespec to a picklable form supporting all pickle protocols.",
+            py::pos_only());
 
     auto PyTreeIterTypeObject =
 #if defined(PYBIND11_HAS_INTERNALS_WITH_SMART_HOLDER_SUPPORT)
@@ -543,6 +570,8 @@ void BuildModule(py::module_ &mod) {  // NOLINT[runtime/references]
              py::arg("leaf_predicate") = std::nullopt,
              py::arg("none_is_leaf") = false,
              py::arg("namespace") = "")
+        // Known limitation: `PyTreeIter.__new__(PyTreeIter)` leaves the C++ iterator unbuilt, so
+        // the methods below would read uninitialized memory (see the `PyTreeSpec` note above).
         .def_method_pos_only("__iter__", &PyTreeIter::Iter, "Return the iterator object itself.")
         .def_method_pos_only("__next__", &PyTreeIter::Next, "Return the next leaf in the pytree.");
 

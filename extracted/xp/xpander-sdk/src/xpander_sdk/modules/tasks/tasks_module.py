@@ -258,6 +258,7 @@ class Tasks(ModuleBase):
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
         tool_call_limit: Optional[int] = None,
+        attachments: Optional[List["AttachmentRef"]] = None,
     ) -> Task:
         """
         Asynchronously create a new task for a specific agent.
@@ -326,7 +327,11 @@ class Tasks(ModuleBase):
                 payload={
                     "id": existing_task_id,
                     "input": AgentExecutionInput(
-                        text=prompt, files=file_urls, user=user_details, principal=principal
+                        text=prompt,
+                        files=file_urls,
+                        attachments=attachments or [],
+                        user=user_details,
+                        principal=principal,
                     ).to_request_dict(),
                     "payload_extension": tool_call_payload_extension,
                     "source": source,

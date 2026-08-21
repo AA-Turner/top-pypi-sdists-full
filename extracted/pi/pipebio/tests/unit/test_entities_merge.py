@@ -132,3 +132,16 @@ def test_merge_raises_when_job_fails(entities, session, assay_file):
         mock_put.return_value = MagicMock(status_code=200)
         with pytest.raises(Exception, match='failed: boom'):
             entities.merge('entity-1', assay_file, 'clone_id', 'name')
+
+
+def test_get_allows_deleted_entity_when_requested(entities, session):
+    session.get.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {'id': 'entity-1', 'name': 'deleted document'},
+    )
+
+    entity = entities.get('entity-1', allow_deleted=True)
+
+    assert entity['id'] == 'entity-1'
+    assert session.get.call_args.args[0] == 'entities/entity-1'
+    assert session.get.call_args.kwargs['params'] == {'allowDeleted': 'true'}

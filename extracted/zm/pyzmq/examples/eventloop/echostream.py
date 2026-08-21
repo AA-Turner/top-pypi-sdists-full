@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """Adapted echo.py to put the send in the event loop using a ZMQStream."""
 
-from typing import List
-
 from tornado import ioloop
 
 import zmq
@@ -16,7 +14,7 @@ s.bind('tcp://127.0.0.1:5555')
 stream = zmqstream.ZMQStream(s)
 
 
-def echo(msg: List[bytes]):
+def echo(msg: list[bytes]):
     print(" ".join(map(repr, msg)))
     stream.send_multipart(msg)
 

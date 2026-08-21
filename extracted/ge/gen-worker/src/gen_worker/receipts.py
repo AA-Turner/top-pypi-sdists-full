@@ -31,10 +31,12 @@ REFUSED rather than compared against nothing. There is no bare-hex
 publishes a replacement whose receipt is sha256-bound — the designed miss
 policy, not a new failure.
 
-Configuration happens at the HelloAck site in ``lifecycle`` (the same
-moment ``file_base_url`` arrives). cozy-local and the CLI never configure
-this module, so the gate is a no-op there — user-controlled stores keep
-their local trust model.
+Configuration happens at the HelloAck site in :mod:`gen_worker.worker` (the
+same moment ``file_base_url`` arrives). cozy-local and the CLI call
+``trust_local_store(reason)`` instead — user-controlled stores keep their
+local trust model, but they must SAY SO. A process that says neither refuses:
+pgw#1425 measured the alternative, where the v2 serve path called neither and
+every fleet worker armed hub-delivered native code with nothing checked.
 """
 
 from __future__ import annotations
@@ -153,31 +155,89 @@ class _Config:
 
 _LOCK = threading.Lock()
 _CONFIG: Optional[_Config] = None
+#: Why this process is allowed to arm UNVERIFIED bytes. Empty = nobody said.
+_LOCAL_TRUST: str = ""
+
+#: The three postures. There is no fourth, and no default that means "probably
+#: fine": pgw#1425 measured what the missing one cost. `UNSET` is what a fleet
+#: worker holds until its HelloAck arrives, and it REFUSES — the gate cannot
+#: tell "nobody wired me" from "there is no hub here" by itself, so somebody
+#: has to say which, and the side that says nothing gets the safe answer.
+POSTURE_ARMED = "armed"
+POSTURE_LOCAL = "local"
+POSTURE_UNSET = "unset"
 
 
 def configure(base_url: str, worker_jwt: Callable[[], str]) -> None:
-    """Arm the receipt gate. Called from the HelloAck site; idempotent
-    (re-configuration replaces the base URL and drops the JWKS cache so a
-    hub bounce with rotated keys re-fetches)."""
-    global _CONFIG
+    """Arm the receipt gate against the hub. Called from the HelloAck site;
+    idempotent (re-configuration replaces the base URL and drops the JWKS
+    cache so a hub bounce with rotated keys re-fetches).
+
+    An empty ``base_url`` RAISES. It used to return silently, which made a
+    HelloAck carrying no file API indistinguishable from one that was never
+    delivered — both left the gate unarmed and said nothing.
+    """
+    global _CONFIG, _LOCAL_TRUST
     base = str(base_url or "").strip().rstrip("/")
     if not base:
-        return
+        raise ReceiptError(
+            "gate_unconfigurable",
+            "receipts.configure() was given no base URL; a hub session that "
+            "names no file API cannot arm the receipt gate, and pretending it "
+            "did is how the gate came to be silently open")
     with _LOCK:
         _CONFIG = _Config(base_url=base, worker_jwt=worker_jwt)
+        _LOCAL_TRUST = ""
     logger.info("receipts: gate configured against %s", base)
 
 
-def configured() -> bool:
+def trust_local_store(reason: str) -> None:
+    """Declare that this process's compiled-graph store is USER-CONTROLLED,
+    so hub-signed receipts do not apply to it.
+
+    The cozy-local / CLI / unit-rig half of the posture, and the ONLY thing
+    that turns the unconfigured gate from a refusal into a pass. It takes a
+    ``reason`` because the whole defect this replaces was an unattributed
+    silence: an operator reading a pod that armed unverified bytes must be
+    able to see WHO said that was allowed.
+    """
+    global _LOCAL_TRUST, _CONFIG
+    why = str(reason or "").strip()
+    if not why:
+        raise ReceiptError(
+            "local_trust_unattributed",
+            "trust_local_store() needs a reason — an anonymous decision to arm "
+            "unverified compiled graphs is the fail-open this parameter exists "
+            "to abolish")
     with _LOCK:
-        return _CONFIG is not None
+        _LOCAL_TRUST = why
+        _CONFIG = None
+    logger.warning(
+        "receipts: gate DISARMED for a user-controlled store (%s) — delivered "
+        "artifacts are armed without a hub-signed receipt here", why)
+
+
+def posture() -> str:
+    """:data:`POSTURE_ARMED` / :data:`POSTURE_LOCAL` / :data:`POSTURE_UNSET`.
+
+    THE question about this gate. It replaced the boolean ``configured()``,
+    which is deleted rather than kept beside it: two spellings of one state is
+    how a caller ends up asking the question that has only two answers when the
+    state has three — and "not configured" collapsing `local` into `unset` is
+    exactly the fail-open pgw#1425 closed.
+    """
+    with _LOCK:
+        if _CONFIG is not None:
+            return POSTURE_ARMED
+        return POSTURE_LOCAL if _LOCAL_TRUST else POSTURE_UNSET
 
 
 def reset() -> None:
-    """Disarm the gate (test seam)."""
-    global _CONFIG
+    """Back to the DEFAULT posture — unset, i.e. refusing (test seam)."""
+    global _CONFIG, _LOCAL_TRUST
     with _LOCK:
         _CONFIG = None
+        _LOCAL_TRUST = ""
 
 
 # -- crypto -----------------------------------------------------------------
@@ -209,7 +269,7 @@ def _normalize_publisher_tier(raw: object) -> str:
 def _self_viewer() -> "worker_identity.ViewerIdentity":
     """WHO THIS POD IS, from the one resolver that can answer.
 
-    Never decode ``cell_read_endpoint_id``/``cell_read_org_id`` out of
+    Never decode ``graph_read_endpoint_id``/``graph_read_org_id`` out of
     ``cfg.worker_jwt()`` — *this process's* credential. The gate is armed at
     HelloAck inside the COMPUTE CHILD, which holds no credential by
     construction, so both claims are ``""`` on every real serving pod and
@@ -229,7 +289,7 @@ def needs_viewer_identity(receipt: Receipt) -> bool:
     One spelling, two readers: :func:`refuse_untrusted_publisher` opens with
     it, and the caller asks it BEFORE resolving an identity — a platform-tier
     compiled graph is adoptable by any pod, so demanding an identity to arm one would
-    turn a resolver outage into a refusal of the one compiled graph class that never
+    turn a resolver outage into a refusal of the one compiled graph specialization that never
     needed a resolver.
     """
     return receipt.publisher_tier != COMPILED_GRAPH_PUBLISHER_TIER_PLATFORM
@@ -281,7 +341,7 @@ def refuse_untrusted_publisher(
     if not mine and not my_org:
         raise ReceiptError(
             "publisher_untrusted",
-            "this pod cannot name its own endpoint or org (no cell_read_* claim "
+            "this pod cannot name its own endpoint or org (no graph_read_* claim "
             "on the worker credential), so it may adopt platform-tier compiled graphs only")
     raise ReceiptError(
         "publisher_untrusted",
@@ -651,13 +711,26 @@ def gate_delivered_artifact(artifact: Path, family: str) -> bool:
     """The one arming hook (called from ``models.provision.enable_compiled``
     for every non-None delivered artifact). True = arm may proceed.
 
-    Unconfigured (cozy-local, CLI, unit rigs): no-op True. Configured
-    (fleet workers, armed at HelloAck): full verification; ANY failure
-    emits the typed ``compiled_graph_receipt_refused`` wire event and returns False —
-    the caller drops the delivered artifact and the ordinary miss policy
-    (self-mint) takes over. Never raises; never kills serving.
+    Three postures, and the DEFAULT one refuses (pgw#1425):
+
+    * :data:`POSTURE_LOCAL` — somebody called :func:`trust_local_store`
+      (cozy-local, the CLI, unit rigs): pass, no verification, reason on the
+      record.
+    * :data:`POSTURE_ARMED` — :func:`configure` ran at HelloAck: full
+      verification.
+    * :data:`POSTURE_UNSET` — nobody said either. REFUSE, with the same typed
+      ``compiled_graph_receipt_refused`` event carrying reason
+      ``gate_unconfigured``. This is the arm that used to return True: the v2
+      serve path never called :func:`configure`, so every fleet worker sat in
+      this posture and armed hub-delivered native code with no receipt checked
+      at all, silently.
+
+    ANY failure emits the typed ``compiled_graph_receipt_refused`` wire event
+    and returns False — the caller drops the delivered artifact and the
+    ordinary miss policy (self-mint) takes over. Refusing here therefore costs
+    a compile, never a served request. Never raises; never kills serving.
     """
-    if not configured():
+    if posture() == POSTURE_LOCAL:
         return True
     try:
         receipt = verify_delivered_artifact(Path(artifact), family)
@@ -691,16 +764,20 @@ __all__ = [
     "ARTIFACT_DIGEST_ALGORITHM",
     "COMPILED_GRAPH_PUBLISHER_TIER_ORG",
     "COMPILED_GRAPH_PUBLISHER_TIER_PLATFORM",
+    "POSTURE_ARMED",
+    "POSTURE_LOCAL",
+    "POSTURE_UNSET",
     "Receipt",
     "ReceiptError",
     "artifact_digest",
     "canonical_artifact_digest",
     "configure",
-    "configured",
     "gate_delivered_artifact",
     "needs_viewer_identity",
+    "posture",
     "refuse_untrusted_publisher",
     "reset",
+    "trust_local_store",
     "verify_delivered_artifact",
     "verify_receipt_jws",
 ]

@@ -14,10 +14,8 @@ env read wearing better clothes — unreachable by a caller that wants to pass a
 different value, invisible to a test that does not clear the cache, and latched
 by whichever module happened to import first.
 
-The list of sanctioned raw-read sites is deliberately not prose here (prose
-drifts). It is `scripts/config_reads_allowlist.txt`, every line classified,
-enforced by `scripts/lint_config_reads.py` in CI. A new `os.environ` read
-outside this package fails the build.
+Raw `os.environ` reads outside this package are the residue, not the rule:
+prefer a parameter or `config.current()`.
 
 Built on msgspec.Struct (already a worker dep) instead of pydantic-settings to
 avoid pulling in pydantic. The source-loader layering (env → .env → secrets dir
@@ -57,6 +55,33 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
     # Path to the discovery manifest (endpoint.lock). Default is the baked
     # container location; non-container runs (e2e, bare-metal dev) override it.
     endpoint_lock_path: str = "/app/.tensorhub/endpoint.lock"
+    # pgw#1466 cozy-local store roots. Empty = "use the box default"; the
+    # defaults live in `cli/workspace.py` beside the code that explains WHY
+    # weights and graphs are separate stores, not here as bare strings.
+    # Fields rather than direct env reads (§1.18): these are config, and the
+    # CLI installs Settings at process entry like every other entry point.
+    weights_cas_root: str = ""
+    graph_cas_root: str = ""
+    # pgw#1526: where `compile` builds artifacts and `up` adopts them.
+    # Empty = the box default in `cli/workspace.py`. The cwd-relative
+    # `.compiled-graphs` default is DELETED, not deprecated.
+    artifacts_root: str = ""
+    # pgw#1491/cl#85: `~/.cozy` — the USER-GLOBAL root cozy-local also
+    # resolves, holding the shared credential store both tools read. A Settings
+    # field rather than a direct env read (§1.18) because it IS configuration:
+    # one login serves every endpoint venv on the machine, and the location of
+    # that store is exactly the kind of value the pipeline should carry.
+    cozy_home: str = ""            # COZY_HOME
+    # pgw#1491: where `up` publishes its handle and `run`/`down` find it.
+    # Empty = the box default in `cli/endpoint_state.py`, beside the code that
+    # explains why liveness is a signal-0 and not the file's existence.
+    endpoint_state_root: str = ""
+    # pgw#1462 part 2: the IMAGE's read-only exported-program CAS — where the
+    # builder bakes this release's serialized ExportedPrograms. Distinct from
+    # `graph_cas_root` (the CLI's own store) and from the pod's
+    # `<TENSORHUB_CACHE_DIR>/cas` (where its own mints land). Empty = "use the
+    # baked container default"; see `models/cache_paths.baked_program_cas_dir`.
+    baked_program_cas_root: str = ""
     # NOT "the worker's JWT". It is the BOOTSTRAP copy — the
     # value the hub injected at pod create, frozen there forever and updated by
     # nothing. The live credential is rotated over the scheduler stream at ~80 %

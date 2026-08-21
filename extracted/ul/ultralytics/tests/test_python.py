@@ -64,22 +64,49 @@ def test_dataloader_cap_preserves_distributed_drop_last(monkeypatch):
     """Test worker cap follows distributed sampler size without changing global drop_last behavior."""
     sampler_cls = data_build.distributed.DistributedSampler
 
-    def distributed_sampler(dataset, shuffle):
-        return sampler_cls(dataset, num_replicas=3, rank=0, shuffle=shuffle)
+    def distributed_sampler(dataset, shuffle, seed):
+        return sampler_cls(dataset, num_replicas=3, rank=2, shuffle=shuffle, seed=seed)
 
     monkeypatch.setattr(data_build.distributed, "DistributedSampler", distributed_sampler)
+    monkeypatch.setattr(data_build, "RANK", 2)  # Simulate the second node with global rank 2 and local rank 0
+    expected_seed = torch.initial_seed() - 3
     loader = build_dataloader(range(8), batch=4, workers=8, rank=0, drop_last=True)
     try:
         assert len(loader) == 1
         assert loader.num_workers == 0
+        assert loader.sampler.seed == expected_seed
     finally:
         loader.close()
+
+
+def test_dataloader_seed_varies_sampling_order():
+    """Test the run seed reaches the loader RNG instead of every run replaying one fixed order."""
+    with torch.random.fork_rng():
+        loaders = []
+        for seed in (0, 0, 1):
+            torch.manual_seed(seed)
+            loaders.append(build_dataloader(range(64), batch=4, workers=0))
+    try:
+        first, repeat, other = (torch.cat(list(loader)).tolist() for loader in loaders)
+        assert first == repeat  # same seed stays reproducible
+        assert first != other  # different seeds must not share one order
+    finally:
+        for loader in loaders:
+            loader.close()
 
 
 def test_dataloader_empty_dataset_uses_dataloader_validation():
     """Test empty datasets fail through DataLoader validation instead of worker-cap math."""
     with pytest.raises(ValueError, match="positive integer"):
         build_dataloader([], batch=4, workers=2)
+
+
+def test_build_yolo_dataset_hyp_isolated():
+    """Test dataset construction never mutates hyperparameters on the shared cfg it was built from."""
+    data = check_det_dataset("coco8.yaml")
+    cfg = get_cfg(overrides={"data": "coco8.yaml", "imgsz": 32, "rect": True})  # rect zeroes mosaic on the hyp used
+    data_build.build_yolo_dataset(cfg, data["train"], batch=2, data=data, mode="train")
+    assert cfg.mosaic == DEFAULT_CFG.mosaic
 
 
 def test_cfg_rejects_fuzzed_values():
@@ -299,12 +326,16 @@ def test_predict_img(model_name):
 
 @pytest.mark.parametrize("model_name", ["yolo26n.pt", "yolo11n.pt"])  # end2end and NMS-based models
 def test_predict_classes_with_max_det(model_name):
-    """Test that the classes filter applies before max_det truncation in both end2end and NMS-based models."""
+    """Test classes-before-max_det and reset reused-call filters for end2end and NMS-based models."""
     boxes = YOLO(WEIGHTS_DIR / model_name)(SOURCE, classes=[0], max_det=300, verbose=False)[0].boxes
     assert len(boxes) > 1  # bus.jpg contains multiple persons
-    top1 = YOLO(WEIGHTS_DIR / model_name)(SOURCE, classes=[0], max_det=1, verbose=False)[0].boxes  # fresh model
+    top1_model = YOLO(WEIGHTS_DIR / model_name)
+    top1 = top1_model(SOURCE, classes=[0], max_det=1, verbose=False)[0].boxes
     assert len(top1) == 1 and int(top1.cls) == 0
     assert float(top1.conf) == pytest.approx(float(boxes.conf.max()))  # best person kept, not an arbitrary one
+
+    reused = top1_model(SOURCE, verbose=False)[0].boxes  # SAME model, no kwargs at all this time
+    assert len(reused) > 1  # classes=[0]/max_det=1 from the previous call must not leak into this one
 
 
 @pytest.mark.parametrize("model", MODELS)
@@ -1026,10 +1057,20 @@ def test_data_utils(tmp_path):
     images_dir = tmp_path / "coco8/images/val"
     images_dir.mkdir(parents=True)
     Image.new("RGB", (8, 8)).save(images_dir / "test.jpg")
+    metadata_dir = images_dir / "__MACOSX"
+    metadata_dir.mkdir()
+    nested_metadata_dir = metadata_dir / "nested/__MACOSX"
+    nested_metadata_dir.mkdir(parents=True)
+    metadata_file = images_dir / ".DS_Store"
+    metadata_file.write_bytes(b"metadata")
+    (metadata_dir / "._test.jpg").write_bytes(b"metadata")
+    (nested_metadata_dir / "._nested.jpg").write_bytes(b"metadata")
 
     autosplit(tmp_path / "coco8/images")
     assert any((tmp_path / "coco8").glob("autosplit_*.txt"))
     assert zip_directory(images_dir).is_file()
+    assert not metadata_dir.exists()
+    assert not metadata_file.exists()
     with pytest.raises(ValueError, match="split"):
         check_cls_dataset("imagenet10", split="invalid")
     with pytest.raises(FileNotFoundError, match="'test:' images not found"):
@@ -1497,6 +1538,25 @@ def test_utils_ops():
     assert segment2box(np.empty((0, 2)), 640, 640).tolist() == [0, 0, 0, 0]
     seg = np.array([[-100.0, -100.0], [740.0, -100.0], [740.0, 740.0], [-100.0, 740.0]])  # surrounds the image
     assert segment2box(seg, 640, 640).tolist() == [0, 0, 640, 640]
+
+
+def test_scale_coords_nonuniform_letterbox():
+    """Coordinate scaling must invert independent height and width gains from stretched preprocessing."""
+    from ultralytics.data.augment import LetterBox
+    from ultralytics.utils import ops
+
+    labels = {"img": np.zeros((320, 640, 3), dtype=np.uint8), "ratio_pad": (3.2, 3.2)}
+    ratio_pad = LetterBox((640, 640), scale_fill=True)(labels)["ratio_pad"]
+    boxes = np.array([[32.0, 64.0, 320.0, 384.0]])
+    coords = torch.tensor([[160.0, 128.0]])
+    assert ratio_pad == ((6.4, 3.2), (0, 0))
+    assert np.allclose(ops.scale_boxes((640, 640), boxes, (100, 200), ratio_pad), [[10, 10, 100, 60]])
+    assert torch.allclose(ops.scale_coords((640, 640), coords, (100, 200), ratio_pad), coords.new_tensor([[50, 20]]))
+
+    boxes = np.array([[32.0, 192.0, 320.0, 352.0]])
+    coords = torch.tensor([[160.0, 224.0]])
+    assert np.allclose(ops.scale_boxes((640, 640), boxes, (100, 200)), [[10, 10, 100, 60]])
+    assert torch.allclose(ops.scale_coords((640, 640), coords, (100, 200)), coords.new_tensor([[50, 20]]))
 
 
 def test_nms_end2end_classes_before_max_det():

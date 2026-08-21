@@ -151,6 +151,7 @@ __all__ = (
     "DeleteFunctionUrlConfigRequestTypeDef",
     "DeleteLayerVersionRequestTypeDef",
     "DeleteProvisionedConcurrencyConfigRequestTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DestinationConfigTypeDef",
     "DocumentDBEventSourceConfigTypeDef",
     "DurableConfigTypeDef",
@@ -239,6 +240,8 @@ __all__ = (
     "GetPolicyResponseTypeDef",
     "GetProvisionedConcurrencyConfigRequestTypeDef",
     "GetProvisionedConcurrencyConfigResponseTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResponseTypeDef",
     "GetRuntimeManagementConfigRequestTypeDef",
     "GetRuntimeManagementConfigResponseTypeDef",
     "ImageConfigErrorTypeDef",
@@ -337,6 +340,8 @@ __all__ = (
     "PutFunctionScalingConfigResponseTypeDef",
     "PutProvisionedConcurrencyConfigRequestTypeDef",
     "PutProvisionedConcurrencyConfigResponseTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
     "PutRuntimeManagementConfigRequestTypeDef",
     "PutRuntimeManagementConfigResponseTypeDef",
     "RemoveLayerVersionPermissionRequestTypeDef",
@@ -637,6 +642,10 @@ class DeleteProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     FunctionName: str
     Qualifier: str
 
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+    RevisionId: NotRequired[str]
+
 class OnFailureTypeDef(TypedDict):
     Destination: NotRequired[str]
 
@@ -818,6 +827,9 @@ class GetProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     FunctionName: str
     Qualifier: str
 
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+
 class GetRuntimeManagementConfigRequestTypeDef(TypedDict):
     FunctionName: str
     Qualifier: NotRequired[str]
@@ -988,6 +1000,11 @@ class PutProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     Qualifier: str
     ProvisionedConcurrentExecutions: int
 
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Policy: str
+    RevisionId: NotRequired[str]
+
 class PutRuntimeManagementConfigRequestTypeDef(TypedDict):
     FunctionName: str
     UpdateRuntimeOn: UpdateRuntimeOnType
@@ -1085,6 +1102,11 @@ class GetProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
     LastModified: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    Policy: str
+    RevisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetRuntimeManagementConfigResponseTypeDef(TypedDict):
     UpdateRuntimeOn: UpdateRuntimeOnType
     FunctionArn: str
@@ -1133,6 +1155,11 @@ class PutProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
     Status: ProvisionedConcurrencyStatusEnumType
     StatusReason: str
     LastModified: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    Policy: str
+    RevisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRuntimeManagementConfigResponseTypeDef(TypedDict):

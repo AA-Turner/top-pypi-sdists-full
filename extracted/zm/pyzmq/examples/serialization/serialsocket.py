@@ -5,7 +5,7 @@ import pickle
 import secrets
 import zlib
 from hashlib import sha256
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import numpy
 
@@ -79,9 +79,9 @@ class SerializingSocket(zmq.Socket):
         self, flags: int = 0, copy: bool = True, track: bool = False
     ) -> numpy.ndarray:
         """recv a numpy array"""
-        md = cast(Dict[str, Any], self.recv_json(flags=flags))
+        md = cast(dict[str, Any], self.recv_json(flags=flags))
         msg = self.recv(flags=flags, copy=copy, track=track)
-        A = numpy.frombuffer(msg, dtype=md['dtype'])  # type: ignore
+        A = numpy.frombuffer(msg, dtype=md['dtype'])
         return A.reshape(md['shape'])
 
 

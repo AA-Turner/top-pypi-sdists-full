@@ -1,6 +1,7 @@
 """Tests for the tools to communicate with the cloud."""
 
 import asyncio
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from botocore.exceptions import ClientError, EndpointConnectionError
@@ -185,6 +186,43 @@ async def test_register_fails(mock_cognito, cloud_mock):
         await auth.async_register("email@home-assistant.io", "password")
 
 
+async def test_register_presignup_already_exists_maps_to_user_exists(
+    mock_cognito,
+    cloud_mock,
+):
+    """Test a PreSignUp Lambda "already exists" error maps to UserExists.
+
+    Cognito wraps it as a generic UserLambdaValidationException, not the plain
+    UsernameExistsException, so it must not leak as an UnknownError, and the
+    internal "PreSignUp failed with error ||" wrapper must be stripped.
+    """
+    mock_cognito.register.side_effect = aws_error(
+        "UserLambdaValidationException",
+        "PreSignUp failed with error ||An account for this email already exists.",
+    )
+    auth = auth_api.CognitoAuth(cloud_mock)
+    with pytest.raises(auth_api.UserExists) as err:
+        await auth.async_register("email@home-assistant.io", "password")
+
+    assert str(err.value) == "An account for this email already exists."
+
+
+async def test_register_other_lambda_validation_strips_wrapper(
+    mock_cognito,
+    cloud_mock,
+):
+    """Test an unrelated Lambda validation error keeps only the clean message."""
+    mock_cognito.register.side_effect = aws_error(
+        "UserLambdaValidationException",
+        "PreSignUp failed with error ||Sign ups are disabled.",
+    )
+    auth = auth_api.CognitoAuth(cloud_mock)
+    with pytest.raises(auth_api.UnknownError) as err:
+        await auth.async_register("email@home-assistant.io", "password")
+
+    assert str(err.value) == "Sign ups are disabled."
+
+
 async def test_resend_email_confirm(mock_cognito, cloud_mock):
     """Test starting forgot password flow."""
     auth = auth_api.CognitoAuth(cloud_mock)
@@ -254,6 +292,21 @@ async def test_check_token_raises(mock_cognito, cloud_mock):
     assert len(mock_cognito.check_token.mock_calls) == 2
     assert cloud_mock.id_token != mock_cognito.id_token
     assert cloud_mock.access_token != mock_cognito.access_token
+    assert len(cloud_mock.update_token.mock_calls) == 0
+
+
+async def test_check_token_renew_times_out(mock_cognito, cloud_mock):
+    """Test a stalled token renewal raises AuthTimeoutError."""
+    mock_cognito.check_token.return_value = True
+    mock_cognito.renew_access_token.side_effect = lambda: time.sleep(0.1)
+    auth = auth_api.CognitoAuth(cloud_mock)
+
+    with (
+        patch("hass_nabucasa.auth.cognito.DEFAULT_AUTH_TIMEOUT", 0.01),
+        pytest.raises(auth_api.AuthTimeoutError),
+    ):
+        await auth.async_check_token()
+
     assert len(cloud_mock.update_token.mock_calls) == 0
 
 

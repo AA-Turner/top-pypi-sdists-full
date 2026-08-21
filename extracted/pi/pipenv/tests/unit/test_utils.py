@@ -325,6 +325,35 @@ class TestUtils:
         assert internet.is_valid_url(not_url) is False
 
     @pytest.mark.utils
+    def test_get_requests_session_uses_pip_truststore_context(self, monkeypatch):
+        ssl_context = object()
+        session = mock.MagicMock()
+        pip_session = mock.Mock(return_value=session)
+        monkeypatch.setattr(
+            "pipenv.patched.pip._internal.network.download.PipSession",
+            pip_session,
+        )
+        monkeypatch.setattr(
+            "pipenv.patched.pip._internal.cli.index_command."
+            "_create_truststore_ssl_context",
+            lambda: ssl_context,
+        )
+
+        result = internet.get_requests_session(
+            max_retries=2,
+            cache_dir="cache-dir",
+            source="https://example.org/simple",
+        )
+
+        assert result is session
+        pip_session.assert_called_once_with(
+            cache="cache-dir",
+            retries=2,
+            index_urls=["https://example.org/simple"],
+            ssl_context=ssl_context,
+        )
+
+    @pytest.mark.utils
     def test_download_file(self, tmp_path):
         url = "https://example.com/test.md"
         output = tmp_path / "test_download.md"
@@ -891,9 +920,9 @@ class TestEnsureProjectPythonVersionMismatch:
         project.s.PIPENV_USE_SYSTEM = False
         project.s.PIPENV_YES = False
         project.venv_locator.exists = True
-        project.pipfile_exists = True
+        project.pipfile.exists = True
         # required_python_version=None skips the version warning block
-        project.required_python_version = None
+        project.pipfile.required_python_version = None
         # venv_locator.python() must return a str for os.environ assignment
         project.venv_locator.python.return_value = "/usr/bin/python3"
         return project
@@ -987,6 +1016,30 @@ class TestEnsureProjectPythonVersionMismatch:
             "ensure_virtualenv should not be called when no --python is given and venv exists"
         )
 
+    @pytest.mark.utils
+    def test_version_warning_recommends_current_remove_command(self, monkeypatch):
+        project = self._make_project(monkeypatch)
+        project.pipfile.required_python_version = "3.12"
+        project.venv_locator._which.return_value = "/fake/venv/bin/python"
+
+        monkeypatch.setattr(
+            "pipenv.utils.project.python_version",
+            lambda path: "3.11.9",
+        )
+        monkeypatch.setattr(
+            "pipenv.utils.project.ensure_pipfile",
+            lambda *a, **kw: None,
+        )
+
+        from pipenv.utils.project import ensure_project
+
+        with mock.patch("pipenv.utils.project.err.print") as err_print:
+            ensure_project(project, python=None, system=False)
+
+        output = "\n".join(call.args[0] for call in err_print.call_args_list)
+        assert "$ pipenv remove" in output
+        assert "$ pipenv --rm" not in output
+
 
 class TestPythonVersionMatchesRequired:
     """Tests for _python_version_matches_required.
@@ -1065,9 +1118,9 @@ class TestPipfileVenvInProject:
         parsed = tomlkit.parse(pipfile_content)
         project = mock.MagicMock()
         project.s = Setting()
-        project.parsed_pipfile = parsed
-        project.pipfile_exists = True
-        project.project_directory = str(tmp_path)
+        project.pipfile.parsed = parsed
+        project.pipfile.exists = True
+        project.pipfile.project_directory = str(tmp_path)
 
         # Bind a real VenvLocator (T_D.4) over the mock project so the
         # is_venv_in_project / _pipfile_venv_in_project methods exercise
@@ -1126,8 +1179,8 @@ class TestPipfilePythonOverride:
     def _make_project(self, monkeypatch, requires):
         """Create a mock project with the given [requires] section."""
         proj = mock.MagicMock()
-        proj.pipfile_exists = True
-        proj.parsed_pipfile = {"requires": requires} if requires else {}
+        proj.pipfile.exists = True
+        proj.pipfile.parsed = {"requires": requires} if requires else {}
         return proj
 
     @pytest.mark.utils
@@ -1200,7 +1253,7 @@ class TestPipfilePythonOverride:
         from pipenv.utils.resolver import _get_pipfile_python_override
 
         proj = mock.MagicMock()
-        proj.pipfile_exists = False
+        proj.pipfile.exists = False
         override = _get_pipfile_python_override(proj)
         assert override is None
 
@@ -1703,7 +1756,7 @@ class TestPrepareLockfileConsumesLockedRequirement:
         from pipenv.utils.locking import prepare_lockfile
 
         project = mock.MagicMock()
-        project.project_directory = None  # disables file-url-to-relative rewrite
+        project.pipfile.project_directory = None  # disables file-url-to-relative rewrite
         project.sources.all = []
         pipfile = {"requests": "*"}
         lockfile_section = {}
@@ -1721,7 +1774,7 @@ class TestPrepareLockfileConsumesLockedRequirement:
         from pipenv.utils.locking import prepare_lockfile
 
         project = mock.MagicMock()
-        project.project_directory = None
+        project.pipfile.project_directory = None
         project.sources.all = []
         pipfile = {}
         lockfile_section = {}
@@ -1747,7 +1800,7 @@ class TestPrepareLockfileConsumesLockedRequirement:
         from pipenv.utils.locking import prepare_lockfile
 
         project = mock.MagicMock()
-        project.project_directory = None
+        project.pipfile.project_directory = None
         project.sources.all = []
         pipfile = {"mypkg": {"git": "https://example.com/mypkg.git", "ref": "main"}}
         lockfile_section = {}
@@ -1875,7 +1928,7 @@ class TestCreatePipfileVersionConsistency:
             "verify_ssl": True,
             "name": "pypi",
         }
-        project.write_toml = MagicMock()
+        project.pipfile.write_toml = MagicMock()
 
         def _fake_python_version(path):
             if path == venv_python_path:
@@ -1901,10 +1954,17 @@ class TestCreatePipfileVersionConsistency:
         def capture_write_toml(data):
             written_data.update(data)
 
-        project.write_toml.side_effect = capture_write_toml
+        project.pipfile.write_toml.side_effect = capture_write_toml
 
+        # ``InstallCommand`` is lazy-imported inside ``Project.create_pipfile``
+        # (see the comment near the import for the perf rationale), so we
+        # patch the canonical source rather than the now-absent module
+        # attribute on ``pipenv.project``.
         with patch("pipenv.project.python_version", side_effect=fake_pv), \
-             patch("pipenv.project.InstallCommand", return_value=fake_cmd):
+             patch(
+                 "pipenv.patched.pip._internal.commands.install.InstallCommand",
+                 return_value=fake_cmd,
+             ):
             Project.create_pipfile(project, python=python)
 
         return written_data
@@ -1992,7 +2052,7 @@ class TestAddPipfileEntryPreservesVersionSpecifiers:
         parsed["dev-packages"]["some-random-package"] = "*"
 
         project = MagicMock()
-        project.get_package_categories.return_value = ["packages", "dev-packages"]
+        project.pipfile.get_package_categories.return_value = ["packages", "dev-packages"]
 
         result = convert_toml_outline_tables(parsed, project)
 
@@ -2039,7 +2099,7 @@ class TestAddPipfileEntryPreservesVersionSpecifiers:
         project = Project(chdir=False)
 
         # Add an unrelated dev package
-        project.add_pipfile_entry_to_pipfile(
+        project.pipfile.add_entry(
             "some-random-package",
             "some-random-package",
             "*",
@@ -2072,7 +2132,7 @@ class TestCreateBuiltinVenvCmd:
     def _make_project(self, tmp_path):
         """Return a minimal project-like object sufficient for cmd-building tests."""
         project = mock.MagicMock()
-        project.name = "myproject"
+        project.pipfile.name = "myproject"
         project.s.PIPENV_VIRTUALENV_CREATOR = ""
         project.s.PIPENV_VIRTUALENV_COPIES = False
         venv_dest = str(tmp_path / "myproject-venv")
@@ -2142,13 +2202,13 @@ class TestDoCreateVirtualenvFallback:
 
     def _make_project(self, tmp_path):
         project = mock.MagicMock()
-        project.name = "myproject"
-        project.pipfile_location = str(tmp_path / "Pipfile")
+        project.pipfile.name = "myproject"
+        project.pipfile.location = str(tmp_path / "Pipfile")
         project.venv_locator.location = str(tmp_path / "venv")
-        project.project_directory = str(tmp_path)
+        project.pipfile.project_directory = str(tmp_path)
         project.venv_locator.get_location.return_value = str(tmp_path / "venv")
         project.pipfile_sources.return_value = []
-        project.parsed_pipfile = {}
+        project.pipfile.parsed = {}
         project.s.PIPENV_SPINNER = "dots"
         project.s.PIPENV_VIRTUALENV_CREATOR = ""
         project.s.PIPENV_VIRTUALENV_COPIES = False
@@ -2266,11 +2326,11 @@ class TestResolverCreateCrossGroupIndexLookup:
         if extra_categories:
             section_map.update(extra_categories)
 
-        project.get_pipfile_section.side_effect = lambda sec: section_map.get(sec, {})
+        project.pipfile.get_section.side_effect = lambda sec: section_map.get(sec, {})
 
         all_categories = list(section_map.keys())
 
-        project.get_package_categories.return_value = all_categories
+        project.pipfile.get_package_categories.return_value = all_categories
 
         # ``project.sources`` is the Sources subsystem (T_D.2); test code
         # configures its accessors via the MagicMock attribute tree.

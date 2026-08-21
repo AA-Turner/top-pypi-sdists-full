@@ -661,6 +661,22 @@ class TestIntentionalDivergences(unittest.TestCase):
             _re.compile(r"(?<=a|bb)c")
         self.assertEqual(real.compile(r"(?<=a|bb)c").search("xbbc").group(), "c")
 
+    def test_module_surface_divergences(self):
+        # div_module_surface: the four differences a drop-in meets without writing a pattern.
+        import re as _re
+        self.assertIs(type(real.I), int)                 # plain int, no RegexFlag enum
+        self.assertFalse(hasattr(real, "RegexFlag"))
+        self.assertFalse(hasattr(real, "Scanner"))
+        self.assertEqual(real.I | real.M, _re.I | _re.M)  # the VALUES are re's
+        # flags echoes what was passed; re adds UNICODE for a str pattern, and neither for bytes.
+        self.assertEqual(real.compile("a", real.I).flags, real.I)
+        self.assertEqual(int(_re.compile("a", _re.I).flags), _re.I | _re.UNICODE)
+        self.assertEqual(real.compile(b"a", real.I).flags, int(_re.compile(b"a", _re.I).flags))
+        # re.L (4), re.DEBUG (128) and an unrecognised bit are refused, never ignored.
+        for bit in (4, 128, 1024):
+            with self.subTest(bit=bit), self.assertRaises(real.error):
+                real.compile("a", bit)
+
 
 class TestCppIntegration(unittest.TestCase):
     """Tests for the C++ embedding helpers."""
@@ -713,6 +729,40 @@ class TestBackreferencesRejected(unittest.TestCase):
         for pattern in [r"\012", r"\101", r"\0", r"\000"]:
             with self.subTest(pattern=pattern):
                 self.assertIsNotNone(real.compile(pattern))
+
+
+class TestUnsupportedNamesTheEscapeHatch(unittest.TestCase):
+    """An unsupported pattern must say how to proceed, not only that it stopped: the message
+    carries the compatibility contract and ``fallback=True``. Syntax errors must not — a
+    malformed pattern is malformed for ``re`` too, so the hint would be a wrong turn."""
+
+    UNSUPPORTED = r"\b(\w+)\s+\1\b"  # a backreference: well-formed, beyond a linear engine
+
+    def test_unsupported_message_names_fallback_and_the_contract(self):
+        with self.assertRaises(real.error) as caught:
+            real.compile(self.UNSUPPORTED)
+        message = str(caught.exception)
+        self.assertIn("backreferences are not supported", message)  # the cause survives in front
+        self.assertIn("fallback=True", message)
+        self.assertIn("COMPATIBILITY.md", message)
+
+    def test_syntax_error_carries_no_fallback_hint(self):
+        with self.assertRaises(real.error) as caught:
+            real.compile(r"(unclosed")
+        self.assertNotIn("fallback", str(caught.exception))
+
+    def test_the_advertised_remedy_actually_works(self):
+        """The hint has to be true, not encouraging: the message says fallback=True, so
+        fallback=True must compile this very pattern and report the delegating engine."""
+        pattern = real.compile(self.UNSUPPORTED, fallback=True)
+        self.assertEqual(pattern.engine, "re")
+        self.assertEqual(pattern.findall("le le chat est parti parti"), ["le", "parti"])
+
+    def test_regex_set_does_not_advertise_a_policy_it_lacks(self):
+        """RegexSet has no fallback parameter, so its rejection must not name one."""
+        with self.assertRaises(real.error) as caught:
+            real.RegexSet([self.UNSUPPORTED])
+        self.assertNotIn("fallback", str(caught.exception))
 
 
 class TestErrorHierarchy(unittest.TestCase):

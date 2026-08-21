@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.69.3
+Version: 0.71.1
 Summary: Инструментарий XBSL (1С:Элемент): линтер, LSP, документация, индекс проекта, скаффолдинг метаданных
 Author: xbsl contributors
 License-Expression: MIT
@@ -21,6 +21,7 @@ Requires-Dist: PyYAML>=6.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7; extra == "dev"
 Requires-Dist: pymorphy3>=2.0; extra == "dev"
+Requires-Dist: setuptools>=77; extra == "dev"
 Provides-Extra: mcp
 Requires-Dist: mcp<3,>=1.2; extra == "mcp"
 Provides-Extra: lsp
@@ -91,6 +92,7 @@ in the [guide](https://github.com/keyfire/xbsl/blob/main/docs/start.md#language-
 ```sh
 xbsl path/to/sources        # or: python -m xbsl path/to/sources
 xbsl data-diff              # what changed in the platform between two data versions
+xbsl translate SOURCES      # rewrite a project into English spellings (a project dictionary)
 xbsl self-update            # upgrade to the latest PyPI version, safe with busy exe stubs
 ```
 
@@ -101,7 +103,7 @@ mechanics – in the [guide](https://github.com/keyfire/xbsl/blob/main/docs/lint
 
 ## What it does
 
-**Rules.** 158 rules in the base set, in four tiers: **A** – structure and yaml schema, **B** – text and
+**Rules.** 159 rules in the base set, in four tiers: **A** – structure and yaml schema, **B** – text and
 typography conventions, **C** – code structure (blocks, brackets, unused locals, the `style/`
 code conventions), **D** – semantics against the platform data and the project itself: every
 type position in code and yaml, enumeration values, `Query{...}` block tables, cross-file

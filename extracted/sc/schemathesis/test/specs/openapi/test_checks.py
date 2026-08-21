@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 import yaml
@@ -6,6 +7,7 @@ import yaml
 import schemathesis
 from schemathesis.checks import CheckContext
 from schemathesis.config import SchemathesisConfig
+from schemathesis.config._auth import DynamicTokenAuthConfig
 from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import AcceptedNegativeData, Failure, MalformedJson
 from schemathesis.core.mutations import OperatorKind
@@ -23,17 +25,19 @@ from schemathesis.generation.meta import (
     PhaseInfo,
     TestPhase,
 )
-from schemathesis.openapi.checks import JsonSchemaError, UseAfterFree
+from schemathesis.openapi.checks import AllowHeaderMismatch, JsonSchemaError, UseAfterFree
 from schemathesis.specs.openapi.checks import (
     ResourcePath,
     _additional_properties_hint,
     _body_negation_becomes_valid_after_serialization,
     _is_prefix_operation,
+    allow_header_conformance,
     has_only_additional_properties_in_non_body_parameters,
     missing_required_header,
     negative_data_rejection,
     positive_data_acceptance,
     response_schema_conformance,
+    unsupported_method,
     use_after_free,
 )
 from schemathesis.specs.openapi.negative.mutations import Mutation, MutationChannel
@@ -1654,3 +1658,227 @@ def test_use_after_free_skips_recreation_via_put(ctx, response_factory, put_stat
         response_checks=None,
     )
     assert use_after_free(check_context, put_response, put_case) is None
+
+
+@pytest.mark.parametrize(
+    ("path", "path_parameters", "status_code", "should_raise"),
+    [
+        ("/items/{item_id}", {"item_id": "42"}, 404, False),
+        ("/items/{item_id}", {"item_id": "42"}, 200, True),
+        ("/items", None, 404, True),
+    ],
+)
+def test_unsupported_method_404_on_templated_path(
+    ctx, response_factory, path, path_parameters, status_code, should_raise
+):
+    # A generated path parameter rarely points at an existing resource, so routing 404s before method dispatch.
+    parameters = (
+        [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}] if path_parameters else []
+    )
+    schema = ctx.openapi.load_schema(
+        {path: {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
+    )
+    operation = schema[path]["GET"]
+    case = operation.Case(
+        path_parameters=path_parameters,
+        _meta=CaseMetadata(
+            generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
+            components={},
+            phase=PhaseInfo(
+                name=TestPhase.COVERAGE,
+                data=CoveragePhaseData(
+                    scenario=CoverageScenario.UNSPECIFIED_HTTP_METHOD,
+                    description="Unspecified HTTP method: POST",
+                    location=None,
+                    parameter=None,
+                    parameter_location=None,
+                ),
+            ),
+        ),
+    )
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        response_checks=None,
+    )
+    response = response_factory.requests(status_code=status_code)
+    if should_raise:
+        with pytest.raises(Failure):
+            unsupported_method(check_ctx, response, case)
+    else:
+        assert unsupported_method(check_ctx, response, case) is None
+
+
+def _token_endpoint_paths():
+    return {
+        "/token": {"post": {"responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}}}},
+        "/items": {"post": {"responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}}}},
+    }
+
+
+def _check_context(config=None):
+    return CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=config or ChecksConfig(),
+        transport_kwargs=None,
+        response_checks=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("token_url", "path", "status_code", "should_raise"),
+    [
+        ("/token", "/token", 400, False),
+        ("/token", "/token", 422, False),
+        ("https://example.com/token", "/token", 400, False),
+        ("token", "/token", 400, False),
+        ("/token", "/items", 400, True),
+        ("/token", "/token", 405, True),
+        ("/other", "/token", 400, True),
+    ],
+    ids=[
+        "token-endpoint-400",
+        "token-endpoint-422",
+        "absolute-token-url",
+        "relative-token-url-without-slash",
+        "other-operation-still-fails",
+        "unrelated-status-still-fails",
+        "token-url-elsewhere",
+    ],
+)
+def test_positive_data_acceptance_token_endpoint(ctx, response_factory, token_url, path, status_code, should_raise):
+    schema = ctx.openapi.load_schema(
+        _token_endpoint_paths(),
+        components={
+            "securitySchemes": {
+                "oauth2": {"type": "oauth2", "flows": {"password": {"tokenUrl": token_url, "scopes": {}}}}
+            }
+        },
+    )
+    case = schema[path]["POST"].Case(_meta=build_metadata())
+    response = response_factory.requests(status_code=status_code)
+
+    if should_raise:
+        with pytest.raises(Failure):
+            positive_data_acceptance(_check_context(), response, case)
+    else:
+        assert positive_data_acceptance(_check_context(), response, case) is None
+
+
+def test_positive_data_acceptance_configured_dynamic_auth_path(ctx, response_factory):
+    schema = ctx.openapi.load_schema(_token_endpoint_paths())
+    schema.config.auth.dynamic.schemes["oauth2"] = DynamicTokenAuthConfig(
+        path="/token", extract_from="body", extract_selector="/access_token"
+    )
+    response = response_factory.requests(status_code=400)
+
+    granting = schema["/token"]["POST"].Case(_meta=build_metadata())
+    assert positive_data_acceptance(_check_context(), response, granting) is None
+
+    other = schema["/items"]["POST"].Case(_meta=build_metadata())
+    with pytest.raises(Failure):
+        positive_data_acceptance(_check_context(), response, other)
+
+
+def test_positive_data_acceptance_token_url_carries_base_path(ctx, response_factory):
+    # Swagger 2.0 states the token URL with `basePath`, which operation paths do not carry.
+    schema = ctx.openapi.load_schema(
+        {"/token": {"post": {"responses": {"200": {"description": "OK"}}}}},
+        version="2.0",
+        basePath="/api/v1",
+        securityDefinitions={
+            "oauth2": {"type": "oauth2", "flow": "password", "tokenUrl": "/api/v1/token", "scopes": {}}
+        },
+    )
+    case = schema["/token"]["POST"].Case(_meta=build_metadata())
+    assert positive_data_acceptance(_check_context(), response_factory.requests(status_code=400), case) is None
+
+
+def test_positive_data_acceptance_empty_token_path_does_not_match_root(ctx, response_factory):
+    schema = ctx.openapi.load_schema({"/": {"post": {"responses": {"200": {"description": "OK"}}}}})
+    schema.config.auth.dynamic.schemes["oauth2"] = DynamicTokenAuthConfig(extract_from="body")
+    case = schema["/"]["POST"].Case(_meta=build_metadata())
+    with pytest.raises(Failure):
+        positive_data_acceptance(_check_context(), response_factory.requests(status_code=400), case)
+
+
+ALLOW_SCHEMA_PATHS = {
+    "/items": {
+        "parameters": [{"name": "trace_id", "in": "header", "schema": {"type": "string"}}],
+        "get": {"responses": {"200": {"description": "OK"}}},
+        "post": {"responses": {"201": {"description": "Created"}}},
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ("headers", "method", "expected"),
+    [
+        ({"Allow": "GET, POST, HEAD, OPTIONS"}, "OPTIONS", None),
+        ({"Allow": "get,post"}, "OPTIONS", None),
+        ({"Allow": "GET ,   POST"}, "OPTIONS", None),
+        ({"Allow": "GET, HEAD, OPTIONS"}, "OPTIONS", "missing documented methods: POST"),
+        (
+            {"Allow": "GET, POST, DELETE"},
+            "OPTIONS",
+            "undocumented methods advertised: DELETE",
+        ),
+        (
+            {"Allow": "GET, DELETE"},
+            "OPTIONS",
+            "missing documented methods: POST; undocumented methods advertised: DELETE",
+        ),
+        ({}, "OPTIONS", None),
+        ({"Allow": ""}, "OPTIONS", None),
+        ({"Allow": "GET"}, "GET", None),
+    ],
+    ids=[
+        "match",
+        "case-insensitive",
+        "whitespace",
+        "missing-method",
+        "undocumented-method",
+        "both",
+        "no-allow-header",
+        "empty-allow-header",
+        "not-an-options-request",
+    ],
+)
+def test_allow_header_conformance(ctx, response_factory, headers, method, expected):
+    schema = ctx.openapi.load_schema(ALLOW_SCHEMA_PATHS)
+    case = schema["/items"]["GET"].Case()
+    response = Response.from_requests(response_factory.requests(headers=headers, method=method), verify=True)
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        response_checks=None,
+    )
+    if expected is None:
+        assert allow_header_conformance(check_ctx, response, case) is None
+    else:
+        with pytest.raises(AllowHeaderMismatch, match=re.escape(expected)):
+            allow_header_conformance(check_ctx, response, case)
+
+
+def test_allow_header_conformance_repeated_header(ctx, response_factory):
+    raw = response_factory.requests(method="OPTIONS")
+    raw.raw.headers.add("Allow", "GET")
+    raw.raw.headers.add("Allow", "POST")
+    case = ctx.openapi.load_schema(ALLOW_SCHEMA_PATHS)["/items"]["GET"].Case()
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        response_checks=None,
+    )
+    assert allow_header_conformance(check_ctx, Response.from_requests(raw, verify=True), case) is None

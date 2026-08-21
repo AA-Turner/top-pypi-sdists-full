@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: veracode_api_py
-Version: 0.9.67
+Version: 0.9.68
 Summary: Python helper library for working with the Veracode APIs. Handles retries, pagination, and other features of the modern Veracode REST APIs.
 Home-page: https://github.com/tjarrettveracode
-Download-URL: https://github.com/veracode/veracode-api-py/archive/v_0967.tar.gz
+Download-URL: https://github.com/veracode/veracode-api-py/archive/v_0968.tar.gz
 Author: Tim Jarrett
 Author-email: Tim Jarrett <tjarrett@veracode.com>
 License: MIT
 Project-URL: Homepage, https://github.com/veracode/veracode-api-py
 Project-URL: Bug Tracker, https://github.com/veracode/veracode-api-py/issues
-Project-URL: Download, https://github.com/veracode/veracode-api-py/archive/v_0967.tar.gz
+Project-URL: Download, https://github.com/veracode/veracode-api-py/archive/v_0968.tar.gz
 Keywords: veracode,veracode-api
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers

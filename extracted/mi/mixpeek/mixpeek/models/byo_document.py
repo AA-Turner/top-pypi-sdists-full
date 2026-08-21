@@ -48,8 +48,8 @@ class BYODocument(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['bucket', 'collection', 'direct_upsert']):
-            raise ValueError("must be one of enum values ('bucket', 'collection', 'direct_upsert')")
+        if value not in set(['bucket', 'collection', 'direct_upsert', 'signal']):
+            raise ValueError("must be one of enum values ('bucket', 'collection', 'direct_upsert', 'signal')")
         return value
 
     model_config = ConfigDict(

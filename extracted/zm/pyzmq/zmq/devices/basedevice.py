@@ -6,7 +6,7 @@
 import time
 from multiprocessing import Process
 from threading import Thread
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import zmq
 from zmq import ENOTSOCK, ETERM, PUSH, QUEUE, Context, ZMQBindError, ZMQError, proxy
@@ -74,14 +74,14 @@ class Device:
     in_type: int
     out_type: int
 
-    _in_binds: List[str]
-    _in_connects: List[str]
-    _in_sockopts: List[Tuple[int, Any]]
-    _out_binds: List[str]
-    _out_connects: List[str]
-    _out_sockopts: List[Tuple[int, Any]]
-    _random_addrs: List[str]
-    _sockets: List[zmq.Socket]
+    _in_binds: list[str]
+    _in_connects: list[str]
+    _in_sockopts: list[tuple[int, Any]]
+    _out_binds: list[str]
+    _out_connects: list[str]
+    _out_sockopts: list[tuple[int, Any]]
+    _random_addrs: list[str]
+    _sockets: list[zmq.Socket]
 
     def __init__(
         self,
@@ -196,8 +196,8 @@ class Device:
 
         return port
 
-    def _setup_sockets(self) -> Tuple[zmq.Socket, zmq.Socket]:
-        ctx: zmq.Context[zmq.Socket] = self.context_factory()  # type: ignore
+    def _setup_sockets(self) -> tuple[zmq.Socket, zmq.Socket]:
+        ctx: zmq.Context[zmq.Socket] = self.context_factory()
         self._context = ctx
 
         # create the sockets

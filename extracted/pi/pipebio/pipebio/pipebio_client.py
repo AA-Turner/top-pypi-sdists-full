@@ -28,8 +28,9 @@ import re
 import shutil
 import sys
 import tempfile
+import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -37,11 +38,13 @@ from dotenv import load_dotenv
 from requests_toolbelt import sessions
 from requests_toolbelt.sessions import BaseUrlSession
 
+from pipebio.column import Column
 from pipebio.entities import Entities
 from pipebio.jobs import Jobs
 from pipebio.models.export_format import ExportFormat
 from pipebio.models.job_status import JobStatus
 from pipebio.models.job_type import JobType
+from pipebio.models.table_column_type import TableColumnType
 from pipebio.models.upload_detail import UploadDetail
 from pipebio.multipart_upload import (
     MULTIPART_THRESHOLD,
@@ -57,6 +60,26 @@ from pipebio.workflows import Workflows
 # inherits the global socket default of None and a stalled connection hangs
 # the caller (typically a notebook kernel) indefinitely.
 DOWNLOAD_READ_TIMEOUT_SECONDS = 300
+
+# Extensions for the artifacts actually downloaded from ExportJob. Parquet and
+# DuckDB exports are ZIP archives containing the requested data, rather than
+# standalone .parquet or .duckdb files. These are used to warn about misleading
+# user-provided filenames, not to rewrite them.
+EXPORT_OUTPUT_EXTENSIONS = {
+    ExportFormat.FASTA.value: '.fasta',
+    ExportFormat.FASTQ.value: '.fastq',
+    ExportFormat.GENBANK.value: '.gb',
+    ExportFormat.TSV.value: '.tsv',
+    ExportFormat.CSV.value: '.csv',
+    ExportFormat.EXCEL.value: '.xlsx',
+    ExportFormat.PARQUET.value: '.zip',
+    ExportFormat.DUCKDB.value: '.zip',
+}
+
+# Keep the Parquet-backed record iterator suitable for low-memory machines.
+# This also avoids requiring the optional ``pyarrow.dataset`` module, which is
+# not present in every supported PyArrow build.
+PARQUET_BUFFER_SIZE = 64 * 1024
 
 
 class PipebioClient:
@@ -311,11 +334,20 @@ class PipebioClient:
         params: Optional[dict] = None,
         timeout_seconds: Optional[int] = None,
         read_timeout_seconds: int = DOWNLOAD_READ_TIMEOUT_SECONDS,
+        allow_deleted_entities: bool = False,
     ) -> List[str]:
         """Export an entity to a file and download the result.
 
         Runs an ``ExportJob`` server-side, waits for completion, then downloads
-        every output link to ``destination_folder``.
+        every output link to ``destination_folder``. Parquet and DuckDB exports
+        are returned as ZIP archives and are not automatically extracted.
+
+        The delimited formats (``TSV``, ``CSV``, ``EXCEL``) are sanitized
+        server-side so the output is safe to open in a spreadsheet: a value
+        starting with ``=``, ``+``, ``@`` or a non-numeric ``-`` is prefixed
+        with an apostrophe, a whitespace-only value becomes empty, and embedded
+        tabs and newlines are replaced with spaces. Use ``PARQUET`` or
+        ``DUCKDB`` when cell values must be byte-faithful.
 
         Args:
             entity_id: Id of the entity to export.
@@ -325,19 +357,27 @@ class PipebioClient:
                 it is created if it does not already exist. Defaults to the
                 current working directory.
             destination_filename: Optional output filename; defaults to the
-                entity name.
+                entity name. The SDK preserves an explicitly requested name and
+                emits a :class:`UserWarning` if its extension conflicts with
+                the ExportJob artifact type; Parquet and DuckDB exports are ZIP
+                archives.
             params: Optional extra export parameters merged into the job params.
             timeout_seconds: Maximum time to wait for the export job to complete.
-                Defaults to 600 seconds. Raise this for large tables whose export
-                takes longer than the default.
+                When omitted or ``None``, polling continues until the job
+                finishes. Pass an explicit value to cap the wait.
             read_timeout_seconds: Per-socket-operation timeout for the download.
                 Defaults to 300 seconds, so a stalled connection raises rather
                 than hanging forever. Raise it for a slow link.
+            allow_deleted_entities: Whether to allow referencing entities that
+                have been soft-deleted.
 
         Returns:
             The list of local file paths that were downloaded.
         """
-        entity = self.entities.get(entity_id)
+        entity = self.entities.get(
+            entity_id,
+            allow_deleted=allow_deleted_entities,
+        )
         entity_name = entity["name"]
         user = self.user
 
@@ -347,9 +387,10 @@ class PipebioClient:
             entity_name if "fileName" not in params else params["fileName"]
         )
 
-        destination_filename = (
-            destination_filename if destination_filename else entity_name
+        requested_destination_filename = (
+            destination_filename if destination_filename else None
         )
+        destination_filename = requested_destination_filename or params["fileName"]
 
         # Create the folder before the job is created: a missing folder would
         # otherwise cost a complete export before open() fails, hours later.
@@ -364,6 +405,7 @@ class PipebioClient:
             name="Export from python client",
             input_entity_ids=[entity_id],
             params=params,
+            allow_deleted_entities=allow_deleted_entities,
         )
 
         # Print the resume invocation before we start waiting: if polling or
@@ -373,21 +415,301 @@ class PipebioClient:
         # !r rather than hand-quoting: a Windows path in a double-quoted literal
         # is a SyntaxError (destination_folder="C:\Users\..." is a truncated
         # \U escape), and it quotes the job id correctly whether int or str.
+        resume_filename = (
+            f', destination_filename={destination_filename!r}'
+            if requested_destination_filename
+            else ''
+        )
         print(
             f"Export job id: {job_id}\n"
             f"If this is interrupted, resume the download with:\n"
             f"    client.download_export_output({job_id!r}, "
-            f"destination_folder={destination_folder!r}, "
-            f"destination_filename={destination_filename!r})"
+            f"destination_folder={destination_folder!r}{resume_filename})"
         )
 
         return self.download_export_output(
             job_id,
             destination_folder=destination_folder,
-            destination_filename=destination_filename,
+            destination_filename=requested_destination_filename,
             timeout_seconds=timeout_seconds,
             read_timeout_seconds=read_timeout_seconds,
         )
+
+    @staticmethod
+    def _warn_if_export_filename_extension_mismatches(
+        filename: str, export_format: Optional[str]
+    ) -> None:
+        """Warn when an explicit-looking filename mislabels a known artifact."""
+        extension = EXPORT_OUTPUT_EXTENSIONS.get(export_format)
+        if (
+            extension is None
+            or not Path(filename).suffix
+            or filename.lower().endswith(extension)
+        ):
+            return
+
+        if extension == '.zip':
+            artifact = f'ZIP archive produced by the {export_format} export'
+        else:
+            artifact = f'{export_format} export output'
+        warnings.warn(
+            f'Destination filename {filename!r} does not match the {artifact}. '
+            f'The SDK will keep the filename you requested. Use a name ending '
+            f'in {extension!r} to silence this warning.',
+            UserWarning,
+            stacklevel=3,
+        )
+
+    def export_to_path(
+        self,
+        entity_id: str,
+        destination: Union[str, os.PathLike[str]],
+        format: ExportFormat = ExportFormat.TSV,
+        params: Optional[dict] = None,
+        timeout_seconds: Optional[int] = None,
+        read_timeout_seconds: int = DOWNLOAD_READ_TIMEOUT_SECONDS,
+        allow_deleted_entities: bool = False,
+    ) -> str:
+        """Export one entity to a specific local file path.
+
+        This is a convenience adapter for callers migrating from
+        :meth:`Sequences.download`: unlike :meth:`export`, it accepts one
+        ``destination`` path and returns one path instead of a list.
+
+        See :meth:`export` for the spreadsheet sanitization applied to the
+        delimited formats.
+
+        Args:
+            entity_id: Id of the entity to export.
+            destination: Local file path to write. The SDK preserves this path
+                exactly and warns when its extension conflicts with the output
+                type. In particular, Parquet and DuckDB exports are ZIP
+                archives and are not automatically extracted.
+            format: Export format. Defaults to TSV.
+            params: Optional ExportJob parameters.
+            timeout_seconds: Maximum time to wait for the ExportJob.
+            read_timeout_seconds: Per-socket-operation download timeout.
+            allow_deleted_entities: Whether to allow exporting a soft-deleted
+                entity.
+
+        Returns:
+            The local output path.
+
+        Raises:
+            ValueError: If the ExportJob produces multiple outputs. Use
+                :meth:`export` to receive all output paths in that case.
+        """
+        destination_path = Path(destination)
+        outputs = self.export(
+            entity_id,
+            format,
+            destination_folder=str(destination_path.parent),
+            destination_filename=destination_path.name,
+            params=params,
+            timeout_seconds=timeout_seconds,
+            read_timeout_seconds=read_timeout_seconds,
+            allow_deleted_entities=allow_deleted_entities,
+        )
+        if len(outputs) == 0:
+            raise ValueError(
+                f'Export of entity {entity_id} produced no output files.'
+            )
+        if len(outputs) > 1:
+            raise ValueError(
+                f'Export of entity {entity_id} produced {len(outputs)} outputs; '
+                'use client.export() to receive all output paths.'
+            )
+        return outputs[0]
+
+    def iter_sequence_records(
+        self,
+        entity_ids: Iterable[str],
+        timeout_seconds: Optional[int] = None,
+        read_timeout_seconds: int = DOWNLOAD_READ_TIMEOUT_SECONDS,
+        allow_deleted_entities: bool = True,
+    ) -> Iterator[Tuple[str, Dict[str, Any]]]:
+        """Yield legacy-shaped sequence records through ``ExportJob``.
+
+        Each entity is exported to a temporary Parquet artifact, then parsed one
+        row at a time. Parquet output is delivered by ExportJob as a ZIP
+        archive; the SDK safely extracts it, removes the archive, and scans the
+        enclosed Parquet dataset in bounded batches. This avoids building the
+        complete result map in memory, unlike
+        :meth:`Sequences.download_to_memory`.
+
+        Parquet is the only transport this iterator offers. Unlike the
+        delimited formats it reproduces cell values verbatim, so records match
+        the legacy ``_extract`` output; see :meth:`export` for the rewriting
+        the delimited formats apply. ``DUCKDB`` is byte-faithful as well, but
+        reading it back one row at a time would require a database engine.
+
+        The yielded ``(compound_id, record)`` pairs have the same shape as the
+        entries in ``download_to_memory()``: ``compound_id`` is
+        ``"<entity_id>##@##<sequence_id>"`` and ``record`` has ``id``, ``name``,
+        ``sequence``, ``annotations``, and ``type`` keys. For a document, the
+        prefix preserves the ID supplied by the caller. A folder export contains
+        several documents, so each record instead uses its source document ID.
+        Constructing a ``dict`` from the iterator deliberately recreates the
+        legacy memory-intensive behavior. The server does not guarantee an
+        ordering for Parquet shards, so callers must not rely on yielded record
+        order.
+
+        Args:
+            entity_ids: Ids of the sequence documents to export. The caller's
+                ID is preserved in each document's compound ID prefix. Folder
+                exports use the source document ID from each dataset.
+            timeout_seconds: Maximum time to wait for each ExportJob.
+            read_timeout_seconds: Per-socket-operation download timeout.
+            allow_deleted_entities: Whether to allow referencing input documents
+                that have been soft-deleted. This authorizes the export of a
+                deleted document; it does not add soft-deleted sequences to the
+                output of a live one.
+
+        Yields:
+            Tuples of compound id and parsed sequence record.
+        """
+        columns = [
+            Column('id', TableColumnType.STRING),
+            Column('name', TableColumnType.STRING),
+            Column('sequence', TableColumnType.STRING),
+            Column('annotations', TableColumnType.STRING),
+            Column('type', TableColumnType.STRING),
+        ]
+
+        for entity_id in entity_ids:
+            with tempfile.TemporaryDirectory(
+                prefix='pipebio-sequence-export-'
+            ) as destination_folder:
+                output_paths = self.export(
+                    entity_id,
+                    ExportFormat.PARQUET,
+                    destination_folder=destination_folder,
+                    destination_filename='sequences.zip',
+                    timeout_seconds=timeout_seconds,
+                    read_timeout_seconds=read_timeout_seconds,
+                    allow_deleted_entities=allow_deleted_entities,
+                )
+                for output_index, output_path in enumerate(output_paths):
+                    parquet_datasets = self._extract_parquet_archive(
+                        archive_path=Path(output_path),
+                        destination=Path(destination_folder)
+                        / f'parquet-{output_index}',
+                    )
+                    single_dataset = len(parquet_datasets) == 1
+                    for parquet_entity_id, parquet_directory in parquet_datasets:
+                        id_prefix = (
+                            str(entity_id) if single_dataset else parquet_entity_id
+                        )
+                        yield from self._iter_parquet_sequence_entries(
+                            parquet_directory,
+                            id_prefix,
+                            columns,
+                        )
+
+    @staticmethod
+    def _extract_parquet_archive(
+        archive_path: Path,
+        destination: Path,
+    ) -> List[Tuple[str, Path]]:
+        """Safely extract an ExportJob Parquet archive and return its datasets."""
+        destination.mkdir()
+        destination_root = destination.resolve()
+        with ZipFile(archive_path) as archive:
+            for member in archive.infolist():
+                member_path = (destination_root / member.filename).resolve()
+                if not member_path.is_relative_to(destination_root):
+                    raise ValueError(
+                        f'Parquet archive {archive_path} contains an unsafe path: '
+                        f'{member.filename!r}.'
+                    )
+            archive.extractall(destination_root)
+        archive_path.unlink()
+
+        parquet_directories = sorted(
+            path
+            for path in destination_root.rglob('*.parquet')
+            if path.is_dir()
+            and any(
+                child.is_file() and child.suffix == '.parquet'
+                for child in path.iterdir()
+            )
+        )
+        if not parquet_directories:
+            raise ValueError(
+                f'Expected at least one Parquet dataset directory in {archive_path}.'
+            )
+        return [
+            (
+                PipebioClient._entity_id_from_parquet_directory(parquet_directory),
+                parquet_directory,
+            )
+            for parquet_directory in parquet_directories
+        ]
+
+    @staticmethod
+    def _entity_id_from_parquet_directory(parquet_directory: Path) -> str:
+        """Extract the source entity ID from an ExportJob dataset directory."""
+        _, separator, entity_id = parquet_directory.stem.rpartition(' - ')
+        if not separator or not entity_id:
+            raise ValueError(
+                f'Could not determine an entity ID from Parquet dataset directory '
+                f'{parquet_directory.name!r}.'
+            )
+        return entity_id
+
+    @staticmethod
+    def _iter_parquet_sequence_entries(
+        parquet_directory: Path,
+        id_prefix: str,
+        columns: List[Column],
+    ) -> Iterator[Tuple[str, Dict[str, Any]]]:
+        """Yield legacy-shaped sequence entries from a Parquet dataset."""
+        import pyarrow.parquet as pq
+
+        parquet_files = sorted(
+            path
+            for path in parquet_directory.rglob('*.parquet')
+            if path.is_file()
+        )
+        if not parquet_files:
+            raise ValueError(f'Parquet dataset {parquet_directory} has no files.')
+
+        for parquet_path in parquet_files:
+            with pq.ParquetFile(
+                str(parquet_path),
+                buffer_size=PARQUET_BUFFER_SIZE,
+                pre_buffer=False,
+            ) as parquet_file:
+                available_columns = set(parquet_file.schema_arrow.names)
+                if 'id' not in available_columns:
+                    raise ValueError(
+                        f'Parquet file {parquet_path} has no id column.'
+                    )
+
+                selected_columns = [
+                    column.name for column in columns if column.name in available_columns
+                ]
+                for batch in parquet_file.iter_batches(
+                    batch_size=1024,
+                    columns=selected_columns,
+                    use_threads=False,
+                ):
+                    values = batch.to_pydict()
+                    for row_index in range(batch.num_rows):
+                        parsed = {}
+                        for column in columns:
+                            if column.name in values:
+                                value = values[column.name][row_index]
+                                parsed[column.name] = column.parse(
+                                    '' if value is None else str(value)
+                                )
+                            else:
+                                parsed[column.name] = column.parse('')
+
+                        yield (
+                            f'{id_prefix}{Sequences._merge_delimiter}{parsed["id"]}',
+                            parsed,
+                        )
 
     def download_export_output(
         self,
@@ -423,9 +745,12 @@ class PipebioClient:
             destination_filename: Output filename. Defaults to the exported
                 file name recorded on the job. When the job produces more than
                 one output link, an index is appended to the stem
-                (``name_1.tsv``, ``name_2.tsv``, ...).
+                (``name_1.tsv``, ``name_2.tsv``, ...). Archive outputs remain
+                ZIP files; the SDK warns only when an explicitly supplied
+                filename has an incompatible extension.
             timeout_seconds: Maximum time to wait for the export job to complete.
-                Defaults to 600 seconds.
+                When omitted or ``None``, polling continues until the job
+                finishes. Pass an explicit value to cap the wait.
             read_timeout_seconds: Per-socket-operation timeout for the download.
                 Defaults to 300 seconds, so a stalled connection raises rather
                 than hanging forever.
@@ -451,12 +776,17 @@ class PipebioClient:
         if len(links) == 0:
             raise Exception(f"Export job {job_id} produced no output links.")
 
+        requested_destination_filename = destination_filename
         if destination_filename is None:
             destination_filename = (job.get("params") or {}).get("fileName")
         if not destination_filename:
             raise Exception(
                 f"No destination_filename given and export job {job_id} does not "
                 f"record one; pass destination_filename explicitly."
+            )
+        if requested_destination_filename is not None:
+            self._warn_if_export_filename_extension_mismatches(
+                destination_filename, (job.get("params") or {}).get("format")
             )
 
         destination_folder = destination_folder or os.getcwd()

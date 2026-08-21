@@ -3668,6 +3668,10 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def encode_binary(x: System.Numerics.Decimal64) -> int:
         ...
 
@@ -3914,6 +3918,10 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     @staticmethod
     def quantize(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -4702,6 +4710,10 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def encode_binary(x: System.Numerics.Decimal32) -> int:
         ...
 
@@ -4948,6 +4960,10 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     @staticmethod
     def quantize(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -6491,6 +6507,10 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def encode_binary(x: System.Numerics.Decimal128) -> System.UInt128:
         ...
 
@@ -6737,6 +6757,10 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     @staticmethod
     def quantize(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod

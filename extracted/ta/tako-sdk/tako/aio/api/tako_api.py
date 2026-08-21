@@ -1575,9 +1575,9 @@ class TakoApi:
     @validate_call
     async def graph_search(
         self,
-        q: Annotated[StrictStr, Field(description="Search text (min 2 chars).")],
+        q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
         types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
-        limit: Annotated[Optional[StrictInt], Field(description="Max results (default 20, max 50).")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
         _request_timeout: Union[
@@ -1597,7 +1597,7 @@ class TakoApi:
 
         Resolve a metric or entity in Tako's data graph by name. Use this to discover and confirm what data exists before you query. For example, resolve the metric and the entity here, then ask /v3/search or /v1/answer for that entity + metric combination. Requires an API key. Note: Tako does not yet filter results to the production-ready inventory. A returned metric or entity without a production fact table can 404 when you pass it to /v1/graph/related. Pass label to prefer a NER label (a ranking boost, not a filter); by default Tako infers the label from q. This endpoint was previously at /beta/graph/search. That path still works until 1 February 2027. Move to /v1/graph/search.
 
-        :param q: Search text (min 2 chars). (required)
+        :param q: Search text (min 1 char). (required)
         :type q: str
         :param types: Comma-separated facets: metric,entity.
         :type types: str
@@ -1661,9 +1661,9 @@ class TakoApi:
     @validate_call
     async def graph_search_with_http_info(
         self,
-        q: Annotated[StrictStr, Field(description="Search text (min 2 chars).")],
+        q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
         types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
-        limit: Annotated[Optional[StrictInt], Field(description="Max results (default 20, max 50).")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
         _request_timeout: Union[
@@ -1683,7 +1683,7 @@ class TakoApi:
 
         Resolve a metric or entity in Tako's data graph by name. Use this to discover and confirm what data exists before you query. For example, resolve the metric and the entity here, then ask /v3/search or /v1/answer for that entity + metric combination. Requires an API key. Note: Tako does not yet filter results to the production-ready inventory. A returned metric or entity without a production fact table can 404 when you pass it to /v1/graph/related. Pass label to prefer a NER label (a ranking boost, not a filter); by default Tako infers the label from q. This endpoint was previously at /beta/graph/search. That path still works until 1 February 2027. Move to /v1/graph/search.
 
-        :param q: Search text (min 2 chars). (required)
+        :param q: Search text (min 1 char). (required)
         :type q: str
         :param types: Comma-separated facets: metric,entity.
         :type types: str
@@ -1747,9 +1747,9 @@ class TakoApi:
     @validate_call
     async def graph_search_without_preload_content(
         self,
-        q: Annotated[StrictStr, Field(description="Search text (min 2 chars).")],
+        q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
         types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
-        limit: Annotated[Optional[StrictInt], Field(description="Max results (default 20, max 50).")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
         _request_timeout: Union[
@@ -1769,7 +1769,7 @@ class TakoApi:
 
         Resolve a metric or entity in Tako's data graph by name. Use this to discover and confirm what data exists before you query. For example, resolve the metric and the entity here, then ask /v3/search or /v1/answer for that entity + metric combination. Requires an API key. Note: Tako does not yet filter results to the production-ready inventory. A returned metric or entity without a production fact table can 404 when you pass it to /v1/graph/related. Pass label to prefer a NER label (a ranking boost, not a filter); by default Tako infers the label from q. This endpoint was previously at /beta/graph/search. That path still works until 1 February 2027. Move to /v1/graph/search.
 
-        :param q: Search text (min 2 chars). (required)
+        :param q: Search text (min 1 char). (required)
         :type q: str
         :param types: Comma-separated facets: metric,entity.
         :type types: str

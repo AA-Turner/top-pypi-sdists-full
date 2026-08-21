@@ -21,6 +21,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -43,7 +44,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import github.GithubObject
 import github.Label
@@ -52,6 +53,10 @@ import github.Organization
 import github.PaginatedList
 from github.GithubObject import Attribute, CompletableGithubObject, NotSet, Opt, is_defined
 from github.PaginatedList import PaginatedList
+
+if TYPE_CHECKING:
+    from github.Label import Label
+    from github.NamedUser import NamedUser
 
 
 class Milestone(CompletableGithubObject):
@@ -73,7 +78,7 @@ class Milestone(CompletableGithubObject):
         self._closed_at: Attribute[datetime] = NotSet
         self._closed_issues: Attribute[int] = NotSet
         self._created_at: Attribute[datetime] = NotSet
-        self._creator: Attribute[github.NamedUser.NamedUser] = NotSet
+        self._creator: Attribute[NamedUser] = NotSet
         self._description: Attribute[str] = NotSet
         self._due_on: Attribute[datetime] = NotSet
         self._html_url: Attribute[str] = NotSet
@@ -110,7 +115,7 @@ class Milestone(CompletableGithubObject):
         return self._created_at.value
 
     @property
-    def creator(self) -> github.NamedUser.NamedUser:
+    def creator(self) -> NamedUser:
         self._completeIfNotSet(self._creator)
         return self._creator.value
 
@@ -204,7 +209,7 @@ class Milestone(CompletableGithubObject):
         headers, data = self._requester.requestJsonAndCheck("PATCH", self.url, input=post_parameters)
         self._useAttributes(data)
 
-    def get_labels(self) -> PaginatedList[github.Label.Label]:
+    def get_labels(self) -> PaginatedList[Label]:
         """
         :calls: `GET /repos/{owner}/{repo}/milestones/{milestone_number}/labels <https://docs.github.com/en/rest/reference/issues#labels>`_
         """

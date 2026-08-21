@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stevedore
-Version: 5.9.0
+Version: 5.9.1
 Summary: Manage dynamic plugins for Python applications
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0

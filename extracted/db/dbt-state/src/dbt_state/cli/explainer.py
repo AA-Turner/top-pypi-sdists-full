@@ -138,7 +138,7 @@ class Explainer:
                 if run_config.freshness_tolerance_seconds
                 else "disabled"
             )
-            cache_config.add(f"[dim]freshness tolerance:[/dim] {freshness_tolerance}")
+            cache_config.add(f"[dim]lag tolerance:[/dim] {freshness_tolerance}")
             cache_config.add(
                 f"[dim]tolerate non-determinism:[/dim] {run_config.tolerate_nondeterminism}"
             )

@@ -11,10 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Viewer component of Studio."""
+"""Python implementation of the default Studio Viewer application UI.
+
+The class can be used as a plugin to run the full Studio Viewer application in
+Python.
+
+Architecture:
+  ViewerApp provides the full default UI/UX as a viewer-side plugin. This class
+  is viewer-agnostic and as such does not own camera, vis_options, or perturb
+  objects (these are provided by the viewer).
+
+  Viewer classes (NativeViewer and WebViewer) own the renderer, camera,
+  vis_options, and local deep-copied model/data used for rendering. The sim side
+  owns the physical simulation and pushes state snapshots to the viewer via
+  ViewerHandle.sync().
+"""
 
 import copy
 import dataclasses
+
 import mujoco
 from mujoco.experimental.studio import messages
 from mujoco.experimental.studio import parser
@@ -31,8 +46,8 @@ from mujoco.experimental.dear_imgui import dear_imgui as imgui
 class ViewerAppInitEvent(messages.Event):
   """Lifecycle event dispatched once when the ViewerApp is initialised.
 
-  Handlers that need access to the ViewerApp should handle this event
-  and cache the reference.
+  Plugins that need access to the ViewerApp should handle this event and cache
+  the reference.
   """
 
   viewer_app: 'ViewerApp'
@@ -355,7 +370,7 @@ class ViewerApp:
       paused = (
           self.step_control_state.get_pause_state() != sim.PauseState.UNPAUSED
       )
-      ux.stats_gui(self.model, self.data, paused, 0.0)
+      ux.info_gui(self.model, self.data, paused, 0.0)
       imgui.End()
 
     # -- Status bar -----------------------------------------------------------

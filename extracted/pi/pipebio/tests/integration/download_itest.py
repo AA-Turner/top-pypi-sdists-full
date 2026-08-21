@@ -82,3 +82,49 @@ class TestPipeBioClientIntegration:
 
         # Clean up.
         os.remove(download_file)
+
+    def test_export_to_path(self):
+        client = PipebioClient(url=self.api_url)
+        document_id = get_adimab_vh_id(client)
+        destination = os.path.join(tempfile.gettempdir(), f'{document_id}-export.tsv')
+
+        try:
+            result = client.export_to_path(
+                entity_id=document_id,
+                destination=destination,
+                format=ExportFormat.TSV,
+            )
+
+            assert result == destination
+            assert os.path.exists(destination), f"Export file not found at {destination}"
+            assert os.path.getsize(destination) > 0, f"Export file is empty at {destination}"
+        finally:
+            if os.path.exists(destination):
+                os.remove(destination)
+
+    def test_iter_sequence_records(self):
+        client = PipebioClient(url=self.api_url)
+        document_id = get_adimab_vh_id(client)
+
+        self._assert_streamed_sequence_records(
+            client.iter_sequence_records([document_id]), document_id
+        )
+
+    @staticmethod
+    def _assert_streamed_sequence_records(records, document_id):
+        expected_compound_id = f'{document_id}##@##1'
+        expected_record = None
+        count = 0
+
+        for compound_id, record in records:
+            count += 1
+            if compound_id == expected_compound_id:
+                expected_record = record
+
+        assert count == 137
+        assert expected_record is not None
+        assert expected_record['name'] == 'P00125_A01 abituzumab'
+        assert expected_record['sequence'].startswith(
+            'CAGGTGCAGCTGCAGCAGAGCGGCGGCGAGCTG'
+        )
+        assert len(expected_record['sequence']) == 354

@@ -37,6 +37,7 @@ For more information, please refer to <https://unlicense.org>
 """
 from typing import Dict, Union
 from ._util import force_default, process_service_request
+from ._payload import entities_rules_ownership_put_v2_payload
 from ._result import Result
 from ._service_class import ServiceClass
 from ._endpoint._correlation_rules_admin import _correlation_rules_admin_endpoints as Endpoints
@@ -60,27 +61,37 @@ class CorrelationRulesAdmin(ServiceClass):
     def change_correlation_rule_owner(self: object, body: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
         """Change the owner of an existing Correlation Rule.
 
-        Keyword arguments:
-        body -- Full body payload as a JSON formatted dictionary. Not required if using other keywords.
+        HTTP Method: PUT
+
+        Swagger URL
+        -----------
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/correlation-rules-admin/entities.rules_ownership.put.v1
+
+        Keyword arguments
+        -----------------
+        body : dict
+            Full body payload as a JSON formatted dictionary. Not required if using other keywords.
                 {
                     "api_client_id": "string",
                     "id": "string",
                     "user_id": "string",
                     "user_uuid": "string"
                 }
-        api_client_id -- The API client ID. String.
-        id -- The rule ID. String.
-        user_id -- The user ID. String.
-        user_uuid -- The user UUID. String.
+        api_client_id : str
+            The API client ID.
+        id : str
+            The rule ID.
+        user_id : str
+            The user ID.
+        user_uuid : str
+            The user UUID.
 
         This method only supports keywords for providing arguments.
 
-        Returns: dict object containing API response.
-
-        HTTP Method: PUT
-
-        Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/correlation-rules-admin/entities.rules_ownership.put.v1
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
         """
         if not body:
             body = correlation_rules_admin_payload(passed_keywords=kwargs)
@@ -89,6 +100,57 @@ class CorrelationRulesAdmin(ServiceClass):
             calling_object=self,
             endpoints=Endpoints,
             operation_id="entities_rules_ownership_put_v1",
+            body=body
+            )
+
+    @force_default(defaults=["body"], default_types=["dict"])
+    def entities_rules_ownership_put_v2(self: object,
+                                        body: dict = None,
+                                        **kwargs
+                                        ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Bulk change the owner of existing Correlation Rules.
+
+        HTTP Method: PUT
+
+        Swagger URL
+        -----------
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/correlation-rules-admin/entities_rules_ownership_put_v2
+
+        Keyword arguments
+        -----------------
+        body : dict
+            Full body payload as a JSON formatted dictionary. Not required if using other keywords.
+                {
+                    "api_client_id": "string",
+                    "ids": [
+                        "string"
+                    ],
+                    "user_id": "string",
+                    "user_uuid": "string"
+                }
+        api_client_id : str
+            The api_client_id value.
+        ids : list
+            The ids value.
+        user_id : str
+            The user_id value.
+        user_uuid : str
+            The user_uuid value.
+
+        This method only supports keywords for providing arguments.
+
+        Returns
+        -------
+        dict
+            Dictionary object containing API response.
+        """
+        if not body:
+            body = entities_rules_ownership_put_v2_payload(passed_keywords=kwargs)
+
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="entities_rules_ownership_put_v2",
             body=body
             )
 

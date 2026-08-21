@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: river
-Version: 0.25.0
-Requires-Dist: scipy>=1.16,<2
-Requires-Dist: numpy>=2.3.4,<3
-Requires-Dist: altair>=5.0.0
+Version: 0.26.0
+Requires-Dist: scipy>=1.14.1,<2
+Requires-Dist: numpy>=2.2.5,<3
+Requires-Dist: narwhals>=2.0.0
 Requires-Dist: pandas>=2.2,<3 ; extra == 'pandas'
 Provides-Extra: pandas
 License-File: LICENSE
@@ -43,6 +43,10 @@ Project-URL: Repository, https://github.com/online-ml/river/
   <!-- License -->
   <a href="https://opensource.org/licenses/BSD-3-Clause">
     <img src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square" alt="bsd_3_license">
+  </a>
+  <!-- Discord -->
+  <a href="https://discord.gg/qNmrKEZMAn">
+    <img src="https://img.shields.io/badge/Discord-join%20chat-5865F2?style=flat-square&logo=discord&logoColor=white" alt="discord">
   </a>
 </p>
 

@@ -1623,6 +1623,109 @@ AWAITING_APPROVAL_MESSAGE = (
 )
 
 
+# A failure tone here buys a retry flail on what is usually a brief platform blip.
+MCP_APPROVAL_UNAVAILABLE_MESSAGE = (
+    "This step needs a person's approval and the approval service could not be reached, so "
+    "'{tool}' has not run. Nothing is pending for anyone to answer. Continue with the work "
+    "that does not depend on it, or finish now with a short answer saying this step is "
+    "outstanding and why."
+)
+
+
+# Every MCP toolkit prefixes identically, so a tool name alone never names its server.
+MCP_TOOL_PREFIX = "mcp_tool_"
+
+
+def _unprefixed_mcp_tool(name: str) -> str:
+    """The tool's own name, without the prefix every MCP toolkit shares."""
+    if not name.startswith(MCP_TOOL_PREFIX):
+        return name
+    return name[len(MCP_TOOL_PREFIX) :]
+
+
+def _mcp_gated_servers(agent: Any) -> List[Tuple[str, List[str], List[str]]]:
+    """(item_id, keys, tool_names) for every MCP server node whose approval rule is on.
+
+    The graph item id is what the platform resolves the rule from and the one id
+    ``MCPServerDetails`` does not carry, so the pairing is made here. Every name a server goes
+    by is a key: the toolkit is built from ``mcp_settings`` while the node carries its own
+    display name, and the two are not required to agree.
+    """
+    gated: List[Tuple[str, List[str], List[str]]] = []
+    try:
+        items = getattr(getattr(agent, "graph", None), "items", None) or []
+    except Exception:
+        return gated
+    for item in items:
+        try:
+            if getattr(item, "type", None) != AgentGraphItemType.MCP:
+                continue
+            settings = getattr(item, "settings", None)
+            hitl = getattr(settings, "hitl_options", None) if settings else None
+            if hitl is None or not getattr(hitl, "enabled", False):
+                continue
+            mcp_settings = getattr(settings, "mcp_settings", None) if settings else None
+
+            def _setting(attribute: str) -> str:
+                if isinstance(mcp_settings, dict):
+                    return str(mcp_settings.get(attribute) or "").strip().lower()
+                return str(getattr(mcp_settings, attribute, "") or "").strip().lower()
+
+            keys = [_setting(attribute) for attribute in ("url", "name", "command")]
+            keys.append(str(getattr(item, "name", "") or "").strip().lower())
+            keys = [key for key in keys if key]
+            scoped = [
+                str(name).strip()
+                for name in (getattr(hitl, "tool_names", None) or [])
+                if str(name or "").strip()
+            ]
+            if keys:
+                gated.append((item.item_id, keys, scoped))
+        except Exception:
+            continue
+    return gated
+
+
+async def _check_mcp_approval(
+    agent: Any,
+    task: Any,
+    server_item_id: str,
+    tool_name: str,
+    arguments: Any,
+) -> Optional[Dict[str, Any]]:
+    """Ask the platform whether this MCP call may run, before it is dispatched.
+
+    Returns the platform's envelope when the call is held, or None to let it through. An MCP
+    tool talks to its server directly, so the gate every other family passes through on
+    dispatch is never reached; this asks that same gate in advance. The arguments travel
+    because the approval binds to them - one granted for these arguments authorizes this call
+    and no other.
+    """
+    try:
+        result = await APIClient(configuration=agent.configuration).make_request(
+            path=APIRoute.ToolApprovalCheck.format(agent_id=agent.id),
+            method="POST",
+            payload={
+                "execution_id": getattr(task, "id", None),
+                "operation_id": server_item_id,
+                "tool_name": tool_name,
+                "payload": arguments if isinstance(arguments, dict) else {},
+            },
+        )
+    except Exception as e:
+        # Fails closed, matching the platform gate: letting the call through performs the very
+        # side effect a person was meant to authorize.
+        logger.warning(
+            f"[mcp-approval] check unreachable for '{tool_name}', refusing: {e}"
+        )
+        return {
+            "type": "approval_required",
+            "denied": True,
+            "message": MCP_APPROVAL_UNAVAILABLE_MESSAGE.format(tool=tool_name),
+        }
+    return _approval_envelope(result)
+
+
 def _approval_envelope(result: Any, depth: int = 0) -> Optional[Dict[str, Any]]:
     """The platform's "a person must authorize this" envelope, if that came back.
 
@@ -2329,12 +2432,15 @@ async def build_agent_args(
         _configure_pre_hooks(args=args, agent=xpander_agent, model=model)
 
     _skipped_mcp_notes: List[str] = []
+    # Empty unless this agent gates an MCP server, and the hook's check is skipped when it is.
+    _mcp_gate_map: Dict[str, str] = {}
     resolved_tools, _ = await asyncio.gather(
         _resolve_agent_tools(
             agent=xpander_agent,
             task=task,
             auth_events_callback=auth_events_callback,
             skipped_notes=_skipped_mcp_notes,
+            mcp_gate_map=_mcp_gate_map,
         ),
         _attach_deps_leg(),
     )
@@ -2989,6 +3095,46 @@ async def build_agent_args(
             except Exception:
                 pass
 
+        # An MCP tool talks to its server directly, so it never reaches the dispatch gate.
+        if _mcp_gate_map:
+            _gated_server = _mcp_gate_map.get(eff_name)
+            if _gated_server:
+                _mcp_tool_label = _unprefixed_mcp_tool(eff_name)
+                approval = await _check_mcp_approval(
+                    xpander_agent, task, _gated_server, _mcp_tool_label, eff_args
+                )
+                if approval is not None and approval.get("self_approve"):
+                    # The one person who can answer is already watching this run.
+                    settled = await _await_self_approval(
+                        xpander_agent,
+                        approval.get("request_id") or "",
+                        approval.get("wait_seconds"),
+                    )
+                    if settled and settled.get("approved"):
+                        # Redeemed, not assumed: bound to the arguments it was granted for.
+                        approval = await _check_mcp_approval(
+                            xpander_agent,
+                            task,
+                            _gated_server,
+                            _mcp_tool_label,
+                            eff_args,
+                        )
+                    elif settled:
+                        approval = {
+                            **approval,
+                            "denied": True,
+                            "message": _declined_message(settled, _mcp_tool_label),
+                        }
+                if approval is not None:
+                    message = approval.get(
+                        "message"
+                    ) or AWAITING_APPROVAL_MESSAGE.format(tool=_mcp_tool_label)
+                    # A refusal is settled, so the run keeps the rest of its work.
+                    if not approval.get("denied"):
+                        _mark_awaiting_approval(task, eff_name, message)
+                    # The card is the artifact; a held call written as a failed one misleads.
+                    return message
+
         # A live surface is already delivered at create time; sharing its manifest
         # afterwards is a manufactured wrap-up step, not a deliverable.
         if eff_name == "xpworkspace-file-share":
@@ -3641,6 +3787,7 @@ async def build_agent_args(
 
         error = None
         result = None
+        gated_approval_request_id: Optional[str] = None
         if cache_short_circuit_result is not None:
             # Skip the real tool call AND the graph preflight — this is
             # served entirely from in-process state.
@@ -3660,6 +3807,8 @@ async def build_agent_args(
                 # Gated by the platform: hand the model the statement it sent back.
                 approval = _approval_envelope(result)
                 if approval is not None and approval.get("self_approve"):
+                    # Captured before the hold, so a re-issued call keeps the linkage too.
+                    gated_approval_request_id = approval.get("request_id") or None
                     # Nobody to reach but the person already watching the run, so the call is
                     # held open here rather than ending the turn on it.
                     settled = await _await_self_approval(
@@ -3686,6 +3835,8 @@ async def build_agent_args(
                     # Nothing settled inside the window: fall through and park as always.
 
                 if approval is not None:
+                    # Ties this exact call to its approval for the activity row.
+                    gated_approval_request_id = approval.get("request_id") or None
                     result = approval.get(
                         "message"
                     ) or AWAITING_APPROVAL_MESSAGE.format(tool=eff_name)
@@ -3713,6 +3864,7 @@ async def build_agent_args(
                                 result=error,
                                 is_error=True,
                                 plan_task_id=tc_plan_task_id,
+                                approval_request_id=gated_approval_request_id,
                             )
                         )
                     except Exception:
@@ -3839,6 +3991,7 @@ async def build_agent_args(
                         is_error=is_error,
                         skip_truncation=activity_skip_truncation,
                         plan_task_id=tc_plan_task_id,
+                        approval_request_id=gated_approval_request_id,
                     )
                 )
             except Exception:
@@ -4633,7 +4786,18 @@ def _load_llm_model(
                 llm_model_provider, llm_model_name
             )
         except Exception as caps_exc:
-            logger.debug(f"model capabilities resolution failed: {caps_exc}")
+            # Fail closed, not open: an unresolved model must not be assumed to
+            # accept images/PDFs (the permissive default would 400 the provider).
+            from xpander_sdk.modules.tasks.utils.model_capabilities import (
+                ModelCapabilities,
+            )
+
+            logger.warning(
+                f"model capabilities resolution failed, using conservative profile: {caps_exc}"
+            )
+            task._model_capabilities = ModelCapabilities(
+                supports_vision=False, supports_native_pdf=False
+            )
 
     # flags must follow the task override, or a task-level gpt-5.6 routes to Chat and 400s
     is_gpt_5 = "gpt-5" in llm_model_name
@@ -5947,10 +6111,15 @@ async def _resolve_agent_tools(
     task: Optional[Task] = None,
     auth_events_callback: Optional[Callable] = None,
     skipped_notes: Optional[List[str]] = None,
+    mcp_gate_map: Optional[Dict[str, str]] = None,
 ) -> List[Any]:
     # Skipped-MCP notes surfaced to the agent (so it can tell the user a capability
     # is unavailable) — caller passes a list to receive them; else collect locally.
     notes = skipped_notes if skipped_notes is not None else []
+
+    # Tool name to the graph item of the gated server it came from; the tool-call hook reads
+    # it to recognise a call it has to hold. Caller passes a dict to receive it.
+    gate_map = mcp_gate_map if mcp_gate_map is not None else {}
 
     # Per-run reset, before anything reads the catalog: leftovers from a previous
     # task would leak into this run and inflate the count the size gate reads.
@@ -5986,6 +6155,68 @@ async def _resolve_agent_tools(
 
     is_xpander_cloud = getenv("IS_XPANDER_CLOUD", "false") == "true"
 
+    # Every name a gated server can be known by, pointing at its graph item - and the tool
+    # names its rule is scoped to, empty meaning all of them.
+    gated_server_ids: Dict[str, str] = {}
+    gated_tool_names: Dict[str, List[str]] = {}
+    for _item_id, _keys, _scoped in _mcp_gated_servers(agent):
+        gated_tool_names[_item_id] = _scoped
+        for _key in _keys:
+            gated_server_ids.setdefault(_key, _item_id)
+
+    async def _record_gate_map(
+        toolkit: MCPTools, server_name: str, server_url: Optional[str]
+    ) -> bool:
+        """Remember which tools came from a gated server, so the hook can recognise them.
+
+        False only when a gated server's tools could not be listed, which the caller answers by
+        dropping the server: a tool nothing can recognise is one that would run without ever
+        being held. Only a server carrying an enabled rule is enumerated, so an ungated run
+        costs exactly what it costs today.
+        """
+        # A url identifies a server; a display name does not, so it is consulted only for one
+        # that has no url, where two servers sharing a name are indistinguishable anyway.
+        url_key = (server_url or "").strip().lower()
+        item_id = (
+            gated_server_ids.get(url_key)
+            if url_key
+            else gated_server_ids.get((server_name or "").strip().lower())
+        )
+        if not item_id:
+            return True
+        try:
+            if not getattr(toolkit, "initialized", False):
+                await toolkit.connect()
+            scoped = gated_tool_names.get(item_id) or []
+            for fn_name in (toolkit.functions or {}).keys():
+                # A rule scoped to named tools leaves the rest unmapped: no entry, no check,
+                # no round-trip - an unlisted tool costs exactly what an ungated one costs.
+                if scoped and _unprefixed_mcp_tool(fn_name) not in scoped:
+                    if fn_name in gate_map:
+                        # Name-keyed dispatch cannot tell the servers apart, so on a
+                        # collision gating wins: an extra ask is safe, a bypass is not.
+                        logger.warning(
+                            f"[mcp-approval] '{fn_name}' is scoped out of {item_id}'s rule "
+                            f"but gated by {gate_map[fn_name]}; the gate stands"
+                        )
+                    continue
+                owner = gate_map.setdefault(fn_name, item_id)
+                if owner != item_id:
+                    # Every toolkit shares a prefix, so two servers can expose the same name.
+                    # Both are gated, so either way a person is asked; first claim wins and the
+                    # ambiguity is said out loud rather than silently deciding whose rule ran.
+                    logger.warning(
+                        f"[mcp-approval] '{fn_name}' is exposed by more than one gated server; "
+                        f"it stays with {owner} rather than {item_id}"
+                    )
+        except (Exception, BaseException) as exc:
+            logger.warning(
+                f"[mcp-approval] could not enumerate '{server_name}' to gate it, so its "
+                f"tools are unavailable this run: {type(exc).__name__}: {exc}"
+            )
+            return False
+        return True
+
     async def _finalize_toolkit(
         toolkit: MCPTools, server_name: str, server_url: Optional[str] = None
     ) -> Optional[MCPTools]:
@@ -5993,7 +6224,29 @@ async def _resolve_agent_tools(
         Dynamic: connect + enumerate now, register proxies, keep the toolkit out of
         the agent's tools (hidden from the LLM), and return None. The SDK owns the
         session; the worker closes it post-run."""
+        if not await _record_gate_map(toolkit, server_name, server_url):
+            # Withheld rather than run ungated: the rule says a person authorizes these calls.
+            try:
+                await toolkit.close()
+            except (Exception, BaseException):
+                pass
+            notes.append(
+                f"{server_name}: unavailable this run - its calls need a person's approval and "
+                f"its tools could not be listed to ask for one. Continue with the tools you do "
+                f"have, or answer now if the work needs that server."
+            )
+            return None
         if not use_dynamic:
+            if getattr(toolkit, "initialized", False):
+                # agno closes only sessions it opened itself, so a toolkit handed over
+                # pre-connected would leak its session every run. Closed here; agno reconnects.
+                try:
+                    await toolkit.close()
+                except (Exception, BaseException) as exc:
+                    logger.warning(
+                        f"[mcp-approval] could not release the enumeration session for "
+                        f"'{server_name}': {type(exc).__name__}: {exc}"
+                    )
             return toolkit
         try:
             await toolkit.connect()
@@ -6256,6 +6509,7 @@ async def _resolve_agent_tools(
             )
             if (
                 graph_item
+                and task
                 and task.user_tokens
                 and isinstance(task.user_tokens, dict)
                 and graph_item.id in task.user_tokens

@@ -28,7 +28,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Iterable, Iterator, Optional
 
-from xbsl import dataset, i18n, libs
+from xbsl import dataset, i18n, libs, terms
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.engine import SourceFile, is_query_file, rule
 from xbsl.lexer import Token, tokens
@@ -201,26 +201,40 @@ def _catalog_slice(source: SourceFile) -> tuple[str, dict] | None:
     result: tuple[str, dict] | None = None
     data, err = _parsed(source)
     if err is None and isinstance(data, dict) and object_kind(data):
-        nm = value_of(data, "Имя")
+        kind = object_kind(data)
+        nm = value_of(data, "Имя", kind)
         if isinstance(nm, str):
+            # Every key is read bilingually: an English source spells the very same sections
+            # `TabularParts` / `Attributes` / `Name`, and reading the Russian key alone left
+            # such an object with no sections at all - the rule then called every table of it
+            # unknown.
             tabular: list[str] = []
-            parts = data.get("ТабличныеЧасти")
+            parts = value_of(data, "ТабличныеЧасти", kind)
             if isinstance(parts, list):
                 tabular = [
-                    p["Имя"] for p in parts
-                    if isinstance(p, dict) and isinstance(p.get("Имя"), str)
+                    name for name in (_item_name(p) for p in parts) if name
                 ]
             fields: dict[str, str] = {}
             for section in _FIELD_SECTIONS:
-                items = data.get(section)
+                items = value_of(data, section, kind)
                 if not isinstance(items, list):
                     continue
                 for it in items:
-                    if isinstance(it, dict) and isinstance(it.get("Имя"), str) and isinstance(it.get("Тип"), str):
-                        fields[it["Имя"]] = it["Тип"]
-            result = (nm, {"kind": object_kind(data), "tabular": tabular, "fields": fields})
+                    name = _item_name(it)
+                    written = value_of(it, "Тип") if isinstance(it, dict) else None
+                    if name and isinstance(written, str):
+                        fields[name] = written
+            result = (nm, {"kind": kind, "tabular": tabular, "fields": fields})
     source.cache[key] = result
     return result
+
+
+def _item_name(item) -> str | None:
+    """The `Name` of a collection item in either spelling, or None."""
+    if not isinstance(item, dict):
+        return None
+    value = value_of(item, "Имя")
+    return value if isinstance(value, str) else None
 
 
 def _alternatives(spec: str) -> list[str]:
@@ -304,14 +318,24 @@ def _entity_tables() -> frozenset[str]:
     They are recognized by their facets in the catalog (`Пользователи.Объект`,
     `ДвоичныйОбъект.Ссылка`): an entity is exactly the type that generates them. Their
     structure is the platform's, so only the name is checked here, not the sections.
+
+    Both spellings: the catalog is extracted from the Russian documentation, while a query of an
+    English-spelled project reads `SELECT Reference FROM Users` - and a set that knows the
+    Russian spelling alone declares the platform's own table an object the project does not have.
     """
     try:
         catalog = dataset.load_json("stdlib.json")
     except dataset.DatasetError:
         return frozenset()
-    return frozenset(
-        key.split(".", 1)[0] for key in (catalog.get("facet_members") or {})
-    )
+    russian = {key.split(".", 1)[0] for key in (catalog.get("facet_members") or {})}
+    english = {
+        name for russian_name in russian
+        if (name := terms.english(russian_name, "types") or terms.common_english(russian_name))
+    }
+    return frozenset(russian | english)
+
+
+dataset.register_reset(_entity_tables.cache_clear)
 
 
 def _query_table_mapper(source: SourceFile) -> dict | None:

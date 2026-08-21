@@ -25,7 +25,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 description = "Apache OpenDAL™ Python Binding"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "LICENSE-MPL-2.0.txt", "NOTICE"]
 name = "opendal"
 readme = "README.md"
 requires-python = ">=3.10"

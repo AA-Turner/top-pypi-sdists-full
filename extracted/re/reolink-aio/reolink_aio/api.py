@@ -909,6 +909,8 @@ class Host:
     def post_recording_time(self, channel: int) -> str:
         if channel not in self._recording_settings:
             return ""
+        if self._recording_settings[channel].get("postRecAi"):
+            return "Auto"
         return self._recording_settings[channel].get("postRec", "")
 
     def post_recording_time_list(self, channel: int) -> list[str]:
@@ -916,7 +918,10 @@ class Host:
             if self.baichuan_only:
                 return ["15 Seconds", "30 Seconds", "1 Minute"]  # default for baichuan_only
             return []
-        return self._recording_range[channel].get("postRec", [])
+        time_list = self._recording_range[channel].get("postRec", [])
+        if self.supported(channel, "post_rec_ai"):
+            time_list.append("Auto")
+        return time_list
 
     def manual_record_enabled(self, channel: int) -> bool:
         if channel not in self._manual_record_settings:
@@ -1903,8 +1908,9 @@ class Host:
                     self._capabilities["Host"].add("sleep")
             if self.api_version("mdWithPir", channel) > 0:
                 self._capabilities[channel].add("PIR")
+                self._capabilities[channel].add("PIR_sensitivity")
 
-            if channel in self._md_alarm_settings and not self.supported(channel, "PIR") and not self.baichuan.supported(channel, "PIR"):
+            if channel in self._md_alarm_settings and not self.supported(channel, "PIR_sensitivity") and not self.baichuan.supported(channel, "PIR_sensitivity"):
                 self._capabilities[channel].add("md_sensitivity")
 
             if self.api_version("supportAiSensitivity", channel) > 0:
@@ -3399,6 +3405,9 @@ class Host:
         if check:
             _LOGGER.debug("Checking RTSP urls host %s:%s, channel %s, stream %s", self._host, self._port, channel, stream)
 
+        if self._is_battery and not self.baichuan._wired_power:
+            return None
+
         if self.api_version("rtsp") >= 3 and stream == "main" and channel in self._rtsp_mainStream:
             if not check:
                 return self._rtsp_mainStream[channel]
@@ -4093,12 +4102,12 @@ class Host:
                     self._privacy_mask[channel] = data["value"]["Mask"]
 
                 elif data["cmd"] == "GetRec":
-                    self._recording_settings[channel] = data["value"]["Rec"]
+                    self._recording_settings.setdefault(channel, {}).update(data["value"]["Rec"])
                     if "range" in data:
                         self._recording_range[channel] = data["range"]["Rec"]
 
                 elif data["cmd"] == "GetRecV20":
-                    self._recording_settings[channel] = data["value"]["Rec"]
+                    self._recording_settings.setdefault(channel, {}).update(data["value"]["Rec"])
                     if "range" in data:
                         self._recording_range[channel] = data["range"]["Rec"]
 

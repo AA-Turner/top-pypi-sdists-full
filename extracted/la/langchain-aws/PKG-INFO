@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-aws
-Version: 1.7.2
+Version: 1.7.3
 Summary: An integration package connecting AWS and LangChain
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-aws/tree/main/libs/aws
 Project-URL: Repository, https://github.com/langchain-ai/langchain-aws

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from typing import Annotated
 
@@ -9,10 +9,8 @@ pytest.importorskip("scrapy_poet")
 import attrs
 from scrapy import Request, Spider
 from scrapy.statscollectors import MemoryStatsCollector
-from scrapy.utils.defer import deferred_f_from_coro_f
 from scrapy_poet import DummyResponse
-from scrapy_poet.utils.testing import HtmlResource, crawl_single_item
-from twisted.internet import reactor
+from scrapy_poet.utils.testing import HtmlResource
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol
 from twisted.web.client import Agent
@@ -44,6 +42,7 @@ from scrapy_zyte_api import (
     ExtractFrom,
     Geolocation,
     NetworkCapture,
+    ScrapyZyteAPIRequestFingerprinter,
     Screenshot,
     actions,
     custom_attrs,
@@ -51,19 +50,47 @@ from scrapy_zyte_api import (
 )
 from scrapy_zyte_api._params import _EXTRACT_KEYS
 from scrapy_zyte_api.handler import ScrapyZyteAPIDownloadHandler
-from scrapy_zyte_api.providers import _AUTO_PAGES, _ITEM_KEYWORDS, ZyteApiProvider
-from scrapy_zyte_api.utils import maybe_deferred_to_future
+from scrapy_zyte_api.providers import (
+    _AUTO_PAGES,
+    _ITEM_KEYWORDS,
+    ZyteApiProvider,
+    _build_zyte_api_provider_meta,
+    _get_zyte_api_provider_params,
+    _set_in_provider_meta_cache,
+)
+from scrapy_zyte_api.utils import (  # type: ignore[attr-defined]
+    _ensure_awaitable,
+    maybe_deferred_to_future,
+)
 
-from . import SETTINGS
+from . import _REACTORLESS, SETTINGS, deferred_f_from_coro_f
 from .mockserver import get_ephemeral_port
 
+if not _REACTORLESS:
+    # Importing the reactor is forbidden when running without one; these
+    # imports are only used by tests that are skipped in that mode.
+    from twisted.internet import reactor
+
+# Some tests fetch a URL through a Twisted Agent to inspect the mock server,
+# which is not possible without a reactor.
+requires_reactor = pytest.mark.skipif(
+    _REACTORLESS,
+    reason="Uses a Twisted Agent to fetch a URL, which requires a reactor.",
+)
+
 PROVIDER_PARAMS = {"geolocation": "IE"}
+
+
+try:
+    from scrapy_poet.utils.testing import crawl_single_item_async as crawl_single_item
+except ImportError:  # scrapy-poet < 0.27.0
+    from scrapy_poet.utils.testing import crawl_single_item
 
 
 def _crawl_single_item(
     spider_cls, resource_cls, settings, spider_kwargs=None, port=None
 ):
-    return maybe_deferred_to_future(
+    return _ensure_awaitable(
         crawl_single_item(
             spider_cls, resource_cls, settings, spider_kwargs=spider_kwargs, port=port
         )
@@ -176,6 +203,7 @@ class MyPage(ItemPage[MyItem]):
         return str(self.response.url)
 
 
+@requires_reactor
 @deferred_f_from_coro_f
 async def test_itemprovider_requests_direct_dependencies(fresh_mockserver):
     class ItemDepSpider(ZyteAPISpider):
@@ -208,6 +236,7 @@ async def test_itemprovider_requests_direct_dependencies(fresh_mockserver):
     assert "product" in item
 
 
+@requires_reactor
 @deferred_f_from_coro_f
 async def test_itemprovider_requests_indirect_dependencies(fresh_mockserver):
     class ItemDepSpider(ZyteAPISpider):
@@ -235,6 +264,7 @@ async def test_itemprovider_requests_indirect_dependencies(fresh_mockserver):
     assert "product" in item
 
 
+@requires_reactor
 @deferred_f_from_coro_f
 async def test_itemprovider_requests_indirect_dependencies_workaround(fresh_mockserver):
     class ItemDepSpider(ZyteAPISpider):
@@ -552,6 +582,202 @@ def provider_settings(server):
     settings["SCRAPY_POET_PROVIDERS"] = {ZyteApiProvider: 1100}
     settings["DOWNLOAD_HANDLERS"]["http"] = RecordingHandler
     return settings
+
+
+class _DummySettings(dict):
+    def getdict(self, key):
+        return dict(self.get(key, {}))
+
+
+@pytest.mark.parametrize(
+    ("http_response_available", "expected_meta"),
+    [
+        (False, {"httpResponseBody": True, "httpResponseHeaders": True}),
+        (True, {}),
+    ],
+)
+def test_provider_meta_any_response_http_response_available(
+    http_response_available, expected_meta
+):
+    class DummyCrawler:
+        settings = _DummySettings()
+
+    request = Request("https://example.com")
+    actual_meta, html_requested = _build_zyte_api_provider_meta(
+        {AnyResponse},
+        request,
+        DummyCrawler(),  # type: ignore[arg-type]
+        http_response_available=http_response_available,
+    )
+
+    assert actual_meta == expected_meta
+    assert html_requested is False
+
+
+def test_provider_meta_unknown_setting_param_accepted():
+    class DummyCrawler:
+        settings = _DummySettings({"ZYTE_API_PROVIDER_PARAMS": {"slot": 1}})
+
+    request = Request("https://example.com")
+    assert _get_zyte_api_provider_params(request, DummyCrawler()) == {  # type: ignore[arg-type]
+        "slot": 1,
+    }
+
+
+def test_provider_meta_unknown_request_param_accepted():
+    class DummyCrawler:
+        settings = _DummySettings()
+
+    request = Request("https://example.com", meta={"zyte_api_provider": {"slot": 1}})
+    assert _get_zyte_api_provider_params(request, DummyCrawler()) == {  # type: ignore[arg-type]
+        "slot": 1,
+    }
+
+
+def test_provider_meta_none_request_param():
+    class DummyCrawler:
+        settings = _DummySettings()
+
+    request = Request("https://example.com", meta={"zyte_api_provider": None})
+    assert _get_zyte_api_provider_params(request, DummyCrawler()) == {}  # type: ignore[arg-type]
+
+
+def test_provider_meta_invalid_request_param():
+    class DummyCrawler:
+        settings = _DummySettings()
+
+    request = Request(
+        "https://example.com", meta={"zyte_api_provider": ["not", "a", "dict"]}
+    )
+    with pytest.raises(ValueError, match="only dictionaries are supported"):
+        _get_zyte_api_provider_params(request, DummyCrawler())  # type: ignore[arg-type]
+
+
+def test_provider_meta_annotated_item_without_extract_from():
+    class DummyCrawler:
+        settings = _DummySettings()
+
+    request = Request("https://example.com")
+    meta, html_requested = _build_zyte_api_provider_meta(
+        {Annotated[Product, "unrelated-metadata"]},  # type: ignore[arg-type]
+        request,
+        DummyCrawler(),  # type: ignore[arg-type]
+    )
+
+    assert meta == {"product": True}
+    assert html_requested is False
+
+
+def test_set_in_provider_meta_cache_disabled():
+    cache: OrderedDict = OrderedDict()
+    _set_in_provider_meta_cache(cache, ("key",), {"a": 1}, False, max_size=0)
+    assert len(cache) == 0
+
+
+def test_set_in_provider_meta_cache_eviction():
+    cache: OrderedDict = OrderedDict()
+    _set_in_provider_meta_cache(cache, ("a",), {"n": 1}, False, max_size=2)
+    _set_in_provider_meta_cache(cache, ("b",), {"n": 2}, False, max_size=2)
+    _set_in_provider_meta_cache(cache, ("c",), {"n": 3}, False, max_size=2)
+
+    # The oldest entry is evicted once the cache exceeds its maximum size.
+    assert list(cache.keys()) == [("b",), ("c",)]
+
+
+@pytest.mark.skipif(
+    ScrapyZyteAPIRequestFingerprinter is None,
+    reason="Request fingerprinting not supported (Scrapy < 2.7)",
+)
+@deferred_f_from_coro_f
+async def test_provider_reuses_cached_provider_meta_from_fingerprinter(
+    mockserver, monkeypatch
+):
+    settings = provider_settings(mockserver)
+    settings["RETRY_TIMES"] = 0
+
+    build_meta_calls = 0
+    original_build_meta = _build_zyte_api_provider_meta
+
+    def _tracked_build_meta(*args, **kwargs):
+        nonlocal build_meta_calls
+        build_meta_calls += 1
+        return original_build_meta(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "scrapy_zyte_api.providers._build_zyte_api_provider_meta",
+        _tracked_build_meta,
+    )
+
+    await _crawl_single_item(ZyteAPISpider, HtmlResource, settings)
+
+    assert build_meta_calls == 1
+
+
+@pytest.mark.skipif(
+    ScrapyZyteAPIRequestFingerprinter is None,
+    reason="Request fingerprinting not supported (Scrapy < 2.7)",
+)
+@deferred_f_from_coro_f
+async def test_provider_rebuilds_meta_for_non_fingerprint_params(
+    mockserver, monkeypatch
+):
+    settings = provider_settings(mockserver)
+    settings["RETRY_TIMES"] = 0
+    settings["ZYTE_API_PROVIDER_PARAMS"] = {
+        "requestHeaders": {"Referer": "example.com"}
+    }
+
+    build_meta_calls = 0
+    original_build_meta = _build_zyte_api_provider_meta
+
+    def _tracked_build_meta(*args, **kwargs):
+        nonlocal build_meta_calls
+        build_meta_calls += 1
+        return original_build_meta(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "scrapy_zyte_api.providers._build_zyte_api_provider_meta",
+        _tracked_build_meta,
+    )
+
+    await _crawl_single_item(ZyteAPISpider, HtmlResource, settings)
+
+    # Called twice: once during fingerprinting (with requestHeaders filtered out)
+    # and once during actual provider execution (with requestHeaders included).
+    assert build_meta_calls == 2
+
+
+@deferred_f_from_coro_f
+async def test_provider_non_fingerprint_params_passed_to_api(mockserver):
+    class TestSpider(Spider):
+        async def start(self):
+            for request in self.start_requests():
+                yield request
+
+        def start_requests(self):
+            for suffix, referer in (("a", "a"), ("b", "b")):
+                yield Request(
+                    mockserver.urljoin(f"/{suffix}"),
+                    callback=self.parse_,  # type: ignore[arg-type]
+                    dont_filter=True,
+                    meta={
+                        "zyte_api_provider": {
+                            "requestHeaders": {"referer": referer},
+                        },
+                    },
+                )
+
+        def parse_(self, response: DummyResponse, product: Product):
+            pass
+
+    settings = provider_settings(mockserver)
+    settings["RETRY_TIMES"] = 0
+
+    _, _, crawler = await _crawl_single_item(TestSpider, HtmlResource, settings)
+    params = crawler.engine.downloader.handlers._handlers["http"].params
+
+    assert len(params) == 2
+    assert {param["requestHeaders"]["referer"] for param in params} == {"a", "b"}
 
 
 @deferred_f_from_coro_f
@@ -1098,6 +1324,26 @@ async def test_provider_actions(mockserver, caplog):
             },
         ]
     )
+
+
+@deferred_f_from_coro_f
+async def test_provider_actions_unannotated(mockserver, caplog):
+    @attrs.define
+    class ActionProductPage(BasePage):
+        product: Product
+        actions: Actions
+
+    class ActionZyteAPISpider(ZyteAPISpider):
+        def parse_(self, response: DummyResponse, page: ActionProductPage):  # type: ignore[override]
+            pass
+
+    settings = deepcopy(SETTINGS)
+    settings["ZYTE_API_URL"] = mockserver.urljoin("/")
+    settings["SCRAPY_POET_PROVIDERS"] = {ZyteApiProvider: 0}
+
+    item, *_ = await _crawl_single_item(ActionZyteAPISpider, HtmlResource, settings)
+    assert item is None
+    assert "Actions dependencies must be annotated" in caplog.text
 
 
 @deferred_f_from_coro_f

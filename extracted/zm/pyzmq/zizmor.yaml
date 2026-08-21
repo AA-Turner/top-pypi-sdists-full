@@ -1,0 +1,9 @@
+rules:
+  cache-poisoning:
+    # only care about cache poisoning in release workflow
+    # see strict-zizmor.yaml
+    disable: true
+  unpinned-uses:
+    config:
+      policies:
+        actions/*: ref-pin

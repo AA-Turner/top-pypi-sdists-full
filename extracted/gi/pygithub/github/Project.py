@@ -26,6 +26,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -61,6 +62,7 @@ from github.PaginatedList import PaginatedList
 if TYPE_CHECKING:
     from github.NamedUser import NamedUser
     from github.Organization import Organization
+    from github.ProjectColumn import ProjectColumn
 
 
 class Project(CompletableGithubObject):
@@ -214,7 +216,7 @@ class Project(CompletableGithubObject):
         self._useAttributes(data)
         self._set_complete()
 
-    def get_columns(self) -> PaginatedList[github.ProjectColumn.ProjectColumn]:
+    def get_columns(self) -> PaginatedList[ProjectColumn]:
         """
         :calls: `GET /projects/{project_id}/columns <https://docs.github.com/en/rest/reference/projects#list-project-columns>`_
         """
@@ -227,7 +229,7 @@ class Project(CompletableGithubObject):
             headers={"Accept": Consts.mediaTypeProjectsPreview},
         )
 
-    def create_column(self, name: str) -> github.ProjectColumn.ProjectColumn:
+    def create_column(self, name: str) -> ProjectColumn:
         """
         calls: `POST /projects/{project_id}/columns <https://docs.github.com/en/rest/reference/projects#create-a-project-column>`_
         """

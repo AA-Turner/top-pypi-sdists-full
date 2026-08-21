@@ -52,9 +52,9 @@ ws_editor/org_id,ws_id:
     - w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
-    # job management (w+d:jobs) is admin-only; editors can only run sandbox/test
-    - w:job_run/org_id,ws_id,*,{env=sandbox}
-    - w:job_run/org_id,ws_id,*,{env=test}
+    # job management (w+d:jobs) is admin-only; editors can only run and delete sandbox/test runs
+    - w+d:job_run/org_id,ws_id,*,{env=sandbox}
+    - w+d:job_run/org_id,ws_id,*,{env=test}
     - case_editor/org_id,ws_id
     - r+w:workspace_analytics_dashboard/org_id,ws_id
 ws_admin/org_id,ws_id:
@@ -73,7 +73,7 @@ ws_admin/org_id,ws_id:
     - r+w:workspace_user_management/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
     - w+d:jobs/org_id,ws_id,*
-    - w:job_run/org_id,ws_id,*,{env=live}
+    - w+d:job_run/org_id,ws_id,*,{env=live}
     - r+w+d:outcome_type_management/org_id,ws_id
     - data_admin/org_id,ws_id
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
@@ -266,7 +266,7 @@ api_key_job_admin/org_id,ws_id:
     - w:workspace_test_job_trigger/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
     - r+w+d:jobs/org_id,ws_id,*
-    - r+w:job_run/org_id,ws_id,*,{env=*}
+    - r+w+d:job_run/org_id,ws_id,*,{env=*}
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_decision_history/org_id,ws_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crc32c
-Version: 2.8
+Version: 2.9
 Summary: A python package implementing the crc32c algorithm in hardware and software
 Author-email: Rodrigo Tobar <rtobar@icrar.org>
 License: LGPL-2.1-or-later
@@ -10,7 +10,6 @@ Project-URL: issues, https://github.com/ICRAR/crc32c/issues
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -18,7 +17,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE.google-crc32c

@@ -394,7 +394,8 @@ class Jobs:
 
         Args:
             job_id: Job id to poll. Falls back to the instance job id if omitted.
-            timeout_seconds: Maximum time to wait. Defaults to 600 seconds.
+            timeout_seconds: Maximum time to wait. When omitted or ``None``,
+                polling continues until the job finishes.
 
         Returns:
             The final job object.
@@ -411,9 +412,8 @@ class Jobs:
 
         print(f"Polling job: {job_id}")
 
-        # 10 mins default timeout
-        timeout = time.time() + (
-            timeout_seconds if timeout_seconds is not None else 60 * 10
+        timeout = (
+            time.time() + timeout_seconds if timeout_seconds is not None else None
         )
 
         while not done:
@@ -423,7 +423,7 @@ class Jobs:
             print(f"     Job {job_id} status: {job_status}")
             done = job_status in [JobStatus.COMPLETE.value, JobStatus.FAILED.value]
 
-            if time.time() > timeout:
+            if timeout is not None and time.time() > timeout:
                 raise Exception(f"Timeout waiting for job {job_id} to finish.")
 
         print(f"Job {job_id} is: {job_status}")
@@ -434,8 +434,8 @@ class Jobs:
 
         Args:
             job_ids: Ids of the jobs to poll.
-            timeout_seconds: Maximum time to wait per job. Defaults to 600
-                seconds.
+            timeout_seconds: Maximum time to wait per job. When omitted or
+                ``None``, polling continues until each job finishes.
 
         Returns:
             The list of final job objects.

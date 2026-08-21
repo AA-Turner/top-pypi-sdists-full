@@ -12,32 +12,24 @@ build-backend = "scikit_build_core.build"
 # ref: https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
 [project]
 name = "pyzmq"
-version = "27.1.0"
+version = "27.2.0"
 authors = [
   { name = "PyZMQ Contributors", email = "zeromq-dev@lists.zeromq.org" },
   { name = "Brian E. Granger" },
   { name = "Min Ragan-Kelley" },
 ]
-license = { file = "LICENSE.md" }
-requires-python = ">=3.8"
+license = "BSD-3-Clause"
+requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "Intended Audience :: System Administrators",
-  "License :: OSI Approved :: BSD License",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX",
   "Topic :: System :: Networking",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
 ]
 dependencies = ["cffi; implementation_name == 'pypy'"]
 description = "Python bindings for 0MQ"
@@ -51,7 +43,7 @@ Tracker = "https://github.com/zeromq/pyzmq/issues"
 
 [tool.scikit-build]
 wheel.packages = ["zmq"]
-wheel.license-files = ["licenses/LICENSE*"]
+wheel.license-files = ["LICENSE*", "licenses/LICENSE*"]
 # 3.15 is required by scikit-build-core
 cmake.version = ">=3.15"
 # only build/install the pyzmq component
@@ -124,7 +116,7 @@ skip = ["zmq/__init__.py"]
 github_url = "https://github.com/zeromq/pyzmq"
 
 [tool.tbump.version]
-current = "27.1.0"
+current = "27.2.0"
 regex = '''
   (?P<major>\d+)
   \.
@@ -151,7 +143,7 @@ search = '__version__: str = "{current_version}"'
 
 [tool.cibuildwheel]
 build-verbosity = "1"
-enable = ["cpython-freethreading", "pypy", "pypy-eol"]
+enable = ["pypy", "pypy-eol"]
 test-requires = ["pytest>=6", "importlib_metadata"]
 test-sources = ["tools/test_wheel.py"]
 test-command = "python -m pytest -vsx tools/test_wheel.py"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-webencodings
-Version: 0.5.0.20260408
+Version: 0.6.0.20260821
 Summary: Typing stubs for webencodings
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -18,10 +18,10 @@ Dynamic: license-file
 ## Typing stubs for webencodings
 
 This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
-for the [`webencodings`](https://github.com/gsnedders/python-webencodings) package. It can be used by type checkers
+for the [`webencodings`](https://github.com/CourtBouillon/webencodings) package. It can be used by type checkers
 to check code that uses `webencodings`. This version of
 `types-webencodings` aims to provide accurate annotations for
-`webencodings==0.5.*`.
+`webencodings==0.6.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -31,8 +31,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.20.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.408
+* [mypy](https://www.mypy-lang.org/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`9a0198f83bc8d3ab5dc0f79989f77612df53105f`](https://github.com/python/typeshed/commit/9a0198f83bc8d3ab5dc0f79989f77612df53105f).

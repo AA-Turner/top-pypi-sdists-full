@@ -354,7 +354,7 @@ class Frame:
         if _gc is None:
             from zmq.utils.garbage import gc as _gc
 
-        hint: pointer(_zhint) = cast(pointer(_zhint), malloc(sizeof(_zhint)))
+        hint = cast(pointer(_zhint), malloc(sizeof(_zhint)))
         hint.id = _gc.store(data, self.tracker_event)
         if not _gc._push_mutex:
             hint.mutex = mutex_allocate()
@@ -1109,7 +1109,7 @@ class Socket:
         c_addr: p_char = NULL
         if addr is not None:
             _addr_bytes: bytes = _c_addr(addr)
-            c_addr: p_char = _addr_bytes
+            c_addr = _addr_bytes
         _check_closed(self)
 
         _check_rc(zmq_socket_monitor(self.handle, c_addr, events))
@@ -1174,11 +1174,11 @@ class Socket:
 
         Returns
         -------
-        None : if `copy` or not track
-            None if message was sent, raises an exception otherwise.
-        MessageTracker : if track and not copy
+        MessageTracker : if `data` is a :class:`Frame` or `copy=False`
             a MessageTracker object, whose `done` property will
             be False until the send is completed.
+        None : otherwise
+            None if message was sent, raises an exception otherwise.
 
         Raises
         ------
@@ -1583,8 +1583,8 @@ def curve_public(secret_key) -> bytes:
 
     Parameters
     ----------
-    private
-        The private key as a 40 byte z85-encoded bytestring
+    secret_key
+        The secret key as a 40 byte z85-encoded bytestring
 
     Returns
     -------

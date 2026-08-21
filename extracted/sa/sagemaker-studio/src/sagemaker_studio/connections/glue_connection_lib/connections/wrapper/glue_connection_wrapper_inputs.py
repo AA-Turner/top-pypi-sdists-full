@@ -4,7 +4,7 @@ Input data class for wrapper initialization.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from botocore.client import BaseClient
 
@@ -29,6 +29,9 @@ class GlueConnectionWrapperInputs:
         str, str
     ]  # Additional connection options for customization (e.g., MongoDB disableUpdateUri, Redshift DBUser).
     # Note: integrate these directly into AWS Glue Connection properties (requires updating existing connections).
+    # Glue client, required only for connection types that delegate OAuth2 token
+    # acquisition to Glue (see IcebergRestCatalogConnectionWrapper).
+    glue_client: Optional[BaseClient] = None
 
     def __post_init__(self):
         """Validate inputs after initialization."""

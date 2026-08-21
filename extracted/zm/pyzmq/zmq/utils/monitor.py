@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import struct
-from typing import Awaitable, TypedDict, overload
+from collections.abc import Awaitable
+from typing import TypedDict, overload
 
 import zmq
 import zmq.asyncio
@@ -69,15 +70,11 @@ def recv_monitor_message(
     socket: zmq.asyncio.Socket,
     flags: int = 0,
 ) -> Awaitable[_MonitorMessage]: ...
-
-
 @overload
 def recv_monitor_message(
     socket: zmq.Socket[bytes],
     flags: int = 0,
 ) -> _MonitorMessage: ...
-
-
 def recv_monitor_message(
     socket: zmq.Socket,
     flags: int = 0,

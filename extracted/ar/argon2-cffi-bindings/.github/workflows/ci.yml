@@ -13,61 +13,100 @@ env:
   PIP_NO_PYTHON_VERSION_WARNING: 1
   SETUPTOOLS_SCM_PRETEND_VERSION: "1.0" # avoid warnings about shallow checkout
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
+  build-package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    env:
+      BUILD_PYTHON: "3.14"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: hynek/build-and-inspect-python-package@2abe76da66d0a6a4a227101f9348ee855797cfa5 # v3.0.1
+        id: baipp
+        with:
+          include-free-threaded: 'true'
+          python-version:  ${{ env.BUILD_PYTHON }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          cache: pip
+          python-version: ${{ env.BUILD_PYTHON }}
+
+      # Smoke-check the wheel against argon2-cffi.
+      - run: python -Im pip install $DIST/*.whl
+        env:
+          DIST: ${{ steps.baipp.outputs.dist }}
+      - run: python -Im pip install --no-deps git+https://github.com/hynek/argon2-cffi.git
+      - run: python -Im argon2 -n 1 -t 1 -m 8 -p 1
+
+    outputs:
+      # Used to define the matrix for tests below. The value is based on
+      # packaging metadata (trove classifiers).
+      python-versions: ${{ steps.baipp.outputs.supported_python_classifiers_json_array }}
+
   tests:
     name: Tests on ${{ matrix.python-version }}
+    needs: build-package
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
-          - "3.14t"
-          - "pypy-3.9"
-          - "pypy-3.10"
+        # Created by the build-and-inspect-python-package action above.
+        python-version: ${{ fromJson(needs.build-package.outputs.python-versions) }}
+    env:
+      PYTHON: ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
           cache: pip
       - run: python -Im pip install tox
+      - run: python -Im tox run -e $PYTHON
 
-      - name: Determine Python version for tox
-        env:
-          V: ${{ matrix.python-version }}
-        run: |
-          if [[ "$V" = pypy-* ]]; then
-            V=$(echo $V | tr -d .-)
-          else
-            V=py$(echo $V | tr -d .)
-          fi
+  tests-pypy:
+    name: Tests against latest PyPy
+    runs-on: ubuntu-latest
+    env:
+      PYTHON: pypy3.11
 
-          echo TOX_PYTHON=$V >>$GITHUB_ENV
-
-      - run: python -Im tox run -e $TOX_PYTHON
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON }}
+          allow-prereleases: true
+          cache: pip
+      - run: python -Im pip install tox
+      - run: python -Im tox run -e $PYTHON
 
   system-package:
     runs-on: ubuntu-latest
     name: Install and test with system package of Argon2
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version-default
           cache: pip
@@ -80,30 +119,6 @@ jobs:
       - run: python -Im pip install tox
       - run: python -Im tox run -e system-argon2
 
-  package:
-    name: Build & verify package
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - uses: hynek/build-and-inspect-python-package@v2
-        id: baipp
-
-      - uses: actions/setup-python@v5
-        with:
-          cache: pip
-          python-version: "3.x"  # use the one that baipp used
-
-      # Smoke-check the wheel against argon2-cffi.
-      - run: python -Im pip install $DIST/*.whl
-        env:
-          DIST: ${{ steps.baipp.outputs.dist }}
-      - run: python -Im pip install --no-deps git+https://github.com/hynek/argon2-cffi.git
-      - run: python -Im argon2 -n 1 -t 1 -m 8 -p 1
-
   install-dev:
     name: Verify dev env
     runs-on: ${{ matrix.os }}
@@ -113,20 +128,20 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version-default
       - run: python -Im pip install -e . --group dev
 
       - name: Import package
         run: python -c 'from _argon2_cffi_bindings import ffi, lib; print(lib.ARGON2_VERSION_NUMBER)'
-      - run: otool -L src/_argon2_cffi_bindings/_ffi.abi3.so
+      - run: otool -L "$(python -c 'import _argon2_cffi_bindings._ffi as m; print(m.__file__)')"
         if: startsWith(matrix.os , 'macos')
-      - run: ldd src/_argon2_cffi_bindings/_ffi.abi3.so
+      - run: ldd "$(python -c 'import _argon2_cffi_bindings._ffi as m; print(m.__file__)')"
         if: startsWith(matrix.os , 'ubuntu')
 
       - name: Check presence of pytest
@@ -136,11 +151,11 @@ jobs:
     name: Ensure cogified files are up-to-date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           cache: pip
           python-version: "3.x"
@@ -149,16 +164,34 @@ jobs:
 
       - run: python -Im tox run -e cog-check
 
+  gen-check:
+    name: Ensure the generated CFFI source is up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          cache: pip
+          python-version: "3.x"
+
+      - run: python -Im pip install tox
+
+      - run: python -Im tox run -e gen-check
+
   required-checks-pass:
     name: Ensure everything required is passing for branch protection
     if: always()
 
     needs:
+      - build-package
       - tests
+      - tests-pypy
       - install-dev
-      - package
       - system-package
       - cog-check
+      - gen-check
 
     runs-on: ubuntu-latest
 

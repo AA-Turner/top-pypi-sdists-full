@@ -177,13 +177,23 @@ class Guardian:
             except Exception:
                 pass
         if getattr(self, '_server_blocked_error', None):
+            current_time = time.time()
+            time_since_sync = current_time - getattr(self, '_last_sync', 0)
+            if api_key and time_since_sync > 300:
+                self._last_sync = current_time
+                import threading
+                threading.Thread(
+                    target=self._sync_to_backend,
+                    args=(api_key, 0),
+                    daemon=True
+                ).start()
             current_tier = self._get_current_tier()
             raise RateLimitExceeded(
                 resource_type=resource_type,
                 limit_type="backend_limit",
                 current_usage="Backend",
                 limit_value="Backend",
-                retry_after=300,
+                retry_after=max(1, 300 - time_since_sync),
                 tier=current_tier,
                 custom_message=self._server_blocked_error
             )

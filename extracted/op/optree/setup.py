@@ -108,7 +108,7 @@ def cmake_context(
             f'Could not run `{cmake}` directly. '
             'Unset the `PYTHONPATH` environment variable in the build environment.',
         )
-        spawn_context = unset_python_path  # type: ignore[assignment]
+        spawn_context = unset_python_path
         with unset_python_path():
             # CMake in the parent virtual environment
             output = subprocess.check_output(  # noqa: S603
@@ -194,6 +194,16 @@ class cmake_build_ext(build_ext):  # noqa: N801
             f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{config.upper()}={ext_path.parent}',
             f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{config.upper()}={build_temp}',
         ]
+        if platform.system() == 'Windows':
+            # Emit the linker `.pdb` next to the extension's *final* location so a crash dump can be
+            # symbolized. `ext_path.parent` is the throwaway `build-lib` directory, while setuptools
+            # copies only the `.pyd` from there into the package directory, orphaning the `.pdb`.
+            build_py = self.get_finalized_command('build_py')
+            # The final package directory that will receive the built extension. Emit the `.pdb`
+            # here so it can be found next to the `.pyd`. E.g., `.../site-packages/optree` for
+            # `optree._C`.
+            package_dir = Path(build_py.get_package_dir(ext.name.rpartition('.')[0])).absolute()
+            cmake_args += [f'-DCMAKE_PDB_OUTPUT_DIRECTORY_{config.upper()}={package_dir}']
 
         # Print debug information
         eprint(f'-- Building CMake extension: {ext.name} ({config})')
@@ -207,6 +217,8 @@ class cmake_build_ext(build_ext):  # noqa: N801
         for key in sorted(
             {
                 'ABIFLAGS',
+                'Py_DEBUG',
+                'Py_GIL_DISABLED',
                 'EXT_SUFFIX',
                 'INCLUDEDIR',
                 'INCLUDEPY',
@@ -279,6 +291,9 @@ class cmake_build_ext(build_ext):  # noqa: N801
         python_root_dir = os.getenv('Python_ROOT_DIR') or sysconfig_vars.get('installed_platbase')  # noqa: SIM112
         if python_root_dir is not None:
             cmake_args += [f'-DPython_ROOT_DIR={python_root_dir}']
+        python_find_abi = os.getenv('Python_FIND_ABI')  # noqa: SIM112
+        if python_find_abi:
+            cmake_args += [f'-DPython_FIND_ABI={python_find_abi}']
         if self.include_dirs:
             cmake_args += [f'-DPython_EXTRA_INCLUDE_DIRS={";".join(self.include_dirs)}']
         if self.library_dirs:

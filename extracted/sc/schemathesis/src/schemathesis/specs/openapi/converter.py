@@ -8,6 +8,7 @@ from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, REFERENCE_T
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.transforms import deepclone
 from schemathesis.specs.openapi.patterns import (
+    is_valid_jsonschema_rs_regex,
     is_valid_python_regex,
     normalize_regex,
     pattern_length_bounds,
@@ -142,13 +143,16 @@ def _to_json_schema(
             translated = normalize_regex(pattern)
             if translated is not None:
                 schema["pattern"] = translated
-            else:
-                del schema["pattern"]
         elif pattern.startswith(r"\A") or pattern.endswith(r"\Z"):
             # Pattern uses Python-specific anchors that need Rust translation for jsonschema-rs
             translated = normalize_regex(pattern)
             if translated is not None:
                 schema["pattern"] = translated
+        # One the validator compiles is kept even where Python cannot read it - the API enforces it,
+        # so dropping it would draw values the API turns down.
+        current = schema.get("pattern")
+        if not isinstance(current, str) or not is_valid_jsonschema_rs_regex(current):
+            del schema["pattern"]
     if update_quantifiers:
         update_pattern_in_schema(schema)
     # Sometimes `required` is incorrectly has a boolean value
@@ -178,7 +182,7 @@ def _to_json_schema(
 
     ensure_required_properties(schema)
 
-    # Convert prefixItems -> items[array] for hypothesis-jsonschema (Draft 4/7-only).
+    # Draft 4/7 spells a tuple as `items: [...]`, which is what generation reads there.
     # Skipped when the consumer needs `prefixItems` to stay intact (e.g. for Draft 2020-12 validators).
     if convert_prefix_items and "prefixItems" in schema:
         prefix_items = schema.pop("prefixItems")
@@ -192,7 +196,7 @@ def _to_json_schema(
     if convert_if_then_else:
         _rewrite_if_then_else(schema)
 
-    if schema_type == "array":
+    if schema_type == "array" and convert_prefix_items:
         _rewrite_allof_of_contains_consts(schema)
 
     if not is_response_schema:
@@ -276,8 +280,8 @@ def _pin_discriminator_property(
     """Pin the discriminator property to its expected value in each oneOf/anyOf branch.
 
     When a schema has a `discriminator`, each branch in oneOf/anyOf is wrapped in
-    `allOf` with an `enum` constraint on the discriminator property. This ensures
-    hypothesis-jsonschema generates the correct discriminator value for each branch.
+    `allOf` with an `enum` constraint on the discriminator property, so each branch
+    carries the discriminator value that names it.
     """
     discriminator = schema.get("discriminator")
     if not isinstance(discriminator, dict):
@@ -330,6 +334,16 @@ def _branch_discriminator_value(ref: str, property_name: str, bundle: dict[str, 
     sub = properties.get(property_name) if isinstance(properties, dict) else None
     if not isinstance(sub, dict):
         return None
+    # A nullable tag is spelled as a two-branch union in OpenAPI 3.1, putting its literal one level down.
+    for keyword in ("anyOf", "oneOf"):
+        variants = sub.get(keyword)
+        if isinstance(variants, list):
+            non_null = [
+                variant for variant in variants if not (isinstance(variant, dict) and variant.get("type") == "null")
+            ]
+            if len(non_null) == 1 and isinstance(non_null[0], dict):
+                sub = non_null[0]
+            break
     const = sub.get("const")
     if isinstance(const, str):
         return const
@@ -349,9 +363,8 @@ def _branch_is_polymorphic(ref: str, bundle: dict[str, Any] | None) -> bool:
 
 
 def _rewrite_allof_of_contains_consts(schema: dict[str, Any]) -> None:
-    # `allOf: [{contains: {const: A}}, {contains: {const: B}}, ...]` can't be merged by
-    # hypothesis-jsonschema, so it falls back to filtering and exhausts. Rewriting the
-    # required consts as a positional `items` prefix forces them into the array up front.
+    # Draft 4 has no `contains`, so it reads as an annotation and the values never land. A
+    # positional `items` prefix forces them in. Draft 2020-12 places them via `contains` instead.
     all_of = schema.get("allOf")
     if not isinstance(all_of, list) or len(all_of) < 2:
         return
@@ -366,7 +379,9 @@ def _rewrite_allof_of_contains_consts(schema: dict[str, Any]) -> None:
             and isinstance(entry.get("contains"), dict)
             and entry["contains"].keys() == {"const"}
         ):
-            consts.append({"const": entry["contains"]["const"]})
+            # A single-value `enum`, not `const`: OpenAPI 3.0 schemas are read as draft 4, which
+            # has no `const` and would silently leave the position unconstrained.
+            consts.append({"enum": [entry["contains"]["const"]]})
         else:
             keep.append(entry)
     if len(consts) < 2:
@@ -523,14 +538,22 @@ def update_pattern_in_schema(schema: dict[str, Any]) -> None:
     max_length = schema.get("maxLength")
     if pattern and (min_length or max_length):
         new_pattern = update_quantifier(pattern, min_length, max_length)
-        if new_pattern != pattern:
-            # Pop a bound only if the rewrite encodes it; rewrites with unbounded slots can't absorb `maxLength`.
-            new_min, new_max = pattern_length_bounds(new_pattern)
-            schema["pattern"] = new_pattern
-            if min_length is not None and new_min >= min_length:
-                schema.pop("minLength", None)
-            if max_length is not None and new_max is not None and new_max <= max_length:
-                schema.pop("maxLength", None)
+        # A bound the schema states in the thousands becomes a quantifier the validator's regex
+        # engine refuses to compile; the pattern it started from is the one that still works.
+        if new_pattern != pattern and is_valid_jsonschema_rs_regex(new_pattern):
+            apply_rewritten_pattern(schema, new_pattern, min_length, max_length)
+
+
+def apply_rewritten_pattern(
+    schema: dict[str, Any], new_pattern: str, min_length: int | None, max_length: int | None
+) -> None:
+    """Install a rewritten pattern, keeping every bound it does not encode on its own."""
+    new_min, new_max = pattern_length_bounds(new_pattern)
+    schema["pattern"] = new_pattern
+    if min_length is not None and new_min >= min_length:
+        schema.pop("minLength", None)
+    if max_length is not None and new_max is not None and new_max <= max_length:
+        schema.pop("maxLength", None)
 
 
 def rewrite_properties(schema: dict[str, Any], predicate: Callable[[dict[str, Any]], bool]) -> None:

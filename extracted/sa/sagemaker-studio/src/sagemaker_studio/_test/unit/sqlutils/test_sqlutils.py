@@ -1573,8 +1573,39 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
 
         result = sqlutils.sql("SELECT 1", connection_name="irc_conn")
         self.assertEqual(result, mock_df_success)
+        # The stored token was rejected, so the retry must force a refresh rather
+        # than re-reading the same token from the connection's secret.
+        mock_conn._spark_catalog_configs.assert_called_once_with(force_token_refresh=True)
         mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog1.token", "new_token")
         mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog2.token", "new_token")
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_irc_glue_refresh_returning_none_reraises(
+        self, mock_ensure_project, mock_ensure_spark
+    ):
+        """If the forced refresh yields no configs, the original auth error surfaces."""
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "DATABRICKSICEBERGRESTCATALOG"
+        mock_conn._spark_catalog_configs.return_value = None
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df_fail = Mock()
+        type(mock_df_fail).schema = PropertyMock(
+            side_effect=Exception(
+                "org.apache.iceberg.exceptions.NotAuthorizedException: token expired"
+            )
+        )
+        mock_spark.sql.return_value = mock_df_fail
+        mock_ensure_spark.return_value = mock_spark
+
+        with self.assertRaises(Exception) as cm:
+            sqlutils.sql("SELECT 1", connection_name="irc_conn")
+        self.assertIn("NotAuthorizedException", str(cm.exception))
+        mock_conn._spark_catalog_configs.assert_called_once_with(force_token_refresh=True)
 
     @patch("sagemaker_studio.sqlutils._ensure_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")

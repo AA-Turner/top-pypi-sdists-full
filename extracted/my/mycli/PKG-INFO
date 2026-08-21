@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.14.0
+Version: 2.15.0
 Summary: Rich MySQL terminal client with autocompletion, syntax highlighting, and dataframes
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause

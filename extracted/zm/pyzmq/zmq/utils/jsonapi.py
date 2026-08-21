@@ -17,7 +17,7 @@ from typing import Any
 jsonmod = json
 
 
-def dumps(o: Any, **kwargs) -> bytes:
+def dumps(o: object, **kwargs: Any) -> bytes:
     """Serialize object to JSON bytes (utf-8).
 
     Keyword arguments are passed along to :py:func:`json.dumps`.
@@ -25,7 +25,7 @@ def dumps(o: Any, **kwargs) -> bytes:
     return json.dumps(o, **kwargs).encode("utf8")
 
 
-def loads(s: bytes | str, **kwargs) -> dict | list | str | int | float:
+def loads(s: bytes | str, **kwargs: Any) -> dict[str, Any] | list[Any] | str | float:
     """Load object from JSON bytes (utf-8).
 
     Keyword arguments are passed along to :py:func:`json.loads`.

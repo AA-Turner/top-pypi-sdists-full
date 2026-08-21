@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: persistent
-Version: 6.7
+Version: 6.8
 Summary: Translucent persistent objects
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
@@ -79,6 +80,16 @@ release (``https://persistent.readthedocs.io/en/stable/``).
 
 Change log
 ==========
+
+6.8 (2026-08-20)
+----------------
+
+- Add support for Python 3.15.
+
+- Fix ``DeprecationWarning`` on Python 3.14+ about returning non-``None``
+  values from test methods in ``test_picklecache.py``.
+  (`#235 <https://github.com/zopefoundation/persistent/issues/235>`_)
+
 
 6.7 (2026-05-26)
 ----------------

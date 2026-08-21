@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from schemathesis.core.jsonschema import ALL_KEYWORDS
-from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, bundle_for_generation
+from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, bundle
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, get_type
 from schemathesis.core.text import to_snake_case
@@ -40,14 +40,23 @@ def resolve_all_refs(schema: JsonSchemaObject) -> dict[str, Any]:
     bundled = schema.get(BUNDLE_STORAGE_KEY, {})
 
     resolved_cache: dict[str, dict[str, Any]] = {}
+    in_flight: set[str] = set()
 
     def resolve(ref: str) -> dict[str, Any]:
         # All references here are bundled, therefore it is safe to avoid full reference resolving
         if ref in resolved_cache:
             return resolved_cache[ref]
+        if ref in in_flight:
+            # The reference points back at a target still being resolved. Cut the cycle here:
+            # deeper levels repeat property names that the enclosing level already carries.
+            return {}
         key = ref.split("/")[-1]
-        # No clone needed, as it will be cloned inside `merged`
-        result = resolve_all_refs_inner(bundled[key], resolve=resolve)
+        in_flight.add(ref)
+        try:
+            # No clone needed, as it will be cloned inside `merged`
+            result = resolve_all_refs_inner(bundled[key], resolve=resolve)
+        finally:
+            in_flight.discard(ref)
         resolved_cache[ref] = result
         return result
 
@@ -55,8 +64,6 @@ def resolve_all_refs(schema: JsonSchemaObject) -> dict[str, Any]:
 
 
 def resolve_all_refs_inner(schema: JsonSchema, *, resolve: Callable[[str], dict[str, Any]]) -> dict[str, Any]:
-    from hypothesis_jsonschema._canonicalise import merged
-
     if schema is True:
         return {}
     if schema is False:
@@ -72,12 +79,8 @@ def resolve_all_refs_inner(schema: JsonSchema, *, resolve: Callable[[str], dict[
         del schema["$ref"]
         schema.pop(BUNDLE_STORAGE_KEY, None)
         schema.pop("example", None)
-        result = merged([resolve_all_refs_inner(schema, resolve=resolve), resolved])
-        # hypothesis_jsonschema's merged() can return None for irreconcilable schemas.
-        # For dependency analysis, fall back to the resolved ref which has the resource structure.
-        if result is None:
-            return resolved
-        return result
+        # Siblings win over the target they augment, and every property name survives either way.
+        return _flatten_all_of({"allOf": [resolve_all_refs_inner(schema, resolve=resolve), resolved]})
 
     for key, value in schema.items():
         if key in SCHEMA_KEYS:
@@ -102,7 +105,7 @@ def canonicalize(
     from schemathesis.specs.openapi.converter import to_json_schema
 
     # Discovery needs all references resolvable and non-recursive; bundling solves that.
-    bundled = bundle_for_generation(schema, resolver).schema
+    bundled = bundle(schema, resolver).schema
     # Translate PCRE patterns (e.g. `\p{L}`) to Python-compatible equivalents.
     bundled = to_json_schema(bundled, nullable_keyword, update_quantifiers=False)
     if not isinstance(bundled, dict):
@@ -115,6 +118,14 @@ def canonicalize(
     if isinstance(resolved, dict) and ("allOf" in resolved or "anyOf" in resolved or "oneOf" in resolved):
         return _flatten_all_of(resolved)
     return resolved
+
+
+def _combine_branch_values(existing: Any, incoming: Any) -> Any:
+    # A later branch specializing what the base only sketched must keep its own sub-fields;
+    # earlier branches still win on the plain keywords.
+    if isinstance(existing, dict) and isinstance(incoming, dict):
+        return _flatten_all_of({"allOf": [existing, incoming]})
+    return existing if existing is not None else incoming
 
 
 def _flatten_all_of(schema: JsonSchemaObject) -> JsonSchemaObject:
@@ -131,11 +142,13 @@ def _flatten_all_of(schema: JsonSchemaObject) -> JsonSchemaObject:
             for key, value in _flatten_all_of(branch).items():
                 if key == "properties" and isinstance(value, dict):
                     for name, sub in value.items():
-                        properties.setdefault(name, sub)
+                        properties[name] = _combine_branch_values(properties.get(name), sub)
                 elif key == "required" and isinstance(value, list):
                     for name in value:
                         if name not in required:
                             required.append(name)
+                elif key == "items":
+                    rest["items"] = _combine_branch_values(rest.get("items"), value)
                 else:
                     rest.setdefault(key, value)
         result = dict(rest)
@@ -294,6 +307,8 @@ def unwrap_schema(schema: Mapping[str, Any], path: str, parent_ref: str | None, 
                     external_tag_, uses_parent_ref = external_tag
                     nested_properties = resolved_items["properties"][external_tag_]
                     _, resolved = maybe_resolve_with_resolver(nested_properties, resolver)
+                    resolved = try_unwrap_composition(resolved, resolver)
+                    _, resolved = maybe_resolve_with_resolver(resolved, resolver)
                     pointer += f"/{encode_pointer(external_tag_)}"
 
         ref = parent_ref if uses_parent_ref else array_schema.get("$ref")

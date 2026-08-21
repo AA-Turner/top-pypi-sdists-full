@@ -12,16 +12,19 @@ See ZMQ RFC 32 for details.
 from __future__ import annotations
 
 import struct
+from typing import Final, Union
+
+_RawBytes = Union[bytes, bytearray, memoryview]
 
 # Z85CHARS is the base 85 symbol table
-Z85CHARS = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#"
+Z85CHARS: Final = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#"
 # Z85MAP maps integers in [0,84] to the appropriate character in Z85CHARS
-Z85MAP = {c: idx for idx, c in enumerate(Z85CHARS)}
+Z85MAP: Final[dict[int, int]] = {c: idx for idx, c in enumerate(Z85CHARS)}
 
 _85s = [85**i for i in range(5)][::-1]
 
 
-def encode(rawbytes):
+def encode(rawbytes: _RawBytes) -> bytes:
     """encode raw bytes into Z85"""
     # Accepts only byte arrays bounded to 4 bytes
     if len(rawbytes) % 4:
@@ -37,7 +40,7 @@ def encode(rawbytes):
     return bytes(encoded)
 
 
-def decode(z85bytes):
+def decode(z85bytes: str | _RawBytes) -> bytes:
     """decode Z85 bytes to raw bytes, accepts ASCII string"""
     if isinstance(z85bytes, str):
         try:

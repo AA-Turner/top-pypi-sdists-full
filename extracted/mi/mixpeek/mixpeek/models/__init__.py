@@ -410,6 +410,7 @@ from mixpeek.models.execution_history_response import ExecutionHistoryResponse
 from mixpeek.models.explain_retriever_request import ExplainRetrieverRequest
 from mixpeek.models.explain_retriever_response import ExplainRetrieverResponse
 from mixpeek.models.explain_stage_plan import ExplainStagePlan
+from mixpeek.models.explode_spec import ExplodeSpec
 from mixpeek.models.export_format import ExportFormat
 from mixpeek.models.external_connection import ExternalConnection
 from mixpeek.models.external_link import ExternalLink
@@ -503,6 +504,9 @@ from mixpeek.models.iconik_config import IconikConfig
 from mixpeek.models.iconik_credentials import IconikCredentials
 from mixpeek.models.image_extractor_params import ImageExtractorParams
 from mixpeek.models.import_mapping import ImportMapping
+from mixpeek.models.import_request import ImportRequest
+from mixpeek.models.import_response import ImportResponse
+from mixpeek.models.import_row_error import ImportRowError
 from mixpeek.models.index_configuration import IndexConfiguration
 from mixpeek.models.index_recommendation import IndexRecommendation
 from mixpeek.models.index_recommendations_response import IndexRecommendationsResponse
@@ -1219,6 +1223,7 @@ from mixpeek.models.vector_config_spec_model import VectorConfigSpecModel
 from mixpeek.models.vector_data_type import VectorDataType
 from mixpeek.models.vector_index import VectorIndex
 from mixpeek.models.vector_index_definition import VectorIndexDefinition
+from mixpeek.models.vector_join import VectorJoin
 from mixpeek.models.vector_mapping_model import VectorMappingModel
 from mixpeek.models.vector_purpose import VectorPurpose
 from mixpeek.models.vector_type import VectorType

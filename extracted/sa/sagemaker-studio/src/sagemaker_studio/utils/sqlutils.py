@@ -292,15 +292,25 @@ def _execute_irc_connection_query(query: str, resolved_dz_conn: Connection):
         return df
     except Exception as e:
         if (
-            resolved_dz_conn.type == "WORKDAYICEBERGRESTCATALOG"
+            resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES
             and "org.apache.iceberg.exceptions.NotAuthorizedException" in str(e)
         ):
-            spark_catalog_configs = resolved_dz_conn._spark_catalog_configs()
+            # The stored token was rejected, so force a refresh rather than re-reading
+            # the same token from the connection's secret.
+            spark_catalog_configs = resolved_dz_conn._spark_catalog_configs(
+                force_token_refresh=True
+            )
+            if not spark_catalog_configs:
+                raise
             catalog_names = json.loads(spark_catalog_configs["SOURCE_CATALOG_LIST"])
             for catalog_name in catalog_names:
                 access_token = spark_catalog_configs["ACCESS_TOKEN"]
                 spark.conf.set(f"spark.sql.catalog.{catalog_name}.token", access_token)
-            return spark.sql(query)
+            # Force schema resolution like the initial attempt, so a failure of the
+            # retried query surfaces here instead of later, lazily.
+            retried_df = spark.sql(query)
+            retried_df.schema
+            return retried_df
         else:
             raise
 

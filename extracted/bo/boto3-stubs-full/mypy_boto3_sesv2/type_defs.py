@@ -102,6 +102,7 @@ __all__ = (
     "CloudWatchDestinationUnionTypeDef",
     "CloudWatchDimensionConfigurationTypeDef",
     "ComplaintTypeDef",
+    "ConfigurationOverridesTypeDef",
     "ContactListDestinationTypeDef",
     "ContactListTypeDef",
     "ContactTypeDef",
@@ -376,6 +377,7 @@ __all__ = (
     "TopicFilterTypeDef",
     "TopicPreferenceTypeDef",
     "TopicTypeDef",
+    "TrackingConfigurationOverridesTypeDef",
     "TrackingOptionsTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateConfigurationSetEventDestinationRequestTypeDef",
@@ -478,6 +480,11 @@ class CloudWatchDimensionConfigurationTypeDef(TypedDict):
 class ComplaintTypeDef(TypedDict):
     ComplaintSubType: NotRequired[str]
     ComplaintFeedbackType: NotRequired[str]
+
+
+class TrackingConfigurationOverridesTypeDef(TypedDict):
+    OpenTrackingEnabled: NotRequired[FeatureStatusType]
+    ClickTrackingEnabled: NotRequired[FeatureStatusType]
 
 
 class ContactListDestinationTypeDef(TypedDict):
@@ -1414,6 +1421,10 @@ class EventDetailsTypeDef(TypedDict):
     Complaint: NotRequired[ComplaintTypeDef]
 
 
+class ConfigurationOverridesTypeDef(TypedDict):
+    Tracking: NotRequired[TrackingConfigurationOverridesTypeDef]
+
+
 class ListContactListsResponseTypeDef(TypedDict):
     ContactLists: list[ContactListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2142,6 +2153,7 @@ class SendBulkEmailRequestTypeDef(TypedDict):
     ConfigurationSetName: NotRequired[str]
     EndpointId: NotRequired[str]
     TenantName: NotRequired[str]
+    ConfigurationOverrides: NotRequired[ConfigurationOverridesTypeDef]
 
 
 class CreateDeliverabilityTestReportRequestTypeDef(TypedDict):
@@ -2164,6 +2176,7 @@ class SendEmailRequestTypeDef(TypedDict):
     EndpointId: NotRequired[str]
     TenantName: NotRequired[str]
     ListManagementOptions: NotRequired[ListManagementOptionsTypeDef]
+    ConfigurationOverrides: NotRequired[ConfigurationOverridesTypeDef]
 
 
 class CreateConfigurationSetEventDestinationRequestTypeDef(TypedDict):

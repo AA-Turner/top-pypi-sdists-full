@@ -1481,24 +1481,30 @@ def test_xmpp_process_session_timeout(
         FakeClientXMPP, "disconnect", disconnect_no_complete, raising=True
     )
 
-    # Capture the disconnected future created on the client
-    real_init = FakeClientXMPP.__init__
+    # Capture the disconnected future once connect() creates it. It
+    # does not exist yet at __init__ time (see FakeClientXMPP.__init__),
+    # so it must be captured here instead.
+    real_connect = FakeClientXMPP.connect
     disconnected_future: dict[str, Any] = {"fut": None}
 
-    def init_capture(self: FakeClientXMPP, jid: str, password: str) -> None:
-        real_init(self, jid, password)
+    def connect_capture(self: FakeClientXMPP, **kwargs: Any) -> Any:
+        fut = real_connect(self, **kwargs)
         disconnected_future["fut"] = self.disconnected
+        return fut
 
-    monkeypatch.setattr(FakeClientXMPP, "__init__", init_capture, raising=True)
+    monkeypatch.setattr(
+        FakeClientXMPP, "connect", connect_capture, raising=True
+    )
 
-    # Force wait_for() to raise TimeoutError immediately for this disconnected
-    # future.
+    # Force wait_for() to raise TimeoutError immediately, but only for
+    # the disconnected future -- matching by identity rather than call
+    # order keeps this deterministic even if session_start's own
+    # concurrently-scheduled task (MUC join, etc.) happens to call
+    # wait_for() of its own accord first.
     real_wait_for = xmpp_adapter.asyncio.wait_for
-    calls = {"n": 0}
 
     def wait_for_patched(aw: Any, timeout: Optional[float] = None) -> Any:
-        calls["n"] += 1
-        if calls["n"] == 2:
+        if aw is disconnected_future["fut"]:
             # If aw is a coroutine, close it to avoid warnings
             with contextlib.suppress(Exception):
                 if hasattr(aw, "close"):
@@ -3388,13 +3394,10 @@ def test_adapter_keepalive_runner_finally_loop_none(
 
 
 @pytest.mark.skipif(not SLIXMPP_AVAILABLE, reason="Requires slixmpp")
-def test_adapter_keepalive_runner_finally_stop_close_exceptions_suppressed(
+def test_adapter_runner_suppresses_cleanup_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """
-    Cover adapter.py where loop.stop() and loop.close() raise,
-    and exceptions are swallowed.
-    """
+    """Ensure event-loop cleanup errors do not escape the runner."""
     install_fake_slixmpp(monkeypatch)
 
     cfg = xmpp_adapter.XMPPConfig(
@@ -3429,19 +3432,20 @@ def test_adapter_keepalive_runner_finally_stop_close_exceptions_suppressed(
             loop, "run_forever", run_forever_boom, raising=True
         )
 
-        # Make stop/close raise to exercise both except blocks
-        monkeypatch.setattr(
-            loop,
-            "stop",
-            lambda: (_ for _ in ()).throw(RuntimeError("boom-stop")),
-            raising=True,
-        )
-        monkeypatch.setattr(
-            loop,
-            "close",
-            lambda: (_ for _ in ()).throw(RuntimeError("boom-close")),
-            raising=True,
-        )
+        # Raise after real cleanup so the event loop does not leak resources.
+        real_stop = loop.stop
+        real_close = loop.close
+
+        def stop_boom() -> None:
+            real_stop()
+            raise RuntimeError("boom-stop")
+
+        def close_boom() -> None:
+            real_close()
+            raise RuntimeError("boom-close")
+
+        monkeypatch.setattr(loop, "stop", stop_boom, raising=True)
+        monkeypatch.setattr(loop, "close", close_boom, raising=True)
 
         return loop
 

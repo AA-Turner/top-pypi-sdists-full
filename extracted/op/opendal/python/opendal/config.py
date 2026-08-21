@@ -576,7 +576,7 @@ class OnedriveConfig(TypedDict):
     client_secret: NotRequired[str]
     """Microsoft Graph API Application client secret that is in the Azure's app registration portal"""
     enable_versioning: NotRequired[bool]
-    """Deprecated: OneDrive versioning capability is enabled by default. [Deprecated since 0.57.0] OneDrive versioning capability is enabled by default and this option is no longer needed."""
+    """Deprecated: OneDrive supports version listing without this option. [Deprecated since 0.57.0] OneDrive supports version listing without this option."""
     refresh_token: NotRequired[str]
     """Microsoft Graph API (also OneDrive API) refresh token"""
     root: NotRequired[str | os.PathLike[str]]
@@ -747,6 +747,8 @@ class S3Config(TypedDict):
     """endpoint of this backend.  Endpoint must be full uri, e.g.  - AWS S3: `https://s3.amazonaws.com` or `https://s3.{region}.amazonaws.com` - Cloudflare R2: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` - Aliyun OSS: `https://{region}.aliyuncs.com` - Tencent COS: `https://cos.{region}.myqcloud.com` - Minio: `http://127.0.0.1:9000`  If user inputs endpoint without scheme like "s3.amazonaws.com", we will prepend "https://" before it.  - If endpoint is set, we will take user's input first. - If not, we will try to load it from environment. - If still not set, default to `https://s3.amazonaws.com`."""
     external_id: NotRequired[str]
     """external_id for this backend."""
+    profile: NotRequired[str]
+    """AWS profile.  By default, reqsign which is the default credential provider, supplies profile in order: - explicit option - `AWS_PROFILE` environment variable, from which reqsign reads profile from: - `~/.aws/credentials` (or the path specified by `AWS_SHARED_CREDENTIALS_FILE`) - `~/.aws/config` (or the path specified by `AWS_CONFIG_FILE`)"""
     region: NotRequired[str]
     """Region represent the signing region of this endpoint. This is required if you are using the default AWS S3 endpoint.  If using a custom endpoint, - If region is set, we will take user's input first. - If not, we will try to load it from environment."""
     role_arn: NotRequired[str]

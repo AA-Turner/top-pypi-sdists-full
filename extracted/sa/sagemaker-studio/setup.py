@@ -87,6 +87,8 @@ setup(
         "snowflake-sqlalchemy>=1.7.7",
         "sqlalchemy-bigquery>=0.0.7",
         "pydynamodb>=0.7.4",
+        "pymongosql>=0.7.2",
+        "pymongo-auth-aws>=1.3.0",
         "psycopg2-binary>=2.9.10",
         "pymssql>=2.3.8",
         "awswrangler>=3.5.0",

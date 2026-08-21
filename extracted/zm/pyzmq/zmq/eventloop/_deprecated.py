@@ -13,11 +13,10 @@ have tornado ≥ 3.0.
 
 import time
 import warnings
-from typing import Tuple
 
 from zmq import ETERM, POLLERR, POLLIN, POLLOUT, Poller, ZMQError
 
-tornado_version: Tuple = ()
+tornado_version: tuple = ()
 try:
     import tornado
 

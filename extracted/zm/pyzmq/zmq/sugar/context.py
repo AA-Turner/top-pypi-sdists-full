@@ -8,7 +8,7 @@ from __future__ import annotations
 import atexit
 import os
 from threading import Lock
-from typing import Any, Callable, Generic, TypeVar, overload
+from typing import Any, Callable, Generic, TypeVar, cast, overload
 from warnings import warn
 from weakref import WeakSet
 
@@ -72,7 +72,7 @@ class Context(ContextBase, AttributeSetter, Generic[_SocketType]):
     _instance_lock = Lock()
     _instance_pid: int | None = None
     _shadow = False
-    _shadow_obj = None
+    _shadow_obj: Context[_SocketType] | int | None = None
     _warn_destroy_close = False
     _sockets: WeakSet
     # mypy doesn't like a default value here
@@ -194,7 +194,7 @@ class Context(ContextBase, AttributeSetter, Generic[_SocketType]):
 
         .. versionadded:: 14.1
         """
-        from pyczmq import zctx  # type: ignore
+        from pyczmq import zctx
 
         from zmq.utils.interop import cast_int_addr
 
@@ -381,7 +381,7 @@ class Context(ContextBase, AttributeSetter, Generic[_SocketType]):
     def _set_attr_opt(self, name: str, opt: int, value: OptValT) -> None:
         """set default sockopts as attributes"""
         if name in ContextOption.__members__:
-            return self.set(opt, value)
+            return self.set(opt, cast(int, value))
         elif name in SocketOption.__members__:
             self.sockopts[opt] = value
         else:

@@ -73,11 +73,11 @@ PHASE_PIPELINE_LOAD = "pipeline_load"
 #: Emitted ONLY when warm work actually runs: a skipped warmup emits no row,
 #: because "nobody warmed" and "warming was free" are different answers.
 PHASE_WARMUP = "warmup"
-PHASE_CELL_FETCH = "cell_fetch"
+PHASE_GRAPH_FETCH = "graph_fetch"
 #: The arm of ONE delivered or discovered compiled graph. Its duration is the same
 #: quantity the hub stores as the adoption's `duration_ms`, measured once, in
 #: the one place that does the arming.
-PHASE_CELL_ARM = "cell_arm"
+PHASE_GRAPH_ARM = "graph_arm"
 PHASE_FIRST_REQUEST_SERVABLE = "first_request_servable"
 
 # --- the per-COMPONENT decomposition ---------------------------------------
@@ -96,6 +96,18 @@ PHASE_SDK_READY = "sdk_ready"
 #: four components inside a 200 s `weights_fetch` that each measure 180 s were
 #: overlapped, and that is the fact an overlap optimization needs.
 PHASE_COMPONENT_FETCH = "component_fetch"
+#: pgw#1555. The VERIFIED answer to "is this ref already on this pod", per ref,
+#: measured where it is asked (`boot_materialize._materialize`). `reason` is
+#: `resident` or `absent` and `detail` carries `tree_bytes=`.
+#:
+#: It moves no bytes and it is not free: the answer is a manifest match, not an
+#: `is_dir()` (pgw#1511), so on the flagship warm-volume case it re-reads the
+#: whole tree — and a `resident` verdict makes the fetch that follows it VANISH
+#: (`_materialize` `continue`s past `ensure_local`, so no `weights_fetch` row is
+#: ever opened). Without this row the entire boot of a warm 134 GB pod is a hole
+#: in the ladder, and "the volume made the pull a near-no-op" stays a claim
+#: nothing measured.
+PHASE_RESIDENCY_CHECK = "residency_check"
 #: `env_seal.establish` — the settings declaration digest, the boot-frozen
 #: loaded-library digest and the sm/host-ISA derivation that together make the
 #: `toolchain` and `sm` key axes. Guessed at "ms"; this proves it.
@@ -111,16 +123,16 @@ PHASE_DECLARATION_COMPOSE = "declaration_compose"
 #: `detail` carries `nodes=` — a class's trace cost is meaningless without the
 #: graph size it paid for. Never a roll-up: 36 classes is 36 rows.
 PHASE_TRACE_FOR_KEY = "trace_for_key"
-#: Per-class hashing + the fold into `combined_graph_hash`.
+#: Per-specialization hashing + the fold into `combined_graph_hash`.
 PHASE_KEY_FOLD = "key_fold"
 #: One worker->hub compiled graph control-plane round trip (publish-intent /
 #: publish-complete). `function` names the leg. NOTE: there is no worker-side
 #: key LOOKUP to time (the hub resolves the arm), so this is the whole of the
 #: hub RTT the compiled graph path actually pays on a boot.
-PHASE_CELL_HUB_RTT = "cell_hub_rtt"
+PHASE_GRAPH_HUB_RTT = "graph_hub_rtt"
 #: Staging + contract verification of a downloaded compiled graph, before the first
 #: dlopen. The first half of admission.
-PHASE_CELL_VERIFY = "cell_verify"
+PHASE_GRAPH_VERIFY = "graph_verify"
 #: ONE entry's admission: contract parse, constant bind, ingress-assertion
 #: arming and the admission-drift parity check against the artifact's own
 #: generated guards. The second half of admission, and the per-entry parity
@@ -160,8 +172,8 @@ CLASS_SETUP = "setup"      # probes, seals, manifests, handshake
 _CLASS_BY_PHASE: Dict[str, str] = {
     PHASE_HELLO: CLASS_SETUP,
     PHASE_WEIGHTS_FETCH: CLASS_FETCH,
-    PHASE_CELL_FETCH: CLASS_FETCH,
-    PHASE_CELL_ARM: CLASS_LOAD,
+    PHASE_GRAPH_FETCH: CLASS_FETCH,
+    PHASE_GRAPH_ARM: CLASS_LOAD,
     PHASE_PIPELINE_LOAD: CLASS_LOAD,
     # An UNARMED warm pays the compile; an ARMED one pays only the call. The
     # default is the expensive reading; `span(..., klass=)` overrides per row,
@@ -170,13 +182,16 @@ _CLASS_BY_PHASE: Dict[str, str] = {
     PHASE_FIRST_REQUEST_SERVABLE: CLASS_SETUP,
     PHASE_SDK_READY: CLASS_SETUP,
     PHASE_COMPONENT_FETCH: CLASS_FETCH,
+    # FETCH, not SETUP: the verified answer re-reads the tree, so its seconds
+    # are disk bytes and belong beside the fetch they replace.
+    PHASE_RESIDENCY_CHECK: CLASS_FETCH,
     PHASE_ENV_ESTABLISH: CLASS_SETUP,
     PHASE_LIB_MEMO: CLASS_SETUP,
     PHASE_DECLARATION_COMPOSE: CLASS_SETUP,
     PHASE_TRACE_FOR_KEY: CLASS_COMPILE,
     PHASE_KEY_FOLD: CLASS_SETUP,
-    PHASE_CELL_HUB_RTT: CLASS_SETUP,
-    PHASE_CELL_VERIFY: CLASS_LOAD,
+    PHASE_GRAPH_HUB_RTT: CLASS_SETUP,
+    PHASE_GRAPH_VERIFY: CLASS_LOAD,
     PHASE_ENTRY_ADMIT: CLASS_LOAD,
     PHASE_EAGER_READY: CLASS_SETUP,
     PHASE_COMPILED_SWAP: CLASS_SETUP,
@@ -246,6 +261,9 @@ _class_override: Dict[int, str] = {}
 #: Every CUMULATIVE milestone's ms-from-process-start, first write wins. Read
 #: by :func:`reconciliation` and :func:`completeness`.
 _milestone_ms: Dict[str, int] = {}
+#: pgw#1555. Answers "can this worker serve RIGHT NOW", from the one object that
+#: decides it. See :func:`bind_servable_probe` and :func:`in_boot`.
+_servable_probe: Optional[Callable[[], bool]] = None
 
 _process_start_unix: float = 0.0
 
@@ -824,18 +842,65 @@ def servable_ms() -> Optional[int]:
         return _servable_ms
 
 
+def bind_servable_probe(probe: Optional[Callable[[], bool]]) -> None:
+    """Tell the recorder how to ask whether this worker can serve right now.
+
+    ONE authority, and it is the one the hub already routes on: the worker
+    passes `CheckpointMaterialization.ready`, the same value `_state_delta`
+    turns into `available_functions` vs `loading_functions`. A PROBE rather
+    than a pair of open/close calls on purpose — a mismatched pair leaks the
+    window open forever, which is the unbounded table growth :func:`in_boot`
+    exists to prevent. Unbound (tests, cozy-local) behaves exactly as before.
+    """
+    global _servable_probe
+    with _lock:
+        _servable_probe = probe
+
+
 def in_boot() -> bool:
-    """True until :data:`PHASE_FIRST_REQUEST_SERVABLE` is marked.
+    """True while this worker CANNOT SERVE — not merely before its first
+    :data:`PHASE_FIRST_REQUEST_SERVABLE`.
 
     The gate for instrumenting a call site that runs BOTH during boot and in
     steady state — the weights materializer is the load-bearing case:
     it owns the ~230s of a cold boot, and it also runs every time the hub
     delivers a new ref hours later. Recording the steady-state calls would put
     non-boot spans in a boot ladder (so `residual_ms` stops reconciling) and
-    grow the table without bound. Boot ends where the boot number ends.
+    grow the table without bound.
+
+    **pgw#1555: a one-way latch on `_servable_ms` closed the window before any
+    weight moved.** `on_hello_ack` marks the servable milestone the instant
+    `materialization.ready` is true, and a checkpoint config that names NO refs
+    makes that true immediately (`configure` short-circuits to `STATE_READY`).
+    So on the fleet the latch tripped ~1 ms after `hello`, and the config that
+    actually named refs arrived on a LATER ack — with the window already shut.
+    Measured on the standing stack: every one of the last 15 boots carries only
+    `hello` + `first_request_servable` (+ sometimes `eager_ready`) and `bytes=0`
+    in every row, while `worker_activity_events` shows the same pods moving
+    2.74 GB of sd15 fourteen seconds after the window closed. The boot ladder
+    could not see the one phase the whole table exists to measure.
+
+    So the predicate is now the honest one. A worker whose configured refs are
+    materializing is advertising `loading_functions` and the hub is routing
+    elsewhere; it is not in steady state by any definition, and the fetch it is
+    doing is exactly the fetch worth a row. `_servable_ms` itself stays
+    first-write-wins, so THE cold-boot number and every aggregate over it are
+    unchanged — this widens what gets instrumented, never what gets reported as
+    the boot time.
     """
     with _lock:
-        return _servable_ms is None
+        if _servable_ms is None:
+            return True
+        probe = _servable_probe
+    # Outside the lock: the probe reads another object's state and must never
+    # be able to deadlock the recorder against it.
+    if probe is None:
+        return False
+    try:
+        return not probe()
+    except Exception:  # noqa: BLE001 — a broken probe must not gate the work
+        logger.debug("servable probe raised; treating boot as closed", exc_info=True)
+        return False
 
 
 def _union_ms(intervals: List[Tuple[int, int]]) -> int:
@@ -1106,15 +1171,15 @@ SHAPE_ENTRYPOINT: frozenset = SHAPE_EAGER | frozenset({
 #: A boot that ADOPTED a compiled graph the hub named: no trace, no fold — it pays a
 #: download and an admission instead.
 SHAPE_ADOPT: frozenset = SHAPE_ENTRYPOINT | frozenset({
-    PHASE_CELL_FETCH, PHASE_CELL_VERIFY, PHASE_ENTRY_ADMIT, PHASE_CELL_ARM,
+    PHASE_GRAPH_FETCH, PHASE_GRAPH_VERIFY, PHASE_ENTRY_ADMIT, PHASE_GRAPH_ARM,
     PHASE_COMPILED_SWAP,
 })
 #: A boot that MINTED its own compiled graph: declaration, per-class trace, fold, the
 #: publish round trips, then the same admission as an adopt.
 SHAPE_SELF_MINT: frozenset = SHAPE_ADOPT | frozenset({
     PHASE_DECLARATION_COMPOSE, PHASE_TRACE_FOR_KEY, PHASE_KEY_FOLD,
-    PHASE_CELL_HUB_RTT,
-}) - frozenset({PHASE_CELL_FETCH})
+    PHASE_GRAPH_HUB_RTT,
+}) - frozenset({PHASE_GRAPH_FETCH})
 
 #: A boot whose phases explain less of the wall than this is not decomposed.
 #: The acceptance bar: the phases sum to within ~5% of wall.
@@ -1206,7 +1271,7 @@ def recorded_rows() -> List[pb.BootPhase]:
 def reset_for_tests() -> None:
     """Clear all recorder state. Test-only."""
     global _ordinal, _truncated, _servable_ms, _sink
-    global _hello_seen, _pending_servable
+    global _hello_seen, _pending_servable, _servable_probe
     with _lock:
         _rows.clear()
         _ordinal = 0
@@ -1215,6 +1280,7 @@ def reset_for_tests() -> None:
         _sink = None
         _hello_seen = False
         _pending_servable = None
+        _servable_probe = None
         _class_override.clear()
         _milestone_ms.clear()
     _stack_var.set(())
@@ -1224,6 +1290,7 @@ __all__ = [
     "BOOT_ID",
     "BootSpan",
     "bind_sink",
+    "bind_servable_probe",
     "in_boot",
     "unbind_sink",
     "span",
@@ -1256,8 +1323,8 @@ __all__ = [
     "PHASE_WEIGHTS_FETCH",
     "PHASE_PIPELINE_LOAD",
     "PHASE_WARMUP",
-    "PHASE_CELL_FETCH",
-    "PHASE_CELL_ARM",
+    "PHASE_GRAPH_FETCH",
+    "PHASE_GRAPH_ARM",
     "PHASE_FIRST_REQUEST_SERVABLE",
     "PHASE_SDK_READY",
     "PHASE_COMPONENT_FETCH",
@@ -1266,8 +1333,8 @@ __all__ = [
     "PHASE_DECLARATION_COMPOSE",
     "PHASE_TRACE_FOR_KEY",
     "PHASE_KEY_FOLD",
-    "PHASE_CELL_HUB_RTT",
-    "PHASE_CELL_VERIFY",
+    "PHASE_GRAPH_HUB_RTT",
+    "PHASE_GRAPH_VERIFY",
     "PHASE_ENTRY_ADMIT",
     "PHASE_EAGER_READY",
     "PHASE_COMPILED_SWAP",

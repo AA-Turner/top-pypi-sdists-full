@@ -22,16 +22,21 @@ __all__ = [
     'ResiliencyPolicyPolicyRegion',
     'ResiliencyPolicyPolicySoftware',
     'ResiliencyPolicyTimeouts',
+    'V2InputSourceResourceConfiguration',
+    'V2InputSourceResourceConfigurationEks',
+    'V2InputSourceResourceConfigurationResourceTag',
     'V2PolicyAvailabilitySlo',
     'V2PolicyDataRecovery',
     'V2PolicyMultiAz',
     'V2PolicyMultiRegion',
+    'V2ServiceAssociatedSystem',
     'V2ServicePermissionModel',
     'V2ServicePermissionModelCrossAccountRole',
     'GetV2PolicyAvailabilitySloResult',
     'GetV2PolicyDataRecoveryResult',
     'GetV2PolicyMultiAzResult',
     'GetV2PolicyMultiRegionResult',
+    'GetV2ServiceAssociatedSystemResult',
     'GetV2ServicePermissionModelResult',
     'GetV2ServicePermissionModelCrossAccountRoleResult',
 ]
@@ -257,6 +262,175 @@ class ResiliencyPolicyTimeouts(dict):
 
 
 @pulumi.output_type
+class V2InputSourceResourceConfiguration(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cfnStackArn":
+            suggest = "cfn_stack_arn"
+        elif key == "designFileS3Url":
+            suggest = "design_file_s3_url"
+        elif key == "resourceTags":
+            suggest = "resource_tags"
+        elif key == "tfStateFileUrl":
+            suggest = "tf_state_file_url"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in V2InputSourceResourceConfiguration. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        V2InputSourceResourceConfiguration.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        V2InputSourceResourceConfiguration.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cfn_stack_arn: Optional[_builtins.str] = None,
+                 design_file_s3_url: Optional[_builtins.str] = None,
+                 eks: Optional['outputs.V2InputSourceResourceConfigurationEks'] = None,
+                 resource_tags: Optional[Sequence['outputs.V2InputSourceResourceConfigurationResourceTag']] = None,
+                 tf_state_file_url: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str cfn_stack_arn: CloudFormation stack ARN.
+        :param _builtins.str design_file_s3_url: S3 URL.
+        :param 'V2InputSourceResourceConfigurationEksArgs' eks: EKS configuration. See `eks` Block below.
+        :param Sequence['V2InputSourceResourceConfigurationResourceTagArgs'] resource_tags: Resource tags used for discovery. See `resource_tag` Block below.
+        :param _builtins.str tf_state_file_url: S3 URL.
+               
+               Exactly one attribute must be configured.
+        """
+        if cfn_stack_arn is not None:
+            pulumi.set(__self__, "cfn_stack_arn", cfn_stack_arn)
+        if design_file_s3_url is not None:
+            pulumi.set(__self__, "design_file_s3_url", design_file_s3_url)
+        if eks is not None:
+            pulumi.set(__self__, "eks", eks)
+        if resource_tags is not None:
+            pulumi.set(__self__, "resource_tags", resource_tags)
+        if tf_state_file_url is not None:
+            pulumi.set(__self__, "tf_state_file_url", tf_state_file_url)
+
+    @_builtins.property
+    @pulumi.getter(name="cfnStackArn")
+    def cfn_stack_arn(self) -> Optional[_builtins.str]:
+        """
+        CloudFormation stack ARN.
+        """
+        return pulumi.get(self, "cfn_stack_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="designFileS3Url")
+    def design_file_s3_url(self) -> Optional[_builtins.str]:
+        """
+        S3 URL.
+        """
+        return pulumi.get(self, "design_file_s3_url")
+
+    @_builtins.property
+    @pulumi.getter
+    def eks(self) -> Optional['outputs.V2InputSourceResourceConfigurationEks']:
+        """
+        EKS configuration. See `eks` Block below.
+        """
+        return pulumi.get(self, "eks")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceTags")
+    def resource_tags(self) -> Optional[Sequence['outputs.V2InputSourceResourceConfigurationResourceTag']]:
+        """
+        Resource tags used for discovery. See `resource_tag` Block below.
+        """
+        return pulumi.get(self, "resource_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="tfStateFileUrl")
+    def tf_state_file_url(self) -> Optional[_builtins.str]:
+        """
+        S3 URL.
+
+        Exactly one attribute must be configured.
+        """
+        return pulumi.get(self, "tf_state_file_url")
+
+
+@pulumi.output_type
+class V2InputSourceResourceConfigurationEks(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "clusterArn":
+            suggest = "cluster_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in V2InputSourceResourceConfigurationEks. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        V2InputSourceResourceConfigurationEks.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        V2InputSourceResourceConfigurationEks.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cluster_arn: _builtins.str,
+                 namespaces: Sequence[_builtins.str]):
+        """
+        :param _builtins.str cluster_arn: Cluster ARN.
+        :param Sequence[_builtins.str] namespaces: List of Kubernetes namespaces within the EKS cluster.
+        """
+        pulumi.set(__self__, "cluster_arn", cluster_arn)
+        pulumi.set(__self__, "namespaces", namespaces)
+
+    @_builtins.property
+    @pulumi.getter(name="clusterArn")
+    def cluster_arn(self) -> _builtins.str:
+        """
+        Cluster ARN.
+        """
+        return pulumi.get(self, "cluster_arn")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespaces(self) -> Sequence[_builtins.str]:
+        """
+        List of Kubernetes namespaces within the EKS cluster.
+        """
+        return pulumi.get(self, "namespaces")
+
+
+@pulumi.output_type
+class V2InputSourceResourceConfigurationResourceTag(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str key: Tag key.
+        :param Sequence[_builtins.str] values: List of tag values.
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        Tag key.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        List of tag values.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class V2PolicyAvailabilitySlo(dict):
     def __init__(__self__, *,
                  target: _builtins.float):
@@ -433,6 +607,41 @@ class V2PolicyMultiRegion(dict):
         Recovery time objective in minutes.
         """
         return pulumi.get(self, "rto_in_minutes")
+
+
+@pulumi.output_type
+class V2ServiceAssociatedSystem(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "systemArn":
+            suggest = "system_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in V2ServiceAssociatedSystem. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        V2ServiceAssociatedSystem.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        V2ServiceAssociatedSystem.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 system_arn: _builtins.str):
+        """
+        :param _builtins.str system_arn: ARN of the system to associate with the service.
+        """
+        pulumi.set(__self__, "system_arn", system_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="systemArn")
+    def system_arn(self) -> _builtins.str:
+        """
+        ARN of the system to associate with the service.
+        """
+        return pulumi.get(self, "system_arn")
 
 
 @pulumi.output_type
@@ -647,6 +856,24 @@ class GetV2PolicyMultiRegionResult(dict):
         Recovery time objective in minutes.
         """
         return pulumi.get(self, "rto_in_minutes")
+
+
+@pulumi.output_type
+class GetV2ServiceAssociatedSystemResult(dict):
+    def __init__(__self__, *,
+                 system_arn: _builtins.str):
+        """
+        :param _builtins.str system_arn: ARN of the associated system.
+        """
+        pulumi.set(__self__, "system_arn", system_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="systemArn")
+    def system_arn(self) -> _builtins.str:
+        """
+        ARN of the associated system.
+        """
+        return pulumi.get(self, "system_arn")
 
 
 @pulumi.output_type

@@ -561,6 +561,7 @@ class GrpcCutout:
         # validate references in layout
         _netsClip = [net.core for net in self._edb.layout.nets if net.name in self.references]
         included_nets_list = net_signals + ref_nets
+        included_net_names = set(self.signals) | set(self.references)
         # included_nets = [net for net in self._edb.layout.nets if net.name in included_nets_list]
         _cutout = self._edb.active_cell.cutout(included_nets_list, _netsClip, _poly, True)
         # Analysis setups do not come over with the clipped design copy,
@@ -576,7 +577,7 @@ class GrpcCutout:
             db2.copy_cells(_dbCells)  # Copies cutout cell/design to db2 project
             if len(list(db2.top_circuit_cells)) > 0:
                 for net in db2.top_circuit_cells[0].layout.nets:
-                    if not net.name in included_nets_list:
+                    if net.name not in included_net_names:
                         net.delete()
                 _success = db2.save()
             for c in self._edb._db.top_circuit_cells:
@@ -784,10 +785,6 @@ class GrpcCutout:
         self._edb.components.refresh_components()
         self.logger.info(f"[WRITE] All writes finished in {time.time() - _t:.3f} s")
 
-        # final save
-        if self.output_file:
-            self._edb.save_as(self.output_file)
-
         self.logger.info_timer("GRPC-safe cut-out completed", _t0)
         return [[pt.x.value, pt.y.value] for pt in extent_poly.without_arcs().points]
 
@@ -856,11 +853,15 @@ class GrpcCutout:
                         self._edb.save_as(legacy_path)
                     working_cutout = True
                     if not self.open_cutout_at_end and self._edb.edbpath != legacy_path:
-                        self._edb.close()
+                        # Keep the RPC server alive so the subsequent open() can reuse it
+                        # without a costly server restart.
+                        self._edb.close(terminate_rpc_session=False)
                         self._edb.edbpath = legacy_path
-                        self._edb.open_edb()
+                        self._edb.open()
                     break
-                self._edb.close()
+                # Cutout attempt failed — restore the original database for the next iteration.
+                # terminate_rpc_session=False keeps the RPC server alive for the reopen.
+                self._edb.close(terminate_rpc_session=False)
                 self._edb.edbpath = legacy_path
                 self._edb.open()
                 i += 1
@@ -1712,11 +1713,11 @@ class DotNetCutout:
                     if not self.open_cutout_at_end and self._edb.edbpath != legacy_path:
                         self._edb.close()
                         self._edb.edbpath = legacy_path
-                        self._edb.open_edb()
+                        self._edb.open()
                     break
                 self._edb.close()
                 self._edb.edbpath = legacy_path
-                self._edb.open_edb()
+                self._edb.open()
                 i += 1
                 expansion = expansion_size * i
             if working_cutout:

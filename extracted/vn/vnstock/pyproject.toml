@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vnstock"
-version = "4.0.6"
+version = "4.0.7"
 description = "A beginner-friendly yet powerful Python toolkit for financial analysis and automation — built to make modern investing accessible to everyone"
 readme = "README.md"
 authors = [
@@ -59,15 +59,18 @@ IssueTracker = "https://github.com/thinh-vu/vnstock/issues"
 [tool.setuptools]
 include-package-data = true
 [tool.setuptools.packages.find]
-exclude = ["build*", "dist*", "tests*", "notebooks*", "scripts*", "vnai*", "vnstock_data*", "vnii*", "docs*", "scripts*", "dev*", "dev-docs*"]
+exclude = ["build*", "dist*", "tests*", "notebooks*", "scripts*", "vnai*", "vnstock_data*", "vnii*", "docs*", "scripts*", "dev*", "dev-docs*", "scratch*", ".agents*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = [".env*", "secrets*", "credentials*", "keys*", "scratch*", "*.log", "*.bak", "*.tmp", ".DS_Store", "__pycache__/*", "*.egg-info/*", ".*"]
 
 [tool.setuptools.package-data]
 vnstock = ["docs/*.txt", "docs/*.csv"]
 
 [tool.ruff]
 line-length = 88
-target-version = "4.0.6"
-extend-exclude = ["*.ipynb", "dev-docs", "notebooks", "tests/archived"]
+target-version = "4.0.7"
+extend-exclude = ["*.ipynb", "dev-docs", "notebooks", "tests", "scratch", "scripts"]
 
 [tool.ruff.lint]
 select = [

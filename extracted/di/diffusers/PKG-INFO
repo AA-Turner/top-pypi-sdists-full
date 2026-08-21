@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: diffusers
-Version: 0.39.0
-Summary: State-of-the-art diffusion in PyTorch and JAX.
+Version: 0.40.0
+Summary: State-of-the-art diffusion in PyTorch.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)
 Author-email: diffusers@huggingface.co
 License: Apache 2.0 License
-Keywords: deep learning diffusion jax pytorch stable diffusion audioldm
+Keywords: deep learning diffusion pytorch stable diffusion audioldm
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -24,7 +24,7 @@ License-File: LICENSE
 Requires-Dist: importlib_metadata
 Requires-Dist: filelock
 Requires-Dist: httpx<1.0.0
-Requires-Dist: huggingface-hub<2.0,>=0.34.0
+Requires-Dist: huggingface-hub<2.0,>=1.23.0
 Requires-Dist: numpy
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: requests
@@ -85,12 +85,10 @@ Requires-Dist: torchao>=0.7.0; extra == "torchao"
 Requires-Dist: accelerate>=0.31.0; extra == "torchao"
 Provides-Extra: nvidia-modelopt
 Requires-Dist: nvidia_modelopt[hf]>=0.33.1; extra == "nvidia-modelopt"
+Provides-Extra: sdnq
+Requires-Dist: sdnq>=0.2.2; extra == "sdnq"
 Provides-Extra: flashpack
 Requires-Dist: flashpack; extra == "flashpack"
-Provides-Extra: flax
-Requires-Dist: jax>=0.4.1; extra == "flax"
-Requires-Dist: jaxlib>=0.4.1; extra == "flax"
-Requires-Dist: flax>=0.4.1; extra == "flax"
 Provides-Extra: dev
 Requires-Dist: urllib3<=2.0.0; extra == "dev"
 Requires-Dist: isort>=5.5.4; extra == "dev"
@@ -128,9 +126,6 @@ Requires-Dist: timm; extra == "dev"
 Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"
 Requires-Dist: torch>=2.6; extra == "dev"
 Requires-Dist: accelerate>=0.31.0; extra == "dev"
-Requires-Dist: jax>=0.4.1; extra == "dev"
-Requires-Dist: jaxlib>=0.4.1; extra == "dev"
-Requires-Dist: flax>=0.4.1; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -212,7 +207,7 @@ Generating outputs is super easy with 🤗 Diffusers. To generate an image from 
 from diffusers import DiffusionPipeline
 import torch
 
-pipeline = DiffusionPipeline.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", torch_dtype=torch.float16)
+pipeline = DiffusionPipeline.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", dtype=torch.float16)
 pipeline.to("cuda")
 pipeline("An image of a squirrel in Picasso style").images[0]
 ```
@@ -259,7 +254,7 @@ Check out the [Quickstart](https://huggingface.co/docs/diffusers/quicktour) to l
 
 We ❤️  contributions from the open-source community!
 If you want to contribute to this library, please check out our [Contribution guide](https://huggingface.co/docs/diffusers/main/en/conceptual/contribution).
-If you are using an AI agent, please point it at the project conventions in [`.ai/`](https://github.com/huggingface/diffusers/tree/main/.ai) first (run `make claude` or `make codex`) — see [Coding with AI agents](https://huggingface.co/docs/diffusers/main/en/conceptual/contribution#coding-with-ai-agents).
+If you are using an AI agent, please point it at the project conventions in [`.ai/`](https://github.com/huggingface/diffusers/tree/main/.ai) first (install them as a plugin with `claude plugin marketplace add huggingface/diffusers`, or a skill at a time with `diffusers-cli skills add <name>`) — see [Coding with AI agents](https://huggingface.co/docs/diffusers/main/en/conceptual/contribution#coding-with-ai-agents).
 You can look out for [issues](https://github.com/huggingface/diffusers/issues) you'd like to tackle to contribute to the library.
 - See [Good first issues](https://github.com/huggingface/diffusers/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) for general opportunities to contribute
 - See [New model/pipeline](https://github.com/huggingface/diffusers/issues?q=is%3Aopen+is%3Aissue+label%3A%22New+pipeline%2Fmodel%22) to contribute exciting new diffusion models / diffusion pipelines

@@ -31,6 +31,23 @@ class Foo(Base): ...
 class Bar(Base): ...
 
 
+def _conflicting_extensions():
+    return [
+        extension.Extension(
+            'backend',
+            importlib.metadata.EntryPoint('backend', 'pkg1:driver', 'backend'),
+            Foo,
+            None,
+        ),
+        extension.Extension(
+            'backend',
+            importlib.metadata.EntryPoint('backend', 'pkg2:driver', 'backend'),
+            Bar,
+            None,
+        ),
+    ]
+
+
 class TestCallback(utils.TestCase):
     def test_detect_plugins(self):
         em: driver.DriverManager[Any]
@@ -82,29 +99,42 @@ class TestCallback(utils.TestCase):
     def test_multiple_drivers(self):
         # The idea for this test was contributed by clayg:
         # https://gist.github.com/clayg/6311348
-        extensions: list[extension.Extension[Any]] = [
-            extension.Extension(
-                'backend',
-                importlib.metadata.EntryPoint(
-                    'backend', 'pkg1:driver', 'backend'
-                ),
-                Foo,
-                None,
-            ),
-            extension.Extension(
-                'backend',
-                importlib.metadata.EntryPoint(
-                    'backend', 'pkg2:driver', 'backend'
-                ),
-                Bar,
-                None,
-            ),
-        ]
+        extensions: list[extension.Extension[Any]] = _conflicting_extensions()
         try:
+            # By default a DriverManager raises when multiple entrypoints in
+            # the namespace share the requested name.
             dm = driver.DriverManager.make_test_instance(extensions[0])
             # Call the initialization code that verifies the extension
             dm._init_plugins(extensions)
         except exception.MultipleMatches as err:
-            self.assertIn("Multiple", str(err))
+            self.assertIn("multiple implementations", str(err))
+            self.assertIn("backend", str(err))
         else:
             self.fail('Should have had an error')
+
+    def test_multiple_drivers_ignore_conflicts(self):
+        # A conflict resolver can be used to select a single driver rather
+        # than raising when there are duplicate names.
+        extensions: list[extension.Extension[Any]] = _conflicting_extensions()
+        dm = driver.DriverManager.make_test_instance(
+            extensions[0], conflict_resolver=extension.ignore_conflicts
+        )
+        dm._init_plugins(extensions)
+        # ignore_conflicts keeps the last entrypoint found
+        self.assertEqual(1, len(dm.extensions))
+        self.assertIs(Bar, dm.driver)
+
+    def test_multiple_drivers_custom_resolver(self):
+        # A custom conflict resolver receives the namespace, name and the
+        # list of conflicting extensions, and returns the one to use.
+        extensions: list[extension.Extension[Any]] = _conflicting_extensions()
+
+        def prefer_first(namespace, name, conflicting):
+            return conflicting[0]
+
+        dm = driver.DriverManager.make_test_instance(
+            extensions[0], conflict_resolver=prefer_first
+        )
+        dm._init_plugins(extensions)
+        self.assertEqual(1, len(dm.extensions))
+        self.assertIs(Foo, dm.driver)

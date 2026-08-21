@@ -1,7 +1,6 @@
 import base64
-import mimetypes
 from io import BytesIO
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from urllib.parse import urlparse
 import os
 from pydantic import BaseModel
@@ -9,8 +8,12 @@ from loguru import logger
 import httpx
 import asyncio
 
+from xpander_sdk.utils.safe_fetch import asafe_fetch, safe_fetch
+
 # Provider per-image ceiling (Bedrock/Anthropic ~5MB); env-overridable.
-_MAX_IMAGE_BYTES = int(os.getenv("XPANDER_MAX_INLINE_IMAGE_BYTES", str(5 * 1024 * 1024)))
+_MAX_IMAGE_BYTES = int(
+    os.getenv("XPANDER_MAX_INLINE_IMAGE_BYTES", str(5 * 1024 * 1024))
+)
 _MAX_DOC_BYTES = int(os.getenv("XPANDER_MAX_INLINE_DOC_BYTES", str(15 * 1024 * 1024)))
 _FETCH_TIMEOUT = float(os.getenv("XPANDER_FILE_FETCH_TIMEOUT", "15"))
 
@@ -22,7 +25,9 @@ _MAX_INLINE_TOTAL_CHARS = int(os.getenv("XPANDER_MAX_INLINE_TOTAL_CHARS", "24000
 
 # Extracted text is clipped again per-file downstream; this only stops a converted
 # document (a 6MB spreadsheet renders ~27M chars of Markdown) from being carried around whole.
-_MAX_DOC_MARKDOWN_CHARS = max(1000, int(os.getenv("XPANDER_MAX_DOC_MARKDOWN_CHARS", "200000")))
+_MAX_DOC_MARKDOWN_CHARS = max(
+    1000, int(os.getenv("XPANDER_MAX_DOC_MARKDOWN_CHARS", "200000"))
+)
 
 # Concurrency for per-attachment download+convert; each one blocks on I/O then releases the GIL.
 # Floored at 1 so setting it to 0 to "disable concurrency" serializes instead of raising.
@@ -30,12 +35,29 @@ _ATTACHMENT_WORKERS = max(1, int(os.getenv("XPANDER_ATTACHMENT_WORKERS", "4")))
 
 # Concurrent downloads coexist in memory, so the worker count is also bounded by how many
 # whole attachments we are willing to hold at once.
-_ATTACHMENT_BYTES_BUDGET = int(os.getenv("XPANDER_ATTACHMENT_BYTES_BUDGET", str(64 * 1024 * 1024)))
+_ATTACHMENT_BYTES_BUDGET = int(
+    os.getenv("XPANDER_ATTACHMENT_BYTES_BUDGET", str(64 * 1024 * 1024))
+)
 
 DOC_UNREADABLE_NOTE = (
     "No text could be extracted from this attachment, so its contents are NOT included here; "
     "fetch it via your tools/workspace if you need them"
 )
+
+
+def _charset_of(content_type: Optional[str]) -> str:
+    """Charset from a content-type header, defaulting to utf-8 (was response.text's job)."""
+    if content_type and "charset=" in content_type.lower():
+        cand = (
+            content_type.lower()
+            .split("charset=", 1)[1]
+            .split(";", 1)[0]
+            .strip()
+            .strip('"')
+        )
+        if cand:
+            return cand
+    return "utf-8"
 
 
 def attachment_workers(item_count: int, per_item_bytes: int) -> int:
@@ -49,7 +71,11 @@ def truncate_inline_text(content: str, url: str, remaining: int) -> str:
     cap = min(_MAX_INLINE_TEXT_CHARS, max(0, remaining))
     if len(content) <= cap:
         return content
-    return content[:cap] + f"\n... [truncated: {len(content):,} chars total - full file at {url}]"
+    return (
+        content[:cap]
+        + f"\n... [truncated: {len(content):,} chars total - full file at {url}]"
+    )
+
 
 # Leading-byte signatures for the only raster formats vision providers accept.
 _IMAGE_SIGNATURES = (
@@ -64,11 +90,24 @@ _IWORK_EXTS = {".pages", ".key", ".numbers"}
 
 # What anydoc's format_from_extension() resolves, minus csv (raw injection) and pdf (native path).
 _DOCUMENT_EXTS = {
-    ".docx", ".doc", ".docm",
-    ".xlsx", ".xls", ".xlsm", ".xlsb",
-    ".pptx", ".ppt", ".pptm", ".pot", ".pps", ".ppsx",
-    ".odt", ".ods", ".odp",
-    ".rtf", ".epub",
+    ".docx",
+    ".doc",
+    ".docm",
+    ".xlsx",
+    ".xls",
+    ".xlsm",
+    ".xlsb",
+    ".pptx",
+    ".ppt",
+    ".pptm",
+    ".pot",
+    ".pps",
+    ".ppsx",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".rtf",
+    ".epub",
 } | _IWORK_EXTS
 
 
@@ -79,17 +118,81 @@ class FileCategorization(BaseModel):
     documents: List[str] = []
 
 
-def categorize_files(file_urls: list[str]) -> FileCategorization:
+# Route office/document mimes to the "documents" bucket so they take the anydoc text path, not the vision or raw-inject paths.
+_DOCUMENT_MIMES = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+    "application/rtf",
+    "application/epub+zip",
+    "application/vnd.apple.pages",
+    "application/vnd.apple.keynote",
+    "application/vnd.apple.numbers",
+}
+
+
+# Sentinel: the ref is explicitly a kind we do not bucket (audio/video/archive), so it must NOT
+# fall back to URL extension (a video named clip.png must not be classified as an image).
+_UNCATEGORIZED = "__uncategorized__"
+
+
+def _bucket_from_ref(ref: Any) -> Optional[str]:
+    """Map an AttachmentRef to a bucket, `_UNCATEGORIZED` to force url_only, or None to fall back to extension."""
+    kind = getattr(ref, "kind", None)
+    kind_val = getattr(kind, "value", kind)
+    if kind_val in ("image", "pdf", "document", "text"):
+        return {
+            "image": "images",
+            "pdf": "pdfs",
+            "document": "documents",
+            "text": "files",
+        }[kind_val]
+    if kind_val in ("audio", "video", "archive"):
+        return _UNCATEGORIZED  # a known non-bucketed kind: url_only, never extension-guessed
+    # kind is unknown/None -> consult mime, then (via None) the URL extension
+    mime = (getattr(ref, "mime", None) or "").lower().split(";", 1)[0].strip()
+    if not mime:
+        return None
+    # SVG is XML: read as text, not through the image pipeline.
+    if mime.startswith("image/") and mime != "image/svg+xml":
+        return "images"
+    if mime == "application/pdf":
+        return "pdfs"
+    if mime in _DOCUMENT_MIMES:
+        return "documents"
+    if mime.startswith("text/") or mime in (
+        "application/json",
+        "application/xml",
+        "image/svg+xml",
+    ):
+        return "files"
+    return None
+
+
+def categorize_files(
+    file_urls: list[str], refs: Optional[dict] = None
+) -> FileCategorization:
     """
-    Categorize a list of file URLs into images, PDFs, and human-readable files
-    based on file extensions. Does not load the files.
+    Categorize file URLs into images, PDFs, documents, and human-readable files.
+
+    Classification prefers an AttachmentRef's kind/mime (from *refs*, keyed by URL) so an
+    extension-less or mis-named URL still lands correctly; falls back to the URL extension.
+    Does not load the files.
 
     Args:
         file_urls (list[str]): List of file URLs
+        refs (Optional[dict]): Optional {url: AttachmentRef} for mime/kind-based classification.
 
     Returns:
         FileCategorization: Pydantic model with categorized URLs
     """
+    refs = refs or {}
     image_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"}
     pdf_exts = {".pdf"}
     human_readable_exts = {
@@ -130,17 +233,22 @@ def categorize_files(file_urls: list[str]) -> FileCategorization:
     result = {"images": [], "pdfs": [], "files": [], "documents": []}
 
     for url in file_urls:
-        path = urlparse(url).path
-        _, ext = os.path.splitext(path.lower())
-
-        if ext in image_exts:
-            result["images"].append(url)
-        elif ext in pdf_exts:
-            result["pdfs"].append(url)
-        elif ext in _DOCUMENT_EXTS:
-            result["documents"].append(url)
-        elif ext in human_readable_exts:
-            result["files"].append(url)
+        bucket = _bucket_from_ref(refs.get(url)) if refs else None
+        if bucket == _UNCATEGORIZED:
+            continue  # a known non-bucketed kind: leave it for the plan's url_only path
+        if bucket is None:
+            path = urlparse(url).path
+            _, ext = os.path.splitext(path.lower())
+            if ext in image_exts:
+                bucket = "images"
+            elif ext in pdf_exts:
+                bucket = "pdfs"
+            elif ext in _DOCUMENT_EXTS:
+                bucket = "documents"
+            elif ext in human_readable_exts:
+                bucket = "files"
+        if bucket is not None:
+            result[bucket].append(url)
 
     return FileCategorization(**result)
 
@@ -160,19 +268,24 @@ async def fetch_urls(
         disable_attachment_injection (Optional[bool]): Optional selection if to disable attachment injection to the context window.
     """
 
-    async def fetch(client: httpx.AsyncClient, url: str) -> dict[str, str]:
+    async def fetch(url: str) -> dict[str, str]:
         try:
             if disable_attachment_injection:
                 return {"url": url}
-            response = await client.get(url, timeout=10.0)
-            response.raise_for_status()
-            return {"url": url, "content": response.text}
-        except Exception as e:
-            return {"url": url, "content": f"Error: {str(e)}"}
+            result = await asafe_fetch(url, max_bytes=_MAX_DOC_BYTES, timeout=10.0)
+            return {
+                "url": url,
+                "content": result.content.decode(
+                    _charset_of(result.content_type), errors="replace"
+                ),
+            }
+        except Exception:
+            # The error text can name an internal host; the content is inlined into
+            # the prompt, so return a neutral note instead of the raw exception.
+            return {"url": url, "content": "Error: file could not be read"}
 
-    async with httpx.AsyncClient() as client:
-        tasks = [fetch(client, url) for url in urls]
-        return await asyncio.gather(*tasks)
+    tasks = [fetch(url) for url in urls]
+    return await asyncio.gather(*tasks)
 
 
 class AttachmentDecision(BaseModel):
@@ -196,31 +309,32 @@ async def estimate_sizes(urls: List[str], timeout: float = 2.0) -> dict:
     if not urls:
         return {}
 
-    async def _probe(client: httpx.AsyncClient, url: str) -> Optional[int]:
+    async def _probe(url: str) -> Optional[int]:
         try:
-            resp = await client.head(url)
-            raw = resp.headers.get("content-length")
-            if resp.status_code < 400 and raw is not None:
+            head = await asafe_fetch(url, max_bytes=0, timeout=timeout, method="HEAD")
+            raw = head.headers.get("content-length")
+            if head.status < 400 and raw is not None:
                 return int(raw)
         except Exception:
             pass
         try:
-            resp = await client.get(url, headers={"Range": "bytes=0-0"})
-            content_range = resp.headers.get("content-range") or ""
+            ranged = await asafe_fetch(
+                url, max_bytes=0, timeout=timeout, extra_headers={"Range": "bytes=0-0"}
+            )
+            content_range = ranged.headers.get("content-range") or ""
             if "/" in content_range:
                 total = content_range.rsplit("/", 1)[1].strip()
                 if total.isdigit():
                     return int(total)
             # Host ignored the range and served the whole body.
-            raw = resp.headers.get("content-length")
+            raw = ranged.headers.get("content-length")
             if raw is not None and int(raw) > 1:
                 return int(raw)
         except Exception:
             pass
         return None
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
-        results = await asyncio.gather(*[_probe(client, u) for u in urls], return_exceptions=True)
+    results = await asyncio.gather(*[_probe(u) for u in urls], return_exceptions=True)
     return {u: (r if isinstance(r, int) else None) for u, r in zip(urls, results)}
 
 
@@ -228,13 +342,24 @@ def plan_attachments(
     urls: List[str],
     caps,
     sizes: Optional[dict] = None,
+    refs: Optional[dict] = None,
 ) -> AttachmentPlan:
-    """Decide per-URL attachment handling from (categories, capabilities, known sizes) - pure, no downloads."""
+    """Decide per-URL attachment handling from (categories, capabilities, known sizes) - pure, no downloads.
+
+    *refs* ({url: AttachmentRef}) lets classification use mime/kind and supplies known sizes so the
+    size tier fires without a network probe.
+    """
     plan = AttachmentPlan()
     if not urls:
         return plan
-    sizes = sizes or {}
-    cat = categorize_files(file_urls=urls)
+    refs = refs or {}
+    sizes = dict(sizes or {})
+    # A ref's size fills the size tier without a probe; an explicit `sizes` arg still wins.
+    for u, ref in refs.items():
+        rsize = getattr(ref, "size", None)
+        if rsize is not None and u not in sizes:
+            sizes[u] = rsize
+    cat = categorize_files(file_urls=urls, refs=refs)
     categories = (
         [("image", u) for u in cat.images]
         + [("pdf", u) for u in cat.pdfs]
@@ -246,33 +371,95 @@ def plan_attachments(
 
     skipped_images = 0
     inlined_images = 0
+    overflow_images = 0
     unreadable: List[str] = []
     for category, url in categories:
         size = sizes.get(url)
         if category == "image":
             if not caps.supports_vision:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="skip", reason="model has no vision", size=size))
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url,
+                        category=category,
+                        action="skip",
+                        reason="model has no vision",
+                        size=size,
+                    )
+                )
                 skipped_images += 1
             elif size is not None and size > caps.max_fetch_bytes:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="url_only", reason="huge", size=size))
-                plan.notes.append(f"{url}: too large to attach inline; fetch it via your tools/workspace using the URL")
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url,
+                        category=category,
+                        action="url_only",
+                        reason="huge",
+                        size=size,
+                    )
+                )
+                plan.notes.append(
+                    f"{url}: too large to attach inline; fetch it via your tools/workspace using the URL"
+                )
             elif inlined_images >= caps.max_images:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="url_only", reason="max_images", size=size))
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url,
+                        category=category,
+                        action="url_only",
+                        reason="max_images",
+                        size=size,
+                    )
+                )
+                overflow_images += 1
             else:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="inline", size=size))
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url, category=category, action="inline", size=size
+                    )
+                )
                 inlined_images += 1
         elif category == "pdf":
             if size is not None and size > caps.max_fetch_bytes:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="url_only", reason="huge", size=size))
-                plan.notes.append(f"{url}: too large to attach inline; fetch it via your tools/workspace using the URL")
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url,
+                        category=category,
+                        action="url_only",
+                        reason="huge",
+                        size=size,
+                    )
+                )
+                plan.notes.append(
+                    f"{url}: too large to attach inline; fetch it via your tools/workspace using the URL"
+                )
             elif caps.supports_native_pdf:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="inline", size=size))
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url, category=category, action="inline", size=size
+                    )
+                )
             else:
-                plan.items.append(AttachmentDecision(url=url, category=category, action="text_extract", reason="provider rejects file blobs", size=size))
+                plan.items.append(
+                    AttachmentDecision(
+                        url=url,
+                        category=category,
+                        action="text_extract",
+                        reason="provider rejects file blobs",
+                        size=size,
+                    )
+                )
         elif category in ("document", "readable"):
-            plan.items.append(AttachmentDecision(url=url, category=category, action="text_extract", size=size))
+            plan.items.append(
+                AttachmentDecision(
+                    url=url, category=category, action="text_extract", size=size
+                )
+            )
         else:
-            plan.items.append(AttachmentDecision(url=url, category=category, action="url_only", size=size))
+            plan.items.append(
+                AttachmentDecision(
+                    url=url, category=category, action="url_only", size=size
+                )
+            )
             # No converter for this format (.msg, .zip, extension-less URLs, ...): without
             # this note the model answers about content it never saw.
             unreadable.append(url)
@@ -290,23 +477,20 @@ def plan_attachments(
             f"{skipped_images} image{plural} listed above cannot be viewed by this model; "
             "use tools to process them if needed"
         )
+    if overflow_images:
+        plural = "s" if overflow_images != 1 else ""
+        plan.notes.append(
+            f"{overflow_images} additional image{plural} beyond the per-message limit "
+            f"({caps.max_images}) listed above but not attached; fetch via your tools/workspace using the URLs"
+        )
     return plan
 
 
-def _download(
-    url: str, *, max_bytes: int, timeout: float
-) -> Tuple[bytes, str]:
-    """Stream a URL to bytes, aborting past `max_bytes`; returns (content, lowercased content-type)."""
-    with httpx.Client(follow_redirects=True, timeout=timeout) as client:
-        with client.stream("GET", url) as resp:
-            resp.raise_for_status()
-            ctype = (resp.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
-            buf = bytearray()
-            for chunk in resp.iter_bytes():
-                buf += chunk
-                if len(buf) > max_bytes:
-                    raise ValueError(f"file exceeds {max_bytes} bytes: {url}")
-            return bytes(buf), ctype
+def _download(url: str, *, max_bytes: int, timeout: float) -> Tuple[bytes, str]:
+    """SSRF-guarded stream to bytes, capped at `max_bytes`; returns (content, lowercased content-type)."""
+    result = safe_fetch(url, max_bytes=max_bytes, timeout=timeout)
+    ctype = (result.content_type or "").split(";", 1)[0].strip().lower()
+    return result.content, ctype
 
 
 def _sniff_image(data: bytes) -> Optional[Tuple[str, str]]:
@@ -330,7 +514,10 @@ def fetch_image(
     not a verifiable png/jpeg/gif/webp so callers can drop it instead of feeding garbage to the model.
     """
     content, ctype = _download(url, max_bytes=max_bytes, timeout=timeout)
-    if ctype and not (ctype.startswith("image/") or ctype in ("application/octet-stream", "binary/octet-stream")):
+    if ctype and not (
+        ctype.startswith("image/")
+        or ctype in ("application/octet-stream", "binary/octet-stream")
+    ):
         raise ValueError(f"non-image content-type {ctype!r}: {url}")
     sniffed = _sniff_image(content)
     if sniffed is None:
@@ -381,7 +568,9 @@ def _cap_text(text: str, max_chars: Optional[int] = None) -> str:
 _anydoc_import_warned = False
 
 
-def _document_markdown(data: bytes, ext: str = "", max_chars: Optional[int] = None) -> Optional[str]:
+def _document_markdown(
+    data: bytes, ext: str = "", max_chars: Optional[int] = None
+) -> Optional[str]:
     """Convert office-document bytes to Markdown via anydoc; None means the caller falls back."""
     global _anydoc_import_warned
     try:
@@ -391,7 +580,9 @@ def _document_markdown(data: bytes, ext: str = "", max_chars: Optional[int] = No
         # plain-text extractors, which is invisible at debug level.
         if not _anydoc_import_warned:
             _anydoc_import_warned = True
-            logger.warning(f"anydoc unavailable ({e}); documents fall back to plain-text extraction")
+            logger.warning(
+                f"anydoc unavailable ({e}); documents fall back to plain-text extraction"
+            )
         return None
 
     # Resolved rather than named in an except clause, which would raise AttributeError on a
@@ -411,7 +602,9 @@ def _document_markdown(data: bytes, ext: str = "", max_chars: Optional[int] = No
     return _cap_text(markdown, max_chars)
 
 
-def _iwork_preview_pdf(data: bytes, max_bytes: Optional[int] = None) -> Tuple[Optional[bytes], str]:
+def _iwork_preview_pdf(
+    data: bytes, max_bytes: Optional[int] = None
+) -> Tuple[Optional[bytes], str]:
     """Return (preview_pdf_bytes, status in {"ok","too_large","missing"}) for an iWork zip archive."""
     import zipfile
 
@@ -420,17 +613,24 @@ def _iwork_preview_pdf(data: bytes, max_bytes: Optional[int] = None) -> Tuple[Op
     try:
         with zipfile.ZipFile(BytesIO(data)) as zf:
             names = {n.lower(): n for n in zf.namelist()}
-            candidates = [names[c] for c in ("quicklook/preview.pdf", "preview.pdf") if c in names]
+            candidates = [
+                names[c] for c in ("quicklook/preview.pdf", "preview.pdf") if c in names
+            ]
             candidates += [
-                real for lower, real in names.items()
-                if lower.endswith(".pdf") and "quicklook" in lower and real not in candidates
+                real
+                for lower, real in names.items()
+                if lower.endswith(".pdf")
+                and "quicklook" in lower
+                and real not in candidates
             ]
             for name in candidates:
                 # A member can declare a far larger uncompressed size than the archive that
                 # passed the download cap; skip it and try the remaining candidates.
                 if zf.getinfo(name).file_size > cap:
                     saw_oversized = True
-                    logger.warning(f"iWork preview {name} exceeds {cap} bytes; skipping")
+                    logger.warning(
+                        f"iWork preview {name} exceeds {cap} bytes; skipping"
+                    )
                     continue
                 return zf.read(name), "ok"
     except Exception as e:
@@ -520,7 +720,11 @@ PDF_INLINE_CHARS_PER_KB = int(os.getenv("XPANDER_PDF_INLINE_CHARS_PER_KB", "2"))
 
 def pdf_markdown_disabled() -> bool:
     """True when the env switch keeps every PDF on the native attachment path."""
-    return os.getenv("XPANDER_PDF_MARKDOWN", "").strip().lower() in ("off", "0", "false")
+    return os.getenv("XPANDER_PDF_MARKDOWN", "").strip().lower() in (
+        "off",
+        "0",
+        "false",
+    )
 
 
 def _pdf_markdown_or_none(data: bytes) -> Optional[str]:
@@ -534,21 +738,38 @@ def _pdf_markdown_or_none(data: bytes) -> Optional[str]:
     return None
 
 
+def _looks_like_pdf(data: bytes) -> bool:
+    """Whether the bytes contain the PDF magic; the spec allows leading bytes before %PDF-, so scan the header window."""
+    return b"%PDF-" in data[:1024]
+
+
 def fetch_file(url: str):
     """
     Fetch a remote file from URL and wrap it as a File object.
     Automatically derives filename, name, format, and mime type.
 
-    This is the legacy/kill-switch attachment path and attaches bytes as-is;
-    the text-based-PDF Markdown routing lives in media.prepare_pdf().
+    This is the legacy/kill-switch attachment path. It verifies the PDF magic and
+    raises ValueError on non-PDF bytes (an expired/redirected link serves HTML with
+    a 200); the text-based-PDF Markdown routing lives in media.prepare_pdf().
 
     Args:
         url (str): Remote file URL.
 
     Returns:
         File: Wrapped File object with base64 content.
+
+    Raises:
+        ValueError: the fetched bytes are not a PDF.
     """
     content, _ = _download(url, max_bytes=_MAX_DOC_BYTES, timeout=_FETCH_TIMEOUT)
+
+    # A .pdf URL's extension is not trustworthy - an expired/redirected presigned link
+    # returns HTML with HTTP 200. Verify the magic before wrapping it as a document.
+    # Strip the query string: it can carry a signed token that must not reach logs.
+    if not _looks_like_pdf(content):
+        raise ValueError(
+            f"content is not a PDF (expired or redirected link?): {url.split('?', 1)[0]}"
+        )
 
     # Derive filename from URL
     filename = os.path.basename(url.split("?")[0])
@@ -556,10 +777,10 @@ def fetch_file(url: str):
     # Human-friendly name (strip extension, replace underscores)
     name = os.path.splitext(filename)[0].replace("_", " ")
 
-    # Guess format and mime type
-    ext = os.path.splitext(filename)[1].lstrip(".").lower()
-    mime, _ = mimetypes.guess_type(filename)
-    mime = mime or "application/octet-stream"
+    # Sniffed as a PDF above, so keep format/mime to the agno-accepted document type
+    # rather than mimetypes' guess, which can be octet-stream (rejected at construction).
+    ext = "pdf"
+    mime = "application/pdf"
 
     # Encode content
     content_b64 = base64.b64encode(content).decode("utf-8")

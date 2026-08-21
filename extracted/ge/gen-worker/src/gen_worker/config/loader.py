@@ -38,6 +38,15 @@ _ENV_TO_FIELD: Dict[str, str] = {
     "WORKER_JWT": "bootstrap_worker_jwt",
     "WORKER_RELEASE_ID": "worker_release_id",
     "ENDPOINT_LOCK_PATH": "endpoint_lock_path",
+    # pgw#1466: the cozy-local store roots. Not GEN_WORKER_-prefixed because
+    # they name BOX-SHARED stores that other cozy tools read too, the way
+    # TENSORHUB_CACHE_DIR does.
+    "COZY_WEIGHTS_CAS": "weights_cas_root",
+    "COZY_GRAPH_CAS": "graph_cas_root",
+    "COZY_ARTIFACTS": "artifacts_root",
+    "COZY_ENDPOINT_STATE": "endpoint_state_root",
+    "COZY_HOME": "cozy_home",
+    "BAKED_PROGRAM_CAS_ROOT": "baked_program_cas_root",
     "RUNPOD_POD_ID": "runpod_pod_id",
     "GEN_WORKER_CONFIG_SNAPSHOT_PATH": "config_snapshot_path",
     "WORKER_CONFIG_GENERATION": "boot_config_generation",
@@ -139,9 +148,8 @@ _OWNED_NON_SETTINGS: frozenset[str] = frozenset(REFUSED_KEY_MATERIAL) | frozense
     # the compute child must not be able to reach through the config surface.
     "GEN_WORKER_PROBE",
     "GEN_WORKER_PROBE_PUBLISH_ARMED",
-    # Library/standalone-tool knobs; see scripts/config_reads_allowlist.txt.
+    # Library/standalone-tool knobs.
     "GEN_WORKER_LOG_LEVEL",
-    "GEN_WORKER_LOCAL_CELLS_DIR",
     "GEN_WORKER_CG_KEYSET",
     "GEN_WORKER_LOCAL_OUTPUT_DIR",
     "GEN_WORKER_NATIVE_KERNELS",

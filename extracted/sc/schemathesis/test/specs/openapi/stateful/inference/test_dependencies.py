@@ -4077,6 +4077,73 @@ def test_list_items_behind_nested_all_of_keep_their_fields(ctx):
     assert graph.resources["Volume"].fields == ["id", "name", "region"]
 
 
+def test_externally_tagged_items_behind_one_of_keep_their_fields(ctx):
+    # A paginated list whose items tag their payload with a `oneOf` must still expose that payload's
+    # fields, otherwise the resource degrades to a fieldless stub.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/playlists/{playlist_id}/tracks": {
+                "get": {
+                    "operationId": "listPlaylistTracks",
+                    "parameters": [path_param("playlist_id")],
+                    "responses": {"200": {"content": {"application/json": {"schema": component_ref("TrackPage")}}}},
+                }
+            },
+            "/tracks/{id}": {
+                "get": {
+                    "operationId": "getTrack",
+                    "parameters": [path_param("id")],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "Page": {
+                    "type": "object",
+                    "properties": {"href": {"type": "string"}, "total": {"type": "integer"}},
+                    "required": ["href", "items", "total"],
+                },
+                "TrackPage": {
+                    "type": "object",
+                    "allOf": [
+                        component_ref("Page"),
+                        {
+                            "type": "object",
+                            "properties": {"items": {"type": "array", "items": component_ref("TrackEntry")}},
+                        },
+                    ],
+                },
+                "TrackEntry": {
+                    "type": "object",
+                    "properties": {
+                        "added_at": {"type": "string"},
+                        "track": {"oneOf": [component_ref("Track"), component_ref("Episode")]},
+                    },
+                },
+                "Track": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "album_id": {"type": "string"},
+                    },
+                },
+                "Episode": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "show_id": {"type": "string"}},
+                    "required": ["id", "show_id"],
+                },
+            }
+        },
+    )
+
+    output = graph.operations["GET /playlists/{playlist_id}/tracks"].outputs[0]
+    assert output.pointer == "/items/track"
+    assert output.resource.fields == ["album_id", "id", "name"]
+
+
 def test_all_of_branches_merge_same_named_object_property(ctx):
     # When `allOf` branches each define the same object property, the merged property must union
     # both branches' sub-fields so a FK hidden in the overriding branch is still discovered.
@@ -4124,6 +4191,147 @@ def test_all_of_branches_merge_same_named_object_property(ctx):
 
     nested = [(fk.pointer, fk.target_resource) for fk in graph.resources["VideoDetails"].nested_fk_fields]
     assert ("/account/userId", "User") in nested, nested
+
+
+def test_all_of_base_branch_does_not_shadow_specialized_property(ctx):
+    # A base branch declaring a bare `{"type": "object"}` placeholder must not hide the specialized
+    # branch's fields for the same property, even when the item is reached through a list wrapper.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/stations": {
+                "get": {
+                    "operationId": "listStations",
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": component_ref("StationListDocument")}}}
+                    },
+                }
+            },
+            "/stations/{station_id}": {
+                "get": {
+                    "operationId": "getStation",
+                    "parameters": [path_param("station_id")],
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": component_ref("StationDocument")}}}
+                    },
+                }
+            },
+            "/orgs/{id}": {
+                "get": {
+                    "operationId": "getOrg",
+                    "parameters": [path_param("id")],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "CollectionDocument": {
+                    "properties": {
+                        "attributes": {"type": "object"},
+                        "items": {"type": "array", "items": {"type": "object"}},
+                        "version": {"type": "string"},
+                    },
+                    "required": ["attributes", "items", "version"],
+                },
+                "StationData": {
+                    "properties": {"guid": {"type": "string"}, "orgId": {"type": "string"}},
+                    "required": ["guid", "orgId"],
+                },
+                "StationDocument": {
+                    "allOf": [
+                        component_ref("CollectionDocument"),
+                        {
+                            "properties": {
+                                "attributes": {"$ref": "#/components/schemas/StationData", "description": "Metadata"}
+                            }
+                        },
+                    ]
+                },
+                "StationListDocument": {
+                    "allOf": [
+                        component_ref("CollectionDocument"),
+                        {"properties": {"items": {"type": "array", "items": component_ref("StationDocument")}}},
+                    ]
+                },
+            }
+        },
+    )
+
+    nested = [(fk.pointer, fk.target_resource) for fk in graph.resources["StationDocument"].nested_fk_fields]
+    assert ("/attributes/orgId", "Org") in nested, nested
+
+
+def test_all_of_base_branch_does_not_shadow_specialized_array_items(ctx):
+    # A base branch declaring `items` as an array of bare objects must not hide the element schema
+    # the specialized branch supplies.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/organizations/{org_id}/recommendations": {
+                "get": {
+                    "operationId": "getOverview",
+                    "parameters": [path_param("org_id")],
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": component_ref("OverviewDocument")}}}
+                    },
+                }
+            },
+            "/media/{id}": {
+                "get": {
+                    "operationId": "getMedia",
+                    "parameters": [path_param("id")],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "CollectionDocument": {
+                    "properties": {
+                        "attributes": {"type": "object"},
+                        "items": {"type": "array", "items": {"type": "object"}},
+                        "version": {"type": "string"},
+                    },
+                    "required": ["attributes", "items", "version"],
+                },
+                "AudioData": {"properties": {"mediaId": {"type": "string"}, "title": {"type": "string"}}},
+                "CategoryData": {"properties": {"title": {"type": "string"}}},
+                "OverviewData": {"properties": {"name": {"type": "string"}}},
+                "AudioItemDocument": {
+                    "allOf": [
+                        component_ref("CollectionDocument"),
+                        {"properties": {"attributes": {"$ref": "#/components/schemas/AudioData", "description": "A"}}},
+                    ]
+                },
+                "CategoryListDocument": {
+                    "allOf": [
+                        component_ref("CollectionDocument"),
+                        {
+                            "properties": {
+                                "attributes": {"$ref": "#/components/schemas/CategoryData", "description": "C"},
+                                "items": {"type": "array", "items": component_ref("AudioItemDocument")},
+                            }
+                        },
+                    ]
+                },
+                "OverviewDocument": {
+                    "allOf": [
+                        component_ref("CollectionDocument"),
+                        {
+                            "properties": {
+                                "attributes": {"$ref": "#/components/schemas/OverviewData", "description": "O"},
+                                "items": {"type": "array", "items": component_ref("CategoryListDocument")},
+                            }
+                        },
+                    ]
+                },
+            }
+        },
+    )
+
+    nested = [(fk.pointer, fk.target_resource) for fk in graph.resources["CategoryListDocument"].nested_fk_fields]
+    assert ("/items/*/attributes/mediaId", "Media") in nested, nested
 
 
 def test_body_composition_with_boolean_branch_does_not_crash(ctx):
@@ -6069,3 +6277,36 @@ def test_content_wrapper_unwrapped_around_single_object(ctx):
     )
     [output] = graph.operations["POST /albums"].outputs
     assert (output.resource.name, output.pointer, output.cardinality.value) == ("Album", "/content", "ONE")
+
+
+def test_self_referencing_component_terminates(ctx):
+    # A component that refers to itself must not send reference resolution into infinite recursion.
+    node = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "children": {"type": "array", "items": component_ref("Node")},
+        },
+        "required": ["id"],
+    }
+    # `allOf` is what routes the response schema through `canonicalize`.
+    node_envelope = {"allOf": [component_ref("Node")]}
+    paths = {
+        "/nodes": {
+            "post": {
+                "operationId": "createNode",
+                "responses": {"201": {"content": {"application/json": {"schema": node_envelope}}}},
+            }
+        },
+        "/nodes/{node_id}": {
+            "get": {
+                "operationId": "getNode",
+                "parameters": [path_param("node_id")],
+                "responses": {"200": {"content": {"application/json": {"schema": node_envelope}}}},
+            }
+        },
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Node": node}})
+
+    assert [entry.producer_operation_ref for entry in graph.iter_links()] == ["#/paths/~1nodes/post"]

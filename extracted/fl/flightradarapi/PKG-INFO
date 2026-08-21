@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: FlightRadarAPI
-Version: 1.5.3
+Version: 1.6.0
 Summary: SDK for FlightRadar24
 Project-URL: Homepage, https://github.com/JeanExtreme002/FlightRadarAPI
 Project-URL: Source Code, https://github.com/JeanExtreme002/FlightRadarAPI
@@ -17,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Requires-Dist: beautifulsoup4
-Requires-Dist: brotli
-Requires-Dist: curl-cffi
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: brotli>=1.2.0
+Requires-Dist: curl-cffi>=0.15.0
 Provides-Extra: tests
 Requires-Dist: pytest; extra == 'tests'
 Description-Content-Type: text/markdown

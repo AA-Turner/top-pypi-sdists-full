@@ -115,6 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
+from .interactive import require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -275,11 +276,16 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
-    def generate_base_url(self, token: str) -> str:
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Unknown regions warn by default. The background credential check opts out because the
+        synchronous exporter setup has already emitted the same warning.
+        """
         if self.base_url is not None:
             return self.base_url
 
-        return get_base_url_from_token(token)
+        return get_base_url_from_token(token, warn_unknown_region=warn_unknown_region)
 
 
 @dataclass
@@ -567,7 +573,7 @@ def configure(
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
+            [f-string magic](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
@@ -1734,7 +1740,13 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
-        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
+        # This runs in the background `check_logfire_token` thread, where a warning would be
+        # attributed to the thread rather than to the user's `configure()` call and so wouldn't
+        # be deduplicated against it. The synchronous exporter setup already warns for every
+        # token in the same list, so stay silent here.
+        return LogfireCredentials.from_token(
+            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+        )
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -2037,17 +2049,20 @@ class LogfireCredentials:
                     'No projects found for the current user. You can create a new project with `logfire projects new`'
                 )
                 return None
-            elif (
-                Prompt.ask(
+            else:
+                require_answer(
+                    f'No {project_message} found for the current user{org_message}.',
+                    'logfire projects use PROJECT_NAME --org ORGANIZATION',
+                )
+                expand_search = Prompt.ask(
                     f'No {project_message} found for the current user{org_message}. Choose from all projects?',
                     choices=['y', 'n'],
                     default='y',
                 )
-                == 'n'
-            ):
-                # user didn't want to expand search, print a hint and quit
-                console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
-                return None
+                if expand_search == 'n':
+                    # user didn't want to expand search, print a hint and quit
+                    console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
+                    return None
             # try all projects
             filtered_projects = projects
             organization = None
@@ -2068,6 +2083,10 @@ class LogfireCredentials:
             }
             project_choices_str = '\n'.join(
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
+            )
+            require_answer(
+                f'Several projects are available:\n{project_choices_str}',
+                'logfire projects use PROJECT_NAME --org ORGANIZATION',
             )
             selected_project_key = Prompt.ask(
                 f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
@@ -2119,6 +2138,11 @@ class LogfireCredentials:
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
+                    require_answer(
+                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
+                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
+                        'logfire projects new PROJECT_NAME --default-org',
+                    )
                     organization = Prompt.ask(
                         '\nTo create and use a new project, please provide the following information:\n'
                         'Select the organization to create the project in',
@@ -2128,6 +2152,13 @@ class LogfireCredentials:
             else:
                 organization = organizations[0]
                 if not default_organization:
+                    # Creating a project is a side effect, so this is never assumed --
+                    # `--default-org` is how a caller says yes ahead of time.
+                    require_answer(
+                        f'This would create a project in the organization "{organization}".',
+                        f'logfire projects new PROJECT_NAME --org {organization}',
+                        'logfire projects new PROJECT_NAME --default-org',
+                    )
                     confirm = Confirm.ask(
                         f'The project will be created in the organization "{organization}". Continue?', default=True
                     )
@@ -2136,9 +2167,45 @@ class LogfireCredentials:
 
         project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
+        name_rejected = False
+
+        # The organization is settled by this point -- every branch above either kept the
+        # one that was passed or assigned one -- so the suggestion can name it outright.
+        # Suggestions must carry it: a bare `projects new PROJECT_NAME` handed to someone
+        # who passed `--org` stops at the prompt they had already answered.
+        #
+        # Always `--org <name>`, never `--default-org`, even when that is how the
+        # organization was chosen. Naming it explicitly reproduces the same result either
+        # way, and it cannot go wrong when BOTH flags were passed -- where `--default-org`
+        # would send the retry to the default organization rather than the requested one.
+        def name_remedy(name: str) -> str:
+            """A runnable `projects new`, carrying the organization already settled on."""
+            return f'logfire projects new {name} --org {organization}'
+
         while True:
+            if not project_name:
+                # `project_name_prompt` carries WHY a name is being asked for -- it is
+                # rewritten below when the backend rejects one -- so the refusal repeats
+                # the real reason rather than the generic "none was given".
+                #
+                # Once a name has been rejected there is no good name to suggest: the
+                # default WAS the rejected one, and `project_name_default` is set to `...`
+                # on that path, so suggesting it produces `logfire projects new Ellipsis`
+                # -- which runs, and creates a project called Ellipsis.
+                require_answer(
+                    project_name_prompt.strip(),
+                    name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
+                )
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
+                # A name that was SUPPLIED and is malformed skips the guard above, so
+                # without this the recovery prompt below reads stdin and hangs.
+                require_answer(
+                    f'The project name {project_name!r} is invalid: it may contain lowercase '
+                    'alphanumeric characters and single hyphens, and may not start or end with '
+                    'a hyphen.',
+                    name_remedy('PROJECT_NAME'),
+                )
                 project_name = Prompt.ask(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
@@ -2151,6 +2218,7 @@ class LogfireCredentials:
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
@@ -2158,6 +2226,7 @@ class LogfireCredentials:
                 project_name = None
                 continue
             except InvalidProjectName as exc:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
@@ -2240,8 +2309,15 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = True) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is on by default for every
+            caller; disable it only when the same token has already produced the warning.
+    """
     # default to US for tokens that were created before regions were added:
     region = 'us'
     if match := LOGFIRE_TOKEN_REGION_PATTERN.match(token):
@@ -2253,6 +2329,12 @@ def get_base_url_from_token(token: str) -> str:
             return 'https://logfire-eu.pydantic.info'
 
         if region not in REGIONS:
+            if warn_unknown_region:
+                warn_at_user_stacklevel(
+                    f'Unknown region {region!r} in Logfire token, falling back to the US region. '
+                    f'Known regions: {", ".join(sorted(REGIONS))}.',
+                    category=LogfireConfigWarning,
+                )
             region = 'us'
 
     return REGIONS[region]['base_url']

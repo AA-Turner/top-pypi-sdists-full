@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import inspect
 from enum import Enum
-from typing import Any, Callable, Literal, Mapping, Optional, TypeVar, Union
+from typing import Any, Callable, Literal, Mapping, Optional, Sequence, TypeVar, Union
 
 import pyarrow as pa
 
@@ -4835,6 +4835,103 @@ def array_adjacent_difference(
     )
 
 
+def _zip_with_callback_parameter_count(fn: Callable[..., Underscore]) -> Optional[int]:
+    """
+    The number of positional parameters `fn` accepts, or `None` if it is variadic and so accepts
+    any number.
+    """
+
+    parameters = list(inspect.signature(fn).parameters.values())
+    if any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in parameters):
+        return None
+    return len(
+        [
+            p
+            for p in parameters
+            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+    )
+
+
+def zip_with(
+    *arrs: Underscore,
+    fn: Callable[..., Underscore],
+    item_types: Optional[Sequence[Optional[Union[pa.DataType, type]]]] = None,
+) -> Underscore:
+    """
+    Combines two or more arrays element-wise using a callback, returning an array whose `i`th
+    element is `fn(arrs[0][i], arrs[1][i], ...)`.
+
+    If the arrays have different lengths, the shorter ones are padded with nulls up to the length of
+    the longest, so the callback receives a null for each unmatched position.
+
+    Parameters
+    ----------
+    arrs
+        Two or more arrays, combined positionally.
+    fn
+        A Python function producing an underscore expression, taking one parameter per array.
+    item_types
+        Optional types of each array's items, positionally matching the arrays. When omitted, or for
+        any entry given as `None`, Chalk will attempt to infer that callback input type later from
+        the surrounding function signature.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Order:
+    ...    id: str
+    ...    quantities: list[int]
+    ...    unit_prices: list[float]
+    ...    discounts: list[float]
+    ...    line_totals: list[float] = F.zip_with(
+    ...        _.quantities,
+    ...        _.unit_prices,
+    ...        fn=lambda quantity, unit_price: quantity * unit_price,
+    ...    )
+    ...    discounted_totals: list[float] = F.zip_with(
+    ...        _.quantities,
+    ...        _.unit_prices,
+    ...        _.discounts,
+    ...        fn=lambda quantity, unit_price, discount: quantity * unit_price * (1 - discount),
+    ...    )
+    """
+
+    if len(arrs) < 2:
+        raise ValueError(f"'zip_with' takes at least two arrays, but got {len(arrs)}.")
+
+    callback_parameter_count = _zip_with_callback_parameter_count(fn)
+    if callback_parameter_count is None:
+        # The lambda is built from the callback's parameter names, so `*args` cannot be bound.
+        raise ValueError("'zip_with' needs a callback with one named parameter per array.")
+    if callback_parameter_count != len(arrs):
+        raise ValueError(
+            f"'zip_with' got {len(arrs)} arrays but its callback takes {callback_parameter_count} parameters."
+        )
+
+    if item_types is None:
+        resolved_item_types: list[Optional[pa.DataType]] = [None] * len(arrs)
+    else:
+        if len(item_types) != len(arrs):
+            raise ValueError(f"'zip_with' got {len(arrs)} array(s) but {len(item_types)} entry(ies) in 'item_types'.")
+        resolved_item_types = [
+            (
+                item_type
+                if item_type is None or isinstance(item_type, pa.DataType)
+                else rich_to_pyarrow(item_type, name="zip_with.item_types", respect_nullability=False)
+            )
+            for item_type in item_types
+        ]
+
+    return UnderscoreFunction(
+        "zip_with",
+        *arrs,
+        _underscore_lambda(fn, parameter_types=resolved_item_types),
+    )
+
+
 def array_reduce(
     arr: Underscore,
     initial_value: Underscore | Any,
@@ -8649,5 +8746,6 @@ __all__ = (
     "word_stem",
     "xgboost_regressor",
     "year",
+    "zip_with",
     "scale_vector",
 )

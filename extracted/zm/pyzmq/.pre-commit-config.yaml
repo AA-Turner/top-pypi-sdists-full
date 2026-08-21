@@ -15,7 +15,7 @@ repos:
         additional_dependencies:
           - ruff
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.22  # Use the ref you want to point at
+    rev: 2d496dbc18e31b83a1596685347ffe0b6041daf0  # frozen: 1.0.0
     hooks:
       - id: mdformat
         # Optionally add plugins
@@ -26,7 +26,7 @@ repos:
 
   # autoformat and lint Python code
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.11
+    rev: 39d9ac5938dadb73df0564a45f163e25ff9fa6e2  # frozen: v0.16.1
     hooks:
       - id: ruff
         types_or:
@@ -43,7 +43,7 @@ repos:
         exclude: zmq/constants.py
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.1
+    rev: 41e691678310dfd3833f7ab4e180ddb014310356  # frozen: v2.3.0
     hooks:
       - id: mypy
         files: zmq/.*
@@ -53,9 +53,35 @@ repos:
         pass_filenames: false
         args: [zmq]
         additional_dependencies:
+          - tornado
+          - types-cffi
+          - types-gevent
           - types-paramiko
+          - types-pexpect
+          - types-tornado
+
+  # github actions security checks
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # frozen: v1.29.0
+    hooks:
+      - id: zizmor
+        args:
+          - --fix=all
+        files: .github/workflows/.*.ya?ml
+
+  # stricter config for wheels
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # frozen: v1.29.0
+    hooks:
+      - id: zizmor
+        name: zizmor-strict
+        args:
+          - --fix=all
+          - --config=zizmor-strict.yaml
+        files: \.github/workflows/wheels\.yml
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: end-of-file-fixer
       - id: check-executables-have-shebangs

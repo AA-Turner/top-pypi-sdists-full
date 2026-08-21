@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: cosmos-xenna
-Version: 0.5.8
+Version: 0.5.9
 Requires-Dist: attrs
 Requires-Dist: cattrs
 Requires-Dist: jinja2
 Requires-Dist: loguru
 Requires-Dist: pulp
-Requires-Dist: ray[default]>=2.56.0,<2.57.0
+Requires-Dist: ray[default]>=2.56.0
 Requires-Dist: tabulate
 Requires-Dist: obstore<0.9.0
 Requires-Dist: portpicker>=1.6.0

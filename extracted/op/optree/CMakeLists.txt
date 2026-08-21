@@ -226,6 +226,52 @@ if(DEFINED Python_ROOT_DIR)
     message(STATUS "Use Python_ROOT_DIR: \"${Python_ROOT_DIR}\"")
 endif()
 
+if(NOT DEFINED Python_FIND_ABI AND CMAKE_VERSION VERSION_GREATER_EQUAL 4.1.2)
+    # CMake < 4.1.2 mishandles an explicit `Python_FIND_ABI` when `Development.Module` has no
+    # library artifact. Leave the hint undefined for these versions so that `FindPython` uses its
+    # legacy discovery: https://gitlab.kitware.com/cmake/cmake/-/issues/27192
+    #
+    # For newer CMake versions, tell `FindPython` (invoked by pybind11 below) which ABI this
+    # interpreter uses. This lets `FindPython` select matching artifacts, including the debug import
+    # library `python{X}{Y}{t}_d.lib` on Windows.
+    #
+    # CMake 4.4.0 finds the Windows debug import library but incorrectly rejects it. This was fixed
+    # in 4.4.1: https://gitlab.kitware.com/cmake/cmake/-/issues/27969
+    #
+    # Read `Py_DEBUG` and `Py_GIL_DISABLED` from `sysconfig`. Fall back to `sys.gettotalrefcount`
+    # when `Py_DEBUG` is unavailable.
+    system(
+        STRIP OUTPUT_VARIABLE Python_ABI_Py_DEBUG
+        COMMAND "${Python_EXECUTABLE}" -c
+            [=[
+import sys
+import sysconfig
+
+Py_DEBUG = (
+    bool(int(sysconfig.get_config_var('Py_DEBUG') or '0'))
+    if sysconfig.get_config_var('Py_DEBUG') is not None
+    else hasattr(sys, 'gettotalrefcount')
+)
+print('ON' if Py_DEBUG else 'OFF')
+]=]
+    )
+    system(
+        STRIP OUTPUT_VARIABLE Python_ABI_Py_GIL_DISABLED
+        COMMAND "${Python_EXECUTABLE}" -c
+            [=[
+import sysconfig
+
+Py_GIL_DISABLED = bool(int(sysconfig.get_config_var('Py_GIL_DISABLED') or '0'))
+print('ON' if Py_GIL_DISABLED else 'OFF')
+]=]
+    )
+
+    # `Python_FIND_ABI` is `<pydebug>;<pymalloc>;<unicode>;<gil_disabled>`.
+    # Keep `pymalloc` and `unicode` `OFF` because supported Python versions do not use either flag.
+    # On Windows, `ANY` also generates invalid candidates such as `<none>_d`.
+    set(Python_FIND_ABI "${Python_ABI_Py_DEBUG}" "OFF" "OFF" "${Python_ABI_Py_GIL_DISABLED}")
+endif()
+
 if(NOT DEFINED Python_INCLUDE_DIR)
     message(STATUS "Auto detecting Python include directory...")
     system(
@@ -329,17 +375,29 @@ foreach(
     CMAKE_OSX_DEPLOYMENT_TARGET
     CMAKE_OSX_ARCHITECTURES
     Python_ROOT_DIR
+    Python_FIND_ABI
+    Python_SOABI
+    Python_SOSABI
     Python_INCLUDE_DIR
     Python_INCLUDE_DIRS
     Python_LIBRARY
+    Python_LIBRARY_DEBUG
+    Python_LIBRARY_RELEASE
     Python_LIBRARIES
+    Python_LIBRARY_DIRS
+    Python_RUNTIME_LIBRARY_DIRS
+    Python_DEFINITIONS
+    Python_FREE_THREADED
+    Python_DEBUG_POSTFIX
     PYTHON_MODULE_DEBUG_POSTFIX
     PYTHON_MODULE_EXTENSION
     PYTHON_IS_DEBUG
     SETUPTOOLS_EXT_SUFFIX
 )
-    if(NOT "${${varname}}" STREQUAL "")
+    if(DEFINED "${varname}")
         message(STATUS "Use ${varname}: \"${${varname}}\"")
+    else()
+        message(STATUS "Use ${varname}: (not defined)")
     endif()
 endforeach()
 

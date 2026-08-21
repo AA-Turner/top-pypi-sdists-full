@@ -209,14 +209,19 @@ _STAGE_BY_PHASE: Final[Mapping[str, Stage]] = {
     boot_phases.PHASE_LIB_MEMO: Stage.IMPORTS,
     boot_phases.PHASE_WEIGHTS_FETCH: Stage.SNAPSHOT_PULL,
     boot_phases.PHASE_COMPONENT_FETCH: Stage.SNAPSHOT_PULL,
+    # pgw#1555. SNAPSHOT_PULL and not a stage of its own: it answers the same
+    # question the pull does — how long until this pod holds the tree — and on
+    # a warm volume it REPLACES the pull entirely, so its seconds belong in the
+    # bucket a reader compares warm boots against cold ones in.
+    boot_phases.PHASE_RESIDENCY_CHECK: Stage.SNAPSHOT_PULL,
     boot_phases.PHASE_PIPELINE_LOAD: Stage.MODEL_LOAD,
     boot_phases.PHASE_DECLARATION_COMPOSE: Stage.KEYSET,
     boot_phases.PHASE_TRACE_FOR_KEY: Stage.KEYSET,
     boot_phases.PHASE_KEY_FOLD: Stage.KEYSET,
-    boot_phases.PHASE_CELL_FETCH: Stage.ADOPT,
-    boot_phases.PHASE_CELL_VERIFY: Stage.ADOPT,
-    boot_phases.PHASE_CELL_HUB_RTT: Stage.ADOPT,
-    boot_phases.PHASE_CELL_ARM: Stage.ARM,
+    boot_phases.PHASE_GRAPH_FETCH: Stage.ADOPT,
+    boot_phases.PHASE_GRAPH_VERIFY: Stage.ADOPT,
+    boot_phases.PHASE_GRAPH_HUB_RTT: Stage.ADOPT,
+    boot_phases.PHASE_GRAPH_ARM: Stage.ARM,
     boot_phases.PHASE_ENTRY_ADMIT: Stage.ARM,
     boot_phases.PHASE_WARMUP: Stage.WARMUP,
 }
@@ -716,7 +721,11 @@ def rollup_detail(table: BootStageTable) -> str:
         f"stages={len({s.stage for s in table.spans})}",
         f"spans={len(table.spans)}",
     ]
-    for key in ("keys_from", "classes", "family"):
+    # pgw#1373: `keys_from` was the keyset ladder's axis and the ladder is
+    # deleted, so nothing writes it. A roll-up that keeps ASKING for a key
+    # nothing produces reads as "the boot had no key source" rather than "that
+    # question no longer exists".
+    for key in ("classes", "family"):
         value = table.attr(key)
         if value:
             parts.append(f"{key}={value}")

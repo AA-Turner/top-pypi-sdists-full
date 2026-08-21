@@ -2,10 +2,19 @@
 Worker entrypoint module.
 
 This is the main entry point for running a Cozy worker. It loads the manifest,
-discovers user functions, and starts the worker loop.
+discovers the image's ``@entrypoint`` declarations, and starts the worker loop.
 
 Usage:
     python -m gen_worker.entrypoint
+
+**THE MODULE NAME IS A WIRE CONTRACT (th#2168).** Every hub-synthesized
+Dockerfile writes ``ENTRYPOINT ["python3", "-m", "gen_worker.entrypoint"]``
+(`internal/builder/image/generate_dockerfile.go`) and the publish gate REFUSES
+an image whose entrypoint does not run it (`matchesWorkerEntrypoint`,
+`internal/builder/executor.go`). A `worker_main` rename therefore killed every
+image built from a live endpoint pin at CONTAINER START, before any refusal
+class could speak. The name is restored here and does not move again without
+the hub half moving in the same window.
 """
 
 import os
@@ -78,8 +87,7 @@ from . import worker_credential
 from .cuda_probe import CUDA_PROBE_FAILED_MARKER, probe_cuda, should_probe_cuda
 from .hardware_report import report_hardware_unsuitable
 from .manifest_blocks import (
-    DECLARATION_BLOCKS,
-    block_counts,
+    DECLARATION_BLOCK,
     declaration_rows,
     declared_row_count,
 )
@@ -190,13 +198,11 @@ def load_manifest(path: Path = MANIFEST_PATH) -> Optional[Dict[str, Any]]:
 
 
 def get_modules_from_manifest(manifest: Dict[str, Any]) -> List[str]:
-    """Every user module this image must import, from BOTH declaration blocks.
+    """Every user module this image must import, from ``entrypoints[]``.
 
-    pgw#1354: this walked ``functions[]`` alone, so a jobs-only package
-    (te#218 re-authored every conversion package that way — 27 jobs, 0
-    functions) yielded no modules and the boot below refused before hello.
-    Extended rather than paired with a second jobs walk: `manifest_blocks`
-    owns the one row derivation, and both this and the CUDA probe feed off it.
+    One block since pgw#1373; `manifest_blocks` owns the row derivation and
+    both this and the CUDA probe feed off it, so neither can go blind on a
+    shape the other was written for (pgw#1354, pgw#1395).
     """
     modules = set()
     for row in declaration_rows(manifest):
@@ -437,15 +443,11 @@ def _run_main() -> int:
             logger.error(str(e))
             return 1
         user_modules = get_modules_from_manifest(manifest)
-        counts = block_counts(manifest)
         _log_startup_phase(
             "manifest_loaded",
             status="ok",
             manifest_path=str(manifest_path),
-            function_count=counts["functions"],
-            # A boot log that counted only functions read "0 declarations" on
-            # the images the jobs program exists to run (pgw#1354).
-            job_count=counts["jobs"],
+            entrypoint_count=declared_row_count(manifest),
             module_count=len(user_modules),
         )
     else:
@@ -546,20 +548,19 @@ def _run_main() -> int:
         # different owners: no manifest at all is a Dockerfile that never ran
         # discovery, while declarations-without-modules is a manifest this wheel
         # cannot read (a block it does not walk, or rows with no `module`).
-        counts = block_counts(manifest)
         declared = declared_row_count(manifest)
         if manifest and declared:
             reason = (
-                f"the manifest at {manifest_path} declares "
-                f"{counts['functions']} function(s) and {counts['jobs']} job(s) "
-                f"but no row carries a `module`, so this image has nothing to "
-                f"import. Declaration blocks this build walks: "
-                f"{', '.join(DECLARATION_BLOCKS)}."
+                f"the manifest at {manifest_path} declares {declared} "
+                f"entrypoint(s) but no row carries a `module`, so this image "
+                f"has nothing to import. The block this build walks is "
+                f"{DECLARATION_BLOCK!r}."
             )
         elif manifest:
             reason = (
-                f"the manifest at {manifest_path} declares no functions and no "
-                f"jobs — this image publishes nothing and cannot serve."
+                f"the manifest at {manifest_path} declares no "
+                f"{DECLARATION_BLOCK!r} — this image publishes nothing and "
+                f"cannot serve."
             )
         else:
             reason = (
@@ -603,27 +604,3 @@ def _run_main() -> int:
 
 if __name__ == "__main__":
     sys.exit(_run_main())
-
-
-# ---------------------------------------------------------------------------
-# pgw#1370 INTERIM (name collision, flagged for pgw#1372/#1373): the reviewed
-# author surface spells `from gen_worker import entrypoint` for the DECORATOR
-# (gen_worker.api.entrypoint), while THIS module is the worker process entry
-# (`python -m gen_worker.entrypoint`, pinned in every fleet Dockerfile).
-# Renaming the module is a fleet-wide coordinated change; until that ruling,
-# this module is made CALLABLE and delegates to the decorator, so both
-# spellings work at runtime. Type checkers see the module; author repos type
-# against gen_worker.api.entrypoint directly.
-import sys as _sys
-import types as _types
-from typing import Any as _Any
-
-
-class _CallableEntrypointModule(_types.ModuleType):
-    def __call__(self, fn: _Any) -> _Any:
-        from .api.entrypoint import entrypoint as _decorator
-
-        return _decorator(fn)
-
-
-_sys.modules[__name__].__class__ = _CallableEntrypointModule

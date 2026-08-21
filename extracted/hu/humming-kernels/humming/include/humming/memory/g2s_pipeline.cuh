@@ -24,6 +24,7 @@ private:
 
   static constexpr bool kUseMBarrier = Ctx::kUseMBarrier;
   static constexpr bool kUseCpAsync = Ctx::kUseCpAsync;
+  static constexpr bool kUseWarpSpec = Ctx::kUseWarpSpec;
   static constexpr bool kUseTma = Ctx::kUseTma;
   static constexpr bool kUseTmaA = Ctx::kUseTmaA;
   static constexpr bool kUseTmaAS = Ctx::kUseTmaAS && !Ctx::kIsIndexedGemm;
@@ -143,17 +144,18 @@ public:
         loader_bs2(ctx),
         loader_bzp(ctx),
         loader_bias(ctx) {
-
-    if (ctx.load_thread_id() == 0) {
-      if constexpr (kUseTmaA) prefetch_tensor_map(ctx.params.a);
-      if constexpr (kUseTmaAS) prefetch_tensor_map(ctx.params.as);
-      if constexpr (kUseTmaB) prefetch_tensor_map(ctx.params.b);
-      if constexpr (kUseTmaBS) prefetch_tensor_map(ctx.params.bs);
-      if constexpr (kUseTmaBS2) prefetch_tensor_map(ctx.params.bs2);
-      if constexpr (kUseTmaBZP) prefetch_tensor_map(ctx.params.bzp);
-      if constexpr (kUseTmaBias) prefetch_tensor_map(ctx.params.bias);
+    if constexpr (!kUseWarpSpec) {
+      if (ctx.load_thread_id() == 0) {
+        if constexpr (kUseTmaA) prefetch_tensor_map(ctx.params.a);
+        if constexpr (kUseTmaAS) prefetch_tensor_map(ctx.params.as);
+        if constexpr (kUseTmaB) prefetch_tensor_map(ctx.params.b);
+        if constexpr (kUseTmaBS) prefetch_tensor_map(ctx.params.bs);
+        if constexpr (kUseTmaBS2) prefetch_tensor_map(ctx.params.bs2);
+        if constexpr (kUseTmaBZP) prefetch_tensor_map(ctx.params.bzp);
+        if constexpr (kUseTmaBias) prefetch_tensor_map(ctx.params.bias);
+      }
+      __syncwarp();
     }
-    __syncwarp();
   }
 
   CUDA_INLINE static void init_mbarrier(Ctx &ctx) {
@@ -177,7 +179,7 @@ public:
       }
 
       if (thread_id < kNumStages + 2) __mbarrier_init(&smem.load_mbar[thread_id], count);
-      uint32_t factor = (kMultiCastSize > 1 && cluster_rank == 0 && thread_id < kNumStages) ? kMultiCastSize : 1;
+      uint32_t factor = (kMultiCastSize > 1 && cluster_rank == 0 && thread_id < SharedStorage::kNumMathMbarriers) ? kMultiCastSize : 1;
       if constexpr (Ctx::kUseWarpSpec) {
         if (thread_id < SharedStorage::kNumMathMbarriers) {
           __mbarrier_init(&smem.math_mbar[thread_id], kNumMathThreads * factor);
@@ -242,6 +244,16 @@ public:
     expect_tma_load<kHasChannelTmaMBarrier>(channel_mbar_ptr, load_bytes.x);
   }
 
+  CUDA_INLINE void prefetch_stage() {
+    loader_a.prefetch_tma();
+    loader_b.prefetch_tma();
+    loader_as.prefetch_tma();
+    loader_bs.prefetch_tma();
+    loader_bs2.prefetch_tma();
+    loader_bzp.prefetch_tma();
+    loader_bias.prefetch_tma();
+  }
+
   template <bool kHasTmaMBarrier>
   CUDA_INLINE void expect_tma_load(uint64_t *mbar_ptr, uint32_t bytes) {
     if constexpr (kUseMBarrier && kHasTmaMBarrier) {
@@ -268,9 +280,6 @@ public:
   CUDA_INLINE void wait_stage(uint32_t stage_id) {
     mbarrier_wait(&ctx.smem.math_mbar[stage_id], phases[stage_id], "Humming producer waiting for math stage");
     if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-    if constexpr (get_stage_load_bytes().x > 0) {
-      tma_fence_async_shared();
-    }
     phases[stage_id] ^= 1;
   }
 
@@ -285,9 +294,6 @@ public:
   CUDA_INLINE void wait_math_epilogue() {
     mbarrier_wait(&ctx.smem.math_mbar[kNumStages], phases[kNumStages], "Humming producer waiting for epilogue");
     if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-    if constexpr (get_stage_load_bytes<true>().x > 0 || get_channel_load_bytes().x > 0) {
-      tma_fence_async_shared();
-    }
     phases[kNumStages] ^= 1;
   }
 
@@ -378,7 +384,7 @@ public:
     auto &smem = ctx.smem;
     mbarrier_arrive(&smem.math_mbar[stage_id]);
     if constexpr (kMultiCastSize > 1) {
-      if (ctx.cluster_rank() >= 1 && stage_id < kNumStages) {
+      if (ctx.cluster_rank() >= 1 && stage_id < SharedStorage::kNumMathMbarriers) {
         void *aa = __cluster_map_shared_rank(&smem.math_mbar[stage_id], 0);
         mbarrier_arrive<true>(aa);
       }

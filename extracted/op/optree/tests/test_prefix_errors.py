@@ -15,8 +15,10 @@
 
 # pylint: disable=missing-function-docstring,invalid-name
 
+import builtins
 import random
 import re
+import sys
 import textwrap
 from collections import OrderedDict, defaultdict, deque
 
@@ -25,6 +27,8 @@ import pytest
 import optree
 from helpers import (
     GLOBAL_NAMESPACE,
+    OPTREE_HAS_FROZENDICT,
+    STANDARD_DICT_TYPES,
     TREES,
     CustomTuple,
     FlatCache,
@@ -58,7 +62,7 @@ def test_different_types():
     with pytest.raises(
         ValueError,
         match=(
-            r'Expected an instance of dict, collections.OrderedDict, or collections.defaultdict, '
+            r'Expected an instance of dict, (frozendict, )?collections.OrderedDict, or collections.defaultdict, '
             r'got .*\.'
         ),
     ):
@@ -88,6 +92,24 @@ def test_different_types():
     optree.tree_map_(lambda x, y: None, lhs, rhs)
     assert lhs_treespec.is_prefix(rhs_treespec)
     () = optree.prefix_errors(lhs, rhs)
+
+    if sys.version_info >= (3, 15) and OPTREE_HAS_FROZENDICT:
+        frozendict = builtins.frozendict  # type: ignore[attr-defined] # pylint: disable=no-member
+
+        # `frozendict` appears in the rendered type list.
+        lhs, rhs = {'a': 1, 'b': 2}, [1, 2]
+        with pytest.raises(
+            ValueError,
+            match=r'Expected an instance of dict, frozendict, collections\.OrderedDict, .*got .*\.',
+        ):
+            optree.tree_map_(lambda x, y: None, lhs, rhs)
+
+        # `dict` is accepted as a prefix of a `frozendict` with the same key set.
+        lhs, rhs = {'a': 1, 'b': 2}, frozendict({'a': 1, 'b': [2, 3]})
+        lhs_treespec, rhs_treespec = optree.tree_structure(lhs), optree.tree_structure(rhs)
+        optree.tree_map_(lambda x, y: None, lhs, rhs)
+        assert lhs_treespec.is_prefix(rhs_treespec)
+        () = optree.prefix_errors(lhs, rhs)
 
 
 def test_different_types_nested():
@@ -388,6 +410,73 @@ def test_different_metadata():
     with pytest.raises(ValueError, match=expected):
         raise e('in_axes')
 
+    if sys.version_info >= (3, 15) and OPTREE_HAS_FROZENDICT:
+        frozendict = builtins.frozendict  # type: ignore[attr-defined] # pylint: disable=no-member
+
+        lhs, rhs = frozendict({'a': 1, 'b': 2}), frozendict({'a': 3, 'c': 4})
+        lhs_treespec, rhs_treespec = optree.tree_structure(lhs), optree.tree_structure(rhs)
+        with pytest.raises(
+            ValueError,
+            match=(
+                r'dictionary key mismatch; expected key\(s\): .*, '
+                r'got key\(s\): .*; frozendict: .*\.'
+            ),
+        ):
+            optree.tree_map_(lambda x, y: None, lhs, rhs)
+        assert not lhs_treespec.is_prefix(rhs_treespec)
+
+        (e,) = optree.prefix_errors(lhs, rhs)
+        expected = re.escape(
+            textwrap.dedent(
+                """
+                pytree structure error: different pytree keys at key path
+                    in_axes tree root
+                """,
+            ).strip(),
+        )
+        with pytest.raises(ValueError, match=expected):
+            raise e('in_axes')
+
+
+def test_different_metadata_heterogeneous_keys():
+    # Regression: formatting the key difference sorted the keys directly, so a dictionary with
+    # mutually incomparable keys raised a `TypeError` out of `prefix_errors()` instead of returning
+    # the error factories. Flattening supports such keys, so the message must too.
+    lhs, rhs = {1: 1, 'a': 2}, {2: 3, 'b': 4}
+    lhs_treespec, rhs_treespec = optree.tree_structure(lhs), optree.tree_structure(rhs)
+    with pytest.raises(
+        ValueError,
+        match=r'dictionary key mismatch; expected key\(s\): .*, got key\(s\): .*; dict: .*\.',
+    ):
+        optree.tree_map_(lambda x, y: None, lhs, rhs)
+    assert not lhs_treespec.is_prefix(rhs_treespec)
+
+    (e,) = optree.prefix_errors(lhs, rhs)
+    # `total_order_sorted()` groups by `{module}.{qualname}`, so `builtins.int` precedes
+    # `builtins.str`.
+    expected = re.escape(
+        textwrap.dedent(
+            """
+            pytree structure error: different pytree keys at key path
+                in_axes tree root
+            At that key path, the prefix pytree in_axes has a subtree of type
+                <class 'dict'>
+            with 2 key(s)
+                [1, 'a']
+            but at the same key path the full pytree has a subtree of type
+                <class 'dict'>
+            but with 2 key(s)
+                [2, 'b']
+            missing key(s):
+                [1, 'a']
+            extra key(s):
+                [2, 'b']
+            """,
+        ).strip(),
+    )
+    with pytest.raises(ValueError, match=expected):
+        raise e('in_axes')
+
 
 def test_different_metadata_nested():
     lhs, rhs = [{1: 2}], [{3: 4}]
@@ -484,10 +573,10 @@ def test_standard_dictionary(
             return
 
         def shuffle_dictionary(x):
-            if type(x) in {dict, OrderedDict, defaultdict}:
+            if type(x) in STANDARD_DICT_TYPES:
                 items = list(x.items())
                 random.shuffle(items)
-                dict_type = random.choice([dict, OrderedDict, defaultdict])
+                dict_type = random.choice(list(STANDARD_DICT_TYPES))
                 if dict_type is defaultdict:
                     return defaultdict(getattr(x, 'default_factory', int), items)
                 return dict_type(items)
@@ -496,7 +585,7 @@ def test_standard_dictionary(
         shuffled_tree = optree.tree_map(
             shuffle_dictionary,
             tree,
-            is_leaf=lambda x: type(x) in {dict, OrderedDict, defaultdict},
+            is_leaf=lambda x: type(x) in STANDARD_DICT_TYPES,
             none_is_leaf=none_is_leaf,
             namespace=namespace,
         )
@@ -508,7 +597,7 @@ def test_standard_dictionary(
         shuffled_suffix_tree = optree.tree_map(
             shuffle_dictionary,
             suffix_tree,
-            is_leaf=lambda x: type(x) in {dict, OrderedDict, defaultdict},
+            is_leaf=lambda x: type(x) in STANDARD_DICT_TYPES,
             none_is_leaf=none_is_leaf,
             namespace=namespace,
         )
@@ -604,6 +693,37 @@ def test_no_errors():
         lhs_treespec, rhs_treespec = optree.tree_structure(lhs), optree.tree_structure(rhs)
         assert lhs_treespec.is_prefix(rhs_treespec)
         () = optree.prefix_errors(lhs, rhs)
+
+
+def test_no_errors_for_custom_node_with_value_dependent_entries():
+    # Regression: a bare `assert` fired on a VALID prefix pair whose custom node reported different
+    # per-instance entries while its metadata agreed. `entries` is an independent element of the
+    # flatten output, so that registration is legal and `broadcast_prefix` accepts it;
+    # `prefix_errors` must return an empty list rather than raise (and it was elided under `-O`).
+    class Tagged:
+        def __init__(self, tags, values):
+            self.tags = list(tags)
+            self.values = list(values)
+
+    optree.register_pytree_node(
+        Tagged,
+        lambda tagged: (tagged.values, None, tagged.tags),  # metadata is always None, entries vary
+        lambda metadata, children: Tagged(range(len(list(children))), children),
+        namespace='value_dependent_entries',
+    )
+    try:
+        kwargs = {'namespace': 'value_dependent_entries'}
+        lhs = Tagged(['x', 'y'], [1, 2])
+        rhs = Tagged(['p', 'q'], [(1, 1), (2, 2)])
+        assert optree.broadcast_prefix(lhs, rhs, **kwargs) == [1, 1, 2, 2]
+        () = optree.prefix_errors(lhs, rhs, **kwargs)
+
+        # A genuine arity mismatch is still reported.
+        (e,) = optree.prefix_errors(lhs, Tagged(['x', 'y', 'z'], [1, 2, 3]), **kwargs)
+        with pytest.raises(ValueError, match=r'different numbers of pytree children'):
+            raise e('in_axes')
+    finally:
+        optree.unregister_pytree_node(Tagged, namespace='value_dependent_entries')
 
 
 def test_different_structure_no_children():

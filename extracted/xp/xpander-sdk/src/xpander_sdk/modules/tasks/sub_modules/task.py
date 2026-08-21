@@ -69,6 +69,7 @@ from xpander_sdk.modules.agents.models.agent import LLMReasoningEffort
 from xpander_sdk.modules.events.utils.generic import get_events_base, get_events_headers
 from xpander_sdk.modules.tasks.models.task import (
     AgentExecutionInput,
+    files_from_attachments,
     AgentExecutionStatus,
     HumanInTheLoopRequest,
     ExecutionMetricsReport,
@@ -77,6 +78,7 @@ from xpander_sdk.modules.tasks.models.task import (
 )
 from xpander_sdk.modules.tasks.utils.files import (
     AttachmentPlan,
+    DOC_UNREADABLE_NOTE,
     categorize_files,
     fetch_urls,
     fetch_file,
@@ -570,11 +572,25 @@ class Task(XPanderSharedModel):
     def _attachment_caps(self) -> ModelCapabilities:
         return self._model_capabilities or DEFAULT_CAPABILITIES
 
+    def _attachment_refs_map(self) -> dict:
+        """{url: AttachmentRef} from the task input, for mime/size-aware classification (empty when none)."""
+        return {a.url: a for a in (self.input.attachments or []) if getattr(a, "url", None)}
+
+    def _file_urls(self) -> list:
+        """The attachment URL list: from attachments when present, else the bare files.
+
+        Reads through files_from_attachments so an attachments-only input (a presigned URL supplied
+        as a ref with no `files` entry) is still processed instead of silently dropped.
+        """
+        return files_from_attachments(self.input.attachments, self.input.files)
+
     def get_attachment_plan(self) -> AttachmentPlan:
         """Per-URL attachment decisions for this task's resolved model capabilities (built once, cached)."""
         if self._attachment_plan is None:
             self._attachment_plan = plan_attachments(
-                self.input.files or [], self._attachment_caps()
+                self.input.files or [],
+                self._attachment_caps(),
+                refs=self._attachment_refs_map(),
             )
         return self._attachment_plan
 
@@ -597,11 +613,25 @@ class Task(XPanderSharedModel):
 
         if not agno_available:
             # Legacy fallback shape: raw URLs when agno's media types are absent.
-            images = [i.url for i in plan.by_category("image") if i.action == "inline"]
-            files = [i.url for i in plan.by_category("pdf") if i.action == "inline"]
+            # Honor disable_attachment_injection here too, or images leak past the gate.
+            if self.disable_attachment_injection:
+                images = []
+                files = []
+            else:
+                images = [
+                    i.url for i in plan.by_category("image") if i.action == "inline"
+                ]
+                files = [i.url for i in plan.by_category("pdf") if i.action == "inline"]
         else:
             for item in plan.by_category("image"):
                 if item.action != "inline":
+                    continue
+                if self.disable_attachment_injection:
+                    # Symmetric with the PDF gate below: this task discards inlined
+                    # content, so do not spend a download on bytes it cannot deliver.
+                    item.action = "url_only"
+                    item.reason = "injection disabled"
+                    plan.notes.append(f"{item.url}: {NO_INJECTION_NOTE}")
                     continue
                 try:
                     image = prepare_image(item.url, caps, item.size)
@@ -611,6 +641,10 @@ class Task(XPanderSharedModel):
                     )
                     item.action = "skip"
                     item.reason = str(e)
+                    plan.notes.append(
+                        f"{item.url}: could not be read as an image; "
+                        "fetch it via your tools/workspace using the URL"
+                    )
                     continue
                 if image is None:
                     item.action = "url_only"
@@ -646,6 +680,10 @@ class Task(XPanderSharedModel):
                     logger.warning(f"dropping unfetchable pdf {item.url}: {outcome}")
                     item.action = "skip"
                     item.reason = str(outcome)
+                    plan.notes.append(
+                        f"{item.url}: could not be read as a PDF; "
+                        "fetch it via your tools/workspace using the URL"
+                    )
                     continue
                 action, payload, note = outcome
                 item.action = "inline" if action == "file" else action
@@ -661,18 +699,25 @@ class Task(XPanderSharedModel):
         self._attachment_pdf_texts = pdf_texts
 
     def _legacy_get_files(self) -> list[Any]:
-        categorized_files = categorize_files(file_urls=self.input.files)
+        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
         if not categorized_files.pdfs:
             return []
         try:
             from agno.media import File  # noqa: F401 - availability probe
-
-            return [fetch_file(url=url) for url in categorized_files.pdfs]
         except Exception:
             return categorized_files.pdfs
+        # Isolate each fetch: one expired/non-PDF link (fetch_file now raises) must
+        # not drop the valid PDFs alongside it.
+        files: list[Any] = []
+        for url in categorized_files.pdfs:
+            try:
+                files.append(fetch_file(url=url))
+            except Exception as e:
+                logger.warning(f"dropping unfetchable/invalid pdf {url}: {e}")
+        return files
 
     def _legacy_get_images(self) -> list[Any]:
-        categorized_files = categorize_files(file_urls=self.input.files)
+        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
         if not categorized_files.images:
             return []
         try:
@@ -702,7 +747,7 @@ class Task(XPanderSharedModel):
             ...     files=files
             ... )
         """
-        if not self.input.files or len(self.input.files) == 0:
+        if not self._file_urls():
             return []
         if media_pipeline_disabled():
             return self._legacy_get_files()
@@ -724,7 +769,7 @@ class Task(XPanderSharedModel):
             ...     images=images
             ... )
         """
-        if not self.input.files or len(self.input.files) == 0:
+        if not self._file_urls():
             return []
         if media_pipeline_disabled():
             return self._legacy_get_images()
@@ -749,10 +794,10 @@ class Task(XPanderSharedModel):
             ...     print(f"File: {file_data['url']}")
             ...     print(f"Content: {file_data['content']}")
         """
-        if not self.input.files or len(self.input.files) == 0:
+        if not self._file_urls():
             return []
 
-        categorized_files = categorize_files(file_urls=self.input.files)
+        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
 
         raw_results: list[Any] = []
         if categorized_files.files:
@@ -768,8 +813,8 @@ class Task(XPanderSharedModel):
         # Office docs aren't model-readable as raw bytes, so extract their text inline.
         if categorized_files.documents and not self.disable_attachment_injection:
             for url, text in extract_documents_text(categorized_files.documents):
-                if text:
-                    raw_results.append({"url": url, "content": text})
+                # Empty extraction was silently dropped; tell the model instead.
+                raw_results.append({"url": url, "content": text or DOC_UNREADABLE_NOTE})
 
         # Cap inlined text per-file and in aggregate so a large CSV/JSON can't blow context.
         results: list[Any] = []
@@ -811,26 +856,48 @@ class Task(XPanderSharedModel):
         if self.input.text:
             message = self.input.text
 
-        if self.input.files and len(self.input.files) != 0:
+        # A JSON payload is machine input a workflow/code node parses; appending the
+        # Files/contents/notes text below would break json.loads. Keep it pristine -
+        # attachments still reach the model as real media parts via get_images()/
+        # get_files(), which the executor always passes.
+        is_json = _is_json_payload(self.input.text or "")
+
+        if not is_json and self._file_urls():
             if len(message) != 0:
                 message += "\n"
-            message += "Files: " + (", ".join(self.input.files))
+            message += "Files: " + (", ".join(self._file_urls()))
 
         # append human readable content like csv and such
-        readable_files = self.get_human_readable_files()
+        readable_files = [] if is_json else self.get_human_readable_files()
 
         # Materialize the attachment plan so provider-rejected PDFs inline as
-        # extracted text and skip/huge/scanned notes reach the agent.
+        # extracted text and skip/huge/scanned notes reach the agent. Still run it for
+        # JSON payloads so get_images()/get_files() are populated - only the text
+        # blocks below are suppressed.
         pdf_texts: List[Dict] = []
         attachment_notes: List[str] = []
-        if self.input.files and not media_pipeline_disabled():
+        if self._file_urls() and not media_pipeline_disabled():
             self._materialize_attachments()
-            remaining = _MAX_INLINE_TOTAL_CHARS
-            for item in self._attachment_pdf_texts or []:
-                content = truncate_inline_text(item["content"], item["url"], remaining)
-                remaining -= len(content)
-                pdf_texts.append({"url": item["url"], "content": content})
-            attachment_notes = list(self.get_attachment_plan().notes)
+            if not is_json:
+                # One shared inline-text budget across readable files AND pdf text,
+                # not a fresh allowance for each (that doubled the real ceiling).
+                used = sum(
+                    len(r["content"])
+                    for r in (readable_files or [])
+                    if isinstance(r, dict) and isinstance(r.get("content"), str)
+                )
+                remaining = max(0, _MAX_INLINE_TOTAL_CHARS - used)
+                for item in self._attachment_pdf_texts or []:
+                    if remaining <= 0:
+                        # Budget spent: stop rather than let each truncation marker
+                        # push the aggregate past the ceiling one URL at a time.
+                        break
+                    content = truncate_inline_text(
+                        item["content"], item["url"], remaining
+                    )
+                    remaining -= len(content)
+                    pdf_texts.append({"url": item["url"], "content": content})
+                attachment_notes = list(self.get_attachment_plan().notes)
 
         if readable_files or pdf_texts:
             message += "\nFiles contents:"
@@ -843,7 +910,8 @@ class Task(XPanderSharedModel):
                 message += f"\n- {note}"
 
         if (
-            self.deep_planning
+            not is_json
+            and self.deep_planning
             and self.deep_planning.enabled == True
             and self.deep_planning.started
         ):
@@ -878,7 +946,9 @@ class Task(XPanderSharedModel):
             sent_at = self.created_at or datetime.now(timezone.utc)
             if sent_at.tzinfo is not None:
                 sent_at = sent_at.astimezone(timezone.utc)
-            message += f"\n\nMessage timestamp (UTC): {sent_at.strftime('%Y-%m-%d %H:%M')}"
+            message += (
+                f"\n\nMessage timestamp (UTC): {sent_at.strftime('%Y-%m-%d %H:%M')}"
+            )
 
         return message
 

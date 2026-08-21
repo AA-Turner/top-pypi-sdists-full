@@ -29,12 +29,18 @@ ENGINE_CLASS_PATHS = {
     "sherpa_onnx_parakeet": (".sherpa_onnx_engine", "SherpaOnnxParakeetEngine"),
     "sherpa_parakeet": (".sherpa_onnx_engine", "SherpaOnnxParakeetEngine"),
     "parakeet_sherpa_onnx": (".sherpa_onnx_engine", "SherpaOnnxParakeetEngine"),
+    "sherpa_onnx_nemotron": (".nemotron_engine", "SherpaOnnxNemotronEngine"),
+    "sherpa_nemotron": (".nemotron_engine", "SherpaOnnxNemotronEngine"),
+    "nemotron_sherpa_onnx": (".nemotron_engine", "SherpaOnnxNemotronEngine"),
+    "nemotron": (".nemotron_engine", "SherpaOnnxNemotronEngine"),
     "sherpa_onnx_moonshine": (".sherpa_onnx_engine", "SherpaOnnxMoonshineEngine"),
     "sherpa_moonshine": (".sherpa_onnx_engine", "SherpaOnnxMoonshineEngine"),
     "moonshine_sherpa_onnx": (".sherpa_onnx_engine", "SherpaOnnxMoonshineEngine"),
     "kroko_onnx": (".kroko_onnx_engine", "KrokoOnnxEngine"),
     "kroko": (".kroko_onnx_engine", "KrokoOnnxEngine"),
     "banafo_kroko": (".kroko_onnx_engine", "KrokoOnnxEngine"),
+    "funasr": (".funasr_engine", "FunASREngine"),
+    "fun_asr": (".funasr_engine", "FunASREngine"),
 }
 
 

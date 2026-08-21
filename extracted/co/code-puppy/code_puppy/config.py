@@ -8,7 +8,7 @@ import pathlib
 from typing import Any, Optional
 
 from code_puppy.config_file import load_config, mutate_config
-from code_puppy.session_storage import save_session
+from code_puppy.session_storage import compute_scope_key, save_session
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +214,18 @@ def get_enable_streaming() -> bool:
     """
     # Default to True for better UX.
     return get_truthy_bool_value("enable_streaming", True)
+
+
+def get_enable_logfire() -> bool:
+    """
+    Get the enable_logfire configuration value.
+    Controls whether Logfire observability instrumentation is enabled.
+    Strictly opt-in: defaults to False.
+    """
+    val = get_value("enable_logfire")
+    if val is None:
+        return False  # Opt-in: no telemetry unless the user asks for it
+    return str(val).lower() in ("1", "true", "yes", "on")
 
 
 def get_retry_main_strategy() -> str:
@@ -479,6 +491,8 @@ def get_config_keys():
     default_keys.append("max_hook_retries")
     # Add streaming control key
     default_keys.append("enable_streaming")
+    # Opt-in Logfire observability (see code_puppy/observability.py)
+    default_keys.append("enable_logfire")
     # Add suppress directory listing key
     default_keys.append("suppress_directory_listing")
     # Add cancel agent key configuration
@@ -2272,6 +2286,7 @@ def auto_save_session_if_enabled() -> bool:
             timestamp=now.isoformat(),
             token_estimator=current_agent.estimate_tokens_for_message,
             auto_saved=True,
+            scope_key=compute_scope_key(pathlib.Path.cwd()),
         )
 
         # Point quick-resume at this save; every turn/exit/finalize routes through

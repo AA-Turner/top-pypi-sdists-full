@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
 from ..hostfacts import cuda_ready
+from .. import scratchrepo
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -60,7 +61,6 @@ from ..api.errors import (
     DatasetNotFoundError,
     DeclaredSlotResolutionError,
 )
-from ..api.slot import ResolvedSlot
 
 # Ref provenance: a resolve boundary must say WHERE the address came from —
 # that, not the HTTP status or message text, decides whether a terminal miss is
@@ -81,6 +81,7 @@ from ..deferred_outputs import (
 from ..io import (
     DEFAULT_IMAGE_FORMAT,
     DEFAULT_IMAGE_QUALITY,
+    ImageFormat,
     encode_image,
     image_format,
 )
@@ -93,47 +94,6 @@ from ..api.types import (
     Tensors,
     VideoAsset,
 )
-
-
-class _SlotTable(Mapping[str, "ResolvedSlot[Any]"]):
-    """``ctx.slots`` — a read-only mapping of slot name -> ResolvedSlot.
-
-    Built once at context construction; resolution FAILURES are stored per-key
-    and raised lazily on ``__getitem__``, so an endpoint whose handler never
-    touches an unresolved slot still dispatches.
-
-    ``declared`` names the failed slots whose ref is the RELEASE'S OWN fixed
-    declaration; those raise the typed ``DeclaredSlotResolutionError`` so the
-    hub can classify the FATAL by origin. A ``Slot(selected_by=...)`` slot
-    keeps the bare ``ValueError`` — the payload participates in picking it, so
-    its failure is not evidence about the release."""
-
-    __slots__ = ("_resolved", "_errors", "_declared")
-
-    def __init__(
-        self,
-        resolved: Mapping[str, "ResolvedSlot[Any]"],
-        errors: Mapping[str, str],
-        declared: Iterable[str] = (),
-    ) -> None:
-        self._resolved = dict(resolved)
-        self._errors = dict(errors)
-        self._declared = frozenset(declared)
-
-    def __getitem__(self, key: str) -> "ResolvedSlot[Any]":
-        if key in self._resolved:
-            return self._resolved[key]
-        if key in self._errors:
-            if key in self._declared:
-                raise DeclaredSlotResolutionError(self._errors[key])
-            raise ValueError(self._errors[key])
-        raise KeyError(key)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter({**self._resolved, **self._errors})
-
-    def __len__(self) -> int:
-        return len(set(self._resolved) | set(self._errors))
 
 
 def _copy_context_metadata(value: _MetaT) -> _MetaT:
@@ -307,13 +267,11 @@ class RequestContext(Generic[D]):
         execution_hints: Optional[Dict[str, Any]] = None,
         models: Optional[Dict[str, Any]] = None,
         loras: Optional[Dict[str, Any]] = None,
-        resolved_slots: Optional[Mapping[str, "ResolvedSlot[Any]"]] = None,
-        slot_errors: Optional[Mapping[str, str]] = None,
-        declared_slot_errors: Optional[Iterable[str]] = None,
-        root_slot: str = "",
         boot_warmup: bool = False,
         publishes: bool = False,
         emits_media: Optional[bool] = None,
+        child_calls: bool = False,
+        handles: Optional[Sequence[str]] = None,
     ) -> None:
         self._request_id = str(request_id or "").strip()
         self._job_id = str(job_id or "").strip() or None
@@ -337,6 +295,13 @@ class RequestContext(Generic[D]):
         # for which the hub minted no `upload_media` grant. Stamped from the
         # spec at dispatch, like `publishes`.
         self._emits_media = emits_media if emits_media is None else bool(emits_media)
+        # pgw#1579/pgw#1580: the two declarations the v1 hardcut dropped while
+        # the hub kept reading them. Same shape as `publishes` above — the
+        # manifest asks the hub for the capability, the spec stamps the same
+        # fact here, and the SDK surface refuses undeclared code at the call
+        # site instead of letting the hub decline a credential mid-request.
+        self._child_calls = bool(child_calls)
+        self._handles: Tuple[str, ...] = tuple(handles or ())
         # Monotonic progress POSITION per phase (pgw#1294). Liveness for a job
         # is position ADVANCE within a phase budget — never pulse, never
         # duration — so a position that goes backwards is a lying instrument
@@ -352,9 +317,6 @@ class RequestContext(Generic[D]):
         self._repo_scope_parse_reported = False
         self._models = _copy_context_metadata(models or {})
         self._loras = _copy_context_metadata(loras or {})
-        self._slots = _SlotTable(
-            resolved_slots or {}, slot_errors or {}, declared_slot_errors or ())
-        self._root_slot_name = str(root_slot or "").strip()
         # Caller-visible adjustment warnings: rows the merge/clamp layer emits
         # whenever a requested value is modified. They ride the RESULT ENVELOPE
         # (JobResult.adjustments) + the hub's request record/events stream; pod
@@ -406,12 +368,54 @@ class RequestContext(Generic[D]):
         return self._boot_warmup
 
     @property
+    def handles(self) -> Tuple[str, ...]:
+        """The lane BODIES this function declared it branches on
+        (``@entrypoint(handles=…)``), stamped from the spec at dispatch."""
+        return self._handles
+
+    @property
+    def child_calls(self) -> bool:
+        """Did this function declare ``@entrypoint(child_calls=True)``? The
+        SDK mirror of the hub's ``invoke_child`` grant decision."""
+        return self._child_calls
+
+    @property
     def execution_lane(self) -> str:
         """The EXECUTING precision lane of this call, a full descriptor id like
         ``"fp8-w8a8-dynamic+compiled"`` — post-degrade truth, the same value
-        JobMetrics.lane reports. Read-only; always available. Handlers that
-        declared ``handles=[...]`` branch on it; everyone else may ignore it."""
+        JobMetrics.lane reports.
+
+        DECLARED READERS ONLY (pgw#1580). Reading the executing lane IS the
+        behavioral divergence ``handles=`` declares, so a function that did not
+        declare one is refused typed rather than handed
+        ``"bf16-w16a16+eager"`` — a plausible default that an undeclared body
+        would branch on and nothing downstream could see. Same
+        one-fact-two-enforcers shape as ``publishes=``: the manifest tells the
+        hub, this refuses the author.
+        """
+        self._require_lane_declaration("ctx.execution_lane")
         return self._execution_lane or "bf16-w16a16+eager"
+
+    def _require_lane_declaration(self, surface: str) -> None:
+        if not self._handles:
+            from ..api.errors import LaneNotDeclaredError
+
+            raise LaneNotDeclaredError(surface)
+
+    def _declare_from_spec(self, spec: Any) -> None:
+        """Worker-internal: stamp an ``EntrypointSpec``'s declarations onto a
+        context built before the function was known.
+
+        The serve loop passes them at construction; the LOCAL host
+        (``EndpointHost.dispatch``, the CLI and the daemon) builds one context
+        per request and only then routes it to a function, so it stamps here.
+        Both ends read the SAME spec fields, which is the point — a declaration
+        that only works under the serverless dispatcher is a declaration an
+        author cannot test."""
+        if spec is None:
+            return
+        self._child_calls = bool(getattr(spec, "child_calls", False))
+        self._handles = tuple(getattr(spec, "handles", ()) or ())
 
     def _set_execution_lane(self, execution_lane: str) -> None:
         self._execution_lane = str(execution_lane or "").strip()
@@ -424,6 +428,7 @@ class RequestContext(Generic[D]):
         config generation. Read-only; a returned copy."""
         return dict(self._config)
 
+    # writerless: pgw#1475 -> owed to the config-plane cutover, expiry 2026-09-15 — the THIRD sibling the hardcut orphaned, but unlike source_path and execution_lane it cannot simply be re-wired: `@endpoint(config=[ConfigParam(...)])` is v1's declaration and `@entrypoint` declares no config at all, so there is no schema to decode `RunJob.config_params` against. Whether v2 gains a config declaration is a design call, not a repair; `subproc.py:194` still reads `_config_snapshot`, so it is not dead either.
     def _set_config(
         self,
         values: Optional[Mapping[str, Any]],
@@ -445,78 +450,6 @@ class RequestContext(Generic[D]):
         requests. The worker applies/removes the adapters around the handler
         call; this surface is read-only metadata."""
         return _copy_context_metadata(self._loras)
-
-    @property
-    def slots(self) -> Mapping[str, "ResolvedSlot[Any]"]:
-        """One entry per ``Slot``-declared model slot:
-        ``ctx.slots["pipeline"].ref`` / ``.defaults`` / ``.objective`` /
-        ``.distilled`` — the catalog-resolved recipe decoded against the
-        handler's derived config schema (``ctx.defaults`` is the root-slot
-        shortcut). A slot that failed resolution raises on access, not at
-        dispatch — read it only when your handler needs it."""
-        return self._slots
-
-    def _set_resolved_slots(
-        self,
-        resolved: Mapping[str, "ResolvedSlot[Any]"],
-        errors: Optional[Mapping[str, str]] = None,
-        root_slot: str = "",
-        declared_slot_errors: Optional[Iterable[str]] = None,
-    ) -> None:
-        """CLI-only mutator (``gen-worker run``/``serve``): the hub-less
-        resolve step runs after context construction."""
-        self._slots = _SlotTable(resolved, errors or {}, declared_slot_errors or ())
-        if root_slot:
-            self._root_slot_name = str(root_slot).strip()
-
-    def _root_slot(self, slot: str = "") -> "ResolvedSlot[Any]":
-        """The named slot's resolution, or the ROOT slot:
-        the declared ``Slot(root=True)`` when present, else the slot named
-        "pipeline", else the single resolved slot. Ambiguity RAISES — a
-        multi-slot class is already a decoration-time error unless it marks
-        a root, and handlers on non-root lanes pass ``slot=`` explicitly."""
-        resolved = self._slots._resolved
-        if slot:
-            return self._slots[slot]
-        if self._root_slot_name and (
-            self._root_slot_name in resolved
-            or self._root_slot_name in self._slots._errors
-        ):
-            return self._slots[self._root_slot_name]
-        if "pipeline" in resolved:
-            return self._slots["pipeline"]
-        if len(resolved) == 1:
-            return next(iter(resolved.values()))
-        if not resolved and self._slots._errors:
-            # Surface the deferred resolution error, not a KeyError.
-            name = next(iter(self._slots._errors))
-            return self._slots[name]
-        raise ValueError(
-            f"ctx has {len(resolved)} resolved slots ({sorted(resolved)}); "
-            "ctx.defaults/ctx.for_request need an unambiguous root — mark "
-            "one Slot(root=True), or pass slot=/read ctx.slots[name] "
-            "explicitly"
-        )
-
-    @property
-    def defaults(self) -> D:
-        """The resolved per-model config for this request's ROOT slot,
-        typed as the handler's ``RequestContext[D]`` annotation: the
-        catalog-resolved recipe decoded against the derived
-        schema, with per-lora field overrides applied. Payload
-        values still win over these — that precedence is handler logic.
-        Non-root lanes of a multi-slot class read
-        ``ctx.slots[name].defaults`` explicitly."""
-        # `_root_slot()` erases to ResolvedSlot[Any]; the ctx's own D is what
-        # the root slot resolves to. Stating Optional[D] keeps the runtime
-        # guard below load-bearing AND lets the return be D rather than Any.
-        d: Optional[D] = self._root_slot().defaults
-        if d is None:
-            raise ValueError(
-                "ctx.defaults: no config schema derived for this handler — "
-                "annotate the context parameter as RequestContext[YourDefaults]"
-            )
-        return d
 
     def adjusted(
         self, field: str, requested: Any, applied: Any, reason: str,
@@ -570,7 +503,6 @@ class RequestContext(Generic[D]):
         self,
         pipeline: Any,
         *,
-        slot: str = "",
         sampler: str = "",
         seed: Optional[int] = None,
         generator: Optional["torch.Generator"] = None,
@@ -579,14 +511,28 @@ class RequestContext(Generic[D]):
     ) -> Any:
         """A per-request VIEW of ``pipeline``: same module objects (shared
         weights; the compiled graph stays bound), OWN scheduler — cloned from
-        the instance scheduler's config, with the resolved checkpoint's
-        OBJECTIVE applied (v-prediction/flow are checkpoint facts the SDK
-        applies here, never payload logic) and ``sampler`` selecting the
+        the instance scheduler's config, with ``sampler`` selecting the
         scheduler class from the SDK table (``gen_worker.view.SAMPLERS``).
 
-        ``slot`` names the resolving slot on a multi-slot class; omitted, the
-        declared root resolves. Ambiguity raises — never a silent
-        objective-less fallback.
+        **THIS VIEW CARRIES NO OBJECTIVE, and that is now stated rather than
+        promised (pgw#1583).** Until this docstring was corrected it claimed
+        twice that the resolved checkpoint's objective was applied here and
+        that ambiguity raised; the body passed ``objective=""`` unconditionally
+        and ``slot=`` was accepted and discarded, so the raise was unreachable
+        and every view built through this method denoised under the platform
+        default. That is worse than an error: v-prediction and flow change what
+        the scheduler DOES, so a wrong objective returns plausible output.
+
+        The reason is plumbing, not policy: ``ModelBinding.objective`` (proto
+        field 6) has no reader anywhere in the SDK — no ``_Pick`` field, no
+        ``DeployBinding`` field, nothing on this context — so there is no
+        checkpoint fact here to apply. **An author who needs one passes it
+        explicitly to the module-level gate**, which is the only surface that
+        honours it::
+
+            from gen_worker.view import for_request
+
+            view = for_request(model.pipe, objective="flow", sampler="ddim")
 
         EVERY sampler-shaped attribute is cloned, not just ``scheduler``: a
         second stateful sampler such as an ltx ``audio_scheduler`` would
@@ -598,16 +544,11 @@ class RequestContext(Generic[D]):
         through, and a module swap the compiled graph guards against.
         """
 
-        objective = ""
-        resolved = None
-        if self._slots._resolved or self._slots._errors:
-            resolved = self._root_slot(slot)
-            objective = resolved.objective
         gen = generator
         if gen is None and seed is not None:
             gen = self.generator(seed)
         return _view_for_request(
-            pipeline, sampler=sampler, objective=objective, generator=gen,
+            pipeline, sampler=sampler, objective="", generator=gen,
             scheduler_config=scheduler_config, schedulers=schedulers,
         )
 
@@ -635,8 +576,8 @@ class RequestContext(Generic[D]):
         if not self._file_api_base_url:
             raise RuntimeError(
                 "file API base URL is not configured for this request — "
-                "no HelloAck has carried `file_base_url` yet "
-                "(executor.file_base_url is empty)"
+                "neither this dispatch's `RunJob.file_base_url` nor any "
+                "HelloAck has carried one (executor.file_base_url is empty)"
             )
         return self._file_api_base_url.rstrip("/")
 
@@ -746,11 +687,35 @@ class RequestContext(Generic[D]):
     def _repo_job_release(self) -> str:
         """The release a repo-CAS checkpoint publish attaches to, or "".
 
-        th#1987 made it mandatory hub-side; it is the caller's
-        `destination.release`, carried through the execution hints. Empty means
-        the invoke named none — a caller-side defect the publish refuses by
-        name rather than a transfer problem."""
+        It is the caller's `destination.release`, carried through the execution
+        hints. Empty means the invoke named none — which is th#2202's ORDINARY
+        case, not a defect: see :meth:`_checkpoint_release`."""
         return str((self._execution_hints or {}).get("destination_release") or "").strip()
+
+    def _checkpoint_release(self, repo: str) -> str:
+        """THE release `ctx.save_checkpoint` publishes under, or "" to let the
+        hub derive one. Raises when neither is available.
+
+        th#2202. This is a NAMED decision rather than an inline `if` because
+        the `if` was wrong for a year of cost and nothing could see it at $0:
+        the only carrier for `destination.release` is the reserved
+        `destination:{ref,release}` object, and an endpoint whose typed input
+        declares the scalar `destination_repo` with `forbid_unknown_fields`
+        can never be handed that key. So this raised at step 200 of a paid-for
+        training run, on the SCRATCH repo the hub itself named — a repo no
+        author ever names a release for, and one the hub cuts a release for on
+        every publish. The refusal survives for a destination that HAS an
+        author, which is where th#1987's deliberation rule lives.
+        """
+        release = self._repo_job_release()
+        if release or scratchrepo.is_scratch_name(repo):
+            return release
+        raise RuntimeError(
+            f"cannot publish into {repo!r}: the request named no "
+            "`destination.release`, and th#1987 made it mandatory for a repo "
+            "with an author — the hub refuses the declare with "
+            "`release_required`. Cut a release and invoke with "
+            "destination={ref, release}.")
 
     def _tensor_upload_execution_kind(self) -> str:
         hints = dict(self._execution_hints or {})
@@ -798,6 +763,21 @@ class RequestContext(Generic[D]):
     # -- call-out primitive --------------------------------------------------
 
     def _callout_client(self) -> "CalloutClient":
+        # pgw#1579, and it must come FIRST: the hub mints `invoke_child` only
+        # for a function whose manifest row declared it, so an undeclared body
+        # would otherwise reach the wire and come back 403 —
+        # `child_calls_not_declared` after the request was already running.
+        # Same refusal CODE as the hub's, so both ends say one word.
+        if not self._child_calls:
+            from ..api.errors import ChildCallRefusedError
+
+            raise ChildCallRefusedError(
+                "child_calls_not_declared",
+                "this function did not declare @entrypoint(child_calls=True), "
+                "so the platform minted no invoke_child grant for it. Add the "
+                "declaration and republish — it is a capability the manifest "
+                "asks for, never one inferred from the body.",
+            )
 
         if not self._file_api_base_url:
             from ..api.errors import ChildCallError
@@ -833,8 +813,10 @@ class RequestContext(Generic[D]):
         an unassigned semver-major is a typed refusal naming the assigned
         ones, and there is no ``latest``.
 
-        The function must be declared ``@endpoint(child_calls=True)`` — the
-        platform then scopes this invocation's credential for child calls.
+        The function must be declared ``@entrypoint(child_calls=True)`` — the
+        platform then scopes this invocation's credential for child calls, and
+        an undeclared function is refused HERE (``child_calls_not_declared``)
+        rather than by the hub mid-request.
         Children bill the parent request's payer, inherit its availability
         tier (``tier=`` may name a CHEAPER class, never escalate), count
         against the tree's depth/budget ceilings, and die with the parent
@@ -1357,7 +1339,7 @@ class RequestContext(Generic[D]):
         image: "Image.Image",
         ref: Optional[str] = None,
         *,
-        format: str = DEFAULT_IMAGE_FORMAT,
+        format: ImageFormat = DEFAULT_IMAGE_FORMAT,
         quality: int = DEFAULT_IMAGE_QUALITY,
         lossless: bool = False,
         **encode_kwargs: Any,

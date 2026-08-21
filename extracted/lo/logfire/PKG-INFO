@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: logfire
-Version: 4.40.0
+Version: 4.41.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -171,7 +171,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/)
 
 ### Integration
 

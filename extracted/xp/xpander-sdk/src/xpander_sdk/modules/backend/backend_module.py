@@ -65,6 +65,7 @@ class Backend(ModuleBase):
         events_streaming: Optional[bool] = False,
         additional_context: Optional[str] = None,
         expected_output: Optional[str] = None,
+        attachments: Optional[List["AttachmentRef"]] = None,
     ) -> Task:
         """
         Asynchronously invoke an agent to create and execute a task.
@@ -130,6 +131,7 @@ class Backend(ModuleBase):
             prompt=prompt,
             existing_task_id=existing_task_id,
             file_urls=file_urls,
+            attachments=attachments,
             user_details=user_details,
             agent_version=agent_version,
             tool_call_payload_extension=tool_call_payload_extension,
@@ -160,6 +162,7 @@ class Backend(ModuleBase):
         events_streaming: Optional[bool] = False,
         additional_context: Optional[str] = None,
         expected_output: Optional[str] = None,
+        attachments: Optional[List["AttachmentRef"]] = None,
     ) -> Task:
         """
         Synchronously invoke an agent to create and execute a task.
@@ -214,6 +217,7 @@ class Backend(ModuleBase):
                 prompt=prompt,
                 existing_task_id=existing_task_id,
                 file_urls=file_urls,
+                attachments=attachments,
                 user_details=user_details,
                 agent_version=agent_version,
                 tool_call_payload_extension=tool_call_payload_extension,

@@ -308,6 +308,9 @@ class AgentGraphItemHITLSettings(BaseModel):
         hitl_type (Optional[AgentHITLType]): Type of HITL integration.
         slack_app (Optional[str]): Slack app identifier for notifications.
         should_approve_with_current_user (Optional[bool]): Whether to auto-approve with current user.
+        approve_once_per_run (Optional[bool]): One approval covers the tool for the rest of the task.
+        tool_names (Optional[List[str]]): MCP only - gate just these of the server's tools,
+            by unprefixed name. None or an empty list gates every tool the server exposes.
     """
 
     title: Optional[str] = None
@@ -320,8 +323,10 @@ class AgentGraphItemHITLSettings(BaseModel):
     approvers: Optional[AgentToolApprovalApprovers] = None
     on_deny: Optional[str] = "continue"
     allowed_scopes: Optional[List[str]] = None
+    approve_once_per_run: Optional[bool] = False
     timeout_seconds: Optional[int] = None
     channels: Optional[List[str]] = None
+    tool_names: Optional[List[str]] = None
 
 
 class AgentGraphItemA2ASettings(BaseModel):

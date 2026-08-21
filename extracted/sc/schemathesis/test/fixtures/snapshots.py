@@ -213,7 +213,7 @@ class CliSnapshotConfig:
         # generated property names verbatim — those names are random Hypothesis output
         # and shift across runs. Collapse the count + names to a placeholder.
         data = re.sub(
-            r"contains \d+ additional properties not defined in the schema \(.*?\)\. The server",
+            r"contains \d+ additional (?:property|properties) not defined in the schema \(.*?\)\. The server",
             "contains <N> additional properties not defined in the schema (<NAMES>). The server",
             data,
             flags=re.DOTALL,
@@ -229,12 +229,12 @@ class CliSnapshotConfig:
                 data,
                 flags=re.MULTILINE,
             )
-            # Negative-fuzzing variance can produce body content with non-printable
-            # bytes on some Pythons but not others; the curl advisory then appears
-            # only on those runs. Strip the warning and its trailing blank line so
-            # spacing matches the warning-free runs.
+            # Negative-fuzzing variance can produce body content with non-printable bytes, and the
+            # curl advisory for those only appears where shell detection comes up empty — true on
+            # CI, false on a developer machine. Strip the warning and the blank line under it, which
+            # the reproduce block indents, so spacing matches the warning-free runs.
             data = re.sub(
-                r"^[ \t]*⚠️[ \t]+Request body contains non-printable characters\..*\n\n",
+                r"^[ \t]*⚠️[ \t]+Request body contains non-printable characters\.[^\n]*\n[ \t]*\n",
                 "",
                 data,
                 flags=re.MULTILINE,
@@ -302,12 +302,16 @@ class CliSnapshotConfig:
             ):
                 continue
             lines.append(line.rstrip())
-        if "Stop reason:" in data or "Empty test suite" in data:
+        if (
+            "Stop reason:" in data
+            or "Empty test suite" in data
+            # Same no-tests path, but a warning replaced the "Empty test suite" banner.
+            or ("No test cases were generated" in data and "Warnings:" in data)
+        ):
             # Rich Live progress widgets leave extra blank lines on non-TTY consoles;
             # collapse runs of consecutive blanks to one. Triggers on st fuzz output
-            # (after "Stop reason:") and on the st run "no tests ran" path
-            # ("Empty test suite") where the probing progress doesn't clean up
-            # identically across platforms.
+            # (after "Stop reason:") and on the st run path where nothing was generated,
+            # where the probing progress doesn't clean up identically across platforms.
             collapsed = []
             for line in lines:
                 if line == "" and collapsed and collapsed[-1] == "":

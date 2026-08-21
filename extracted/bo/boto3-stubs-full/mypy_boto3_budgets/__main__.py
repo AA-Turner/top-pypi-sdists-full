@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 Budgets 1.43.75\n"
-        "Version:         1.43.75\n"
+        "Type annotations for boto3 Budgets 1.43.76\n"
+        "Version:         1.43.76\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_budgets//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/budgets.html#budgets\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.43.75\n")
+    sys.stdout.write("1.43.76\n")
 
 
 def main() -> None:

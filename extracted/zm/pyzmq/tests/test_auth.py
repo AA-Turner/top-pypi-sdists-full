@@ -172,9 +172,10 @@ class AuthTest:
 
     @contextmanager
     def push_pull(self):
-        with self.context.socket(zmq.PUSH) as server, self.context.socket(
-            zmq.PULL
-        ) as client:
+        with (
+            self.context.socket(zmq.PUSH) as server,
+            self.context.socket(zmq.PULL) as client,
+        ):
             server.linger = 0
             server.sndtimeo = 2000
             client.linger = 0

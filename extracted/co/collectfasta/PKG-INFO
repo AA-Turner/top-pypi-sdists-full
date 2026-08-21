@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Collectfasta
-Version: 3.3.3
+Version: 3.3.4
 Summary: A Faster Collectstatic
 Home-page: https://github.com/jasongi/collectfasta/
 Author: Anton Agestam, Jason Giancono
@@ -17,13 +17,13 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: Django>=4.2
+Requires-Dist: Django>=5.2
 Requires-Dist: django-storages>=1.13.2
 Requires-Dist: typing-extensions
 Dynamic: license-file

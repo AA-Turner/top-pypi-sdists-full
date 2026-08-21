@@ -39,7 +39,7 @@ def do_py(project, system=False, bare=False):
     if not project.venv_locator.exists:
         err.print(
             "[red]No virtualenv has been created for this project[/red] "
-            f"[yellow bold]{project.project_directory}[/yellow bold] "
+            f"[yellow bold]{project.pipfile.project_directory}[/yellow bold] "
             "[red] yet![/red]"
         )
         sys.exit(1)
@@ -64,7 +64,7 @@ def cmd_install(args, state):
     from pipenv.routines.install import do_install
 
     if state.installstate.all_categories:
-        state.installstate.categories = state.project.get_package_categories()
+        state.installstate.categories = state.project.pipfile.get_package_categories()
     else:
         apply_default_categories(args, state)
 
@@ -79,6 +79,11 @@ def cmd_install(args, state):
         deploy=state.installstate.deploy,
         skip_lock=state.installstate.skip_lock,
         ignore_pipfile=state.installstate.ignore_pipfile,
+        # T17: propagate ``--clear`` through so the inner ``do_lock``
+        # (reached via ``do_init``) can wipe pipenv's parsed-manifest
+        # cache.  Previously ``state.clear`` only had an effect for
+        # the top-level ``pipenv --clear`` command.
+        clear=state.clear,
         # package_selection
         packages=state.installstate.packages,
         editable_packages=state.installstate.editables,
@@ -88,6 +93,7 @@ def cmd_install(args, state):
         requirementstxt=state.installstate.requirementstxt,
         # execution_options
         extra_pip_args=state.installstate.extra_pip_args,
+        resolver=state.resolver,
     )
     do_install(state.project, ctx)
 
@@ -121,7 +127,7 @@ def cmd_upgrade(args, state):
     from pipenv.utils.project import ensure_project
 
     if state.installstate.all_categories:
-        state.installstate.categories = state.project.get_package_categories()
+        state.installstate.categories = state.project.pipfile.get_package_categories()
     else:
         apply_default_categories(args, state)
 
@@ -145,6 +151,7 @@ def cmd_upgrade(args, state):
         system=state.system,
         lock_only=state.installstate.lock_only,
         extra_pip_args=state.installstate.extra_pip_args,
+        resolver=state.resolver,
     )
 
 
@@ -173,6 +180,8 @@ def cmd_uninstall(args, state):
         categories=state.installstate.categories,
         all_dev=args.all_dev,
         all=args.all,
+        # execution_options
+        resolver=state.resolver,
     )
     retcode = do_uninstall(state.project, ctx)
     if retcode:
@@ -205,6 +214,7 @@ def cmd_lock(args, state):
         # execution_options
         quiet=state.quiet,
         write=True,
+        resolver=state.resolver,
     )
     do_lock(state.project, ctx)
 
@@ -352,7 +362,7 @@ def cmd_update(args, state):
     from pipenv.routines.update import do_update
 
     if state.installstate.all_categories:
-        state.installstate.categories = state.project.get_package_categories()
+        state.installstate.categories = state.project.pipfile.get_package_categories()
     else:
         apply_default_categories(args, state)
 
@@ -385,6 +395,7 @@ def cmd_update(args, state):
         extra_pip_args=state.installstate.extra_pip_args,
         bare=args.bare,
         quiet=state.quiet,
+        resolver=state.resolver,
     )
     do_update(state.project, ctx)
 
@@ -436,7 +447,7 @@ def cmd_sync(args, state):
     from pipenv.routines.sync import do_sync
 
     if state.installstate.all_categories:
-        state.installstate.categories = state.project.get_package_categories()
+        state.installstate.categories = state.project.pipfile.get_package_categories()
     else:
         apply_default_categories(args, state)
 
@@ -472,10 +483,10 @@ def cmd_clean(args, state):
 
 
 def cmd_scripts(args, state):
-    if not state.project.pipfile_exists:
+    if not state.project.pipfile.exists:
         err.print("No Pipfile present at project home.")
         sys.exit(1)
-    scripts_dict = state.project.parsed_pipfile.get("scripts", {})
+    scripts_dict = state.project.pipfile.parsed.get("scripts", {})
     first_column_width = max(len(word) for word in ["Command"] + list(scripts_dict))
     second_column_width = max(
         len(word) for word in ["Script"] + list(scripts_dict.values())
@@ -489,10 +500,10 @@ def cmd_scripts(args, state):
 
 
 def cmd_verify(args, state):
-    if not state.project.pipfile_exists:
+    if not state.project.pipfile.exists:
         err.print("No Pipfile present at project home.")
         sys.exit(1)
-    if state.project.get_lockfile_hash() != state.project.calculate_pipfile_hash():
+    if state.project.lockfile.hash() != state.project.pipfile.calculate_hash():
         err.print(
             "Pipfile.lock is out-of-date. Run [yellow bold]$ pipenv lock[/yellow bold] to update."
         )
@@ -529,13 +540,13 @@ def cmd_pylock(args, state):
     groups = [g.strip() for g in args.dev_groups.split(",") if g.strip()]
 
     if args.generate:
-        if not project.lockfile_exists:
+        if not project.lockfile.exists:
             err.print("[bold red]No Pipfile.lock found.[/bold red]")
             sys.exit(1)
         try:
-            output_path = args.output or project.pylock_output_path
+            output_path = args.output or project.lockfile.pylock_output_path
             pylock_file = PylockFile.from_lockfile(
-                lockfile_path=project.lockfile_location,
+                lockfile_path=project.lockfile.location,
                 pylock_path=output_path,
                 dev_groups=groups,
             )
@@ -548,12 +559,12 @@ def cmd_pylock(args, state):
             sys.exit(1)
 
     elif args.from_pyproject:
-        pyproject_path = Path(project.project_directory) / "pyproject.toml"
+        pyproject_path = Path(project.pipfile.project_directory) / "pyproject.toml"
         if not pyproject_path.exists():
             err.print("[bold red]No pyproject.toml found.[/bold red]")
             sys.exit(1)
         try:
-            output_path = args.output or project.pylock_output_path
+            output_path = args.output or project.lockfile.pylock_output_path
             pylock_file = PylockFile.from_pyproject(
                 pyproject_path=pyproject_path,
                 pylock_path=output_path,
@@ -571,7 +582,7 @@ def cmd_pylock(args, state):
             sys.exit(1)
 
     elif args.validate:
-        pylock_path = project.pylock_location
+        pylock_path = project.lockfile.pylock_location
         if not pylock_path:
             err.print("[bold red]No pylock.toml found.[/bold red]")
             sys.exit(1)
@@ -601,7 +612,7 @@ def cmd_pylock(args, state):
             sys.exit(1)
 
     else:
-        pylock_path = project.pylock_location
+        pylock_path = project.lockfile.pylock_location
         if pylock_path:
             try:
                 pylock_file = PylockFile.from_path(pylock_path)
@@ -773,7 +784,7 @@ def cli():
             if not state.project.venv_locator.exists:
                 err.print(
                     "[red]No virtualenv has been created for this project[/red]"
-                    f"[bold]{state.project.project_directory}[/bold]"
+                    f"[bold]{state.project.pipfile.project_directory}[/bold]"
                     " [red]yet![/red]"
                 )
                 sys.exit(1)

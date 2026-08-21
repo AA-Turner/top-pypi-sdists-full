@@ -2,6 +2,8 @@ import os
 import time
 import json
 import logging
+import contextlib
+import contextvars
 import threading
 from praisonaiagents._logging import get_logger
 from typing import Any, Dict, Optional, List, Tuple, Callable
@@ -41,18 +43,13 @@ class TaskStatus(Enum):
 logger = get_logger(__name__)
 
 
-def _launch_auth_token() -> Optional[str]:
-    return os.environ.get("PRAISONAI_LAUNCH_AUTH_TOKEN")
-
-
-def _authorise_launch_request(request) -> bool:
-    token = _launch_auth_token()
-    if not token:
-        return True
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer ") and auth[7:] == token:
-        return True
-    return request.headers.get("X-Auth-Token") == token
+# Request authorisation + fail-closed bind guard are shared with Agent.launch
+# so the single-agent and multi-agent serving paths cannot drift apart.
+from ..agent.launch_security import (
+    launch_auth_token as _launch_auth_token,
+    authorise_launch_request as _authorise_launch_request,
+    resolve_launch_host as _resolve_launch_host,
+)
 
 
 # Agent server registry for thread-safe server management
@@ -375,6 +372,18 @@ def _build_execution_context(agents_instance, task_id, skip_memory_init=False):
     if llm and hasattr(llm, 'set_current_agent'):
         llm.set_current_agent(executor_agent.display_name)
 
+    # Place the agent's tools BEFORE snapshotting them. This snapshot is passed
+    # to chat() as an explicit `tools=`, which wins over `agent.tools` -- so if
+    # the sandbox attaches later (inside chat()), the model is handed the
+    # pre-attach list and every tool runs on the host while a sandbox sits
+    # provisioned and unused. Silent, and worse than it sounds: in
+    # start_for_each() row 1 got local tools and row 2 got the bridged set,
+    # because row 1's chat() mutated agent.tools in time for row 2's snapshot.
+    if executor_agent is not None and getattr(executor_agent, "tools_run_on", None) is not None:
+        from ..agent.tools_placement import ensure_tools_placed
+
+        ensure_tools_placed(executor_agent)
+
     # Ensure tools are available from both task and agent (create copy to avoid mutation)
     tools = list(task.tools or [])
     if executor_agent and executor_agent.tools:
@@ -644,7 +653,8 @@ class AgentTeam(SpawnAnnounceProtocol):
         manager_llm=None,
         name: Optional[str] = None,
         variables: Optional[Dict[str, Any]] = None,
-        llm: Optional[str] = None,  # Default LLM for all agents (API consistency)
+        llm: Optional[str] = None,  # Deprecated alias for model=
+        model: Optional[str] = None,  # Default model for members that did not name one
         # Consolidated feature params (agent-centric API)
         memory: Optional[Any] = False,  # Union[bool, MultiAgentMemoryConfig]
         planning: Optional[Any] = False,  # Union[bool, MultiAgentPlanningConfig]
@@ -662,9 +672,12 @@ class AgentTeam(SpawnAnnounceProtocol):
         learn: Optional[Any] = None,  # Union[bool, LearnConfig] - continuous learning
         # Union[str, ComputeProviderProtocol] - where every agent's shell/file
         # tools run: "docker", "e2b", "modal", "daytona", "flyio", "tenki",
-        # "local". The team shares ONE sandbox and /workspace, so files written
-        # by one agent are visible to the others. Orchestration stays local.
+        # "local", "subprocess", "sandlock", "ssh", "novita". The team shares
+        # ONE sandbox and one working directory, so files written by one agent
+        # are visible to the others. Orchestration and thinking stay local.
         # Pass a configured provider instance to customise resources.
+        tools_run_on: Optional[Any] = None,
+        # Accepted only to fail with a useful message -- see resolve_placement.
         run_on: Optional[Any] = None,
     ):
         """
@@ -676,8 +689,11 @@ class AgentTeam(SpawnAnnounceProtocol):
             process: Execution process type ("sequential", "workflow", "hierarchical").
                 For parallel fan-out, set async_execution=True on individual Task
                 objects within a "workflow" or "sequential" process.
-            manager_llm: LLM model for manager agent
-            llm: Default LLM model for all agents
+            manager_llm: Model for the hierarchical manager agent. Unrelated to
+                model=/llm=; it never touches the members.
+            llm: Deprecated alias for model=. Passing both raises TypeError.
+            model: Default model for members that did not name one themselves.
+                An agent constructed with its own llm=/model=/auth= keeps it.
             name: Name for this agent collection
             variables: Global variables for substitution
             memory: Memory configuration (bool | MultiAgentMemoryConfig)
@@ -695,7 +711,18 @@ class AgentTeam(SpawnAnnounceProtocol):
         """
         # Store new params for propagation to agents
         self._learn = learn
-        self.llm = llm  # Store default LLM for API consistency
+        # model= is the canonical name; llm= is the deprecated alias. Passing
+        # both is refused rather than silently resolved (see resolve_model_alias).
+        # The resolved value is the default model for the members: applied to
+        # every agent that never named a model of its own; an agent that did
+        # keeps it. Same rule AgentFlow uses for the agents it builds.
+        from ..utils.model_alias import resolve_model_alias
+        self.llm = resolve_model_alias(llm, model, type(self).__name__)
+        if self.llm:
+            for _member in (agents.values() if isinstance(agents, dict) else (agents or [])):
+                _apply = getattr(_member, "_apply_default_llm", None)
+                if callable(_apply):
+                    _apply(self.llm)
         self._autonomy = autonomy
         self._knowledge = knowledge
         self._guardrails = guardrails
@@ -910,7 +937,19 @@ class AgentTeam(SpawnAnnounceProtocol):
         self.stream = _stream
         self.name = name
         # Remote execution: one shared sandbox for every agent on this team.
-        self.run_on = run_on
+        from ..agent.placement import resolve_placement
+
+        resolve_placement(
+            "AgentTeam", run_on=run_on, tools_run_on=tools_run_on,
+            supports_run_on=False,
+        )
+        self.tools_run_on = tools_run_on
+        # Kept readable rather than removed. `team.run_on` used to exist, and
+        # code doing getattr(team, "run_on", None) for introspection or
+        # serialisation would otherwise start raising AttributeError. None is
+        # the honest value: a team orchestrates locally, so nothing about it
+        # runs wholly on a managed runtime.
+        self.run_on = None
 
         # Callbacks for workflow execution
         self.on_task_start = _on_task_start
@@ -1437,6 +1476,73 @@ class AgentTeam(SpawnAnnounceProtocol):
                 raise result
         return results
 
+    def _depends_on_pending(self, task, pending):
+        """True if ``task`` depends on a task still pending in the batch.
+
+        ``pending`` is a list of ``(task_id, coroutine)`` pairs already queued
+        for parallel execution. If one of the task's dependencies is in that
+        set, its result isn't available yet, so the batch must be flushed before
+        queuing this task (otherwise the dependent builds its prompt from an
+        empty result for the still-in-progress dependency).
+
+        Two dependency edges are checked, since ``_build_task_context`` reads
+        from both:
+          - ``task.context``: explicit context tasks (by object ``id``).
+          - ``task.previous_tasks``: workflow ``next_tasks`` edges, stored as
+            task *names*; without this a workflow successor could be queued in
+            the same async batch as its predecessor and read an empty result.
+        """
+        if not pending:
+            return False
+        pending_ids = {tid for tid, _ in pending}
+
+        deps = getattr(task, 'context', None) or []
+        if any(getattr(dep, 'id', None) in pending_ids for dep in deps):
+            return True
+
+        previous = getattr(task, 'previous_tasks', None) or []
+        if previous:
+            pending_names = {
+                self.tasks[tid].name
+                for tid in pending_ids
+                if tid in self.tasks
+            }
+            if any(name in pending_names for name in previous):
+                return True
+
+        return False
+
+    def _deps_failed(self, task_id):
+        """True if any dependency of ``task_id`` finished in a failed state.
+
+        asequential()/aworkflow() run their own failure check inside the
+        generator, but async tasks are buffered and drained later, so an
+        upstream async task may not have failed yet when the generator yielded
+        the dependent. Re-checking here — after pending async tasks are flushed
+        — makes the failure cascade fire for the async_execution path too, for
+        both dependency edges ``_build_task_context`` reads (context tasks and
+        workflow ``previous_tasks``).
+        """
+        task = self.tasks.get(task_id)
+        if task is None:
+            return False
+
+        for dep in getattr(task, 'context', None) or []:
+            dep_id = getattr(dep, 'id', None)
+            if dep_id in self.tasks and self.tasks[dep_id].status == "failed":
+                return True
+
+        previous = getattr(task, 'previous_tasks', None) or []
+        if previous:
+            by_name = {t.name: t for t in self.tasks.values()}
+            if any(
+                name in by_name and by_name[name].status == "failed"
+                for name in previous
+            ):
+                return True
+
+        return False
+
     async def arun_all_tasks(self):
         """Async version of run_all_tasks method"""
         process = Process(
@@ -1448,14 +1554,26 @@ class AgentTeam(SpawnAnnounceProtocol):
         )
         
         if self.process == "workflow":
-            tasks_to_run = []
+            tasks_to_run = []  # list of (task_id, coroutine)
             async for task_id in process.aworkflow():
-                if self.tasks[task_id].async_execution:
-                    tasks_to_run.append(self.arun_task(task_id))
+                task = self.tasks[task_id]
+                if task.async_execution:
+                    # If this async task depends on another async task still
+                    # pending in the current batch, flush first so its context
+                    # is available before this one reads it.
+                    if self._depends_on_pending(task, tasks_to_run):
+                        await self._gather_with_isolation([c for _, c in tasks_to_run])
+                        tasks_to_run = []
+                        # A just-flushed prerequisite may now be failed; don't
+                        # queue a dependent that would run with missing context.
+                        if self._deps_failed(task_id):
+                            self.tasks[task_id].status = "failed"
+                            continue
+                    tasks_to_run.append((task_id, self.arun_task(task_id)))
                 else:
                     # If we encounter a sync task, we must wait for the previous async tasks to finish.
                     if tasks_to_run:
-                        await self._gather_with_isolation(tasks_to_run)
+                        await self._gather_with_isolation([c for _, c in tasks_to_run])
                         tasks_to_run = []
                     
                     # Run sync task in an executor to avoid blocking the event loop
@@ -1465,46 +1583,40 @@ class AgentTeam(SpawnAnnounceProtocol):
                     await loop.run_in_executor(None, copy_context_to_callable(lambda tid=task_id: self.run_task(tid)))
 
             if tasks_to_run:
-                await self._gather_with_isolation(tasks_to_run)
+                await self._gather_with_isolation([c for _, c in tasks_to_run])
                 
         elif self.process == "sequential":
-            async_tasks_to_run = []
+            async_tasks_to_run = []  # list of (task_id, coroutine)
             
             async def flush_async_tasks():
                 """Execute all pending async tasks"""
                 nonlocal async_tasks_to_run
                 if async_tasks_to_run:
-                    await self._gather_with_isolation(async_tasks_to_run)
+                    await self._gather_with_isolation([c for _, c in async_tasks_to_run])
                     async_tasks_to_run = []
 
-            def _deps_failed(task_id):
-                """Re-check dependency failure at consumption time.
-
-                asequential() runs this check inside the generator, but async
-                tasks are buffered and drained later, so an upstream async task
-                may not have failed yet when the generator yielded the dependent.
-                Re-checking here — after pending async tasks are flushed — makes
-                the failure cascade fire for the async_execution path too.
-                """
-                task = self.tasks[task_id]
-                if getattr(task, 'context', None):
-                    return any(
-                        self.tasks[dep.id].status == "failed"
-                        for dep in task.context
-                        if hasattr(dep, 'id') and dep.id in self.tasks
-                    )
-                return False
-
             async for task_id in process.asequential():
-                if self.tasks[task_id].async_execution:
+                task = self.tasks[task_id]
+                if task.async_execution:
+                    # If this async task depends on another async task still
+                    # pending in the current batch, flush first so its context
+                    # is available before this one reads it (avoids a same-batch
+                    # race that silently substitutes empty dependency context).
+                    if self._depends_on_pending(task, async_tasks_to_run):
+                        await flush_async_tasks()
+                        # A just-flushed prerequisite may now be failed; don't
+                        # queue a dependent that would run with missing context.
+                        if self._deps_failed(task_id):
+                            self.tasks[task_id].status = "failed"
+                            continue
                     # Collect async tasks to run in parallel
-                    async_tasks_to_run.append(self.arun_task(task_id))
+                    async_tasks_to_run.append((task_id, self.arun_task(task_id)))
                 else:
                     # Before running a sync task, execute all pending async tasks
                     await flush_async_tasks()
                     # A just-flushed async prerequisite may now be failed; skip
                     # the dependent so we don't run it with missing upstream context.
-                    if _deps_failed(task_id):
+                    if self._deps_failed(task_id):
                         self.tasks[task_id].status = "failed"
                         continue
                     # Run sync task in an executor to avoid blocking the event loop
@@ -1544,6 +1656,62 @@ class AgentTeam(SpawnAnnounceProtocol):
             except StopAsyncIteration:
                 pass
 
+
+    # ── shared sandbox lifetime ──────────────────────────────────────────────
+    # A ContextVar, not an instance attribute: the previous version set
+    # `self.run_on = None` for the duration of the run, so a second caller
+    # inspecting the team mid-run saw "no sandbox" and any concurrent start()
+    # executed every tool on the host. Depth lives with the caller, not on the
+    # shared object, so the team's declared placement is always readable.
+    #
+    # The depth is keyed PER TEAM, not shared class-wide. A single integer here
+    # meant any team started while another team's run was on the stack saw
+    # depth==1 and skipped its own sandbox entirely -- so a nested team ran on
+    # the host, and a team sharing an agent with the outer run executed on the
+    # OUTER team's sandbox.
+    #
+    # ContextVar, not threading.local: two coroutines that `astart()` the SAME
+    # team under one asyncio.gather run on one thread, so thread-local state is
+    # shared between them -- the second saw the first's depth==1, skipped its
+    # own sandbox, and ran against a sandbox the first could tear down mid-flight.
+    # A ContextVar is copied per task at gather/create_task time, so each run
+    # gets its own depth map; it is also per-thread, so sync callers stay
+    # isolated too. The value is an immutable frozen mapping replaced via .set()
+    # (never mutated in place), because a copied context shares the *reference*
+    # to a mutable dict and in-place mutation would leak straight back across
+    # the tasks the copy was meant to separate.
+    _tools_scope_depths: "contextvars.ContextVar" = contextvars.ContextVar(
+        "praisonai_tools_scope_depths", default=()
+    )
+
+    def _needs_tools_scope(self) -> bool:
+        """True when this call should provision the team's shared sandbox."""
+        if getattr(self, "tools_run_on", None) is None:
+            return False
+        return dict(self._tools_scope_depths.get()).get(id(self), 0) == 0
+
+    @contextlib.contextmanager
+    def _shared_tools_scope(self):
+        """Hold one sandbox for everything nested inside.
+
+        Re-entrant by design: ``start_for_each`` opens the scope once for the
+        whole batch, so the ``start()`` call it makes per input row finds the
+        scope already open and reuses that sandbox instead of provisioning and
+        destroying one per row.
+        """
+        from ..managed.shared_compute import SharedCompute
+
+        key = id(self)
+        depths = dict(self._tools_scope_depths.get())
+        depths[key] = depths.get(key, 0) + 1
+        token = self._tools_scope_depths.set(tuple(sorted(depths.items())))
+        try:
+            with SharedCompute(self.tools_run_on) as shared:
+                shared.attach(list(self.agents or []))
+                yield shared
+        finally:
+            self._tools_scope_depths.reset(token)
+
     async def astart(self, content=None, return_dict=False, **kwargs):
         """Async version of start method.
         
@@ -1552,6 +1720,12 @@ class AgentTeam(SpawnAnnounceProtocol):
             return_dict: If True, returns the full results dictionary instead of only the final response
             **kwargs: Additional arguments
         """
+        # Same shared sandbox as start(). Without this, an async team with
+        # tools_run_on= ran every tool on the host and said nothing.
+        if self._needs_tools_scope():
+            with self._shared_tools_scope():
+                return await self.astart(content=content, return_dict=return_dict, **kwargs)
+
         # Track execution via telemetry
         if hasattr(self, '_telemetry') and self._telemetry:
             self._telemetry.track_agent_execution(self.name, success=True, async_mode=True)
@@ -1812,19 +1986,11 @@ class AgentTeam(SpawnAnnounceProtocol):
             ```
         """
         # Remote execution: provision ONE sandbox shared by every agent on the
-        # team, and tear it down even if execution raises. Re-enters start()
-        # with run_on cleared so the wrapper applies exactly once.
-        if getattr(self, "run_on", None) is not None:
-            from ..managed.shared_compute import SharedCompute
-
-            run_on, self.run_on = self.run_on, None
-            try:
-                with SharedCompute(run_on) as shared:
-                    shared.attach(list(self.agents or []))
-                    return self.start(content=content, return_dict=return_dict,
-                                      output=output, **kwargs)
-            finally:
-                self.run_on = run_on
+        # team, and tear it down even if execution raises.
+        if self._needs_tools_scope():
+            with self._shared_tools_scope():
+                return self.start(content=content, return_dict=return_dict,
+                                  output=output, **kwargs)
 
         # Track execution via telemetry
         if hasattr(self, '_telemetry') and self._telemetry:
@@ -2140,6 +2306,15 @@ class AgentTeam(SpawnAnnounceProtocol):
         if on_error not in ("continue", "fail_fast"):
             raise ValueError("on_error must be 'continue' or 'fail_fast'")
 
+        # One sandbox for the whole batch. Without this the per-row start()
+        # call provisions and destroys its own, so a 50-row batch paid for 50
+        # sandboxes and no row could see what an earlier row wrote.
+        if self._needs_tools_scope():
+            with self._shared_tools_scope():
+                return self.start_for_each(
+                    inputs, on_error=on_error, output=output, **kwargs
+                )
+
         batch_id = f"batch_{uuid.uuid4().hex[:12]}"
         saved_variables = self.variables
         task_snapshot = self._snapshot_task_state()
@@ -2175,6 +2350,13 @@ class AgentTeam(SpawnAnnounceProtocol):
         """Async twin of :meth:`start_for_each` (sequential per-item execution)."""
         if on_error not in ("continue", "fail_fast"):
             raise ValueError("on_error must be 'continue' or 'fail_fast'")
+
+        # One sandbox for the whole batch -- see start_for_each.
+        if self._needs_tools_scope():
+            with self._shared_tools_scope():
+                return await self.astart_for_each(
+                    inputs, on_error=on_error, **kwargs
+                )
 
         batch_id = f"batch_{uuid.uuid4().hex[:12]}"
         saved_variables = self.variables
@@ -2457,7 +2639,7 @@ class AgentTeam(SpawnAnnounceProtocol):
         
         print("="*50 + "\n")
         
-    def launch(self, path: str = '/agents', port: int = 8000, host: str = '0.0.0.0', debug: bool = False, protocol: str = "http"):
+    def launch(self, path: str = '/agents', port: int = 8000, host: str = '127.0.0.1', debug: bool = False, protocol: str = "http"):
         """
         Launch all agents as a single API endpoint (HTTP) or an MCP server. 
         In HTTP mode, the endpoint accepts a query and processes it through all agents in sequence.
@@ -2468,7 +2650,11 @@ class AgentTeam(SpawnAnnounceProtocol):
         Args:
             path: API endpoint path (default: '/agents') for HTTP. Ignored in MCP mode.
             port: Server port (default: 8000)
-            host: Server host (default: '0.0.0.0')
+            host: Server host (default: '127.0.0.1'; changed from '0.0.0.0' to
+                avoid binding all interfaces by default — pass '0.0.0.0'
+                explicitly to expose externally). Binding a non-loopback host
+                without ``PRAISONAI_LAUNCH_AUTH_TOKEN`` set auto-generates and
+                prints a one-time bearer token.
             debug: Enable debug mode for uvicorn (default: False)
             protocol: "http" to launch as FastAPI, "mcp" to serve over MCP via
                 ``praisonai-mcp`` (install with ``pip install praisonai-mcp``).
@@ -2478,7 +2664,7 @@ class AgentTeam(SpawnAnnounceProtocol):
         """
         if protocol == "http":
             # Use centralized server registry
-            
+
             if not self.agents:
                 logging.warning("No agents to launch for HTTP mode. Add agents to the Agents instance first.")
                 return
@@ -2507,6 +2693,13 @@ class AgentTeam(SpawnAnnounceProtocol):
                 print("\nOr install all API dependencies with:")
                 print("pip install 'praisonaiagents[api]'")
                 return None
+
+            # Fail-closed bind guard shared with Agent.launch: never serve
+            # keyless on a non-loopback host. Applied only after the no-agents
+            # and dependency guards above, so a launch that bails out cannot
+            # mutate the process-wide launch token (which every route reads per
+            # request) and retroactively 401 an already-running endpoint.
+            host = _resolve_launch_host(host)
             
             # Thread-safe initialization of FastAPI app
             app, is_new = _server_registry.get_or_create_app(
@@ -3145,9 +3338,14 @@ class AgentTeam(SpawnAnnounceProtocol):
         console.print(f"[dim]Progress: [{'█' * 30}] 100%[/dim]")
         console.print(f"[green]Completed {completed_count}/{len(self.tasks)} tasks![/green]\n")
         
-        # Restore original tasks reference for result retrieval
-        self._plan_tasks = self.tasks.copy()
-        # Keep plan tasks for results but note original tasks are preserved in _plan_tasks
+        # Keep plan-step tasks/results under _plan_tasks for introspection,
+        # then restore the user's original task set as the canonical self.tasks.
+        self._plan_tasks = self.tasks
+        self.tasks = original_tasks
+        with self._task_id_lock:
+            self.task_id_counter = (
+                max(original_tasks.keys()) + 1 if original_tasks else 0
+            )
 
     # Resource Lifecycle Management
     def close(self) -> None:

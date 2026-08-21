@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-ai-backend
-Version: 0.2.26
+Version: 0.2.27
 Summary: File storage and sandbox backends for AI agents
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-backend
 Project-URL: Repository, https://github.com/vstorm-co/pydantic-ai-backend

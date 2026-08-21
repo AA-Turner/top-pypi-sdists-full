@@ -10,12 +10,16 @@ from typing import TYPE_CHECKING, Any, cast, overload
 import jsonschema_rs
 import requests
 from hypothesis.errors import InvalidArgument, Unsatisfiable
-from hypothesis_jsonschema import from_schema
 
 from schemathesis.config import GenerationConfig
-from schemathesis.core.compat import RefResolutionError
-from schemathesis.core.errors import InfiniteRecursiveReference, UnresolvableReference
-from schemathesis.core.jsonschema import is_valid, make_validator_for
+from schemathesis.core import NOT_SET
+from schemathesis.core.errors import (
+    InfiniteRecursiveReference,
+    InvalidSchema,
+    RefResolutionError,
+    UnresolvableReference,
+)
+from schemathesis.core.jsonschema import CANONICALIZE_DRAFT_BY_VALIDATOR, is_valid, make_validator_for
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.parameters import ContainerName, ParameterLocation
@@ -24,11 +28,12 @@ from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
+from schemathesis.generation.jsonschema import Alphabet, build
 from schemathesis.generation.meta import TestPhase
+from schemathesis.generation.modes import GenerationMode
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi._hypothesis import get_default_format_strategies, openapi_cases, snapped_float32_clone
+from schemathesis.specs.openapi._hypothesis import _build_custom_formats, openapi_cases, snapped_float32_clone
 from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameterSet
-from schemathesis.specs.openapi.formats import STRING_FORMATS
 
 if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
@@ -369,13 +374,11 @@ def _resolve_bundled(
     if isinstance(schema, dict):
         reference = schema.get("$ref")
         if isinstance(reference, str):
-            # Check if this reference is already in the current path
+            # This walk explores everything, so a cycle would take it around forever. Whatever the
+            # pointer names has already been looked at once, and an empty schema carries no example
+            # and nothing further to explore.
             if reference in reference_path:
-                # Real infinite recursive references are caught at the bundling stage.
-                # This recursion happens because of how the example phase generates data - it explores everything,
-                # so it is the easiest way to break such cycles
-                cycle_path = list(reference_path[reference_path.index(reference) :])
-                raise InfiniteRecursiveReference(reference, cycle_path)
+                return {}, reference_path, resolver
 
             new_path = reference_path + (reference,)
 
@@ -690,10 +693,18 @@ def _yield_examples_from_properties(
                 subschema = dict(subschema)
                 subschema[BUNDLE_STORAGE_KEY] = bundle_storage
             try:
-                generated = _generate_single_example(subschema, config)
-            except (InvalidArgument, Unsatisfiable, jsonschema_rs.ValidationError, jsonschema_rs.ReferencingError):
+                generated = _generate_single_example(
+                    subschema, config, operation.schema.adapter.jsonschema_validator_cls
+                )
+            except (
+                InvalidArgument,
+                Unsatisfiable,
+                RefResolutionError,
+                jsonschema_rs.ValidationError,
+                jsonschema_rs.ReferencingError,
+            ):
                 continue
-            if not is_valid(generated, subschema):
+            if generated is NOT_SET or not is_valid(generated, subschema):
                 continue
             variants[name] = [generated]
 
@@ -860,13 +871,18 @@ def extract_from_schema(
 def _generate_single_example(
     schema: dict[str, Any],
     generation_config: GenerationConfig,
+    validator_cls: type[jsonschema_rs.Validator],
 ) -> Any:
-    strategy = from_schema(
-        schema,
-        custom_formats={**get_default_format_strategies(), **STRING_FORMATS},
-        allow_x00=generation_config.allow_x00,
-        codec=generation_config.codec,
-    )
+    # A schema with no values to draw from contributes nothing rather than a value it does not admit.
+    try:
+        strategy = build(
+            schema,
+            draft=CANONICALIZE_DRAFT_BY_VALIDATOR[validator_cls],
+            formats=_build_custom_formats(generation_config, GenerationMode.POSITIVE),
+            alphabet=Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec),
+        )
+    except InvalidSchema:
+        return NOT_SET
     return examples.generate_one(strategy)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy-strict-kwargs
-Version: 2026.8.20
+Version: 2026.8.20.1
 Summary: Enforce using keyword arguments where possible.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License: MIT License

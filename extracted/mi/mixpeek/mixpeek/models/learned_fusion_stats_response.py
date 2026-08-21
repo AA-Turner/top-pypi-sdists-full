@@ -38,9 +38,10 @@ class LearnedFusionStatsResponse(BaseModel):
     rollout_override: Optional[StrictBool] = Field(default=False, description="Whether a live rollout override is active (vs the config value).")
     config_rollout_pct: Optional[Union[StrictFloat, StrictInt]] = Field(default=100.0, description="The retriever's configured rollout_pct (ignoring any live override).")
     shadow_mode: StrictBool = Field(description="Whether learned fusion is running in shadow mode (logging only).")
+    source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
     hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
-    __properties: ClassVar[List[str]] = ["total_learners", "active_learners", "avg_interactions_per_user", "weight_spread", "context_level_distribution", "context_hit_rate", "enabled", "rollout_pct", "rollout_override", "config_rollout_pct", "shadow_mode", "warning", "hint"]
+    __properties: ClassVar[List[str]] = ["total_learners", "active_learners", "avg_interactions_per_user", "weight_spread", "context_level_distribution", "context_hit_rate", "enabled", "rollout_pct", "rollout_override", "config_rollout_pct", "shadow_mode", "source", "warning", "hint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -104,6 +105,7 @@ class LearnedFusionStatsResponse(BaseModel):
             "rollout_override": obj.get("rollout_override") if obj.get("rollout_override") is not None else False,
             "config_rollout_pct": obj.get("config_rollout_pct") if obj.get("config_rollout_pct") is not None else 100.0,
             "shadow_mode": obj.get("shadow_mode"),
+            "source": obj.get("source"),
             "warning": obj.get("warning"),
             "hint": obj.get("hint")
         })

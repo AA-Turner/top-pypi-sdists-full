@@ -38,6 +38,7 @@ For more information, please refer to <https://unlicense.org>
 # pylint: disable=R0902,R0913
 from logging import Logger
 from typing import Dict, Optional, Union
+import requests
 from ._auth_object import FalconInterface
 from ._error import CannotRevokeToken
 from ._util import (
@@ -65,6 +66,16 @@ class OAuth2(FalconInterface):
 
     OAuth2 is the only Service Class that inherits directly from the FalconAuth object.
     This means the OAuth2 class does not maintain an auth_object, as it is one.
+
+    Provide a `session` keyword to reuse an existing `requests.Session` for connection
+    pooling across login, token renewal and logout. FalconPy never closes a session
+    provided this way; the caller retains ownership of its lifecycle. Example:
+
+        with requests.Session() as session:
+            auth = OAuth2(client_id=client_id, client_secret=client_secret, session=session)
+            hosts = Hosts(auth_object=auth)
+            response = hosts.query_devices_by_filter(limit=10)
+        # session is closed here by the caller's `with` block, not by FalconPy
     """
 
     def __init__(self,
@@ -83,7 +94,8 @@ class OAuth2(FalconInterface):
                  debug_record_count: Optional[int] = None,
                  sanitize_log: Optional[bool] = None,
                  pythonic: Optional[bool] = None,
-                 environment: Optional[Dict[str, str]] = None
+                 environment: Optional[Dict[str, str]] = None,
+                 session: Optional[requests.Session] = None
                  ):
         """Construct an instance of the class.
 
@@ -92,7 +104,7 @@ class OAuth2(FalconInterface):
         such as the base URL, SSL verification, and timeout.
 
         Keyword arguments
-        ----
+        -----------------
         base_url : str
             CrowdStrike API URL to use for requests. [Default: US-1]
         ssl_verify : bool
@@ -114,13 +126,20 @@ class OAuth2(FalconInterface):
             Amount of time (in seconds) between now and the token expiration before
             a refresh of the token is performed. Default: 120, Max: 1200
             Values over 1200 will be reset to the maximum.
+        session : requests.Session
+            Existing HTTP session to reuse for connection pooling across login, every API
+            call, token renewal and logout. FalconPy never closes a session provided this
+            way; the caller retains ownership of its lifecycle (for example, by using it as
+            a context manager). A single Session is not guaranteed safe for concurrent use
+            across threads without external synchronization. When omitted (default),
+            behavior is unchanged and a new connection is used for each request.
 
         Arguments
-        ----
+        ---------
         This method only supports keywords to specify arguments.
 
         Returns
-        ----
+        -------
         class (OAuth2)
             A constructed instance of the OAuth2 Service Class.
         """
@@ -139,22 +158,23 @@ class OAuth2(FalconInterface):
                          debug_record_count=debug_record_count,
                          sanitize_log=sanitize_log,
                          pythonic=pythonic,
-                         environment=environment
+                         environment=environment,
+                         session=session
                          )
 
     def logout(self) -> Union[Dict[str, Union[int, dict]], Result]:
         """Revoke the current token.
 
         Keyword arguments
-        ----
+        -----------------
         This method does not accept keyword arguments.
 
         Arguments
-        ----
+        ---------
         This method does not accept arguments.
 
         Returns
-        ----
+        -------
         dict
             Dictionary object containing API response.
         """
@@ -183,11 +203,11 @@ class OAuth2(FalconInterface):
         HTTP Method: POST
 
         Swagger URL
-        ----
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/oauth2/oauth2RevokeToken
 
         Keyword arguments
-        ----
+        -----------------
         client_id : str
             Client ID of the token to be revoked.
         token : str
@@ -196,11 +216,11 @@ class OAuth2(FalconInterface):
             Flag indicating if the underlying authentication state is changed by this request.
 
         Arguments
-        ----
+        ---------
         When not specified as a keyword, token is assumed as the only accepted argument.
 
         Returns
-        ----
+        -------
         dict
             Dictionary containing API response.
         """
@@ -212,20 +232,20 @@ class OAuth2(FalconInterface):
         HTTP Method: POST
 
         Swagger URL
-        ----
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html#/oauth2/oauth2AccessToken
 
         Keyword arguments
-        ----
+        -----------------
         alter_state : bool
             Flag indicating if the underlying authentication state is changed by this request.
 
         Arguments
-        ----
+        ---------
         When not specified as a keyword, alter_state is assumed as the only accepted argument.
 
         Returns
-        ----
+        -------
         dict
             Dictionary object containing API response.
         """

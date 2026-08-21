@@ -17,6 +17,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Min RK <benjaminrk@gmail.com>                                 #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -111,6 +112,7 @@ class Installation(Framework.BasicTestCase):
                 # v3: this should not be the default value, so if this has been changed in v3,
                 # change it here is well
                 lazy=True,
+                api_version="version",
             )
 
             # assert kwargs consists of ALL requester constructor arguments

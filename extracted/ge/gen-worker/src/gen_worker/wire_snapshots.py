@@ -29,6 +29,100 @@ class AmbiguousManifestError(ValidationError):
     message. Deterministic: no retry changes it."""
 
 
+def resolved_repo_from_snapshot(snap: Any) -> Any:
+    """``pb.Snapshot`` -> the typed ``WorkerResolvedRepo`` the download layer
+    speaks: the ONE wire-boundary conversion. Everything downstream
+    (``ensure_local``, ``ensure_snapshot_async``) is typed — no dict laundering.
+
+    DIRECT FIELD ACCESS on ``digest``/``chunks``, deliberately — not
+    ``getattr(f, "digest", "")``. These were read defensively once, and the
+    default turned "the generated stub does not have this field" into "the hub
+    sent an empty value": the vendored proto WAS stale, so every v2 snapshot
+    arrived blank on the production gRPC path and nothing said why.
+    """
+    from .models.hub_client import (
+        WorkerResolvedChunk,
+        WorkerResolvedRepo,
+        WorkerResolvedRepoFile,
+    )
+
+    return WorkerResolvedRepo(
+        snapshot_digest=snap.digest,
+        files=[
+            WorkerResolvedRepoFile(
+                path=f.path,
+                size_bytes=int(f.size_bytes),
+                url=f.url or None,
+                digest=f.digest or "",
+                chunks=tuple(
+                    WorkerResolvedChunk(
+                        sha256=(c.sha256 or "").strip().lower(),
+                        url=c.url,
+                        length=int(c.len),
+                    )
+                    for c in f.chunks
+                ),
+            )
+            for f in snap.files
+        ],
+    )
+
+
+def snapshot_from_resolved_repo(resolved: Any) -> Any:
+    """``WorkerResolvedRepo`` -> ``pb.Snapshot``: the INVERSE, and it lives
+    here for the reason this module exists — one place the two spellings meet.
+
+    pgw#1491. The CLI resolves a checkpoint over HTTP
+    (``hub_client.resolve_repo``, which answers ``WorkerResolvedRepo``) and
+    then hands it to the SAME ``ModelStore.ensure_local`` a pod's boot uses,
+    whose parameter is the gRPC spelling. Without this the CLI would need its
+    own materializer, which is the two-paths-rot rule's exact shape: two
+    downloaders that both produce trees and disagree about integrity.
+
+    ``provenance`` is deliberately not synthesized: the proto calls it
+    audit/display ONLY and nothing downstream reads it, so inventing one here
+    would be manufacturing provenance the hub never stated.
+    """
+    from .pb import worker_scheduler_pb2 as pb
+
+    return pb.Snapshot(
+        digest=resolved.snapshot_digest,
+        files=[
+            pb.SnapshotFile(
+                path=f.path,
+                size_bytes=int(f.size_bytes),
+                url=f.url or "",
+                digest=f.digest or "",
+                chunks=[
+                    pb.ChunkRef(
+                        sha256=c.sha256,
+                        url=c.url,
+                        len=int(c.length),
+                    )
+                    for c in (f.chunks or ())
+                ],
+            )
+            for f in resolved.files
+        ],
+    )
+
+
+def resolved_repos(
+    wire: Mapping[str, Any],
+    bindings: Iterable[Any] = (),
+) -> Dict[str, Any]:
+    """:func:`index_snapshots`, with every entry already converted to the
+    typed ``WorkerResolvedRepo``. The shape a materializer wants.
+
+    Keys are plain ``str`` — still canonical refs, but the serve layer holds
+    no ``WireRef`` vocabulary and a NewType key would make an invariant
+    ``Mapping`` refuse it there for no gain."""
+    return {
+        str(ref): resolved_repo_from_snapshot(snap)
+        for ref, snap in index_snapshots(wire, bindings).items()
+    }
+
+
 def index_snapshots(
     wire: Mapping[str, Any],
     bindings: Iterable[Any] = (),
@@ -65,4 +159,9 @@ def index_snapshots(
     return out
 
 
-__all__ = ["AmbiguousManifestError", "index_snapshots"]
+__all__ = [
+    "AmbiguousManifestError",
+    "index_snapshots",
+    "resolved_repo_from_snapshot",
+    "resolved_repos",
+]

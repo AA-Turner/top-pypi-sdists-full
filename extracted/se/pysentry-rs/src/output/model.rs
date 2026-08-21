@@ -40,13 +40,21 @@ pub fn script_source_suffix(source_file: Option<&str>) -> String {
     }
 }
 
+/// The smallest fixed version strictly greater than `installed` — the least-disruptive safe
+/// upgrade across a possibly multi-branch `fixed_versions` list. `None` means every recorded
+/// fix is on an older release line (a backport), so no forward upgrade applies here.
+pub fn minimal_safe_upgrade<'a>(
+    fixed_versions: &'a [crate::types::Version],
+    installed: &crate::types::Version,
+) -> Option<&'a crate::types::Version> {
+    fixed_versions.iter().filter(|v| *v > installed).min()
+}
+
 /// Controls how much detail is included in the human-readable report
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DetailLevel {
-    /// Summary + one-liner per vulnerability, no descriptions
+    /// Summary + one-liner per vulnerability, no descriptions (default)
     Compact,
-    /// Standard output (default)
-    Normal,
     /// Full vulnerability descriptions
     Detailed,
 }
@@ -81,6 +89,13 @@ pub struct AuditReport {
     /// "transitive (via X)" display. Empty unless scanned from a lock file that records
     /// dependency edges (uv.lock, poetry.lock, pylock.toml).
     pub transitive_roots: HashMap<crate::types::PackageName, Vec<crate::types::PackageName>>,
+    /// Vulnerability sources that failed to fetch. Non-empty means the scan is incomplete
+    /// (partial): findings reflect only the sources that succeeded. Empty on a full scan.
+    pub failed_sources: Vec<String>,
+    /// (failing-finding count, `fail_on` threshold label) when the run exits non-zero on
+    /// vulnerabilities. `None` means no vulnerability triggered the exit condition. Drives the
+    /// human "why it failed" line only — never serialized.
+    pub fail_summary: Option<(usize, String)>,
     cached_summary: OnceLock<AuditSummary>,
 }
 
@@ -95,6 +110,8 @@ impl Clone for AuditReport {
             warnings: self.warnings.clone(),
             maintenance_issues: self.maintenance_issues.clone(),
             transitive_roots: self.transitive_roots.clone(),
+            failed_sources: self.failed_sources.clone(),
+            fail_summary: self.fail_summary.clone(),
             cached_summary: OnceLock::new(),
         }
     }
@@ -119,8 +136,25 @@ impl AuditReport {
             warnings,
             maintenance_issues,
             transitive_roots: HashMap::new(),
+            failed_sources: Vec::new(),
+            fail_summary: None,
             cached_summary: OnceLock::new(),
         }
+    }
+
+    /// Record the vulnerability sources that failed to fetch (partial scan). Empty = full scan.
+    #[must_use]
+    pub fn with_failed_sources(mut self, failed_sources: Vec<String>) -> Self {
+        self.failed_sources = failed_sources;
+        self
+    }
+
+    /// Record how many findings trigger the `fail_on` exit condition, and the threshold label,
+    /// for the human "why it failed" line. Pass `None` (or a zero count) when nothing fails.
+    #[must_use]
+    pub fn with_fail_summary(mut self, fail_summary: Option<(usize, String)>) -> Self {
+        self.fail_summary = fail_summary;
+        self
     }
 
     /// Attach the child → top-level-deps map used for "transitive (via X)" display.
@@ -290,6 +324,8 @@ pub(crate) mod test_helpers {
             vulnerability,
             is_direct: true,
             source_file: None,
+            groups: std::collections::BTreeSet::new(),
+            suppressed: None,
         }];
 
         let fix_analysis = FixAnalysis {
@@ -375,6 +411,8 @@ pub(crate) mod test_helpers {
                 vulnerability: direct_vulnerability,
                 is_direct: true,
                 source_file: None,
+                groups: std::collections::BTreeSet::new(),
+                suppressed: None,
             },
             VulnerabilityMatch {
                 package_name: PackageName::from_str("transitive-package").unwrap(),
@@ -382,6 +420,8 @@ pub(crate) mod test_helpers {
                 vulnerability: transitive_vulnerability,
                 is_direct: false,
                 source_file: None,
+                groups: std::collections::BTreeSet::new(),
+                suppressed: None,
             },
         ];
 

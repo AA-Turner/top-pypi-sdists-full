@@ -7,6 +7,7 @@ use pyo3::{Bound, PyResult, pymodule, wrap_pyfunction};
 use crate::analysis::scope::inline_fft::InlineFFTParams;
 use crate::analysis::types::frequency_domain_array::PyFreqDomainArray;
 use crate::analysis::types::time_domain_array::PyTimeDomainArray;
+use crate::data_source::Replay;
 use crate::data_source::{
     ChannelQuery,
     nds_cache::{DataFlow, NDS2Cache},
@@ -68,6 +69,7 @@ fn dttlib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PipInstant>()?;
     m.add_class::<PyFreqDomainArray>()?;
     m.add_class::<PyTimeDomainArray>()?;
+    m.add_class::<Replay>()?;
     m.add_class::<ResponseToUser>()?;
     m.add_class::<SetMember>()?;
     m.add_class::<Severity>()?;

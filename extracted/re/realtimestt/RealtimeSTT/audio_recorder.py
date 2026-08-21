@@ -21,7 +21,12 @@ from .core.lifecycle import (
     wait_for_recorded_audio,
     wakeup_recorder,
 )
-from .core.manual_audio_input import feed_audio as feed_manual_audio
+from .core.manual_audio_input import (
+    feed_audio as feed_manual_audio,
+    feed_audio_file as feed_manual_audio_file,
+    flush_audio_input as flush_manual_audio_input,
+)
+from .core.recording import drain_audio_input
 from .core.recording_buffers import (
     clear_audio_queue as clear_recorder_audio_queue,
     flush_buffered_audio as flush_recorder_buffered_audio,
@@ -181,6 +186,7 @@ class AudioToTextRecorder:
                  use_extended_logging: bool = False,
                  faster_whisper_vad_filter: bool = True,
                  normalize_audio: bool = False,
+                 final_transcription_word_timestamps: bool = False,
                  start_callback_in_new_thread: bool = False,
                  realtime_transcription_use_syllable_boundaries: bool = False,
                  realtime_boundary_detector_sensitivity: float = 0.6,
@@ -191,6 +197,9 @@ class AudioToTextRecorder:
                  transcription_executor: Optional[Callable] = None,
                  realtime_transcription_executor: Optional[Callable] = None,
                  on_realtime_text_stabilization_update=None,
+                 realtime_punctuation_split_marks: Optional[
+                     Union[str, Iterable[str]]
+                 ] = "off",
                  silero_backend: str = "auto",
                  silero_onnx_model_path: Optional[str] = None,
                  silero_onnx_threads: int = 2,
@@ -301,13 +310,16 @@ class AudioToTextRecorder:
             slight delay compared to the regular real-time updates.
         - on_realtime_text_stabilization_update = A callback function that is
             triggered with a structured realtime stabilization event.
+        - realtime_punctuation_split_marks (str or iterable, default="off"):
+            Opt-in punctuation marks for splitting long active realtime
+            recordings. Use "sentence" for the supported `. ? !` mode.
         - realtime_batch_size (int, default=16): Batch size for the real-time
             transcription model.
 
         Voice activity and turn detection:
         - silero_sensitivity (float, default=SILERO_SENSITIVITY): Sensitivity
             for the Silero Voice Activity Detection model ranging from 0
-            (least sensitive) to 1 (most sensitive). Default is 0.5.
+            (least sensitive) to 1 (most sensitive). Default is 0.4.
         - silero_use_onnx (bool, default=None): Legacy Silero backend switch.
             If True, keeps the previous torch.hub ONNX path. If False, keeps
             the previous torch.hub PyTorch path. If None, silero_backend
@@ -482,6 +494,10 @@ class AudioToTextRecorder:
         - normalize_audio (bool, default=False): If set to True, the system will
             normalize the audio to a specific range before processing. This can
             help improve the quality of the transcription.
+        - final_transcription_word_timestamps (bool, default=False): If set to
+            True, final transcription requests ask compatible engines to return
+            word-level timestamps in last_transcription_metadata["words"]. This
+            is currently supported by the faster_whisper transcription engine.
         - start_callback_in_new_thread (bool, default=False): If set to True,
             the callback functions will be executed in a
             new thread. This can help improve performance by allowing the
@@ -584,6 +600,9 @@ class AudioToTextRecorder:
             use_extended_logging=use_extended_logging,
             faster_whisper_vad_filter=faster_whisper_vad_filter,
             normalize_audio=normalize_audio,
+            final_transcription_word_timestamps=(
+                final_transcription_word_timestamps
+            ),
             start_callback_in_new_thread=start_callback_in_new_thread,
             realtime_transcription_use_syllable_boundaries=(
                 realtime_transcription_use_syllable_boundaries
@@ -597,6 +616,7 @@ class AudioToTextRecorder:
             on_realtime_text_stabilization_update=(
                 on_realtime_text_stabilization_update
             ),
+            realtime_punctuation_split_marks=realtime_punctuation_split_marks,
             silero_backend=silero_backend,
             silero_onnx_model_path=silero_onnx_model_path,
             silero_onnx_threads=silero_onnx_threads,
@@ -662,6 +682,7 @@ class AudioToTextRecorder:
 
     def text(self,
              on_transcription_finished=None,
+             word_timestamps=None,
              ):
         """
         Records if needed and returns or publishes final transcription text.
@@ -669,16 +690,18 @@ class AudioToTextRecorder:
         Args:
         - on_transcription_finished: Optional callback that receives the
             transcription result instead of returning it synchronously.
+        - word_timestamps: Optional per-call override for word-level timestamp
+            metadata. If None, final_transcription_word_timestamps is used.
         """
-        return transcribe_text(self, on_transcription_finished)
+        return transcribe_text(self, on_transcription_finished, word_timestamps)
 
-    def transcribe(self):
+    def transcribe(self, word_timestamps=None):
         """
         Transcribes the recorder's currently loaded audio.
         """
-        return transcribe_recorded_audio(self)
+        return transcribe_recorded_audio(self, word_timestamps)
 
-    def perform_final_transcription(self, audio_bytes=None, use_prompt=True):
+    def perform_final_transcription(self, audio_bytes=None, use_prompt=True, word_timestamps=None):
         """
         Runs final transcription on recorded audio or provided audio samples.
 
@@ -686,8 +709,10 @@ class AudioToTextRecorder:
         - audio_bytes: Optional audio samples to transcribe instead of the
             recorder's current audio buffer.
         - use_prompt: Whether to use the configured initial prompt.
+        - word_timestamps: Optional per-call override for word-level timestamp
+            metadata. If None, final_transcription_word_timestamps is used.
         """
-        return perform_final_transcription_api(self, audio_bytes, use_prompt)
+        return perform_final_transcription_api(self, audio_bytes, use_prompt, word_timestamps)
 
     # Public manual input API.
 
@@ -696,10 +721,41 @@ class AudioToTextRecorder:
         Feeds an audio chunk into the manual audio input pipeline.
 
         Args:
-        - chunk: Audio bytes or a NumPy audio array.
+        - chunk: Audio bytes, a NumPy audio array, or an audio file path.
         - original_sample_rate: Sample rate of the provided audio chunk.
         """
         return feed_manual_audio(self, chunk, original_sample_rate)
+
+    def flush_audio_input(self):
+        """Queue a partial manual-input chunk before an explicit drain."""
+
+        return flush_manual_audio_input(self)
+
+    def drain_audio_input(self, timeout=None):
+        """Wait until the recording worker has consumed queued manual audio."""
+
+        return drain_audio_input(self, timeout=timeout)
+
+    def feed_audio_file(
+            self,
+            filenames,
+            normalize=True,
+            target_peak=0.95,
+    ):
+        """
+        Feeds one or more audio files into the manual audio input pipeline.
+
+        Args:
+        - filenames: Audio file path or iterable of audio file paths.
+        - normalize: Whether to peak-normalize decoded audio before feeding.
+        - target_peak: Target absolute peak when normalization is enabled.
+        """
+        return feed_manual_audio_file(
+            self,
+            filenames,
+            normalize=normalize,
+            target_peak=target_peak,
+        )
 
     # Public lifecycle/control API.
 

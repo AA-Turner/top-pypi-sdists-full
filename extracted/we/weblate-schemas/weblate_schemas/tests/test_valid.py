@@ -6,6 +6,7 @@
 
 import copy
 
+import pytest
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 
@@ -76,6 +77,7 @@ def test_userdata() -> None:
                 "hide_completed": False,
                 "secondary_in_zen": True,
                 "hide_source_secondary": False,
+                "listing_columns": ["total", "untranslated", "checks"],
                 "editor_link": "",
                 "translate_mode": 0,
                 "zen_mode": 0,
@@ -117,9 +119,12 @@ def test_backup() -> None:
             "contribute_shared_tm": False,
             "use_workspace_tm": True,
             "contribute_workspace_tm": True,
+            "autoclean_tm": True,
             "access_control": 0,
+            "enforced_2fa": True,
             "translation_review": False,
             "source_review": False,
+            "commit_policy": 20,
             "enable_hooks": False,
             "language_aliases": "",
         },
@@ -129,6 +134,7 @@ def test_backup() -> None:
                 "name": "My category",
                 "slug": "my-category",
                 "check_flags": "xml-text",
+                "enforced_checks": ["same"],
                 "license": "MIT",
                 "agreement": "Category agreement",
                 "new_lang": "add",
@@ -145,6 +151,7 @@ def test_backup() -> None:
                 "inherit_new_lang": True,
                 "inherit_language_code_style": True,
                 "inherit_secondary_language": True,
+                "inherit_enforced_checks": True,
                 "inherit_commit_message": True,
                 "inherit_add_message": True,
                 "inherit_delete_message": True,
@@ -156,6 +163,8 @@ def test_backup() -> None:
                         "name": "My Subcategory",
                         "slug": "my-subcategory",
                         "secondary_language": "de",
+                        "enforced_checks": ["duplicate"],
+                        "inherit_enforced_checks": False,
                         "categories": [],
                     }
                 ],
@@ -206,6 +215,7 @@ def test_backup() -> None:
         "project": {
             **base_backup["project"],
             "check_flags": "safe-html, strict-same",
+            "enforced_checks": ["same", "duplicate"],
             "license": "MIT",
             "agreement": "Contributor agreement",
             "new_lang": "add",
@@ -222,6 +232,7 @@ def test_backup() -> None:
             "inherit_new_lang": True,
             "inherit_language_code_style": True,
             "inherit_secondary_language": True,
+            "inherit_enforced_checks": True,
             "inherit_commit_message": True,
             "inherit_add_message": True,
             "inherit_delete_message": True,
@@ -234,6 +245,34 @@ def test_backup() -> None:
         backup_with_inherited_settings,
         "weblate-backup.schema.json",
     )
+    invalid_enforced_checks = copy.deepcopy(backup_with_inherited_settings)
+    invalid_enforced_checks["project"]["enforced_checks"] = [1]
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_enforced_checks,
+            "weblate-backup.schema.json",
+        )
+    invalid_inheritance = copy.deepcopy(base_backup)
+    invalid_inheritance["categories"][0]["inherit_enforced_checks"] = "yes"
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_inheritance,
+            "weblate-backup.schema.json",
+        )
+    invalid_commit_policy = copy.deepcopy(base_backup)
+    invalid_commit_policy["project"]["commit_policy"] = 10
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_commit_policy,
+            "weblate-backup.schema.json",
+        )
+    invalid_autoclean_tm = copy.deepcopy(base_backup)
+    invalid_autoclean_tm["project"]["autoclean_tm"] = "yes"
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_autoclean_tm,
+            "weblate-backup.schema.json",
+        )
 
     backup_with_set_language_team = base_backup.copy()
     backup_with_set_language_team["project"]["set_language_team"] = True
@@ -317,13 +356,17 @@ def test_component() -> None:
             "branch": "main",
             "push_branch": "",
             "filemask": "po/*.po",
+            "screenshot_filemask": "screenshots/*.png",
             "template": "",
             "edit_template": False,
             "intermediate": "",
             "new_base": "",
             "file_format": "po",
+            "file_format_params": {"po_line_wrap": 65535},
             "locked": False,
+            "hide_glossary_matches": True,
             "allow_translation_propagation": True,
+            "contribute_project_tm": False,
             "enable_suggestions": True,
             "suggestion_voting": True,
             "suggestion_autoaccept": 2,
@@ -346,6 +389,7 @@ def test_component() -> None:
             "auto_lock_error": False,
             "source_language": "en",
             "language_regex": "^[^.]+$",
+            "key_filter": "^keep",
             "variant_regex": "",
             "priority": 100,
             "restricted": False,
@@ -429,6 +473,11 @@ def test_component() -> None:
         data,
         "weblate-component.schema.json",
     )
+    data["component"]["vcs_params"] = {"git_force_push": True}
+    validate_schema(
+        data,
+        "weblate-component.schema.json",
+    )
     data["component"].update(
         {
             "secondary_language": None,
@@ -437,6 +486,7 @@ def test_component() -> None:
             "inherit_new_lang": True,
             "inherit_language_code_style": True,
             "inherit_secondary_language": True,
+            "inherit_enforced_checks": True,
             "inherit_commit_message": True,
             "inherit_add_message": True,
             "inherit_delete_message": True,
@@ -449,6 +499,29 @@ def test_component() -> None:
         data,
         "weblate-component.schema.json",
     )
+    invalid_inheritance = copy.deepcopy(data)
+    invalid_inheritance["component"]["inherit_enforced_checks"] = "yes"
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_inheritance,
+            "weblate-component.schema.json",
+        )
+    invalid_file_format_params = copy.deepcopy(data)
+    invalid_file_format_params["component"]["file_format_params"] = {
+        "po_line_wrap": None
+    }
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_file_format_params,
+            "weblate-component.schema.json",
+        )
+    invalid_key_filter = copy.deepcopy(data)
+    invalid_key_filter["component"]["key_filter"] = False
+    with pytest.raises(ValidationError):
+        validate_schema(
+            invalid_key_filter,
+            "weblate-component.schema.json",
+        )
     data["component"]["secondary_language"] = "de"
     validate_schema(
         data,

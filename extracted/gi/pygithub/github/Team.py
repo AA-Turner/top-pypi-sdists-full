@@ -44,6 +44,7 @@
 # Copyright 2025 Christoph Reiter <reiter.christoph@gmail.com>                 #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2025 Oscar van Leusen <oscarvanleusen@gmail.com>                   #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -125,7 +126,7 @@ class Team(CompletableGithubObject):
         self._organization: Attribute[Organization] = NotSet
         self._organization_id: Attribute[int] = NotSet
         self._organization_selection_type: Attribute[str] = NotSet
-        self._parent: Attribute[github.Team.Team] = NotSet
+        self._parent: Attribute[Team] = NotSet
         self._permission: Attribute[str] = NotSet
         self._permissions: Attribute[Permissions] = NotSet
         self._privacy: Attribute[str] = NotSet

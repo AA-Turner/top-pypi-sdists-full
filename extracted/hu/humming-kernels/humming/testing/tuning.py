@@ -9,7 +9,7 @@ import random
 
 import torch
 
-from humming.config import ComputeConfig, LayerConfig, MmaType, TuningConfig
+from humming.config import ComputeConfig, GemmType, LayerConfig, MmaType, TuningConfig
 from humming.tune import get_heuristics_config
 from humming.utils.device import fits_device_smem, get_device_num_sms
 
@@ -21,6 +21,8 @@ SAMPLED_TUNING_VALUES = {
     "use_warp_spec": (True, False),
     "use_mbarrier": (True, False),
     "use_cp_async": (True, False),
+    "multi_cast_size_a": (1, 2),
+    "multi_cast_size_b": (1, 2),
     "use_stream_k": (True, False),
     "num_ctas_per_sm": (1, 2, 3, 4),
     "raster_group_m": (1, 2, 5, 9),
@@ -73,6 +75,8 @@ def _is_legal_geometry(
     block_shape: tuple[int, int, int],
     warp_shape: tuple[int, int, int],
 ) -> bool:
+    if block_shape[0] > 256:
+        return False
     if layer_config.shape_n % block_shape[1] or layer_config.shape_k % block_shape[2]:
         return False
     if any(block % warp for block, warp in zip(block_shape, warp_shape, strict=True)):
@@ -157,13 +161,46 @@ def _resolve_tma_values(
     return True, values
 
 
+def _is_legal_multicast_transfer(
+    compute_config: ComputeConfig,
+    sm_version: int,
+    signature: dict,
+    tma_values: dict[str, bool],
+) -> bool:
+    size_a = signature["multi_cast_size_a"]
+    size_b = signature["multi_cast_size_b"]
+    if size_a == 1 and size_b == 1:
+        return True
+
+    if sm_version not in (90, 100, 103):
+        return False
+    if compute_config.gemm_type != GemmType.DENSE:
+        return False
+    if not signature["use_warp_spec"]:
+        return False
+    if size_a > 1 and size_b > 1:
+        return False
+    if size_a > 1 and not tma_values["use_tma_a"]:
+        return False
+    if size_b > 1 and not tma_values["use_tma_b"]:
+        return False
+    return True
+
+
 def _generate_transfer_candidates(
     layer_config: LayerConfig,
     compute_config: ComputeConfig,
 ) -> list[tuple[dict, dict]]:
     base = _get_base_config(compute_config)
     candidates = []
-    names = ("use_tma", "use_warp_spec", "use_mbarrier", "use_cp_async")
+    names = (
+        "use_tma",
+        "use_warp_spec",
+        "use_mbarrier",
+        "use_cp_async",
+        "multi_cast_size_a",
+        "multi_cast_size_b",
+    )
     seed = _get_seed(layer_config, compute_config)
     major, minor = torch.cuda.get_device_capability()
     sm_version = major * 10 + minor
@@ -183,6 +220,8 @@ def _generate_transfer_candidates(
             and compute_config.use_m_major_input_scale
         ):
             tma_values["use_tma_as"] = False
+        if not _is_legal_multicast_transfer(compute_config, sm_version, signature, tma_values):
+            continue
         config = base | signature | tma_values | {"use_tma": use_tma}
         candidates.append((config, signature | tma_values))
     return candidates
@@ -303,6 +342,8 @@ def _try_combine_candidate(
         return None
     if layer_config.mma_type == MmaType.WGMMA and config["num_stages"] < 3:
         return None
+    if layer_config.shape_n % (block_shape[1] * config["multi_cast_size_a"]):
+        return None
     if compute_config.use_batch_invariant and (config["use_stream_k"] or block_shape[2] != warp_shape[2]):
         return None
     actual_warp_iters = (
@@ -315,8 +356,6 @@ def _try_combine_candidate(
     block_m = config["block_shape"][0]
     warp_m = config["warp_shape"][0]
     if config["num_write_splits"] > 1 and (block_m != warp_m or block_m % 32 or config["use_tma_c"]):
-        return None
-    if block_m > 256 and any(config[name] for name in ("use_tma_a", "use_tma_as", "use_tma_c")):
         return None
     if (
         layer_config.has_zero_point
@@ -335,6 +374,9 @@ def enumerate_test_tuning_configs(
     layer_config: LayerConfig,
     compute_config: ComputeConfig,
 ) -> list[tuple[dict, dict]]:
+    if layer_config.mma_type == MmaType.MXMMA and compute_config.use_f16_accum:
+        return []
+
     rng = random.Random(_get_seed(layer_config, compute_config))
     groups = (
         _generate_geometry_candidates(layer_config, compute_config),

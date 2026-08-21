@@ -9,6 +9,7 @@ from chatlas._content import (
     ContentImageInline,
     ContentPDF,
     ContentUploaded,
+    WebSource,
 )
 from chatlas._provider_openai import OpenAIProvider, as_input_param
 from chatlas._provider_openai import (
@@ -17,8 +18,12 @@ from chatlas._provider_openai import (
 from chatlas.types import ContentCitation, ContentText, ContentToolRequestSearch
 from openai.types.responses import (
     Response,
+    ResponseOutputTextAnnotationAddedEvent,
     ResponseOutputMessage,
     ResponseOutputText,
+)
+from openai.types.responses.response_output_text_annotation_added_event import (
+    AnnotationURLCitation,
 )
 
 from .conftest import (
@@ -77,6 +82,35 @@ def test_normalize_finish_reason_passes_through_unknown_status():
 
 def test_normalize_finish_reason_handles_none():
     assert openai_normalize_finish_reason(None) is None
+
+
+def test_stream_content_handles_url_citation_model():
+    provider = OpenAIProvider(api_key="test", model="gpt-4.1")
+    annotation = AnnotationURLCitation(
+        type="url_citation",
+        url="https://example.com",
+        title="Example",
+        start_index=0,
+        end_index=1,
+    )
+    chunk = ResponseOutputTextAnnotationAddedEvent(
+        type="response.output_text.annotation.added",
+        annotation=annotation,
+        annotation_index=0,
+        content_index=0,
+        item_id="msg_123",
+        output_index=0,
+        sequence_number=1,
+    )
+
+    contents = provider.stream_content(chunk, completion=None)
+
+    assert len(contents) == 1
+    citation = contents[0]
+    assert isinstance(citation, ContentCitation)
+    assert isinstance(citation.source, WebSource)
+    assert citation.source.url == "https://example.com"
+    assert citation.extra == annotation.model_dump()
 
 
 def test_openai_uploaded_serializes_to_input_file():
@@ -270,17 +304,17 @@ def test_openai_web_search():
     assert cites, "expected ContentCitation items in turn contents"
     assert all(c.source and c.source.url for c in cites)
 
-    # grounded_span should be sliced from the answer text on each turn
-    found_grounded_span = False
     for turn in chat.get_turns():
         answer = "".join(c.text for c in turn.contents if isinstance(c, ContentText))
         for c in turn.contents:
             if not isinstance(c, ContentCitation):
                 continue
-            assert c.grounded_span is not None
-            assert c.grounded_span in answer
-            found_grounded_span = True
-    assert found_grounded_span, "expected at least one citation with grounded_span"
+            assert c.extra is not None
+            marker = answer[c.extra["start_index"] : c.extra["end_index"]]
+            assert marker.startswith("([")
+            assert c.source is not None
+            assert f"]({c.source.url})" in marker
+            assert c.grounded_span is None
 
 
 @pytest.mark.vcr
@@ -296,6 +330,8 @@ def test_openai_web_search_streaming():
     citations = [x for x in items if isinstance(x, ContentCitation)]
     assert citations
     assert all(c.source and c.source.url for c in citations)
+    assert all(c.grounded_span is None for c in citations)
+    assert all(c.extra is not None for c in citations)
     # interleaved: at least one citation arrives before the last item in the stream
     cite_idx = [i for i, x in enumerate(items) if isinstance(x, ContentCitation)]
     assert cite_idx and min(cite_idx) < len(items) - 1

@@ -76,6 +76,12 @@ _deprecated_op_mapping = {
     "CreateFileV1": "",
     "UpdateFileV1": "",
     "combinedQueryInstalledPatches": "",
+
+    "AggregatesKnowledgeBaseAuditEventsV1": "",
+
+    "AggregatesKnowledgeBasesV1": "",
+
+    "WorkflowExecuteInternal": "",
 }
 
 _deprecated_cls_mapping = {

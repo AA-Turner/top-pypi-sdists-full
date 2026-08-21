@@ -18,29 +18,30 @@ import typing
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Set, Tuple, cast
+from typing import (
+    Any, Awaitable, Callable, Dict, List, Optional, Sequence, Set, Tuple, cast,
+)
 
 from .. import activity as activity_mod
 from .. import boot_phases as boot_mod
 from .. import progress as progress_mod
+from .. import weight_position
 from ..capability import InsufficientDiskError
 from ..lifecycle_intents import IntentRegistry
 from ..pb import worker_scheduler_pb2 as pb
 from ..redact import sanitize as _sanitize
 from ..topology import current_device_group
+from ..wire_snapshots import resolved_repo_from_snapshot
 from . import cozy_snapshot, disk_gc, disk_telemetry, projection
+from .projection import SNAPSHOTS_DIR
 from . import residency as residency_mod
 from . import staging as staging_mod
 from .cache_paths import tensorhub_cas_dir, tensorhub_fill_source_dir
 from .config_identity import CANONICAL_JSON_MAX_BYTES, canonical_json_digest
-from .cozy_snapshot import _norm_rel_path, delete_blobs
+from .cozy_snapshot import _norm_rel_path, delete_blobs, snapshot_dir_key
 from .download import ensure_local, lookup_provider_for_ref
 from .errors import MissingSnapshotError, UrlExpiredError
-from .hub_client import (
-    WorkerResolvedChunk,
-    WorkerResolvedRepo,
-    WorkerResolvedRepoFile,
-)
+from .hub_client import WorkerResolvedRepo
 from .loading import safetensors_file_valid
 from .refs import WireRef
 from .residency import Residency
@@ -74,43 +75,13 @@ _DISK_GC_GRACE_S = 300.0
 # with ModelEvent emission. Single-loop, per-ref asyncio locks.
 
 def _snapshot_to_resolved(snap: pb.Snapshot) -> "WorkerResolvedRepo":
-    """pb.Snapshot -> the typed resolved-manifest struct: the ONE
-    wire-boundary conversion; everything downstream (ensure_local,
-    ensure_snapshot_async) is typed — no dict laundering."""
+    """pb.Snapshot -> the typed resolved-manifest struct.
 
-    return WorkerResolvedRepo(
-        snapshot_digest=snap.digest,
-        files=[
-            WorkerResolvedRepoFile(
-                path=f.path,
-                size_bytes=int(f.size_bytes),
-                url=f.url or None,
-                # The algorithm-tagged digest and the
-                # ordered chunk list. Dropping these here is what would make
-                # every chunked snapshot look like a whole file with no URL.
-                #
-                # DIRECT FIELD ACCESS, deliberately — not `getattr(f, "digest",
-                # "")`. These were read defensively at first, and the default
-                # turned "the generated stub does not have this field" into
-                # "the hub sent an empty value": the vendored proto WAS stale
-                # (no `digest`/`chunks` at all), so every v2 snapshot arrived
-                # blank on the production gRPC path and nothing said why. A
-                # missing field must be an AttributeError at import-adjacent
-                # code, not a silent empty string — same class as guarding a
-                # digest check on the legacy field's truthiness.
-                digest=f.digest or "",
-                chunks=tuple(
-                    WorkerResolvedChunk(
-                        sha256=(c.sha256 or "").strip().lower(),
-                        url=c.url,
-                        length=int(c.len),
-                    )
-                    for c in f.chunks
-                ),
-            )
-            for f in snap.files
-        ],
-    )
+    ONE spelling, in ``wire_snapshots`` — the v2 serve path needs the same
+    conversion for reserved repo fields (pgw#1475) and a second copy here is
+    how the two would drift.
+    """
+    return cast("WorkerResolvedRepo", resolved_repo_from_snapshot(snap))
 
 def _is_terminal_download_error(exc: BaseException) -> bool:
     if isinstance(exc, (UrlExpiredError, InsufficientDiskError, MissingSnapshotError)):
@@ -139,10 +110,53 @@ _TIER_TO_PB = {
 _USE_RESIDENT_IDENTITY = object()
 _ResidencyIdentity = Tuple[str, int]
 
+def _resident_position(ref: "WireRef", snapshot: Optional[pb.Snapshot]) -> None:
+    """pgw#1485: one `already_resident` position row for a materialization that
+    transferred nothing because the pod already held the ref.
+
+    Without it a warm hit is INDISTINGUISHABLE from a fetch that never started
+    (th#2204's `no_position_reported`), and the only way anyone ever learned
+    which it was cost a rented H100.
+    """
+    total = (
+        sum(int(f.size_bytes) for f in snapshot.files)
+        if snapshot is not None else 0
+    )
+    weight_position.FetchPosition(ref, total_bytes=total).already_resident()
+
 @dataclass(frozen=True)
 class _MaterializedLocal:
     path: Path
     identity: _ResidencyIdentity
+
+# pgw#1543: THE SERVING PATH NEEDS THE STORE, and had no way to reach it.
+#
+# `ensure_pinned` had exactly two callers — `announce_resident` (boot) and
+# `_materialize_local` (materialization) — and `ctx.load`, the per-request path
+# that ACTUALLY REFUSES, called neither. A pod whose tree was already
+# materialized and whose announce already ran serves every later request
+# through `ctx.load`, which finds the pin missing and refuses forever, while
+# the repair sits two modules away with no reference to reach it by. Three
+# commits of observability were watching a door the failure does not use.
+#
+# The resolver already takes the store by `bind_store`; this is the same idea
+# for the serving path, which holds a `DeployBinding` (ref + dir) and nothing
+# else. Module-level because a `ServingContext` is built per host from a
+# binding that deliberately carries no store, and threading one through every
+# construction site to fix an outage is the wrong trade today.
+_ACTIVE_STORE: "Optional[ModelStore]" = None
+
+
+def bind_active_store(store: "ModelStore") -> None:
+    """Publish the process's store for paths that hold no reference to it."""
+    global _ACTIVE_STORE
+    _ACTIVE_STORE = store
+
+
+def active_store() -> "Optional[ModelStore]":
+    """The bound store, or None in a process that never made one (a fixture)."""
+    return _ACTIVE_STORE
+
 
 class ModelStore:
     """The worker's model seam: ensure-local with retries, the residency map,
@@ -154,8 +168,6 @@ class ModelStore:
         self,
         emit: Callable[[pb.WorkerMessage], Awaitable[None]],
         *,
-        hf_home: str = "",
-        hf_token: str = "",
         cache_dir: Optional[Path] = None,
         vram_budget_bytes: Optional[int] = None,
         disk_free_bytes_fn: Optional[Callable[[], int]] = None,
@@ -163,8 +175,9 @@ class ModelStore:
     ) -> None:
         self._emit = emit
         self._intent_registry: Optional[IntentRegistry] = None
-        self._hf_home = hf_home or None
-        self._hf_token = hf_token or None
+        # pgw#1524: no `hf_home` / `hf_token`. The store's ONE weight source is
+        # the tensorfs CAS, and a registry credential on the serving path is
+        # exactly the direct-serve capability the hardcut removed.
         self._cache_dir = cache_dir or tensorhub_cas_dir()
         # endpoint-scoped datacenter-warm
         # fill source (RunPod volume mount), consulted before R2 on a blob
@@ -224,6 +237,9 @@ class ModelStore:
         # : a cached snapshot is re-verified on first use per process
         # so pod-churn corruption can never be trusted forever.
         self._verified: set[str] = set()
+        #: pgw#1544: the snapshot census is one statement about the whole
+        #: store, so the per-ref residency answer emits it at most once.
+        self._censused = False
         # Last digest-carrying snapshot seen per ref: companion-slot
         # setups may arrive snapshot-less; without memory of the hub's desired
         # state / RunJob snapshot they cannot materialize tensorhub refs. Stale
@@ -397,6 +413,17 @@ class ModelStore:
             if self._loop is not None and not self._loop.is_closed():
                 asyncio.run_coroutine_threadsafe(coro, self._loop)
             else:
+                # pgw#1490: LOUD. This branch drops a wire fact, and it dropped
+                # them silently — a store touched before any loop exists (the
+                # `Worker.__init__` boot rescan, entrypoint.py's construction
+                # site) populated the disk tier perfectly and delivered ZERO
+                # ModelEvents, with nothing anywhere saying so. A residency the
+                # hub never hears is the same as no residency at all.
+                logger.warning(
+                    "model event DROPPED ref=%s state=%s: no event loop is "
+                    "bound to this store yet (call bind_loop, or emit from "
+                    "inside the loop)", ref, state,
+                )
                 coro.close()
             return
         loop.create_task(coro)
@@ -687,6 +714,41 @@ class ModelStore:
 : snapshot-less ops for it can still materialize the bytes."""
         return ref in self._snapshots
 
+    def banked_snapshot(self, ref: WireRef) -> Optional[pb.Snapshot]:
+        """The snapshot identity this store holds for ``ref``, if any.
+
+        pgw#1490: the dispatch-time resolver asks THIS, because the store is
+        what materialized the tree and therefore what knows its digest. The
+        wire's `ModelBinding.manifest_digest` has never had a sender.
+        """
+        with self._identity_lock:
+            return self._snapshots.get(ref)
+
+    def banked_snapshot_for_tree(self, tree_name: str) -> Optional[pb.Snapshot]:
+        """The banked snapshot whose DIGEST names ``tree_name``, if any.
+
+        pgw#1543. `banked_snapshot` is keyed by ref, and the serving path holds
+        `DeployBinding.checkpoint_ref` — which is the resolver's `pick.ref`,
+        not necessarily the exact string the store banked under. A repair that
+        depended on those two spellings matching would SILENTLY NO-OP on any
+        mismatch: `banked_snapshot` misses, `ensure_pinned` returns False, the
+        pod refuses exactly as before, and every stubbed test still passes.
+        That failure mode is invisible, so the lookup does not rely on the ref
+        at all — the tree's directory name IS its digest, and that is a fact
+        about disk rather than about vocabulary.
+        """
+        want = str(tree_name)
+        with self._identity_lock:
+            banked = list(self._snapshots.values())
+        for snapshot in banked:
+            digest = str(getattr(snapshot, "digest", "") or "").strip()
+            if not digest or not snapshot.files:
+                continue
+            bare = digest.split(":", 1)[-1]
+            if want in (snapshot_dir_key(digest), snapshot_dir_key(bare)):
+                return snapshot
+        return None
+
     def bank_snapshot(self, ref: WireRef, snapshot: pb.Snapshot) -> None:
         """Make hub metadata available without starting a download."""
         if not ref or not snapshot.digest or not snapshot.files:
@@ -944,7 +1006,17 @@ class ModelStore:
 
         Also sweeps abandoned writer-unique CAS temp artifacts: on
         pod-local disk those died with the pod, but a CAS root pointed at a
-        persistent volume keeps them until swept."""
+        persistent volume keeps them until swept.
+
+        pgw#1536: it also CENSUSES the snapshot trees on disk and whether each
+        is pinned. The pod incident turned on a tree existing without its
+        manifest pin, and nobody could say whether that tree predated the boot
+        or was built during it — because nothing ever looked. This is one
+        `read_ref` per tree, at boot, on a directory that is empty on a cold
+        pod, and it is the difference between "we would need a rental to know"
+        and reading it off the boot log of any run that happens anyway.
+        """
+        self._census_snapshot_pins()
         for ref, ent in self._index.entries().items():
             p = Path(str(ent.get("path") or ""))
             if p.exists():
@@ -1069,6 +1141,36 @@ class ModelStore:
                     return other
         return ""
 
+    def _already_resident_bytes(self, files: Sequence[Any]) -> int:
+        """Bytes of ``files`` whose CAS objects this pod ALREADY holds.
+
+        pgw#1596. The headroom gate asks for FREE space, so it must ask for
+        what is still MISSING — the bytes already banked are, by definition,
+        not going to be written again. `contains` is the same content-addressed
+        predicate the fill path uses to decide a grant is satisfied, so this
+        cannot disagree with what the downloader will actually skip.
+
+        A file with no digest is counted as absent: the honest direction, since
+        it will be fetched.
+        """
+        from .cache_paths import open_worker_cas
+
+        try:
+            cas = open_worker_cas(self._cache_dir)
+        except Exception:  # noqa: BLE001 — a probe must not be the failure
+            return 0
+        total = 0
+        for f in files:
+            digest = str(getattr(f, "digest", "") or "").strip()
+            if not digest:
+                continue
+            try:
+                if cas.contains(digest, size=int(f.size_bytes)):
+                    total += int(f.size_bytes)
+            except Exception:  # noqa: BLE001 — an unreadable object is absent
+                continue
+        return total
+
     async def _ensure_disk_headroom(
         self,
         ref: WireRef,
@@ -1076,8 +1178,33 @@ class ModelStore:
         identity: _ResidencyIdentity = ("", 0),
         *,
         intent_id: str = "",
+        files: Optional[Sequence[Any]] = None,
     ) -> None:
-        target = int(needed_bytes) + _DISK_GC_MARGIN_BYTES
+        """Gate on the bytes still to be WRITTEN, never on the whole tree.
+
+        pgw#1596: this used to compare free space against the ref's entire
+        manifest, with nothing subtracting the part of that same manifest
+        already on disk. On a first pass over an empty disk that is right. On a
+        RE-ENTRY it is self-defeating — the bytes already fetched are counted
+        as consumed AND demanded again as free — so a materialization restarted
+        by an ordinary residency-generation supersede can never satisfy its own
+        check. It needs 2x the tree, and it fails at the END of its own pull.
+
+        MEASURED (pod `6uneiwhdl7fz8u`, 159 GB disk, 2026-08-20):
+        `need 104956706657 bytes; 65659441152 free after disk GC` — it demanded
+        the whole 105 GB tree free while ~86.2 GB of that same tree was already
+        resident, and died 157 MB short of a complete pull.
+
+        The boot ladder's supersede-and-restart design already ASSUMES
+        materialization is restart-safe. This is what makes that true.
+        """
+        total = int(needed_bytes)
+        resident = self._already_resident_bytes(files) if files else 0
+        # Never below zero, and never above the total: a stale or oversized
+        # residency reading must not talk this gate out of existence.
+        resident = max(0, min(resident, total))
+        remaining = total - resident
+        target = remaining + _DISK_GC_MARGIN_BYTES
         if self._disk_free() >= target:
             return
         await self._materialize_await(
@@ -1094,9 +1221,14 @@ class ModelStore:
                 ref, pb.MODEL_STATE_FAILED,
                 identity=identity, error="insufficient_disk",
             )
+            # Say what is still MISSING and what is already banked. The old
+            # message named only the whole tree, which is exactly why an
+            # 86 GB-resident refusal read as a 105 GB shortfall (pgw#1596).
             raise InsufficientDiskError(
-                f"need {needed_bytes} bytes for {ref}; {free} free after disk GC",
-                available_bytes=free, required_bytes=needed_bytes,
+                f"need {remaining} more bytes for {ref} "
+                f"({total} manifest - {resident} already resident); "
+                f"{free} free after disk GC",
+                available_bytes=free, required_bytes=remaining,
                 path=str(self._cache_dir),
             )
 
@@ -1162,6 +1294,421 @@ class ModelStore:
             )
         return snapshot
 
+    def _census_snapshot_pins_once(self) -> None:
+        """The census, at most once per process, and never failing its caller.
+
+        pgw#1544. `announce_resident` runs per ref per reconcile; the census is
+        a statement about the whole store, so N refs must not mean N rows.
+        """
+        if self._censused:
+            return
+        self._censused = True
+        try:
+            self._census_snapshot_pins()
+        except Exception:  # noqa: BLE001 — a census never fails a residency answer
+            logger.debug("snapshot census raised", exc_info=True)
+
+    def _census_snapshot_pins(self) -> None:
+        """One line per snapshot tree on disk: is it pinned, and is it stubbed.
+
+        pgw#1536. Deliberately at boot and deliberately cheap — the answer to
+        "did this tree predate the boot" is free here and costs a rental
+        anywhere else.
+        """
+        root = Path(self._cache_dir) / SNAPSHOTS_DIR
+        unreadable_store = False
+        try:
+            trees = sorted(p for p in root.iterdir() if p.is_dir())
+        except OSError:
+            # NOT a return: an unreadable store is itself a census result, and
+            # a silent return here would put the ambiguity straight back.
+            trees, unreadable_store = [], True
+        if not trees and not unreadable_store:
+            # AN EMPTY STORE IS THE STRONGEST RESIDUE EVIDENCE THERE IS, not a
+            # boring case to skip. `of=0` at boot means anything found stubbed
+            # later was BUILT THIS BOOT — which is the predate-vs-built-this-
+            # boot question, answered outright. It falls through to the emit.
+            logger.info("snapshot census at boot: no trees on disk at %s", root)
+        from . import projection as _projection
+
+        unservable: List[str] = []
+        packed: List[str] = []
+        for tree in trees:
+            try:
+                pinned = _projection.resolve_projection(tree) is not None
+                stubbed = _projection.stub_at_any(tree)
+            except Exception as exc:  # noqa: BLE001 — a census never fails a boot
+                logger.warning("snapshot census: %s unreadable: %s", tree.name, exc)
+                continue
+            # UNPINNED + STUBBED is the pod incident's exact state, and it is
+            # the one combination that cannot serve.
+            if stubbed and not pinned:
+                unservable.append(tree.name)
+            # Short name: the digest prefix identifies the tree, and the full
+            # 71-char ref would blow the 2000-char detail cap at ~28 trees.
+            short = tree.name.split(":")[-1][:12] or tree.name[:12]
+            packed.append(f"{short}:{'P' if pinned else '-'}{'S' if stubbed else '-'}")
+            (logger.error if (stubbed and not pinned) else logger.info)(
+                "snapshot census at boot: %s pinned=%s projected=%s%s",
+                tree.name, pinned, stubbed,
+                "  <-- UNREADABLE by the streaming engine (pgw#1536)"
+                if (stubbed and not pinned) else "",
+            )
+
+        # pgw#1541: THE CENSUS MUST OUTLIVE THE POD.
+        #
+        # Everything above is a log line, and a RENTED pod's stdout is ingested
+        # NOWHERE: no worker-log table, `cozy logs` is local-only, privatedeploy
+        # has no logs verb, and `bootstages` reads pgw#1355 telemetry rather
+        # than stdout. So pgw#1536's census — built to answer condition-3's
+        # residue "for free instead of costing a rental" — could not be read on
+        # exactly the pods it was built for. It paid out only where someone can
+        # already tail the process, which was never the hard case.
+        #
+        # ALWAYS ONE ROW, INCLUDING THE HEALTHY BOOT. My first cut here emitted
+        # only when something was unservable, reasoning that a healthy row is
+        # noise. That was wrong, and it broke the very question this exists to
+        # answer: the residue is PREDATE-vs-BUILT-THIS-BOOT, which is read off
+        # the boot census being ABSENT while the failure appears later. With a
+        # fire-on-bad-only row, absence is ambiguous — healthy boot, census
+        # crashed, and no-trees-on-disk all render identically as no row, and
+        # an absent instrument that reads as a clean bill of health is worse
+        # than none. Emitting unconditionally makes absence mean exactly one
+        # thing: the census did not run.
+        try:
+            from .. import activity as activity_mod
+
+            # Per-tree state packed into the ONE row: `<digest12>:<pin><stub>`,
+            # so a DB harness gets the whole picture without the logs it cannot
+            # reach. Bounded well under the 2000-char detail cap.
+            shown = ",".join(packed[:40])
+            more = "" if len(packed) <= 40 else f" (+{len(packed) - 40} more)"
+            activity_mod.emit_event(
+                activity_mod.KIND_SNAPSHOT_CENSUS,
+                f"unservable={len(unservable)} of={len(trees)} "
+                f"trees={shown}{more} store={root}",
+                phase=(
+                    "store_unreadable" if unreadable_store
+                    else "unpinned_projected" if unservable
+                    else "all_servable"
+                ),
+                step=len(unservable),
+                total_steps=len(trees),
+            )
+        except Exception:  # noqa: BLE001 — telemetry never fails a boot
+            logger.debug("snapshot census event dropped", exc_info=True)
+
+    @staticmethod
+    def _record_pin(path: Path, outcome: str) -> None:
+        """pgw#1542: every exit of `ensure_pinned` states itself DURABLY.
+
+        pgw#1536 made every exit log a reason. That is unreadable on a rented
+        pod, so the outcome also goes to the projection registry, from which
+        the refusal message picks it up — the one channel proven to leave a pod.
+        """
+        try:
+            from . import projection as _projection
+
+            _projection.record_pin_outcome(path.name, outcome)
+        except Exception:  # noqa: BLE001 — telemetry never fails a load
+            pass
+
+    def ensure_pinned(
+        self, ref: WireRef, tree: Path, snapshot: Optional[pb.Snapshot],
+    ) -> bool:
+        """Guarantee the tree's manifest pin exists. Returns True if repaired.
+
+        pgw#1526, and it is the LAST thing between the fleet and a weight-
+        bearing v2 serve. Measured on a pod, verbatim:
+
+            ENGINE DECLINED: the manifest pin `snapshot:sha256:5bd90786…` is
+            MISSING from the store at /tmp/tensorhub-cache/cas
+
+        A projected tree's manifest pin is the ONLY way a reader recovers its
+        manifest (`resolve_projection` reads `snapshot:<tree directory name>`),
+        and the streaming engine is the only legal reader of a tree made of
+        pointer stubs. No pin, no engine; no engine, the eager bridge gets a
+        stubbed tree and reports `header too large` about an intact checkpoint.
+
+        **Why the pin can be missing at all, which is the actual defect.**
+        `_pin_manifest` is called from exactly one place — `ensure_snapshot` —
+        but `_materialize_local` has CACHED SHORT-CIRCUITS that return a tree
+        already on disk WITHOUT going through it. So a tree that reaches
+        residency by any other route is unpinned, and `ensure_local` can never
+        repair it: it short-circuits on the same tree forever. That is a
+        materialization reporting success while leaving the tree unreadable by
+        the only component that can read it.
+
+        So the pin is established HERE, on the completion path every route
+        shares, rather than only on the download route. Cheap and idempotent:
+        the common case is one `read_ref`, and nothing is written when the pin
+        is already there. No bytes move — the manifest is rebuilt from the
+        snapshot the caller already holds.
+        """
+        # pgw#1536: EVERY EXIT SAYS WHY.
+        #
+        # The first field run of this repair produced NO LOG LINE AT ALL, and
+        # that was uninformative in the worst way: "no repair attempt
+        # surfaced" could equally mean this was never called, or was called
+        # and declined at any of three silent returns. An instrument whose
+        # silence has several meanings is not an instrument. Cheap — one line
+        # per materialization, and only at DEBUG for the common already-pinned
+        # case.
+        path = Path(tree)
+        if snapshot is None or not snapshot.files:
+            # The caller may hold a bare ref; the store may still know the
+            # snapshot. Not falling back here is how a repair that COULD have
+            # run silently did not.
+            snapshot = self.banked_snapshot(ref)
+        if snapshot is None or not snapshot.files:
+            logger.warning(
+                "pin check SKIPPED for %s at %s: no digest-carrying snapshot "
+                "is banked for this ref, so the manifest cannot be rebuilt. If "
+                "this tree is projected it is unreadable by the streaming "
+                "engine (pgw#1536)", ref, path,
+            )
+            self._record_pin(path, "no banked snapshot, manifest unrebuildable")
+            return False
+        try:
+            from . import projection as _projection
+
+            if _projection.resolve_projection(path) is not None:
+                logger.debug("pin OK for %s at %s", ref, path)
+                self._record_pin(path, "not needed: already pinned")
+                return False  # already pinned, the overwhelmingly common case
+            if not _projection.stub_at_any(path):
+                # A materialized tree holds its own bytes and needs no pin.
+                logger.debug(
+                    "pin not required for %s at %s: tree is materialized, not "
+                    "projected", ref, path,
+                )
+                self._record_pin(path, "not needed: tree is materialized")
+                return False
+        except Exception as exc:  # noqa: BLE001 — a probe must never fail a load
+            logger.warning(
+                "pin check FAILED to probe %s at %s: %s: %s (pgw#1536)",
+                ref, path, type(exc).__name__, exc,
+            )
+            self._record_pin(path, f"probe failed: {type(exc).__name__}")
+            return False
+        try:
+            from .cozy_snapshot import _manifest, _pin_manifest
+            from .cache_paths import open_worker_cas
+
+            resolved = resolved_repo_from_snapshot(snapshot)
+            _pin_manifest(
+                open_worker_cas(self._cache_dir), path.name, _manifest(resolved.files),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "could not repair the manifest pin for %s at %s: %s: %s — the "
+                "streaming engine will decline this tree and the eager bridge "
+                "will misreport it as a corrupt checkpoint (pgw#1526)",
+                ref, path, type(exc).__name__, exc,
+            )
+            self._record_pin(path, f"ATTEMPTED and FAILED: {type(exc).__name__}")
+            return False
+        logger.warning(
+            "REPAIRED the missing manifest pin `snapshot:%s` for %s at %s — the "
+            "tree was materialized by a path that does not pin, which leaves it "
+            "unreadable by the streaming engine. No bytes moved (pgw#1526)",
+            path.name, ref, path,
+        )
+        self._record_pin(path, "REPAIRED, pin rewritten")
+        return True
+
+    async def announce_resident(
+        self, ref: WireRef, snapshot: Optional[pb.Snapshot] = None,
+    ) -> bool:
+        """th#2204: the SATISFIED answer to a residency goal, as a fact.
+
+        A pod booted onto a warm endpoint volume already holds the tree the
+        hub is about to declare. Everything below `ensure_local` would still
+        work — the downloader resolves every object out of the local CAS — but
+        it works by opening a transfer record for a transfer that will move
+        zero bytes, and a fresh process has no banked identity with which to
+        recognise the bytes as its own. That is how th#2204 billed an H100 at
+        $3.29/hr with `no_position_reported`: the pod had the weights and no
+        vocabulary in which to SAY so.
+
+        So this states it directly and cheaply: the tree the goal's digest
+        names either exists on this pod or it does not. When it does, the pod
+        answers with `already_resident` on the position stream and `ON_DISK` on
+        the wire — which is what hub-side placement reads to make the ref
+        DISK-local and dispatch. No record is opened, because there is no
+        transfer to declare.
+
+        Returns True when the answer was given; False means "not resident,
+        fetch it" and the caller falls through to the funnel.
+
+        **The answer is VERIFIED, not assumed** (pgw#1511). A tree is residency
+        only if it matches its manifest; a present-but-incomplete tree is
+        quarantined and answered False. See the comment at the check itself for
+        what this cost the fleet when it was `is_dir()` alone.
+        """
+        # The quarantine below emits EVICTED through Residency, and this can
+        # run before anything else has bound the store's loop (boot calls it
+        # first). Without this the eviction of a tree we just refused is
+        # dropped, and the hub keeps the residency this pod has disowned.
+        self.bind_loop()
+        # pgw#1544: THE CENSUS'S SECOND CALL SITE, and it is here because this
+        # is a window whose rows demonstrably REACH THE HUB.
+        #
+        # `rescan_disk` (the only caller pgw#1536 gave it) runs inside `arun`
+        # BEFORE the transport task exists, and on the fleet's pods NOTHING
+        # emitted in that window landed: the four verification pods of
+        # 2026-08-19/20 produced `weight_fetch` and `snapshot_pull` rows and
+        # NOT ONE row of any boot-window kind — no `snapshot_census`, no
+        # `process_role`, no `boot_stages` — while pods from a day earlier have
+        # all three. So the census's absence was never a missing call site, and
+        # a second boot-window caller would have produced a second row nobody
+        # can read. This runs on the reconcile, after HelloAck, in the same
+        # window that delivered `snapshot_pull` — and BEFORE this pod
+        # materializes anything, so it still answers pgw#1536's
+        # predate-vs-built-this-boot question. Once per process; the hub folds
+        # a duplicate payload onto one row by `payload_digest` anyway.
+        self._census_snapshot_pins_once()
+        if snapshot is None:
+            snapshot = self._snapshots.get(ref)
+        if snapshot is None or not snapshot.digest:
+            return False
+        digest = str(snapshot.digest).strip()
+        # The tree name is `snapshot_dir_key(digest)`, but the two producers in
+        # this tree disagree about whether the algorithm prefix is part of the
+        # digest (`cozy_snapshot` keeps it, `worker.tree_for` strips it). This
+        # asks the disk instead of picking a side — a residency answer must not
+        # be wrong because two callers spell one digest two ways.
+        bare = digest.split(":", 1)[-1]
+        root = Path(self._cache_dir) / SNAPSHOTS_DIR
+        tree: Optional[Path] = None
+        for key in (snapshot_dir_key(digest), snapshot_dir_key(bare)):
+            candidate = root / key
+            if candidate.is_dir():
+                tree = candidate
+                break
+        if tree is None:
+            existing = self.disk_local_path(ref)
+            if existing is None or not existing.is_dir():
+                return False
+            if existing.name not in (snapshot_dir_key(digest), snapshot_dir_key(bare)):
+                # Resident at a DIFFERENT identity: those are not these bytes,
+                # and calling that satisfied would strand the goal forever.
+                return False
+            tree = existing
+
+        # pgw#1511: VERIFY BEFORE ASSERTING. Everything above this line is a
+        # statement about a DIRECTORY ENTRY — `candidate.is_dir()` — and that
+        # was the whole test. A tree left incomplete by an interrupted or
+        # superseded materialization is a directory that exists, so this
+        # answered `already_resident`, published ON_DISK, and (below) added the
+        # ref to `self._verified`, which permanently suppresses
+        # `_materialize_local`'s first-use `_verify_snapshot_tree` for the rest
+        # of the process. The bytes were then never checked by anyone, and the
+        # first thing to notice was the tenant's loader — `SafetensorError:
+        # header too large`, blamed on the checkpoint.
+        #
+        # It is not enough to verify here and carry on: a residency answer that
+        # cannot be substantiated must never become an answer at all. So a bad
+        # tree is QUARANTINED (the partial and its bad blobs are deleted, so
+        # re-materialization re-downloads instead of re-linking the same bytes)
+        # and this returns False, which sends the caller down the ordinary
+        # fetch path.
+        #
+        # `_verify_snapshot_tree` is the INHERITED checker and it is used here
+        # precisely because it is PROJECTION-AWARE. A projected tree's tensor
+        # containers are ~128 B TFSSTUB1 pointer stubs and its other files are
+        # CAS symlinks; by construction they do not hold the bytes their
+        # manifest entries name. A validator that opened one naively would get
+        # a loud parse failure that is CORRECT behaviour, score it as
+        # corruption, and delete the model on every boot — pgw#1308 finding 3,
+        # where two callers read that same correct failure and reached opposite
+        # wrong conclusions. So stubs and symlinks go to `verify_projection`
+        # (structural) and only files holding real bytes are hashed. That is
+        # also why this is not a re-download tax on every warm pod.
+        ok, bad = await asyncio.to_thread(self._verify_snapshot_tree, tree, snapshot)
+        if not ok:
+            logger.error(
+                "residency REFUSED for %s at %s: the tree is present but does "
+                "not match its manifest (%d bad file(s)) — quarantining and "
+                "falling through to a fetch. This pod will NOT advertise these "
+                "weights as resident; a tree that cannot be substantiated is "
+                "not residency (pgw#1511)",
+                ref, tree, len(bad),
+            )
+            await asyncio.to_thread(self._quarantine_snapshot, ref, tree, bad)
+            return False
+
+        # pgw#1513: AND IT MUST BE STREAMABLE, not merely intact.
+        #
+        # A projected tree's weights are pointer stubs; the pgw#1380 streaming
+        # engine is the reader for them, and it binds only if
+        # `resolve_projection` can recover the tree's manifest — which is
+        # keyed on the tree's own DIRECTORY NAME. A tree whose pin is missing
+        # is byte-perfect and passes the verification above, yet no engine
+        # will bind to it, so `ctx.load` falls to the eager `from_pretrained`
+        # bridge, which reads a 128 B stub with the stock safetensors reader
+        # and reports `header too large` — a corruption message about an
+        # uncorrupted checkpoint.
+        #
+        # Answering `already_resident` here would strand the pod in exactly
+        # that state. Answering False instead sends it through
+        # `ensure_local` -> `ensure_snapshot`, which re-pins the manifest and,
+        # because `_tree_matches` passes, returns the SAME tree without moving
+        # a byte. A missing pin is repaired, not re-downloaded.
+        #
+        # THE "NO BYTES MOVE" CLAIM HOLDS ONLY ON THIS BRANCH, and the reason
+        # is the ORDER of the two checks above. The se#790 lane measured the
+        # worse state on a real tree: the manifest pin is a tree's ONLY GC
+        # root, so a tree that outlives its pin AND then meets a GC pass has
+        # all of its objects deleted (5.6 GB there; 134 GB on H3) while the
+        # tree stands, leaving stubs plus dangling symlinks. That state does
+        # not reach this line — it fails `_verify_snapshot_tree` above, where
+        # `projection_fault` reports "linked object … is absent", and takes
+        # the quarantine-and-refetch path, which is the honest cost. Reaching
+        # HERE means verification passed, i.e. the objects are present and
+        # only the pin is gone. Cheap repair for the cheap case, full re-fetch
+        # for the expensive one, and the two are never confused.
+        from . import projection as _projection
+
+        if _projection.stub_at_any(tree) and _projection.resolve_projection(tree) is None:
+            # pgw#1526: REPAIR IT HERE rather than bouncing to `ensure_local`.
+            #
+            # pgw#1513 refused and fell through, on the reasoning that
+            # `ensure_local` would re-materialize and re-pin. Measured on a
+            # pod: it does not. `_materialize_local`'s cached short-circuits
+            # return the tree already on disk WITHOUT calling
+            # `ensure_snapshot`, which is the only caller of `_pin_manifest` —
+            # so the bounce lands on the same unpinned tree, readiness is
+            # granted, and the dispatch declines. Refusing was right; refusing
+            # FOREVER was the bug.
+            if not self.ensure_pinned(ref, tree, snapshot):
+                logger.error(
+                    "residency REFUSED for %s at %s: the tree is intact but "
+                    "its manifest pin is missing AND could not be repaired, so "
+                    "the streaming engine cannot bind and the eager bridge "
+                    "would read its pointer stubs as corrupt weights "
+                    "(pgw#1526)",
+                    ref, tree,
+                )
+                return False
+
+        identity = self._snapshot_identity(ref, snapshot)
+        with self._identity_lock:
+            self._disk_identities[ref] = identity
+        if self.residency.tier(ref) is None:
+            # Registers the shared disk tier AND emits the ON_DISK ModelEvent
+            # through Residency's own event path.
+            self.residency.track_disk(ref, tree)
+        else:
+            # Already tracked (boot rescan): the tier transition will not fire
+            # again, so the answer is published as an identity confirmation —
+            # which `replace_desired_snapshots`' epoch bump has just armed.
+            await self._confirm_cached_identity(ref, identity)
+        self._verified.add(ref)
+        self._index.touch(ref)
+        _resident_position(ref, snapshot)
+        return True
+
     async def ensure_local(
         self,
         ref: WireRef,
@@ -1220,6 +1767,13 @@ class ModelStore:
         acquired = False
 
         def complete(path: Path) -> _MaterializedLocal:
+            # pgw#1526: THE PIN IS PART OF BEING MATERIALIZED. Every route into
+            # this function returns a tree a caller will try to LOAD, and a
+            # projected tree without its manifest pin cannot be loaded by the
+            # only reader that can read it. `ensure_snapshot` pins; the cached
+            # short-circuits above do not, and they can never repair what they
+            # short-circuit on. So it is guaranteed here, where all routes meet.
+            self.ensure_pinned(ref, path, snapshot)
             # The bytes are pod-wide but each group keeps its own
             # ledger, so the group that asked must ALSO book the shared disk
             # entry — otherwise a group riding a sibling's materialization
@@ -1266,13 +1820,30 @@ class ModelStore:
             # re-adoption, e2e#117 live find #7) and must not short-circuit.
             want = ""
             if snapshot is not None and snapshot.digest:
-                want = snapshot.digest.split(":", 1)[-1].strip().lower()
-            # th#1941: the composed manifest digest IS the directory name, so
-            # there is exactly one acceptable spelling per fetch identity.
-            if cached is not None and cached.exists() and (not want or cached.name == want):
+                # pgw#1490: ACCEPT BOTH SPELLINGS, and do not pick a side.
+                #
+                # MEASURED on the standing stack, because this was reported as
+                # a live defect and it is not one: `endpoint_volume_manifest.
+                # snapshot_digest` is 38/38 BARE hex, every one of the 13 trees
+                # in the box's CAS is named bare hex, and so the strip that
+                # used to be here was a NO-OP in production and this
+                # short-circuit fired exactly as intended. But
+                # `repo_artifact_file_metadata.snapshot_digest` is 1999/1999
+                # ALGORITHM-TAGGED, so both spellings are genuinely live
+                # hub-side and which one reaches the wire is a property of the
+                # route that answered. A residency answer must not be wrong
+                # because two producers spell one digest two ways, so the
+                # comparison admits either and the WRITER keeps deciding the
+                # name on disk — changing that would rename every staged tree
+                # and orphan every pre-warmed volume.
+                want = snapshot.digest.strip().lower()
+            if cached is not None and cached.exists() and (
+                not want or cached.name.lower() in (want, want.split(":", 1)[-1])
+            ):
                 if ref in self._verified:
                     self._index.touch(ref)
                     await self._confirm_cached_identity(ref, operation_identity)
+                    _resident_position(ref, snapshot)
                     return complete(cached)
                 # First use this boot: verify before trusting. A
                 # pod-churn-truncated snapshot used to fatal every load until
@@ -1284,6 +1855,7 @@ class ModelStore:
                     self._verified.add(ref)
                     self._index.touch(ref)
                     await self._confirm_cached_identity(ref, operation_identity)
+                    _resident_position(ref, snapshot)
                     return complete(cached)
                 logger.error(
                     "snapshot for %s failed first-use verification "
@@ -1328,6 +1900,9 @@ class ModelStore:
                     sum(int(f.size_bytes) for f in fetch_files),
                     operation_identity,
                     intent_id=intent_id,
+                    # pgw#1596: the same list, so the gate can subtract what is
+                    # already banked instead of demanding the tree twice.
+                    files=fetch_files,
                 )
             last_progress = 0.0
             # opened before _progress so
@@ -1348,12 +1923,84 @@ class ModelStore:
             # is one, so it advances that scope's clock and no other.
             dl_counter = activity_mod.scoped_counter(
                 f"download:{ref}", progress_mod.UNIT_BYTES, total=known_total)
+            # pgw#1455: the counter above is IN-MEMORY on the hub and rides
+            # whichever activity is open — none, for a steady-state
+            # materialization. The position is the durable fact the
+            # `model_download_pending` explain reads, so it is emitted on the
+            # activity stream from this same funnel, which is the one layer
+            # that sees every materialization path and knows the ref.
+            position = weight_position.FetchPosition(ref, total_bytes=known_total)
+
+            # pgw#1485 / th#2205 / th#2204 — THE DOWNLOAD RECORD IS A
+            # LIABILITY, NOT A NOTE. A DOWNLOADING event OPENS a hub-side
+            # `ModelDownloads[ref]` row that ONLY `ON_DISK`/`FAILED`/`EVICTED`
+            # can close, and that open row (a) vetoes idle retirement and (b)
+            # parks placement. So it is opened only when there is a transfer to
+            # declare, and its close is structural — in the `finally` below,
+            # on every exit path including cancellation.
+            resident_tier = self.residency.tier(ref)
+            with self._identity_lock:
+                banked_disk_identity = self._disk_identities.get(ref)
+            already_resident = resident_tier is not None and (
+                # A LOADED object's bytes are on the pod by construction; there
+                # is no transfer to declare. (And `ON_DISK` — the only terminal
+                # that closes the record — would demote the hub's tier view, so
+                # a record opened over RAM/VRAM residency is one that cannot be
+                # closed honestly at all.)
+                resident_tier in (residency_mod.Tier.RAM, residency_mod.Tier.VRAM)
+                # Disk-resident at exactly the DIGEST being materialized.
+                #
+                # th#2204: this used to compare the whole identity TUPLE,
+                # `(digest, generation)` — and the generation is the hub's
+                # causal fence for events, not a property of the bytes. Every
+                # HelloAck bumps it, so re-declaring an unchanged goal made the
+                # pod open a DOWNLOADING record for weights it already held,
+                # resolve every object out of the local CAS (zero bytes, so
+                # `_progress` never fires) and leave the hub with the exact
+                # 0-of-N phantom pgw#1485 was written to remove. Measured on the
+                # goal path the moment it had a consumer.
+                or (bool(operation_identity[0])
+                    and banked_disk_identity is not None
+                    and banked_disk_identity[0] == operation_identity[0])
+            )
+            #: True while a hub-side `model_download` record is OPEN for this
+            #: materialization and unclosed.
+            download_open = False
+            #: True once a terminal ModelEvent for that record has been sent
+            #: (by us, or by Residency's own first-registration ON_DISK).
+            download_terminal = False
+
+            def _open_download_record(done: int, total: int) -> None:
+                """Declare the transfer. Called from the fetch thread."""
+                nonlocal download_open
+                download_open = True
+                assert self._loop is not None
+                asyncio.run_coroutine_threadsafe(
+                    self._event(ref, pb.MODEL_STATE_DOWNLOADING,
+                                identity=operation_identity,
+                                bytes_done=int(done), bytes_total=int(total),
+                                network_bytes=net_scope.network_bytes),
+                    self._loop,
+                )
 
             def _progress(done: int, total: Optional[int]) -> None:
                 nonlocal last_progress
+                position.progress(done, total)
                 dl_counter.set_done(float(done))
                 if total:
                     dl_counter.set_total(float(total))
+                if not download_open:
+                    if int(done) <= 0:
+                        # The fetch loop ticks at zero before it moves anything.
+                        # Declaring HERE is how the phantom got created; a
+                        # position of 0 is not a transfer.
+                        return
+                    # A byte moved on a materialization we declined to declare:
+                    # the ref was not as resident as the resolver believed. Open
+                    # now, so a real fetch always has a record to advance.
+                    last_progress = time.monotonic()
+                    _open_download_record(done, int(total or known_total))
+                    return
                 now = time.monotonic()
                 if now - last_progress < _PROGRESS_EVENT_MIN_INTERVAL_S:
                     return
@@ -1367,10 +2014,25 @@ class ModelStore:
                     self._loop,
                 )
 
-            await self._event(
-                ref, pb.MODEL_STATE_DOWNLOADING, identity=operation_identity,
-                bytes_total=known_total,
-            )
+            position.open()
+            if already_resident:
+                # th#2205's exact shape: a WARM pod re-dispatched against
+                # weights it already holds. The fetch below is a no-op the
+                # downloader resolves out of the local CAS — it moves no bytes,
+                # so nothing would ever advance or close the record. Declare
+                # nothing; `_progress` opens one if a byte actually moves.
+                logger.info(
+                    "model_download not opened for %s: already_resident "
+                    "tier=%s digest=%s total_bytes=%d",
+                    ref, getattr(resident_tier, "name", resident_tier),
+                    operation_identity[0], known_total,
+                )
+            else:
+                await self._event(
+                    ref, pb.MODEL_STATE_DOWNLOADING, identity=operation_identity,
+                    bytes_total=known_total,
+                )
+                download_open = True
             failure_stage = pb.LIFECYCLE_INTENT_STAGE_FETCHING
             if registry is not None:
                 registry.transition(
@@ -1415,15 +2077,15 @@ class ModelStore:
                             if fetch_span is not None
                             else contextlib.nullcontext()
                         ):
+                            # pgw#1524: the registry credentials and the
+                            # file-selection globs travelled with the deleted
+                            # direct-download branches. What is served is the
+                            # orchestrator's snapshot, whole, or nothing.
                             path = await ensure_local(
                                 ref,
                                 provider=getattr(binding, "source", None),
                                 snapshot=resolved,
                                 cache_dir=self._cache_dir,
-                                hf_home=self._hf_home,
-                                hf_token=self._hf_token,
-                                allow_patterns=tuple(getattr(binding, "files", ()) or ()),
-                                components=tuple(getattr(binding, "components", ()) or ()),
                                 progress=_progress,
                                 fill_source_dir=self._fill_source_dir,
                             )
@@ -1446,6 +2108,12 @@ class ModelStore:
                         self._pending_network_bytes[ref] = net_scope.network_bytes
                         self.residency.track_disk(ref, path)
                         self._pending_network_bytes.pop(ref, None)  # defensive: unconsumed if no event fired
+                        if tier_before is None:
+                            # A FIRST registration: Residency emitted ON_DISK
+                            # itself, which closes the record. Every other tier
+                            # is same-tier-suppressed there — pgw#1485's whole
+                            # defect — so the `finally` owns those.
+                            download_terminal = True
                         if tier_before is residency_mod.Tier.DISK and identity_changed:
                             # Residency suppresses same-tier event spam (track_disk
                             # above did not consume the pending value above). A
@@ -1457,6 +2125,7 @@ class ModelStore:
                                 identity=operation_identity,
                                 network_bytes=net_scope.network_bytes,
                             )
+                            download_terminal = True
                         # tree_bytes stats every file — off-loop (gw#407: no
                         # multi-GB directory walks on the event loop).
                         size = await asyncio.to_thread(disk_gc.tree_bytes, path)
@@ -1479,6 +2148,7 @@ class ModelStore:
                                 ref, pb.MODEL_STATE_FAILED,
                                 identity=operation_identity, error=vocab,
                             )
+                            download_terminal = True
                             raise
                         logger.warning(
                             "download of %s failed (attempt %d): %s; retrying in %.1fs",
@@ -1509,6 +2179,45 @@ class ModelStore:
                 raise
             finally:
                 dl_counter.finish()
+                # Where the transfer STOPPED, whether it finished or raised —
+                # a fetch that ends with no terminal row is one nobody can
+                # distinguish from a fetch still running.
+                position.close(
+                    ok=fetch_exc is None,
+                    resident=already_resident and not download_open,
+                )
+                # pgw#1485: THE CLOSE OF THE HUB-SIDE RECORD, IN A `finally`.
+                # Every path that opened one closes it here if nothing already
+                # did — success whose ON_DISK was same-tier-suppressed
+                # (th#2205's 179-minute $1.59/hr row), and a transfer that died
+                # mid-way: cancellation, shutdown, any BaseException. A record
+                # whose close is conditional is a record that can be immortal.
+                if download_open and not download_terminal:
+                    download_terminal = True
+                    if fetch_exc is None:
+                        terminal_event = self._event(
+                            ref, pb.MODEL_STATE_ON_DISK,
+                            identity=operation_identity,
+                            network_bytes=net_scope.network_bytes,
+                        )
+                    else:
+                        terminal_event = self._event(
+                            ref, pb.MODEL_STATE_FAILED,
+                            identity=operation_identity,
+                            error=(
+                                "download_canceled"
+                                if isinstance(fetch_exc, asyncio.CancelledError)
+                                else self._error_vocab(fetch_exc)
+                            ),
+                        )
+                    if isinstance(fetch_exc, BaseException) and not isinstance(
+                        fetch_exc, Exception
+                    ):
+                        # Unwinding a cancellation/shutdown: awaiting here would
+                        # re-raise before the event left. Hand it to the loop.
+                        asyncio.ensure_future(terminal_event)
+                    else:
+                        await terminal_event
                 if fetch_span is not None:
                     net = int(net_scope.network_bytes)
                     if net > 0:

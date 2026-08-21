@@ -12,6 +12,7 @@ from acme import client, messages
 import aiohttp
 import pytest
 from requests.exceptions import RequestException
+from snitun.utils import DEFAULT_PROTOCOL_VERSION
 from syrupy import SnapshotAssertion
 
 from hass_nabucasa import Cloud, utils
@@ -151,13 +152,14 @@ async def test_load_backend_exists_cert(
         "snitun_port": 443,
     }
 
-    assert snitun_mock.start_whitelist is not None
-    assert snitun_mock.start_endpoint_connection_error_callback is not None
+    assert snitun_mock.start_access_list is None
 
     await asyncio.sleep(0.1)
     assert snitun_mock.call_connect
     assert snitun_mock.connect_args[0] == b"test-token"
     assert snitun_mock.connect_args[3] == 400
+    # No protocol_version in the token response -> library default
+    assert snitun_mock.connect_kwargs["protocol_version"] == DEFAULT_PROTOCOL_VERSION
     assert cloud.remote.is_connected
 
     assert cloud.remote._acme_task
@@ -186,6 +188,45 @@ async def test_load_backend_exists_cert(
 
     assert not cloud.remote._acme_task
     assert cloud.remote.certificate_status == CertificateStatus.READY
+
+
+async def test_load_backend_with_protocol_version(
+    cloud: Cloud,
+    valid_acme_mock: MockAcme,
+    aioclient_mock: AiohttpClientMocker,
+    snitun_mock: MockSnitun,
+) -> None:
+    """Connect uses the protocol_version provided by the token response."""
+    valid = utcnow() + timedelta(days=1)
+
+    aioclient_mock.post(
+        f"https://{cloud.api_server}/instance/register",
+        json={
+            "domain": "test.dui.nabu.casa",
+            "email": "test@nabucasa.inc",
+            "server": "rest-remote.nabu.casa",
+        },
+    )
+    aioclient_mock.post(
+        f"https://{cloud.api_server}/instance/snitun_token",
+        json={
+            "token": "test-token",
+            "server": "rest-remote.nabu.casa",
+            "valid": valid.timestamp(),
+            "throttling": 400,
+            "protocol_version": 2,
+        },
+    )
+
+    await cloud.remote.start()
+    await cloud.remote._info_loaded.wait()
+    await asyncio.sleep(0.1)
+
+    assert snitun_mock.call_connect
+    assert snitun_mock.connect_kwargs["protocol_version"] == 2
+
+    await cloud.remote.stop()
+    await asyncio.sleep(0.1)
 
 
 async def test_load_backend_not_exists_cert(
@@ -1173,31 +1214,33 @@ async def test_acme_client_create_client_jws_errors(
     await cloud.remote.stop()
 
 
+def _ssl_error(reason: str) -> SSLError:
+    err = SSLError()
+    err.reason = reason
+    return err
+
+
 @pytest.mark.parametrize(
-    ("reason", "should_reset"),
+    ("error", "should_reset"),
     (
-        (
-            "KEY_VALUES_MISMATCH",
-            True,
-        ),
-        (
-            "Boom",
-            False,
-        ),
+        (_ssl_error("KEY_VALUES_MISMATCH"), True),
+        (_ssl_error("Boom"), False),
+        (FileNotFoundError(2, "No such file or directory"), True),
     ),
+    ids=("ssl_key_values_mismatch", "ssl_other", "file_not_found"),
 )
 async def test_context_error_handling(
     cloud: Cloud,
     valid_acme_mock: MockAcme,
     aioclient_mock: AiohttpClientMocker,
     snitun_mock: MockSnitun,
-    reason: str,
+    error: Exception,
     should_reset: bool,
     caplog: pytest.LogCaptureFixture,
     snapshot: SnapshotAssertion,
     mock_timing: None,
 ) -> None:
-    """Test that we reset if we hit an error reason that require resetting."""
+    """Test that we reset if we hit an error that requires resetting."""
     aioclient_mock.post(
         f"https://{cloud.api_server}/instance/register",
         json={
@@ -1207,11 +1250,8 @@ async def test_context_error_handling(
         },
     )
 
-    ssl_error = SSLError()
-    ssl_error.reason = reason
-
-    # Patch _create_context to raise SSL error directly
-    with patch.object(cloud.remote, "_create_context", side_effect=ssl_error):
+    # Patch _create_context to raise the error directly
+    with patch.object(cloud.remote, "_create_context", side_effect=error):
         assert cloud.remote._certificate_status is None
         await cloud.remote.load_backend()
 

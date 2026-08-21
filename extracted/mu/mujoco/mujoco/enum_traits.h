@@ -249,6 +249,7 @@ struct mjtDyn {
     std::make_pair("mjDYN_FILTEREXACT", ::mjtDyn::mjDYN_FILTEREXACT),
     std::make_pair("mjDYN_MUSCLE", ::mjtDyn::mjDYN_MUSCLE),
     std::make_pair("mjDYN_DCMOTOR", ::mjtDyn::mjDYN_DCMOTOR),
+    std::make_pair("mjDYN_PID", ::mjtDyn::mjDYN_PID),
     std::make_pair("mjDYN_USER", ::mjtDyn::mjDYN_USER)};
 };
 
@@ -261,6 +262,7 @@ struct mjtGain {
     std::make_pair("mjGAIN_MUSCLE", ::mjtGain::mjGAIN_MUSCLE),
     std::make_pair("mjGAIN_DCMOTOR", ::mjtGain::mjGAIN_DCMOTOR),
     std::make_pair("mjGAIN_SO3", ::mjtGain::mjGAIN_SO3),
+    std::make_pair("mjGAIN_PID", ::mjtGain::mjGAIN_PID),
     std::make_pair("mjGAIN_USER", ::mjtGain::mjGAIN_USER)};
 };
 
@@ -282,6 +284,17 @@ struct mjtCtrlChart {
   static constexpr auto values = std::array{
     std::make_pair("mjCHART_EXPMAP", ::mjtCtrlChart::mjCHART_EXPMAP),
     std::make_pair("mjCHART_QUAT", ::mjtCtrlChart::mjCHART_QUAT)};
+};
+
+struct mjtCtrlInput {
+  static constexpr char name[] = "mjtCtrlInput";
+  using type = ::mjtCtrlInput;
+  static constexpr auto values = std::array{
+    std::make_pair("mjINPUT_POS", ::mjtCtrlInput::mjINPUT_POS),
+    std::make_pair("mjINPUT_VEL", ::mjtCtrlInput::mjINPUT_VEL),
+    std::make_pair("mjINPUT_FF", ::mjtCtrlInput::mjINPUT_FF),
+    std::make_pair("mjINPUT_VOLTAGE", ::mjtCtrlInput::mjINPUT_VOLTAGE),
+    std::make_pair("mjINPUT_NONE", ::mjtCtrlInput::mjINPUT_NONE)};
 };
 
 struct mjtObj {
@@ -1057,6 +1070,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtGain{},
     mjtBias{},
     mjtCtrlChart{},
+    mjtCtrlInput{},
     mjtObj{},
     mjtSensor{},
     mjtStage{},

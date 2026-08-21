@@ -32,6 +32,7 @@ class APIRoute(str, Enum):
     SyncLocalTools = "/agents/{agent_id}/sync_local_tools"
     GetAgentConnectionString = "/agents/{agent_id}/db"
     InvokeTool = "/agents/{agent_id}/operations/{tool_id}"
+    ToolApprovalCheck = "/agents/{agent_id}/tool-approvals/check"
     ToolApprovalStatus = "/agents/{agent_id}/tool-approvals/{request_id}"
 
     # Tasks Endpoints

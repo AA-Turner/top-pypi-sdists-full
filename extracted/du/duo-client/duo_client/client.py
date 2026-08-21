@@ -1,7 +1,7 @@
 """
 Low level functions for generating Duo Web API calls and parsing results.
 """
-__version__ = '5.6.1'
+__version__ = '5.7.0'
 
 import base64
 import collections
@@ -36,6 +36,7 @@ except ImportError as e:
 from .https_wrapper import CertValidatingHTTPSConnection
 
 DEFAULT_CA_CERTS = os.path.join(os.path.dirname(__file__), 'ca_certs.pem')
+CA_BUNDLE_VERSION = '1.0'
 
 
 def canon_params(params):
@@ -220,20 +221,37 @@ class Client(object):
                  paging_limit=100,
                  digestmod=hashlib.sha512,
                  sig_version=None,
-                 port=None
+                 port=None,
+                 disable_ca_pinning=False
                  ):
         """
         ca_certs - Path to CA pem file.
+        disable_ca_pinning - If True, uses the system's default trusted CA
+            certificates instead of Duo's bundled CA certificates. TLS
+            verification remains active. Cannot be used together with a
+            custom ca_certs path.
         """
         self.ikey = ikey
         self.skey = skey
         self.host = host
         self.port = port
         self.sig_timezone = sig_timezone
+        if disable_ca_pinning and ca_certs not in (None, DEFAULT_CA_CERTS):
+            raise ValueError(
+                "Cannot both disable CA pinning and provide custom CA certificates"
+            )
+        self.disable_ca_pinning = disable_ca_pinning
         if ca_certs is None:
             ca_certs = DEFAULT_CA_CERTS
         self.ca_certs = ca_certs
-        self.user_agent = user_agent
+        ca_pinning_status = 'disabled' if disable_ca_pinning else 'enabled'
+        if user_agent:
+            self.user_agent = (
+                f"{user_agent} ca_bundle/{CA_BUNDLE_VERSION}"
+                f" (ca_pinning={ca_pinning_status})"
+            )
+        else:
+            self.user_agent = user_agent
         self.set_proxy(host=None, proxy_type=None)
         self.paging_limit = paging_limit
         self.digestmod = digestmod
@@ -382,7 +400,10 @@ class Client(object):
             raise NotImplementedError('proxy_type=%s' % (self.proxy_type,))
 
         # Create outer HTTP(S) connection.
-        if self.ca_certs == 'HTTP':
+        if self.disable_ca_pinning:
+            context = ssl.create_default_context()
+            conn = http.client.HTTPSConnection(host, port, context=context)
+        elif self.ca_certs == 'HTTP':
             conn = http.client.HTTPConnection(host, port)
         elif self.ca_certs == 'DISABLE':
             kwargs = {}
@@ -634,6 +655,7 @@ def main():
     parser.add_argument('--path', required=True,
                         help='API endpoint path')
     parser.add_argument('--ca', default=DEFAULT_CA_CERTS)
+    parser.add_argument('--disable-ca-pinning', default=False)
     parser.add_argument('--sig-version', type=int, default=2)
     parser.add_argument('--sig-timezone', default='UTC')
     parser.add_argument(
@@ -655,6 +677,7 @@ def main():
         ca_certs=args.ca,
         sig_version=args.sig_version,
         sig_timezone=args.sig_timezone,
+        disable_ca_pinning=args.disable_ca_pinning,
     )
 
     params = collections.defaultdict(list)

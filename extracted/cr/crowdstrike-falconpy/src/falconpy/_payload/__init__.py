@@ -19,8 +19,10 @@
                                                         |::.|     CrowdStrike Falcon      |::.|
                                                         `---' OAuth2 API SDK for Python 3 `---'
 """
+from ._agent_invocation import invoke_agent_version_external_v1_payload, invoke_published_agent_external_v1_payload
 from ._api_clients import create_api_client_payload, update_api_client_payload
 from ._cloud_security_assets import cloud_security_assets_entities_post_payload
+from ._cloud_security_detections import cspm_evaluations_iom_entities_post_payload
 from ._falcon_id import update_third_party_passkey_registry_payload
 from ._federated_connections import patch_federated_connections_config_payload, post_federated_connections_config_payload
 from ._generic import (
@@ -52,18 +54,19 @@ from ._correlation_rules import (
     correlation_rules_template_payload
 )
 from ._case_management import (
-    case_management_notification_groups_payload,
+    case_evidence_payload,
+    case_manage_payload,
     case_management_create_notification_payload,
-    case_management_sla_payload,
-    case_management_template_payload,
     case_management_file_ids_payload,
+    case_management_notification_groups_payload,
     case_management_rtr_file_metadata_payload,
     case_management_rtr_file_payload,
     case_management_rtr_recent_file_payload,
+    case_management_sla_payload,
+    case_management_template_payload,
+    entities_merge_post_v1_payload,
     specified_case_payload,
-    case_manage_payload,
-    case_evidence_payload,
-    update_case_payload
+    update_case_payload,
     )
 from ._host_group import host_group_create_payload, host_group_update_payload
 from ._hosts import devices_actions_delete_v1_payload
@@ -126,19 +129,24 @@ from ._container import (
     inventory_scan_payload
     )
 from ._content_update_policy import content_update_policy_action_payload, content_update_policy_payload
-from ._correlation_rules_admin import correlation_rules_admin_payload
+from ._correlation_rules_admin import (
+    correlation_rules_admin_payload,
+    entities_rules_ownership_put_v2_payload,
+    )
 
 from ._data_protection_configuration import (
     data_protection_classification_payload,
     data_protection_cloud_app_payload,
     data_protection_content_pattern_payload,
     data_protection_enterprise_account_payload,
-    data_protection_sensitivity_label_payload,
-    data_protection_policy_payload,
-    data_protection_web_locations_payload,
-    data_protection_policy_precedence_payload,
+    data_protection_local_application_group_payload,
     data_protection_local_application_payload,
-    data_protection_local_application_group_payload
+    data_protection_policy_payload,
+    data_protection_policy_precedence_payload,
+    data_protection_sensitivity_label_payload,
+    data_protection_web_locations_payload,
+    entities_web_location_group_create_payload,
+    entities_web_location_group_patch_payload,
     )
 from ._delivery_settings import delivery_settings_payload
 from ._detects import update_detects_payload
@@ -184,12 +192,24 @@ from ._network_scan_zones import (
     network_scan_zone_update_payload
     )
 from ._ngsiem import (
+    add_dashboard_labels_payload,
+    add_file_labels_payload,
+    add_saved_query_labels_payload,
+    bulk_add_dashboard_labels_payload,
+    bulk_add_lookup_file_labels_payload,
+    bulk_add_saved_query_labels_payload,
     bulk_create_dashboards_from_template_payload,
     bulk_create_lookup_files_payload,
     bulk_create_saved_queries_from_template_payload,
+    bulk_remove_dashboard_labels_payload,
+    bulk_remove_lookup_file_labels_payload,
+    bulk_remove_saved_query_labels_payload,
+    bulk_update_dashboard_labels_payload,
     bulk_update_dashboards_from_template_payload,
+    bulk_update_lookup_file_labels_payload,
     bulk_update_lookup_files_payload,
     bulk_update_saved_queries_from_template_payload,
+    bulk_update_saved_query_labels_payload,
     create_parser_extension_payload,
     ngsiem_auto_update_policy_payload,
     ngsiem_bulk_install_parsers_payload,
@@ -199,9 +219,13 @@ from ._ngsiem import (
     ngsiem_install_parser_payload,
     ngsiem_parser_payload,
     ngsiem_search_payload,
+    update_dashboard_labels_payload,
+    update_file_labels_payload,
     update_parser_extension_payload,
+    update_saved_query_labels_payload,
     )
 from ._prevention_policy import prevention_policy_payload
+from ._scanning_orchestrator import create_schedules_payload, trigger_scan_by_schedule_payload, update_schedules_payload
 from ._sensor_update_policy import sensor_policy_payload, maintenance_token_payload
 from ._response_policy import response_policy_payload
 from ._real_time_response import command_payload, data_payload
@@ -241,10 +265,11 @@ from ._filevantage import (
     filevantage_start_payload
     )
 from ._ml_exclusions import (
+    exclusions_sdmf_query_v1_payload,
     ml_exclusions_actions_payload,
     ml_exclusions_report_payload,
-    ml_exclusions_update_payload
-)
+    ml_exclusions_update_payload,
+    )
 from ._mssp import mssp_payload
 from ._firewall import (
     firewall_policy_payload,
@@ -357,5 +382,18 @@ __all__ = [
     "bulk_update_saved_queries_from_template_payload", "create_parser_extension_payload",
     "cloud_registration_gcp_post_terraform_script_payload", "update_third_party_passkey_registry_payload",
     "devices_actions_delete_v1_payload", "indicator_sdmf_query_v1_payload",
-    "update_parser_extension_payload"
+    "update_parser_extension_payload", "invoke_agent_version_external_v1_payload",
+    "invoke_published_agent_external_v1_payload", "entities_merge_post_v1_payload",
+    "cspm_evaluations_iom_entities_post_payload", "entities_rules_ownership_put_v2_payload",
+    "entities_web_location_group_create_payload", "entities_web_location_group_patch_payload",
+    "exclusions_sdmf_query_v1_payload", "add_dashboard_labels_payload",
+    "add_file_labels_payload", "add_saved_query_labels_payload",
+    "bulk_add_dashboard_labels_payload", "bulk_add_lookup_file_labels_payload",
+    "bulk_add_saved_query_labels_payload", "bulk_remove_dashboard_labels_payload",
+    "bulk_remove_lookup_file_labels_payload", "bulk_remove_saved_query_labels_payload",
+    "bulk_update_dashboard_labels_payload", "bulk_update_lookup_file_labels_payload",
+    "bulk_update_saved_query_labels_payload", "update_dashboard_labels_payload",
+    "update_file_labels_payload", "update_saved_query_labels_payload",
+    "create_schedules_payload", "trigger_scan_by_schedule_payload",
+    "update_schedules_payload"
 ]

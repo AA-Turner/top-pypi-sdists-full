@@ -126,7 +126,6 @@ keywords = [
     "Nextcloud",
     "NextcloudTalk",
     "Notica",
-    "NotificationAPI",
     "Notifiarr",
     "Notifico",
     "Notifyre",
@@ -137,6 +136,8 @@ keywords = [
     "PagerDuty",
     "PagerTree",
     "ParsePlatform",
+    "Pinglet",
+    "Pingram",
     "Plivo",
     "Postmark",
     "Power Automate",
@@ -192,6 +193,7 @@ keywords = [
     "Techulus",
     "Telegram",
     "Threema Gateway",
+    "Trigv",
     "Twilio",
     "Twist",
     "Twitter",
@@ -365,7 +367,14 @@ builtins-ignorelist = ["_"]
 addopts = "-ra"
 testpaths = ["tests"]
 python_files = ["test_*.py", "tests/test_*.py"]
-filterwarnings = ["once::Warning"]
+filterwarnings = [
+    "once::Warning",
+    # Ignore warnings from PGPy's dependencies and unfinished checks, which
+    # Apprise cannot resolve.
+    "ignore::Warning:pgpy(\\.|$)",
+    # PGPy reports this internal encryption warning from Apprise's call site.
+    "ignore:^Selected compression algorithm not in key preferences$:UserWarning",
+]
 
 [tool.coverage.run]
 branch = true

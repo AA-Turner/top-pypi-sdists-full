@@ -23,12 +23,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   FORCE_COLOR: "1"
   # only affects Windows, but easiest to set here for now
   SETUPTOOLS_ENABLE_FEATURES: "legacy-editable"
   # don't compile Cython if we are building from source
   NO_CYTHON_COMPILE: "true"
+  # never build rust cryptography from source (doesn't always have wheels for 32b Windows)
+  PIP_ONLY_BINARY: "cryptography"
 
 defaults:
   run:
@@ -48,28 +53,28 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - os: macos-13
-            python: "3.8"
+          - os: macos-15-intel
+            python: "3.9"
+            arch: x64
 
           - os: macos-14
-            python: "3.13"
+            python: "3.14"
             zmq: bundled
+            arch: arm64
 
-          - os: macos-13
+          - os:  macos-15-intel
             python: pypy-3.9
             zmq: bundled
+            arch: x64
 
           - os: ubuntu-22.04
-            python: "3.8"
+            python: "3.9"
             zmq: bundled
             tornado: none
 
           - os: ubuntu-22.04
             python: pypy-3.9
             zmq: bundled
-
-          - os: ubuntu-22.04
-            python: pypy-3.8
 
           - os: ubuntu-22.04
             python: "3.9"
@@ -96,10 +101,6 @@ jobs:
               PYTHONDEVMODE=1
 
           - os: ubuntu-24.04
-            python: "3.13"
-            free_threading: free_threading
-
-          - os: ubuntu-24.04
             python: "3.14"
 
           - os: ubuntu-24.04
@@ -107,7 +108,7 @@ jobs:
             free_threading: free_threading
 
           - os: windows-2022
-            python: "3.8"
+            python: "3.9"
             arch: x86
 
           - os: windows-2022
@@ -123,13 +124,15 @@ jobs:
             arch: x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-          architecture: ${{ matrix.arch || 'x64' }}
+          architecture: ${{ matrix.arch }}
           # allows us to use '3.12' and get '-dev' while we wait
           allow-prereleases: true
           freethreaded: ${{ matrix.free_threading == 'free_threading' }}
@@ -160,7 +163,7 @@ jobs:
 
       - name: install dependencies
         run: |
-          pip install --upgrade pip wheel
+          python3 -m pip install --upgrade pip wheel
           pip install ${EXTRA_PIP:-} -r test-requirements.txt
 
       - name: remove tornado
@@ -218,8 +221,8 @@ jobs:
           pushd libzmq-*
           ./autogen.sh
           ./configure --enable-drafts
-          make -j4
-          sudo make install
+          make -j4 src/libzmq.la
+          sudo make install-libLTLIBRARIES install-includeHEADERS
           sudo ldconfig
           popd
           echo "ZMQ_PREFIX=/usr/local" >> "$GITHUB_ENV"

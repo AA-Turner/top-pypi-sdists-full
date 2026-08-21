@@ -45,6 +45,7 @@ For more information, please refer to <https://unlicense.org>
 """
 import time
 from logging import Logger, getLogger
+import requests
 from .._util import (
     _ALLOWED_METHODS,
     perform_request,
@@ -54,6 +55,7 @@ from .._util import (
     args_to_params,
     return_preferred_default,
     autodiscover_region,
+    encode_path_segment,
     )
 from .._enum import BaseURL, ContainerBaseURL, TokenFailReason
 from .._constant import PREFER_IDS_IN_BODY, MOCK_OPERATIONS
@@ -86,7 +88,8 @@ class APIHarness:
                  access_token: str = None,  # pylint: disable=W0613  # Not supported
                  pythonic: bool = False,  # New functionality
                  sanitize_log: bool = True,  # New functionality
-                 debug_record_count: int = None  # New functionality
+                 debug_record_count: int = None,  # New functionality
+                 session: requests.Session = None  # New functionality
                  ) -> object:
         """Uber class constructor.
 
@@ -116,6 +119,13 @@ class APIHarness:
         renew_window: Amount of time (in seconds) between now and the token expiration before
                       a refresh of the token is performed. Default: 120, Max: 1200
                       Values over 1200 will be reset to the maximum.
+        session: Existing requests.Session to reuse for connection pooling across
+                 authenticate, every command and deauthenticate. FalconPy never closes
+                 a session provided this way; the caller retains ownership of its
+                 lifecycle (for example, by using it as a context manager). A single
+                 Session is not guaranteed safe for concurrent use across threads
+                 without external synchronization. When omitted (default), behavior
+                 is unchanged and a new connection is used for each request.
 
         This method only accepts keywords to specify arguments.
         """
@@ -137,6 +147,7 @@ class APIHarness:
         self.ssl_verify = ssl_verify
         self.proxy = proxy
         self.timeout = timeout
+        self.session = session
         self.token = False
         self.token_expiration = 0
         self.token_time = time.time()
@@ -202,6 +213,7 @@ class APIHarness:
                                  proxy=self.proxy,
                                  timeout=self.timeout,
                                  user_agent=self.user_agent,
+                                 session=self.session,
                                  authenticating=True,
                                  log_util=self.log,
                                  pythonic=self.pythonic
@@ -238,7 +250,7 @@ class APIHarness:
         if perform_request(method="POST", endpoint=target, data=data_payload,
                            headers=header_payload, verify=self.ssl_verify,
                            proxy=self.proxy, timeout=self.timeout, user_agent=self.user_agent,
-                           log_util=self.log, pythonic=self.pythonic
+                           session=self.session, log_util=self.log, pythonic=self.pythonic
                            )["status_code"] == 200:
             self.authenticated = False
             self.token = False
@@ -266,21 +278,21 @@ class APIHarness:
     def _handle_partition(tgt: str, kwa: dict):
         if kwa.get("partition", None) is not None:
             # Partition needs to be embedded into the endpoint URL
-            tgt = tgt.format(str(kwa.get("partition", None)))
+            tgt = tgt.format(encode_path_segment(kwa.get("partition", None)))
         return tgt
 
     @staticmethod
     def _handle_distinct_field(tgt: str, kwa: dict):
         if kwa.get("distinct_field", None) is not None:
             # distinct_field also needs to be embedded into the endpoint URL
-            tgt = tgt.format(str(kwa.get("distinct_field", None)))
+            tgt = tgt.format(encode_path_segment(kwa.get("distinct_field", None)))
         return tgt
 
     @staticmethod
     def _handle_container_image_id(tgt: str, kwa: dict):
         if kwa.get("image_id", None) is not None:
             # container image ID also needs to be embedded into the endpoint URL
-            tgt = tgt.format(str(kwa.get("image_id", None)))
+            tgt = tgt.format(encode_path_segment(kwa.get("image_id", None)))
         return tgt
 
     @staticmethod
@@ -396,6 +408,7 @@ class APIHarness:
                                                proxy=self.proxy,
                                                timeout=self.timeout,
                                                user_agent=self.user_agent,
+                                               session=self.session,
                                                expand_result=kwargs.get("expand_result", False),
                                                container=container,
                                                log_util=self.log,

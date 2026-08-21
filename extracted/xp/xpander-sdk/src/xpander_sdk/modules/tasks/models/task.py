@@ -56,6 +56,50 @@ class HumanInTheLoopRequest(BaseModel):
     wait_node_id: str
 
 
+class AttachmentKind(str, Enum):
+    """Coarse attachment class. MIRROR of xpander_dev_utils.models.executions.AttachmentKind - keep identical."""
+    image = "image"
+    pdf = "pdf"
+    document = "document"
+    text = "text"
+    audio = "audio"
+    video = "video"
+    archive = "archive"
+    unknown = "unknown"
+
+
+class AttachmentRef(BaseModel):
+    """Attachment metadata captured at upload. MIRROR of xpander_dev_utils.models.executions.AttachmentRef."""
+    url: str
+    name: Optional[str] = None
+    mime: Optional[str] = None
+    size: Optional[int] = None
+    kind: Optional[AttachmentKind] = None
+    sha256: Optional[str] = None
+    expires_at: Optional[str] = None  # ISO-8601; string keeps the wire dict JSON-trivial
+    source: Optional[str] = None
+
+
+def resolve_attachments(
+    attachments: Optional[List["AttachmentRef"]],
+    files: Optional[List[str]],
+) -> List["AttachmentRef"]:
+    """Prefer explicit attachments; else synthesize a bare ref per URL (no network probe)."""
+    if attachments:
+        return list(attachments)
+    return [AttachmentRef(url=u) for u in (files or [])]
+
+
+def files_from_attachments(
+    attachments: Optional[List["AttachmentRef"]],
+    files: Optional[List[str]],
+) -> List[str]:
+    """The URL list for every legacy reader: from attachments when present, else the given files."""
+    if attachments:
+        return [a.url for a in attachments]
+    return list(files or [])
+
+
 class AgentExecutionInput(BaseModel):
     """
     Model representing input to agent task execution.
@@ -63,11 +107,10 @@ class AgentExecutionInput(BaseModel):
     Attributes:
         text (Optional[str]): Textual input for the agent task.
         files (Optional[List[str]]): List of file URLs to provide as input.
+        attachments (Optional[List[AttachmentRef]]): Per-file metadata (mime/size/name/kind),
+            carried alongside files (dual-accept). Consumers prefer this over re-sniffing files.
         user (Optional[User]): User details associated with task execution.
         principal (Optional[Principal]): Typed caller identity behind the task.
-
-    Validators:
-        validate_at_least_one: Ensures that either text or files are provided.
 
     Example:
         >>> input = AgentExecutionInput(text="Process data", files=["http://file.url"])
@@ -76,14 +119,19 @@ class AgentExecutionInput(BaseModel):
 
     text: Optional[str] = ""
     files: Optional[List[str]] = []
+    attachments: Optional[List[AttachmentRef]] = []
     user: Optional[User] = None
     principal: Optional[Principal] = None
 
     def to_request_dict(self) -> dict:
-        """Wire dict for task creation; the principal key rides only when set, keeping the legacy shape."""
-        data = self.model_dump()
+        """Wire dict for task creation; principal/attachments ride only when set, keeping the legacy shape."""
+        data = self.model_dump(mode="json")  # enum kind -> plain string, so any JSON encoder is safe
         if data.get("principal") is None:
             data.pop("principal", None)
+        # Absent attachments keep the byte-identical legacy payload (and never reach a pre-mirror
+        # receiver as an unknown field during the SDK-first rollout window).
+        if not data.get("attachments"):
+            data.pop("attachments", None)
         return data
 
 

@@ -8,7 +8,7 @@
 
 import asyncio
 from threading import Event, Thread
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import zmq
 import zmq.asyncio
@@ -68,7 +68,7 @@ class AuthenticationThread(Thread):
                 msg = self.authenticator.zap_socket.recv_multipart()
                 await self.authenticator.handle_zap_message(msg)
 
-    def _handle_pipe_message(self, msg: List[bytes]) -> bool:
+    def _handle_pipe_message(self, msg: list[bytes]) -> bool:
         command = msg[0]
         self.log.debug("auth received API command %r", command)
 

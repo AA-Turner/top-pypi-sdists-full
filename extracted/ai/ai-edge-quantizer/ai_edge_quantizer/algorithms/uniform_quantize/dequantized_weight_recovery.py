@@ -277,32 +277,34 @@ def get_tensor_quant_params(
   quantized_vars = uniform_quantize_tensor.uniform_quantize(
       tensor_content, quant_params, is_blockwise_quant=is_blockwise
   )
-  try:
-    _validate_recovered_weights(tensor_content, quantized_vars, quant_params)
-  except RuntimeError as e:
-    max_found, limit = _check_unique_values(
-        tensor_content,
-        quantized_dim,
-        block_size=block_size,
-        num_bits=tensor_quant_config.num_bits,
-    )
-    extra_msg = (
-        (
-            f"Detected a quantization group with {max_found} unique values, "
-            f"which exceeds the limit of {limit} for"
-            f" {tensor_quant_config.num_bits}-bit quantization. This suggests"
-            " the input tensor is NOT dequantized (fake-quantized) weights."
-            " Please verify if you are using a QAT checkpoint."
-        )
-        if max_found > limit
-        else (
-            f"Max unique values in any group is {max_found} (limit: {limit})."
-            " The recovery failed despite reasonable unique value count. Check"
-            " if the weights are symmetric or if tolerance is too tight."
-        )
-    )
-    msg = f"Failed to recover weights. Original error: {e}. {extra_msg}"
-    raise RuntimeError(msg) from e
+  if not op_info.op_quant_config.skip_checks:
+    try:
+      _validate_recovered_weights(tensor_content, quantized_vars, quant_params)
+    except RuntimeError as e:
+      max_found, limit = _check_unique_values(
+          tensor_content,
+          quantized_dim,
+          block_size=block_size,
+          num_bits=tensor_quant_config.num_bits,
+      )
+      extra_msg = (
+          (
+              f"Detected a quantization group with {max_found} unique values, "
+              f"which exceeds the limit of {limit} for"
+              f" {tensor_quant_config.num_bits}-bit quantization. This suggests"
+              " the input tensor is NOT dequantized (fake-quantized) weights."
+              " Please verify if you are using a QAT checkpoint."
+          )
+          if max_found > limit
+          else (
+              f"Max unique values in any group is {max_found} (limit: {limit})."
+              " The recovery failed despite reasonable unique value count."
+              " Check if the weights are symmetric or if tolerance is too"
+              " tight."
+          )
+      )
+      msg = f"Failed to recover weights. Original error: {e}. {extra_msg}"
+      raise RuntimeError(msg) from e
   return dataclasses.replace(quant_params, quantized_data=quantized_vars)
 
 

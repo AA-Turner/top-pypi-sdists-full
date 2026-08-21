@@ -14,7 +14,6 @@ Authors
 """
 
 import time
-from typing import Set
 
 from tornado import ioloop
 
@@ -41,8 +40,8 @@ class HeartBeater:
         self.pongstream = pongstream
         self.pongstream.on_recv(self.handle_pong)
 
-        self.hearts: Set = set()
-        self.responses: Set = set()
+        self.hearts: set = set()
+        self.responses: set = set()
         self.lifetime = 0
         self.tic = time.monotonic()
 

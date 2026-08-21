@@ -8,6 +8,7 @@ import sqlparse
 from sqlparse.sql import Comparison, Identifier, Token, Where
 
 from mycli.packages.special.dsn_aliases import DSN_SUBCOMMANDS
+from mycli.packages.special.favoritequeries import FAVORITE_SUBCOMMANDS
 from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
 from mycli.packages.special.main import parse_special_command
 from mycli.packages.sql_utils import extract_tables, find_prev_keyword, last_word
@@ -831,6 +832,36 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
     if cmd in ["\\llm", "/llm", "\\ai", "/ai"]:
         return [{"type": "llm"}]
 
+    if cmd.lower() in (r'\favorite', '/favorite'):
+        favorite_arguments = _arg.split(maxsplit=1)
+        if favorite_arguments and favorite_arguments[0].lower() in ('run', 'eval'):
+            if len(favorite_arguments) == 1 and not text[-1].isspace():
+                return []
+            expansion_arg = favorite_arguments[1] if len(favorite_arguments) == 2 else ''
+            return suggest_favorite_query_with_template(text, expansion_arg)
+        if favorite_arguments and favorite_arguments[0].lower() == 'save':
+            if len(favorite_arguments) == 1 and not text[-1].isspace():
+                return []
+            if len(favorite_arguments) == 1:
+                return [{'type': 'favoritequery'}]
+            save_arguments = favorite_arguments[1].split(maxsplit=1)
+            if len(save_arguments) == 1 and not text[-1].isspace():
+                return [{'type': 'favoritequery'}]
+            query = save_arguments[1] if len(save_arguments) == 2 else ''
+            if query and text[-1].isspace():
+                query += ' '
+            return suggest_type(query, query)
+        if favorite_arguments and favorite_arguments[0].lower() in ('edit', 'delete'):
+            if len(favorite_arguments) == 1:
+                return [] if not text[-1].isspace() else [{'type': 'favoritequery'}]
+            target_arguments = favorite_arguments[1].split()
+            if len(target_arguments) == 1 and not text[-1].isspace():
+                return [{'type': 'favoritequery'}]
+            return []
+        if favorite_arguments and favorite_arguments[0].lower() in FAVORITE_SUBCOMMANDS:
+            return []
+        return [{'type': 'special_subcommand', 'subcommands': list(FAVORITE_SUBCOMMANDS)}]
+
     if cmd.lower() in (r'\config', '/config'):
         config_arguments = _arg.split(maxsplit=1)
         config_subcommands = ['help', 'get', 'search', 'edit']
@@ -848,10 +879,10 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
 
     if cmd.lower() in (r'\dsn', '/dsn'):
         dsn_arguments = _arg.split(maxsplit=1)
-        completing_delete_target = (len(dsn_arguments) == 1 and text[-1].isspace()) or (len(dsn_arguments) == 2 and not text[-1].isspace())
-        if dsn_arguments and dsn_arguments[0].lower() == 'delete' and completing_delete_target:
+        completing_alias_target = (len(dsn_arguments) == 1 and text[-1].isspace()) or (len(dsn_arguments) == 2 and not text[-1].isspace())
+        if dsn_arguments and dsn_arguments[0].lower() in ('edit', 'delete') and completing_alias_target:
             return [{'type': 'dsn_alias'}]
-        if dsn_arguments and dsn_arguments[0].lower() == 'delete' and len(dsn_arguments) == 2:
+        if dsn_arguments and dsn_arguments[0].lower() in ('edit', 'delete') and len(dsn_arguments) == 2:
             return []
         if dsn_arguments and dsn_arguments[0].lower() == 'save':
             completing_option = (len(dsn_arguments) == 1 and text[-1].isspace()) or (
@@ -872,7 +903,7 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
             if completing_option:
                 return [{'type': 'special_subcommand', 'subcommands': [option]}]
             return []
-        if dsn_arguments and dsn_arguments[0].lower() in DSN_SUBCOMMANDS - {'delete'}:
+        if dsn_arguments and dsn_arguments[0].lower() in DSN_SUBCOMMANDS - {'edit', 'delete'}:
             return []
         return [{'type': 'special_subcommand', 'subcommands': list(DSN_SUBCOMMANDS)}]
 

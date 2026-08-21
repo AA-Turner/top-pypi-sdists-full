@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pydoe
-Version: 1.4.0
+Version: 1.5.0
 Summary: Design of Experiments for Python
 Project-URL: homepage, https://pydoe.github.io/pydoe/
 Project-URL: documentation, https://pydoe.github.io/pydoe/
@@ -36,6 +36,8 @@ Requires-Python: >=3.10
 Requires-Dist: numpy>=2.2.6
 Requires-Dist: scipy>=1.15.3
 Description-Content-Type: text/markdown
+
+![PyDOE](https://raw.githubusercontent.com/pydoe/pydoe/master/docs/assets/images/pydoe-banner.png)
 
 PyDOE: An Experimental Design Package for Python
 ================================================

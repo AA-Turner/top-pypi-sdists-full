@@ -655,11 +655,6 @@ def MSSQLSource(
     ...     client_secret=os.getenv("MSSQL_CLIENT_SECRET"),
     ...     tenant_id=os.getenv("MSSQL_TENANT_ID"),
     ... )
-
-    >>> from chalk.features import online
-    >>> @online
-    ... def resolver_fn() -> User.name:
-    ...     return mssql.query_string("select name from users where id = 4").one()
     """
     ...
 
@@ -687,6 +682,10 @@ def MSSQLSource(
     explicit arguments will use those arguments to configure
     the data source. See the overloaded signatures for more
     details.
+
+    MSSQL sources are queried exclusively through Chalk's native SQL driver:
+    query them with SQL file resolvers. They cannot be queried directly from
+    python resolvers.
 
     Supports three authentication methods:
     - SQL Authentication: user + password

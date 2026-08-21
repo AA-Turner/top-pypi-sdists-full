@@ -322,7 +322,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
 
     def get_engine(self) -> Engine:
         # Registered here rather than in __init__ so enabling IAM auth does not force an engine to
-        # be built at import time, the way the MSSQL Azure-AD path does.
+        # be built at import time.
         return self._register_rds_iam_listener(super().get_engine())
 
     def get_async_engine(self) -> Any:

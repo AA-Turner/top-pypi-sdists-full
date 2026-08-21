@@ -92,7 +92,7 @@ CRAllocationStrategyType = Literal[
     "SPOT_CAPACITY_OPTIMIZED_PRIORITIZED",
     "SPOT_PRICE_CAPACITY_OPTIMIZED",
 ]
-CRTypeType = Literal["EC2", "FARGATE", "FARGATE_SPOT", "SPOT"]
+CRTypeType = Literal["EC2", "ECS_MANAGED_INSTANCES", "FARGATE", "FARGATE_SPOT", "SPOT"]
 CRUpdateAllocationStrategyType = Literal[
     "BEST_FIT_PROGRESSIVE",
     "BEST_FIT_PROGRESSIVE_ORDERED",
@@ -112,7 +112,9 @@ FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
 JobDefinitionTypeType = Literal["container", "multinode"]
-JobQueueTypeType = Literal["ECS", "ECS_FARGATE", "EKS", "SAGEMAKER_TRAINING"]
+JobQueueTypeType = Literal[
+    "ECS", "ECS_FARGATE", "ECS_MANAGED_INSTANCES", "EKS", "SAGEMAKER_TRAINING"
+]
 JobStateTimeLimitActionsActionType = Literal["CANCEL", "TERMINATE"]
 JobStateTimeLimitActionsStateType = Literal["RUNNABLE"]
 JobStatusType = Literal[
@@ -128,7 +130,7 @@ LogDriverType = Literal[
     "awsfirelens", "awslogs", "fluentd", "gelf", "journald", "json-file", "splunk", "syslog"
 ]
 OrchestrationTypeType = Literal["ECS", "EKS"]
-PlatformCapabilityType = Literal["EC2", "FARGATE"]
+PlatformCapabilityType = Literal["EC2", "FARGATE", "MANAGED_INSTANCES"]
 QuotaShareIdleResourceAssignmentStrategyType = Literal["FIFO"]
 QuotaShareInSharePreemptionStateType = Literal["DISABLED", "ENABLED"]
 QuotaShareResourceSharingStrategyType = Literal["LEND", "LEND_AND_BORROW", "RESERVE"]

@@ -29,6 +29,7 @@ from __future__ import annotations
 import gc
 import logging
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -40,6 +41,7 @@ from .. import measured_posture as posture_mod
 from . import machine_fit
 from ..api.errors import HostRamMoveRefusedError
 from ..component_vocab import component_vocabulary
+from .partial_resident import PARTIAL_RESIDENT_DEVICE_ATTR
 from .structure_only import STAMP as _STRUCTURE_ONLY
 import asyncio
 from ..hostfacts import cuda_ready
@@ -52,8 +54,8 @@ _GIB = 1024 ** 3
 Mode = str  # "auto" | "off" | "vae_only" | "model_offload" | "group_offload" | "sequential" | "cpu"
 
 _VALID_MODES: tuple[str, ...] = (
-    "auto", "off", "vae_only", "model_offload", "group_offload", "sequential",
-    "cpu",
+    "auto", "off", "vae_only", "partial_resident", "partial_stream",
+    "model_offload", "group_offload", "sequential", "cpu",
 )
 
 _DEFAULT_MODEL_OFFLOAD_THRESHOLD_GB = 8.0
@@ -145,13 +147,28 @@ from .rung import (
 def is_cuda_oom(exc: Optional[BaseException]) -> bool:
     """CUDA allocator exhaustion in any of its shapes: torch.cuda.OutOfMemoryError
     (class name match — no torch import needed) plus the allocator's RuntimeError
-    flavors ("CUDA error: out of memory", CUBLAS/CUDNN alloc failures)."""
+    flavors ("CUDA error: out of memory", CUBLAS/CUDNN alloc failures).
+
+    pgw#1499 adds ``torch.AcceleratorError`` — the ASYNCHRONOUS shape. A kernel
+    that runs out of memory device-side surfaces later, on whatever call next
+    synchronizes, as an AcceleratorError carrying cudaErrorMemoryAllocation
+    (code 2). Missing it made a real OOM read as an unclassified crash, so no
+    ladder ever ran. It also leaves the context's error state poisoned, which
+    is what :func:`discard_cuda_async_error` clears — every caller of this
+    predicate is about to retry something, so the clear belongs here rather
+    than in each of them.
+    """
     if exc is None:
         return False
     if type(exc).__name__ in ("OutOfMemoryError", "CUDAOutOfMemoryError"):
         return True
+    text = str(exc).lower()
+    if type(exc).__name__ == "AcceleratorError" and (
+        getattr(exc, "error_code", None) == 2 or "out of memory" in text
+    ):
+        discard_cuda_async_error()
+        return True
     if isinstance(exc, RuntimeError):
-        text = str(exc).lower()
         return (
             "out of memory" in text
             or "cuda oom" in text
@@ -159,6 +176,29 @@ def is_cuda_oom(exc: Optional[BaseException]) -> bool:
             or "cudnn_status_alloc_failed" in text
         )
     return False
+
+
+def discard_cuda_async_error() -> None:
+    """Flush a poisoned asynchronous CUDA error so the PROCESS survives it.
+
+    An async device-side failure sticks to the context: the next launch
+    re-reports it, and a worker that has already caught and handled the OOM
+    then dies on an error it has no live cause for. A trivial kernel plus a
+    synchronize forces the sticky error out where it can be swallowed once,
+    deliberately, right here — we already learned the fact from the synchronous
+    return. Always safe to call; no-op without CUDA.
+    """
+    try:
+        import torch
+
+        if not cuda_ready():
+            return
+        a = torch.tensor([1], dtype=torch.uint8, device="cuda")
+        b = torch.tensor([1], dtype=torch.uint8, device="cuda")
+        _ = a + b
+        torch.cuda.synchronize()
+    except Exception:  # noqa: BLE001 — dumping the error IS the point
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +241,29 @@ def available_vram(device_index: int = 0) -> VramReading:
     if free is None:
         return VramReading(0.0, VRAM_UNREADABLE)
     return VramReading(float(free) / float(1024**3))
+
+
+def process_ceiling_vram(device_index: int = 0) -> VramReading:
+    """What THIS process may occupy on the card at its peak, with its
+    zero-cause — driver-free plus what it already holds.
+
+    The reading a *whole working set* fit is decided against: resident weights
+    plus the activations they will produce must land under it.
+    :func:`available_vram` answers "what would a NEW process get", which is
+    the wrong denominator for a process budgeting against its own weights.
+
+    pgw#1558: an endpoint that computes this itself (``free + allocated`` off a
+    raw ``mem_get_info``) cannot distinguish a CPU host from a wedged card, and
+    ``minimax-h3`` demonstrably could not — it named every zero "UNREADABLE,
+    not merely unmeasured" including on a machine with no GPU at all. That is
+    pgw#940's misattribution, one repo over; ``reason`` is how it stays fixed.
+    """
+    if not hostfacts.cuda_ready():
+        return VramReading(0.0, VRAM_NO_CUDA)
+    ceiling = hostfacts.process_ceiling_bytes(device_index)
+    if ceiling is None:
+        return VramReading(0.0, VRAM_UNREADABLE)
+    return VramReading(float(ceiling) / float(1024**3))
 
 
 def get_available_vram_gb(device_index: int = 0) -> float:
@@ -669,7 +732,206 @@ def repair_device_placement(obj: Any, device: str) -> List[tuple[str, str, str]]
             comp.to(device)
         except Exception as exc:
             _LOG.warning("device repair: %s.to(%s) failed: %s", cname or "obj", device, exc)
+    remaining = device_mismatches(obj, device)
+    if not remaining:
+        return []
+    # ESCALATION (pgw#1558). A second `.to(device)` is not a different act from
+    # the first, so a component whose `.to()` is a NO-OP — a torchao/quantized
+    # wrapper, an accelerate-hooked module, anything that overrides `_apply` —
+    # survives the retry unchanged and the caller is told "unrepairable". It is
+    # not: rebinding `tensor.data` moves the storage regardless of what the
+    # module's `.to()` chose to do, and `minimax-h3` has been carrying exactly
+    # this escalation privately since a stuck 27 GiB text encoder OOM'd a
+    # denoise that had already "evicted" it.
+    # Only the tensors `device_mismatches` NAMED — it is the walk that already
+    # exempts virtual/structure-only/meta tensors, and force-moving one of
+    # those is the pgw#1124 defect with a bigger hammer.
+    wanted = {(c, t) for c, t, _ in remaining}
+    still = {c for c, _, _ in remaining}
+    forced = 0
+    for cname, comp in _named_components(obj):
+        if cname not in still:
+            continue
+        for owner, tname, t, slot in _owned_tensors(comp):
+            if (cname, tname) not in wanted:
+                continue
+            leaf = tname.rsplit(".", 1)[-1]
+            try:
+                moved = t.data.to(device)
+            except Exception as exc:  # noqa: BLE001 — report what is left, never raise
+                _LOG.warning(
+                    "device repair: %s.%s could not be read onto %s: %s",
+                    cname or "obj", tname, device, exc,
+                )
+                continue
+            try:
+                # In-place first: this preserves tensor IDENTITY, which is what
+                # `Module._apply` itself does and what anything holding a
+                # reference to the parameter (an installed hook, a cached
+                # module handle) depends on.
+                t.data = moved
+                forced += 1
+                continue
+            except Exception as identity_exc:  # noqa: BLE001
+                _LOG.debug(
+                    "device repair: %s.%s in-place rebind refused (%s); replacing the slot",
+                    cname or "obj", tname, identity_exc,
+                )
+            try:
+                # torch itself refuses some in-place rebinds across device
+                # kinds. Replacing the slot on the OWNING module is the same
+                # move by the other door, and is what `_apply` falls back to
+                # for buffers.
+                slot[leaf] = _like(t, moved)
+                forced += 1
+            except Exception as exc:  # noqa: BLE001
+                _LOG.warning(
+                    "device repair: %s.%s tensor-wise move to %s failed: %s",
+                    cname or "obj", tname, device, exc,
+                )
+    if forced:
+        detail = (
+            f"components={sorted(still) or ['obj']} did not follow `.to({device})`; "
+            f"{forced} tensor(s) moved storage-wise"
+        )
+        _LOG.warning("device repair: %s", detail)
+        # Hub-visible. A component that ignores `.to()` is the shape that
+        # OOM'd a denoise which had already "evicted" a 27 GiB text encoder —
+        # recovering it silently means the next one is diagnosed from scratch.
+        try:
+            from .. import activity as _activity
+
+            _activity.emit_event(
+                _activity.KIND_RESIDENCY_FAULT, detail=detail, phase="evict_incomplete",
+            )
+        except Exception:  # noqa: BLE001 — an instrument must never fail a move
+            _LOG.debug("device repair: fault event not emitted", exc_info=True)
     return device_mismatches(obj, device)
+
+
+def _like(old: Any, moved: Any) -> Any:
+    """``moved``, wrapped back into a Parameter when ``old`` was one."""
+    try:
+        import torch
+
+        if isinstance(old, torch.nn.Parameter):
+            return torch.nn.Parameter(moved, requires_grad=old.requires_grad)
+    except Exception:  # noqa: BLE001
+        pass
+    return moved
+
+
+def _owned_tensors(comp: Any) -> List[tuple[Any, str, Any, Any]]:
+    """``(owner_module, dotted_name, tensor, slot_dict)`` for every parameter
+    and buffer under ``comp``, where ``slot_dict`` is the owner's own
+    ``_parameters``/``_buffers`` mapping. The owner is what a placement repair
+    needs and ``named_parameters()`` does not give it. [] for a non-module."""
+    out: List[tuple[Any, str, Any, Any]] = []
+    try:
+        import torch
+    except Exception:  # noqa: BLE001
+        return out
+    if comp is None or not hasattr(comp, "named_modules"):
+        return out
+    try:
+        modules = list(comp.named_modules())
+    except Exception:  # noqa: BLE001
+        return out
+    for prefix, module in modules:
+        for slot in (
+            getattr(module, "_parameters", None),
+            getattr(module, "_buffers", None),
+        ):
+            if not isinstance(slot, dict):
+                continue
+            for leaf, t in list(slot.items()):
+                if not isinstance(t, torch.Tensor):
+                    continue
+                out.append((module, f"{prefix}.{leaf}" if prefix else leaf, t, slot))
+    return out
+
+
+def _iter_tensors(comp: Any) -> Iterable[tuple[str, Any]]:
+    """``(name, tensor)`` over one module's parameters and buffers, [] for a
+    non-module. Never raises."""
+    try:
+        import torch
+    except Exception:  # noqa: BLE001
+        return []
+    if comp is None or not hasattr(comp, "named_parameters"):
+        return []
+    try:
+        named = list(comp.named_parameters())
+        if hasattr(comp, "named_buffers"):
+            named.extend(comp.named_buffers())
+    except Exception:  # noqa: BLE001
+        return []
+    return [(n, t) for n, t in named if isinstance(t, torch.Tensor)]
+
+
+def tensor_storage_bytes(t: Any) -> int:
+    """Bytes the tensor OCCUPIES, not what its logical dtype implies.
+
+    pgw#1558, lifted from ``minimax-h3`` where it was written because the
+    plain formula lied in production: a torchao tensor subclass reports the
+    LOGICAL dtype it emulates, so ``numel() * element_size()`` prices a
+    per-row fp8 weight at bf16 — "the census row two independent readers read
+    as *no fp8 here*". torch's own ``__tensor_flatten__`` names the real
+    inner tensors, so the walk descends into them and sums what they hold.
+
+    This is the byte question every residency estimate in this module asks, so
+    it is asked here once: an endpoint that quantizes and then reads
+    :func:`estimate_cuda_resident_gb` used to be told its fp8 DiT still cost
+    what its bf16 checkpoint did.
+    """
+    data = getattr(t, "data", t)
+    flatten = getattr(data, "__tensor_flatten__", None)
+    if flatten is not None:
+        try:
+            names, _meta = flatten()
+            return sum(tensor_storage_bytes(getattr(data, n)) for n in names)
+        except Exception:  # noqa: BLE001 — a census must never raise
+            pass
+    try:
+        return int(data.numel()) * int(data.element_size())
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def tensor_dtype_label(t: Any) -> str:
+    """``torch.bfloat16``, or ``Float8Tensor[torch.float8_e4m3fn]`` for a
+    quantized subclass — never an emulated dtype without naming the subclass
+    that emulates it. The reporting twin of :func:`tensor_storage_bytes`
+    (pgw#1558, same origin, same reason: a histogram reading
+    ``bfloat16=37.4GiB`` over a quantized DiT says this lane is bf16)."""
+    data = getattr(t, "data", t)
+    flatten = getattr(data, "__tensor_flatten__", None)
+    if flatten is None:
+        return str(getattr(data, "dtype", "?"))
+    try:
+        names, _meta = flatten()
+        inner = getattr(data, names[0])
+        return f"{type(data).__name__}[{inner.dtype}]"
+    except Exception:  # noqa: BLE001 — a census must never raise
+        return f"{type(data).__name__}[{getattr(data, 'dtype', '?')} logical]"
+
+
+def resident_census(obj: Any) -> List[tuple[str, int]]:
+    """``(component, cuda-resident bytes)`` for every component of ``obj`` that
+    holds anything on the card, largest first — what to print when an OOM has
+    to name its holder. Storage-priced (:func:`tensor_storage_bytes`), so a
+    quantized component is reported at what it actually occupies."""
+    rows: List[tuple[str, int]] = []
+    for cname, comp in _named_components(obj):
+        on_cuda = sum(
+            tensor_storage_bytes(t)
+            for _n, t in _iter_tensors(comp)
+            if t.device.type == "cuda"
+        )
+        if on_cuda:
+            rows.append((cname, on_cuda))
+    rows.sort(key=lambda row: row[1], reverse=True)
+    return rows
 
 
 def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
@@ -699,10 +961,6 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
     the proof runs on the resident parent, so nothing downstream of a
     structure-only build allocates a checkpoint.)
     """
-    import torch
-
-    from ..meta_instantiation import is_virtual
-
     total = 0
     #: ``("ptr", data_ptr)`` for a tensor with storage — shared storages are
     #: counted ONCE — and ``("obj", id)`` for one without, which has no storage
@@ -710,33 +968,66 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
     seen: set[tuple[str, int]] = set()
     for obj in objs:
         for c in _iter_components(obj):
-            if c is None or not hasattr(c, "parameters"):
-                continue
-            tensors = list(c.parameters())
-            if hasattr(c, "buffers"):
-                tensors.extend(c.buffers())
-            for t in tensors:
-                if not isinstance(t, torch.Tensor):
-                    continue
-                # pgw#1198: asked of the STORAGE. A `setup()`-time quantizer
-                # leaves a wrapper subclass over fake data, which is a
-                # FakeTensor to nobody and occupies the card to nothing.
-                virtual = t.device.type != "meta" and is_virtual(t)
-                if cuda_only and (virtual or t.device.type != "cuda"):
-                    continue
-                key: tuple[str, int]
-                if virtual:
-                    key = ("obj", id(t))
-                else:
-                    try:
-                        key = ("ptr", t.data_ptr())
-                    except Exception:
-                        key = ("obj", id(t))
-                if key in seen:
-                    continue
-                seen.add(key)
-                total += t.numel() * t.element_size()
+            total += _module_bytes(c, cuda_only=cuda_only, seen=seen)
     return total
+
+
+def _module_bytes(c: Any, *, cuda_only: bool, seen: set[tuple[str, int]]) -> int:
+    """One module's own parameters and buffers, storage-priced and deduped
+    against ``seen``. The shared inner walk of :func:`_sum_tensor_bytes` and
+    :func:`module_storage_bytes`."""
+    import torch
+
+    from ..meta_instantiation import is_virtual
+
+    if c is None or not hasattr(c, "parameters"):
+        return 0
+    tensors = list(c.parameters())
+    if hasattr(c, "buffers"):
+        tensors.extend(c.buffers())
+    total = 0
+    for t in tensors:
+        if not isinstance(t, torch.Tensor):
+            continue
+        # pgw#1198: asked of the STORAGE. A `setup()`-time quantizer
+        # leaves a wrapper subclass over fake data, which is a
+        # FakeTensor to nobody and occupies the card to nothing.
+        virtual = t.device.type != "meta" and is_virtual(t)
+        if cuda_only and (virtual or t.device.type != "cuda"):
+            continue
+        key: tuple[str, int]
+        if virtual:
+            key = ("obj", id(t))
+        else:
+            try:
+                key = ("ptr", t.data_ptr())
+            except Exception:
+                key = ("obj", id(t))
+        if key in seen:
+            continue
+        seen.add(key)
+        # pgw#1558: STORAGE bytes, not the logical dtype's. A virtual
+        # tensor has no storage to descend into and is priced by what
+        # it DECLARES, which is what a real load will go on to
+        # allocate; everything else is priced by what it holds, so a
+        # quantized subclass stops being booked at the dtype it
+        # emulates.
+        total += t.numel() * t.element_size() if virtual else tensor_storage_bytes(t)
+    return total
+
+
+def module_storage_bytes(module: Any, *, cuda_only: bool = False) -> int:
+    """Bytes ONE module's own parameters and buffers occupy, shared storages
+    counted once. 0 for a non-module.
+
+    pgw#1558. :func:`estimate_pipeline_size_gb` is the wrong tool for a single
+    component: it enumerates COMPONENTS OF the object it is handed, and handed
+    a bare denoiser it finds that denoiser's submodule attributes and misses
+    every parameter held on the root. This asks the module itself, which is
+    what "how big is this one component" means — the question a residency
+    schedule asks about each of its stage residents.
+    """
+    return _module_bytes(module, cuda_only=cuda_only, seen=set())
 
 
 def estimate_pipeline_size_gb(pipeline: Any) -> float:
@@ -765,6 +1056,27 @@ def estimate_cuda_resident_gb(*objects: Any) -> float:
         return float(_sum_tensor_bytes(objects, cuda_only=True)) / float(1024**3)
     except Exception:
         return 0.0
+
+
+def release_cached_vram() -> None:
+    """Hand the allocator's cached-but-unused blocks back to the driver.
+    ``empty_cache`` and NOTHING else — always safe to call.
+
+    pgw#1558. This is the fragmentation discipline a residency schedule runs
+    between stages, and it is deliberately not :func:`flush_memory`: that one
+    also resets the peak counters, which is exactly what an endpoint measuring
+    its own activation across a stage boundary must not do (the same reason
+    ``aflush_memory`` defaults ``reset_peak=False``). Nor does it ``gc``,
+    which is seconds on a large pipeline and pointless between two stages of
+    one request.
+    """
+    try:
+        import torch
+
+        if cuda_ready():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        _LOG.debug("release_cached_vram: empty_cache failed", exc_info=True)
 
 
 def flush_memory() -> None:
@@ -885,7 +1197,7 @@ def select_auto_mode(
     (what is actually available right now) — a second model on an occupied
     card must see the reduced free space. The resident REFINEMENT (off vs
     vae_only) is made against TOTAL capacity, a per-SKU constant, so the
-    traced graph class and mint object set are deterministic per SKU
+    traced graph specialization and mint object set are deterministic per SKU
     (pgw#750).
 
     ``peak_vram_gb`` is the endpoint's DECLARED per-request peak
@@ -1042,17 +1354,43 @@ def _move_pipeline_to_cpu(pipeline: Any) -> None:
 
 
 def _apply_vae_and_attention(
-    pipeline: Any, applied: Dict[str, bool], *, memory_bound: bool = True
+    pipeline: Any, applied: Dict[str, bool], *, no_reactive_ladder: bool = False
 ) -> None:
     """VAE/attention memory savers.
 
-    th#1107: tiling and attention slicing are VRAM tools that cost real
-    latency (tiled decode re-runs the VAE per tile and blends 25% overlaps;
-    attention slicing replaces the fused SDPA/flash path with a chunked
-    loop). ``vae_only`` is selected when the pipeline FITS and only headroom
-    is tight, so applying them there taxes every request on a card that never
-    needed them. ``memory_bound=False`` (the vae_only rung) keeps only VAE
-    slicing, which is a no-op at batch 1.
+    **A PLACEMENT RUNG ANSWERS "WHERE DO THE WEIGHTS LIVE" AND NOTHING ELSE**
+    (pgw#1570). Tiled decode and attention slicing are ACTIVATION tools on a
+    different axis, and they cost real latency: tiled decode re-runs the VAE
+    per tile and blends 25% overlaps, and ``enable_attention_slicing()``
+    becomes a diffusers ``SlicedAttnProcessor`` — ``baddbmm`` + ``softmax`` in
+    a python loop over ``batch*heads`` chunks, materializing the full NxN score
+    matrix — **in place of** ``AttnProcessor2_0`` (torch SDPA -> flash /
+    mem-efficient). That is a per-STEP tax on every request for the life of
+    the process, and it was being levied as a side effect of moving weights.
+
+    Measured A/B/A, RTX 4070 Laptop, SDXL 1024^2, 20 steps, CFG, bf16, eager,
+    on the ``model_offload`` rung, per-step off the sampler's own loop rate:
+    **sliced 1.10 s/step (two arms, bracketing) against SDPA's 0.827 — 1.33x**,
+    warm round trip 26.1/33.5 s against 23.6 s. **Peak VRAM moved 5932 ->
+    5956 MiB: the whole tax bought 24 MiB.** SDPA's workspace is nothing at a
+    4096-token sequence, and the rung had already freed 1.6 GiB by evicting the
+    text encoders. This term was 84% of the round-trip gap [[va#3]] measured
+    against ComfyUI on this card, which runs SDPA on the same weights.
+
+    th#1107 cut these off the ``vae_only`` rung on exactly this argument and
+    stopped there. The rest of the cut is here: **nothing is applied
+    proactively on any rung that has a reactive ladder.** pgw#1499's
+    ``oom_ladder`` is installed on EVERY rung by :func:`apply_low_vram_config`
+    and applies both — tiles on a decode OOM, slices on a denoise-step OOM —
+    when an op actually does not fit, confessing each time. A card that never
+    needs them never pays.
+
+    ``no_reactive_ladder=True`` is the ONE exception and it names its reason:
+    the ``cpu`` rung, where the constraint is host RAM and there is no CUDA OOM
+    for ``oom_ladder`` to catch, so the savers must be armed up front.
+
+    VAE *slicing* stays unconditional — it is a no-op at batch 1 and does not
+    touch the denoise loop.
     """
     if not _call_if_present(pipeline, "enable_vae_slicing"):
         vae = getattr(pipeline, "vae", None)
@@ -1061,7 +1399,7 @@ def _apply_vae_and_attention(
     else:
         applied["vae_slicing"] = True
 
-    if not memory_bound:
+    if not no_reactive_ladder:
         return
 
     if not _call_if_present(pipeline, "enable_vae_tiling"):
@@ -1142,6 +1480,275 @@ def _pin_unhookable_components(
             "moving one to the host strands its co-resident consumers on the "
             "device (gw#479/ie#721)", len(shared), ", ".join(shared),
         )
+
+
+def _execution_device() -> Any:
+    """The device an offload rung onloads TO. Index 0, like every other rung
+    here (``enable_model_cpu_offload(gpu_id=0)``)."""
+    return "cuda:0"
+
+
+#: Where the last residency reserve came from, for the confession to state.
+_LAST_RESERVE: Dict[str, Any] = {}
+
+
+def _plan_partial_resident(
+    pipeline: Any, log: logging.Logger, *, min_moved_bytes: int = 0,
+    peak_vram_gb: Optional[float] = None, model_size_gb: Optional[float] = None,
+) -> Any:
+    """The pgw#1577 component-residency plan, or None to keep ``model_offload``.
+
+    None is the answer whenever the subset search cannot beat the coarse rung —
+    the denoiser alone over budget, an unmeasurable tree, no CUDA. It is never
+    an exception: this sits on the load path of every offloaded pipeline, and a
+    planner that raises would take out placements that work today.
+    """
+    try:
+        from .partial_resident import (
+            PARTIAL_RESIDENT_RESERVE_GB,
+            plan_for_pipeline,
+        )
+
+        free_gb = get_available_vram_gb()
+        if free_gb <= 0.0:
+            return None
+        # pgw#1595/#1586 item 5. THE RESERVE MUST COME FROM THE REQUEST, NOT A
+        # CONSTANT. `PARTIAL_RESIDENT_RESERVE_GB` was derived from ONE workload
+        # shape (pgw#1570's 20-step 1024^2 SDXL); a 28-step job overran it and
+        # thrashed the allocator at 6.6 MB free. The endpoint's DECLARED
+        # per-request peak is already in this function's caller and was being
+        # dropped on the floor — `select_auto_mode` gets it, this planner did
+        # not. `peak_vram_gb` is a TOTAL requirement, so the activation share is
+        # what it asks for beyond the weights; the constant stays as a FLOOR for
+        # endpoints that declare nothing or under-declare.
+        reserve_gb = PARTIAL_RESIDENT_RESERVE_GB
+        # NOT A COSMETIC FIELD. Measured 2026-08-20: ZERO of the 26 shipped
+        # endpoints declare `peak_vram_per_request_gb`, so on every real serve
+        # today this reserve is an ASSUMPTION carried over from one workload
+        # shape, not a measurement of this one. pgw#1595's 28-step job overran
+        # it. Until endpoints declare, the honest thing the log can do is say
+        # which of the two it used.
+        reserve_source = "default"
+        declared = 0.0
+        if peak_vram_gb is not None and peak_vram_gb > 0.0:
+            weights_gb = (
+                model_size_gb if model_size_gb is not None
+                else estimate_pipeline_size_gb(pipeline)
+            )
+            declared = max(0.0, float(peak_vram_gb) - float(weights_gb))
+            reserve_source = "declared" if declared > reserve_gb else "default"
+            if declared > reserve_gb:
+                log.info(
+                    "low_vram: partial_resident reserve %.2f -> %.2f GiB, from "
+                    "the endpoint's declared per-request peak (%.2f GiB total, "
+                    "%.2f GiB of weights)",
+                    reserve_gb, declared, float(peak_vram_gb), float(weights_gb),
+                )
+                reserve_gb = declared
+        _LAST_RESERVE.clear()
+        _LAST_RESERVE.update(reserve_gb=reserve_gb, reserve_source=reserve_source)
+        plan = plan_for_pipeline(
+            pipeline,
+            budget_bytes=int(max(0.0, free_gb - reserve_gb) * _GIB),
+            free_bytes=int(free_gb * _GIB),
+            sizer=lambda m: module_storage_bytes(m),
+            forced_resident=unhookable_components(pipeline),
+            min_moved_bytes=min_moved_bytes,
+        )
+    except Exception as exc:
+        log.warning(
+            "low_vram: could not plan component residency (%s: %s); keeping "
+            "model_offload", type(exc).__name__, exc,
+        )
+        return None
+    if not plan.fits:
+        log.info("low_vram: partial_resident declined — %s", plan.refusal)
+        return None
+    if not plan.offloaded:
+        # Nothing to evict means the pipeline fits resident, which is a fit
+        # decision `select_auto_mode` already made against a different margin.
+        # Do not overrule it from here.
+        return None
+    log.info("low_vram: upgrading model_offload -> partial_resident: %s",
+             plan.summary())
+    return plan
+
+
+#: The typed phase a `partial_stream` arming FAILURE confesses under. A rung
+#: that could not arm and fell through to a coarser one is a placement the
+#: operator asked for and did not get — pgw#1497 measured that exact silence on
+#: the card (a component-vocabulary AttributeError, a warning, a pipeline that
+#: served on `model_offload`, and nothing off the pod said so).
+PARTIAL_STREAM_UNARMED_PHASE = "partial_stream_unarmed"
+
+#: Set on a pipeline the `partial_stream` rung armed: its
+#: :class:`~gen_worker.models.stream_residency.StreamedResidency`, so the tail
+#: can be trimmed or promoted later without rediscovering the tree.
+STREAM_RESIDENCY_ATTR = "_cozy_stream_residency"
+
+
+def stream_residency_of(pipeline: Any) -> Any:
+    """The `partial_stream` handle armed on ``pipeline``, or None."""
+    return getattr(pipeline, STREAM_RESIDENCY_ATTR, None)
+
+
+def _apply_partial_stream(
+    pipeline: Any,
+    applied: Dict[str, Any],
+    *,
+    budget_bytes: Any,
+    log: logging.Logger,
+    device: str = "cuda",
+) -> bool:
+    """Arm pgw#1497's per-leaf budgeted residency. False = could not.
+
+    ``budget_bytes`` is the DEVICE bytes this pipeline's weights may occupy,
+    and it is the caller's — the residency lease's — number. Nothing here
+    estimates it, and the whole rung refuses rather than invent one.
+
+    The dtype-fragile and content-shared union is excluded exactly as every
+    other rung excludes it: those components are handed to the ring by nobody
+    and stay wherever they are.
+    """
+    def _unarmed(reason: str) -> bool:
+        """The rung did not arm. Say so on BOTH channels and fall through.
+
+        A warning alone was the defect: the pipeline still served, on a
+        coarser rung than the budget asked for, and nothing off the pod
+        recorded it. Placement the operator did not get is a degradation.
+        """
+        _confess_serve_degrade(
+            phase=PARTIAL_STREAM_UNARMED_PHASE,
+            line=transition_line(
+                event="refused", phase="load", from_rung="partial_stream",
+                to_rung="model_offload", detail=reason,
+            ),
+            detail=(
+                f"pipeline={type(pipeline).__name__}: the partial_stream rung "
+                f"could NOT arm under its {budget_bytes} byte budget "
+                f"({reason}); this pipeline falls through to a COARSER rung "
+                f"and the per-leaf budget it was admitted for is not being "
+                f"honoured."
+            ),
+            log=log,
+        )
+        return False
+
+    try:
+        from .stream_residency import MemoryBudget, StreamedResidency
+    except Exception as exc:  # noqa: BLE001 — torch-less host
+        return _unarmed(f"{type(exc).__name__}: {exc}")
+
+    excluded = set(unhookable_components(pipeline))
+    # `_named_components` answers the pipeline's whole COMPONENT vocabulary,
+    # and a real sd1.5 pipeline puts a CLIPTokenizer, a scheduler and a feature
+    # extractor in it. Measured on the card: without this filter the rung
+    # raised `CLIPTokenizer has no attribute named_modules` and fell through to
+    # `model_offload` — silently, because the fall-through is a warning and the
+    # pipeline still served.
+    roots = [
+        (name, module)
+        for name, module in _named_components(pipeline)
+        if name not in excluded and hasattr(module, "named_modules")
+    ]
+    if not roots:
+        # A bare module (a lane ModuleDict, a test tree) is its own root.
+        roots = [(type(pipeline).__name__, pipeline)] if hasattr(
+            pipeline, "named_modules"
+        ) else []
+    if not roots:
+        return _unarmed("no hookable nn.Module tree on this pipeline")
+
+    # The excluded components are kept OUT of the ring, and that makes placing
+    # them this rung's job — exactly as `_apply_group_offload` keeps its own
+    # `exclude_modules` resident. MEASURED on the 4070: sd1.5's VAE is
+    # `force_upcast`, so it is dtype-fragile and excluded, and with nobody
+    # moving it the first decode died with `Input type (torch.cuda.HalfTensor)
+    # and weight type (torch.HalfTensor) should be the same`. An exclusion is a
+    # statement about HOOKS, never about residency.
+    components = getattr(pipeline, "components", None)
+    for name in sorted(excluded):
+        module = components.get(name) if isinstance(components, dict) else None
+        if module is None or not hasattr(module, "to"):
+            continue
+        try:
+            module.to(device)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "low_vram: partial_stream could not keep excluded component %r "
+                "on %s (%s: %s); it will not serve",
+                name, device, type(exc).__name__, exc,
+            )
+
+    try:
+        residency = StreamedResidency(
+            roots, device=device, budget_bytes=MemoryBudget.of(budget_bytes)
+        )
+        plan = residency.engage()
+    except Exception as exc:  # noqa: BLE001
+        return _unarmed(f"{type(exc).__name__}: {exc}")
+
+    try:
+        # Before the handle is visible, not after: the device repair below
+        # READS it, and diffusers' `__setattr__` treats attribute names as
+        # component registrations, so a failed set must not go unnoticed.
+        setattr(pipeline, STREAM_RESIDENCY_ATTR, residency)
+    except Exception:  # noqa: BLE001
+        log.warning(
+            "low_vram: could not stamp the partial_stream handle on %s; "
+            "`pipeline.device` will keep answering with the host while the "
+            "tail is parked there",
+            type(pipeline).__name__,
+        )
+    # The rung parks leaves on the host, so `pipeline.device` stops answering
+    # with the execution device. Install the repair HERE too, not only on the
+    # `apply_low_vram_config` path, so a direct caller gets a coherent
+    # pipeline rather than an embedding that dies on a host-side index.
+    install_execution_device_fallback()
+    applied["partial_stream"] = True
+    applied["stream_budget_bytes"] = int(plan.budget_bytes)
+    # The RAM half of the assigned pair, REPORTED — enforcement is the named
+    # pgw#1497 follow-up. `host_bytes` is what the pinned tail costs the host.
+    applied["stream_ram_budget_bytes"] = int(plan.ram_budget_bytes)
+    applied["stream_host_bytes"] = int(plan.host_bytes)
+    applied["stream_host_fits"] = bool(plan.host_fits)
+    applied["stream_resident_bytes"] = int(plan.resident_bytes)
+    applied["stream_streamed_bytes"] = int(plan.streamed_bytes)
+    applied["stream_window_bytes"] = int(plan.window_bytes)
+    applied["stream_resident_leaves"] = len(plan.all_resident)
+    applied["stream_streamed_leaves"] = len(plan.streamed)
+
+    if not plan.streamed:
+        # The budget held the whole tree. That is not a degradation and must
+        # not be reported as one — the rung armed and then had nothing to do.
+        log.info(
+            "low_vram: partial_stream armed on %s and streams nothing — the "
+            "%.2f GiB budget holds all %d leaves; serving fully resident",
+            type(pipeline).__name__, budget_bytes / _GIB, len(plan.all_resident),
+        )
+        return True
+
+    if not plan.fits:
+        # The confession the `fits` property exists for: even the streaming
+        # window is over the lease. It serves, and it says so.
+        log.warning(
+            "low_vram: partial_stream is OVER ITS LEASE on %s — %.2f GiB of "
+            "in-flight cast window against a %.2f GiB budget. It serves; the "
+            "budget arithmetic upstream is what needs looking at.",
+            type(pipeline).__name__, plan.window_bytes / _GIB,
+            budget_bytes / _GIB,
+        )
+    log.warning(
+        "DEGRADED_MODE=engaged model=%s phase=load rung=resident->"
+        "partial_stream: %d of %d leaves (%.2f GiB) rest in pinned host RAM "
+        "and cast per forward; %.2f GiB stays resident under a %.2f GiB "
+        "budget, %.2f GiB reserved for the in-flight cast window",
+        type(pipeline).__name__, len(plan.streamed),
+        len(plan.streamed) + len(plan.all_resident),
+        plan.streamed_bytes / _GIB, plan.resident_bytes / _GIB,
+        budget_bytes / _GIB, plan.window_bytes / _GIB,
+    )
+    return True
 
 
 def _apply_group_offload(
@@ -1272,6 +1879,93 @@ def _apply_group_offload(
         if offload_to_disk_path:
             applied["disk_offload_path"] = True
     return any_applied
+
+
+def _apply_gguf_dequant_ahead(
+    pipeline: Any,
+    applied: Dict[str, Any],
+    *,
+    budget: Any,
+    log: logging.Logger,
+) -> None:
+    """Spend the residency lease's SURPLUS decoding GGML weights once, at load.
+
+    Paul's three-tier ruling (2026-08-19): quantized-resident and
+    fully-dequantized are the two ENDPOINTS OF ONE DIAL, and which end a worker
+    sits at is the lease's answer, not the loader's. A worker handed surplus
+    memory should use it — one decode pass beats paying a per-forward decode
+    every step for the life of the endpoint — and a constrained worker pays per
+    forward. ``gguf_torch.dequant_ahead`` graduates weights LARGEST FIRST, so
+    the transient headroom the fit plan must reserve falls as the dial turns up.
+
+    The surplus is ``lease VRAM − what the pipeline already costs``, and it is
+    capped by what the card ACTUALLY has free, exactly as the ``partial_stream``
+    upgrade caps its budget: a lease written when the card was emptier is not a
+    licence to allocate bytes that are gone. Nothing is ever re-quantized, so
+    this is one-way and the ladder still only ever SELECTS artifacts.
+
+    Runs BEFORE the rung is chosen, because turning the dial changes the
+    resident footprint the chooser is looking at.
+
+    ``budget`` is pgw#1497's admission shape — a bare VRAM int or the
+    {VRAM, RAM} :class:`~gen_worker.models.stream_residency.MemoryBudget` pair.
+    Only the VRAM half means anything here: decoding ahead moves nothing to the
+    host, so this dial never spends the RAM half.
+    """
+    try:
+        from .gguf_torch import dequant_ahead, gguf_leaves, peak_transient_bytes
+        from .stream_residency import MemoryBudget
+    except Exception:  # noqa: BLE001 — torch-less host
+        return
+
+    lease = MemoryBudget.of(budget).vram_bytes
+    if lease <= 0:
+        return
+
+    denoisers = [
+        module for _, module in _named_components(pipeline)
+        if hasattr(module, "named_modules") and gguf_leaves(module)
+    ]
+    if not denoisers and hasattr(pipeline, "named_modules") and gguf_leaves(pipeline):
+        denoisers = [pipeline]
+    if not denoisers:
+        return
+
+    import torch
+
+    dtype = torch.bfloat16
+    resident = int(_sum_tensor_bytes([pipeline], cuda_only=False))
+    headroom = int(max(0.0, get_available_vram_gb() - _DEFAULT_SAFETY_MARGIN_GB) * _GIB)
+    surplus = max(0, min(lease, headroom) - resident)
+    materialized = 0
+    for denoiser in denoisers:
+        done = dequant_ahead(denoiser, surplus_bytes=float(surplus), dtype=dtype)
+        materialized += len(done)
+        # Each pass spends its own share; charge it so two denoisers cannot
+        # both spend the whole surplus.
+        after = int(_sum_tensor_bytes([pipeline], cuda_only=False))
+        surplus = max(0, surplus - (after - resident))
+        resident = after
+
+    applied["gguf_dequant_ahead"] = materialized
+    applied["gguf_quantized_bytes"] = sum(
+        int(_gguf_quantized_bytes(d)) for d in denoisers)
+    applied["gguf_peak_transient_bytes"] = max(
+        (int(peak_transient_bytes(d, dtype=dtype)) for d in denoisers), default=0)
+    log.info(
+        "low_vram: gguf dequant-ahead materialized %d weight(s) under a "
+        "%.2f GiB lease; %.2f GiB still resides as ggml blocks, largest "
+        "per-forward decode %.3f GiB",
+        materialized, lease / _GIB,
+        applied["gguf_quantized_bytes"] / _GIB,
+        applied["gguf_peak_transient_bytes"] / _GIB,
+    )
+
+
+def _gguf_quantized_bytes(model: Any) -> int:
+    from .gguf_torch import quantized_bytes
+
+    return quantized_bytes(model)
 
 
 def _gguf_resident_override(
@@ -1437,11 +2131,6 @@ OFFLOAD_ENGAGED_PHASE = "cpu_offload_engaged"
 #: so the reason has one spelling on both carriers.
 UNDER_MINIMUM_PHASE = posture_mod.REASON_BELOW_DECLARED_MINIMUM
 
-#: pgw#1339: the invoked function declares a serving contract and the resolved
-#: checkpoint carries no evidence on a declared axis. Same confession home,
-#: its own phase token, for the same reason as the line above.
-UNEVIDENCED_FACTS_PHASE = posture_mod.REASON_SERVING_FACTS_UNEVIDENCED
-
 
 def _confess_serve_degrade(
     *, phase: str, line: str, detail: str, log: logging.Logger,
@@ -1504,70 +2193,73 @@ def report_under_minimum(
     return head
 
 
-def report_unevidenced_serving_facts(
-    axes: "Sequence[str]",
-    *,
-    slot: str,
-    scope: str,
-    declared: str,
-    gap: str = "",
-    logger: Optional[logging.Logger] = None,
-) -> str:
-    """A DECLARED serving contract could not be checked, and we serve anyway.
+# pgw#1425: `report_unevidenced_serving_facts` is DELETED, not baselined.
+# It confessed that a DECLARED serving contract could not be checked against a
+# checkpoint's stamped facts. pgw#1373 deleted the catalog/declaration
+# architecture under Paul's hardcut mandate, so nothing stamps those facts and
+# `@entrypoint` declares no serving contract to check them against — the
+# question this answered no longer exists. The v2 degrade channel is
+# `serving/placement.warn_if_degraded`, taken at residency-admit and stained
+# onto every request the instance serves.
 
-    pgw#1339 / th#2099. Returns the warning text (so a caller may also put it
-    on `ServePlan.warning`), having already emitted the typed event — one
-    derivation, two carriers, exactly as `report_under_minimum` does.
 
-    ``gap`` is the wire-gap sentence from `serving_facts.facts_or_degrade`
-    when NOBODY stamped the facts; empty when the catalog answered and simply
-    had nothing. The two are different jobs for different people, so the
-    confession says which one this is rather than flattening both into
-    "unevidenced".
+def attention_kernel_census(pipeline: Any) -> str:
+    """The attention processor classes actually LIVE on the denoiser, counted.
 
-    The suggestion is aimed at the CATALOG, not at a card: no GPU can supply a
-    training objective, and th#1867's rule against the worker guessing on the
-    hub's behalf applies to this axis too. What would be better here is a
-    classified checkpoint, and only the hub can make one.
+    pgw#1570: `attention_slicing` was applied by a placement rung and nothing
+    ever said which kernel that left running. The flag name is not the answer —
+    diffusers turns `enable_attention_slicing()` into a `SlicedAttnProcessor`
+    (`baddbmm`+`softmax`, chunked python loop, full NxN scores materialized) in
+    place of `AttnProcessor2_0` (torch SDPA -> flash/mem-efficient), and the two
+    differ by more than a memory saving. A rung that changes the kernel must
+    NAME the kernel: "which one runs" is a fact to be read off the object, never
+    inferred from the flag that set it.
     """
-    named = tuple(str(a) for a in axes if str(a))
-    if not named:
-        return ""
-    # WHAT WOULD BE BETTER, aimed at whoever can actually close THIS gap —
-    # they are different people. A wire gap is ours to fix in the sender; an
-    # unclassified checkpoint is a catalog job. One suggestion for both would
-    # send half of every report to the wrong team.
-    better = (
-        "stamp the serving facts on the binding this pod was sent"
-        if gap else
-        "classify this checkpoint in the hub catalog"
+    denoiser = getattr(pipeline, "unet", None) or getattr(pipeline, "transformer", None)
+    getter = getattr(denoiser, "attn_processors", None) if denoiser is not None else None
+    if not getter:
+        return "attention=unknown(no attn_processors)"
+    counts: Dict[str, int] = {}
+    for proc in getter.values():
+        name = type(proc).__name__
+        counts[name] = counts.get(name, 0) + 1
+    return "attention=" + ",".join(
+        f"{n}x{c}" for n, c in sorted(counts.items(), key=lambda kv: -kv[1])
     )
-    head = (
-        f"serving {scope} with an UNCHECKED serving contract: slot {slot!r} "
-        f"carries no evidence for the declared {', '.join(named)} "
-        f"({declared}). "
-        + (f"{gap} " if gap else
-           "The catalog answered and had nothing to say on "
-           f"{'this axis' if len(named) == 1 else 'these axes'}. ")
-        + "The request still serves — this is a diagnostic, not a gate. "
-        f"WHAT WOULD BE BETTER: {better}, so the declared contract can "
-        "actually be checked; until then the hub's own deploy-time and "
-        "request-time gates are the only ones enforcing it."
-    )
-    _confess_serve_degrade(
-        phase=UNEVIDENCED_FACTS_PHASE,
-        line=transition_line(
-            event="planned", phase="serving_contract",
-            from_rung="declared_contract", to_rung="unchecked", detail=head,
-        ),
-        detail=head,
-        log=logger or _LOG,
-    )
-    return head
+
+
+def component_placement_census(pipeline: Any) -> str:
+    """Where each weight-bearing component's tensors actually LIVE, read off
+    the objects.
+
+    pgw#1577, and the same lesson pgw#1570 learned about attention: the rung a
+    log names is the decision, not the outcome. ``_pin_unhookable_components``
+    has been setting ``_exclude_from_cpu_offload`` and reporting
+    ``vae_resident`` since gw#441 — and diffusers consults that list ONLY for
+    components absent from ``model_cpu_offload_seq``, where SDXL's ``vae`` is
+    not, so the claim was decorative and nothing could see that. A census can.
+    """
+    parts: List[str] = []
+    for name, comp in _named_components(pipeline):
+        if not hasattr(comp, "parameters"):
+            continue
+        devices: Dict[str, int] = {}
+        try:
+            for t in comp.parameters(recurse=True):
+                key = str(t.device)
+                devices[key] = devices.get(key, 0) + 1
+        except Exception:  # noqa: BLE001 - a census must not fail a placement
+            continue
+        if not devices:
+            continue
+        where = "/".join(sorted(devices, key=lambda d: -devices[d]))
+        parts.append(f"{name}@{where}")
+    return "placement=" + (",".join(parts) if parts else "unreadable")
 
 
 def _report_offload_engaged(
     pipeline: Any, rung: str, applied: Dict[str, Any], log: logging.Logger,
+    *, plan_free_gb: Optional[float] = None,
 ) -> None:
     """THE offload-activation confession — one home for every route into a
     CPU-touching rung (pgw#1312).
@@ -1586,14 +2278,25 @@ def _report_offload_engaged(
     placement has already succeeded when this runs.
     """
     needed_gb = estimate_pipeline_size_gb(pipeline)
-    free_gb = get_available_vram_gb()
+    # pgw#1595. THE LINE STATES THE DECISION, SO IT MUST STATE THE DECISION'S
+    # INPUT. This used to re-read free VRAM HERE — after placement — so a rung
+    # chosen against 7.3 GiB printed `free_gb=0.4` beside its own name, and a
+    # whole issue was filed against the wrong cause on the strength of it. The
+    # plan-time figure is authoritative when the rung recorded one; the
+    # post-placement figure is still reported, as `free_after_gb`, because "what
+    # the card looks like now" is a real and different fact.
+    free_after_gb = get_available_vram_gb()
+    free_gb = free_after_gb if plan_free_gb is None else plan_free_gb
     _confess_serve_degrade(
         phase=OFFLOAD_ENGAGED_PHASE,
         line=transition_line(
             event="engaged", phase="load", from_rung="resident", to_rung=rung,
             needed_gb=needed_gb, free_gb=free_gb,
             detail=f"CPU offload ENGAGED ({_applied_summary(applied)}); every "
-                   f"forward on this pipeline now moves weights over PCIe",
+                   f"forward on this pipeline now moves weights over PCIe; "
+                   f"{attention_kernel_census(pipeline)}; "
+                   f"{component_placement_census(pipeline)}; "
+                   f"free_after_gb={free_after_gb:.1f}",
         ),
         detail=(
             f"pipeline={type(pipeline).__name__}: CPU offload ENGAGED at rung "
@@ -1607,6 +2310,98 @@ def _report_offload_engaged(
     )
 
 
+_execution_device_fallback_installed = False
+
+
+def install_execution_device_fallback() -> bool:
+    """Make ``pipeline.device`` never answer ``meta``. Idempotent.
+
+    ``enable_sequential_cpu_offload`` leaves every module on the meta device,
+    so diffusers' ``DiffusionPipeline.device`` — a PUBLIC property, and the one
+    thing endpoint code is told to ask — answers ``meta``. Endpoint code that
+    builds a generator on it then dies with ``RuntimeError: META device type
+    not an accelerator`` BEFORE any image. Measured on the real sdxl endpoint
+    at 1024^2 (pgw#1486): the bottom rung of this ladder, the one whose whole
+    job is "always works", did not work at all.
+
+    The endpoint is not at fault and must not be the fix. The worker tells
+    authors *"PLACEMENT is decided here, by the worker, never by author code"*
+    and `ctx.load`'s contract is that they never name a device — so asking the
+    pipeline where it lives is the documented-correct thing to do, and
+    `_execution_device` is a private diffusers attribute no endpoint should
+    reach for. The rung that breaks the answer repairs the answer, once, for
+    every endpoint.
+
+    Patching a foreign class is the same shape as ``host_move_guard``'s patch
+    of ``torch.nn.Module.to``, for the same reason: the call site is in author
+    code this worker does not own and cannot edit.
+    """
+    global _execution_device_fallback_installed
+    if _execution_device_fallback_installed:
+        return True
+    try:
+        from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+    except Exception:  # pragma: no cover - no diffusers, nothing to patch
+        return False
+
+    original_getter = DiffusionPipeline.device.fget  # type: ignore[attr-defined]
+    # `_execution_device` ENDS in `return self.device` when no component
+    # carries an accelerate hook — so a pipeline parked on `meta` with no hooks
+    # (a derive shell, a half-armed rung) would recurse until the stack blew.
+    # The guard is thread-local because two loads may run concurrently and a
+    # flag on the pipeline would have to survive diffusers' own `__setattr__`,
+    # which treats attribute names as component registrations.
+    reentry = threading.local()
+
+    def device(self: Any) -> Any:
+        got = original_getter(self)
+        # pgw#1497. The SAME repair, for the rung one line below `meta` in
+        # severity. `partial_stream` parks leaves on the host, so the original
+        # getter — which answers with the first parameter it finds — reports
+        # `cpu` for a pipeline that executes on the card. The pipeline then
+        # builds `input_ids` on the host and the first embedding dies with
+        # `index is on cpu, different from other tensors on cuda:0`. MEASURED
+        # on the 4070: sd1.5 at a 5% budget and SDXL armed from the host, both
+        # of them at exactly the budgets the rung exists for. This is the rung
+        # breaking a public answer, so this is where it is repaired.
+        armed = getattr(self, STREAM_RESIDENCY_ATTR, None)
+        armed_device = getattr(armed, "device", None) if armed is not None else None
+        if armed_device is not None and getattr(armed, "plan", None) is not None:
+            return armed_device
+        # pgw#1577. The SAME repair for `partial_resident`, which breaks the
+        # same public answer for the same reason: an evicted text encoder is
+        # parked on the host and the original getter answers with whichever
+        # component it reaches first. The rung records the device its resident
+        # set actually executes on, and that is the honest answer.
+        resident_device = getattr(self, PARTIAL_RESIDENT_DEVICE_ATTR, None)
+        if resident_device is not None:
+            return resident_device
+        if getattr(got, "type", None) != "meta":
+            return got
+        if getattr(reentry, "active", False):
+            return got
+        reentry.active = True
+        try:
+            # diffusers' own accelerate-aware answer to the same question:
+            # where the next forward will actually run.
+            resolved = self._execution_device
+        except Exception:  # pragma: no cover - upstream shape changed
+            return got
+        finally:
+            reentry.active = False
+        # No hook to read: `meta` really is the honest answer, and inventing a
+        # device here would send tensors somewhere the weights are not.
+        return got if getattr(resolved, "type", None) == "meta" else resolved
+
+    DiffusionPipeline.device = property(device)  # type: ignore[method-assign,assignment]
+    _execution_device_fallback_installed = True
+    _LOG.info(
+        "low_vram: `pipeline.device` now falls back to the execution device "
+        "when an offload rung parks modules on `meta` (pgw#1486)"
+    )
+    return True
+
+
 def apply_low_vram_config(
     pipeline: Any,
     *,
@@ -1615,19 +2410,82 @@ def apply_low_vram_config(
     model_size_gb: Optional[float] = None,
     peak_vram_gb: Optional[float] = None,
     offload_to_disk_path: Optional[str] = None,
+    stream_budget_bytes: int = 0,
+    stream_ram_budget_bytes: int = 0,
 ) -> Dict[str, Any]:
     """Apply a low-VRAM configuration to a diffusers pipeline.
 
     ``mode="auto"`` runs :func:`select_auto_mode` against free VRAM. Returns a
     dict describing what was applied. Idempotent per pipeline object.
+
+    ``stream_budget_bytes`` / ``stream_ram_budget_bytes`` are pgw#1497's
+    ADMISSION PAIR — the {VRAM, RAM} profile this model was assigned (Paul,
+    2026-08-19). The RAM half is REPORTED, not yet enforced (see
+    :class:`~gen_worker.models.stream_residency.MemoryBudget`); the signature
+    carries the pair now so enforcement is a change of behaviour, not shape.
+    ``stream_budget_bytes`` is the VRAM half and is the ADMISSION number: the device bytes
+    this pipeline's weights were leased. Passing it upgrades any offload rung
+    ``auto`` would otherwise have chosen to ``partial_stream``, which moves
+    only the bytes that did not fit instead of a whole component. Omitting it
+    is not a smaller version of that — the rung REFUSES without it, because a
+    budget nobody handed down is exactly the activation estimate this port
+    exists to avoid.
     """
     log = logger or _LOG
     if mode not in _VALID_MODES:
         raise ValueError(f"invalid low-VRAM mode: {mode!r}; expected one of {_VALID_MODES}")
+    if mode == "partial_stream" and int(stream_budget_bytes) <= 0:
+        raise ValueError(
+            "partial_stream needs an explicit stream_budget_bytes: its resident "
+            "set is sized by the RESIDENCY LEASE, never by an activation "
+            "estimate (pgw#1497). A caller with no lease in hand wants "
+            "model_offload."
+        )
+
+    # pgw#1499: arm the reactive in-rung ladders on EVERY rung, including the
+    # resident ones. The rung answers "where do the weights live"; these answer
+    # "this one op did not fit" — and the rung that most needs the second
+    # answer is `off`, where nothing was pre-tiled because everything fitted.
+    # Imported here, not at module scope: `oom_ladder` reads this module.
+    from . import oom_ladder
+
+    oom_ladder.install(pipeline, logger=log)
 
     prior = getattr(pipeline, _COZY_MODE_ATTR, None)
     if prior is not None:
         return {"mode": prior, "already_applied": True}
+
+    # pgw#1586, CLOSING THE CLASS pgw#1595 OPENED. Free VRAM read ONCE here,
+    # before anything is placed, and carried to every confession below.
+    #
+    # pgw#1595's fix threaded the plan-time figure into the `partial_resident`
+    # confession ONLY, and left six sibling call sites — `model_offload`,
+    # `sequential`, `partial_stream`, both `cpu` arms and the fall-through —
+    # still re-reading free VRAM AT REPORT TIME, after placement. Within hours
+    # the pgw#1548 lane read `free_gb=0.4` off a `model_offload` line on a card
+    # with 7.9 GiB free at boot and reached for a boot-ordering cause, which is
+    # the SAME wrong conclusion pgw#1595 was filed on. Fixing the one line that
+    # had bitten me and leaving its five siblings was the defect; this is the
+    # class.
+    decision_free_gb = get_available_vram_gb()
+
+    # pgw#1498's tier dial, BEFORE the rung is chosen: spending the lease's
+    # surplus on decode-once weights changes the footprint every decision below
+    # is made against. A no-op on any pipeline holding no ggml block bytes.
+    gguf_dial: Dict[str, Any] = {}
+    try:
+        _apply_gguf_dequant_ahead(
+            pipeline, gguf_dial,
+            budget=stream_budget_bytes,
+            log=log,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # A dial that cannot turn must never stop a load: the constrained tier
+        # (decode every forward) is the correct, serving answer.
+        log.warning(
+            "low_vram: the gguf dequant-ahead dial could not turn (%s: %s); "
+            "serving quantized-resident, decoding per forward",
+            type(exc).__name__, exc)
 
     effective_mode = mode
     if effective_mode == "auto":
@@ -1646,18 +2504,74 @@ def apply_low_vram_config(
         effective_mode = "model_offload"
     if mode == "auto":
         effective_mode = _gguf_resident_override(pipeline, effective_mode, log)
+    # pgw#1497. `select_auto_mode` cannot pick this rung — it is a proactive
+    # decider and has no lease to read — so the UPGRADE happens here, where the
+    # caller's lease number is in scope. Any offload rung the free-VRAM walk
+    # chose becomes the fine-grained one, because the coarse rung's whole
+    # disadvantage is that it moves a component when it needed to move a few
+    # leaves. The budget is the SMALLER of the lease and what the card actually
+    # has free: both are facts, and admitting more than the card holds would
+    # OOM under a lease that was written when the card was emptier.
+    if effective_mode in ("model_offload", "group_offload", "sequential") and int(
+        stream_budget_bytes
+    ) > 0:
+        headroom = int(
+            max(0.0, get_available_vram_gb() - _DEFAULT_SAFETY_MARGIN_GB) * _GIB
+        )
+        budget = min(int(stream_budget_bytes), headroom) if headroom else 0
+        if budget > 0:
+            log.info(
+                "low_vram: upgrading %s -> partial_stream under a %.2f GiB "
+                "budget (lease %.2f GiB, free-VRAM headroom %.2f GiB)",
+                effective_mode, budget / _GIB,
+                int(stream_budget_bytes) / _GIB, headroom / _GIB,
+            )
+            effective_mode = "partial_stream"
+            stream_budget_bytes = budget
+        else:
+            log.info(
+                "low_vram: keeping %s — the card has no free headroom to hold "
+                "a partial_stream resident set (lease %.2f GiB)",
+                effective_mode, int(stream_budget_bytes) / _GIB,
+            )
+
+    # pgw#1577. `model_offload` evicts EVERY component after EVERY request and
+    # re-onloads the lot before the next one. Measured on the campaign card,
+    # SDXL: 13 GiB of PCIe per request — 6.5 GiB out, 6.5 GiB back — to reclaim
+    # the 1.2 GiB the pipeline was over budget by. Nothing about the placement
+    # decision required that; the rung is simply all-or-nothing. So before
+    # taking it, ask whether a SUBSET of components clears the budget, and keep
+    # the denoiser on the card if one does. Paul, 2026-08-20: *"if the space is
+    # available, and it helps us run faster, why wouldn't varena take it?"*
+    #
+    # ADMISSION-FIRST, and that is the whole safety argument (pgw#1560): the
+    # plan is computed ONCE, here, from free VRAM and measured component sizes,
+    # and the resident set never changes again. There is no eviction loop for a
+    # non-raising allocator to thrash inside, and no except-OOM retry — an OOM
+    # in a compiled graph is process death, so before the weights land is the
+    # only honest place to decide.
+    partial_resident_plan = None
+    if effective_mode == "model_offload":
+        partial_resident_plan = _plan_partial_resident(
+            pipeline, log, peak_vram_gb=peak_vram_gb, model_size_gb=model_size_gb,
+        )
+        if partial_resident_plan is not None:
+            effective_mode = "partial_resident"
 
     applied: Dict[str, Any] = {
         "mode": effective_mode,
         "vae_slicing": False,
         "vae_tiling": False,
         "attention_slicing": False,
+        "partial_stream": False,
+        "partial_resident": False,
         "model_offload": False,
         "group_offload": False,
         "sequential_offload": False,
         "disk_offload_path": False,
         "already_applied": False,
     }
+    applied.update(gguf_dial)
 
     if effective_mode == "off":
         setattr(pipeline, _COZY_MODE_ATTR, "off")
@@ -1669,24 +2583,32 @@ def apply_low_vram_config(
         # that there is no usable one — either the pod is cardless or every
         # rung above OOM'd. The savers still apply, because host RAM is now the
         # constraint and tiled decode is what keeps a large VAE inside it.
-        _apply_vae_and_attention(pipeline, applied, memory_bound=True)
+        _apply_vae_and_attention(pipeline, applied, no_reactive_ladder=True)
         _to_host(pipeline)
         flush_memory()
         setattr(pipeline, _COZY_MODE_ATTR, "cpu")
         # pgw#1312's one confession home. This rung is the LOUDEST degradation
         # the ladder has — ~40x — so it may not be the one route that reaches a
         # CPU-touching placement without saying so off the pod.
-        _report_offload_engaged(pipeline, "cpu", applied, log)
+        _report_offload_engaged(pipeline, "cpu", applied, log,
+                                plan_free_gb=decision_free_gb)
         return applied
 
-    _apply_vae_and_attention(
-        pipeline, applied, memory_bound=effective_mode != "vae_only"
-    )
+    # Every rung reached from here has a live `oom_ladder` (armed above, on
+    # every rung including the resident ones), so none of them arms the
+    # activation savers proactively — see `_apply_vae_and_attention`. Only the
+    # `cpu` rung, which returned earlier, has no CUDA OOM to react to.
+    _apply_vae_and_attention(pipeline, applied)
 
     if effective_mode == "vae_only":
         setattr(pipeline, _COZY_MODE_ATTR, "vae_only")
         log.info("low_vram: vae_only applied (%s)", _applied_summary(applied))
         return applied
+
+    # Every rung from here down parks modules off the execution device, and
+    # some park them on `meta`. Repair `pipeline.device` BEFORE any of them
+    # arms, so no endpoint ever observes the meta answer (pgw#1486).
+    install_execution_device_fallback()
 
     cuda_ok = cuda_ready()
 
@@ -1705,7 +2627,8 @@ def apply_low_vram_config(
         applied["mode"] = "cpu"
         _to_host(pipeline)
         setattr(pipeline, _COZY_MODE_ATTR, "cpu")
-        _report_offload_engaged(pipeline, "cpu", applied, log)
+        _report_offload_engaged(pipeline, "cpu", applied, log,
+                                plan_free_gb=decision_free_gb)
         return applied
 
     if offload_to_disk_path is None and _should_auto_disk_offload():
@@ -1715,6 +2638,104 @@ def apply_low_vram_config(
                 "low_vram: CPU RAM tight (%.1f GB free); enabling disk offload at %s",
                 get_available_ram_gb(), offload_to_disk_path,
             )
+
+    if effective_mode == "partial_stream":
+        from .stream_residency import MemoryBudget as _MemoryBudget
+
+        if _apply_partial_stream(
+            pipeline,
+            applied,
+            budget_bytes=_MemoryBudget(
+                vram_bytes=int(stream_budget_bytes),
+                ram_bytes=max(0, int(stream_ram_budget_bytes)),
+            ),
+            log=log,
+        ):
+            setattr(pipeline, _COZY_MODE_ATTR, "partial_stream")
+            if applied.get("stream_streamed_leaves"):
+                _report_offload_engaged(pipeline, "partial_stream", applied, log,
+                                        plan_free_gb=decision_free_gb)
+            return applied
+        # It could not arm (no torch, no hookable tree, a meta/aliased leaf).
+        # The next rung down is the honest answer, not a resident placement.
+        log.warning(
+            "low_vram: partial_stream did not arm; descending to model_offload"
+        )
+        applied["partial_stream"] = False
+        effective_mode = "model_offload"
+        applied["mode"] = effective_mode
+
+    if effective_mode == "partial_resident" and partial_resident_plan is not None:
+        from .partial_resident import (
+            _MAX_PROBE_ATTEMPTS,
+            PARTIAL_RESIDENT_UNARMED_PHASE,
+            apply_component_residency,
+        )
+
+        # THE PROBE LOOP, and it is why this rung is admission-first WITHOUT
+        # being estimate-first (pgw#1577). The planner's transient ceiling is
+        # arithmetic over the two numbers it can read — component sizes and free
+        # VRAM — and on the campaign card that arithmetic admitted a plan whose
+        # onload then died 5 MiB short, because allocator fragmentation and a
+        # co-tenant's share are in neither. So each plan is DONE once before it
+        # is trusted, and a plan the card refuses is followed by the
+        # next-cheapest one rather than by giving up on the rung. Bounded, and
+        # every attempt is at load: no OOM can reach a request from here.
+        plan = partial_resident_plan
+        armed = False
+        probe_facts: Dict[str, Any] = {}
+        for _ in range(_MAX_PROBE_ATTEMPTS):
+            armed = apply_component_residency(
+                pipeline, plan, device=_execution_device(), log=log,
+                free_bytes_now=lambda: int(get_available_vram_gb() * _GIB),
+                facts=probe_facts,
+            )
+            if armed:
+                break
+            nxt = _plan_partial_resident(
+                pipeline, log, min_moved_bytes=plan.offloaded_bytes,
+                peak_vram_gb=peak_vram_gb, model_size_gb=model_size_gb,
+            )
+            if nxt is None:
+                break
+            plan = nxt
+        if armed:
+            applied["partial_resident"] = True
+            applied["partial_resident_offloaded"] = list(plan.offloaded)
+            applied["partial_resident_bytes"] = plan.offloaded_bytes
+            # The decision's own arithmetic, on the LOUD line. pgw#1595: these
+            # lived at INFO and vanished at the endpoint's WARNING level, so the
+            # only surviving diagnostic was the misleading one.
+            applied["plan_budget_gb"] = plan.budget_bytes / _GIB
+            applied["reserve_gb"] = float(_LAST_RESERVE.get("reserve_gb", 0.0))
+            applied["reserve_source"] = str(
+                _LAST_RESERVE.get("reserve_source", "default"))
+            applied["plan_peak_gb"] = plan.transient_peak_bytes / _GIB
+            for _k, _lbl in (("attr_alloc_bytes", "attr_alloc_gb"),
+                             ("attr_cache_bytes", "attr_cache_gb"),
+                             ("attr_ctx_bytes", "attr_ctx_gb")):
+                if _k in probe_facts:
+                    applied[_lbl] = float(probe_facts[_k]) / _GIB
+            probe_free = probe_facts.get("probe_free_bytes")
+            if probe_free is not None:
+                # Probe SUCCESS was `log.info` and therefore inaudible, which
+                # makes "probe passed" and "probe never ran" the same picture
+                # (pgw#1559 class). It is a number now, on the loud line.
+                applied["probe_free_gb"] = float(probe_free) / _GIB
+            setattr(pipeline, _COZY_MODE_ATTR, "partial_resident")
+            _report_offload_engaged(
+                pipeline, "partial_resident", applied, log,
+                plan_free_gb=plan.free_bytes / _GIB,
+            )
+            return applied
+        # Same discipline as `partial_stream`: a rung the operator was told
+        # about and did not get is a placement lie. Confess and descend.
+        log.warning(
+            "low_vram: partial_resident did not arm; descending to "
+            "model_offload (%s)", PARTIAL_RESIDENT_UNARMED_PHASE,
+        )
+        effective_mode = "model_offload"
+        applied["mode"] = effective_mode
 
     if effective_mode == "model_offload":
         _pin_unhookable_components(pipeline, applied, log)
@@ -1727,7 +2748,8 @@ def apply_low_vram_config(
                 log.warning("low_vram: enable_model_cpu_offload failed: %s", exc)
         applied["model_offload"] = ok
         setattr(pipeline, _COZY_MODE_ATTR, "model_offload")
-        _report_offload_engaged(pipeline, "model_offload", applied, log)
+        _report_offload_engaged(pipeline, "model_offload", applied, log,
+                                plan_free_gb=decision_free_gb)
         return applied
 
     if effective_mode == "group_offload":
@@ -1750,20 +2772,42 @@ def apply_low_vram_config(
         applied["sequential_offload"] = ok
         applied["mode"] = "sequential"
         setattr(pipeline, _COZY_MODE_ATTR, "sequential")
-        _report_offload_engaged(pipeline, "sequential", applied, log)
+        _report_offload_engaged(pipeline, "sequential", applied, log,
+                                plan_free_gb=decision_free_gb)
         return applied
 
     setattr(pipeline, _COZY_MODE_ATTR, effective_mode)
     if touches_host_ram(effective_mode):
-        _report_offload_engaged(pipeline, effective_mode, applied, log)
+        _report_offload_engaged(pipeline, effective_mode, applied, log,
+                                plan_free_gb=decision_free_gb)
     else:
         log.info("low_vram: %s applied (%s)", effective_mode, _applied_summary(applied))
     return applied
 
 
 def _applied_summary(applied: Dict[str, Any]) -> str:
-    keys = [k for k, v in applied.items() if v and k not in ("mode", "already_applied")]
-    return ",".join(keys) or "none"
+    """The engaged savers, and the numbers beside them — TYPED APART.
+
+    pgw#1586 item 3: this used to print the KEY of anything truthy, so pgw#1577's
+    two DATA entries rendered as if they were savers that engaged
+    (``vae_slicing,partial_resident,partial_resident_offloaded,partial_resident_bytes``
+    — four names for two techniques). The distinction is by TYPE, not by an
+    allowlist, so the next data entry anyone adds cannot masquerade either.
+    """
+    names: List[str] = []
+    values: List[str] = []
+    for k, v in applied.items():
+        if k in ("mode", "already_applied") or not v:
+            continue
+        if isinstance(v, bool):
+            names.append(k)
+        elif isinstance(v, float):
+            values.append(f"{k}={v:.2f}")
+        elif isinstance(v, (list, tuple)):
+            values.append(f"{k}={'+'.join(str(x) for x in v)}")
+        else:
+            values.append(f"{k}={v}")
+    return ",".join(names + values) or "none"
 
 
 def _should_auto_disk_offload() -> bool:
@@ -1818,11 +2862,13 @@ _RESIDENT_MODES = ("off", "vae_only")
 
 __all__ = [
     "apply_low_vram_config",
+    "install_execution_device_fallback",
     "low_vram_mode",
     "rearm_offload",
     "place_pipeline",
     "touches_host_ram",
     "is_cuda_oom",
+    "discard_cuda_async_error",
     "transition_line",
     "PLACEMENT_LADDER",
     "select_auto_mode",
@@ -1838,5 +2884,16 @@ __all__ = [
     "get_total_ram_gb",
     "aflush_memory",
     "flush_memory",
+    "release_cached_vram",
     "release_unused_pinned_host_cache",
+    # pgw#1558 — the endpoint-facing mechanism surface.
+    "available_vram",
+    "process_ceiling_vram",
+    "module_storage_bytes",
+    "resident_census",
+    "tensor_dtype_label",
+    "tensor_storage_bytes",
+    "VramReading",
+    "VRAM_NO_CUDA",
+    "VRAM_UNREADABLE",
 ]

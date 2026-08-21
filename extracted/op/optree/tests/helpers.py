@@ -22,6 +22,7 @@ import gc
 import itertools
 import os
 import platform
+import re
 import subprocess
 import sys
 import sysconfig
@@ -36,6 +37,7 @@ import pytest
 
 import optree
 from optree._C import (
+    OPTREE_HAS_FROZENDICT,
     OPTREE_HAS_SUBINTERPRETER_SUPPORT,
     PYBIND11_HAS_NATIVE_ENUM,
     PYBIND11_HAS_SUBINTERPRETER_SUPPORT,
@@ -43,6 +45,7 @@ from optree._C import (
     Py_GIL_DISABLED,
     get_registry_size,
 )
+from optree.ops import STANDARD_DICT_TYPES as STANDARD_DICT_TYPES
 from optree.registry import __GLOBAL_NAMESPACE as GLOBAL_NAMESPACE
 from optree.registry import _NODETYPE_REGISTRY as NODETYPE_REGISTRY
 
@@ -51,7 +54,7 @@ TEST_ROOT = Path(__file__).absolute().parent
 
 
 INITIAL_REGISTRY_SIZE = get_registry_size()
-assert INITIAL_REGISTRY_SIZE == 8
+assert INITIAL_REGISTRY_SIZE == (9 if sys.version_info >= (3, 15) and OPTREE_HAS_FROZENDICT else 8)
 assert INITIAL_REGISTRY_SIZE + 2 == len(NODETYPE_REGISTRY)
 
 _ = PYBIND11_HAS_NATIVE_ENUM
@@ -71,6 +74,14 @@ assert Py_GIL_DISABLED == bool(int(sysconfig.get_config_var('Py_GIL_DISABLED') o
 skipif_freethreading = pytest.mark.skipif(
     Py_GIL_DISABLED,
     reason='Py_GIL_DISABLED is set',
+)
+
+# Free-threaded builds before 3.14 hold deferred references to type objects in per-thread caches, so
+# `gc_collect()` cannot force a heap type to be reclaimed there.
+HAS_DEFERRED_TYPE_REFS = Py_GIL_DISABLED and sys.version_info < (3, 14)
+skipif_deferred_type_refs = pytest.mark.skipif(
+    HAS_DEFERRED_TYPE_REFS,
+    reason='free-threaded builds before 3.14 keep deferred references to type objects',
 )
 
 PYPY = platform.python_implementation() == 'PyPy'
@@ -179,6 +190,7 @@ def check_script_in_subprocess(
     cwd=TEST_ROOT,
     env=None,
     rerun=1,
+    rstrip=False,
 ):
     script = textwrap.dedent(script).strip()
     result = ''
@@ -202,8 +214,15 @@ def check_script_in_subprocess(
             )
         except subprocess.CalledProcessError as ex:
             raise CalledProcessError(ex.returncode, ex.cmd, ex.output, ex.stderr) from None
+        if rstrip:
+            result = result.rstrip()
         if output is not None:
-            assert result == output
+            if isinstance(output, re.Pattern):
+                assert output.search(result) is not None, (
+                    f'output {result!r} does not match pattern {output.pattern!r}'
+                )
+            else:
+                assert result == output
     return result
 
 
@@ -241,7 +260,7 @@ def is_dict(dct):
 def is_primitive_collection(obj):
     if type(obj) in {tuple, list, deque}:
         return all(isinstance(item, (int, float, str, bool, type(None))) for item in obj)
-    if type(obj) in {dict, OrderedDict, defaultdict}:
+    if type(obj) in STANDARD_DICT_TYPES:
         return all(isinstance(value, (int, float, str, bool, type(None))) for value in obj.values())
     return False
 
@@ -667,12 +686,6 @@ TREE_PATHS_NONE_IS_LEAF = [
     [(0,)],
     [(0,), (1,)],
 ]
-
-TREE_PATHS = {
-    optree.NONE_IS_NODE: TREE_PATHS_NONE_IS_NODE,
-    optree.NONE_IS_LEAF: TREE_PATHS_NONE_IS_LEAF,
-}
-
 
 TREE_ACCESSORS_NONE_IS_NODE = [
     [optree.PyTreeAccessor()],
@@ -1518,12 +1531,6 @@ TREE_ACCESSORS_NONE_IS_LEAF = [
         optree.PyTreeAccessor((optree.GetItemEntry(1, FlatCache, optree.PyTreeKind.CUSTOM),)),
     ],
 ]
-TREE_ACCESSORS = {
-    optree.NONE_IS_NODE: TREE_ACCESSORS_NONE_IS_NODE,
-    optree.NONE_IS_LEAF: TREE_ACCESSORS_NONE_IS_LEAF,
-}
-
-
 TREE_STRINGS_NONE_IS_NODE = (
     'PyTreeSpec(*)',
     'PyTreeSpec(None)',
@@ -1552,8 +1559,8 @@ TREE_STRINGS_NONE_IS_NODE = (
     'PyTreeSpec(defaultdict(None, {}))',
     "PyTreeSpec(defaultdict(<class 'int'>, {}))",
     "PyTreeSpec(defaultdict(<class 'dict'>, {'baz': *, 'foo': *, 'something': *}))",
-    'PyTreeSpec(deque([]))',
-    'PyTreeSpec(deque([], maxlen=0))',
+    'PyTreeSpec(deque())',
+    'PyTreeSpec(deque(maxlen=0))',
     'PyTreeSpec(deque([None, *, *]))',
     'PyTreeSpec(deque([None, *], maxlen=2))',
     "PyTreeSpec(CustomTreeNode(MyDict[['foo', 'baz']], [CustomTreeNode(MyDict[['c', 'b', 'a']], [None, *, *]), *]))",
@@ -1595,8 +1602,8 @@ TREE_STRINGS_NONE_IS_LEAF = (
     'PyTreeSpec(defaultdict(None, {}), NoneIsLeaf)',
     "PyTreeSpec(defaultdict(<class 'int'>, {}), NoneIsLeaf)",
     "PyTreeSpec(defaultdict(<class 'dict'>, {'baz': *, 'foo': *, 'something': *}), NoneIsLeaf)",
-    'PyTreeSpec(deque([]), NoneIsLeaf)',
-    'PyTreeSpec(deque([], maxlen=0), NoneIsLeaf)',
+    'PyTreeSpec(deque(), NoneIsLeaf)',
+    'PyTreeSpec(deque(maxlen=0), NoneIsLeaf)',
     'PyTreeSpec(deque([*, *, *]), NoneIsLeaf)',
     'PyTreeSpec(deque([*, *], maxlen=2), NoneIsLeaf)',
     "PyTreeSpec(CustomTreeNode(MyDict[['foo', 'baz']], [CustomTreeNode(MyDict[['c', 'b', 'a']], [*, *, *]), *]), NoneIsLeaf)",
@@ -1610,10 +1617,105 @@ TREE_STRINGS_NONE_IS_LEAF = (
     "PyTreeSpec(CustomTreeNode(FlatCache[PyTreeSpec({'a': [*, *]})], [*, *]), NoneIsLeaf)",
 )
 
+if sys.version_info >= (3, 15) and OPTREE_HAS_FROZENDICT:
+    from builtins import frozendict  # type: ignore[import]
+
+    TREES = (  # type: ignore[no-redef]
+        *TREES,
+        frozendict(),
+        frozendict({'a': 1, 'b': 2}),
+        frozendict({'baz': 101, 'foo': -42, 'something': 7}),
+    )
+    TREE_PATHS_NONE_IS_NODE = [
+        *TREE_PATHS_NONE_IS_NODE,
+        [],
+        [('a',), ('b',)],
+        [('baz',), ('foo',), ('something',)],
+    ]
+    TREE_PATHS_NONE_IS_LEAF = [
+        *TREE_PATHS_NONE_IS_LEAF,
+        [],
+        [('a',), ('b',)],
+        [('baz',), ('foo',), ('something',)],
+    ]
+    TREE_ACCESSORS_NONE_IS_NODE = [
+        *TREE_ACCESSORS_NONE_IS_NODE,
+        [],
+        [
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('a', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('b', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+        ],
+        [
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('baz', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('foo', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('something', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+        ],
+    ]
+    TREE_ACCESSORS_NONE_IS_LEAF = [
+        *TREE_ACCESSORS_NONE_IS_LEAF,
+        [],
+        [
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('a', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('b', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+        ],
+        [
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('baz', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('foo', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+            optree.PyTreeAccessor(
+                (optree.MappingEntry('something', frozendict, optree.PyTreeKind.FROZENDICT),),
+            ),
+        ],
+    ]
+    TREE_STRINGS_NONE_IS_NODE = (
+        *TREE_STRINGS_NONE_IS_NODE,
+        'PyTreeSpec(frozendict())',
+        "PyTreeSpec(frozendict({'a': *, 'b': *}))",
+        "PyTreeSpec(frozendict({'baz': *, 'foo': *, 'something': *}))",
+    )
+    TREE_STRINGS_NONE_IS_LEAF = (
+        *TREE_STRINGS_NONE_IS_LEAF,
+        'PyTreeSpec(frozendict(), NoneIsLeaf)',
+        "PyTreeSpec(frozendict({'a': *, 'b': *}), NoneIsLeaf)",
+        "PyTreeSpec(frozendict({'baz': *, 'foo': *, 'something': *}), NoneIsLeaf)",
+    )
+
+
+TREE_PATHS = {
+    optree.NONE_IS_NODE: TREE_PATHS_NONE_IS_NODE,
+    optree.NONE_IS_LEAF: TREE_PATHS_NONE_IS_LEAF,
+}
+TREE_ACCESSORS = {
+    optree.NONE_IS_NODE: TREE_ACCESSORS_NONE_IS_NODE,
+    optree.NONE_IS_LEAF: TREE_ACCESSORS_NONE_IS_LEAF,
+}
 TREE_STRINGS = {
     optree.NONE_IS_NODE: TREE_STRINGS_NONE_IS_NODE,
     optree.NONE_IS_LEAF: TREE_STRINGS_NONE_IS_LEAF,
 }
+
+assert all(
+    len(table[none_is_leaf]) == len(TREES)
+    for table in (TREE_PATHS, TREE_ACCESSORS, TREE_STRINGS)
+    for none_is_leaf in (optree.NONE_IS_NODE, optree.NONE_IS_LEAF)
+)
 
 
 LEAVES = (

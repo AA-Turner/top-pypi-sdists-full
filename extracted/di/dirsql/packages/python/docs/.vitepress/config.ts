@@ -54,6 +54,7 @@ export default defineConfig({
             { text: 'Derive columns from file paths', link: '/howto/columns-from-paths' },
             { text: 'Extract rows from file contents', link: '/howto/extract-from-contents' },
             { text: 'Parse your files into columns', link: '/howto/parse-files-into-columns' },
+            { text: 'Query JSON file contents', link: '/howto/query-json' },
             { text: 'Search documents by meaning', link: '/howto/search-by-meaning' },
             { text: "Skip files you don't want indexed", link: '/howto/skip-files' },
             { text: 'Load a SQLite extension', link: '/howto/load-extension' },
@@ -72,8 +73,7 @@ export default defineConfig({
             { text: 'Columns', link: '/reference/columns' },
             { text: 'Path-tables', link: '/reference/path-tables' },
             { text: 'HTTP API', link: '/reference/http-api' },
-            { text: 'SDK', link: '/reference/sdk' },
-            { text: 'Migrations', link: '/migrations' }
+            { text: 'SDK', link: '/reference/sdk' }
           ]
         },
         {

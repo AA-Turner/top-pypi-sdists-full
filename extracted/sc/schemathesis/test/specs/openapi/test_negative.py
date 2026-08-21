@@ -8,16 +8,16 @@ from _pytest.main import ExitCode
 from flask import jsonify
 from hypothesis import HealthCheck, given, seed, settings
 from hypothesis import strategies as st
-from hypothesis_jsonschema import from_schema
-from hypothesis_jsonschema._canonicalise import FALSEY, canonicalish
+from jsonschema_rs import canonical
 
 import schemathesis
 from schemathesis.config import GenerationConfig
-from schemathesis.core.jsonschema import _is_valid_uuid
+from schemathesis.core.jsonschema import CANONICALIZE_DRAFT_BY_VALIDATOR, _is_valid_uuid
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.jsonschema import build
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi._hypothesis import get_default_format_strategies
@@ -31,6 +31,7 @@ from schemathesis.specs.openapi.negative.mutations import (
     prevent_unsatisfiable_schema,
     remove_required_property,
 )
+from schemathesis.specs.openapi.negative.utils import can_negate
 from test.utils import assert_requests_call
 
 MAX_EXAMPLES = 15
@@ -63,6 +64,19 @@ INTEGER_SCHEMA = {
 def validate_schema(schema):
     """Validate schema by constructing a Draft4Validator (which validates the schema on construction)."""
     jsonschema_rs.Draft4Validator(schema)
+
+
+def from_schema(schema):
+    return build(schema, draft=CANONICALIZE_DRAFT_BY_VALIDATOR[jsonschema_rs.Draft4Validator], formats={})
+
+
+def admits_a_value(schema):
+    return (
+        jsonschema_rs.canonicalize(
+            schema, draft=CANONICALIZE_DRAFT_BY_VALIDATOR[jsonschema_rs.Draft4Validator]
+        ).satisfiability()
+        is not canonical.Satisfiability.NO
+    )
 
 
 @pytest.mark.parametrize(
@@ -360,7 +374,7 @@ def test_no_unsatisfiable_schemas(data):
             target_descriptors=compute_mutation_targets(schema),
         )
     )
-    assert canonicalish(mutated_schema) != FALSEY
+    assert admits_a_value(mutated_schema)
 
 
 @given(data=st.data())
@@ -712,7 +726,7 @@ def test_negative_query_respects_allow_extra_parameter_toggle(data):
 )
 def test_prevent_unsatisfiable_schema(schema, new_type):
     prevent_unsatisfiable_schema(schema, new_type)
-    assert canonicalish(schema) != FALSEY
+    assert admits_a_value(schema)
 
 
 ARRAY_PARAMETER = {"type": "array", "minItems": 1, "items": {"type": "string", "format": "ipv4"}}
@@ -1270,8 +1284,10 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli
 
 
 def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, cli, app_runner):
-    # `{,3}` is valid in Python, but jsonschema_rs rejects it as an incomplete quantifier when meta-validating the schema.
-    # The `negative_data_rejection` check must not crash on such user-provided schemas.
+    # `{,3}` is valid in Python, but jsonschema_rs rejects it as an incomplete quantifier when
+    # meta-validating the schema. A pattern it cannot compile constrains nothing during validation
+    # either, so it is dropped and the rest of the schema still drives generation - and the app
+    # accepting a request without the required parameter is a genuine finding, not a crash.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -1294,13 +1310,15 @@ def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, cli, app_runn
     def items():
         return jsonify({}), 200
 
-    cli.run_and_assert(
+    result = cli.run_and_assert(
         app_runner.openapi_url(app),
         "--phases=coverage",
         "--mode=negative",
         "--checks=negative_data_rejection",
-        exit_code=ExitCode.OK,
+        exit_code=ExitCode.TESTS_FAILED,
     )
+    assert "Runtime Error" not in result.stdout
+    assert "Schema Error" not in result.stdout
 
 
 def test_negative_data_rejection_array_path_param_no_false_positive(ctx, cli, app_runner):
@@ -1399,3 +1417,72 @@ def test_negative_data_rejection_array_path_param_hook_rewrite_no_false_positive
             "--phases=examples",
             exit_code=ExitCode.OK,
         )
+
+
+NEGATABLE_SCHEMAS = [
+    ({}, False),
+    (True, False),
+    ({"description": "free text"}, False),
+    ({"title": "note", "example": "text"}, False),
+    ({"type": "string"}, True),
+    ({"minimum": 5}, True),
+    ({"const": 5}, True),
+    ({"not": {}}, True),
+    ({"pattern": "["}, True),
+]
+
+
+@pytest.mark.parametrize(("schema", "expected"), NEGATABLE_SCHEMAS, ids=str)
+def test_can_negate(schema, expected):
+    assert can_negate(schema) is expected
+
+
+def _operation_with_parameters(ctx, parameters):
+    schema = ctx.openapi.load_schema(
+        {"/items/{itemId}": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
+    )
+    return schema["/items/{itemId}"]["GET"]
+
+
+PLAIN_STRING_PARAMETER = {"name": "itemId", "in": "path", "required": True, "schema": {"type": "string"}}
+PATTERN_HEADER = {
+    "name": "Authorization",
+    "in": "header",
+    "required": True,
+    "schema": {"type": "string", "pattern": r"^Bearer\s[\w-]+$"},
+}
+ANNOTATED_HEADER = {
+    "name": "Accept",
+    "in": "header",
+    "required": True,
+    "schema": {"type": "string", "example": "application/json;version=2018-01-01"},
+}
+
+
+# A path value is always a string once serialized, so no mutation operator accepts a plain string there;
+# treating it as negatable spends the whole budget on cases that can never be negative.
+def test_plain_string_path_parameter_does_not_exhaust_generation(ctx):
+    operation = _operation_with_parameters(ctx, [PLAIN_STRING_PARAMETER, PATTERN_HEADER])
+    cases = []
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=1, suppress_health_check=list(HealthCheck))
+    def test(case):
+        cases.append(case)
+
+    test()
+    assert cases
+
+
+def test_unnegatable_path_falls_back_to_positive(ctx):
+    operation = _operation_with_parameters(ctx, [PLAIN_STRING_PARAMETER, ANNOTATED_HEADER])
+    modes = []
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=1, suppress_health_check=list(HealthCheck))
+    def test(case):
+        modes.append({location.value: component.mode.value for location, component in case.meta.components.items()})
+
+    test()
+    assert modes
+    assert all(entry["path"] == "positive" and entry["header"] == "negative" for entry in modes), modes

@@ -12,14 +12,15 @@ use crate::output::generate_report;
 use crate::parsers::manifest_reader;
 use crate::parsers::requirements::RequirementsParser;
 use crate::parsers::{ParserRegistry, ProjectParser};
-use crate::types::ResolverType;
+use crate::types::{PackageName, ResolverType};
+use crate::vulnerability::database::SuppressionReason;
 use crate::{
     AuditCache, AuditReport, DependencyScanner, MatcherConfig, Severity, VulnerabilityDatabase,
     VulnerabilityMatch, VulnerabilityMatcher, VulnerabilitySource,
 };
 use anyhow::Result;
-use futures::future::try_join_all;
-use std::collections::HashSet;
+use futures::future::join_all;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Findings at/above the `fail_on` threshold (or failing maintenance issues)
@@ -152,6 +153,14 @@ pub async fn audit(
         } else {
             crate::ci::github_notice(&annotation_message);
         }
+
+        // Surface a compact report in the run's Job Summary so results are visible in the CI
+        // tab itself — the primary channel when the SARIF upload is skipped (e.g. on PRs).
+        if let Some(path) = std::env::var_os("GITHUB_STEP_SUMMARY") {
+            if let Err(e) = write_github_step_summary(&report, Path::new(&path)) {
+                tracing::warn!("Failed to write GitHub step summary: {e}");
+            }
+        }
     }
 
     if !audit_args.is_quiet() {
@@ -211,6 +220,16 @@ pub async fn audit(
     let maintenance_config = audit_args.maintenance_check_config();
     let fail_maintenance = report.should_fail_on_maintenance(&maintenance_config);
 
+    // Partial scan under strict `fail_on_partial` (the default): a source failed, so the scan
+    // is incomplete. Fail-closed with a system error (exit 2) — the report was already printed
+    // with the partial marker above, so the incompleteness is visible before we exit.
+    if partial_scan_should_fail(
+        !report.failed_sources.is_empty(),
+        audit_args.no_fail_on_partial,
+    ) {
+        return Ok(EXIT_ERROR);
+    }
+
     if fail_vulns || fail_maintenance {
         Ok(EXIT_VULNERABILITIES_FOUND)
     } else {
@@ -234,28 +253,199 @@ fn build_matcher_config(audit_args: &AuditArgs) -> MatcherConfig {
     )
 }
 
-/// Evaluate whether any match triggers the fail_on exit condition.
-/// Returns (matches, should_fail).
-pub(crate) fn evaluate_fail_condition(
-    matches: Vec<VulnerabilityMatch>,
-    fail_on: &crate::SeverityLevel,
-    fail_on_unknown: bool,
-) -> (Vec<VulnerabilityMatch>, bool) {
-    let fail_on_db = match fail_on {
+/// Whether a partial scan (at least one source failed to fetch) should exit with a system
+/// error. Fail-closed by default: leniency (`no_fail_on_partial`) is opt-in.
+fn partial_scan_should_fail(has_failed_sources: bool, no_fail_on_partial: bool) -> bool {
+    has_failed_sources && !no_fail_on_partial
+}
+
+/// Lowercase label for the `fail_on` threshold, for the human "why it failed" line.
+fn fail_on_label(level: &crate::SeverityLevel) -> &'static str {
+    match level {
+        crate::SeverityLevel::Low => "low",
+        crate::SeverityLevel::Medium => "medium",
+        crate::SeverityLevel::High => "high",
+        crate::SeverityLevel::Critical => "critical",
+    }
+}
+
+/// Append a compact markdown report to the GitHub Actions Job Summary file. Appends (never
+/// truncates) so it coexists with summaries other workflow steps write.
+fn write_github_step_summary(report: &AuditReport, path: &Path) -> Result<()> {
+    use std::io::Write;
+    let markdown = crate::output::markdown::generate_markdown_summary(report)
+        .map_err(|e| anyhow::anyhow!("failed to render step summary: {e}"))?;
+    let mut file = fs_err::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    writeln!(file, "{markdown}")?;
+    Ok(())
+}
+
+fn severity_level_to_db(level: &crate::SeverityLevel) -> Severity {
+    match level {
         crate::SeverityLevel::Low => Severity::Low,
         crate::SeverityLevel::Medium => Severity::Medium,
         crate::SeverityLevel::High => Severity::High,
         crate::SeverityLevel::Critical => Severity::Critical,
+    }
+}
+
+/// A finding's effective fail threshold under strictest-wins: the minimum (strictest)
+/// threshold across every context that reaches its package.
+///
+/// The contexts are the reaching dependency groups (each contributing its `[groups.*]`
+/// threshold) and — only when the package is **main-reachable** — the main/prod context,
+/// contributing the global `fail_on`. A package that ships to production therefore keeps
+/// `global` as a floor (a permissive group can only tighten it), while a group-only
+/// package takes its group threshold outright, which may be *looser* than global (closes
+/// #151: "fail only on critical for dev"). With no reaching group carrying a policy, the
+/// global default applies.
+fn effective_threshold(
+    finding: &VulnerabilityMatch,
+    global: Severity,
+    group_thresholds: &BTreeMap<String, Severity>,
+    main_reachable: &HashSet<PackageName>,
+) -> Severity {
+    let group_min = finding
+        .groups
+        .iter()
+        .filter_map(|group| group_thresholds.get(group).copied())
+        .min();
+
+    match group_min {
+        // Main-reachable: global is a floor the group policy can only tighten.
+        Some(min) if main_reachable.contains(&finding.package_name) => min.min(global),
+        // Group-only: the group policy stands alone and may loosen below global.
+        Some(min) => min,
+        // No reaching group carries a policy → the global default.
+        None => global,
+    }
+}
+
+/// Evaluate whether any (non-suppressed) match triggers the fail_on exit condition.
+///
+/// `group_thresholds` (normalized group name → severity) applies per-group policy via
+/// strictest-wins; `main_reachable` gates whether the global threshold floors a finding
+/// (see [`effective_threshold`]). Pass an empty map for global-threshold-only behavior.
+/// This selects the exit condition ONLY — it never filters what is reported (the fail_on
+/// invariant). Production reads the count and threshold from [`summarize_failing_findings`]
+/// directly; this bool wrapper is kept as the readable predicate for tests.
+#[cfg(test)]
+pub(crate) fn evaluate_fail_condition(
+    matches: &[VulnerabilityMatch],
+    global_fail_on: &crate::SeverityLevel,
+    group_thresholds: &BTreeMap<String, Severity>,
+    main_reachable: &HashSet<PackageName>,
+    fail_on_unknown: bool,
+) -> bool {
+    summarize_failing_findings(
+        matches,
+        global_fail_on,
+        group_thresholds,
+        main_reachable,
+        fail_on_unknown,
+    )
+    .0 > 0
+}
+
+/// Lowercase label for the loosest threshold that tripped the run. Reuses `fail_on_label`
+/// as the sole owner of the level strings; `None` (only unknown-severity findings failed)
+/// and the never-reached `Unknown` both fall back to the global level's label.
+fn failing_threshold_label(threshold: Option<Severity>, global: &crate::SeverityLevel) -> String {
+    let level = match threshold {
+        Some(Severity::Low) => crate::SeverityLevel::Low,
+        Some(Severity::Medium) => crate::SeverityLevel::Medium,
+        Some(Severity::High) => crate::SeverityLevel::High,
+        Some(Severity::Critical) => crate::SeverityLevel::Critical,
+        Some(Severity::Unknown) | None => global.clone(),
     };
+    fail_on_label(&level).to_string()
+}
 
-    let fail_vulns = matches.iter().any(|m| {
-        if m.vulnerability.is_level_unknown() {
-            return fail_on_unknown;
+/// The findings that trip the exit condition: their count, plus the *loosest* effective
+/// severity threshold that actually tripped (the min over the non-unknown failing
+/// findings). Under per-group policy the effective threshold varies per finding, so a
+/// single global label would misreport why the run failed (#151: dev=low failing a
+/// MEDIUM while global=critical). Every failing finding is at or above this loosest
+/// threshold, so the "at or above X" line stays truthful. The threshold is `None` when
+/// nothing fails, or when every failing finding is unknown-severity (those fail on
+/// `fail_on_unknown`, not a severity bar) — the caller falls back to the global label.
+fn summarize_failing_findings(
+    matches: &[VulnerabilityMatch],
+    global_fail_on: &crate::SeverityLevel,
+    group_thresholds: &BTreeMap<String, Severity>,
+    main_reachable: &HashSet<PackageName>,
+    fail_on_unknown: bool,
+) -> (usize, Option<Severity>) {
+    let global_db = severity_level_to_db(global_fail_on);
+    let mut count = 0;
+    let mut loosest: Option<Severity> = None;
+    for m in matches {
+        if !finding_triggers_fail(
+            m,
+            global_db,
+            group_thresholds,
+            main_reachable,
+            fail_on_unknown,
+        ) {
+            continue;
         }
-        m.vulnerability.meets_level(fail_on_db)
-    });
+        count += 1;
+        if !m.vulnerability.is_level_unknown() {
+            let threshold = effective_threshold(m, global_db, group_thresholds, main_reachable);
+            loosest = Some(loosest.map_or(threshold, |current| current.min(threshold)));
+        }
+    }
+    (count, loosest)
+}
 
-    (matches, fail_vulns)
+/// Whether a single finding triggers the fail_on exit condition (shared by
+/// [`evaluate_fail_condition`] and [`summarize_failing_findings`]).
+fn finding_triggers_fail(
+    m: &VulnerabilityMatch,
+    global_db: Severity,
+    group_thresholds: &BTreeMap<String, Severity>,
+    main_reachable: &HashSet<PackageName>,
+    fail_on_unknown: bool,
+) -> bool {
+    if m.suppressed.is_some() {
+        return false;
+    }
+    // Unknown severity ignores thresholds entirely (pre-policy behavior). Short-circuit
+    // BEFORE the min computation: `Unknown` is the lowest Severity variant, so folding it
+    // into the effective threshold would collapse any policied finding to fail-on-everything.
+    if m.vulnerability.is_level_unknown() {
+        return fail_on_unknown;
+    }
+    m.vulnerability.meets_level(effective_threshold(
+        m,
+        global_db,
+        group_thresholds,
+        main_reachable,
+    ))
+}
+
+/// Suppress findings whose package matches an `[ignore].packages` entry — marked, never
+/// dropped, so they still appear in the report but don't trigger the exit condition.
+/// Names compared via `PackageName` (PEP 503), never raw strings. A `packages` entry that
+/// matches nothing warns, mirroring the unmatched-ignore-id warning.
+fn apply_package_ignores(matches: &mut [VulnerabilityMatch], ignore_packages: &[String]) {
+    for raw in ignore_packages {
+        // invariant: entries are validated in Config::validate, so this normalizes cleanly.
+        let ignored = PackageName::new(raw);
+        let mut hit = false;
+        for m in matches.iter_mut() {
+            if m.package_name == ignored {
+                m.suppressed = Some(SuppressionReason::IgnoredPackage);
+                hit = true;
+            }
+        }
+        if !hit {
+            tracing::warn!("ignore package '{}' did not match any finding", raw);
+        }
+    }
 }
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
@@ -601,7 +791,10 @@ async fn perform_audit(
 
     let fetch_tasks = vuln_sources.into_iter().map(|source| {
         let packages = packages.clone();
-        async move { source.fetch_vulnerabilities(&packages).await }
+        async move {
+            let name = source.name();
+            (name, source.fetch_vulnerabilities(&packages).await)
+        }
     });
 
     // Fetch maintenance status (PEP 792) in parallel if enabled
@@ -632,11 +825,47 @@ async fn perform_audit(
         }
     };
 
-    // Run vulnerability fetching and maintenance checks in parallel
-    let (vuln_result, maintenance_issues) =
-        tokio::join!(try_join_all(fetch_tasks), maintenance_future);
+    // Run vulnerability fetching and maintenance checks in parallel. Sources are collected
+    // per-source (not `try_join_all` + `?`) so a single source failure does not abort the
+    // whole audit: it becomes a "partial" scan whose handling depends on `fail_on_partial`.
+    let (fetch_results, maintenance_issues) =
+        tokio::join!(join_all(fetch_tasks), maintenance_future);
 
-    let databases = vuln_result?;
+    let mut databases = Vec::new();
+    let mut failures: Vec<(&'static str, anyhow::Error)> = Vec::new();
+    for (name, result) in fetch_results {
+        match result {
+            Ok(db) => databases.push(db),
+            Err(e) => failures.push((name, e.into())),
+        }
+    }
+
+    // Total failure (every source down, or the only source in a single-source run) is always
+    // a hard error regardless of `fail_on_partial` — there is nothing to report on.
+    if databases.is_empty() {
+        return match failures.into_iter().next() {
+            Some((name, err)) => {
+                Err(err.context(format!("all vulnerability sources failed (first: {name})")))
+            }
+            // Unreachable: an empty `databases` implies >= 1 failed source, since there is
+            // always >= 1 configured source. A defensive error, never a panic.
+            None => Err(anyhow::anyhow!("no vulnerability data could be fetched")),
+        };
+    }
+
+    // Partial scan: some sources failed but at least one succeeded. Warn loudly and carry the
+    // failed-source names into the report; the exit gate (`no_fail_on_partial`) is applied by
+    // the caller after the report — an incomplete scan is never silent.
+    let failed_sources: Vec<String> = failures
+        .iter()
+        .map(|(name, _)| (*name).to_string())
+        .collect();
+    for (name, err) in &failures {
+        tracing::warn!("vulnerability source '{name}' failed to fetch: {err}");
+        if !audit_args.is_quiet() {
+            eprintln!("Warning: vulnerability source '{name}' failed to fetch: {err}");
+        }
+    }
 
     if databases.len() > 1 && !audit_args.is_quiet() {
         eprintln!(
@@ -658,17 +887,73 @@ async fn perform_audit(
     let matcher = VulnerabilityMatcher::new(database, matcher_config);
 
     let matches = matcher.find_vulnerabilities(&dependencies)?;
-    let filtered_matches = matcher.filter_matches(matches);
+    let mut display_matches = matcher.filter_matches(matches);
 
     for ignore_id in matcher.unmatched_ignore_ids() {
         tracing::warn!("ignore ID '{}' did not match any finding", ignore_id);
     }
 
-    let (display_matches, fail_vulns) = evaluate_fail_condition(
-        filtered_matches,
+    // Per-group attribution and main-reachability are only consumed by per-group policy.
+    // When no `[groups.*]` threshold is configured they can never change the outcome, so
+    // skip the extra lock/manifest parses entirely (the common case).
+    let mut main_reachable: HashSet<PackageName> = HashSet::new();
+    if !audit_args.group_fail_on.is_empty() {
+        // Tag each finding with the dependency groups (PEP 735 / Poetry) that reach its
+        // package, for per-group policy thresholds. Never filters `display_matches`.
+        let group_attribution =
+            crate::parsers::graph::build_group_attribution(&audit_args.path, &detected_parser_name)
+                .await;
+        for finding in &mut display_matches {
+            if let Some(groups) = group_attribution.get(&finding.package_name) {
+                finding.groups = groups.iter().cloned().collect();
+            }
+        }
+
+        // The main/prod reachability set: a finding in one of these packages keeps the
+        // global `fail_on` as a floor, so a permissive group threshold cannot loosen it.
+        main_reachable =
+            crate::parsers::graph::build_main_reachable(&audit_args.path, &detected_parser_name)
+                .await;
+
+        // Per-group policy is set but the project has no group-aware lock, so attribution is
+        // empty and the thresholds can never apply. Warn loudly rather than silently ignoring.
+        if !crate::parsers::has_group_aware_lock(&audit_args.path) {
+            let msg = "per-group fail thresholds ([groups.*]) are configured but this project \
+                       has no group-aware lock (uv.lock, poetry.lock, pylock.toml); the \
+                       thresholds are ignored";
+            tracing::warn!("{msg}");
+            if !audit_args.is_quiet() {
+                eprintln!("Warning: {msg}");
+            }
+        }
+    }
+
+    // Suppress [ignore].packages matches (marked, never dropped) before evaluating the
+    // exit condition, so a suppressed finding is still reported but never fails the run.
+    apply_package_ignores(&mut display_matches, &audit_args.ignore_packages);
+
+    let group_thresholds: BTreeMap<String, Severity> = audit_args
+        .group_fail_on
+        .iter()
+        .map(|(name, level)| (name.clone(), severity_level_to_db(&level.clone().into())))
+        .collect();
+    let (failing_count, failing_threshold) = summarize_failing_findings(
+        &display_matches,
         &fail_on_level,
+        &group_thresholds,
+        &main_reachable,
         !audit_args.no_fail_on_unknown,
     );
+    let fail_vulns = failing_count > 0;
+    // Report the loosest threshold that actually tripped (not the global one) so per-group
+    // policy failures name the bar that caused them; fall back to global when only
+    // unknown-severity findings failed (they carry no threshold).
+    let fail_summary = (failing_count > 0).then(|| {
+        (
+            failing_count,
+            failing_threshold_label(failing_threshold, &fail_on_level),
+        )
+    });
 
     let database_stats = matcher.get_database_stats();
     let fix_analysis = matcher.analyze_fixes(&display_matches);
@@ -689,7 +974,9 @@ async fn perform_audit(
         warnings,
         maintenance_issues,
     )
-    .with_transitive_roots(transitive_roots);
+    .with_transitive_roots(transitive_roots)
+    .with_failed_sources(failed_sources)
+    .with_fail_summary(fail_summary);
 
     let summary = report.summary();
     let maint_summary = report.maintenance_summary();
@@ -834,9 +1121,46 @@ fn should_skip_script_dir(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate_fail_condition, scan_pep723_scripts};
+    use super::{
+        apply_package_ignores, build_matcher_config, evaluate_fail_condition,
+        failing_threshold_label, partial_scan_should_fail, scan_pep723_scripts,
+        summarize_failing_findings, write_github_step_summary,
+    };
+    use crate::types::PackageName;
+    use crate::vulnerability::database::SuppressionReason;
     use crate::{Severity, VulnerabilityMatch};
+    use std::collections::{BTreeMap, HashSet};
     use std::str::FromStr;
+
+    #[test]
+    fn test_partial_scan_strict_fails_and_lenient_continues() {
+        // Strict (default): a failed source is an incomplete scan → fail (exit 2).
+        assert!(partial_scan_should_fail(true, false));
+        // Lenient (--no-fail-on-partial): continue by findings despite the failed source.
+        assert!(!partial_scan_should_fail(true, true));
+        // No failures: the knob is irrelevant, never fail on this account.
+        assert!(!partial_scan_should_fail(false, false));
+        assert!(!partial_scan_should_fail(false, true));
+    }
+
+    #[test]
+    fn test_write_github_step_summary_appends_markdown() {
+        let report = crate::output::model::test_helpers::create_test_report();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("step-summary.md");
+        // A prior step already wrote to the summary file — we must append, not truncate.
+        std::fs::write(&path, "existing\n").unwrap();
+
+        write_github_step_summary(&report, &path).unwrap();
+
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            contents.starts_with("existing\n"),
+            "must not truncate: {contents}"
+        );
+        assert!(contents.contains("## 🛡️ PySentry"));
+        assert!(contents.contains("GHSA-test-1234"));
+    }
 
     // Calling --group on a project with no pyproject.toml must return a clear error
     // before any dependency scanning begins.
@@ -1002,34 +1326,273 @@ mod tests {
             vulnerability: crate::vulnerability::database::Vulnerability::with_level(vuln_level),
             is_direct: true,
             source_file: None,
+            groups: std::collections::BTreeSet::new(),
+            suppressed: None,
         }
     }
 
-    // HIGH meets fail_on=Medium → should fail, match is returned.
+    fn no_groups() -> BTreeMap<String, Severity> {
+        BTreeMap::new()
+    }
+
+    // The default finding package ("test-pkg") is treated as group-only (not shipped to
+    // prod) unless a test opts it into main-reachability.
+    fn no_main() -> HashSet<PackageName> {
+        HashSet::new()
+    }
+
+    fn make_grouped_match(vuln_level: Severity, groups: &[&str]) -> VulnerabilityMatch {
+        let mut m = make_match(vuln_level);
+        m.groups = groups.iter().map(|g| g.to_string()).collect();
+        m
+    }
+
+    // HIGH meets fail_on=Medium → should fail.
     #[test]
     fn test_fail_condition_meets_threshold() {
         let matches = vec![make_match(Severity::High)];
-        let (display, fail) = evaluate_fail_condition(matches, &crate::SeverityLevel::Medium, true);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Medium,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
         assert!(fail, "HIGH meets fail_on=Medium threshold");
-        assert_eq!(display.len(), 1, "match is returned");
     }
 
-    // LOW does not meet fail_on=High → no failure, match is returned.
+    // LOW does not meet fail_on=High → no failure.
     #[test]
     fn test_fail_condition_below_threshold() {
         let matches = vec![make_match(Severity::Low)];
-        let (display, fail) = evaluate_fail_condition(matches, &crate::SeverityLevel::High, true);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::High,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
         assert!(!fail, "LOW does not meet fail_on=High threshold");
-        assert_eq!(display.len(), 1, "match is returned");
     }
 
     // UNKNOWN triggers failure when fail_on_unknown=true regardless of threshold.
     #[test]
     fn test_fail_condition_unknown_vuln() {
         let matches = vec![make_match(Severity::Unknown)];
-        let (display, fail) = evaluate_fail_condition(matches, &crate::SeverityLevel::Medium, true);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Medium,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
         assert!(fail, "Unknown causes failure when fail_on_unknown=true");
-        assert_eq!(display.len(), 1, "match is returned");
+    }
+
+    // strictest-wins: a dev-only finding with a stricter group threshold (low) fails even
+    // though the global fail_on (critical) would not, and a group threshold never loosens
+    // below what a second reaching group demands.
+    #[test]
+    fn test_policy_group_threshold_tightens_below_global() {
+        let matches = vec![make_grouped_match(Severity::Medium, &["dev"])];
+        let thresholds = BTreeMap::from([("dev".to_string(), Severity::Low)]);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Critical,
+            &thresholds,
+            &no_main(),
+            true,
+        );
+        assert!(
+            fail,
+            "MEDIUM meets the group's low threshold despite global=critical"
+        );
+    }
+
+    #[test]
+    fn test_policy_strictest_group_wins_across_groups() {
+        // Reachable from prod (medium) and dev (critical): strictest = medium.
+        let matches = vec![make_grouped_match(Severity::Medium, &["prod", "dev"])];
+        let thresholds = BTreeMap::from([
+            ("prod".to_string(), Severity::Medium),
+            ("dev".to_string(), Severity::Critical),
+        ]);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::High,
+            &thresholds,
+            &no_main(),
+            true,
+        );
+        assert!(
+            fail,
+            "MEDIUM meets prod's medium (strictest reaching group)"
+        );
+    }
+
+    // The "why it failed" line must name the bar that actually tripped, not the global one:
+    // a dev=low threshold failing a MEDIUM finding while global=critical reports "low",
+    // never "critical".
+    #[test]
+    fn test_fail_summary_names_tripped_group_threshold() {
+        let matches = vec![make_grouped_match(Severity::Medium, &["dev"])];
+        let thresholds = BTreeMap::from([("dev".to_string(), Severity::Low)]);
+        let (count, threshold) = summarize_failing_findings(
+            &matches,
+            &crate::SeverityLevel::Critical,
+            &thresholds,
+            &no_main(),
+            true,
+        );
+        assert_eq!(count, 1);
+        assert_eq!(
+            failing_threshold_label(threshold, &crate::SeverityLevel::Critical),
+            "low",
+            "must name the effective bar (dev=low), not global (critical)"
+        );
+    }
+
+    // Unknown-severity findings fail on fail_on_unknown, not a severity bar, so the label
+    // falls back to the global threshold rather than inventing one.
+    #[test]
+    fn test_fail_summary_unknown_only_falls_back_to_global() {
+        let matches = vec![make_match(Severity::Unknown)];
+        let (count, threshold) = summarize_failing_findings(
+            &matches,
+            &crate::SeverityLevel::High,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
+        assert_eq!(count, 1);
+        assert_eq!(threshold, None, "unknown findings carry no threshold");
+        assert_eq!(
+            failing_threshold_label(threshold, &crate::SeverityLevel::High),
+            "high",
+        );
+    }
+
+    // A group with no configured threshold falls back to the global default.
+    #[test]
+    fn test_policy_unpoliced_group_uses_global() {
+        let matches = vec![make_grouped_match(Severity::Medium, &["docs"])];
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::High,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
+        assert!(!fail, "MEDIUM below global high, no group override");
+    }
+
+    // Loosen (closes #151): a group-ONLY package (not shipped to prod) takes its group's
+    // permissive threshold outright — a HIGH dev finding does not fail when the dev policy
+    // is `critical`, even though the stricter global `medium` would have failed it.
+    #[test]
+    fn test_policy_group_only_loosens_below_global() {
+        let matches = vec![make_grouped_match(Severity::High, &["dev"])];
+        let thresholds = BTreeMap::from([("dev".to_string(), Severity::Critical)]);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Medium,
+            &thresholds,
+            &no_main(), // dev-only: not main-reachable
+            true,
+        );
+        assert!(
+            !fail,
+            "HIGH below the dev group's critical threshold; global=medium must not floor a group-only package"
+        );
+    }
+
+    // Floor: the same permissive group threshold cannot loosen a package that is ALSO
+    // main-reachable (ships to prod) — global stays a floor, so the HIGH finding fails.
+    #[test]
+    fn test_policy_main_reachable_keeps_global_floor() {
+        let matches = vec![make_grouped_match(Severity::High, &["dev"])];
+        let thresholds = BTreeMap::from([("dev".to_string(), Severity::Critical)]);
+        let main_reachable: HashSet<PackageName> =
+            std::iter::once(PackageName::new("test-pkg")).collect();
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Medium,
+            &thresholds,
+            &main_reachable,
+            true,
+        );
+        assert!(
+            fail,
+            "HIGH meets the global medium floor; a prod-shipped package can't be loosened by a group"
+        );
+    }
+
+    // Unknown short-circuits before the group-threshold min (a configured group must not
+    // collapse the effective level to Unknown and fail on everything).
+    #[test]
+    fn test_policy_unknown_ignores_group_thresholds() {
+        let matches = vec![make_grouped_match(Severity::Unknown, &["dev"])];
+        let thresholds = BTreeMap::from([("dev".to_string(), Severity::Critical)]);
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Critical,
+            &thresholds,
+            &no_main(),
+            false,
+        );
+        assert!(
+            !fail,
+            "Unknown with fail_on_unknown=false never fails, group threshold ignored"
+        );
+    }
+
+    // Suppressed findings are still reported (kept in the slice) but never trigger failure.
+    #[test]
+    fn test_package_ignore_suppresses_without_dropping() {
+        let mut ignored = make_match(Severity::Critical);
+        ignored.package_name = PackageName::new("ignored-pkg");
+        let mut matches = vec![ignored, make_grouped_match(Severity::High, &["dev"])];
+        apply_package_ignores(&mut matches, &["ignored_pkg".to_string()]);
+
+        // Reporting: nothing dropped, and the matched finding is marked suppressed.
+        assert_eq!(matches.len(), 2, "suppressed findings stay in the report");
+        assert_eq!(
+            matches.first().and_then(|m| m.suppressed),
+            Some(SuppressionReason::IgnoredPackage),
+            "PEP 503 normalization matches ignored_pkg to ignored-pkg"
+        );
+        assert!(matches.get(1).expect("second finding").suppressed.is_none());
+
+        // Exit: the suppressed critical no longer fails; the other finding still can.
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::Critical,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
+        assert!(
+            !fail,
+            "suppressed critical excluded; high does not meet critical"
+        );
+        let fail = evaluate_fail_condition(
+            &matches,
+            &crate::SeverityLevel::High,
+            &no_groups(),
+            &no_main(),
+            true,
+        );
+        assert!(fail, "the non-suppressed high still fails at fail_on=high");
+    }
+
+    // The matcher threshold stays Low regardless of policy — policy touches the exit
+    // condition only, never what reaches the report (the fail_on invariant).
+    #[test]
+    fn test_policy_never_filters_matcher() {
+        use clap::Parser;
+        let args = crate::cli::AuditArgs::try_parse_from(["pysentry", "."]).unwrap();
+        let config = build_matcher_config(&args);
+        assert_eq!(config.min_severity, crate::SeverityLevel::Low);
     }
 
     // Regression guard: fail_on must never narrow the matcher. A v0.4.5 refactor wired fail_on

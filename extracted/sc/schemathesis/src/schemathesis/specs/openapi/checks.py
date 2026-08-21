@@ -21,6 +21,7 @@ from schemathesis.core.transport import Response, expand_status_code
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData
 from schemathesis.openapi.checks import (
+    AllowHeaderMismatch,
     EnsureResourceAvailability,
     IgnoredAuth,
     JsonSchemaError,
@@ -45,7 +46,8 @@ from schemathesis.transport.prepare import prepare_path
 from schemathesis.transport.serialization import contains_binary
 
 if TYPE_CHECKING:
-    from schemathesis.engine.recorder import ScenarioRecorder
+    from schemathesis.engine.recorder import RecordedScenario
+    from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet
     from schemathesis.specs.openapi.schemas import OpenApiSchema
 
@@ -544,7 +546,9 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
             validator = make_validator(schema, parameter.adapter.jsonschema_validator_cls)
         except Exception:
             return True
-        if validator.is_valid(unquote(value).split(",")):
+        # `unquote` keeps `str` subclasses intact, and splitting an empty string keeps the input
+        # object; the validator rejects anything but a plain `str`.
+        if validator.is_valid(unquote(str(value)).split(",")):
             return True
 
     return False
@@ -755,6 +759,41 @@ def _additional_properties_hint(case: Case) -> str | None:
     return None
 
 
+# Statuses a credential-granting operation may answer to a well-formed request carrying credentials that do not exist.
+CREDENTIAL_REJECTION_STATUSES = frozenset({400, 422})
+
+
+def _token_urls(operation: APIOperation) -> Iterator[str]:
+    for definition in operation.schema.security.security_definitions.values():
+        # Swagger 2.0 puts `tokenUrl` on the scheme; Open API 3 nests it under each flow.
+        token_url = definition.get("tokenUrl")
+        if isinstance(token_url, str):
+            yield token_url
+        flows = definition.get("flows")
+        if isinstance(flows, Mapping):
+            for flow in flows.values():
+                token_url = flow.get("tokenUrl") if isinstance(flow, Mapping) else None
+                if isinstance(token_url, str):
+                    yield token_url
+    for scheme in operation.schema.config.auth.dynamic.schemes.values():
+        yield scheme.path
+
+
+def _grants_credentials(operation: APIOperation) -> bool:
+    """Whether this operation mints credentials, per the schema's own `tokenUrl` or a configured dynamic-auth path."""
+    for token_url in _token_urls(operation):
+        path = urlparse(token_url).path
+        # An empty token URL yields no path, which would otherwise normalize to "/" and claim a root operation.
+        if not path:
+            continue
+        if not path.startswith("/"):
+            path = f"/{path}"
+        # `operation.path` carries no `basePath`, so a prefixed token URL matches on a segment boundary.
+        if path == operation.path or path.endswith(f"/{operation.path.lstrip('/')}"):
+            return True
+    return False
+
+
 @schemathesis.check
 @requires_openapi_schema
 @skips_on_unexpected_http_status
@@ -767,6 +806,9 @@ def positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) 
     allowed_statuses = expand_status_codes(config.expected_statuses or [])
 
     if meta.generation.mode.is_positive and response.status_code not in allowed_statuses:
+        # A schema promises which requests are well formed, not which credentials exist.
+        if response.status_code in CREDENTIAL_REJECTION_STATUSES and _grants_credentials(case.operation):
+            return None
         message = f"Valid data should have been accepted\nExpected: {', '.join(config.expected_statuses)}"
         hint = _additional_properties_hint(case)
         if hint:
@@ -822,6 +864,10 @@ def unsupported_method(ctx: CheckContext, response: Response, case: Case) -> boo
     data = meta.phase.data
     if data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
         if response.status_code != 405:
+            # Generated path parameters rarely point at an existing resource, and routing 404s before
+            # method dispatch. 405 is only guaranteed when the target resource exists.
+            if response.status_code == 404 and "{" in case.operation.path:
+                return None
             raise UnsupportedMethodResponse(
                 operation=case.operation.label,
                 method=cast(str, response.request.method),
@@ -841,6 +887,44 @@ def unsupported_method(ctx: CheckContext, response: Response, case: Case) -> boo
                 message=f"{response.request.method} returned 405 without required `Allow` header\n\nAdd `Allow` header listing supported methods (required by RFC 9110)",
             )
     return None
+
+
+# `HEAD` and `OPTIONS` are commonly handled by the HTTP framework rather than declared in the schema.
+IMPLICIT_METHODS = frozenset({"head", "options"})
+
+
+@schemathesis.check
+@requires_openapi_schema
+def allow_header_conformance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+    from schemathesis.specs.openapi.operations import HTTP_METHODS
+
+    if response.request.method != "OPTIONS":
+        return None
+    values = response.headers.get("allow")
+    if not values:
+        return None
+    allow_header = ", ".join(values)
+    advertised = {method.strip().lower() for method in allow_header.split(",") if method.strip()}
+    if not advertised:
+        return None
+    declared = {method.lower() for method in case.operation.schema[case.operation.path]}
+    declared &= HTTP_METHODS
+    missing = sorted(declared - advertised - IMPLICIT_METHODS)
+    undocumented = sorted(advertised - declared - IMPLICIT_METHODS)
+    if not missing and not undocumented:
+        return None
+    parts = []
+    if missing:
+        parts.append(f"missing documented methods: {', '.join(method.upper() for method in missing)}")
+    if undocumented:
+        parts.append(f"undocumented methods advertised: {', '.join(method.upper() for method in undocumented)}")
+    raise AllowHeaderMismatch(
+        operation=case.operation.label,
+        allow_header=allow_header,
+        missing_methods=[method.upper() for method in missing],
+        undocumented_methods=[method.upper() for method in undocumented],
+        message=f"`Allow` header does not match the schema — {'; '.join(parts)}\n\nList exactly the methods this resource supports in `Allow`",
+    )
 
 
 def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
@@ -1275,7 +1359,7 @@ def _is_prefix_operation(lhs: ResourcePath, rhs: ResourcePath) -> bool:
     return True
 
 
-def resource_was_deleted(recorder: ScenarioRecorder, case: Case) -> bool:
+def resource_was_deleted(recorder: RecordedScenario, case: Case) -> bool:
     """Return True if a successful DELETE in the scenario covers this case's resource path.
 
     A DELETE path is considered to cover the current case when it is a prefix of the current

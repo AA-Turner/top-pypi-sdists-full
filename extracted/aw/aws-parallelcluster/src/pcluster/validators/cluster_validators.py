@@ -34,7 +34,6 @@ from pcluster.constants import (
     PCLUSTER_VERSION_TAG,
     PRIVATE_OSES,
     RETAIN_POLICY,
-    SCHEDULERS_SUPPORTING_IMDS_SECURED,
     SUPPORTED_OSES,
     SUPPORTED_SCHEDULERS,
 )
@@ -42,7 +41,6 @@ from pcluster.launch_template_utils import _LaunchTemplateBuilder
 from pcluster.utils import (
     get_installed_version,
     get_supported_os_for_architecture,
-    get_supported_os_for_scheduler,
     remove_none_values,
     retrieve_supported_regions,
 )
@@ -89,7 +87,7 @@ class ClusterNameValidator(Validator):
     """Cluster name validator."""
 
     def _validate(self, name, scheduling):
-        if scheduling.scheduler == "slurm" and scheduling.settings.database is not None:
+        if scheduling.settings.database is not None or scheduling.settings.external_slurmdbd is not None:
             if not re.match(PCLUSTER_NAME_REGEX % (PCLUSTER_NAME_MAX_LENGTH_SLURM_ACCOUNTING - 1), name):
                 self._add_failure(
                     (
@@ -120,36 +118,6 @@ class RegionValidator(Validator):
         if region not in retrieve_supported_regions():
             self._add_failure(
                 f"Region '{region}' is not yet officially supported by ParallelCluster", FailureLevel.ERROR
-            )
-
-
-class SchedulerDisableSudoAccessForDefaultUserValidator(Validator):
-    """
-    Validator for DisableSudoAccessForDefaultUser and AWS Batch Scheduler.
-
-    Fail if using AWS Batch and DisableSudoAccessForDefaultUser is not supported.
-    """
-
-    def _validate(self, scheduler):
-        if scheduler == "awsbatch":
-            self._add_failure(
-                "DisableSudoAccessForDefaultUser is not supported when using AWS Batch as scheduler.",
-                FailureLevel.ERROR,
-            )
-
-
-class SchedulerOsValidator(Validator):
-    """
-    scheduler - os validator.
-
-    Validate os and scheduler combination.
-    """
-
-    def _validate(self, os, scheduler):
-        supported_os = get_supported_os_for_scheduler(scheduler)
-        if os not in supported_os:
-            self._add_failure(
-                f"{scheduler} scheduler supports the following operating systems: {supported_os}.", FailureLevel.ERROR
             )
 
 
@@ -1307,26 +1275,6 @@ class HeadNodeLaunchTemplateValidator(_LaunchTemplateValidator):
             )
 
 
-class HeadNodeImdsValidator(Validator):
-    """
-    Head Node IMDS configuration validator.
-
-    Verify if the Head Node IMDs configuration is compatible with other configurations.
-    """
-
-    def _validate(self, imds_secured: bool, scheduler: str):
-        if scheduler is None:
-            self._add_failure("Cannot validate IMDS configuration if scheduler is not set.", FailureLevel.ERROR)
-        elif imds_secured is None:
-            self._add_failure("Cannot validate IMDS configuration if IMDS Secured is not set.", FailureLevel.ERROR)
-        elif imds_secured and scheduler not in SCHEDULERS_SUPPORTING_IMDS_SECURED:
-            # TODO move validation for Imds parameter in the schema
-            self._add_failure(
-                f"IMDS Secured cannot be enabled when using scheduler {scheduler}. Please, disable IMDS Secured.",
-                FailureLevel.ERROR,
-            )
-
-
 class HeadNodeMemorySizeValidator(Validator):
     """
     Head Node Memory Size Validator.
@@ -1590,14 +1538,73 @@ class RootVolumeEncryptionConsistencyValidator(Validator):
 
 
 class MultiNetworkInterfacesInstancesValidator(Validator):
-    """Verify that queues with multi nic compute resources don't auto-assign public IPs or contain subnets that do."""
+    """Verify that queues launching multiple network interfaces don't auto-assign public IPs or use subnets that do."""
 
-    def _validate(self, queues):
+    # Shared statement of the underlying AWS limitation.
+    _PUBLIC_IP_LIMITATION = (
+        "AWS can't auto-assign a public IP to instances launched with more than one network interface."
+    )
+
+    @staticmethod
+    def _multiple_network_interfaces_reason(compute_resource, efa_interface_type):
+        """Return why the compute resource is launched with more than one network interface, or None.
+
+        Two cases produce more than one network interface, which must be kept in sync with
+        templates/queues_stack.py::add_network_interfaces:
+        - "multi_card": multi-network-card instances (e.g. p4d, hpc6id) attach a network interface per network card.
+        - "efa": single-network-card instances with EFA enabled (e.g. hpc6a, c5n), for which ParallelCluster attaches
+          a primary interface plus a dedicated efa-only interface (unless the EfaInterfaceType: efa opt-out is set or
+          the primary network card cannot hold 2 network interfaces).
+        """
+        if compute_resource.max_network_cards > 1:
+            return "multi_card"
+
+        efa_enabled = compute_resource.efa and compute_resource.efa.enabled
+        use_legacy_efa = efa_interface_type == "efa"
+        nci0_supports_efa = compute_resource.max_efa_interfaces == compute_resource.max_network_cards
+        nci0_max_enis = (
+            compute_resource.network_cards_list[0].maximum_network_interfaces()
+            if compute_resource.network_cards_list
+            else 1
+        )
+        if efa_enabled and not use_legacy_efa and nci0_supports_efa and nci0_max_enis >= 2:
+            return "efa"
+        return None
+
+    def _reason_clause(self, queue, efa_interface_type):
+        """Return a queue-level clause explaining why the queue's instances launch multiple network interfaces.
+
+        A queue may contain both kinds of compute resources, so include every applicable reason along with the
+        instance types responsible for it.
+        """
+        instance_types_by_reason = {"multi_card": [], "efa": []}
+        for compute_resource in queue.compute_resources:
+            reason = self._multiple_network_interfaces_reason(compute_resource, efa_interface_type)
+            if reason:
+                instance_types_by_reason[reason].extend(compute_resource.instance_types)
+
+        clauses = []
+        if instance_types_by_reason["multi_card"]:
+            # Instance types with multiple network cards are launched with one network interface per card.
+            types = ", ".join(sorted(set(instance_types_by_reason["multi_card"])))
+            clauses.append(f"contains the instance types {types} with multiple network interfaces")
+        if instance_types_by_reason["efa"]:
+            # Single-network-card instances launched with a primary interface plus an efa-only interface (EFA enabled).
+            types = ", ".join(sorted(set(instance_types_by_reason["efa"])))
+            clauses.append(
+                f"has EFA enabled on the single-network-card instance types {types}, so its compute nodes are "
+                f"launched with multiple network interfaces (a primary interface plus a dedicated efa-only interface)"
+            )
+        return " and ".join(clauses)
+
+    def _validate(self, queues, efa_interface_type=None):
         multi_nic_queues = [
             queue
             for queue in queues
-            for compute_resource in queue.compute_resources
-            if compute_resource.max_network_cards > 1
+            if any(
+                self._multiple_network_interfaces_reason(compute_resource, efa_interface_type)
+                for compute_resource in queue.compute_resources
+            )
         ]
 
         all_subnets_with_public_ips = {
@@ -1609,11 +1616,12 @@ class MultiNetworkInterfacesInstancesValidator(Validator):
         }
 
         for queue in multi_nic_queues:
+            reason_clause = self._reason_clause(queue, efa_interface_type)
             if queue.networking.assign_public_ip:
                 self._add_failure(
-                    f"The queue {queue.name} contains an instance type with multiple network interfaces however the "
-                    f"AssignPublicIp value is set to true. AWS public IPs can only be assigned to instances launched "
-                    f"with a single network interface.",
+                    f"The queue {queue.name} {reason_clause}, but AssignPublicIp is set to true. "
+                    f"{self._PUBLIC_IP_LIMITATION} Set AssignPublicIp to false and use a private subnet with a NAT "
+                    f"gateway to provide internet access to the compute nodes.",
                     FailureLevel.ERROR,
                 )
 
@@ -1622,20 +1630,8 @@ class MultiNetworkInterfacesInstancesValidator(Validator):
             )
             if queue_subnets_with_public_ips:
                 self._add_failure(
-                    f"The queue {queue.name} contains an instance type with multiple network interfaces however the "
-                    f"subnets {queue_subnets_with_public_ips} is configured to automatically assign public IPs. AWS "
-                    f"public IPs can only be assigned to instances launched with a single network interface.",
+                    f"The queue {queue.name} {reason_clause}, but the subnets {queue_subnets_with_public_ips} "
+                    f"auto-assign public IPs. {self._PUBLIC_IP_LIMITATION} Use a private subnet with a NAT gateway to "
+                    f"provide internet access to the compute nodes.",
                     FailureLevel.ERROR,
                 )
-
-
-class LoginNodesSchedulerValidator(Validator):
-    """Verify that when using LoginNodes, the scheduler must be slurm."""
-
-    def _validate(self, scheduler):
-        if scheduler != "slurm":
-            self._add_failure(
-                "When using LoginNodes, the configured scheduler must be set to Slurm. "
-                "Please set the scheduler to Slurm.",
-                FailureLevel.ERROR,
-            )

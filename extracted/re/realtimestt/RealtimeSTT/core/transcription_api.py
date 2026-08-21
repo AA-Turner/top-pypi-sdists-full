@@ -19,7 +19,7 @@ from .transcription import (
 logger = logging.getLogger("realtimestt")
 
 
-def text(recorder, on_transcription_finished=None):
+def text(recorder, on_transcription_finished=None, word_timestamps=None):
     """
     Waits for audio and returns the final transcription text.
     """
@@ -39,12 +39,12 @@ def text(recorder, on_transcription_finished=None):
 
     if on_transcription_finished:
         threading.Thread(target=on_transcription_finished,
-                        args=(recorder.transcribe(),)).start()
+                        args=(recorder.transcribe(word_timestamps),)).start()
     else:
-        return recorder.transcribe()
+        return recorder.transcribe(word_timestamps)
 
 
-def transcribe(recorder):
+def transcribe(recorder, word_timestamps=None):
     """
     Starts final transcription for the recorder's current audio.
     """
@@ -53,10 +53,16 @@ def transcribe(recorder):
     if recorder.on_transcription_start:
         abort_value = recorder.on_transcription_start(audio_copy)
         if not abort_value:
-            return recorder.perform_final_transcription(audio_copy)
+            return recorder.perform_final_transcription(
+                audio_copy,
+                word_timestamps=word_timestamps,
+            )
         return None
     else:
-        return recorder.perform_final_transcription(audio_copy)
+        return recorder.perform_final_transcription(
+            audio_copy,
+            word_timestamps=word_timestamps,
+        )
 
 
 def _set_state_after_transcription(recorder):
@@ -69,11 +75,40 @@ def _set_state_after_transcription(recorder):
         set_recorder_state(recorder, "inactive")
 
 
-def perform_final_transcription(recorder, audio_bytes=None, use_prompt=True):
+def _consume_current_transcription_force_lowercase_start(recorder):
+    """
+    Returns and clears the one-shot lowercase-start flag.
+    """
+    force_lowercase = getattr(
+        recorder,
+        "_current_transcription_force_lowercase_start",
+        False,
+    )
+    if force_lowercase:
+        recorder._current_transcription_force_lowercase_start = False
+    return force_lowercase
+
+
+def _should_request_word_timestamps(recorder, word_timestamps):
+    """
+    Resolves per-call and constructor-level word timestamp settings.
+    """
+    if word_timestamps is None:
+        return bool(
+            getattr(recorder, "final_transcription_word_timestamps", False)
+        )
+    return bool(word_timestamps)
+
+
+def perform_final_transcription(recorder, audio_bytes=None, use_prompt=True, word_timestamps=None):
     """
     Runs final transcription and formats the resulting text.
     """
     start_time = 0
+    request_word_timestamps = _should_request_word_timestamps(
+        recorder,
+        word_timestamps,
+    )
     with recorder.transcription_lock:
         if audio_bytes is None:
             audio_bytes = copy.deepcopy(recorder.audio)
@@ -81,17 +116,22 @@ def perform_final_transcription(recorder, audio_bytes=None, use_prompt=True):
         if audio_bytes is None or len(audio_bytes) == 0:
             print("No audio data available for transcription")
             #logger.info("No audio data available for transcription")
+            _consume_current_transcription_force_lowercase_start(recorder)
             return ""
 
         try:
             if recorder.transcribe_count == 0:
                 logger.debug("Adding transcription request, no early transcription started")
                 start_time = time.time()
+                options = None
+                if request_word_timestamps:
+                    options = {"word_timestamps": True}
                 submit_transcription_request(
                     recorder,
                     audio_bytes,
                     recorder.language,
                     use_prompt,
+                    options,
                 )
 
             while recorder.transcribe_count > 0:
@@ -125,6 +165,8 @@ def perform_final_transcription(recorder, audio_bytes=None, use_prompt=True):
                         recorder.ensure_sentence_ends_with_period
                     ),
                 )
+                if _consume_current_transcription_force_lowercase_start(recorder):
+                    transcription = transcription[:1].lower() + transcription[1:]
                 end_time = time.time()
                 transcription_time = end_time - start_time
 
@@ -135,8 +177,10 @@ def perform_final_transcription(recorder, audio_bytes=None, use_prompt=True):
                         logger.debug(f"Model {recorder.main_model_type} completed transcription in {transcription_time:.2f} seconds")
                 return "" if recorder.interrupt_stop_event.is_set() else transcription
             else:
+                _consume_current_transcription_force_lowercase_start(recorder)
                 logger.error(f"Transcription error: {result}")
                 raise Exception(result)
         except Exception as e:
+            _consume_current_transcription_force_lowercase_start(recorder)
             logger.error(f"Error during transcription: {str(e)}", exc_info=True)
             raise e

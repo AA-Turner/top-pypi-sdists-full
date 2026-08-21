@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roma
-Version: 1.6
+Version: 1.6.1
 Summary: A lightweight library to deal with 3D rotations in PyTorch.
 Author-email: Romain Brégier <romain.bregier@naverlabs.com>
 License-Expression: BSD-3-Clause

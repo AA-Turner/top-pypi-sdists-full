@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # script to install libzmq/libsodium for use in wheels
 set -ex
+CPU_COUNT=${CPU_COUNT:-4}
 LIBSODIUM_VERSION=$(python buildutils/bundle.py libsodium)
 LIBZMQ_VERSION=$(python buildutils/bundle.py)
 PYZMQ_DIR="$PWD"
 LICENSE_DIR="$PYZMQ_DIR/licenses"
 test -d "$LICENSE_DIR" || mkdir "$LICENSE_DIR"
 SHLIB_EXT=".so"
+python3 buildutils/bundle.py licenses
+
 if [[ "$(uname)" == "Darwin" ]]; then
     SHLIB_EXT=".dylib"
     # make sure deployment target is set
@@ -54,15 +57,14 @@ fi
 # add rpath so auditwheel patches it
 export LDFLAGS="${LDFLAGS} -Wl,-rpath,$PREFIX/lib"
 
-curl -L -O "https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VERSION}-RELEASE/libsodium-${LIBSODIUM_VERSION}.tar.gz"
+curl -L -O "https://download.libsodium.org/libsodium/releases/libsodium-${LIBSODIUM_VERSION}-stable.tar.gz"
 
 curl -L -O "https://github.com/zeromq/libzmq/releases/download/v${LIBZMQ_VERSION}/zeromq-${LIBZMQ_VERSION}.tar.gz"
 
-tar -xzf libsodium-${LIBSODIUM_VERSION}.tar.gz
+tar -xzf libsodium-${LIBSODIUM_VERSION}*.tar.gz
 cd libsodium-*/
-cp LICENSE "${LICENSE_DIR}/LICENSE.libsodium.txt"
 ./configure --prefix="$PREFIX"
-make -j4
+make -j${CPU_COUNT}
 make install
 
 cd ..
@@ -74,12 +76,12 @@ export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
 
 tar -xzf zeromq-${LIBZMQ_VERSION}.tar.gz
 cd zeromq-${LIBZMQ_VERSION}
-cp LICENSE "${LICENSE_DIR}/LICENSE.zeromq.txt"
 # avoid error on warning
 export CXXFLAGS="-Wno-error ${CXXFLAGS:-}"
 
 ./configure --prefix="$PREFIX" --disable-perf --without-docs --enable-curve --with-libsodium --disable-drafts --disable-libsodium_randombytes_close
-make -j4
-make install
+# only build libzmq, not unused tests
+make -j${CPU_COUNT} src/libzmq.la
+make install-libLTLIBRARIES install-includeHEADERS
 
 which ldconfig && ldconfig || true

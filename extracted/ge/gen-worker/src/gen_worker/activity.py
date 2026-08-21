@@ -68,12 +68,12 @@ KIND_GUARD_MISS = "guard_miss"
 # a trend hub-side instead of as a fleet-wide mint refusal (pgw#691/#733).
 KIND_GUARD_LEAK = "guard_leak"
 # pgw#916: the AOT arm's counterpart of `guard_miss` — one tenant request
-# arrived at a graph class the armed compiled graph does not cover, was NAMED at ingress
+# arrived at a graph specialization the armed compiled graph does not cover, was NAMED at ingress
 # and served eager. `guard_miss` is a dynamo concept (a torch guard fired), so
 # an AOT-armed pod produced no shape-gap fact at all and the hub could not
 # count AOT coverage holes the way it counts dynamo ones. `phase` carries the
 # ingress reason token (`no_entry_admits` / `entry_ambiguous`), `detail` names
-# the family, the target, the missing DECLARED CLASS and the compiled graph.
+# the family, the target, the missing DECLARED SPECIALIZATION and the compiled graph.
 KIND_SHAPE_GAP = "shape_gap"
 # pgw#760 (error-visibility doctrine): a fail-soft outcome that changes what
 # or how this worker SERVES — or that a hub decision depends on — must ride
@@ -163,6 +163,30 @@ KIND_APPLIED_ATTENTION = "applied_attention"
 # (`boot_adopt.REASONS`, countable hub-side); `detail` names family, function,
 # derived key and the sentence; `duration_ms` is the derivation's own wall.
 KIND_BOOT_ADOPT = "boot_adopt"
+# pgw#1441: the PER-BOOT roll-up, and it needs its own kind for exactly the
+# reason `warmup_summary` above does. `boot_adopt`'s `phase` is a PER-KEY gate
+# token (`hit`/`miss`/`no_export_declaration`, one row per graph); pgw#1371's
+# adopt outcome is a PER-BOOT verdict over all of them. Emitting both under one
+# kind gives that kind two vocabularies, and the hub keys `info.Activities` on
+# kind alone — so `count(*) where kind='boot_adopt' and phase='reused'` reads 0
+# on every pre-#1371 pod, which is indistinguishable from "nothing reused".
+# Same trap as pgw#1067's, caught before it shipped rather than after.
+#
+# `phase` is `reused` (this boot adopted everything and mints nothing) /
+# `minting` (holes remain) / `empty_lane` (nothing was marked: an eager endpoint
+# saying so) / `marks_unmatched` (pgw#1534 — a `ctx.compile`-ed module fits NO
+# record in its own lane, so the compiled path is off and NO mint can turn it
+# on) / `all_ambiguous` (pgw#1534 — every record was disarmed as a literal-twin:
+# the artifacts are present and VALID, and the dispatcher refuses to guess
+# between two graphs with one tensor structure, so it disarms both).
+# THE LAST THREE ALL CARRY `step=0, total_steps=0` and are three different facts.
+# That is exactly why they are three phases: while they all read `empty_lane`,
+# no query could find a pod whose compiled path had silently switched off, and
+# the two zeros were measured on a box with 14 valid artifacts in its store.
+# THE COUNTS ARE NUMERIC, not prose:
+# `step` = graphs adopted, `total_steps` = graphs claimed, so the reuse ratio
+# is a query rather than a regex over `detail`. `detail` keeps the sentence.
+KIND_BOOT_ADOPT_SUMMARY = "boot_adopt_summary"
 # pgw#1328: the ADOPT-ONLY role's answer where an eager-capable pod would have
 # served eager and minted (§4.28). It is the only thing that role produces on a
 # miss, so it must be readable off-pod or the role is unobservable. `phase` is
@@ -200,7 +224,7 @@ KIND_JIT_COMPILE = "jit_compile"
 # EMPTY on both stacks because no producer existed: `aot_mint` was reachable
 # only from `python -m gen_worker.aot_mint`, and no serving-pod code path
 # imported it. `phase=minted` carries the roll-up, `phase=entry:<name>` one
-# declared graph class, `phase=stage:<name>` a mint-wide span (package/seal).
+# declared graph specialization, `phase=stage:<name>` a mint-wide span (package/seal).
 KIND_AOT_MINT = "aot_mint_phases"
 # pgw#1134: a MEASURE-ONLY run (`gen_worker.measure_child`) — an operator
 # exporting and compiling a declared class set to find out what it costs, so a
@@ -238,6 +262,22 @@ KIND_PROCESS_ROLE = "process_role"
 # ActivityUpdate field holds them and the th#1839 route serves `detail`
 # verbatim, so this needs no hub change.
 KIND_SNAPSHOT_PULL = "snapshot_pull"
+# pgw#1541: the boot SNAPSHOT CENSUS — which trees this pod holds and whether
+# each is PINNED. Its own kind because it answers a question no other row can:
+# a projected tree without its manifest pin is unreadable by the streaming
+# engine (the only reader of pointer stubs), and the pod then serves the eager
+# bridge a stubbed tree and reports `header too large` about an intact
+# checkpoint. pgw#1536 added that census as LOG LINES ONLY, which made it
+# invisible to every DB-reading harness and — worse — DELETED AT TEARDOWN: a
+# rental that ends by tearing down silently loses the exact fact the census
+# exists to preserve, and its "free on any run" value held only for a runner
+# who knew to pull `cozy logs` while the pod was alive.
+#
+# One row, emitted ONLY when at least one tree is unservable, because that is
+# the incident fingerprint and it must outlive the pod. `step`/`total_steps`
+# carry unservable/total so the state is a NUMERIC query and not a string
+# search; per-tree detail stays in the logs, where volume is free.
+KIND_SNAPSHOT_CENSUS = "snapshot_census"
 # pgw#1355: the COLD BOOT's own decomposition — per-stage spans carrying
 # start/end offsets from OS process start, plus one terminal roll-up. Its own
 # KIND because it is the only row that answers "where did this pod's cold start
@@ -253,6 +293,46 @@ KIND_SNAPSHOT_PULL = "snapshot_pull"
 # needs no hub schema change. See `boot_stages.py` for why the total is a UNION
 # and never a sum.
 KIND_BOOT_STAGES = "boot_stages"
+# pgw#1421: the ENGINE-HOSTED tier's boot — an external engine binary
+# (`llama-server`, `vllm serve`) started, health-waited and stopped by the
+# worker. Its own KIND because nothing else on the pod can answer "why is this
+# endpoint not serving yet" for a tier whose work happens in another PROCESS:
+# `boot_stages` decomposes THIS process's cold start and an engine subprocess
+# is invisible to every one of its spans, exactly as it is invisible to torch's
+# allocator. The phase vocabulary is CLOSED (`serving.engine_runtime`
+# ENGINE_PHASES) so a reader can group on (kind, phase) rather than regex a
+# sentence; `duration_ms` on the `engine_healthy` row is the measured boot wall.
+# A DEGRADED rung is deliberately NOT reported here — it rides
+# KIND_SERVE_DEGRADE, which is the countable quality-confession channel
+# (th#2075's ingest), so the two questions stay two rows.
+KIND_ENGINE_BOOT = "engine_boot"
+# pgw#1455: the serving-path weight download's BYTE POSITION, in integral MiB
+# on the typed `step`/`total_steps` columns. Its own KIND because it is the only
+# fact that separates "downloading" from "downloading is PROGRESSING": rental #6
+# parked a request on `model_download_pending` for 49 minutes with 0 rows in
+# `worker_activity_events`, and the scheduler's `attempts` counter — its own 1 Hz
+# placement poll — carries no download information at all. `snapshot_pull` is a
+# terminal roll-up of a pull that ALREADY FINISHED, so it answers nothing about
+# one in flight; `warmup`'s byte counter rides whichever activity happens to be
+# open, which for a steady-state materialization is none. The hub keys
+# `info.Activities` on kind alone and reads THIS kind's `step` into the
+# `model_download_pending` decline explain (th#2191). Phases are a closed
+# vocabulary (`weight_position.PHASE_*`).
+KIND_WEIGHT_FETCH = "weight_fetch"
+# pgw#1613: the boot materialization SPAN — one open activity for the whole
+# fetch loop, from the first ref to the last byte. It is not telemetry: the
+# compute-child watchdog (`procsplit/parent.py` `_hang_verdict`) arms on a
+# silent event loop and then decides by what is OPEN, so a fill that declares
+# nothing takes the `loop_wedged_no_activity` branch and is SIGKILLed while it
+# is provably burning CPU. Measured twice on minimax-h3 (~105 GB) at two
+# different pins: killed at 356 s and 687 s, `cause=watchdog_hang`, oom_kill=0.
+# Its OWN kind, deliberately NOT `weight_fetch`: that kind's rows are the
+# closed-vocabulary BYTE POSITIONS (`weight_position._emit`, fire-and-forget
+# `emit_event` — which is exactly why nothing was ever open), and a span with
+# an empty phase mixed into them would corrupt the one signal th#2191 reads.
+# Nothing hub-side keys on this kind; like `warmup_summary` before it, a new
+# kind is stored and served generically and needs no hub change.
+KIND_BOOT_MATERIALIZE = "boot_materialize"
 # th#1322: the roll-up phase both mint routes report their TOTAL under. A
 # reader groups on (kind, phase) and must never sum a roll-up together with
 # its own children.
@@ -490,9 +570,9 @@ class Activity:
 
 #: pgw#1176 / th#1839: compiled-graph identity travels as TYPED WIRE FIELDS.
 #:
-#: ``ActivityUpdate.family`` / ``.cell_key`` / ``.graph_class`` (proto fields
+#: ``ActivityUpdate.family`` / ``.compiled_graph_key`` / ``.graph_specialization`` (proto fields
 #: 18-20) land in the hub's existing ``worker_activity_events`` columns. The
-#: prose form they replace was measured: ``detail LIKE 'ref=%#'||cell_key||'
+#: prose form they replace was measured: ``detail LIKE 'ref=%#'||compiled_graph_key||'
 #: %'`` matched one of three rows correctly, because four emitters spelled
 #: identity four ways. A fact that has to be regex-scraped out of a sentence
 #: cannot be indexed, cannot be grouped, and returns NULL the first time the
@@ -509,7 +589,8 @@ class Activity:
 
 def emit_event(
     kind: str, detail: str, phase: str = "", duration_ms: int = 0,
-    *, family: str = "", compiled_graph_key: str = "", graph_class: str = "",
+    *, family: str = "", compiled_graph_key: str = "", graph_specialization: str = "",
+    step: int = 0, total_steps: int = 0,
 ) -> None:
     """One self-contained COMPLETED ActivityUpdate — a countable typed
     EVENT (pgw#680 ``guard_miss``), not a running activity.
@@ -526,16 +607,24 @@ def emit_event(
     Deliberately bypasses :func:`begin`: begin() swaps the module-global
     ``_current``, and ending an event would strand a concurrently open
     long-running activity (background mint) without its progress beat.
+    ``step``/``total_steps`` (pgw#1441) carry a COUNT this event is about, in
+    the typed numeric columns rather than interpolated into ``detail``. An
+    event whose whole point is a ratio -- "N of M graphs adopted" -- is
+    otherwise only readable by regexing a sentence, which is how a reader ends
+    up building a metric on a column that renders 0 because nothing writes it.
+    Leave both 0 when the event is not about a count.
+
     Thread-safe; without a bound sink it lands on the logger like every
     other report."""
     _emit(pb.ActivityUpdate(
         kind=kind, phase=phase[:300], seq=_next_seq(),
+        step=max(0, int(step)), total_steps=max(0, int(total_steps)),
         state=pb.ActivityState.ACTIVITY_STATE_COMPLETED,
         detail=detail[:2000],
         family=str(family or "")[:200],
-        # proto field 19 is still spelled `cell_key` — see the note above.
-        cell_key=str(compiled_graph_key or "")[:200],
-        graph_class=str(graph_class or "")[:300],
+        # proto field 19 is still spelled `compiled_graph_key` — see the note above.
+        compiled_graph_key=str(compiled_graph_key or "")[:200],
+        graph_specialization=str(graph_specialization or "")[:300],
         duration_ms=max(0, int(duration_ms)),
         updated_at_unix_ms=int(time.time() * 1000),
     ))

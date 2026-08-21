@@ -12,6 +12,7 @@
 # Copyright 2025 Alexander Todorov <atodorov@otb.bg>                           #
 # Copyright 2025 Christoph Reiter <reiter.christoph@gmail.com>                 #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -100,7 +101,7 @@ class CheckRun(CompletableGithubObject):
         self._id: Attribute[int] = NotSet
         self._name: Attribute[str] = NotSet
         self._node_id: Attribute[str] = NotSet
-        self._output: Attribute[github.CheckRunOutput.CheckRunOutput] = NotSet
+        self._output: Attribute[CheckRunOutput] = NotSet
         self._pull_requests: Attribute[list[PullRequest]] = NotSet
         self._started_at: Attribute[datetime] = NotSet
         self._status: Attribute[str] = NotSet

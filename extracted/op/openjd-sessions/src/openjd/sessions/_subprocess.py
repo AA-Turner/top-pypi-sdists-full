@@ -19,6 +19,7 @@ from ._linux._sudo import find_sudo_child_process_group_id
 from ._logging import LoggerAdapter, LogContent, LogExtraInfo
 from ._os_checker import is_linux, is_macos, is_posix, is_windows
 from ._session_user import PosixSessionUser, WindowsSessionUser, SessionUser
+from ._system_commands import find_system_command, system_command_path
 from ._action_filter import redact_openjd_redacted_env_requests
 
 if is_windows():  # pragma: nocover
@@ -594,7 +595,7 @@ class LoggingSubprocess(object):
                             )
                             command.extend(
                                 [
-                                    "sudo",
+                                    system_command_path("sudo"),
                                     "-u",
                                     user.user,
                                     "-i",
@@ -605,7 +606,16 @@ class LoggingSubprocess(object):
                                 ]
                             )
                         else:
-                            command.extend(["sudo", "-u", user.user, "-i", "setsid", "-w"])
+                            command.extend(
+                                [
+                                    system_command_path("sudo"),
+                                    "-u",
+                                    user.user,
+                                    "-i",
+                                    system_command_path("setsid"),
+                                    "-w",
+                                ]
+                            )
                 elif is_windows():
                     user = cast(WindowsSessionUser, self._user)  # type: ignore
 
@@ -882,13 +892,15 @@ class LoggingSubprocess(object):
         else:
             raise NotImplementedError(f"Unsupported signal: {signal_name}")
 
-        kill_cmd = list[str]()
-
-        if self._user is not None:
-            user = cast(PosixSessionUser, self._user)
-            # Only sudo if the user to run as is not the same as the current user.
-            if not user.is_process_user():
-                kill_cmd = ["sudo", "-u", user.user, "-i"]
+        # Whether this signal has to go through sudo. The argv itself is not built
+        # yet: the direct os.killpg() attempt below returns on success, and on a
+        # host with CAP_KILL that is the only path taken. Resolving sudo here would
+        # make a host without sudo unable to signal *even when it never needs
+        # sudo* -- a regression this method did not have when the name was a bare
+        # string in a list.
+        needs_sudo = (
+            self._user is not None and not cast(PosixSessionUser, self._user).is_process_user()
+        )
 
         # If we were unable to detect sudo's child process PID after launching the
         # subprocess, we try again now
@@ -941,9 +953,25 @@ class LoggingSubprocess(object):
         # Uncomment to visualize process tree when debugging tests
         # self._log_process_tree()
 
+        # `kill` is resolved only for the same-user branch, where `run()` really
+        # does execvp() a bare name against this process's PATH.
+        #
+        # In the cross-user branch it must stay a bare name. `sudo -i` simulates an
+        # initial login: it starts the target user's login shell and hands it the
+        # command via -c, so `kill` is a *shell builtin* there. Nothing is looked up
+        # on PATH, and -i has already reset the environment, so a job-controlled
+        # PATH cannot reach this position. Resolving it would invent a hard dependency
+        # on kill(1) from procps, which Debian `-slim` images -- a common worker
+        # base -- do not install, and would break every cross-user SIGKILL fallback
+        # on such a host.
+        if needs_sudo:
+            user = cast(PosixSessionUser, self._user)
+            kill_cmd = [system_command_path("sudo"), "-u", user.user, "-i", "kill"]
+        else:
+            kill_cmd = [system_command_path("kill")]
+
         kill_cmd.extend(
             [
-                "kill",
                 "-s",
                 signal_name,
                 "--",
@@ -971,16 +999,22 @@ class LoggingSubprocess(object):
 
     def _log_process_tree(self) -> None:
         """A developer method to visualize the process tree including PIDs and PGIDs when debuging tests"""
-        pstree_result = run(["pstree", "-pg"], stdout=PIPE, stderr=STDOUT, stdin=DEVNULL, text=True)
-        self._logger.debug(
-            f"pstree -pg output: {pstree_result.stdout}",
-            extra=LogExtraInfo(openjd_log_content=LogContent.PROCESS_CONTROL),
-        )
-        ps_result = run(["ps", "-ejH"], stdout=PIPE, stderr=STDOUT, stdin=DEVNULL, text=True)
-        self._logger.debug(
-            f"ps -ejH output:\n{ps_result.stdout}",
-            extra=LogExtraInfo(openjd_log_content=LogContent.PROCESS_CONTROL),
-        )
+        # find_system_command rather than system_command_path: neither of these is
+        # required for correct operation, and a debug aid must not raise on a host
+        # that happens not to install pstree.
+        for name, args in (("pstree", ["-pg"]), ("ps", ["-ejH"])):
+            command = find_system_command(name)
+            if command is None:
+                self._logger.debug(
+                    f"{name} is not installed; skipping its process tree dump",
+                    extra=LogExtraInfo(openjd_log_content=LogContent.PROCESS_CONTROL),
+                )
+                continue
+            result = run([command, *args], stdout=PIPE, stderr=STDOUT, stdin=DEVNULL, text=True)
+            self._logger.debug(
+                f"{name} {' '.join(args)} output:\n{result.stdout}",
+                extra=LogExtraInfo(openjd_log_content=LogContent.PROCESS_CONTROL),
+            )
 
     def _windows_notify_subprocess(self, process: Popen) -> None:
         """Sends a CTRL_BREAK_EVENT signal to the subprocess.

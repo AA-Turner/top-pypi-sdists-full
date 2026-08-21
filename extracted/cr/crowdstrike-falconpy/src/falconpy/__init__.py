@@ -107,6 +107,9 @@ from ._ngsiem import (
 from ._helper import random_string, Indicator, Color, find_operation
 from .access_scopes import AccessScopes
 from .admission_control_policies import AdmissionControlPolicies
+from .agent_invocation import AgentInvocation
+from .agent_templates import AgentTemplates
+from .agent_versions import AgentVersions
 from .alerts import Alerts
 from .api_clients import APIClients
 from .api_integrations import APIIntegrations
@@ -189,6 +192,7 @@ from .malquery import MalQuery
 from .message_center import MessageCenter
 from .ml_exclusions import MLExclusions
 from .mobile_enrollment import MobileEnrollment
+from .models import Models
 from .mssp import FlightControl
 from .network_scan_global_configs import NetworkScanGlobalConfigs
 from .network_scan_networks import NetworkScanNetworks
@@ -215,6 +219,7 @@ from .report_executions import ReportExecutions
 from .response_policies import ResponsePolicies
 from .saas_security import SaasSecurity
 from .sample_uploads import SampleUploads
+from .scanning_orchestrator import ScanningOrchestrator
 from .scheduled_reports import ScheduledReports
 from .sensor_download import SensorDownload
 from .sensor_update_policy import SensorUpdatePolicy, SensorUpdatePolicies
@@ -222,11 +227,14 @@ from .sensor_usage import SensorUsage
 from .sensor_visibility_exclusions import SensorVisibilityExclusions
 from .serverless_exports import ServerlessExports
 from .serverless_vulnerabilities import ServerlessVulnerabilities
+from .spans import Spans
 from .spotlight_vulnerabilities import SpotlightVulnerabilities
 from .spotlight_vulnerability_metadata import SpotlightVulnerabilityMetadata
 from .spotlight_evaluation_logic import SpotlightEvaluationLogic
+from .stream import Stream
 from .tailored_intelligence import TailoredIntelligence
 from .threatgraph import ThreatGraph
+from .tools import Tools
 from .unidentified_containers import UnidentifiedContainers
 from .user_management import UserManagement
 from .workflows import Workflows
@@ -293,7 +301,11 @@ __all__ = [
     "FederatedConnections", "FoundryLookupFiles",
     "KnowledgeBaseAuditEvents", "KnowledgeBaseFiles",
     "KnowledgeBases", "ProfileGroups",
-    "FalconId"
+    "FalconId", "AgentInvocation",
+    "AgentTemplates", "AgentVersions",
+    "Models", "ScanningOrchestrator",
+    "Spans", "Stream",
+    "Tools"
     ]
 """
 This is free and unencumbered software released into the public domain.

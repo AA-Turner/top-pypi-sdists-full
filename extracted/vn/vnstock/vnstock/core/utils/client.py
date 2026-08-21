@@ -152,7 +152,7 @@ def send_request(
         ConnectionError: Nếu tất cả proxy đều thất bại hoặc request lỗi (If all proxies fail or request fails)
     """
     # --- Google Colab Restriction Check ---
-    if "vietcap.com.vn" in url:
+    if url and isinstance(url, str) and "vietcap.com.vn" in url:
         try:
             from vnstock.core.utils.env import is_colab
 
@@ -162,8 +162,8 @@ def send_request(
                     "Do đó, bạn không thể truy xuất dữ liệu từ nguồn này trên Google Colab. "
                     "Vui lòng cài đặt thư viện trên máy cục bộ (local) để tiếp tục sử dụng.\n"
                     "Environment Error: VCI data source blocks IP addresses from Google Cloud. "
-                    "Therefore, you cannot retrieve data from this source on Google Colab. "
-                    "Please install the library on your local machine to continue using it."
+                    "Therefore, you can not retrieve data from this source on Google Colab. "
+                    "Please install the package on your local machine to continue using it."
                 )
         except ImportError:
             pass

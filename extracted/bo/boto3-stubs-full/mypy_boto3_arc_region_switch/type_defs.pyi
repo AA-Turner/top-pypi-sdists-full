@@ -166,6 +166,10 @@ __all__ = (
     "RdsPromoteReadReplicaConfigurationOutputTypeDef",
     "RdsPromoteReadReplicaConfigurationTypeDef",
     "RdsPromoteReadReplicaConfigurationUnionTypeDef",
+    "RdsSwitchoverReadReplicaConfigurationOutputTypeDef",
+    "RdsSwitchoverReadReplicaConfigurationTypeDef",
+    "RdsSwitchoverReadReplicaConfigurationUnionTypeDef",
+    "RdsUngracefulTypeDef",
     "RegionSwitchPlanConfigurationTypeDef",
     "ReportConfigurationOutputTypeDef",
     "ReportConfigurationTypeDef",
@@ -501,6 +505,9 @@ class RdsPromoteReadReplicaConfigurationTypeDef(TypedDict):
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
 
+class RdsUngracefulTypeDef(TypedDict):
+    ungraceful: NotRequired[Literal["promoteReadReplica"]]
+
 class S3ReportOutputConfigurationTypeDef(TypedDict):
     bucketPath: NotRequired[str]
     bucketOwner: NotRequired[str]
@@ -807,6 +814,20 @@ RdsPromoteReadReplicaConfigurationUnionTypeDef = Union[
     RdsPromoteReadReplicaConfigurationTypeDef, RdsPromoteReadReplicaConfigurationOutputTypeDef
 ]
 
+class RdsSwitchoverReadReplicaConfigurationOutputTypeDef(TypedDict):
+    dbInstanceArnMap: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[RdsUngracefulTypeDef]
+
+class RdsSwitchoverReadReplicaConfigurationTypeDef(TypedDict):
+    dbInstanceArnMap: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[RdsUngracefulTypeDef]
+
 class ReportOutputConfigurationTypeDef(TypedDict):
     s3Configuration: NotRequired[S3ReportOutputConfigurationTypeDef]
 
@@ -882,6 +903,9 @@ class GetPlanEvaluationStatusResponseTypeDef(TypedDict):
 NeptuneGlobalDatabaseConfigurationUnionTypeDef = Union[
     NeptuneGlobalDatabaseConfigurationTypeDef, NeptuneGlobalDatabaseConfigurationOutputTypeDef
 ]
+RdsSwitchoverReadReplicaConfigurationUnionTypeDef = Union[
+    RdsSwitchoverReadReplicaConfigurationTypeDef, RdsSwitchoverReadReplicaConfigurationOutputTypeDef
+]
 
 class ReportConfigurationOutputTypeDef(TypedDict):
     reportOutput: NotRequired[list[ReportOutputConfigurationTypeDef]]
@@ -913,6 +937,7 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationOutputTypeDef]
     auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
     neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
+    rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationOutputTypeDef]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -934,6 +959,7 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationOutputTypeDef]
     auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
     neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
+    rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationOutputTypeDef]
 
 Route53HealthCheckConfigurationUnionTypeDef = Union[
     Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
@@ -975,6 +1001,7 @@ class ExecutionBlockConfigurationTypeDef(TypedDict):
     auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationUnionTypeDef]
     auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationUnionTypeDef]
     neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationUnionTypeDef]
+    rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationUnionTypeDef]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BTrees
-Version: 6.4
+Version: 6.5
 Summary: Scalable persistent object containers
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
@@ -75,6 +76,29 @@ further information.
 
 Change log
 ==========
+
+6.5 (2026-08-20)
+----------------
+
+- Add support for Python 3.15.
+
+- Remove the long deprecated ``byValue()`` method from all ``Bucket`` and
+  ``BTree`` classes except those of the ``II`` and ``LL`` families, which are
+  the modules reachable as ``BTrees.family32.II`` and ``BTrees.family64.II``.
+
+  For families with object values ``byValue()`` could crash the interpreter:
+  a value whose comparison method mutated the bucket freed the array the C
+  code was iterating over.  Removing the method resolves that, see `issue 226
+  <https://github.com/zopefoundation/BTrees/issues/226>`_.
+
+  The declaration moved from ``BTrees.Interfaces.IDictionaryIsh`` to the new
+  ``BTrees.Interfaces.IByValue``, which only the remaining implementations
+  provide.
+
+- Fix the pure-Python ``byValue()`` so it matches the C implementation: it now
+  normalizes the values by dividing them by ``min`` (when ``min`` is positive)
+  before sorting, and returns a list.
+
 
 6.4 (2026-04-29)
 ----------------

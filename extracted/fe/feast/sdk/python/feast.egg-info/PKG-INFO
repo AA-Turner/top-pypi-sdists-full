@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.65.0
+Version: 0.66.0
 Summary: Python SDK for Feast
 Author: Feast
 License-Expression: Apache-2.0
@@ -33,14 +33,14 @@ Requires-Dist: tqdm<5,>=4
 Requires-Dist: typeguard>=4.0.0
 Requires-Dist: fastapi>=0.68.0
 Requires-Dist: starlette>=1.0.1
-Requires-Dist: uvicorn[standard]<=0.34.0,>=0.30.6
+Requires-Dist: uvicorn[standard]>=0.30.6
 Requires-Dist: uvicorn-worker
 Requires-Dist: gunicorn; platform_system != "Windows"
 Requires-Dist: dask[dataframe]>=2024.2.1
 Requires-Dist: prometheus_client<0.25.0,>=0.20.0
 Requires-Dist: psutil
 Requires-Dist: bigtree>=0.19.2
-Requires-Dist: pyjwt
+Requires-Dist: pyjwt>=2.13.0
 Provides-Extra: aerospike
 Requires-Dist: aerospike<20.0.0,>=19.0.0; extra == "aerospike"
 Provides-Extra: aws
@@ -52,7 +52,7 @@ Requires-Dist: azure-storage-blob>=0.37.0; extra == "azure"
 Requires-Dist: azure-identity>=1.6.1; extra == "azure"
 Requires-Dist: SQLAlchemy>=1.4.19; extra == "azure"
 Requires-Dist: pyodbc>=4.0.30; extra == "azure"
-Requires-Dist: pymssql<2.3.3; extra == "azure"
+Requires-Dist: pymssql>=2.3.6; extra == "azure"
 Provides-Extra: cassandra
 Requires-Dist: cassandra-driver<4,>=3.26.0; extra == "cassandra"
 Provides-Extra: clickhouse
@@ -90,6 +90,8 @@ Provides-Extra: grpcio
 Requires-Dist: grpcio>=1.56.2; extra == "grpcio"
 Requires-Dist: grpcio-reflection>=1.56.2; extra == "grpcio"
 Requires-Dist: grpcio-health-checking>=1.56.2; extra == "grpcio"
+Provides-Extra: remote
+Requires-Dist: grpcio>=1.56.2; extra == "remote"
 Provides-Extra: hazelcast
 Requires-Dist: hazelcast-python-client>=5.1; extra == "hazelcast"
 Provides-Extra: hbase
@@ -159,6 +161,7 @@ Provides-Extra: sqlite-vec
 Requires-Dist: sqlite-vec==v0.1.6; extra == "sqlite-vec"
 Provides-Extra: mcp
 Requires-Dist: fastapi_mcp; extra == "mcp"
+Requires-Dist: mcp<2,>=1.0; extra == "mcp"
 Provides-Extra: mlflow
 Requires-Dist: mlflow>=2.10.0; extra == "mlflow"
 Provides-Extra: dbt
@@ -260,7 +263,7 @@ Dynamic: license-file
 
 
 ## Join us on Slack!
-👋👋👋 [Come say hi on Slack!](https://communityinviter.com/apps/feastopensource/feast-the-open-source-feature-store)
+👋👋👋 [Come say hi on Slack!](https://slack.feast.dev/)
 
 [Check out our DeepWiki!](https://deepwiki.com/feast-dev/feast)
 

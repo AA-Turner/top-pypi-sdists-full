@@ -86,7 +86,7 @@ class TaktileIdToken(BaseModel):
     def user_id(self) -> UUID4:
         return parse_obj_as(UUID4, self.sub.split(":")[-1])
 
-    _SCOPE_DIMS: t.ClassVar[t.Tuple[str, ...]] = ("org_id", "ws_id")
+    _SCOPE_DIMS: t.ClassVar[t.Tuple[str, ...]] = ("org_id", "ws_id", "flow_folder_id")
 
     @classmethod
     def _filter_one_role(
@@ -144,18 +144,24 @@ class TaktileIdToken(BaseModel):
         *,
         org_id: t.Optional[str] = None,
         ws_id: t.Optional[str] = None,
+        flow_folder_id: t.Optional[str] = None,
         role_names: t.Optional[t.Sequence[str]] = None,
     ) -> t.List[Role]:
-        """Filter token roles by org_id, ws_id and/or role names in a
-        single pass.
+        """Filter token roles by org_id, ws_id, flow_folder_id and/or
+        role names in a single pass.
 
         ``role_names`` subsets to the named roles: each token role is
         expanded down its sub-role inheritance tree until a requested
         role is found, which is then narrowed against ``org_id`` /
-        ``ws_id``. Roles whose subtree contains none of the requested
-        names are dropped (fail-closed), so this can only ever narrow
-        — never escalate — the token's authority. An empty sequence
-        matches nothing; unknown names raise ``ValueError``.
+        ``ws_id`` / ``flow_folder_id``. Roles whose subtree contains
+        none of the requested names are dropped (fail-closed), so this
+        can only ever narrow — never escalate — the token's authority.
+        An empty sequence matches nothing; unknown names raise
+        ``ValueError``.
+
+        A filter for a dimension the role does not declare is ignored,
+        so ``flow_folder_id`` narrows the flow roles and leaves every
+        other role untouched.
         """
         if role_names is not None:
             unknown = [name for name in role_names if name not in ROLES]
@@ -167,6 +173,8 @@ class TaktileIdToken(BaseModel):
             filters["org_id"] = org_id
         if ws_id is not None:
             filters["ws_id"] = ws_id
+        if flow_folder_id is not None:
+            filters["flow_folder_id"] = flow_folder_id
 
         if not filters and role_names is None:
             return self.auth_roles

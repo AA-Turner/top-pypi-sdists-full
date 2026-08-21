@@ -43,7 +43,7 @@ pub mod cli;
 
 use crate::command::Placeholder;
 use crate::config::Source;
-use crate::db::{Db, parse_table_name};
+use crate::db::Db;
 use crate::functions::ResolvedFunction;
 use crate::matcher::TableMatcher;
 use crate::persist::{
@@ -126,6 +126,27 @@ pub enum DirSqlError {
 
     #[error("table DDL could not be parsed: {0}")]
     Ddl(String),
+
+    #[error(
+        "table '{name}': its `ddl` ran but created no table called '{name}' \
+         (it created: {}). Set `name` to the table the `ddl` creates.",
+        if .created.is_empty() { "nothing".to_string() } else { .created.join(", ") }
+    )]
+    TableNotCreated { name: String, created: Vec<String> },
+
+    #[error(
+        "table '{name}': its `ddl` created a virtual table called '{name}'. \
+         The declared table holds the file rows, so it must be a real row \
+         table; create the virtual table alongside it, under its own name."
+    )]
+    TableIsVirtual { name: String },
+
+    #[error("table '{name}': {source}")]
+    TableDdl {
+        name: String,
+        #[source]
+        source: DbError,
+    },
 
     #[error("failed to load extension '{}': {source}", .path.display())]
     Extension {
@@ -211,8 +232,13 @@ pub type Result<T> = std::result::Result<T, DirSqlError>;
 /// callback can itself fail (bad file content, IO errors inside the callback,
 /// etc.). [`Table::strict`] rejects rows that don't match the DDL columns
 /// exactly.
+///
+/// `name` is the table's SQL name, declared rather than derived from `ddl`.
+/// The `ddl` must create a table by that name; the mismatch is caught against
+/// SQLite's catalog at load time.
 #[derive(Clone)]
 pub struct Table {
+    pub name: String,
     pub ddl: String,
     pub glob: String,
     pub strict: bool,
@@ -220,29 +246,45 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn new<F>(ddl: impl Into<String>, glob: impl Into<String>, on_file: F) -> Self
+    pub fn new<F>(
+        name: impl Into<String>,
+        ddl: impl Into<String>,
+        glob: impl Into<String>,
+        on_file: F,
+    ) -> Self
     where
         F: Fn(&str) -> Vec<Row> + Send + Sync + 'static,
     {
-        Self::try_new(ddl, glob, move |path| {
+        Self::try_new(name, ddl, glob, move |path| {
             Ok::<Vec<Row>, BoxError>(on_file(path))
         })
     }
 
-    pub fn strict<F>(ddl: impl Into<String>, glob: impl Into<String>, on_file: F) -> Self
+    pub fn strict<F>(
+        name: impl Into<String>,
+        ddl: impl Into<String>,
+        glob: impl Into<String>,
+        on_file: F,
+    ) -> Self
     where
         F: Fn(&str) -> Vec<Row> + Send + Sync + 'static,
     {
-        let mut table = Self::new(ddl, glob, on_file);
+        let mut table = Self::new(name, ddl, glob, on_file);
         table.strict = true;
         table
     }
 
-    pub fn try_new<F>(ddl: impl Into<String>, glob: impl Into<String>, on_file: F) -> Self
+    pub fn try_new<F>(
+        name: impl Into<String>,
+        ddl: impl Into<String>,
+        glob: impl Into<String>,
+        on_file: F,
+    ) -> Self
     where
         F: Fn(&str) -> std::result::Result<Vec<Row>, BoxError> + Send + Sync + 'static,
     {
         Self {
+            name: name.into(),
             ddl: ddl.into(),
             glob: glob.into(),
             on_file: Arc::new(on_file),
@@ -282,6 +324,12 @@ struct DirSqlInner {
 pub struct DirSQL {
     inner: Arc<DirSqlInner>,
 }
+
+/// Internal scan seam: the startup directory walk, injectable so unit tests
+/// can observe whether it ran. The walk has no result a caller can tell apart
+/// from not walking, so *whether* it ran takes a seam. Production always
+/// passes [`scan_directory`].
+type ScanFn<'a> = &'a dyn Fn(&Path, &TableMatcher) -> Vec<(PathBuf, String)>;
 
 impl DirSQL {
     /// Start building a `DirSQL`. See [`DirSQLBuilder`] for the available
@@ -663,6 +711,10 @@ impl DirSQL {
     /// JS main thread for the napi-rs TypeScript binding).
     #[doc(hidden)]
     pub fn prepare_resolved(resolved: ResolvedBuild) -> Result<PreparedBuild> {
+        Self::prepare_resolved_with(resolved, &scan_directory)
+    }
+
+    fn prepare_resolved_with(resolved: ResolvedBuild, scan: ScanFn<'_>) -> Result<PreparedBuild> {
         let ResolvedBuild {
             root,
             tables,
@@ -692,7 +744,15 @@ impl DirSQL {
             None
         };
 
-        let scanned = scan_directory(&root, &matcher);
+        // Zero tables means an empty `TableMatcher`, and `match_all` filters
+        // its entries -- so the walk is guaranteed to return nothing. That is
+        // the configless case (path-tables run their own per-statement scan),
+        // where the walk was the bulk of startup.
+        let scanned = if table_names.is_empty() {
+            Vec::new()
+        } else {
+            scan(&root, &matcher)
+        };
 
         // When persist is enabled, files whose stat tuple matches the cache
         // (and that pass the racy-window check) are trusted instead of
@@ -711,8 +771,6 @@ impl DirSQL {
             }
             Some(ctx) => reconcile_scan(&root, scanned, ctx, &RealFs)?,
         };
-
-        let _ = table_names;
 
         Ok(PreparedBuild {
             root,
@@ -820,13 +878,30 @@ impl DirSQL {
         let mut ddl_map: HashMap<String, String> = HashMap::new();
 
         for table in tables {
-            let table_name =
-                parse_table_name(&table.ddl).ok_or_else(|| DirSqlError::Ddl(table.ddl.clone()))?;
-            // When the cache already holds this table from a prior run,
-            // skip CREATE TABLE: the schema is preserved verbatim across
-            // runs (the glob_config_hash captures the DDL).
-            if !table_exists(&db, &table_name)? {
-                db.create_table(&table.ddl)?;
+            let table_name = table.name.clone();
+            // A real table under this name is the cache already holding it
+            // from a prior run: skip the batch, since the schema is preserved
+            // verbatim across runs (the glob_config_hash captures the whole
+            // `ddl`). Anything else under the name is not a warm cache — run
+            // the batch and let SQLite object to the collision itself.
+            let warm = catalog_entry(&db, &table_name)?.is_some_and(|entry| entry.kind == "table");
+            if !warm {
+                let before = db::user_table_names(db.conn()).map_err(DirSqlError::sqlite)?;
+                db.create_table(&table_name, &table.ddl).map_err(|source| {
+                    DirSqlError::TableDdl {
+                        name: table_name.clone(),
+                        source,
+                    }
+                })?;
+                let created = db::user_table_names(db.conn())
+                    .map_err(DirSqlError::sqlite)?
+                    .into_iter()
+                    .filter(|name| !before.contains(name))
+                    .collect();
+                let entry = catalog_entry(&db, &table_name)?;
+                if let Some(warning) = classify_declared_table(&table_name, entry, created)? {
+                    eprintln!("{warning}");
+                }
             }
             // Reject a `{name}` glob placeholder whose name is also a declared
             // column: captures no longer populate columns, so it would read
@@ -996,7 +1071,7 @@ impl DirSQL {
 /// use dirsql::{DirSQL, Table};
 /// let db = DirSQL::builder()
 ///     .root("./data")
-///     .table(Table::new("CREATE TABLE t (x TEXT)", "*.json", |_, _| vec![]))
+///     .table(Table::new("t", "CREATE TABLE t (x TEXT)", "*.json", |_, _| vec![]))
 ///     .ignore(["target/**"])
 ///     .build()?;
 /// ```
@@ -1379,10 +1454,9 @@ fn compile_matcher(
     let mut mappings: Vec<(String, String)> = Vec::with_capacity(tables.len());
     let mut names = Vec::with_capacity(tables.len());
     for table in tables {
-        let table_name =
-            parse_table_name(&table.ddl).ok_or_else(|| DirSqlError::Ddl(table.ddl.clone()))?;
+        let table_name = table.name.clone();
         // Validate up front so a poisoned name from a stored cache or a
-        // would-be-injection DDL can't propagate into `on_file_map`,
+        // declared `name` carrying SQL can't propagate into `on_file_map`,
         // `strict_map`, or any format!()-built SQL down the line.
         crate::db::validate_identifier(&table_name).map_err(map_db_error)?;
         if seen.insert(table_name.clone(), ()).is_some() {
@@ -1532,16 +1606,52 @@ fn reconcile_scan(
     Ok((to_parse, trusted, deleted))
 }
 
-fn table_exists(db: &Db, name: &str) -> Result<bool> {
-    let count: i64 = db
-        .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
-            rusqlite::params![name],
-            |row| row.get(0),
-        )
-        .map_err(DirSqlError::sqlite)?;
-    Ok(count > 0)
+/// What SQLite's catalog holds under `name`, if anything.
+fn catalog_entry(db: &Db, name: &str) -> Result<Option<db::CatalogEntry>> {
+    db::table_catalog_entry(db.conn(), name).map_err(DirSqlError::sqlite)
+}
+
+/// Settle what a table's `ddl` batch produced for its declared `name`, given
+/// SQLite's catalog and the tables the batch added. `created` is a before/after
+/// catalog diff, so a `name` that never appeared can say what did.
+///
+/// `Ok(None)` accepts the table, `Ok(Some(warning))` accepts it with a line for
+/// stderr, and `Err` fails the load before any file is ingested. Pure: the
+/// caller reads the catalog and prints the warning.
+fn classify_declared_table(
+    name: &str,
+    entry: Option<db::CatalogEntry>,
+    mut created: Vec<String>,
+) -> Result<Option<String>> {
+    let Some(entry) = entry else {
+        // The catalog hands these back in drop-safe order (virtuals first);
+        // sort so the message reads as a list rather than as an artifact of
+        // how the sweep needs them.
+        created.sort();
+        return Err(DirSqlError::TableNotCreated {
+            name: name.to_string(),
+            created,
+        });
+    };
+    // A dirsql table is the per-file row table rows are inserted into; an
+    // extension-backed virtual table is not one. The batch may still create as
+    // many as it likes alongside it.
+    if entry.kind == "virtual" {
+        return Err(DirSqlError::TableIsVirtual {
+            name: name.to_string(),
+        });
+    }
+    // A `WITHOUT ROWID` table has no rowid, so `last_insert_rowid()` cannot
+    // identify the inserted row and the `_dirsql_internal_rows.rowid_ref`
+    // mapping would be meaningless. Warn; the table is still usable.
+    if entry.without_rowid {
+        return Ok(Some(format!(
+            "dirsql: table `{name}` is declared WITHOUT ROWID; internal row \
+             bookkeeping relies on rowid and WITHOUT ROWID tables will be \
+             rejected in a future release"
+        )));
+    }
+    Ok(None)
 }
 
 fn map_db_error(e: DbError) -> DirSqlError {
@@ -1656,6 +1766,7 @@ fn build_tables_from_config(
         // `Table::try_new`: a hook failure is the scan's to record, not this
         // closure's to hide. The scan skips the file and reports it.
         let mut table = Table::try_new(
+            table_cfg.name.clone(),
             table_cfg.ddl.clone(),
             table_cfg.glob.clone(),
             move |abs_path: &str| run_on_file(&command, abs_path, &config_dir, &root),
@@ -2039,6 +2150,7 @@ mod readonly_tests {
 #[cfg(test)]
 mod internal_tests {
     use super::*;
+    use std::cell::Cell;
     use std::collections::HashMap as StdHashMap;
     use std::collections::HashSet as StdHashSet;
     use tempfile::TempDir;
@@ -2115,6 +2227,114 @@ mod internal_tests {
                 .cloned()
                 .unwrap_or_else(|| root.to_string_lossy().into_owned())
         }
+    }
+
+    /// Records how many times the startup walk ran and hands back a canned
+    /// result, so the assertion is about the walk happening, not about any
+    /// tree on disk.
+    struct RecordingScan {
+        calls: Cell<usize>,
+        found: Vec<(PathBuf, String)>,
+    }
+
+    impl RecordingScan {
+        fn new(found: Vec<(PathBuf, String)>) -> Self {
+            Self {
+                calls: Cell::new(0),
+                found,
+            }
+        }
+
+        fn scan(&self, _root: &Path, _matcher: &TableMatcher) -> Vec<(PathBuf, String)> {
+            self.calls.set(self.calls.get() + 1);
+            self.found.clone()
+        }
+    }
+
+    fn resolved_over(root: &Path, tables: Vec<Table>, persist: bool) -> ResolvedBuild {
+        ResolvedBuild {
+            root: root.to_path_buf(),
+            tables,
+            ignore: Vec::new(),
+            extensions: Vec::new(),
+            functions: Vec::new(),
+            persist,
+            persist_path: None,
+            poll_interval: DEFAULT_POLL_INTERVAL,
+            hint_legacy_files_table: false,
+            path_table_parser: None,
+            no_ignore: false,
+        }
+    }
+
+    fn txt_table() -> Table {
+        Table::new(
+            "items",
+            "CREATE TABLE items (name TEXT)",
+            "**/*.txt",
+            |_| Vec::new(),
+        )
+    }
+
+    /// Configless startup declares zero tables, so nothing the walk could
+    /// visit can match: the walk must not run at all.
+    #[test]
+    fn prepare_does_not_walk_the_tree_when_no_tables_are_declared() {
+        let dir = TempDir::new().unwrap();
+        let scan = RecordingScan::new(vec![(dir.path().join("a.txt"), "items".into())]);
+
+        let prepared = DirSQL::prepare_resolved_with(
+            resolved_over(dir.path(), Vec::new(), false),
+            &|root, matcher| scan.scan(root, matcher),
+        )
+        .unwrap();
+
+        assert_eq!(
+            scan.calls.get(),
+            0,
+            "zero tables can match nothing, so the startup walk is pure waste"
+        );
+        assert!(prepared.scanned_files.is_empty());
+    }
+
+    /// The skip is narrow: one declared table still walks, and prepare still
+    /// carries what the walk found.
+    #[test]
+    fn prepare_walks_the_tree_when_a_table_is_declared() {
+        let dir = TempDir::new().unwrap();
+        let scan = RecordingScan::new(vec![(dir.path().join("a.txt"), "items".into())]);
+
+        let prepared = DirSQL::prepare_resolved_with(
+            resolved_over(dir.path(), vec![txt_table()], false),
+            &|root, matcher| scan.scan(root, matcher),
+        )
+        .unwrap();
+
+        assert_eq!(scan.calls.get(), 1);
+        let found: Vec<&str> = prepared
+            .scanned_files
+            .iter()
+            .map(|f| f.rel_path.as_str())
+            .collect();
+        assert_eq!(found, vec!["a.txt"]);
+    }
+
+    /// Skipping the walk skips only the walk: with persist on, the cache is
+    /// still opened and reconciled against the (empty) scan.
+    #[test]
+    fn prepare_still_opens_the_persist_cache_when_no_tables_are_declared() {
+        let dir = TempDir::new().unwrap();
+        let scan = RecordingScan::new(Vec::new());
+
+        let prepared = DirSQL::prepare_resolved_with(
+            resolved_over(dir.path(), Vec::new(), true),
+            &|root, matcher| scan.scan(root, matcher),
+        )
+        .unwrap();
+
+        assert_eq!(scan.calls.get(), 0);
+        let persist = prepared.persist.expect("persist context");
+        assert!(persist.deleted.is_empty());
     }
 
     /// A canned [`FileStat`] for tests that only need a stat to succeed.
@@ -2216,6 +2436,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             dir.path(),
             vec![Table::new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| {
@@ -2246,7 +2467,12 @@ mod internal_tests {
         let fake = FakeFs::default().with_canonical_root(".", "/ws/canonical");
         let db = DirSQL::with_ignore_and_fs(
             ".",
-            vec![Table::new("CREATE TABLE t (x TEXT)", "*.txt", |_| vec![])],
+            vec![Table::new(
+                "t",
+                "CREATE TABLE t (x TEXT)",
+                "*.txt",
+                |_| vec![],
+            )],
             Vec::<String>::new(),
             Arc::new(fake),
         )
@@ -2271,6 +2497,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             &root,
             vec![Table::new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| {
@@ -2308,6 +2535,7 @@ mod internal_tests {
         let mut db = DirSQL::with_ignore_and_fs(
             &root,
             vec![Table::new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| {
@@ -2347,6 +2575,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             &root,
             vec![Table::new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "*.txt",
                 |_| {
@@ -2521,6 +2750,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             dir.path(),
             vec![Table::new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| {
@@ -2657,12 +2887,17 @@ mod internal_tests {
         let fake = FakeFs::default().with_dir(subdir.clone());
         let db = DirSQL::with_ignore_and_fs(
             dir.path(),
-            vec![Table::new("CREATE TABLE files (name TEXT)", "**/*", |_| {
-                vec![Row::from_iter([(
-                    "name".to_string(),
-                    Value::Text("x".into()),
-                )])]
-            })],
+            vec![Table::new(
+                "files",
+                "CREATE TABLE files (name TEXT)",
+                "**/*",
+                |_| {
+                    vec![Row::from_iter([(
+                        "name".to_string(),
+                        Value::Text("x".into()),
+                    )])]
+                },
+            )],
             Vec::<String>::new(),
             Arc::new(fake),
         )
@@ -2701,6 +2936,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             dir.path(),
             vec![Table::strict(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| {
@@ -2746,7 +2982,7 @@ mod internal_tests {
     fn is_configless_only_when_config_and_tables_are_both_empty() {
         // Pure truth table (no I/O): the missing-`files` hint is armed only
         // when neither a config path nor a programmatic table was supplied.
-        let table = Table::new("CREATE TABLE x (a TEXT)", "*", |_| vec![Row::new()]);
+        let table = Table::new("x", "CREATE TABLE x (a TEXT)", "*", |_| vec![Row::new()]);
         assert!(is_configless(&[], &[]));
         assert!(!is_configless(&[PathBuf::from("c.toml")], &[]));
         assert!(!is_configless(&[], std::slice::from_ref(&table)));
@@ -2793,7 +3029,7 @@ mod internal_tests {
     fn resolve_with_a_programmatic_table_disarms_the_hint() {
         let with_table = DirSQL::builder()
             .root("/tmp/x")
-            .table(Table::new("CREATE TABLE t (a TEXT)", "*.t", |_| {
+            .table(Table::new("t", "CREATE TABLE t (a TEXT)", "*.t", |_| {
                 vec![Row::new()]
             }))
             .resolve()
@@ -2840,8 +3076,8 @@ mod internal_tests {
         let err = match DirSQL::new(
             dir.path(),
             vec![
-                Table::new("CREATE TABLE t (a TEXT)", "*.a", |_| vec![]),
-                Table::new("CREATE TABLE t (b TEXT)", "*.b", |_| vec![]),
+                Table::new("t", "CREATE TABLE t (a TEXT)", "*.a", |_| vec![]),
+                Table::new("t", "CREATE TABLE t (b TEXT)", "*.b", |_| vec![]),
             ],
         ) {
             Ok(_) => panic!("expected a duplicate-table error"),
@@ -2940,6 +3176,7 @@ mod internal_tests {
         let db = DirSQL::with_ignore_and_fs(
             dir.path(),
             vec![Table::try_new(
+                "items",
                 "CREATE TABLE items (name TEXT)",
                 "**/*.txt",
                 |_| Err("boom".into()),
@@ -2962,11 +3199,17 @@ mod internal_tests {
         let db = DirSQL::builder()
             .root(dir.path())
             .tables(vec![Table::new(
+                "b",
                 "CREATE TABLE b (y TEXT)",
                 "*.b",
                 |_| vec![],
             )])
-            .table(Table::new("CREATE TABLE a (x TEXT)", "*.a", |_| vec![]))
+            .table(Table::new(
+                "a",
+                "CREATE TABLE a (x TEXT)",
+                "*.a",
+                |_| vec![],
+            ))
             .ignore(["skip/**"])
             .extensions(Vec::<Extension>::new())
             .suppress_config_extensions(true)
@@ -3072,6 +3315,7 @@ mod internal_tests {
         let first = DirSQL::builder()
             .root(dir.path())
             .tables(vec![Table::new(
+                "t",
                 "CREATE TABLE t (x TEXT)",
                 "*.txt",
                 |_| vec![],
@@ -3083,6 +3327,7 @@ mod internal_tests {
         let second = DirSQL::builder()
             .root(dir.path())
             .tables(vec![Table::new(
+                "t",
                 "CREATE TABLE t (x TEXT)",
                 "*.txt",
                 |_| vec![],
@@ -3096,7 +3341,12 @@ mod internal_tests {
     #[test]
     fn prepare_persist_cold_start_reports_rebuild() {
         let dir = TempDir::new().unwrap();
-        let tables = vec![Table::new("CREATE TABLE t (x TEXT)", "*.txt", |_| vec![])];
+        let tables = vec![Table::new(
+            "t",
+            "CREATE TABLE t (x TEXT)",
+            "*.txt",
+            |_| vec![],
+        )];
         let ctx = prepare_persist(dir.path(), &tables, &[], None).unwrap();
         assert!(ctx.cached.is_empty());
         assert!(!ctx.expected_meta.is_empty());
@@ -3261,14 +3511,108 @@ mod internal_tests {
         assert!(msg.contains("on-file"));
     }
 
+    /// A `name` the batch never created: the error has to say what it *did*
+    /// create, or a typo gives the reader nothing to compare against.
+    #[test]
+    fn classify_declared_table_rejects_a_name_the_batch_never_created() {
+        let err = classify_declared_table(
+            "messages",
+            None,
+            vec!["mesages_fts".to_string(), "mesages".to_string()],
+        )
+        .expect_err("a missing catalog entry must fail the load");
+
+        let msg = err.to_string();
+        assert!(
+            matches!(err, DirSqlError::TableNotCreated { .. }),
+            "got: {msg}"
+        );
+        assert!(msg.contains("table 'messages'"), "got: {msg}");
+        assert!(
+            msg.contains("it created: mesages, mesages_fts"),
+            "the list must read sorted, not in the catalog's drop order, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn table_not_created_says_nothing_when_the_batch_created_nothing() {
+        let err = DirSqlError::TableNotCreated {
+            name: "messages".to_string(),
+            created: Vec::new(),
+        };
+        assert!(
+            err.to_string().contains("it created: nothing"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn classify_declared_table_rejects_a_virtual_declared_table() {
+        let entry = db::CatalogEntry {
+            kind: "virtual".to_string(),
+            without_rowid: false,
+        };
+        let err = classify_declared_table("messages", Some(entry), Vec::new())
+            .expect_err("a virtual declared table must fail the load");
+
+        let msg = err.to_string();
+        assert!(
+            matches!(err, DirSqlError::TableIsVirtual { .. }),
+            "got: {msg}"
+        );
+        assert!(
+            msg.contains("table 'messages'") && msg.contains("virtual"),
+            "got: {msg}"
+        );
+    }
+
+    #[test]
+    fn classify_declared_table_warns_about_without_rowid() {
+        let entry = db::CatalogEntry {
+            kind: "table".to_string(),
+            without_rowid: true,
+        };
+        let warning = classify_declared_table("messages", Some(entry), Vec::new())
+            .expect("a WITHOUT ROWID table is a warning, not a failure")
+            .expect("it must produce a warning");
+
+        assert!(warning.contains("messages"), "got: {warning}");
+        assert!(warning.contains("WITHOUT ROWID"), "got: {warning}");
+    }
+
+    #[test]
+    fn classify_declared_table_accepts_a_plain_row_table() {
+        let entry = db::CatalogEntry {
+            kind: "table".to_string(),
+            without_rowid: false,
+        };
+        assert_eq!(
+            classify_declared_table("messages", Some(entry), Vec::new()).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn table_ddl_error_prefixes_sqlites_own_message_with_the_entry() {
+        let err = DirSqlError::TableDdl {
+            name: "messages".to_string(),
+            source: DbError::SchemaMismatch("near \"(\": syntax error".to_string()),
+        };
+        let msg = err.to_string();
+        assert!(msg.starts_with("table 'messages': "), "got: {msg}");
+        assert!(msg.contains("near \"(\": syntax error"), "got: {msg}");
+    }
+
     #[test]
     fn build_tables_from_config_creates_on_file_tables() {
         let cfg = config::load_config_str(concat!(
             "[[table]]\n",
+            "name = \"a\"\n",
             "ddl = \"CREATE TABLE a (x TEXT)\"\n",
             "glob = \"*.a\"\n",
             "on-file = \"printf '[{\\\"x\\\":1}]'\"\n\n",
             "[[table]]\n",
+            "name = \"b\"\n",
             "ddl = \"CREATE TABLE b (y TEXT)\"\n",
             "glob = \"*.b\"\n",
             "on-file = \"echo hi\"\n",

@@ -24,6 +24,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -62,8 +63,10 @@ from github.PaginatedList import PaginatedList
 
 if TYPE_CHECKING:
     from github.GistComment import GistComment
+    from github.GistFile import GistFile
     from github.GistHistoryState import GistHistoryState
     from github.InputFileContent import InputFileContent
+    from github.NamedUser import NamedUser
 
 
 class Gist(CompletableGithubObject):
@@ -89,7 +92,7 @@ class Gist(CompletableGithubObject):
         self._commits_url: Attribute[str] = NotSet
         self._created_at: Attribute[datetime] = NotSet
         self._description: Attribute[str] = NotSet
-        self._files: Attribute[dict[str, github.GistFile.GistFile]] = NotSet
+        self._files: Attribute[dict[str, GistFile]] = NotSet
         self._fork_of: Attribute[Gist] = NotSet
         self._forks: Attribute[list[Gist]] = NotSet
         self._forks_url: Attribute[str] = NotSet
@@ -99,12 +102,12 @@ class Gist(CompletableGithubObject):
         self._html_url: Attribute[str] = NotSet
         self._id: Attribute[str] = NotSet
         self._node_id: Attribute[str] = NotSet
-        self._owner: Attribute[github.NamedUser.NamedUser] = NotSet
+        self._owner: Attribute[NamedUser] = NotSet
         self._public: Attribute[bool] = NotSet
         self._truncated: Attribute[bool] = NotSet
         self._updated_at: Attribute[datetime] = NotSet
         self._url: Attribute[str] = NotSet
-        self._user: Attribute[github.NamedUser.NamedUser] = NotSet
+        self._user: Attribute[NamedUser] = NotSet
 
     def __repr__(self) -> str:
         return self.get__repr__({"id": self._id.value})
@@ -140,12 +143,12 @@ class Gist(CompletableGithubObject):
         return self._description.value
 
     @property
-    def files(self) -> dict[str, github.GistFile.GistFile]:
+    def files(self) -> dict[str, GistFile]:
         self._completeIfNeeded()
         return self._files.value
 
     @property
-    def fork_of(self) -> github.Gist.Gist:
+    def fork_of(self) -> Gist:
         self._completeIfNotSet(self._fork_of)
         return self._fork_of.value
 
@@ -190,7 +193,7 @@ class Gist(CompletableGithubObject):
         return self._node_id.value
 
     @property
-    def owner(self) -> github.NamedUser.NamedUser:
+    def owner(self) -> NamedUser:
         self._completeIfNotSet(self._owner)
         return self._owner.value
 
@@ -215,7 +218,7 @@ class Gist(CompletableGithubObject):
         return self._url.value
 
     @property
-    def user(self) -> github.NamedUser.NamedUser:
+    def user(self) -> NamedUser:
         self._completeIfNotSet(self._user)
         return self._user.value
 

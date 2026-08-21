@@ -30,8 +30,6 @@ to trigger needed events.
 
 from __future__ import annotations
 
-from typing import List
-
 import zmq as _zmq
 from zmq import *
 from zmq.green.core import _Context, _Socket
@@ -41,8 +39,7 @@ Context = _Context  # type: ignore
 Socket = _Socket  # type: ignore
 Poller = _Poller  # type: ignore
 
-from zmq.green.device import device  # type: ignore
+from zmq.green.device import device
 
 __all__: list[str] = []
-# adding `__all__` to __init__.pyi gets mypy all confused
-__all__.extend(_zmq.__all__)  # type: ignore
+__all__.extend(_zmq.__all__)

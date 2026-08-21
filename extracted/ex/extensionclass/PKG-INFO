@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ExtensionClass
-Version: 6.3
+Version: 6.4
 Summary: Metaclass for subclassable extension types
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
@@ -64,6 +65,16 @@ parameter (after ``self``).
 
 Change log
 ==========
+
+6.4 (2026-08-20)
+----------------
+
+- Add support for Python 3.15.
+
+- Build and upload free-threaded (``cp314t``, ``cp315t``) wheels for all
+  platforms. Expand CI testing for free-threaded Python 3.14t from Linux-only
+  to all platforms (macOS, Windows), and add 3.15t CI.
+
 
 6.3 (2026-04-30)
 ----------------

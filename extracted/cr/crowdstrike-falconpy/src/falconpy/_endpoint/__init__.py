@@ -69,9 +69,15 @@ from .deprecated import _zero_trust_assessment_deprecated
 from .deprecated import _falcon_complete_dashboard_deprecated
 from .deprecated import _foundry_logscale_deprecated
 from .deprecated import _spotlight_vulnerabilities_deprecated
+from .deprecated import _incidents_deprecated
+from .deprecated import _knowledge_base_audit_events_deprecated
+from .deprecated import _knowledge_bases_deprecated
 
 from ._access_scopes import _access_scopes_endpoints
 from ._admission_control_policies import _admission_control_policies_endpoints
+from ._agent_invocation import _agent_invocation_endpoints
+from ._agent_templates import _agent_templates_endpoints
+from ._agent_versions import _agent_versions_endpoints
 from ._alerts import _alerts_endpoints
 from ._api_clients import _api_clients_endpoints
 from ._api_integrations import _api_integrations_endpoints
@@ -153,6 +159,7 @@ from ._malquery import _malquery_endpoints
 from ._message_center import _message_center_endpoints
 from ._ml_exclusions import _ml_exclusions_endpoints
 from ._mobile_enrollment import _mobile_enrollment_endpoints
+from ._models import _models_endpoints
 from ._mssp import _mssp_endpoints
 from ._network_scan_global_configs import _network_scan_global_configs_endpoints
 from ._network_scan_networks import _network_scan_networks_endpoints
@@ -178,6 +185,7 @@ from ._report_executions import _report_executions_endpoints
 from ._response_policies import _response_policies_endpoints
 from ._saas_security import _saas_security_endpoints
 from ._sample_uploads import _sample_uploads_endpoints
+from ._scanning_orchestrator import _scanning_orchestrator_endpoints
 from ._scheduled_reports import _scheduled_reports_endpoints
 from ._sensor_download import _sensor_download_endpoints
 from ._sensor_update_policies import _sensor_update_policies_endpoints
@@ -185,11 +193,14 @@ from ._sensor_usage import _sensor_usage_endpoints
 from ._sensor_visibility_exclusions import _sensor_visibility_exclusions_endpoints
 from ._serverless_exports import _serverless_exports_endpoints
 from ._serverless_vulnerabilities import _serverless_vulnerabilities_endpoints
+from ._spans import _spans_endpoints
 from ._spotlight_evaluation_logic import _spotlight_evaluation_logic_endpoints
 from ._spotlight_vulnerability_metadata import _spotlight_vulnerability_metadata_endpoints
 from ._spotlight_vulnerabilities import _spotlight_vulnerabilities_endpoints
+from ._stream import _stream_endpoints
 from ._threatgraph import _threatgraph_endpoints
 from ._tailored_intelligence import _tailored_intelligence_endpoints
+from ._tools import _tools_endpoints
 from ._unidentified_containers import _unidentified_containers_endpoints
 from ._user_management import _user_management_endpoints
 from ._workflows import _workflows_endpoints
@@ -198,6 +209,9 @@ from ._zero_trust_assessment import _zero_trust_assessment_endpoints
 api_endpoints: List[Any] = []
 api_endpoints.extend(_access_scopes_endpoints)
 api_endpoints.extend(_admission_control_policies_endpoints)
+api_endpoints.extend(_agent_invocation_endpoints)
+api_endpoints.extend(_agent_templates_endpoints)
+api_endpoints.extend(_agent_versions_endpoints)
 api_endpoints.extend(_alerts_endpoints)
 api_endpoints.extend(_api_clients_endpoints)
 api_endpoints.extend(_api_integrations_endpoints)
@@ -279,6 +293,7 @@ api_endpoints.extend(_malquery_endpoints)
 api_endpoints.extend(_message_center_endpoints)
 api_endpoints.extend(_ml_exclusions_endpoints)
 api_endpoints.extend(_mobile_enrollment_endpoints)
+api_endpoints.extend(_models_endpoints)
 api_endpoints.extend(_mssp_endpoints)
 api_endpoints.extend(_network_scan_global_configs_endpoints)
 api_endpoints.extend(_network_scan_networks_endpoints)
@@ -304,6 +319,7 @@ api_endpoints.extend(_report_executions_endpoints)
 api_endpoints.extend(_response_policies_endpoints)
 api_endpoints.extend(_saas_security_endpoints)
 api_endpoints.extend(_sample_uploads_endpoints)
+api_endpoints.extend(_scanning_orchestrator_endpoints)
 api_endpoints.extend(_scheduled_reports_endpoints)
 api_endpoints.extend(_sensor_download_endpoints)
 api_endpoints.extend(_sensor_update_policies_endpoints)
@@ -311,11 +327,14 @@ api_endpoints.extend(_sensor_usage_endpoints)
 api_endpoints.extend(_sensor_visibility_exclusions_endpoints)
 api_endpoints.extend(_serverless_exports_endpoints)
 api_endpoints.extend(_serverless_vulnerabilities_endpoints)
+api_endpoints.extend(_spans_endpoints)
 api_endpoints.extend(_spotlight_evaluation_logic_endpoints)
 api_endpoints.extend(_spotlight_vulnerability_metadata_endpoints)
 api_endpoints.extend(_spotlight_vulnerabilities_endpoints)
+api_endpoints.extend(_stream_endpoints)
 api_endpoints.extend(_threatgraph_endpoints)
 api_endpoints.extend(_tailored_intelligence_endpoints)
+api_endpoints.extend(_tools_endpoints)
 api_endpoints.extend(_unidentified_containers_endpoints)
 api_endpoints.extend(_user_management_endpoints)
 api_endpoints.extend(_workflows_endpoints)
@@ -370,6 +389,9 @@ deprecated_endpoints.extend(_zero_trust_assessment_deprecated)
 deprecated_endpoints.extend(_falcon_complete_dashboard_deprecated)
 deprecated_endpoints.extend(_foundry_logscale_deprecated)
 deprecated_endpoints.extend(_spotlight_vulnerabilities_deprecated)
+deprecated_endpoints.extend(_incidents_deprecated)
+deprecated_endpoints.extend(_knowledge_base_audit_events_deprecated)
+deprecated_endpoints.extend(_knowledge_bases_deprecated)
 
 # Mapping of manually deprecated endpoints
 operation_deprecation_mapping = _deprecated_operation_mapping

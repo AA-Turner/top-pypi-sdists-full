@@ -36,6 +36,9 @@ SUPPORTED_GLUE_CONNECTION_TYPES = [
 
 SUPPORTED_IRC_GLUE_CONNECTION_TYPES = [
     "WORKDAYICEBERGRESTCATALOG",
+    "DATABRICKSICEBERGRESTCATALOG",
+    "SNOWFLAKEICEBERGRESTCATALOG",
+    "ICEBERGRESTCATALOG",
 ]
 
 
@@ -362,10 +365,21 @@ class Connection:
             Dict[str, Any] | str: The secret associated with the connection.
 
         Raises:
-            RuntimeError: If there's an error retrieving the secret.
+            RuntimeError: If the connection is a DocumentDB connection using IAM
+                authentication (which has no secret), or if there's an error
+                retrieving the secret.
         """
         if len(self.physical_endpoints) >= 1 and not self.physical_endpoints[0].glue_connection:  # type: ignore
             self._invoke_get_connection_and_populate_fields()
+
+        # Check if this is a DocumentDB IAM-authenticated connection (no secret expected)
+        if self.type == "DOCUMENTDB" and self._is_iam_authenticated():
+            raise RuntimeError(
+                f"Connection '{self.name}' uses IAM authentication and does not have an "
+                f"associated secret. Authentication uses the execution role's credentials "
+                f"automatically."
+            )
+
         if len(self.physical_endpoints) >= 1 and self.physical_endpoints[0].glue_connection:  # type: ignore
             self._secrets_manager_api: BaseClient = self._get_aws_client_with_connection_credentials(  # type: ignore
                 "secretsmanager", self._connection_creds, self._secrets_manager_api
@@ -441,9 +455,14 @@ class Connection:
                 )
         return None
 
-    def _spark_catalog_configs(self) -> Optional[Dict]:
+    def _spark_catalog_configs(self, force_token_refresh: bool = False) -> Optional[Dict]:
         """
         Returns the Spark catalog configurations using GlueConnectionLib.
+
+        Args:
+            force_token_refresh: Force an OAuth2 token refresh instead of using the
+                token already stored on the connection's secret. Set by the query
+                layer after the catalog rejects the stored token as unauthorized.
         """
         if self.type is None or self.type not in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
             raise AttributeError(f"Connection Type {self.type} not supported")
@@ -463,11 +482,18 @@ class Connection:
                     "secretsmanager", self._connection_creds, self._secrets_manager_api
                 )
 
+                additional_options = {}
+                if force_token_refresh:
+                    additional_options["forceTokenRefresh"] = "true"
+
                 wrapper_input = GlueConnectionWrapperInputs(
                     connection=connection,
                     kms_client=kms_client,
                     secrets_manager_client=secrets_manager_client,
-                    additional_options={},
+                    additional_options=additional_options,
+                    # Required by IRC connection types that delegate OAuth2 token
+                    # acquisition to Glue's RefreshOAuth2Tokens API.
+                    glue_client=self._glue_api,
                 )
 
                 wrapper = GlueConnectionWrapper.create(wrapper_input)
@@ -505,6 +531,25 @@ class Connection:
             self._connection_creds,
             self._secrets_manager_api,
         )
+
+    def _is_iam_authenticated(self) -> bool:
+        """
+        Check if this connection uses IAM authentication.
+
+        Returns:
+            bool: True if the connection uses IAM auth, False otherwise.
+        """
+        try:
+            if self.physical_endpoints and len(self.physical_endpoints) >= 1:
+                endpoint = self.physical_endpoints[0]
+                glue_conn = getattr(endpoint, "glue_connection", None)
+                if glue_conn is not None:
+                    auth_config = getattr(glue_conn, "authentication_configuration", None)
+                    if auth_config and isinstance(auth_config, dict):
+                        return auth_config.get("authenticationType", "").upper() == "IAM"
+        except (AttributeError, IndexError, TypeError):
+            pass
+        return False
 
     def _find_secret_arn(self) -> str:
         """

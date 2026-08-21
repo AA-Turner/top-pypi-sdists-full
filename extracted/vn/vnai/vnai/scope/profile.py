@@ -488,6 +488,8 @@ class Inspector:
 
     def analyze_git_info(self):
         try:
+            import subprocess
+            import os
             result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
                                 capture_output=True, text=True)
             if result.returncode != 0:
@@ -495,7 +497,6 @@ class Inspector:
             repo_root = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                                     capture_output=True, text=True)
             repo_path = repo_root.stdout.strip() if repo_root.stdout else None
-            repo_name = os.path.basename(repo_path) if repo_path else None
             has_license = False
             license_type = "unknown"
             if repo_path:
@@ -508,83 +509,26 @@ class Inspector:
                     if os.path.exists(license_file):
                         has_license = True
                         try:
-                            with open(license_file, 'r') as f:
-                                content = f.read().lower()
-                                if "mit license" in content:
+                            with open(license_file, "r") as f:
+                                content_lic = f.read().lower()
+                                if "mit license" in content_lic:
                                     license_type = "MIT"
-                                elif "apache license" in content:
+                                elif "apache license" in content_lic:
                                     license_type = "Apache"
-                                elif "gnu general public" in content:
+                                elif "gnu general public" in content_lic:
                                     license_type = "GPL"
-                                elif "bsd " in content:
+                                elif "bsd " in content_lic:
                                     license_type = "BSD"
                         except:
                             pass
                         break
-            remote = subprocess.run(["git", "config", "--get", "remote.origin.url"],
-                                capture_output=True, text=True)
-            remote_url = remote.stdout.strip() if remote.stdout else None
-            if remote_url:
-                remote_url = remote_url.strip()
-                domain = None
-                if remote_url:
-                    if remote_url.startswith('git@') or '@' in remote_url and ':' in remote_url.split('@')[1]:
-                        domain = remote_url.split('@')[1].split(':')[0]
-                    elif remote_url.startswith('http'):
-                        url_parts = remote_url.split('//')
-                        if len(url_parts) > 1:
-                            auth_and_domain = url_parts[1].split('/', 1)[0]
-                            if '@' in auth_and_domain:
-                                domain = auth_and_domain.split('@')[-1]
-                            else:
-                                domain = auth_and_domain
-                    else:
-                        import re
-                        domain_match = re.search(r'@([^:/]+)|https?://(?:[^@/]+@)?([^/]+)', remote_url)
-                        if domain_match:
-                            domain = domain_match.group(1) or domain_match.group(2)
-                owner = None
-                repo_name = None
-                if domain:
-                    if "github" in domain:
-                        if ':' in remote_url and '@' in remote_url:
-                            parts = remote_url.split(':')[-1].split('/')
-                            if len(parts) >= 2:
-                                owner = parts[0]
-                                repo_name = parts[1].replace('.git', '')
-                        else:
-                            url_parts = remote_url.split('//')
-                            if len(url_parts) > 1:
-                                path_parts = url_parts[1].split('/')
-                                if len(path_parts) >= 3:
-                                    domain_part = path_parts[0]
-                                    if '@' in domain_part:
-                                        owner_index = 1
-                                    else:
-                                        owner_index = 1
-                                    if len(path_parts) > owner_index:
-                                        owner = path_parts[owner_index]
-                                    if len(path_parts) > owner_index + 1:
-                                        repo_name = path_parts[owner_index + 1].replace('.git', '')
-                commit_count = subprocess.run(["git", "rev-list", "--count", "HEAD"],
-                                        capture_output=True, text=True)
-                branch_count = subprocess.run(["git", "branch", "--list"],
-                                        capture_output=True, text=True)
-                branch_count = len(branch_count.stdout.strip().split('\n')) if branch_count.stdout else 0
-                return {
-                    "domain": domain,
-                    "owner": owner,
-                    "commit_count": int(commit_count.stdout.strip()) if commit_count.stdout else 0,
-                    "branch_count": branch_count,
-                    "has_git": True,
-                    "repo_path": repo_path if 'repo_path' in locals() else None,
-                    "repo_name": repo_name,
-                    "has_license": has_license if 'has_license' in locals() else False,
-                    "license_type": license_type if 'license_type' in locals() else "unknown"
-                }
-        except Exception as e:
-            pass
-        return {"has_git": False}
+            return {
+                "has_git": True,
+                "has_license": has_license,
+                "license_type": license_type
+            }
+        except Exception:
+            return {"has_git": False}
 
     def detect_usage_pattern(self):
         current_time = datetime.now()
@@ -615,11 +559,7 @@ class Inspector:
         except:
             framework_match = False
             has_database = False
-        domain_check = self.analyze_git_info()
         domain_is_commercial = False
-        if domain_check and domain_check.get("domain"):
-            commercial_tlds = [".com", ".io", ".co", ".org", ".net"]
-            domain_is_commercial = any(tld in domain_check["domain"] for tld in commercial_tlds)
         project_structure = self.analyze_project_structure()
         indicators = [
             basic["commercial_probability"],

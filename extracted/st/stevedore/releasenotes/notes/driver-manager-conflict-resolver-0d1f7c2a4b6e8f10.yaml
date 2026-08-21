@@ -1,0 +1,24 @@
+---
+fixes:
+  - |
+    :class:`~stevedore.driver.DriverManager` now honors its
+    ``conflict_resolver`` parameter. Previously the parameter was accepted but
+    ignored: whenever multiple entry points in the namespace shared the
+    requested name, ``DriverManager`` unconditionally raised
+    :class:`~stevedore.exception.MultipleMatches`. The configured resolver is
+    now consulted, allowing callers to select a single driver (for example
+    with :func:`~stevedore.extension.ignore_conflicts`) or to apply custom
+    logic.
+upgrade:
+  - |
+    The default ``conflict_resolver`` for
+    :class:`~stevedore.driver.DriverManager` is now
+    :func:`~stevedore.extension.error_on_conflict` rather than
+    :func:`~stevedore.extension.ignore_conflicts`. This preserves the
+    historical behavior of raising
+    :class:`~stevedore.exception.MultipleMatches` when duplicate names are
+    found, so a duplicate is never resolved silently by default. Callers that
+    want a duplicate name to resolve to a single driver must now pass
+    ``conflict_resolver=stevedore.extension.ignore_conflicts`` (or a custom
+    resolver) explicitly. Note that the exception message raised on a conflict
+    has changed slightly, though the exception type is unchanged.

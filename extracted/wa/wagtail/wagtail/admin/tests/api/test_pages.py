@@ -1,6 +1,7 @@
 import collections
 import datetime
 import json
+from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -116,6 +117,25 @@ class TestAdminPageListing(AdminAPITestCase, TestPageListing):
             content["__types"]["demosite.EventPage"]["verbose_name_plural"],
             "event pages",
         )
+
+    def test_get_without_access_to_pages(self):
+        user = self.create_user(username="basic_user")
+
+        can_access_admin_permission = Permission.objects.get(
+            content_type__app_label="wagtailadmin",
+            content_type__model="admin",
+            codename="access_admin",
+        )
+        user.user_permissions.add(can_access_admin_permission)
+
+        self.client.force_login(user)
+
+        response = self.get_response()
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        content = json.loads(response.content.decode("UTF-8"))
+        self.assertEqual(content["meta"]["total_count"], 0)
+        self.assertEqual(content["items"], [])
 
     # Not applicable to the admin API
     test_unpublished_pages_dont_appear_in_list = None
@@ -898,6 +918,21 @@ class TestAdminPageDetail(AdminAPITestCase, TestPageDetail):
             "blog index pages",
         )
 
+    def test_get_without_access_to_given_page(self):
+        user = self.create_user(username="basic_user")
+
+        can_access_admin_permission = Permission.objects.get(
+            content_type__app_label="wagtailadmin",
+            content_type__model="admin",
+            codename="access_admin",
+        )
+        user.user_permissions.add(can_access_admin_permission)
+
+        self.client.force_login(user)
+
+        response = self.get_response(16)
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+
     # overridden from public API tests
     def test_meta_parent_id_doesnt_show_root_page(self):
         # Root page is visible in the admin API
@@ -1323,11 +1358,9 @@ class TestCopyPageAction(AdminAPITestCase, TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to copy this page"}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
     def test_recursively_copy_into_self(self):
         response = self.get_response(
@@ -1361,11 +1394,9 @@ class TestCopyPageAction(AdminAPITestCase, TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to copy this page"}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
     def test_without_publish_permissions_at_destination_with_keep_live(self):
         self.user.is_superuser = False
@@ -1495,7 +1526,7 @@ class TestConvertAliasPageAction(AdminAPITestCase, TestCase):
         self.user.save()
 
         response = self.get_response(self.alias_page.id)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
 
 class TestDeletePageAction(AdminAPITestCase, TestCase):
@@ -1526,11 +1557,9 @@ class TestDeletePageAction(AdminAPITestCase, TestCase):
         # delete
         response = self.get_response(4)
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to delete this page."}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
         # Page is still there
         self.assertTrue(Page.objects.filter(id=4).exists())
@@ -1574,11 +1603,9 @@ class TestPublishPageAction(AdminAPITestCase, TestCase):
 
         response = self.get_response(4)
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to publish this page."}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
     def test_publish_alias_page(self):
         home = Page.objects.get(slug="home")
@@ -1664,11 +1691,9 @@ class TestUnpublishPageAction(AdminAPITestCase, TestCase):
 
         response = self.get_response(3, {})
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to unpublish this page."}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
 
 class TestMovePageAction(AdminAPITestCase, TestCase):
@@ -1695,18 +1720,10 @@ class TestMovePageAction(AdminAPITestCase, TestCase):
 
         # Move
         response = self.get_response(4, {"destination_page_id": 3})
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content,
-            {
-                "detail": (
-                    "You do not have permission to move the page to the "
-                    "target specified."
-                ),
-            },
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
     def test_move_page_without_destination_page_id(self):
         response = self.get_response(4, {})
@@ -1869,6 +1886,59 @@ class TestCopyForTranslationAction(AdminAPITestCase, TestCase):
         ][0]
         assert new_post_page.title == new_page_title
 
+    def test_without_translate_permission(self):
+        self.user.is_superuser = False
+        editors = Group.objects.get(name="Editors")
+        GroupPagePermission.objects.create(
+            group=editors, page_id=self.root_page.id, permission_type="change"
+        )
+        self.user.groups.add(editors)
+        self.user.save()
+
+        response = self.get_response(self.en_homepage.id, {"locale": "fr"})
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_without_edit_permission(self):
+        self.user.is_superuser = False
+        editors = Group.objects.get(name="Editors")
+        editors.permissions.add(
+            Permission.objects.get(
+                content_type__app_label="simple_translation",
+                codename="submit_translation",
+            )
+        )
+        # Grant edit permission over a page that is not the one being copied
+        GroupPagePermission.objects.create(
+            group=editors, page_id=self.en_eventindex.id, permission_type="change"
+        )
+
+        self.user.groups.add(editors)
+        self.user.save()
+
+        response = self.get_response(self.en_homepage.id, {"locale": "fr"})
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_with_translate_and_edit_permissions(self):
+        self.user.is_superuser = False
+        editors = Group.objects.get(name="Editors")
+        editors.permissions.add(
+            Permission.objects.get(
+                content_type__app_label="simple_translation",
+                codename="submit_translation",
+            )
+        )
+        GroupPagePermission.objects.create(
+            group=editors, page_id=self.root_page.id, permission_type="change"
+        )
+        self.user.groups.add(editors)
+        self.user.save()
+
+        response = self.get_response(self.en_homepage.id, {"locale": "fr"})
+
+        self.assertEqual(response.status_code, 201)
+
 
 class TestCreatePageAliasAction(AdminAPITestCase, TestCase):
     fixtures = ["test.json"]
@@ -1974,17 +2044,10 @@ class TestCreatePageAliasAction(AdminAPITestCase, TestCase):
             self.events_index.id,
             data={"recursive": True, "update_slug": "new-events-index"},
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content,
-            {
-                "detail": (
-                    "You do not have permission to create an alias of this page."
-                ),
-            },
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
 
 class TestRevertToPageRevisionAction(AdminAPITestCase, TestCase):
@@ -2036,12 +2099,10 @@ class TestRevertToPageRevisionAction(AdminAPITestCase, TestCase):
         response = self.get_response(
             self.events_page.id, {"revision_id": self.first_revision.id}
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
         content = json.loads(response.content.decode("utf-8"))
-        self.assertEqual(
-            content, {"detail": "You do not have permission to edit this page."}
-        )
+        self.assertEqual(content, {"message": "No Page matches the given query."})
 
     def test_revert_to_page_revision_without_revision_id(self):
         response = self.get_response(self.events_page.id, {})

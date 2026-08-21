@@ -50,6 +50,7 @@ class GlueConnectionWrapper(ABC):
         self._connection = wrapper_input.connection
         self._kms_client = wrapper_input.kms_client
         self._secrets_manager_client = wrapper_input.secrets_manager_client
+        self._glue_client = wrapper_input.glue_client
         self._additional_options = wrapper_input.additional_options
 
     @classmethod
@@ -78,6 +79,7 @@ class GlueConnectionWrapper(ABC):
         """
         from .jdbc.jdbc_wrapper import JDBCConnectionWrapper
         from .jdbc.redshift_wrapper import RedshiftJDBCConnectionWrapper
+        from .local.iceberg_rest_catalog_wrapper import IcebergRestCatalogConnectionWrapper
         from .local.mongodb_wrapper import MongoDBConnectionWrapper
         from .local.native_wrapper import NativeConnectionWrapper
         from .local.snowflake_wrapper import SnowflakeConnectionWrapper
@@ -101,6 +103,12 @@ class GlueConnectionWrapper(ABC):
             return SnowflakeConnectionWrapper(wrapper_input)
         elif connection_type_lower == "workdayicebergrestcatalog":
             return WorkdayIcebergRestCatalogConnectionWrapper(wrapper_input)
+        elif connection_type_lower in (
+            "databricksicebergrestcatalog",
+            "snowflakeicebergrestcatalog",
+            "icebergrestcatalog",
+        ):
+            return IcebergRestCatalogConnectionWrapper(wrapper_input)
         else:
             return NativeConnectionWrapper(wrapper_input)
 

@@ -104,6 +104,15 @@ class APIHarnessV2(UberInterface):
     Uber Class usage scenarios.
 
     This one does it all. It's like the One Ring with significantly fewer orcs.
+
+    Provide a `session` keyword to reuse an existing `requests.Session` for connection
+    pooling across login, every command and token revocation. FalconPy never closes a
+    session provided this way; the caller retains ownership of its lifecycle. Example:
+
+        with requests.Session() as session:
+            falcon = APIHarnessV2(client_id=client_id, client_secret=client_secret, session=session)
+            response = falcon.command("query_devices_by_filter")
+        # session is closed here by the caller's `with` block, not by FalconPy
     """
 
     #                                 `-.
@@ -134,11 +143,11 @@ class APIHarnessV2(UberInterface):
         HTTP Method: Any
 
         Swagger URL
-        ----
+        -----------
         https://assets.falcon.crowdstrike.com/support/api/swagger.html
 
         Keyword arguments
-        ----
+        -----------------
         api_operation : str (Default: None)
             API Operation ID to perform
             Please note: The keyword "action" will also be accepted but
@@ -175,11 +184,11 @@ class APIHarnessV2(UberInterface):
             Enable streaming download
 
         Arguments
-        ----
+        ---------
         The first argument passed to this method is assumed to be 'api_operation'. All others are ignored.
 
         Returns
-        ----
+        -------
         dict or bytes
             Dictionary or binary object containing API response depending on requested operation.
         """

@@ -219,6 +219,20 @@ pub struct AuditArgs {
     #[arg(skip)]
     pub config_quiet: bool,
 
+    /// Package names to suppress entirely, from `[ignore].packages` (config-only).
+    #[arg(skip)]
+    pub ignore_packages: Vec<String>,
+
+    /// Per-group fail thresholds from `[groups.<name>]` (config-only), keyed by the
+    /// PEP 735-normalized group name so lookups match graph attribution.
+    #[arg(skip)]
+    pub group_fail_on: std::collections::BTreeMap<String, SeverityLevel>,
+
+    /// Continue with the sources that succeeded instead of failing when a
+    /// vulnerability source cannot be fetched (default: fail-closed on any error).
+    #[arg(long = "no-fail-on-partial")]
+    pub no_fail_on_partial: bool,
+
     /// Show detailed vulnerability descriptions (full text instead of truncated)
     #[arg(long, conflicts_with = "compact")]
     pub detailed: bool,
@@ -298,13 +312,14 @@ pub struct AuditArgs {
 
 impl AuditArgs {
     /// Resolve the effective detail level from --compact / --detailed flags.
+    /// Compact is the default; `--detailed` is the only opt-in (clap keeps them mutually
+    /// exclusive on the CLI, and `detail_level` resolves detailed-wins if both survive a
+    /// config merge).
     pub fn detail_level(&self) -> crate::DetailLevel {
-        if self.compact {
-            crate::DetailLevel::Compact
-        } else if self.detailed {
+        if self.detailed {
             crate::DetailLevel::Detailed
         } else {
-            crate::DetailLevel::Normal
+            crate::DetailLevel::Compact
         }
     }
 
@@ -542,6 +557,25 @@ impl From<SeverityLevel> for crate::SeverityLevel {
     }
 }
 
+impl std::str::FromStr for SeverityLevel {
+    type Err = String;
+
+    /// Parses the canonical level strings (the same set `Config::validate_level`
+    /// accepts). Single source of truth for level parsing — do not hand-roll the
+    /// string match elsewhere.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "low" => Ok(Self::Low),
+            "medium" => Ok(Self::Medium),
+            "high" => Ok(Self::High),
+            "critical" => Ok(Self::Critical),
+            other => Err(format!(
+                "invalid severity level '{other}' (expected low, medium, high, or critical)"
+            )),
+        }
+    }
+}
+
 impl From<VulnerabilitySourceType> for crate::VulnerabilitySourceType {
     fn from(source: VulnerabilitySourceType) -> Self {
         match source {
@@ -581,9 +615,9 @@ mod tests {
     }
 
     #[test]
-    fn test_detail_level_defaults_to_normal() {
+    fn test_detail_level_defaults_to_compact() {
         let args = parse_audit_args(&["."]);
-        assert_eq!(args.detail_level(), DetailLevel::Normal);
+        assert_eq!(args.detail_level(), DetailLevel::Compact);
     }
 
     #[test]

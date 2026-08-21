@@ -4755,7 +4755,7 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[DescribeApplicationStatusRequestTypeDef]
     ) -> DescribeApplicationStatusResultTypeDef:
         """
-        Describes the application status for the specified instances.
+        Describes the aggregated application health status for the specified instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_application_status)
@@ -4775,7 +4775,8 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[DescribeApplicationStatusChecksRequestTypeDef]
     ) -> DescribeApplicationStatusChecksResultTypeDef:
         """
-        Describes one or more application status checks.
+        Describes application status checks, including configuration details such as
+        protocol, port, path, thresholds, and associations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_checks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_application_status_checks)

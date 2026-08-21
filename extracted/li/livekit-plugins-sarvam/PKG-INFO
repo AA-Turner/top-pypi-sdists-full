@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-sarvam
-Version: 1.6.10
+Version: 1.7.0
 Summary: Agent Framework plugin for services using Sarvam.ai's API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -17,7 +17,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents[codecs,openai]>=1.6.10
+Requires-Dist: livekit-agents[codecs,openai]>=1.7.0
 Requires-Dist: numpy>=1.26
 Description-Content-Type: text/markdown
 

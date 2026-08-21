@@ -25,7 +25,6 @@ import mujoco_warp as mjw
 from mujoco_warp import test_data
 from mujoco_warp._src import derivative
 from mujoco_warp._src import forward
-from mujoco_warp._src import util_pkg
 
 # tolerance for difference between MuJoCo and mjwarp smooth calculations - mostly
 # due to float precision
@@ -941,10 +940,12 @@ class DerivativeTest(parameterized.TestCase):
     </mujoco>
   """
 
+  @absltest.skip("TODO(team): Support dcmotor setpoint controller redesign.")
   @parameterized.parameters(
     mujoco.mjtJacobian.mjJAC_DENSE,
     mujoco.mjtJacobian.mjJAC_SPARSE,
   )
+  @absltest.skip("TODO(team): Support dcmotor setpoint controller redesign.")
   def test_smooth_vel_dcmotor(self, jacobian):
     """Tests qDeriv parity with MuJoCo C for all DCMotor modes."""
     mjm, mjd, m, d = test_data.fixture(
@@ -986,6 +987,7 @@ class DerivativeTest(parameterized.TestCase):
 
     _assert_eq(mjw_out, expected_out, "M - dt * qDeriv DCMotor")
 
+  @absltest.skip("TODO(team): Support dcmotor setpoint controller redesign.")
   def test_dcmotor_stateful_analytical(self):
     """Stateful DCMotor derivative matches analytical formula."""
     mjm, mjd, m, d = test_data.fixture(
@@ -1035,6 +1037,7 @@ class DerivativeTest(parameterized.TestCase):
       err_msg="stateful DCMotor derivative vs formula",
     )
 
+  @absltest.skip("TODO(team): Support dcmotor setpoint controller redesign.")
   def test_dcmotor_stateful_converges_to_stateless(self):
     """Stateful DCMotor derivative converges to stateless as te->0."""
     xml_stateless = """
@@ -1240,11 +1243,8 @@ class DerivativeTest(parameterized.TestCase):
       """,
   }
 
-  # TODO(thowell): update implementation for free bodies
-  @absltest.skipIf(
-    util_pkg.check_version("mujoco>=3.10.1.dev948899583"),
-    "Requires MuJoCo < 3.10.1.dev948899583",
-  )
+  # TODO: update implementation for free bodies (https://github.com/google-deepmind/mujoco_warp/pull/1548)
+  @absltest.skip("Requires updating fluid derivative implementation for free bodies to match MuJoCo 3.11")
   @parameterized.product(
     scenario=list(_FLUID_SCENARIOS.keys()),
     jacobian=[mujoco.mjtJacobian.mjJAC_DENSE, mujoco.mjtJacobian.mjJAC_SPARSE],

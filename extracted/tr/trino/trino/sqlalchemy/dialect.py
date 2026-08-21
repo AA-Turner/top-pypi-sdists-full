@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import threading
 from collections.abc import Mapping
 from collections.abc import Sequence
 from textwrap import dedent
@@ -118,6 +119,8 @@ class TrinoDialect(DefaultDialect):
         if url.port:
             kwargs["port"] = url.port
 
+        # url.database (catalog and schema) is the one component SQLAlchemy leaves
+        # url-encoded, so it still needs decoding here.
         db_parts = (url.database or "system").split("/")
         if len(db_parts) == 1:
             kwargs["catalog"] = unquote_plus(db_parts[0])
@@ -127,50 +130,55 @@ class TrinoDialect(DefaultDialect):
         else:
             raise ValueError(f"Unexpected database format {url.database}")
 
+        # SQLAlchemy's make_url already decodes the username, password and query
+        # values, so they are used as-is. Running them through unquote_plus again
+        # double-decodes them and turns a literal '+' into a space. For example a
+        # password supplied as "pass%2Bword", which SQLAlchemy hands over as
+        # "pass+word", would otherwise become "pass word" and fail authentication.
         if url.username:
-            kwargs["user"] = unquote_plus(url.username)
+            kwargs["user"] = url.username
 
         if url.password:
             if not url.username:
                 raise ValueError("Username is required when specify password in connection URL")
-            kwargs["auth"] = BasicAuthentication(unquote_plus(url.username), unquote_plus(url.password))
+            kwargs["auth"] = BasicAuthentication(url.username, url.password)
 
         if "access_token" in url.query:
-            kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
+            kwargs["auth"] = JWTAuthentication(url.query["access_token"])
 
         if "cert" in url.query and "key" in url.query:
-            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+            kwargs["auth"] = CertificateAuthentication(url.query['cert'], url.query['key'])
 
         if "externalAuthentication" in url.query:
             kwargs["auth"] = OAuth2Authentication()
 
         if "source" in url.query:
-            kwargs["source"] = unquote_plus(url.query["source"])
+            kwargs["source"] = url.query["source"]
         else:
             kwargs["source"] = "trino-sqlalchemy"
 
         if "session_properties" in url.query:
-            kwargs["session_properties"] = json.loads(unquote_plus(url.query["session_properties"]))
+            kwargs["session_properties"] = json.loads(url.query["session_properties"])
 
         if "http_headers" in url.query:
-            kwargs["http_headers"] = json.loads(unquote_plus(url.query["http_headers"]))
+            kwargs["http_headers"] = json.loads(url.query["http_headers"])
 
         if "extra_credential" in url.query:
             kwargs["extra_credential"] = [
-                tuple(extra_credential) for extra_credential in json.loads(unquote_plus(url.query["extra_credential"]))
+                tuple(extra_credential) for extra_credential in json.loads(url.query["extra_credential"])
             ]
 
         if "client_tags" in url.query:
-            kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
+            kwargs["client_tags"] = json.loads(url.query["client_tags"])
 
         if "legacy_primitive_types" in url.query:
-            kwargs["legacy_primitive_types"] = json.loads(unquote_plus(url.query["legacy_primitive_types"]))
+            kwargs["legacy_primitive_types"] = json.loads(url.query["legacy_primitive_types"])
 
         if "legacy_prepared_statements" in url.query:
-            kwargs["legacy_prepared_statements"] = json.loads(unquote_plus(url.query["legacy_prepared_statements"]))
+            kwargs["legacy_prepared_statements"] = json.loads(url.query["legacy_prepared_statements"])
 
         if "verify" in url.query:
-            kwargs["verify"] = json.loads(unquote_plus(url.query["verify"]))
+            kwargs["verify"] = json.loads(url.query["verify"])
 
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
@@ -190,7 +198,8 @@ class TrinoDialect(DefaultDialect):
                 "column_name",
                 "data_type",
                 "column_default",
-                UPPER("is_nullable") AS "is_nullable"
+                UPPER("is_nullable") AS "is_nullable",
+                "comment"
             FROM "information_schema"."columns"
             WHERE "table_schema" = :schema
               AND "table_name" = :table
@@ -205,6 +214,7 @@ class TrinoDialect(DefaultDialect):
                 type=datatype.parse_sqltype(record.data_type),
                 nullable=record.is_nullable == "YES",
                 default=record.column_default,
+                comment=record.comment,
             )
             columns.append(column)
         return columns
@@ -421,15 +431,35 @@ class TrinoDialect(DefaultDialect):
 
     @classmethod
     def _get_server_version_info(cls, connection: Connection) -> Any:
-        def get_server_version_info(_):
-            query = "SELECT version()"
-            try:
-                res = connection.execute(sql.text(query))
-                version = res.scalar()
-                return tuple([version])
-            except exc.ProgrammingError as e:
-                logger.debug(f"Failed to get server version: {e.orig.message}")
+        lock = threading.Lock()
+        resolving = threading.local()
+
+        def get_server_version_info(self):
+            if "_trino_server_version_info" in self.__dict__:
+                return self.__dict__["_trino_server_version_info"]
+            # The version query goes through the same SQLAlchemy machinery as any other query. A caller
+            # that reads this property before every execute re-enters the getter while that query is
+            # still in flight. Recursing there would never terminate, so the re-entrant read returns
+            # None instead. Reads from other threads are not re-entrant. Those wait on the lock and
+            # get the real value.
+            if getattr(resolving, "in_progress", False):
                 return None
+            with lock:
+                if "_trino_server_version_info" in self.__dict__:
+                    return self.__dict__["_trino_server_version_info"]
+                resolving.in_progress = True
+                query = "SELECT version()"
+                try:
+                    res = connection.execute(sql.text(query))
+                    version = res.scalar()
+                    value = tuple([version])
+                except exc.ProgrammingError as e:
+                    logger.debug("Failed to get server version: %s", e)
+                    value = None
+                finally:
+                    resolving.in_progress = False
+                self.__dict__["_trino_server_version_info"] = value
+                return value
 
         # Make server_version_info lazy in order to only make HTTP calls if user explicitly requests it.
         cls.server_version_info = property(get_server_version_info, lambda instance, value: None)

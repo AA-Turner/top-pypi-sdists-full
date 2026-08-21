@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trulens
-Version: 2.13.0
+Version: 2.13.1
 Summary: Library to systematically track and evaluate LLM based applications.
 License: MIT
 License-File: LICENSE

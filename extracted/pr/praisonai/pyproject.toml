@@ -12,14 +12,14 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.6.168",
-    "praisonai-code>=0.0.64",
-    "praisonai-bot>=0.0.49",
-    "praisonai-train>=0.0.19",
-    "praisonai-browser>=0.0.15",
-    "praisonai-mcp>=0.0.15",
-    "praisonai-sandbox>=0.0.13",
-    "praisonai-deploy>=0.0.8",
+    "praisonaiagents>=1.7.0",
+    "praisonai-code>=0.1.0",
+    "praisonai-bot>=0.1.0",
+    "praisonai-train>=0.1.0",
+    "praisonai-browser>=0.1.0",
+    "praisonai-mcp>=0.1.0",
+    "praisonai-sandbox>=0.1.0",
+    "praisonai-deploy>=0.1.0",
     "python-dotenv>=0.19.0",
     "litellm>=1.83.14,<2",
     "PyYAML>=6.0",
@@ -40,6 +40,19 @@ praisonai-call = "praisonai.api.call:main"
 crewai = "praisonai.framework_adapters.crewai_adapter:CrewAIAdapter"
 autogen = "praisonai.framework_adapters.autogen_adapter:AutoGenFamilyAdapter"
 autogen_v2 = "praisonai.framework_adapters.autogen_adapter:AutoGenAdapter"
+
+# Canonical group for endpoint providers. Third-party packages publish
+# `name = "your_pkg:YourProvider"` (a praisonai.endpoints.providers.base
+# .BaseProvider subclass) here. The old "praisonai.endpoints.providers"
+# spelling still works but emits a DeprecationWarning.
+[project.entry-points."praisonai.endpoint_providers"]
+recipe = "praisonai.endpoints.providers.recipe:RecipeProvider"
+agents-api = "praisonai.endpoints.providers.agents_api:AgentsAPIProvider"
+mcp = "praisonai.endpoints.providers.mcp:MCPProvider"
+tools-mcp = "praisonai.endpoints.providers.tools_mcp:ToolsMCPProvider"
+a2a = "praisonai.endpoints.providers.a2a:A2AProvider"
+a2u = "praisonai.endpoints.providers.a2u:A2UProvider"
+openai-compat = "praisonai.endpoints.providers.openai_compat:OpenAICompatProvider"
 
 [project.optional-dependencies]
 ui = [
@@ -91,12 +104,21 @@ ssh = [
 modal = [
     "praisonai-sandbox[modal]",
 ]
+
+# Vendor SDKs for the compute path. They delegate to praisonai-sandbox, which
+# already pins each one correctly -- rather than a second, drifting grid.
+e2b = [
+    "praisonai-sandbox[e2b]",
+]
+
+docker = [
+    "praisonai-sandbox[docker]",
+]
 daytona = [
-    # Note: daytona package not yet available on PyPI
-    # Install via: pip install git+https://github.com/daytonaio/daytona-python
+    "praisonai-sandbox[daytona]",
 ]
 tenki = [
-    "tenki>=0.5.4",
+    "praisonai-sandbox[tenki]",
 ]
 realtime = [
     "aiui>=0.3.121,<0.4",

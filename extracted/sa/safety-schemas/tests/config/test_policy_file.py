@@ -6,6 +6,14 @@ from pydantic import ValidationError
 
 import pytest
 from safety_schemas.models import ConfigModel, SecurityUpdates, IgnoreCodes, InstallationAction, PackageEcosystem
+from safety_schemas.models.config import (
+    AiInstallationConfig,
+    AllowedAiInstallationConfig,
+    DeniedAiInstallationConfig,
+    DeniedMcpServersConfig,
+    DeniedMcpServersCriteria,
+    McpServerDefinition,
+)
 from safety_schemas.config.schemas.v3_0.main import (
     DeniedPackageCriteria,
     parse_duration_to_seconds,
@@ -29,7 +37,8 @@ class TestPolicyFile:
             "scan.max_depth": 6,
             "scan.ignore": [],
             "scan.include_files": {},
-            "scan.system_targets": []
+            "scan.system_targets": [],
+            "ai_installation": None
         }
 
         for key, expected in expected.items():
@@ -81,6 +90,20 @@ class TestPolicyFile:
         for key, package_def in expected_packages_def.items():
             assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
 
+    def _assert_aiinstallation(self, config: ConfigModel):
+        ai = config.ai_installation
+        assert ai is not None
+        assert ai.default_action == InstallationAction.deny
+        assert ai.allow.mcp_servers == [
+            McpServerDefinition(None, ["mcp-server:remote:mcp.linear.app/sse"]),
+            McpServerDefinition("claude-code", ["mcp-server:stdio:npm:@acme/db-mcp"]),
+        ]
+        assert ai.deny.mcp_servers.block == DeniedMcpServersCriteria(
+            servers=[
+                McpServerDefinition("codex", ["mcp-server:remote:evil.example.com/mcp"])
+            ]
+        )
+
     @pytest.mark.parametrize("assert_type, policy_file_path", [(Path(file_path).stem.split('-')[0], Path(file_path)) for file_path in glob('tests/config/data/v30/*.yml')])
     def test_policy_file_parsing(self, assert_type: str, policy_file_path: Path):
         FAIL_VALIDATION = ["typo"]
@@ -93,6 +116,48 @@ class TestPolicyFile:
 
             assert_method = getattr(self, f"_assert_{assert_type}")
             assert_method(config)
+
+
+class TestAiInstallationRoundTrip:
+    """Round-trip tests for the ai-installation block (as_v30 / from_v30)."""
+
+    def test_round_trip(self):
+        config = ConfigModel(
+            ai_installation=AiInstallationConfig(
+                default_action=InstallationAction.deny,
+                allow=AllowedAiInstallationConfig(
+                    mcp_servers=[
+                        McpServerDefinition(None, ["mcp-server:stdio:npm:@acme/db-mcp"])
+                    ]
+                ),
+                deny=DeniedAiInstallationConfig(
+                    mcp_servers=DeniedMcpServersConfig(
+                        block=DeniedMcpServersCriteria(
+                            servers=[
+                                McpServerDefinition(
+                                    "claude-code",
+                                    ["mcp-server:remote:evil.example.com/mcp"],
+                                )
+                            ]
+                        )
+                    )
+                ),
+            )
+        )
+        parsed = ConfigModel.from_v30(obj=config.as_v30())
+        assert parsed.ai_installation == config.ai_installation
+
+    def test_empty_block_round_trip(self):
+        config = ConfigModel(ai_installation=AiInstallationConfig())
+        parsed = ConfigModel.from_v30(obj=config.as_v30())
+        assert parsed.ai_installation == AiInstallationConfig()
+        assert parsed.ai_installation.default_action == InstallationAction.allow
+
+    def test_absent_block_stays_absent(self):
+        config = ConfigModel()
+        serialized = config.as_v30().json(by_alias=True, exclude_none=True)
+        assert "ai-installation" not in serialized
+        assert ConfigModel.from_v30(obj=config.as_v30()).ai_installation is None
 
 
 class TestDurationParsing:

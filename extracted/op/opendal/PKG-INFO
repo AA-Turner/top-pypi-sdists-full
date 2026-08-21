@@ -1,11 +1,14 @@
 Metadata-Version: 2.4
 Name: opendal
-Version: 0.47.5
+Version: 0.47.6
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
+License-File: LICENSE
+License-File: LICENSE-MPL-2.0.txt
+License-File: NOTICE
 Summary: Apache OpenDAL™ Python Binding
 Home-Page: https://opendal.apache.org/
-License: Apache-2.0
+License-Expression: Apache-2.0
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://opendal.apache.org/docs/python/index.html
@@ -85,4 +88,15 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 Apache OpenDAL, OpenDAL, and Apache are either registered trademarks or trademarks of
 the Apache Software Foundation.
+
+### Third-party software
+
+Compiled distributions include the following Mozilla Public License 2.0
+components. Their source code is available from the linked project pages:
+
+- `colored` 3.1.1 ([source](https://crates.io/crates/colored/3.1.1), [homepage](https://github.com/mackwic/colored)), licensed under MPL-2.0.
+- `option-ext` 0.2.0 ([source](https://crates.io/crates/option-ext/0.2.0), [homepage](https://github.com/soc/option-ext)), licensed under MPL-2.0.
+- `persy` 1.8.1 ([source](https://crates.io/crates/persy/1.8.1), [homepage](https://persy.rs)), licensed under MPL-2.0.
+
+The distribution includes the MPL-2.0 text in `LICENSE-MPL-2.0.txt`.
 

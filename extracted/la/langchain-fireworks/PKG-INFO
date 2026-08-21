@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-fireworks
-Version: 1.5.2
+Version: 1.6.0
 Summary: An integration package connecting Fireworks and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/fireworks
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_fireworks/
@@ -25,8 +25,8 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: aiohttp<4.0.0,>=3.14.1
 Requires-Dist: fireworks-ai<2.0.0,>=1.2.0a71
-Requires-Dist: langchain-core<2.0.0,>=1.5.1
-Requires-Dist: openai<3.0.0,>=2.0.0
+Requires-Dist: langchain-core<2.0.0,>=1.6.0
+Requires-Dist: openai<4.0.0,>=2.0.0
 Requires-Dist: requests<3.0.0,>=2.0.0
 Description-Content-Type: text/markdown
 

@@ -109,7 +109,7 @@ class allow_interrupt:
 
         self.handle = handle
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """Install the custom CTRL-C handler."""
         if os.name != "nt":
             return
@@ -119,7 +119,7 @@ class allow_interrupt:
             # `FormatMessage()` into a nice exception object :-)
             raise OSError()
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: Any) -> None:
         """Remove the custom CTRL-C handler."""
         if os.name != "nt":
             return

@@ -37,7 +37,11 @@ class DynamoDbCache(BaseCache):
         this as the TTL field, then DynamoDB will
         automatically delete expired entries.
     :param key_prefix: A prefix that should be added to all keys.
+    :param ignore_delete_many_errors: If False, delete_many() will raise
+        a RuntimeError if any key fails to delete. Keys that do not
+        exist are considered successfully deleted and do not raise.
 
+        .. versionadded:: 0.16.0
     """
 
     serializer = DynamoDbSerializer()
@@ -49,13 +53,18 @@ class DynamoDbCache(BaseCache):
         key_field: str = "cache_key",
         expiration_time_field: str = "expiration_time",
         key_prefix: str | None = None,
+        ignore_delete_many_errors: bool = True,
         **kwargs: _t.Any,
     ):
-        super().__init__(default_timeout)
+        super().__init__(
+            default_timeout, ignore_delete_many_errors=ignore_delete_many_errors
+        )
 
         try:
             import boto3
             from boto3.dynamodb.conditions import Attr
+            from botocore.exceptions import BotoCoreError
+            from botocore.exceptions import ClientError
         except ImportError as err:
             raise RuntimeError("no boto3 module found") from err
 
@@ -65,12 +74,19 @@ class DynamoDbCache(BaseCache):
         self.key_prefix = key_prefix or ""
         self._dynamo = boto3.resource("dynamodb", **kwargs)
         self._attr = Attr
+        self._client_error = ClientError
+        self._boto_core_error = BotoCoreError
 
         try:
             self._table = self._dynamo.Table(table_name)
             self._table.load()
-            # catch this exception (triggered if the table doesn't exist)
-        except Exception:
+        except BotoCoreError as err:
+            raise RuntimeError(f"could not connect to DynamoDB: {err}") from err
+        except ClientError as err:
+            # only create the table if it's missing; anything else
+            # (bad credentials, denied access) is a real error
+            if err.response.get("Error", {}).get("Code") != "ResourceNotFoundException":
+                raise RuntimeError(f"could not connect to DynamoDB: {err}") from err
             table = self._dynamo.create_table(
                 AttributeDefinitions=[
                     {"AttributeName": key_field, "AttributeType": "S"}
@@ -146,19 +162,16 @@ class DynamoDbCache(BaseCache):
 
     def delete(self, key: str) -> bool:
         """
-        Deletes an item from the cache.  This is a no-op if the item doesn't
+        Deletes an item from the cache. This is a no-op if the item doesn't
         exist
 
         :param key: Key of the item to delete.
-        :return: True if the key existed and was deleted
+        :return: True if the key was deleted
         """
         try:
-            self._table.delete_item(
-                Key={self._key_field: self.key_prefix + key},
-                ConditionExpression=self._attr(self._key_field).exists(),
-            )
+            self._table.delete_item(Key={self._key_field: self.key_prefix + key})
             return True
-        except self._dynamo.meta.client.exceptions.ConditionalCheckFailedException:
+        except (self._client_error, self._boto_core_error):
             return False
 
     def _set(

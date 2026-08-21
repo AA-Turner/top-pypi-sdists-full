@@ -3,6 +3,7 @@ from typing import Optional
 from sagemaker_studio.connections.sql_helper.athena_sql_helper import AthenaSqlHelper
 from sagemaker_studio.connections.sql_helper.big_query_sql_helper import BigQuerySqlHelper
 from sagemaker_studio.connections.sql_helper.ddb_sql_helper import DDBSQLHelper
+from sagemaker_studio.connections.sql_helper.documentdb_sql_helper import DocumentDBSqlHelper
 from sagemaker_studio.connections.sql_helper.mssql_sql_helper import MSSQLHelper
 from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
 from sagemaker_studio.connections.sql_helper.opensearch_sql_helper import OpenSearchSQLHelper
@@ -57,6 +58,8 @@ class HelperFactory:
             return BigQuerySqlHelper
         if type == "DYNAMODB":
             return DDBSQLHelper
+        if type == "DOCUMENTDB":
+            return DocumentDBSqlHelper
         if type == "SQLSERVER":
             return MSSQLHelper
         if type == "POSTGRESQL":

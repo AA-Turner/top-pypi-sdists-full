@@ -822,6 +822,104 @@ class RequirementTerms(msgspec.Struct, frozen=True, kw_only=True,
         return ", ".join(parts)
 
 
+# ── The compute-capability floor a LOAD DTYPE implies ────────────────────────
+#
+# Paul, 2026-08-18, verbatim: *"the sm_x compute floor should fall out of the
+# contract itself, rather than being a separate annotation. Only the VRAM
+# requirement needs a separate annotation, because it's not clear, based on
+# the contract, how much VRAM is needed."*
+#
+# So an 8-bit lane's need for 8-bit kernels is DERIVED here — one producer,
+# beside the element vocabulary and the requirement grammar it bridges — and
+# is NOT author-writable. The `lanes=` annotation carries VRAM only, because
+# VRAM is the one floor the contract cannot imply. A lane that genuinely needs
+# a floor its dtype does not imply is a change to THIS TABLE (or to the
+# contract's dtype), never a new annotation term: two producers for one fact
+# is exactly the drift this derivation exists to prevent.
+#
+# The numbers are the capability at which the arithmetic exists in hardware,
+# in tensorhub's bare spelling (sm_89 -> 89):
+#   sm70  fp16 tensor cores (Volta)
+#   sm75  int8 tensor cores (Turing)
+#   sm80  bf16 + int4 tensor cores (Ampere)
+#   sm89  fp8 e4m3/e5m2 tensor cores (Ada)
+#   sm100 nvfp4 / mx-fp4 tensor cores (Blackwell)
+#
+# NOT a kernel list, and it must never grow into one (Paul, same ruling):
+# a specific attention kernel (sage2, flash-*) is a SERVE-RECIPE fallback arm
+# with its own degrade path, not a placement floor. This table answers exactly
+# one question — can this card do this dtype's arithmetic at all.
+DTYPE_MIN_SM: dict[str, int] = {
+    "float32": 0, "float": 0, "fp32": 0, "tf32": 80,
+    "float16": 70, "half": 70, "fp16": 70,
+    "bfloat16": 80, "bf16": 80,
+    "int8": 75, "uint8": 75,
+    "int4": 80, "uint4": 80,
+    "float8_e4m3fn": 89, "float8_e4m3fnuz": 89, "float8_e5m2": 89,
+    "float8_e5m2fnuz": 89, "fp8_e4m3": 89, "fp8_e5m2": 89, "fp8": 89,
+    "float4_e2m1fn": 100, "nvfp4": 100, "fp4": 100, "mxfp4": 100,
+    # BLOCK-QUANT CONTAINER TYPES — ggml/GGUF spellings. Floor 0 and that is
+    # CORRECT: a GGUF block quant is dequantized on the way to the compute
+    # dtype, so it demands no special silicon. The reason it is written here
+    # rather than left to the unknown-default (which also answers 0) is that
+    # the two zeros mean opposite things — "measured: no floor" versus "never
+    # heard of it". Only the first is a fact, and `capability_floor_for_dtype`
+    # cannot tell them apart, so an absent entry prices a lane by ACCIDENT.
+    # tensorfs#130 follow-up (`51adc50`) made this the live case: the GGUF
+    # document now declares `q4_k`, which is what its lane actually serves.
+    "q4_k": 0, "q4_0": 0, "q4_1": 0, "q5_k": 0, "q5_0": 0, "q5_1": 0,
+    "q6_k": 0, "q8_0": 0, "q2_k": 0, "q3_k": 0, "iq4_nl": 0, "iq4_xs": 0,
+}
+
+#: Spellings that RESOLVE somewhere else and would silently lose their floor.
+#:
+#: `torch.float4_e2m1fn_x2` EXISTS (it is the packed-pair container torch
+#: actually ships; `torch.float4_e2m1fn` does not), so it reads as the more
+#: correct spelling and someone will eventually "fix" a document to use it.
+#: `DTYPE_MIN_SM` does not know it, `capability_floor_for_dtype` would answer
+#: 0, and an nvfp4 lane would be placed on Ampere. The nvfp4 document says so
+#: in its own description and asks not to be corrected.
+#:
+#: **A dtype that resolves through torch and drops the floor is worse than one
+#: that refuses through torch and keeps it** — so these REFUSE by name instead
+#: of being quietly aliased to the right number. Aliasing would work and would
+#: also make the wrong spelling spread.
+FLOOR_LOSING_SPELLINGS: dict[str, str] = {
+    "float4_e2m1fn_x2": (
+        "the PACKED-PAIR container type, not the lane's quantization. Declare "
+        "`float4_e2m1fn` (min_sm 100): the packing is how two elements share a "
+        "byte, while the dtype field names what the lane SERVES"
+    ),
+}
+
+
+def capability_floor_for_dtype(dtype: object) -> int:
+    """The ``min_sm`` a lane's load dtype implies, or ``0`` for none.
+
+    ``0`` is "this dtype implies no floor" — fp32 runs anywhere — and is also
+    what an UNKNOWN dtype answers. Unknown is deliberately silent rather than
+    a refusal: a floor invented for a dtype this table has never seen would be
+    a placement claim with nothing behind it. Teaching this table the dtype is
+    the fix, because it is the only producer of this axis.
+
+    ⚠️ **THE TWO ZEROS MEAN OPPOSITE THINGS AND THIS FUNCTION CANNOT TELL YOU
+    WHICH ONE YOU GOT** — "measured: needs no special silicon" and "never heard
+    of it" are the same return value. That is why every dtype a vendored
+    document can declare belongs in the table EXPLICITLY, including the ones
+    whose honest answer is 0 (the ggml block quants). An absent entry prices a
+    lane by accident, and the accident is silent and in the permissive
+    direction. `tests/test_lane_dtype_fence_pgw1606.py` is the guard: it
+    refuses any vendored document declaring a dtype this table has never seen,
+    which is how `q4_k` was caught the day it landed rather than the day a
+    GGUF lane was mis-placed.
+    """
+    if dtype is None:
+        return 0
+    name = str(getattr(dtype, "name", None) or dtype).strip().lower()
+    name = name.removeprefix("torch.")
+    return DTYPE_MIN_SM.get(name, 0)
+
+
 class LayoutRequirements(msgspec.Struct, frozen=True, kw_only=True,
                          omit_defaults=True):
     """What EXECUTING one declared contract needs of the machine, at both

@@ -20,8 +20,8 @@ import enum
 from typing import Any
 import mujoco
 from mujoco.experimental.studio import endpoints
-from mujoco.experimental.studio import handler_registry
 from mujoco.experimental.studio import messages
+from mujoco.experimental.studio import plugin_registry
 from mujoco.experimental.studio import ux
 import numpy as np
 
@@ -33,15 +33,9 @@ GFX_MODES = (
     'opengl_software',
     'vulkan',
     'vulkan_software',
+    'web',
     'webgl',
 )
-
-
-class ViewerMode(enum.StrEnum):
-  """Determines where the viewer is rendered."""
-
-  NATIVE = 'native'
-  WEB = 'web'
 
 
 # -----------------------------------------------------------------------------
@@ -56,11 +50,8 @@ class ViewerConfig:
   title: str = ''
   width: int = 1200
   height: int = 800
-  gfx: str = ''
-  viewer_mode: ViewerMode = ViewerMode.NATIVE
-  # Web viewer only: public port. 0 picks the first free port starting at 8080,
-  # so several viewers can run side by side.
-  http_port: int = 0
+  gfx: str = ''  # Graphics mode ('web' launches Web Viewer).
+  http_port: int = 0  # Web Viewer port (0 picks first free port >= 8080).
 
 
 # Legacy message types kept for backward compatibility.
@@ -97,7 +88,7 @@ class ViewToSim:
 class ViewerInitEvent(messages.Event):
   """Lifecycle event dispatched once when the concrete Viewer is initialized.
 
-  Handlers that need access to the Viewer should handle this event
+  Plugins that need access to the Viewer should handle this event
   and cache the reference.
   """
 
@@ -107,7 +98,7 @@ class ViewerInitEvent(messages.Event):
 class Viewer(abc.ABC):
   """Base class for any viewer.
 
-  Owns the communication endpoint, handler registry and core visualization
+  Owns the communication endpoint, plugin registry and core visualization
   objects. The application is rendered by calling ``sync()``.
   """
 
@@ -118,7 +109,7 @@ class Viewer(abc.ABC):
       *,
       model: mujoco.MjModel | None = None,
       model_path: str = '',
-      handlers: list[Any] | None = None,
+      plugins: list[Any] | None = None,
       camera: mujoco.MjvCamera | None = None,
       vis_options: mujoco.MjvOption | None = None,
       perturb: mujoco.MjvPerturb | None = None,
@@ -134,7 +125,7 @@ class Viewer(abc.ABC):
         an empty MjSpec. The Viewer deep-copies this model and creates its own
         MjData.
       model_path: Optional path to the model file.
-      handlers: Optional list of handler instances for viewer-side processing.
+      plugins: Optional list of plugin instances for viewer-side processing.
       camera: Camera parameters. Internal object is created if None.
       vis_options: Visualization options. Internal object is created if None.
       perturb: Perturbation parameters. Internal object is created if None.
@@ -167,9 +158,9 @@ class Viewer(abc.ABC):
       # Initted to match mujoco/src/engine/engine_vis_init.c
       self.render_flags.flags = [1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1]
 
-    # Handler infrastructure.
-    all_handlers = [self] + list(handlers or [])
-    self.handlers = handler_registry.HandlerRegistry(all_handlers)
+    # Plugin infrastructure.
+    all_plugins = [self] + list(plugins or [])
+    self.plugins = plugin_registry.PluginRegistry(all_plugins)
 
   def close(self) -> None:
     """Closes the viewer, sends an exit event and shuts down the endpoint."""
@@ -207,7 +198,7 @@ class Viewer(abc.ABC):
 
   def dispatch(self, message: messages.Message) -> None:
     """Dispatches a message to registered handlers in priority order."""
-    self.handlers.dispatch(message)
+    self.plugins.dispatch(message)
 
   def load_model(self, model: mujoco.MjModel, model_path: str = '') -> None:
     """Deep-copies a model and creates fresh data for the viewer."""
@@ -266,7 +257,7 @@ def run_viewer_loop(viewer: Viewer) -> None:
   On exit, closes the viewer (which sends an ExitEvent to the sim side).
 
   Args:
-    viewer: A Viewer that owns the endpoint and handler registry.
+    viewer: A Viewer that owns the endpoint and plugin registry.
   """
   while True:
     # Get the next frame; this also gets the frame's mouse/keyboard events.

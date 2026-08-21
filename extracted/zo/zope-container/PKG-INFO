@@ -1,36 +1,37 @@
 Metadata-Version: 2.4
 Name: zope.container
-Version: 7.2
+Version: 7.3
 Summary: Zope Container
-Home-page: https://github.com/zopefoundation/zope.container
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
 Project-URL: Documentation, https://zopecontainer.readthedocs.io
-Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.container/issues
-Project-URL: Sources, https://github.com/zopefoundation/zope.container
-Keywords: zope container
+Project-URL: Issues, https://github.com/zopefoundation/zope.container/issues
+Project-URL: Source, https://github.com/zopefoundation/zope.container
+Project-URL: Changelog, https://github.com/zopefoundation/zope.container/blob/master/CHANGES.rst
+Keywords: zope,container
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Zope :: 3
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Framework :: Zope :: 3
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: BTrees
-Requires-Dist: persistent>=4.1.0
+Requires-Dist: persistent
 Requires-Dist: zope.cachedescriptors
 Requires-Dist: zope.component
 Requires-Dist: zope.deferredimport
@@ -39,45 +40,32 @@ Requires-Dist: zope.event
 Requires-Dist: zope.filerepresentation
 Requires-Dist: zope.i18nmessageid
 Requires-Dist: zope.interface
-Requires-Dist: zope.lifecycleevent>=3.5.2
-Requires-Dist: zope.location>=3.5.4
-Requires-Dist: zope.proxy>=4.1.5
+Requires-Dist: zope.lifecycleevent
+Requires-Dist: zope.location
+Requires-Dist: zope.proxy
 Requires-Dist: zope.publisher
 Requires-Dist: zope.schema
 Requires-Dist: zope.security
 Requires-Dist: zope.size
-Requires-Dist: zope.traversing>=4.0.0a1
-Requires-Dist: setuptools
+Requires-Dist: zope.traversing
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: furo; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
-Requires-Dist: ZODB>=3.10; extra == "test"
 Requires-Dist: zope.component[zcml]; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
-Requires-Dist: zope.security[zcml]>=4.0.0a3; extra == "test"
+Requires-Dist: zope.security[zcml]; extra == "test"
+Requires-Dist: ZODB; extra == "test"
 Provides-Extra: zcml
 Requires-Dist: zope.component[zcml]; extra == "zcml"
 Requires-Dist: zope.configuration; extra == "zcml"
-Requires-Dist: zope.security[zcml]>=4.0.0a3; extra == "zcml"
+Requires-Dist: zope.security[zcml]; extra == "zcml"
 Provides-Extra: zodb
-Requires-Dist: ZODB>=3.10; extra == "zodb"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Requires-Dist: ZODB; extra == "zodb"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ====================
  ``zope.container``
@@ -109,20 +97,30 @@ for the Folder implementation.
 
 Documentation is hosted at https://zopecontainer.readthedocs.io
 
+Change log
+==========
 
-=========
- Changes
-=========
+7.3 (2026-08-20)
+----------------
+
+- Add support for Python 3.15.
+
+- Add support for automatically building and publishing Windows/ARM64 wheels.
+
+- Add support for automatically building and publishing source distributions.
+
+- Move all supported package metadata into ``pyproject.toml``.
+
 
 7.2 (2025-11-15)
-================
+----------------
 
 - Fix the GitHub workflow for publishing wheels, which failed for Linux/arm64.
   (`#348 <https://github.com/zopefoundation/zope.interface/issues/348>`_)
 
 
 7.1 (2025-11-06)
-================
+----------------
 
 - Add support for Python 3.14.
 
@@ -130,7 +128,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 7.0 (2025-09-12)
-================
+----------------
 
 - Replace ``pkg_resources`` namespace with PEP 420 native namespace.
 
@@ -142,7 +140,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 6.1 (2024-09-18)
-================
+----------------
 
 - Add final support for Python 3.13.
 
@@ -150,7 +148,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 6.0 (2024-05-29)
-================
+----------------
 
 - Drop support for Python 3.7.
 
@@ -160,13 +158,13 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 5.2 (2023-10-05)
-================
+----------------
 
 - Add support for Python 3.12.
 
 
 5.1 (2023-04-24)
-================
+----------------
 
 - Drop using ``setup_requires`` due to constant problems on GHA.
 
@@ -174,7 +172,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 5.0 (2023-01-24)
-================
+----------------
 
 - Build Linux binary wheels for Python 3.11.
 
@@ -182,43 +180,44 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.10 (2022-11-17)
-=================
+-----------------
 
 - Release to rebuild a full set of binary wheels.
 
 
 4.9 (2022-11-16)
-================
+----------------
 
 - Add support for building arm64 wheels on macOS.
 
+
 4.8 (2022-11-06)
-================
+----------------
 
 - Add support for final Python 3.11 release.
 
 
 4.7 (2022-09-15)
-================
+----------------
 
 - Disable unsafe math optimizations in C code.  See `pull request 46
   <https://github.com/zopefoundation/zope.container/pull/46>`_.
 
 
 4.6 (2022-07-14)
-================
+----------------
 
 - Add support for Python 3.11 (as of 3.11.0b3).
 
 
 4.5.0 (2021-11-19)
-==================
+------------------
 
 - Add support for Python 3.9 and 3.10.
 
 
 4.4.0 (2020-04-02)
-==================
+------------------
 
 - Support the ``PURE_PYTHON`` environment variable at runtime instead
   of just at wheel build time. A value of 0 forces the C extensions to
@@ -242,7 +241,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.3.0 (2019-11-11)
-==================
+------------------
 
 - Add support for Python 3.8.
 
@@ -250,7 +249,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.2.2 (2018-08-10)
-==================
+------------------
 
 - Add a dependency on ``zope.cachedescriptors``, previously removed in
   3.11. ``zope.cachedescriptors`` is a lightweight package, and the
@@ -264,7 +263,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.2.1 (2017-08-02)
-==================
+------------------
 
 - Make ``OrderedContainer.updateOrder`` normalize and store text keys
   the same way that ``__setitem__`` does. Fixes
@@ -272,7 +271,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.2.0 (2017-07-31)
-==================
+------------------
 
 - Add support for Python 3.5 and 3.6.
 
@@ -303,8 +302,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
   pure-Python implementation of the container proxy on CPython for
   ease of debugging. See https://github.com/zopefoundation/zope.container/issues/13
 
+
 4.1.0 (2015-05-22)
-==================
+------------------
 
 - Make ``zope.container._proxy.PyContainedProxyBase`` inherit
   directly from ``zope.proxy.AbstractProxyBase`` as well as
@@ -317,8 +317,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 - Drop deprecated BBB imports module, ``zope.container.dependency``.
 
+
 4.0.0 (2014-03-19)
-==================
+------------------
 
 - Add support for Python 3.4.
 
@@ -326,14 +327,14 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.0.0a3 (2013-02-28)
-====================
+--------------------
 
 - Restore ``Folder`` pickle forward/backward compatibility with
   version 3.12.0 after making it inherit from ``BTreeContainer.``
 
 
 4.0.0a2 (2013-02-21)
-====================
+--------------------
 
 - Allow testing without checkouts of unreleased ``zope.publisher`` and
   ``ZODB``.
@@ -342,7 +343,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 4.0.0a1 (2013-02-20)
-====================
+--------------------
 
 - Add support for Python 3.3.
 
@@ -371,7 +372,7 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 
 3.12.0 (2010-12-14)
-===================
+-------------------
 
 - Fix detection of moving folders into itself or a subfolder of itself.
   (LP#118088)
@@ -380,8 +381,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 - Add ``zcml`` extra dependencies.
 
+
 3.11.1 (2010-04-30)
-===================
+-------------------
 
 - Prefer the standard libraries doctest module to the one from ``zope.testing``.
 
@@ -393,15 +395,17 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 - ``checkName`` first checks the parameter type before the emptiness.
 
+
 3.11.0 (2009-12-31)
-===================
+-------------------
 
 - Copy two trivial classes from ``zope.cachedescriptors`` into this package,
   which allows us to remove that dependency. We didn't actually use any
   caching properties as the dependency suggested.
 
+
 3.10.1 (2009-12-29)
-===================
+-------------------
 
 - Move ``zope.copypastemove`` related tests into that package.
 
@@ -410,8 +414,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 - Stop importing DocTestSuite from ``zope.testing.doctestunit``. Fixes
   compatibility problems with ``zope.testing`` 3.8.4.
 
+
 3.10.0 (2009-12-15)
-===================
+-------------------
 
 - Break testing dependency on ``zope.app.testing``.
 
@@ -421,15 +426,17 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 - Import ``ISite`` from ``zope.component`` after it was moved there from
   ``zope.location``.
 
+
 3.9.1 (2009-10-18)
-==================
+------------------
 
 - Rerelease 3.9.0 as it had a broken Windows 2.6 egg.
 
 - Mark this project as part of the ZTK.
 
+
 3.9.0 (2009-08-28)
-==================
+------------------
 
 - Previous releases should be versioned 3.9.0 as they are not pure bugfix
   releases and worth a "feature" release, increasing feature version.
@@ -437,14 +444,16 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
   Packages that depend on any changes introduced in version 3.8.2 or 3.8.3
   should depend on version 3.9 or greater.
 
+
 3.8.3 (2009-08-27)
-==================
+------------------
 
 - Move ``IXMLRPCPublisher`` ZCML registrations for containers from
   ``zope.app.publisher.xmlrpc`` to ``zope.container`` for now.
 
+
 3.8.2 (2009-05-17)
-==================
+------------------
 
 - Rid ourselves of ``IContained`` interface.  This interface was moved
   to ``zope.location.interfaces``.  A b/w compat import still exists
@@ -474,14 +483,15 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
   be registered.  ``zope.app.dependable`` is now a testing dependency
   only.
 
+
 3.8.1 (2009-04-03)
-==================
+------------------
 
 - Fix misspackaged 3.8.0
 
 
 3.8.0 (2009-04-03)
-==================
+------------------
 
 - Change ``configure.zcml`` to not depend on ``zope.app.component``.
   Fixes: https://bugs.launchpad.net/bugs/348329
@@ -490,8 +500,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
   ``IOrdered`` interface and let ``IOrderedContainer`` inherit it. This allows
   easier reuse of the declaration.
 
+
 3.7.2 (2009-03-12)
-==================
+------------------
 
 - Fix: added missing ``ComponentLookupError``, missing since revision 95429
   and missing in last release.
@@ -504,8 +515,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
   container to the ``zope.container.interfaces.IReservedNames`` interface.
   The default ``NameChooser`` is now also aware of reserved names.
 
+
 3.7.1 (2009-02-05)
-==================
+------------------
 
 - Raise more "Pythonic" errors from ``__setitem__``, losing the dependency
   on ``zope.exceptions``:
@@ -524,8 +536,9 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 
 - Strip out bogus develop eggs from ``buildout.cfg``.
 
+
 3.7.0 (2009-01-31)
-==================
+------------------
 
 - Split this package off ``zope.app.container``. This package is
   intended to have far less dependencies than ``zope.app.container``.

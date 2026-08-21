@@ -39,6 +39,7 @@
 # Copyright 2025 Matej Focko <mfocko@users.noreply.github.com>                 #
 # Copyright 2025 Neel Malik <41765022+neel-m@users.noreply.github.com>         #
 # Copyright 2026 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2026 Hugo van Kemenade <1324225+hugovk@users.noreply.github.com>   #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -67,10 +68,10 @@ import os
 import traceback
 import unittest
 import warnings
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable
+from typing import Any
 
 import responses
 from requests.structures import CaseInsensitiveDict

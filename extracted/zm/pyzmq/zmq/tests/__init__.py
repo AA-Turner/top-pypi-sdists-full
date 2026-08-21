@@ -9,7 +9,6 @@ import time
 import warnings
 from functools import partial
 from threading import Thread
-from typing import List
 from unittest import SkipTest, TestCase
 
 from pytest import mark
@@ -68,7 +67,7 @@ class BaseZMQTestCase(TestCase):
     green = False
     teardown_timeout = 10
     test_timeout_seconds = int(os.environ.get("ZMQ_TEST_TIMEOUT") or 60)
-    sockets: List[zmq.Socket]
+    sockets: list[zmq.Socket]
 
     @property
     def _is_pyzmq_test(self):

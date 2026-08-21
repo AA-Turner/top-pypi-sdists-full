@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: k8s-agent-sandbox
-Version: 0.5.5
+Version: 0.5.6
 Summary: A client library to interact with the Agentic Sandbox on Kubernetes.
 Project-URL: Homepage, https://github.com/kubernetes-sigs/agent-sandbox
 Project-URL: Bug Tracker, https://github.com/kubernetes-sigs/agent-sandbox/issues

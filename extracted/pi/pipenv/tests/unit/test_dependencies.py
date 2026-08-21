@@ -3,12 +3,15 @@ from unittest.mock import MagicMock
 from pipenv.patched.pip._internal.index.package_finder import CandidateEvaluator
 from pipenv.patched.pip._internal.models.candidate import InstallationCandidate
 from pipenv.patched.pip._internal.models.release_control import ReleaseControl
+from pipenv.patched.pip._internal.resolution.resolvelib.requirements import (
+    SpecifierRequirement,
+)
 from pipenv.patched.pip._vendor.packaging.specifiers import (
     SpecifierSet as PipSpecifierSet,
 )
+from pipenv.patched.pip._vendor.packaging.version import Version as PipVersion
 from pipenv.utils.dependencies import _file_url_to_relative_path, clean_resolved_dep
 from pipenv.vendor.packaging.specifiers import SpecifierSet
-
 
 # T_F.3 Wave B1: the three former ``test_entry_get_cleaned_dict_*`` cases
 # pinned the legacy ``Entry`` dataclass at ``pipenv/resolver/main.py``.
@@ -90,7 +93,7 @@ def test_clean_resolved_dep_converts_file_url_subdep():
     Regression test for https://github.com/pypa/pipenv/issues/6119.
     """
     project = MagicMock()
-    project.project_directory = "/home/user/my-project"
+    project.pipfile.project_directory = "/home/user/my-project"
 
     dep = {
         "name": "namespace-utils",
@@ -116,7 +119,7 @@ def test_clean_resolved_dep_preserves_relative_file_toplevel():
     the Pipfile data) must pass through unchanged.
     """
     project = MagicMock()
-    project.project_directory = "/home/user/my-project"
+    project.pipfile.project_directory = "/home/user/my-project"
 
     # Use is_top_level=False to avoid the unearth_hashes_for_dep code path
     # that requires an actual filesystem path.  The normalisation logic under
@@ -409,6 +412,73 @@ class TestCandidateEvaluatorPrereleases:
         assert "0.50b0" in versions
         assert "0.60b0" in versions
 
+    def test_compatible_release_accepts_prerelease_of_lower_bound(self):
+        """Regression test for issue #6701."""
+        candidates = [
+            self._make_candidate("test-package", "2.10"),
+            self._make_candidate("test-package", "2.11rc1"),
+            self._make_candidate("test-package", "2.11rc3"),
+        ]
+        evaluator = self._make_evaluator(specifier="~=2.11")
+
+        applicable = evaluator.get_applicable_candidates(candidates)
+
+        assert [str(candidate.version) for candidate in applicable] == [
+            "2.11rc1",
+            "2.11rc3",
+        ]
+
+    def test_matching_final_suppresses_lower_bound_prerelease_fallback(self):
+        candidates = [
+            self._make_candidate("test-package", "2.11rc3"),
+            self._make_candidate("test-package", "2.11"),
+            self._make_candidate("test-package", "2.12rc1"),
+        ]
+        evaluator = self._make_evaluator(specifier="~=2.11")
+
+        applicable = evaluator.get_applicable_candidates(candidates)
+
+        assert [str(candidate.version) for candidate in applicable] == ["2.11"]
+
+    def test_lower_bound_prerelease_fallback_honors_exclusions(self):
+        candidates = [
+            self._make_candidate("test-package", "2.11rc1"),
+            self._make_candidate("test-package", "2.11rc3"),
+        ]
+        evaluator = self._make_evaluator(specifier="~=2.11,!=2.11rc3")
+
+        applicable = evaluator.get_applicable_candidates(candidates)
+
+        assert [str(candidate.version) for candidate in applicable] == ["2.11rc1"]
+
+    def test_exact_final_pin_does_not_accept_its_prerelease(self):
+        candidates = [self._make_candidate("test-package", "2.11rc3")]
+        evaluator = self._make_evaluator(specifier="==2.11")
+
+        assert evaluator.get_applicable_candidates(candidates) == []
+
+    def test_only_final_disables_lower_bound_prerelease_fallback(self):
+        candidates = [self._make_candidate("test-package", "2.11rc3")]
+        evaluator = CandidateEvaluator.create(
+            project_name="test-package",
+            release_control=ReleaseControl(only_final={":all:"}),
+            specifier=PipSpecifierSet("~=2.11"),
+        )
+
+        assert evaluator.get_applicable_candidates(candidates) == []
+
+    def test_resolver_accepts_selected_lower_bound_prerelease(self):
+        install_requirement = MagicMock()
+        install_requirement.link = None
+        install_requirement.extras = set()
+        install_requirement.req.name = "test-package"
+        install_requirement.req.specifier = PipSpecifierSet("~=2.11")
+        requirement = SpecifierRequirement(install_requirement)
+        candidate = MagicMock()
+        candidate.name = requirement.name
+        candidate.version = PipVersion("2.11rc3")
+
+        assert requirement.is_satisfied_by(candidate)
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +492,7 @@ class TestNoBinaryCleanResolvedDep:
         """no_binary = True must survive clean_resolved_dep so the lockfile
         records it and batch_install can re-apply --no-binary."""
         project = MagicMock()
-        project.project_directory = None
+        project.pipfile.project_directory = None
 
         dep = {
             "name": "cartopy",
@@ -437,7 +507,7 @@ class TestNoBinaryCleanResolvedDep:
     def test_no_binary_false_is_not_written(self):
         """When no_binary is falsy it should not appear in the lockfile entry."""
         project = MagicMock()
-        project.project_directory = None
+        project.pipfile.project_directory = None
 
         dep = {
             "name": "requests",
@@ -451,7 +521,7 @@ class TestNoBinaryCleanResolvedDep:
     def test_no_binary_absent_is_not_written(self):
         """When no_binary is absent it should not appear in the lockfile entry."""
         project = MagicMock()
-        project.project_directory = None
+        project.pipfile.project_directory = None
 
         dep = {
             "name": "requests",

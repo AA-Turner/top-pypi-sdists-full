@@ -10,7 +10,7 @@ __author__ = 'Guido Goldstein'
 
 import threading
 import time
-from typing import Any, Dict
+from typing import Any
 
 import zmq
 from zmq.utils.monitor import recv_monitor_message
@@ -35,7 +35,7 @@ for name in dir(zmq):
 
 def event_monitor(monitor: zmq.Socket) -> None:
     while monitor.poll():
-        evt: Dict[str, Any] = {}
+        evt: dict[str, Any] = {}
         mon_evt = recv_monitor_message(monitor)
         evt.update(mon_evt)
         evt['description'] = EVENT_MAP[evt['event']]
@@ -47,7 +47,7 @@ def event_monitor(monitor: zmq.Socket) -> None:
     print("event monitor thread done!")
 
 
-ctx = zmq.Context.instance()
+ctx: zmq.SyncContext = zmq.Context.instance()
 rep = ctx.socket(zmq.REP)
 req = ctx.socket(zmq.REQ)
 

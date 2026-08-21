@@ -10,16 +10,24 @@ from urllib.parse import urlencode
 import jsonschema_rs
 from hypothesis import strategies as st
 from hypothesis.errors import InvalidArgument
-from hypothesis_jsonschema import from_schema
 
 from schemathesis.config import GenerationConfig
-from schemathesis.core.jsonschema import ALL_KEYWORDS, DRAFT4_SUPPLEMENTAL_FORMATS, FANCY_REGEX_OPTIONS
+from schemathesis.core.errors import InvalidSchema
+from schemathesis.core.jsonschema import (
+    ALL_KEYWORDS,
+    CANONICALIZE_DRAFT_BY_VALIDATOR,
+    DRAFT4_SUPPLEMENTAL_FORMATS,
+    FANCY_REGEX_OPTIONS,
+)
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 from schemathesis.core.media_types import is_json
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.generation.jsonschema import build
+from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.specs.openapi.adapter.parameters import _constant_values_at_draws, _prune_modified_constants
+from schemathesis.specs.openapi.formats import HEADER_FORMAT, header_alphabet
 from schemathesis.specs.openapi.negative.mutations import (
     Mutation,
     MutationChannel,
@@ -282,18 +290,19 @@ def negative_schema(
         def filter_values(value: Any) -> bool:
             return skip_validation_filter or contains_binary(value) or not validator.is_valid(value)
 
+    if location.is_in_header:
+        # Header names and values answer to the same character rules whoever asks for them.
+        alphabet = header_alphabet(generation_config)
+        custom_formats = {name: strategy for name, strategy in custom_formats.items() if name != HEADER_FORMAT}
+    else:
+        alphabet = Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec)
+
     def generate_value_with_metadata(value: tuple[dict, MutationMetadata]) -> st.SearchStrategy:
         schema, metadata = value
-        return (
-            from_schema(
-                schema,
-                custom_formats=custom_formats,
-                allow_x00=generation_config.allow_x00,
-                codec=generation_config.codec,
-            )
-            .filter(filter_values)
-            .map(lambda value: GeneratedValue(value, metadata))
+        strategy = build(
+            schema, draft=CANONICALIZE_DRAFT_BY_VALIDATOR[validator_cls], formats=custom_formats, alphabet=alphabet
         )
+        return strategy.filter(filter_values).map(lambda value: GeneratedValue(value, metadata))
 
     if target_descriptors is None:
         target_descriptors = compute_mutation_targets(schema)
@@ -310,15 +319,12 @@ def negative_schema(
 
     positive_strategy: st.SearchStrategy | None = None
     if location == ParameterLocation.BODY:
-        _candidate = from_schema(
-            schema,
-            custom_formats=custom_formats,
-            allow_x00=generation_config.allow_x00,
-            codec=generation_config.codec,
-        )
         try:
+            _candidate = build(
+                schema, draft=CANONICALIZE_DRAFT_BY_VALIDATOR[validator_cls], formats=custom_formats, alphabet=alphabet
+            )
             _candidate.validate()
-        except InvalidArgument:
+        except (InvalidArgument, InvalidSchema):
             pass
         else:
             if not _candidate.is_empty:

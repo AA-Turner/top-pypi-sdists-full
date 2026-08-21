@@ -23,8 +23,6 @@ use std::sync::LazyLock;
 
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use constants::X_AMZ_META_PREFIX;
-use constants::X_AMZ_VERSION_ID;
 use http::StatusCode;
 use log::debug;
 use log::warn;
@@ -141,6 +139,22 @@ impl S3Builder {
     pub fn region(mut self, region: &str) -> Self {
         if !region.is_empty() {
             self.config.region = Some(region.to_string())
+        }
+
+        self
+    }
+
+    /// Set the AWS profile used by the default credential provider chain.
+    ///
+    /// The configured profile takes precedence over the `AWS_PROFILE`
+    /// environment variable and applies to shared AWS config and credentials
+    /// files and SSO.
+    ///
+    /// This setting has no effect when [`Self::disable_config_load`] is set or
+    /// when [`Self::credential_provider_chain`] replaces the default chain.
+    pub fn profile(mut self, profile: &str) -> Self {
+        if !profile.is_empty() {
+            self.config.profile = Some(profile.to_string())
         }
 
         self
@@ -852,6 +866,12 @@ impl Builder for S3Builder {
 
             if config.disable_config_load {
                 builder = builder.no_env().no_profile();
+            } else if let Some(profile) = config
+                .profile
+                .as_deref()
+                .filter(|profile| !profile.is_empty())
+            {
+                builder = builder.with_profile(profile);
             }
 
             if config.disable_ec2_metadata {
@@ -1071,21 +1091,7 @@ impl Service for S3Backend {
         let status = resp.status();
 
         match status {
-            StatusCode::OK => {
-                let headers = resp.headers();
-                let mut meta = parse_into_metadata(path, headers)?;
-
-                let user_meta = parse_prefixed_headers(headers, X_AMZ_META_PREFIX);
-                if !user_meta.is_empty() {
-                    meta = meta.with_user_metadata(user_meta);
-                }
-
-                if let Some(v) = parse_header_to_str(headers, X_AMZ_VERSION_ID)? {
-                    meta.set_version(v);
-                }
-
-                Ok(RpStat::new(meta))
-            }
+            StatusCode::OK => Ok(RpStat::new(parse_into_s3_metadata(path, resp.headers())?)),
             _ => Err(parse_error(resp)),
         }
     }
@@ -1233,6 +1239,12 @@ impl Service for S3Backend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_profile() {
+        let builder = S3Builder::default().profile("selected");
+        assert_eq!(builder.config.profile.as_deref(), Some("selected"));
+    }
 
     #[test]
     fn test_is_valid_bucket() {

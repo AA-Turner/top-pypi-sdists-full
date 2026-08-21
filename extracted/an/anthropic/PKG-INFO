@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 0.125.0
+Version: 1.0.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -13,7 +13,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,18 +20,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.5.0
-Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: docstring-parser<1,>=0.15
-Requires-Dist: httpx<1,>=0.25.0
+Requires-Dist: httpx2<3,>=2.0.0
 Requires-Dist: jiter<1,>=0.4.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio<2,>=1
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp<4,>=3; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp<1,>=0.1.9; extra == 'aiohttp'
+Requires-Dist: aiohttp<4,>=3.10.0; extra == 'aiohttp'
 Provides-Extra: aws
 Requires-Dist: boto3<2,>=1.28.57; extra == 'aws'
 Requires-Dist: botocore<2,>=1.31.57; extra == 'aws'
@@ -65,6 +62,8 @@ Full documentation is available at **[platform.claude.com/docs/en/api/sdks/pytho
 pip install anthropic
 ```
 
+Upgrading from a `0.x` release? See the [v1 migration guide](https://github.com/anthropics/anthropic-sdk-python/tree/main/MIGRATION.md).
+
 ## Getting started
 
 ```python
@@ -93,7 +92,7 @@ print(message.content)
 
 ## Requirements
 
-Python 3.9+
+Python 3.10+
 
 ## Contributing
 

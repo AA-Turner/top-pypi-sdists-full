@@ -26,9 +26,8 @@ implementation of it. A worker-side digest would be a second one — two
 canonicalizations of the same object, each green against its own tests, free to
 disagree exactly like the two topology decoders did (pgw#1188). The worker
 reports the structure; the hub decides what it is identical to. What keeps the
-two sides honest is the byte-identical vector fence
-(``tests/testdata/posture_wire_vectors.json`` + ``scripts/posture-vector-drift.sh``),
-not a duplicated hash.
+two sides honest is the byte-identical vector corpus
+(``tests/testdata/posture_wire_vectors.json``), not a duplicated hash.
 
 **It does not decide anything.** No refusal, no gate, no placement input.
 §1.35's second amendment stands: loudness is diagnostics.
@@ -135,6 +134,7 @@ PLACEMENT_DISK = "disk"
 #: Technique names — the SDK's OWN rungs (`models/rung.py`) plus the levers that
 #: had no wire representation at all.
 TECHNIQUE_FP8_STORAGE = "fp8_storage"
+TECHNIQUE_PARTIAL_RESIDENT = "partial_resident"
 TECHNIQUE_MODEL_OFFLOAD = "model_offload"
 TECHNIQUE_GROUP_OFFLOAD = "group_offload"
 TECHNIQUE_SEQUENTIAL = "sequential"
@@ -168,7 +168,8 @@ REASON_BELOW_DECLARED_MINIMUM = "below_declared_minimum"
 # and at request time; this reader is a version-skew backstop, and a backstop
 # that fatals turns a hub-side stamping gap into a customer-visible outage —
 # which is exactly what it did to sd15 and anima on 0.120.0.
-# Doubles as the `serve_degrade` phase token (`memory.UNEVIDENCED_FACTS_PHASE`).
+# pgw#1425: its one reader (`memory.UNEVIDENCED_FACTS_PHASE`) went with the
+# catalog pgw#1373 deleted. Kept as the wire vocabulary's token, unused.
 REASON_SERVING_FACTS_UNEVIDENCED = "serving_facts_unevidenced"
 
 #: Shortfall resources.
@@ -378,6 +379,7 @@ _PLACEMENT_RESIDENCY: Dict[str, str] = {
     "": "",
     "off": RESIDENCY_ALL_RESIDENT,
     "vae_only": RESIDENCY_ALL_RESIDENT,
+    "partial_resident": TECHNIQUE_PARTIAL_RESIDENT,
     "model_offload": TECHNIQUE_MODEL_OFFLOAD,
     "group_offload": TECHNIQUE_GROUP_OFFLOAD,
     "sequential": TECHNIQUE_SEQUENTIAL,
@@ -388,6 +390,7 @@ _PLACEMENT_RESIDENCY: Dict[str, str] = {
 #: the worker's estimate OF the lever, not a property of the run, and two SDK
 #: versions estimating it differently must not fork one posture's identity.
 _TECHNIQUE_SLOWDOWN: Dict[str, float] = {
+    TECHNIQUE_PARTIAL_RESIDENT: 1.3,
     TECHNIQUE_MODEL_OFFLOAD: 2.5,
     TECHNIQUE_GROUP_OFFLOAD: 3.0,
     TECHNIQUE_SEQUENTIAL: 4.0,
@@ -576,7 +579,7 @@ def _package_missing(backend: str) -> bool:
 def compile_axis(serving_mode: str) -> str:
     """``compiled`` | ``eager`` from ``ServedIdentity.serving_mode``.
 
-    ``jit_cell`` and ``aot_cell`` are BOTH compiled — the artifact kind is a
+    ``jit_graph`` and ``aot_graph`` are BOTH compiled — the artifact kind is a
     different axis (``metrics.serving_mode`` carries it), and folding it in here
     would split every compiled graph in two on a fact §1.30 ruled is a cache question.
     """

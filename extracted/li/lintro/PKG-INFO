@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintro
-Version: 0.123.3
+Version: 0.124.0
 Summary: A unified CLI tool for code formatting, linting, and quality assurance
 Author-email: lgtm-hq <turbocoder13@gmail.com>
 License-Expression: MIT
@@ -295,6 +295,12 @@ system.
 <td>🎨 CSS/SCSS/Sass/Less</td>
 <td>✅</td>
 <td><code>bun add -D stylelint</code><br><code>npm install -D stylelint</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/crate-ci/typos"><img src="https://img.shields.io/badge/typos-000000?logo=rust&logoColor=white" alt="typos"></a></td>
+<td>🔤 Spelling</td>
+<td>✅</td>
+<td><code>brew install typos-cli</code><br><code>cargo install typos-cli</code></td>
 </tr>
 <tr><th colspan="4">Type Checkers</th></tr>
 <tr>

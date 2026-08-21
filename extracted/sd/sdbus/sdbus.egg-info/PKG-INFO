@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdbus
-Version: 0.14.2
+Version: 0.14.3
 Summary: Modern Python D-Bus library. Based on sd-bus from libsystemd.
 Home-page: https://github.com/python-sdbus/python-sdbus
 Author: igo95862

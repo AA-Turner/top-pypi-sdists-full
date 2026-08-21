@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.24.3"
+version = "4.25.0"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -36,8 +36,7 @@ dependencies = [
   "harfile>=0.5.0,<1.0",
   "hypothesis>=6.130.12,<7",
   "hypothesis_graphql>=0.13.1,<1",
-  "hypothesis_jsonschema>=0.23.1,<0.24",
-  "jsonschema_rs>=0.49.0",
+  "jsonschema_rs>=0.50.0,<0.51.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=9,<10",
   "PyYAML>=5.1,<7.0",
@@ -106,7 +105,7 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 xfail_strict = true
 truncation_limit_lines = 0
 truncation_limit_chars = 0
-testpaths = "tests"
+testpaths = "test"
 norecursedirs = ".hypothesis .idea .git src docs .pytest_cache .mypy_cache .tox"
 filterwarnings = [
     "error::pytest.PytestUnraisableExceptionWarning",
@@ -204,8 +203,6 @@ known-third-party = [
   "graphql_server",
   "hypothesis",
   "hypothesis_graphql",
-  "hypothesis_jsonschema",
-  "jsonschema",
   "packaging",
   "pydantic",
   "pytest",

@@ -306,7 +306,7 @@ class Lockfile:
 
     @classmethod
     def lockfile_from_pipfile(cls, pipfile_path):
-        from pipenv.utils.pipfile import Pipfile
+        from pipenv.utils.pipfile import PlettePipfile
 
         # Convert to Path object
         path = Path(pipfile_path)
@@ -317,7 +317,7 @@ class Lockfile:
                 path = path.resolve()
 
             # Load the Pipfile from the parent directory
-            pipfile = Pipfile.load(path.parent)
+            pipfile = PlettePipfile.load(path.parent)
             return lockfiles.Lockfile.with_meta_from(pipfile.pipfile)
 
         raise PipfileNotFound(pipfile_path)
@@ -414,11 +414,11 @@ class Lockfile:
             backup_path = f"{formatted_path}.bak"
 
             # Show error and create backup
-            LockfileCorruptException.show(formatted_path, backup_path=backup_path)
+            LockfileCorruptException(formatted_path, backup_path=backup_path).show()
             path_obj.rename(backup_path)
 
             # Try loading again after backing up corrupted file
-            cls.load(formatted_path, create=True)
+            return cls.load(formatted_path, create=True)
 
         # Create Path object from projectfile location
         lockfile_path = Path(projectfile.location)

@@ -5,29 +5,39 @@ used in zero-copy sends.
 # Copyright (C) PyZMQ Developers
 # Distributed under the terms of the Modified BSD License.
 
+from __future__ import annotations
+
 import atexit
 import struct
 import warnings
-from collections import namedtuple
 from os import getpid
 from threading import Event, Lock, Thread
+from typing import Final, NamedTuple
 
 import zmq
 
-gcref = namedtuple('gcref', ['obj', 'event'])
+
+class gcref(NamedTuple):
+    obj: object
+    event: Event | None
 
 
 class GarbageCollectorThread(Thread):
     """Thread in which garbage collection actually happens."""
 
-    def __init__(self, gc):
+    gc: GarbageCollector
+    daemon: bool
+    pid: int
+    ready: Event
+
+    def __init__(self, gc: GarbageCollector) -> None:
         super().__init__()
         self.gc = gc
         self.daemon = True
         self.pid = getpid()
         self.ready = Event()
 
-    def run(self):
+    def run(self) -> None:
         # detect fork at beginning of the thread
         if getpid is None or getpid() != self.pid:
             self.ready.set()
@@ -70,16 +80,20 @@ class GarbageCollector:
     and any tracker events that should be signaled fire.
     """
 
-    refs = None
-    _context = None
-    _lock = None
+    # refs = None
+    _context: zmq.Context | None = None
+    # _lock = None
     url = "inproc://pyzmq.gc.01"
 
-    def __init__(self, context=None):
+    refs: dict[int, gcref]
+    _lock: Lock
+    _push: zmq.Socket | None
+
+    def __init__(self, context: zmq.Context | None = None) -> None:
         super().__init__()
         self.refs = {}
-        self.pid = None
-        self.thread = None
+        self.pid: int | None = None
+        self.thread: GarbageCollectorThread | None = None
         self._context = context
         self._lock = Lock()
         self._stay_down = False
@@ -88,7 +102,7 @@ class GarbageCollector:
         atexit.register(self._atexit)
 
     @property
-    def context(self):
+    def context(self) -> zmq.Context:
         if self._context is None:
             if Thread.__module__.startswith('gevent'):
                 # gevent has monkey-patched Thread, use green Context
@@ -100,7 +114,7 @@ class GarbageCollector:
         return self._context
 
     @context.setter
-    def context(self, ctx):
+    def context(self, ctx: zmq.Context | None) -> None:
         if self.is_alive():
             if self.refs:
                 warnings.warn(
@@ -109,7 +123,7 @@ class GarbageCollector:
             self.stop()
         self._context = ctx
 
-    def _atexit(self):
+    def _atexit(self) -> None:
         """atexit callback
 
         sets _stay_down flag so that gc doesn't try to start up again in other atexit handlers
@@ -117,13 +131,13 @@ class GarbageCollector:
         self._stay_down = True
         self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         """stop the garbage-collection thread"""
         if not self.is_alive():
             return
         self._stop()
 
-    def _clear(self):
+    def _clear(self) -> None:
         """Clear state
 
         called after stop or when setting up a new subprocess
@@ -134,19 +148,19 @@ class GarbageCollector:
         self.refs.clear()
         self.context = None
 
-    def _stop(self):
+    def _stop(self) -> None:
         push = self.context.socket(zmq.PUSH)
         push.connect(self.url)
         push.send(b'DIE')
         push.close()
         if self._push:
             self._push.close()
-        self.thread.join()
+        self.thread.join()  # type:ignore[union-attr]
         self.context.term()
         self._clear()
 
     @property
-    def _push_socket(self):
+    def _push_socket(self) -> zmq.Socket:
         """The PUSH socket for use in the zmq message destructor callback."""
         if getattr(self, "_stay_down", False):
             raise RuntimeError("zmq gc socket requested during shutdown")
@@ -155,7 +169,7 @@ class GarbageCollector:
             self._push.connect(self.url)
         return self._push
 
-    def start(self):
+    def start(self) -> None:
         """Start a new garbage collection thread.
 
         Creates a new zmq Context used for garbage collection.
@@ -171,7 +185,7 @@ class GarbageCollector:
         self.thread.start()
         self.thread.ready.wait()
 
-    def is_alive(self):
+    def is_alive(self) -> bool:
         """Is the garbage collection thread currently running?
 
         Includes checks for process shutdown or fork.
@@ -185,7 +199,7 @@ class GarbageCollector:
             return False
         return True
 
-    def store(self, obj, event=None):
+    def store(self, obj: object, event: Event | None = None) -> int:
         """store an object and (optionally) event for zero-copy"""
         if not self.is_alive():
             if self._stay_down:
@@ -201,7 +215,7 @@ class GarbageCollector:
         self.refs[theid] = tup
         return theid
 
-    def __del__(self):
+    def __del__(self) -> None:
         if not self.is_alive():
             return
         try:
@@ -210,4 +224,4 @@ class GarbageCollector:
             raise (e)
 
 
-gc = GarbageCollector()
+gc: Final[GarbageCollector] = GarbageCollector()

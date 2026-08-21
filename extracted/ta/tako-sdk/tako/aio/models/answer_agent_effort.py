@@ -20,13 +20,14 @@ from typing_extensions import Self
 
 class AnswerAgentEffort(str, Enum):
     """
-    Effort taxonomy for the Answer Agent (POST /v1/agent/answer/runs).  The Answer Agent shares the effort vocabulary with the Retrieval Agent, but only 'medium' is available today. Unsupported values return 400. Effort does not select an engine; it is a forward-compatible quality and pricing control.
+    Effort levels for the Answer Agent (POST /v1/agent/answer/runs).  'medium' is the default. 'high' uses the same models and the same data. It only makes the model reason more, and it gives the run more time. A 'high' run can give a better answer, and it always takes longer. 'low' is not available. A request that sends 'low' gets a 400 response.  The effort is fixed for the life of a thread. A follow-up that sends a different effort gets a 409 response with the code 'effort_mismatch'. To use a different effort, start a new thread.
     """
 
     """
     allowed enum values
     """
     MEDIUM = 'medium'
+    HIGH = 'high'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

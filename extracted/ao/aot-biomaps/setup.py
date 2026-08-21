@@ -10,6 +10,8 @@ REQUIRED_DEPENDENCIES = [
     'scipy==1.13.1',
     'tqdm==4.60.0',
     'matplotlib==3.9.2',
+    'numba==0.61.2',
+    'scikit-image==0.24.0'
 ]
 
 OPTIONAL_DEPENDENCIES = {
@@ -77,7 +79,7 @@ def get_install_requires():
 
 setup(
     name='aot-biomaps',
-    version='2.9.912',
+    version='2.9.913',
     packages=find_packages(),
     package_dir={'': '.'},
     include_package_data=True,
@@ -99,6 +101,7 @@ setup(
         'console_scripts': ['aot-biomaps = AOT_biomaps.__main__:main'],
     }
 )
+
 
 
 

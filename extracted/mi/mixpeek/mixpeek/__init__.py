@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.394"
+__version__ = "1.3.406"
 
 # Define package exports
 __all__ = [
@@ -522,6 +522,7 @@ __all__ = [
     "ExplainRetrieverRequest",
     "ExplainRetrieverResponse",
     "ExplainStagePlan",
+    "ExplodeSpec",
     "ExportFormat",
     "ExternalConnection",
     "ExternalLink",
@@ -615,6 +616,9 @@ __all__ = [
     "IconikCredentials",
     "ImageExtractorParams",
     "ImportMapping",
+    "ImportRequest",
+    "ImportResponse",
+    "ImportRowError",
     "IndexConfiguration",
     "IndexRecommendation",
     "IndexRecommendationsResponse",
@@ -1331,6 +1335,7 @@ __all__ = [
     "VectorDataType",
     "VectorIndex",
     "VectorIndexDefinition",
+    "VectorJoin",
     "VectorMappingModel",
     "VectorPurpose",
     "VectorType",
@@ -1869,6 +1874,7 @@ from mixpeek.models.execution_history_response import ExecutionHistoryResponse a
 from mixpeek.models.explain_retriever_request import ExplainRetrieverRequest as ExplainRetrieverRequest
 from mixpeek.models.explain_retriever_response import ExplainRetrieverResponse as ExplainRetrieverResponse
 from mixpeek.models.explain_stage_plan import ExplainStagePlan as ExplainStagePlan
+from mixpeek.models.explode_spec import ExplodeSpec as ExplodeSpec
 from mixpeek.models.export_format import ExportFormat as ExportFormat
 from mixpeek.models.external_connection import ExternalConnection as ExternalConnection
 from mixpeek.models.external_link import ExternalLink as ExternalLink
@@ -1962,6 +1968,9 @@ from mixpeek.models.iconik_config import IconikConfig as IconikConfig
 from mixpeek.models.iconik_credentials import IconikCredentials as IconikCredentials
 from mixpeek.models.image_extractor_params import ImageExtractorParams as ImageExtractorParams
 from mixpeek.models.import_mapping import ImportMapping as ImportMapping
+from mixpeek.models.import_request import ImportRequest as ImportRequest
+from mixpeek.models.import_response import ImportResponse as ImportResponse
+from mixpeek.models.import_row_error import ImportRowError as ImportRowError
 from mixpeek.models.index_configuration import IndexConfiguration as IndexConfiguration
 from mixpeek.models.index_recommendation import IndexRecommendation as IndexRecommendation
 from mixpeek.models.index_recommendations_response import IndexRecommendationsResponse as IndexRecommendationsResponse
@@ -2678,6 +2687,7 @@ from mixpeek.models.vector_config_spec_model import VectorConfigSpecModel as Vec
 from mixpeek.models.vector_data_type import VectorDataType as VectorDataType
 from mixpeek.models.vector_index import VectorIndex as VectorIndex
 from mixpeek.models.vector_index_definition import VectorIndexDefinition as VectorIndexDefinition
+from mixpeek.models.vector_join import VectorJoin as VectorJoin
 from mixpeek.models.vector_mapping_model import VectorMappingModel as VectorMappingModel
 from mixpeek.models.vector_purpose import VectorPurpose as VectorPurpose
 from mixpeek.models.vector_type import VectorType as VectorType

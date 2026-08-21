@@ -4,7 +4,7 @@
 import json
 import os
 from collections.abc import AsyncIterable, Callable, Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from google.genai.models import AsyncModels, Models
 from google.genai.models import t as transformers
@@ -38,6 +38,7 @@ from opentelemetry.util.genai.types import (
 )
 from opentelemetry.util.types import AttributeValue
 
+from ._error_type import resolve_error_type
 from .allowlist_util import AllowList
 from .client_info import get_client_info as _get_client_info
 from .custom_semconv import GCP_GENAI_OPERATION_CONFIG
@@ -138,24 +139,24 @@ def _guess_genai_system_from_env():
     return gen_ai_attributes.GenAiSystemValues.GEMINI.name.lower()
 
 
-def _get_is_vertexai(models_object: Union[Models, AsyncModels]):
+def _get_is_vertexai(models_object: Models | AsyncModels):
     # Since commit 8e561de04965bb8766db87ad8eea7c57c1040442 of "googleapis/python-genai",
     # it is possible to obtain the information using a documented property.
     if hasattr(models_object, "vertexai"):
-        vertexai_attr = getattr(models_object, "vertexai")
+        vertexai_attr = models_object.vertexai
         if vertexai_attr is not None:
             return vertexai_attr
     # For earlier revisions, it is necessary to deeply inspect the internals.
     if hasattr(models_object, "_api_client"):
-        client = getattr(models_object, "_api_client")
+        client = models_object._api_client
         if not client:
             return None
         if hasattr(client, "vertexai"):
-            return getattr(client, "vertexai")
+            return client.vertexai
     return None
 
 
-def _determine_genai_system(models_object: Union[Models, AsyncModels]):
+def _determine_genai_system(models_object: Models | AsyncModels):
     vertexai_attr = _get_is_vertexai(models_object)
     if vertexai_attr is None:
         return _guess_genai_system_from_env()
@@ -416,8 +417,12 @@ def _apply_response_attributes(
     if output_tokens is not None and isinstance(output_tokens, int):
         invocation.output_tokens = output_tokens
     if thinking_tokens is not None and isinstance(thinking_tokens, int):
-        # The util library will add this total to output tokens.
         invocation.thinking_tokens = thinking_tokens
+        # candidates_token_count excludes thoughts; output_tokens must be the
+        # full output count including reasoning tokens.
+        invocation.output_tokens = (
+            invocation.output_tokens or 0
+        ) + thinking_tokens
 
 
 def _maybe_get_tool_definitions(
@@ -454,8 +459,8 @@ def _create_instrumented_generate_content(
     ):
         def _execute(
             model: str,
-            contents: Union[ContentListUnion, ContentListUnionDict],
-            config: Optional[GenerateContentConfigOrDict] = None,
+            contents: ContentListUnion | ContentListUnionDict,
+            config: GenerateContentConfigOrDict | None = None,
             *_args,
             **_kwargs,
         ):
@@ -473,6 +478,7 @@ def _create_instrumented_generate_content(
                 request_model=model,
                 operation_name="generate_content",
                 server_address=server_address,
+                error_type_resolver=resolve_error_type,
             ) as invocation:
                 _apply_request_attributes(
                     wrapped_config,
@@ -613,8 +619,8 @@ def _create_instrumented_generate_content_stream(
     ):
         def _execute(
             model: str,
-            contents: Union[ContentListUnion, ContentListUnionDict],
-            config: Optional[GenerateContentConfigOrDict] = None,
+            contents: ContentListUnion | ContentListUnionDict,
+            config: GenerateContentConfigOrDict | None = None,
             *_args,
             **_kwargs,
         ):
@@ -631,6 +637,7 @@ def _create_instrumented_generate_content_stream(
                 request_model=model,
                 operation_name="generate_content",
                 server_address=server_address,
+                error_type_resolver=resolve_error_type,
             )
             _apply_request_attributes(
                 wrapped_config,
@@ -683,8 +690,8 @@ def _create_instrumented_async_generate_content(
     ):
         async def _execute(
             model: str,
-            contents: Union[ContentListUnion, ContentListUnionDict],
-            config: Optional[GenerateContentConfigOrDict] = None,
+            contents: ContentListUnion | ContentListUnionDict,
+            config: GenerateContentConfigOrDict | None = None,
             *_args,
             **_kwargs,
         ):
@@ -702,6 +709,7 @@ def _create_instrumented_async_generate_content(
                 request_model=model,
                 operation_name="generate_content",
                 server_address=server_address,
+                error_type_resolver=resolve_error_type,
             ) as invocation:
                 invocation.attributes.update(
                     _get_extra_generate_content_attributes()
@@ -766,8 +774,8 @@ def _create_instrumented_async_generate_content_stream(  # type: ignore
     ):
         async def _execute(
             model: str,
-            contents: Union[ContentListUnion, ContentListUnionDict],
-            config: Optional[GenerateContentConfigOrDict] = None,
+            contents: ContentListUnion | ContentListUnionDict,
+            config: GenerateContentConfigOrDict | None = None,
             *_args,
             **_kwargs,
         ):
@@ -784,6 +792,7 @@ def _create_instrumented_async_generate_content_stream(  # type: ignore
                 request_model=model,
                 operation_name="generate_content",
                 server_address=server_address,
+                error_type_resolver=resolve_error_type,
             )
             invocation.attributes.update(
                 _get_extra_generate_content_attributes()

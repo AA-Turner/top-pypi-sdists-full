@@ -1,7 +1,5 @@
-# 
-# Generated from:
-# https://github.com/zopefoundation/meta/tree/master/config/c-code
-
+# Generated with zope.meta (https://zopemeta.readthedocs.io/) from:
+# https://github.com/zopefoundation/meta/tree/master/src/zope/meta/c-code
 [build-system]
 requires = [
     "setuptools",
@@ -10,6 +8,87 @@ requires = [
     "zope.proxy",
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "zope.container"
+version = "7.3"
+description = "Zope Container"
+keywords = ["zope", "container"]
+dynamic = ["readme"]
+requires-python = ">=3.10"
+license = "ZPL-2.1"
+authors = [
+  { name = "Zope Foundation and contributors", email = "zope-dev@zope.dev" },
+]
+maintainers = [
+  { name = "Plone Foundation and contributors", email = "zope-dev@zope.dev" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: Zope :: 3",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+  "BTrees",
+  "persistent",
+  "zope.cachedescriptors",
+  "zope.component",
+  "zope.deferredimport",
+  "zope.dottedname",
+  "zope.event",
+  "zope.filerepresentation",
+  "zope.i18nmessageid",
+  "zope.interface",
+  "zope.lifecycleevent",
+  "zope.location",
+  "zope.proxy",
+  "zope.publisher",
+  "zope.schema",
+  "zope.security",
+  "zope.size",
+  "zope.traversing",
+]
+
+[project.optional-dependencies]
+docs = [
+  "Sphinx",
+  "repoze.sphinx.autointerface",
+  "furo",
+]
+test = [
+  "zope.testing",
+  "zope.testrunner >= 6.4",
+  "zope.component[zcml]",
+  "zope.configuration",
+  "zope.security[zcml]",
+  "ZODB",
+]
+zcml = [
+  "zope.component[zcml]",
+  "zope.configuration",
+  "zope.security[zcml]",
+]
+zodb = ["ZODB"]
+
+[project.urls]
+Documentation = "https://zopecontainer.readthedocs.io"
+Issues = "https://github.com/zopefoundation/zope.container/issues"
+Source = "https://github.com/zopefoundation/zope.container"
+Changelog = "https://github.com/zopefoundation/zope.container/blob/master/CHANGES.rst"
 
 [tool.coverage.run]
 branch = true
@@ -41,3 +120,12 @@ source = [
     ".tox/*/lib/python*/site-packages/",
     ".tox/pypy*/site-packages/",
 ]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGES.rst"]}
+
+
+[tool.zest-releaser]
+create-wheel = false
+extra-message = ""
+upload-pypi = false

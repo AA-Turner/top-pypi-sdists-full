@@ -12,6 +12,7 @@ from .athena_transformer import AthenaTransformer
 from .big_query_transformer import BigQueryTransformer
 from .database_resource import DatabaseResource
 from .database_transformer import DatabaseTransformer, SqlStatement
+from .documentdb_transformer import DocumentDBTransformer
 from .dynamodb_transformer import DynamoDBTransformer
 from .mssql_transformer import MSSQLTransformer
 from .mysql_transformer import MySQLTransformer
@@ -106,6 +107,7 @@ class SqlExecutor:
             "SNOWFLAKE": SnowflakeTransformer,
             "BIGQUERY": BigQueryTransformer,
             "DYNAMODB": DynamoDBTransformer,
+            "DOCUMENTDB": DocumentDBTransformer,
             "SQLSERVER": MSSQLTransformer,
             "POSTGRESQL": PostgreSQLTransformer,
             "OPENSEARCH": OpenSearchTransformer,

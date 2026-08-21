@@ -27,6 +27,8 @@ from snaptrade_client.model.account_order_record_status import AccountOrderRecor
 from snaptrade_client.model.account_order_record_status_v2 import AccountOrderRecordStatusV2
 from snaptrade_client.model.account_order_record_status_v2_nullable import AccountOrderRecordStatusV2Nullable
 from snaptrade_client.model.account_order_record_v2 import AccountOrderRecordV2
+from snaptrade_client.model.account_order_record_v2_order_role import AccountOrderRecordV2OrderRole
+from snaptrade_client.model.account_order_record_v2_order_role_nullable import AccountOrderRecordV2OrderRoleNullable
 from snaptrade_client.model.account_orders_v2_response import AccountOrdersV2Response
 from snaptrade_client.model.account_position import AccountPosition
 from snaptrade_client.model.account_simple import AccountSimple
@@ -90,6 +92,9 @@ from snaptrade_client.model.currency_id import CurrencyID
 from snaptrade_client.model.currency_nullable import CurrencyNullable
 from snaptrade_client.model.delete_connection_confirmation import DeleteConnectionConfirmation
 from snaptrade_client.model.delete_user_response import DeleteUserResponse
+from snaptrade_client.model.deposit_account import DepositAccount
+from snaptrade_client.model.deposit_account_net_value import DepositAccountNetValue
+from snaptrade_client.model.deposit_account_sync_status import DepositAccountSyncStatus
 from snaptrade_client.model.dividend_at_date import DividendAtDate
 from snaptrade_client.model.encrypted_response import EncryptedResponse
 from snaptrade_client.model.encrypted_response_encrypted_message_data import EncryptedResponseEncryptedMessageData
@@ -106,7 +111,7 @@ from snaptrade_client.model.holdings_sync_status_date_nullable import HoldingsSy
 from snaptrade_client.model.id import Id
 from snaptrade_client.model.instrument import Instrument
 from snaptrade_client.model.investment_account import InvestmentAccount
-from snaptrade_client.model.investment_account_market_value import InvestmentAccountMarketValue
+from snaptrade_client.model.investment_account_net_value import InvestmentAccountNetValue
 from snaptrade_client.model.login_redirect_uri import LoginRedirectURI
 from snaptrade_client.model.manual_trade import ManualTrade
 from snaptrade_client.model.manual_trade_and_impact import ManualTradeAndImpact
@@ -146,6 +151,8 @@ from snaptrade_client.model.net_contributions import NetContributions
 from snaptrade_client.model.net_dividend import NetDividend
 from snaptrade_client.model.notional_value import NotionalValue
 from snaptrade_client.model.notional_value_nullable import NotionalValueNullable
+from snaptrade_client.model.o_auth_webhook_base import OAuthWebhookBase
+from snaptrade_client.model.o_auth_webhook_base_details import OAuthWebhookBaseDetails
 from snaptrade_client.model.option_brokerage_symbol import OptionBrokerageSymbol
 from snaptrade_client.model.option_chain import OptionChain
 from snaptrade_client.model.option_chain_item import OptionChainItem

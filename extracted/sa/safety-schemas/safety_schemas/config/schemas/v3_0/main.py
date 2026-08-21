@@ -383,6 +383,65 @@ class Installation(SchemaModelV30):
     deny: Annotated[Optional[DeniedInstallation], Field()] = None
 
 
+class McpServerDefinition(SchemaModelV30):
+    """A group of MCP servers, optionally scoped to one AI assistant.
+
+    An entry with no `ai-assistant` applies to every assistant. Identifiers are
+    normalized server identities (e.g. `mcp-server:remote:mcp.linear.app/sse`,
+    `mcp-server:stdio:npm:@acme/db-mcp`). Both `ai-assistant` and `identifiers`
+    values match as anchored regular expressions, so a plain value matches
+    itself and `mcp-server:remote:.*\\.linear\\.app/.*` covers a family."""
+
+    ai_assistant: Annotated[  # type: ignore[valid-type]
+        Optional[constr(strip_whitespace=True, strict=True, min_length=1)],  # type: ignore
+        Field(alias="ai-assistant"),
+    ] = None
+    identifiers: Annotated[  # type: ignore[valid-type]
+        Optional[List[constr(strip_whitespace=True, strict=True, min_length=1)]],  # type: ignore
+        Field(),
+    ] = []
+
+
+class DeniedMcpServersCriteria(SchemaModelV30):
+    """Criteria for denying MCP servers; any match trips the block."""
+
+    servers: Annotated[Optional[List[McpServerDefinition]], Field()] = []
+
+
+class DeniedMcpServers(SchemaModelV30):
+    """Defines the conditions under which an MCP server should be denied."""
+
+    block_on_any_of: Annotated[
+        Optional[DeniedMcpServersCriteria], Field(alias="block-on-any-of")
+    ] = None
+
+
+class AllowedAiInstallation(SchemaModelV30):
+    """Allow lists for AI-assistant artifacts."""
+
+    mcp_servers: Annotated[
+        Optional[List[McpServerDefinition]], Field(alias="mcp-servers")
+    ] = []
+
+
+class DeniedAiInstallation(SchemaModelV30):
+    """Deny lists for AI-assistant artifacts."""
+
+    mcp_servers: Annotated[
+        Optional[DeniedMcpServers], Field(alias="mcp-servers")
+    ] = None
+
+
+class AiInstallation(SchemaModelV30):
+    """AI-assistant artifact policy: default posture plus allow/deny lists."""
+
+    default_action: Annotated[
+        Optional[InstallationAction], Field(alias="default-action")
+    ] = InstallationAction.ALLOW
+    allow: Annotated[Optional[AllowedAiInstallation], Field()] = None
+    deny: Annotated[Optional[DeniedAiInstallation], Field()] = None
+
+
 class Config(SchemaModelV30):
     """Main configuration schema for Safety policy."""
 
@@ -396,6 +455,9 @@ class Config(SchemaModelV30):
         Optional[SecurityUpdatesSettings], Field(alias="security-updates")
     ] = None
     installation: Annotated[Optional[Installation], Field()] = None
+    ai_installation: Annotated[
+        Optional[AiInstallation], Field(alias="ai-installation")
+    ] = None
 
     @field_validator("version")
     def version_must_be_valid(cls, v):

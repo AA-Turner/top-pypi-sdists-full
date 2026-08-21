@@ -410,9 +410,11 @@ async def test_draft_asyncio():
         pytest.skip("draft API")
     if zmq.zmq_version_info() < (4, 3, 2):
         pytest.skip("requires libzmq 4.3.2 for zmq_poller_fd")
-    with zmq.asyncio.Context() as ctx, ctx.socket(zmq.CLIENT) as client, ctx.socket(
-        zmq.SERVER
-    ) as server:
+    with (
+        zmq.asyncio.Context() as ctx,
+        ctx.socket(zmq.CLIENT) as client,
+        ctx.socket(zmq.SERVER) as server,
+    ):
         server.bind_to_random_port("tcp://127.0.0.1")
         client.connect(server.last_endpoint)
         server.rcvtimeo = client.rcvtimeo = 100

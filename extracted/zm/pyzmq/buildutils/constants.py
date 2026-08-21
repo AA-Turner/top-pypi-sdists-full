@@ -92,7 +92,7 @@ def promoted_constants():
         for key in cls.__members__:
             global_name = get_global_name(key)
             all_lines.append(f'    "{global_name}",')
-            global_assignments.append(f"{global_name}: int = {cls_name}.{key}")
+            global_assignments.append(f"{global_name}: {cls_name} = {cls_name}.{key}")
     all_lines.append("]")
 
     return dict(

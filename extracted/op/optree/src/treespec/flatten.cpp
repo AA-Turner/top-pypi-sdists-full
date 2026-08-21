@@ -98,7 +98,8 @@ bool PyTreeSpec::FlattenIntoImpl(const py::handle &handle,
 
             case PyTreeKind::Dict:
             case PyTreeKind::OrderedDict:
-            case PyTreeKind::DefaultDict: {
+            case PyTreeKind::DefaultDict:
+            case PyTreeKind::FrozenDict: {
                 py::list keys;
                 {
                     const scoped_critical_section cs{handle};
@@ -106,7 +107,7 @@ bool PyTreeSpec::FlattenIntoImpl(const py::handle &handle,
                     node.arity = DictGetSize(dict);
                     keys = DictKeys(dict);
                     if (node.kind != PyTreeKind::OrderedDict) [[likely]] {
-                        node.original_keys = py::getattr(keys, "copy")();
+                        node.original_keys = DictFromKeys(dict);
                         if constexpr (DictShouldBeSorted) {
                             TotalOrderSort(keys);
                         }
@@ -204,17 +205,11 @@ bool PyTreeSpec::FlattenInto(const py::handle &handle,
                              const bool &none_is_leaf,
                              const std::string &registry_namespace) {
     bool found_custom = false;
-    bool is_dict_insertion_ordered = false;
-    bool is_dict_insertion_ordered_in_current_namespace = false;
-    {
-#if defined(OPTREE_HAS_READ_WRITE_LOCK)
-        const scoped_read_lock lock{PyTreeTypeRegistry::sm_dict_order_mutex};
-#endif
-        is_dict_insertion_ordered = PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace);
-        is_dict_insertion_ordered_in_current_namespace =
-            PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace,
-                                                       /*inherit_global_namespace=*/false);
-    }
+    const auto dict_order_flags =
+        PyTreeTypeRegistry::GetDictInsertionOrderedFlags(registry_namespace);
+    const bool is_dict_insertion_ordered = dict_order_flags.with_inherited_global_namespace;
+    const bool is_dict_insertion_ordered_in_current_namespace =
+        dict_order_flags.in_current_namespace;
 
     if (none_is_leaf) [[unlikely]] {
         if (!is_dict_insertion_ordered) [[likely]] {
@@ -343,7 +338,7 @@ bool PyTreeSpec::FlattenIntoWithPathImpl(const py::handle &handle,
                 }
                 INTERNAL_ERROR(
                     "NoneIsLeaf is true, but PyTreeTypeRegistry::GetKind() returned "
-                    "PyTreeKind::None`.");
+                    "`PyTreeKind::None`.");
             }
 
             case PyTreeKind::Tuple: {
@@ -365,13 +360,14 @@ bool PyTreeSpec::FlattenIntoWithPathImpl(const py::handle &handle,
 
             case PyTreeKind::Dict:
             case PyTreeKind::OrderedDict:
-            case PyTreeKind::DefaultDict: {
+            case PyTreeKind::DefaultDict:
+            case PyTreeKind::FrozenDict: {
                 const scoped_critical_section cs{handle};
                 const auto dict = py::reinterpret_borrow<py::dict>(handle);
                 node.arity = DictGetSize(dict);
                 py::list keys = DictKeys(dict);
                 if (node.kind != PyTreeKind::OrderedDict) [[likely]] {
-                    node.original_keys = py::getattr(keys, "copy")();
+                    node.original_keys = DictFromKeys(dict);
                     if constexpr (DictShouldBeSorted) {
                         TotalOrderSort(keys);
                     }
@@ -481,17 +477,11 @@ bool PyTreeSpec::FlattenIntoWithPath(const py::handle &handle,
                                      const bool &none_is_leaf,
                                      const std::string &registry_namespace) {
     bool found_custom = false;
-    bool is_dict_insertion_ordered = false;
-    bool is_dict_insertion_ordered_in_current_namespace = false;
-    {
-#if defined(OPTREE_HAS_READ_WRITE_LOCK)
-        const scoped_read_lock lock{PyTreeTypeRegistry::sm_dict_order_mutex};
-#endif
-        is_dict_insertion_ordered = PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace);
-        is_dict_insertion_ordered_in_current_namespace =
-            PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace,
-                                                       /*inherit_global_namespace=*/false);
-    }
+    const auto dict_order_flags =
+        PyTreeTypeRegistry::GetDictInsertionOrderedFlags(registry_namespace);
+    const bool is_dict_insertion_ordered = dict_order_flags.with_inherited_global_namespace;
+    const bool is_dict_insertion_ordered_in_current_namespace =
+        dict_order_flags.in_current_namespace;
 
     auto stack = reserved_vector<py::handle>(4);
     if (none_is_leaf) [[unlikely]] {
@@ -569,9 +559,11 @@ py::list PyTreeSpec::FlattenUpTo(const py::object &tree) const {
 
     auto it = m_traversal.crbegin();
     const ssize_t num_leaves = GetNumLeaves();
-    py::list leaves{num_leaves};
-    ssize_t leaf = num_leaves - 1;
-    while (!agenda.empty()) {
+    // A pre-sized `py::list` is GC-tracked with NULL slots from creation, and the walk below runs
+    // arbitrary user code (custom `flatten_func`, dict key `__hash__`/`__eq__`, `__repr__`) that
+    // can reach it via `gc.get_objects()`. Collect into a reversed vector instead.
+    auto leaves = reserved_vector<py::object>(num_leaves);
+    while (!agenda.empty()) [[likely]] {
         if (it == m_traversal.crend()) [[unlikely]] {
             std::ostringstream oss{};
             oss << "Tree structures did not match; expected: " << ToString()
@@ -585,9 +577,8 @@ py::list PyTreeSpec::FlattenUpTo(const py::object &tree) const {
 
         switch (node.kind) {
             case PyTreeKind::Leaf: {
-                EXPECT_GE(leaf, 0, "Leaf count mismatch.");
-                ListSetItem(leaves, leaf, object);
-                --leaf;
+                EXPECT_LT(py::ssize_t_cast(leaves.size()), num_leaves, "Leaf count mismatch.");
+                leaves.emplace_back(object);
                 break;
             }
 
@@ -638,7 +629,8 @@ py::list PyTreeSpec::FlattenUpTo(const py::object &tree) const {
 
             case PyTreeKind::Dict:
             case PyTreeKind::OrderedDict:
-            case PyTreeKind::DefaultDict: {
+            case PyTreeKind::DefaultDict:
+            case PyTreeKind::FrozenDict: {
                 AssertExactStandardDict(object);
                 const scoped_critical_section2 cs{object, node.node_data};
                 const auto dict = py::reinterpret_borrow<py::dict>(object);
@@ -663,8 +655,12 @@ py::list PyTreeSpec::FlattenUpTo(const py::object &tree) const {
                         oss << "dict";
                     } else if (node.kind == PyTreeKind::OrderedDict) [[likely]] {
                         oss << "OrderedDict";
-                    } else [[unlikely]] {
+                    } else if (node.kind == PyTreeKind::DefaultDict) [[likely]] {
                         oss << "defaultdict";
+                    } else if (node.kind == PyTreeKind::FrozenDict) [[likely]] {
+                        oss << "frozendict";
+                    } else [[unlikely]] {
+                        INTERNAL_ERROR();
                     }
                     oss << ": " << PyRepr(object) << ".";
                     throw py::value_error(oss.str());
@@ -796,13 +792,18 @@ py::list PyTreeSpec::FlattenUpTo(const py::object &tree) const {
                 INTERNAL_ERROR();
         }
     }
-    if (it != m_traversal.crend() || leaf != -1) [[unlikely]] {
+    if (it != m_traversal.crend() || py::ssize_t_cast(leaves.size()) != num_leaves) [[unlikely]] {
         std::ostringstream oss{};
         oss << "Tree structures did not match; expected: " << ToString()
             << ", got: " << PyRepr(tree) << ".";
         throw py::value_error(oss.str());
     }
-    return leaves;
+    py::list result{num_leaves};
+    ssize_t index = num_leaves;
+    for (const py::object &leaf : leaves) {
+        ListSetItem(result, --index, leaf);
+    }
+    return result;
 }
 
 template <bool NoneIsLeaf>

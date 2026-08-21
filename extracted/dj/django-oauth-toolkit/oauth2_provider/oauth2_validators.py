@@ -35,12 +35,17 @@ from . import cimd
 from .bcp import bcp_compliant
 from .exceptions import FatalClientError
 from .models import (
+    AbstractAccessToken,
     AbstractApplication,
+    AbstractRefreshToken,
     get_access_token_model,
     get_application_model,
     get_grant_model,
     get_id_token_model,
     get_refresh_token_model,
+    refresh_token_expire_timedelta,
+    revoke_access_token,
+    set_token_value,
 )
 from .scopes import get_scopes_backend
 from .settings import oauth2_settings
@@ -655,6 +660,21 @@ class OAuth2Validator(RequestValidator):
                     )
                     return False
 
+            # Reject tokens whose application is no longer usable, mirroring the
+            # is_usable() check the issuance path performs in _load_application.
+            # The default is_usable() returns True, so this is a no-op unless a
+            # swapped Application model overrides it (e.g. to disable an app or
+            # gate on request attributes). See #1260.
+            application = access_token.application
+            if application is not None and not application.is_usable(request):
+                request.oauth2_error = OrderedDict(
+                    [
+                        ("error", "invalid_token"),
+                        ("error_description", _("The access token is invalid.")),
+                    ]
+                )
+                return False
+
             request.client = access_token.application
             request.user = access_token.user
             request.scopes = list(access_token.scopes)
@@ -979,9 +999,20 @@ class OAuth2Validator(RequestValidator):
                     )
                     request.refresh_token_instance = refresh_token_instance
 
-                    previous_access_token = AccessToken.objects.filter(
-                        source_refresh_token=refresh_token_instance
-                    ).first()
+                    # Lock the previously issued access token too: a concurrent rotation
+                    # may otherwise delete it (via ``AccessToken.revoke()``) between this
+                    # lookup and re-issuing its refresh token below, which would turn the FK
+                    # insert into an IntegrityError. Locking it holds it for this
+                    # transaction; if it was already deleted, ``first()`` returns ``None`` and
+                    # we fall through to minting a fresh pair (its OneToOne
+                    # ``source_refresh_token`` slot is then free). This only ever waits on the
+                    # access token, never on the other request's refresh token, so it cannot
+                    # deadlock with the concurrent rotation (#1687).
+                    previous_access_token = (
+                        AccessToken.objects.select_for_update()
+                        .filter(source_refresh_token=refresh_token_instance)
+                        .first()
+                    )
                     try:
                         refresh_token_instance.revoke()
                     except (AccessToken.DoesNotExist, RefreshToken.DoesNotExist):
@@ -1008,39 +1039,37 @@ class OAuth2Validator(RequestValidator):
                 else:
                     # make sure that the token data we're returning matches
                     # the existing token
+                    existing_refresh_token = RefreshToken.objects.filter(
+                        access_token=previous_access_token
+                    ).first()
+                    if existing_refresh_token is None:
+                        # The refresh token bound to the previously issued access token was
+                        # revoked/cleaned up (e.g. by ``clear_expired`` or a concurrent
+                        # rotation) while the access token itself survived. Re-issue a
+                        # refresh token for it instead of dereferencing ``None`` (#1687).
+                        # Creating a fresh *access* token here would violate the OneToOne
+                        # ``AccessToken.source_refresh_token`` constraint, since the surviving
+                        # access token already occupies that relation.
+                        existing_refresh_token = self._create_refresh_token(
+                            request, refresh_token_code, previous_access_token, refresh_token_instance
+                        )
                     token["access_token"] = previous_access_token.token
-                    token["refresh_token"] = (
-                        RefreshToken.objects.filter(access_token=previous_access_token).first().token
-                    )
+                    token["refresh_token"] = existing_refresh_token.token
                     token["scope"] = previous_access_token.scope
 
         # No refresh token should be created, just access token
         else:
             self._create_access_token(expires, request, token)
 
-    def _set_token_value(self, token_instance, raw_token):
+    def _set_token_value(
+        self, token_instance: AbstractAccessToken | AbstractRefreshToken, raw_token: str
+    ) -> None:
         """
-        Assign the raw token to a token instance, redacting the value stored at rest
-        when COMPLIANT_BCP_RFC9700_TOKEN_STORAGE is enabled (RFC 9700).
+        Assign the raw token to a token instance, honouring RFC 9700 token storage.
 
-        The lookup checksum (``token_checksum``) is always derived from the raw token;
-        when redacting, the raw value is stashed on ``_raw_token`` (used only to compute
-        the checksum) and the ``token`` column is left blank so the reusable token is
-        never persisted.
-
-        Plaintext storage is an ambient config posture exercised on every token
-        issuance, so (unlike the request-time gates) it is surfaced by the ``--deploy``
-        system check ``W006`` rather than a per-token warning here. See
-        :mod:`oauth2_provider.bcp`.
+        See :func:`oauth2_provider.models.set_token_value`.
         """
-        if oauth2_settings.COMPLIANT_BCP_RFC9700_TOKEN_STORAGE:
-            token_instance._raw_token = raw_token
-            token_instance.token = ""
-        else:
-            token_instance.token = raw_token
-            # Clear any stale redaction marker so a later save recomputes the checksum
-            # from this plaintext token rather than a previously stashed raw value.
-            token_instance._raw_token = None
+        set_token_value(token_instance, raw_token)
 
     def _create_access_token(self, expires, request, token, source_refresh_token=None):
         id_token = token.get("id_token", None)
@@ -1125,14 +1154,37 @@ class OAuth2Validator(RequestValidator):
 
         token_checksum = hashlib.sha256(token.encode("utf-8")).hexdigest()
         token_type = token_types.get(token_type_hint, AccessToken)
+
+        # RFC 7009 section 2.1: the authorization server "verifies whether the token was
+        # issued to the client making the revocation request." A client must not be able
+        # to revoke another client's tokens, so the lookup is scoped to the authenticated
+        # client (request.client). Filtering by application in the queryset means a
+        # same-checksum token belonging to a different client is treated like an unknown
+        # token -- the search still falls back to the other token type, and the endpoint
+        # returns 200 (RFC 7009 section 2.2) without disclosing whether the token exists.
+        # Bail out when the request is not tied to a stored application so a NULL
+        # application filter can never match unrelated tokens.
+        application_pk = getattr(request.client, "pk", None)
+        if application_pk is None:
+            return
+
         # RefreshToken uniqueness is (token_checksum, revoked), so several rows may share a
         # checksum; revoke every match instead of get() to avoid MultipleObjectsReturned.
-        tokens = list(token_type.objects.filter(token_checksum=token_checksum))
+        lookup = {"token_checksum": token_checksum, "application_id": application_pk}
+        tokens = list(token_type.objects.filter(**lookup))
         if not tokens:
             for other_type in [_t for _t in token_types.values() if _t != token_type]:
-                tokens.extend(other_type.objects.filter(token_checksum=token_checksum))
+                tokens.extend(other_type.objects.filter(**lookup))
         for t in tokens:
-            t.revoke()
+            if isinstance(t, AccessToken):
+                # RFC 7009 section 2.1: revoking an access token MAY also revoke the bound
+                # refresh token. We do -- otherwise deleting the access token alone leaves the
+                # refresh token an active orphan (``RefreshToken.access_token`` is SET_NULL) that
+                # can immediately re-mint an access token, defeating the revocation. ``revoke_access_token``
+                # is the shared path used here, by ``AuthorizedTokenDeleteView``, and by the admin.
+                revoke_access_token(t)
+            else:
+                t.revoke()
 
     def build_http_request(self, request: OauthlibRequest) -> HttpRequest:
         """
@@ -1205,14 +1257,53 @@ class OAuth2Validator(RequestValidator):
         if not rt:
             return False
 
-        if rt.revoked is not None and rt.revoked <= timezone.now() - timedelta(
-            seconds=oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS
-        ):
-            if oauth2_settings.REFRESH_TOKEN_REUSE_PROTECTION and rt.token_family:
-                rt_token_family = RefreshToken.objects.filter(token_family=rt.token_family)
-                for related_rt in rt_token_family.all():
-                    related_rt.revoke()
-            return False
+        if rt.revoked is not None:
+            grace_expired = rt.revoked <= timezone.now() - timedelta(
+                seconds=oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS
+            )
+            # The grace window exists only to shield the *immediately preceding* refresh
+            # token -- a client that retried because it did not receive the rotated
+            # response. Rotation records that supersession in the same ``revoked`` column
+            # as a deliberate revocation (the RFC 7009 /revoke/ endpoint, the admin,
+            # RP-initiated logout, ``revoke_access_token``), so the two are told apart by
+            # whether this token was ever consumed to mint a successor access token.
+            #
+            # A token that was repudiated rather than superseded was never consumed, and
+            # must never be honored again: "the invalidation takes place immediately, and
+            # the token cannot be used again after the revocation" (RFC 7009 section 2.1).
+            # The same test also rejects a token replayed several generations down a
+            # rotated chain, whose access token a later rotation has since revoked
+            # (deleted) -- honoring that would defeat reuse protection (#1617).
+            superseded = AccessToken.objects.filter(source_refresh_token=rt).exists()
+            if grace_expired or not superseded:
+                if oauth2_settings.REFRESH_TOKEN_REUSE_PROTECTION and rt.token_family:
+                    # Set-based, not row by row: a family grows by one row per refresh
+                    # and a client on a retry timer replays the stale token, so a per-row
+                    # sweep cost a locking SELECT per token in the family, every time
+                    # (#1809).
+                    RefreshToken.revoke_family(rt.token_family)
+                return False
+
+        # Enforce REFRESH_TOKEN_EXPIRE_SECONDS at validation time. Historically the setting
+        # only governed clear_expired() cleanup, so a refresh token past its configured
+        # lifetime was still accepted until a sweep happened to remove it -- or forever, if
+        # cleartokens never ran (#746). A live, actively-used refresh token is always paired
+        # with an access token (rotation mints the pair together; non-rotating reuse keeps
+        # it and bumps its ``expires``), so the expiry slides with the access token: the
+        # token is dead REFRESH_TOKEN_EXPIRE_SECONDS after its access token expires. A
+        # non-revoked token with no access token is an orphan from an out-of-band access
+        # token deletion -- there is nothing left to refresh against, so reject it.
+        if rt.revoked is None:
+            if rt.access_token is None:
+                return False
+            # refresh_token_expire_timedelta() returns None when age expiry is disabled and
+            # raises ImproperlyConfigured on a bad type, exactly as clear_expired does, so a
+            # misconfiguration fails the same way here instead of raising an opaque TypeError.
+            expire_delta = refresh_token_expire_timedelta()
+            # ``<=`` so the deadline itself counts as expired, matching AccessToken.is_expired()
+            # (``now >= expires``).
+            if expire_delta and rt.access_token.expires + expire_delta <= timezone.now():
+                return False
 
         request.user = rt.user
         # Use the raw token presented in the request, not rt.token: under hashed-at-rest

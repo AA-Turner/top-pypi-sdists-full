@@ -1,6 +1,6 @@
 [project]
 name = "cachelib"
-version = "0.15.4"
+version = "0.16.0"
 description = "A collection of cache libraries in the same API interface."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -73,7 +73,6 @@ pre-commit = [
 tests = [
     "boto3>=1.43.4",
     "pylibmc>=1.6.3",
-    "libmc>=1.4.8",
     "pymongo>=4.11",
     "pytest",
     "pytest-xprocess",

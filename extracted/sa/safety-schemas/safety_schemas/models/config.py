@@ -147,6 +147,45 @@ class InstallationConfig:
 
 
 @dataclass
+class McpServerDefinition:
+    ai_assistant: Optional[str] = None
+    identifiers: List[str] = field(default_factory=lambda: [])
+
+
+@dataclass
+class DeniedMcpServersCriteria:
+    servers: List[McpServerDefinition] = field(default_factory=lambda: [])
+
+
+@dataclass
+class DeniedMcpServersConfig:
+    block: Optional[DeniedMcpServersCriteria] = None
+
+
+@dataclass
+class AllowedAiInstallationConfig:
+    mcp_servers: List[McpServerDefinition] = field(default_factory=lambda: [])
+
+
+@dataclass
+class DeniedAiInstallationConfig:
+    mcp_servers: DeniedMcpServersConfig = field(
+        default_factory=DeniedMcpServersConfig
+    )
+
+
+@dataclass
+class AiInstallationConfig:
+    default_action: InstallationAction = InstallationAction.allow
+    allow: AllowedAiInstallationConfig = field(
+        default_factory=AllowedAiInstallationConfig
+    )
+    deny: DeniedAiInstallationConfig = field(
+        default_factory=DeniedAiInstallationConfig
+    )
+
+
+@dataclass
 class ConfigModel(SafetyConfigBaseModel):
     telemetry_enabled: bool = True
     scan: ScanConfigModel = field(default_factory=lambda: ScanConfigModel())
@@ -156,6 +195,7 @@ class ConfigModel(SafetyConfigBaseModel):
     installation: InstallationConfig = field(
         default_factory=lambda: InstallationConfig()
     )
+    ai_installation: Optional[AiInstallationConfig] = None
 
     def as_v30(self, *args: Any, **kwargs: Any) -> v3_0.SchemaModelV30:
         include_files = []
@@ -276,12 +316,36 @@ class ConfigModel(SafetyConfigBaseModel):
             ),
         )
 
+        ai_installation = None
+        if self.ai_installation is not None:
+            block = None
+            if self.ai_installation.deny.mcp_servers.block is not None:
+                block = v3_0.DeniedMcpServersCriteria(
+                    servers=ConfigModel.__map_model_mcp_servers(
+                        self.ai_installation.deny.mcp_servers.block.servers
+                    )
+                )
+            ai_installation = v3_0.AiInstallation(
+                default_action=v3_0.InstallationAction(
+                    self.ai_installation.default_action.value
+                ),
+                allow=v3_0.AllowedAiInstallation(
+                    mcp_servers=ConfigModel.__map_model_mcp_servers(
+                        self.ai_installation.allow.mcp_servers
+                    )
+                ),
+                deny=v3_0.DeniedAiInstallation(
+                    mcp_servers=v3_0.DeniedMcpServers(block_on_any_of=block)
+                ),
+            )
+
         return v3_0.Config(
             scan=scan_config,
             report=report_on_config,
             fail_scan=fail_scan,
             security_updates=updates,
             installation=installation,
+            ai_installation=ai_installation,
         )
 
     @classmethod
@@ -440,8 +504,33 @@ class ConfigModel(SafetyConfigBaseModel):
                             )
                         )
 
+        ai_installation = None
+        if obj.ai_installation:
+            ai_installation = AiInstallationConfig()
+            if obj.ai_installation.default_action:
+                ai_installation.default_action = InstallationAction(
+                    obj.ai_installation.default_action.value
+                )
+
+            allow = obj.ai_installation.allow
+            if allow and allow.mcp_servers:
+                ai_installation.allow.mcp_servers = (
+                    ConfigModel.__map_schema_mcp_servers(allow.mcp_servers)
+                )
+
+            deny = obj.ai_installation.deny
+            if deny and deny.mcp_servers and deny.mcp_servers.block_on_any_of:
+                ai_installation.deny.mcp_servers.block = DeniedMcpServersCriteria(
+                    servers=ConfigModel.__map_schema_mcp_servers(
+                        deny.mcp_servers.block_on_any_of.servers or []
+                    )
+                )
+
         return ConfigModel(
-            scan=scan, depedendency_vulnerability=dep_vuln, installation=installation
+            scan=scan,
+            depedendency_vulnerability=dep_vuln,
+            installation=installation,
+            ai_installation=ai_installation,
         )
 
     @classmethod
@@ -520,6 +609,27 @@ class ConfigModel(SafetyConfigBaseModel):
                 specifications=package.specifications,
             )
             for package in packages
+        ]
+
+    @staticmethod
+    def __map_model_mcp_servers(
+        servers: List[McpServerDefinition],
+    ) -> List[v3_0.McpServerDefinition]:
+        return [
+            v3_0.McpServerDefinition(
+                ai_assistant=server.ai_assistant,
+                identifiers=list(server.identifiers),
+            )
+            for server in servers
+        ]
+
+    @classmethod
+    def __map_schema_mcp_servers(
+        cls, servers: List[v3_0.McpServerDefinition]
+    ) -> List[McpServerDefinition]:
+        return [
+            McpServerDefinition(server.ai_assistant, list(server.identifiers or []))
+            for server in servers
         ]
 
     @staticmethod

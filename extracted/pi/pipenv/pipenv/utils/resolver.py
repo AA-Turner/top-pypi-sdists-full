@@ -17,7 +17,13 @@ from pipenv import environments
 from pipenv.exceptions import ResolutionFailure
 from pipenv.patched.pip._internal.cache import WheelCache
 from pipenv.patched.pip._internal.cli.cmdoptions import check_release_control_exclusive
-from pipenv.patched.pip._internal.commands.install import InstallCommand
+
+# ``InstallCommand`` is only constructed in :meth:`Resolver._get_pip_command`
+# (one call site) — defer the import so loading ``pipenv.utils.resolver``
+# doesn't drag in pip's command/network/CLI machinery (~79 ms cum) until
+# the resolver actually instantiates the command.  The resolver subprocess
+# pays this cost on every ``pipenv lock`` invocation; the in-process
+# debug path pays it once per session.
 from pipenv.patched.pip._internal.exceptions import InstallationError
 from pipenv.patched.pip._internal.models.target_python import TargetPython
 from pipenv.patched.pip._internal.operations.build.build_tracker import (
@@ -90,10 +96,10 @@ def _get_pipfile_python_override(project):
     suitable for passing as an environment override, or *None* if no override
     is needed.
     """
-    if not project.pipfile_exists:
+    if not project.pipfile.exists:
         return None
 
-    requires = project.parsed_pipfile.get("requires", {})
+    requires = project.pipfile.parsed.get("requires", {})
     python_full = requires.get("python_full_version")
     python_ver = requires.get("python_version")
 
@@ -359,6 +365,8 @@ class Resolver:
 
     @staticmethod
     def _get_pip_command():
+        from pipenv.patched.pip._internal.commands.install import InstallCommand
+
         return InstallCommand(name="InstallCommand", summary="pip Install command.")
 
     @property
@@ -402,7 +410,7 @@ class Resolver:
             markers_lookup = {}
         original_deps = {}
         install_reqs = {}
-        pipfile_entries = project.get_pipfile_section(pipfile_category)
+        pipfile_entries = project.pipfile.get_section(pipfile_category)
         skipped = {}
         if sources is None:
             # Always read sources from the Pipfile, not from the (potentially
@@ -410,7 +418,7 @@ class Resolver:
             # ``verify_ssl = false`` are respected even when an old lockfile
             # still carries ``verify_ssl = true``.  See gh-5665.
             sources = project.sources.pipfile_sources()
-        packages = project.get_pipfile_section(pipfile_category)
+        packages = project.pipfile.get_section(pipfile_category)
         constraints = set()
         for package_name, dep in deps.items():  # Build up the index and markers lookups
             if not dep:
@@ -454,10 +462,10 @@ class Resolver:
         # locking [dev-packages] would fail because ``private_lib`` was not in
         # index_lookup and pip therefore tried the default (PyPI) index only.
         if pipfile_category and pipfile_category != "packages":
-            for other_category in project.get_package_categories():
+            for other_category in project.pipfile.get_package_categories():
                 if other_category == pipfile_category:
                     continue
-                other_packages = project.get_pipfile_section(other_category)
+                other_packages = project.pipfile.get_section(other_category)
                 for pkg_name, pkg_entry in other_packages.items():
                     canonical_pkg_name = canonicalize_name(pkg_name)
                     # Don't override entries already set for the current category
@@ -552,7 +560,7 @@ class Resolver:
                 self.resolved_default_deps
             )
         else:
-            default_constraints = get_constraints_from_deps(self.project.packages)
+            default_constraints = get_constraints_from_deps(self.project.pipfile.packages)
         default_constraint_filename = prepare_constraint_file(
             default_constraints,
             directory=self.req_dir,
@@ -761,6 +769,7 @@ class Resolver:
                         build_tracker=build_tracker,
                         session=self.session,
                         finder=finder,
+                        allow_editables=True,
                         use_user_site=False,
                     )
                     resolver = self.pip_command.make_resolver(
@@ -836,12 +845,47 @@ class Resolver:
             return markers
 
     def resolve_constraints(self):
+        """Fold per-package ``requires-python`` markers into the resolved tree.
+
+        For each resolved item, read ``link.requires_python`` directly and
+        convert it to a marker via :func:`pipenv.utils.markers.marker_from_specifier`.
+        The marker then flows onto the lockfile entry's ``markers`` field.
+
+        Behaviour change vs the pre-2026-05 implementation (commit
+        ``cf53eb17`` — `Resolver.resolve_constraints``):
+
+        - **Before**: this method called
+          ``self.finder().find_best_candidate(name, specifier)`` once per
+          resolved item and read ``candidate.link.requires_python``.  The
+          default ``self.finder()`` is the *strict* finder
+          (``_ignore_compatibility = False``).  For a resolved item whose
+          link came from a *lenient* path (e.g., the
+          ``pip_finder_ignore_compatability`` patched-pip flag, cross-
+          platform locking workflows, or any caller monkey-patching
+          ``finder._ignore_compatibility = True`` before resolve),
+          ``find_best_candidate`` on the strict finder returned ``None`` →
+          no marker added → that lockfile entry silently lacked its
+          advertised ``requires_python`` constraint.
+
+        - **After**: we read the marker directly from the resolved item's
+          ``link`` regardless of which finder produced it.  Cross-compat
+          packages whose links advertise ``requires-python`` now get
+          their markers in the lockfile.  This is arguably a correctness
+          fix (markers were missing for one specific category of
+          packages) but it IS a behaviour change for any consumer that
+          relied on those markers being absent — most likely scripts
+          running ``pipenv lock --ignore-compatibility``-equivalent
+          workflows via the patched-pip flag.
+
+        See ``tests/unit/test_resolver_regressions.py``
+        ``test_resolve_constraints_marker_for_ignore_compatibility_link``
+        for the test that pins the new behaviour.
+        """
         from .markers import marker_from_specifier
 
         # Build mapping of package origins and Python requirements
         comes_from = {}
         python_requirements = {}
-        finder = self.finder()
 
         results_list = list(self.resolved_tree)
         for result in results_list:
@@ -851,33 +895,33 @@ class Resolver:
             else:
                 comes_from[result.name] = "Pipfile"
 
-        # find_best_candidate fetches per-package index pages; the calls are
-        # independent, keyed on distinct project names, and dominated by
-        # network I/O, so dispatch them on a thread pool.  pip's
-        # PackageFinder caches results in a dict keyed by project name — safe
-        # for concurrent writes of different keys under CPython's GIL — and
-        # the underlying requests.Session is thread-safe.
-        def _requires_python_marker(result):
-            candidate = finder.find_best_candidate(
-                result.name, result.specifier
-            ).best_candidate
-            if not candidate or not candidate.link.requires_python:
-                return result.name, None
+        # Profiling (May 2026, in-process resolver, 100-pkg bench)
+        # caught this method spending ~8.9 s of a 31.4 s wall walking
+        # pip's ``PackageFinder.find_best_candidate`` once per resolved
+        # package — solely to pull ``requires_python`` off the winning
+        # candidate's link.  But the resolved tree already carries that
+        # link: pip's resolvelib stores the chosen candidate on every
+        # ``InstallRequirement`` it returns from ``resolve()``.  Re-asking
+        # pip via ``find_best_candidate`` repeated the per-package
+        # simple-API walk (cached HTTP, but still parses every link
+        # through ``Link.from_json`` + ``_ensure_quoted_url``).  Read
+        # the marker directly off ``result.link`` — same answer, no
+        # network, no ``ThreadPoolExecutor``.
+        for result in results_list:
+            link = getattr(result, "link", None)
+            requires_python = (
+                getattr(link, "requires_python", None) if link is not None else None
+            )
+            if not requires_python:
+                continue
             try:
-                return result.name, marker_from_specifier(candidate.link.requires_python)
+                marker = marker_from_specifier(requires_python)
             except TypeError:
-                return result.name, None
-
-        if results_list:
-            max_workers = min(len(results_list), 8)
-            with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                python_requirements = {
-                    name: marker
-                    for name, marker in pool.map(
-                        _requires_python_marker, results_list
-                    )
-                    if marker is not None
-                }
+                # Malformed ``requires-python`` value from the index —
+                # fall through silently to match the prior contract.
+                continue
+            if marker is not None:
+                python_requirements[result.name] = marker
 
         # Build the results tree with markers
         new_tree = set()
@@ -1102,14 +1146,14 @@ def _generate_resolution_cache_key(
     """Generate a cache key for resolution results."""
     # Get lockfile and pipfile modification times
     lockfile_mtime = "no-lock"
-    if project.lockfile_location:
-        lockfile_path = Path(project.lockfile_location)
+    if project.lockfile.location:
+        lockfile_path = Path(project.lockfile.location)
         if lockfile_path.exists():
             lockfile_mtime = str(lockfile_path.stat().st_mtime)
 
     pipfile_mtime = "no-pipfile"
-    if project.pipfile_location:
-        pipfile_path = Path(project.pipfile_location)
+    if project.pipfile.location:
+        pipfile_path = Path(project.pipfile.location)
         if pipfile_path.exists():
             pipfile_mtime = str(pipfile_path.stat().st_mtime)
 
@@ -1126,7 +1170,7 @@ def _generate_resolution_cache_key(
     deps_str = json.dumps(deps, sort_keys=True) if isinstance(deps, dict) else str(deps)
 
     key_components = [
-        str(project.project_directory),
+        str(project.pipfile.project_directory),
         lockfile_mtime,
         pipfile_mtime,
         deps_str,
@@ -1430,6 +1474,33 @@ def _resolve_deadline_seconds(project) -> float:
 # --- T_F.6 END --------------------------------------------------------------
 
 
+def _selected_backend_for_request(project, resolver_backend=None):
+    """Return the resolver backend the parent should stamp onto the request.
+
+    The parent computes the full precedence chain (CLI/caller > env >
+    current project's Pipfile > default) before serializing the request so
+    the resolver subprocess does not need to rediscover a Pipfile from its
+    cwd just to make the same decision again.
+    """
+    backend = str(resolver_backend or "").strip()
+    if backend:
+        return backend
+
+    backend = str(os.environ.get("PIPENV_RESOLVER") or "").strip()
+    if backend:
+        return backend
+
+    pipfile_backend = None
+    settings = getattr(project, "settings", None)
+    if settings is not None:
+        pipfile_backend = getattr(settings, "resolver", None)
+        if pipfile_backend is None and hasattr(settings, "get"):
+            pipfile_backend = settings.get("resolver")
+
+    backend = str(pipfile_backend or "").strip()
+    return backend or "pip"
+
+
 def _build_resolver_request(
     *,
     deps,
@@ -1443,13 +1514,16 @@ def _build_resolver_request(
     extra_pip_args,
     resolved_default_deps,
     project,
+    resolver_backend=None,
 ):
     """Build a :class:`ResolverRequest` from the parent-side inputs.
 
     Replaces the argv + env-var + constraints-tempfile +
     resolved-default-deps-tempfile cocktail (F.1 §3.1–3.2) with one
     typed envelope.  ``deps`` is the post-``convert_deps_to_pip`` mapping
-    of ``name -> pip-install-argument-string``.
+    of ``name -> pip-install-argument-string``.  The parent also stamps
+    the selected resolver backend onto the request so the subprocess can
+    dispatch without re-reading Pipfile state from disk.
     """
     typed_sources = tuple(
         ResolverSource(
@@ -1485,6 +1559,10 @@ def _build_resolver_request(
             clear=bool(clear),
             system=bool(allow_global),
             verbose=bool(verbose),
+            # T_F.5: stamp the effective backend chosen by the parent onto
+            # the wire request so the subprocess can dispatch without
+            # rediscovering env / Pipfile state.
+            backend=_selected_backend_for_request(project, resolver_backend),
         ),
         sources=typed_sources,
         python_marker_override=python_marker_override,
@@ -1844,6 +1922,7 @@ def venv_resolve_deps(
     old_lock_data=None,
     extra_pip_args=None,
     resolved_default_deps=None,
+    resolver_backend=None,
 ):
     """
     Resolve dependencies for a pipenv project, acts as a portal to the target environment.
@@ -1870,13 +1949,13 @@ def venv_resolve_deps(
     """
     lockfile_category = get_lockfile_section_using_pipfile_category(pipfile_category)
 
-    deps = deps or (project.parsed_pipfile.get(pipfile_category, {}) if project.pipfile_exists else {})
+    deps = deps or (project.pipfile.parsed.get(pipfile_category, {}) if project.pipfile.exists else {})
     if not deps:
         return {}
 
     pipfile = pipfile or getattr(project, pipfile_category, {})
     if lockfile is None:
-        lockfile = project.lockfile(categories=[pipfile_category])
+        lockfile = project.lockfile.as_dict(categories=[pipfile_category])
     if old_lock_data is None:
         old_lock_data = lockfile.get(lockfile_category, {})
 
@@ -1965,6 +2044,7 @@ def venv_resolve_deps(
                 extra_pip_args=extra_pip_args,
                 resolved_default_deps=resolved_default_deps,
                 project=project,
+                resolver_backend=resolver_backend,
             )
 
             # Useful for debugging and hitting breakpoints in the resolver

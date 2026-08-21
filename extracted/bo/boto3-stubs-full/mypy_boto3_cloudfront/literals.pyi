@@ -189,7 +189,7 @@ MinimumProtocolVersionType = Literal[
 ]
 OriginAccessControlOriginTypesType = Literal["lambda", "mediapackagev2", "mediastore", "s3"]
 OriginAccessControlSigningBehaviorsType = Literal["always", "never", "no-override"]
-OriginAccessControlSigningProtocolsType = Literal["sigv4"]
+OriginAccessControlSigningProtocolsType = Literal["sigv4", "sigv4a"]
 OriginGroupSelectionCriteriaType = Literal["default", "media-quality-based"]
 OriginProtocolPolicyType = Literal["http-only", "https-only", "match-viewer"]
 OriginRequestPolicyCookieBehaviorType = Literal["all", "allExcept", "none", "whitelist"]

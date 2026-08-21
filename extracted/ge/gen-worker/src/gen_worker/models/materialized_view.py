@@ -35,8 +35,7 @@ hands a directory to a third party. So:
 *   nothing is copied until a tier-3 site actually asks;
 *   only the SUBTREE it asks for is copied — a `from_pretrained` on one
     component costs that component, not the model;
-*   every copy goes through the single-file hatch with its §9 row on the line,
-    so `scripts/lint_materialization_hatch.py` counts it;
+*   every copy goes through the single-file hatch with its §9 row on the line;
 *   the bytes are logged at INFO with the caller's own `why`, so every
     remaining copy has a name and a call site. That log IS the migration
     burn-down: a site that disappears from it has moved up the ladder.
@@ -59,7 +58,12 @@ import shutil
 from pathlib import Path
 
 
-from gen_worker._vendor.tensorfs import FileEntry, LocalCAS
+from gen_worker._vendor.tensorfs import (
+    FileEntry,
+    LocalCAS,
+    RepositoryManifest,
+    TensorReader,
+)
 
 from . import projection
 
@@ -68,7 +72,35 @@ _SCRATCH = itertools.count()
 
 VIEWS_DIR = "materialized"
 
-__all__ = ["VIEWS_DIR", "third_party_dir", "view_root_for"]
+#: Set once the pgw#1380 streaming loader is bound in this process. From that
+#: moment a materialization is a DEFECT rather than a burn-down row: Paul's
+#: 2026-08-19 ruling narrowed tier 3 to external-binary runtimes and AOT `.so`
+#: delivery, and a serving pytorch endpoint reaches it for NO reason — its
+#: weights stream store->VRAM and its configs are real files in the projected
+#: tree. Nothing is blocked (a refusal here would turn a wrong-but-working pod
+#: into a dead one); the log simply stops reading as normal.
+_no_fill_serving = False
+
+__all__ = [
+    "VIEWS_DIR",
+    "no_fill_serving",
+    "serving_streams_weights",
+    "third_party_dir",
+    "view_root_for",
+]
+
+
+def no_fill_serving(active: bool = True) -> None:
+    """Declare that this process serves with the streaming loader bound."""
+
+    global _no_fill_serving
+    _no_fill_serving = bool(active)
+
+
+def serving_streams_weights() -> bool:
+    """True when a materialization here would be a pgw#1380 defect."""
+
+    return _no_fill_serving
 
 
 def view_root_for(snapshot_root: Path | str) -> Path:
@@ -80,12 +112,13 @@ def view_root_for(snapshot_root: Path | str) -> Path:
 
 def _materialize(cas: LocalCAS, entry: FileEntry, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    # The single-file hatch. It streams, it is atomic, and it verifies the
-    # reconstruction against the manifest's whole-file digest before the
-    # rename — so a view is known-good bytes, not merely copied ones. One
-    # name upstream and here since tensorfs#107 renamed `extract()` to
-    # `materialize()` (Paul's #1303 ruling).
-    cas.materialize(entry, destination)  # mixed-cas-hatch: author-slot-directory
+    # The single-file hatch — tier 3 of upstream's own access ladder. It
+    # streams, it is atomic, and it verifies the reconstruction against the
+    # manifest's whole-file digest before the rename, so a view is known-good
+    # bytes rather than merely copied ones. pgw#1575 moved it from `LocalCAS`
+    # to `TensorReader`, which is where the one-rev snapshot carries it.
+    with TensorReader(cas, RepositoryManifest((entry,))) as reader:
+        reader.materialize(entry.path, destination)  # mixed-cas-hatch: author-slot-directory
 
 
 def third_party_dir(path: Path | str, *, why: str) -> Path:
@@ -174,9 +207,20 @@ def third_party_dir(path: Path | str, *, why: str) -> Path:
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
-    _log.info(
-        "materialized_view snapshot=%s rel=%s bytes=%d files=%d why=%s "
-        "(pgw#1303 tier 3: the last resort of the access ladder)",
-        root.name, rel or "(whole tree)", written, len(wanted), why,
-    )
+    if _no_fill_serving:
+        _log.error(
+            "DEFECT materialized_view snapshot=%s rel=%s bytes=%d files=%d "
+            "why=%s — this process serves with the pgw#1380 streaming loader "
+            "bound, so a serving pytorch endpoint reached tier 3 for weights "
+            "it already has in the chunk store. The 2026-08-19 no-fill ruling "
+            "leaves tier 3 to external binaries and AOT .so delivery only; "
+            "this copy is a bug in the caller, not a burn-down row.",
+            root.name, rel or "(whole tree)", written, len(wanted), why,
+        )
+    else:
+        _log.info(
+            "materialized_view snapshot=%s rel=%s bytes=%d files=%d why=%s "
+            "(pgw#1303 tier 3: the last resort of the access ladder)",
+            root.name, rel or "(whole tree)", written, len(wanted), why,
+        )
     return out

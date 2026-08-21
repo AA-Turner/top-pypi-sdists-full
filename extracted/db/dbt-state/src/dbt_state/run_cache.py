@@ -2074,7 +2074,7 @@ class RunCache:
         if is_stale:
             tolerance_seconds = self._run_cache_config.resolve_freshness_tolerance(node_config)
             message = (
-                f"New changes detected within freshness tolerance of "
+                f"New changes detected within lag tolerance of "
                 f"{humanize.naturaldelta(tolerance_seconds)}"
             )
         else:

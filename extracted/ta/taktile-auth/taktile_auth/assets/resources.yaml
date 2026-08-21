@@ -119,6 +119,7 @@ jobs:
 job_run:
   # read: can view job runs
   # write: can start a job run
+  # delete: can delete a job run
   org_id: wildcard
   ws_id: wildcard
   flow_folder_id: wildcard

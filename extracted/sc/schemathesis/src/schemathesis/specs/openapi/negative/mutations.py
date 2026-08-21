@@ -262,20 +262,6 @@ def _materialize_one(
     return MutationTarget(schema=current, path=tuple(steps))
 
 
-def _materialize_targets(
-    new_schema: JsonSchemaObject, descriptors: tuple[MutationTargetDescriptor, ...]
-) -> list[MutationTarget]:
-    """Replay every descriptor against `new_schema` and return the resolved targets."""
-    bundle = new_schema.get(BUNDLE_STORAGE_KEY)
-    bundle_map = bundle if isinstance(bundle, dict) else {}
-    targets: list[MutationTarget] = []
-    for descriptor in descriptors:
-        target = _materialize_one(new_schema, descriptor, bundle_map)
-        if target is not None:
-            targets.append(target)
-    return targets
-
-
 def _propagate_required_path(path: tuple[PathStep, ...]) -> None:
     """Force `required` (or equivalent) at each ancestor along `path`, mutating parents in place."""
     for step in path:
@@ -636,7 +622,6 @@ class MutationContext:
                 continue
             new_schema[key] = value
         if self.location.is_in_header:
-            new_schema["propertyNames"] = {"type": "string", "format": "_header_name"}
             for sub_schema in new_schema.get("properties", {}).values():
                 sub_schema["type"] = "string"
                 # `_header_value` keeps generated values within RFC 9110 codepoints so `is_valid_header` doesn't
@@ -652,10 +637,13 @@ class MutationContext:
         # turning a "negative" case into a positive one — force at least one element.
         if "array" in get_type(new_schema) and new_schema.get("items") and "minItems" not in new_schema.get("not", {}):
             new_schema.setdefault("minItems", 1)
+        # A barred `required` already rules the empty object out, and demanding a property on top of it
+        # asks a closed shape for a key it does not admit.
         if (
             "object" in get_type(new_schema)
             and new_schema.get("properties")
             and "minProperties" not in new_schema.get("not", {})
+            and "required" not in new_schema.get("not", {})
         ):
             new_schema.setdefault("minProperties", 1)
 
@@ -789,9 +777,11 @@ def change_type(
         candidate = draw(st.sampled_from(sorted(candidates)))
         candidates.remove(candidate)
         enabled_types = draw(st.shared(FeatureStrategy(), key="types"))
+        # Sorted before the filter: the first query for a name is what draws it, so an unordered
+        # query order makes the same seed generate different data from one process to the next.
         remaining_candidates = [
             candidate,
-            *sorted([candidate for candidate in candidates if enabled_types.is_enabled(candidate)]),
+            *[candidate for candidate in sorted(candidates) if enabled_types.is_enabled(candidate)],
         ]
         new_type = draw(st.sampled_from(remaining_candidates))
         schema["type"] = new_type
@@ -909,6 +899,61 @@ def drop_not_type_specific_keywords(schema: Schema, new_type: str) -> None:
             schema.pop(keyword, None)
 
 
+def is_negatable_keyword(key: str, value: Any, *, location: ParameterLocation, allow_extra_parameters: bool) -> bool:
+    """Whether barring this keyword changes what reaches the server."""
+    if key == "required":
+        return value != []
+    if key in ("example", "examples", BUNDLE_STORAGE_KEY):
+        return False
+    if location == ParameterLocation.PATH and key == "minLength" and value == 1:
+        # Negating `minLength: 1` produces empty paths that the transport drops anyway.
+        return False
+    if (
+        not allow_extra_parameters
+        and key == "additionalProperties"
+        and location in (ParameterLocation.QUERY, ParameterLocation.HEADER, ParameterLocation.COOKIE)
+    ):
+        return False
+    return not (
+        key in ("type", "properties", "items", "minItems") or (key == "additionalProperties" and location.is_in_header)
+    )
+
+
+def has_negatable_target(
+    schema: Schema, *, location: ParameterLocation, allow_extra_parameters: bool, depth: int = 0
+) -> bool:
+    """Whether any operator would find something to bar here or at a target nested below.
+
+    Mirrors what the mutation walk reaches, so a parameter is only ruled out when every
+    reachable target is one both operators decline.
+    """
+    if not isinstance(schema, dict) or depth > MAX_WALK_DEPTH:
+        return False
+    # `change_type` only declines where the value serializes to a string anyway.
+    if "type" in schema and "string" not in get_type(schema):
+        return True
+    if any(
+        is_negatable_keyword(key, value, location=location, allow_extra_parameters=allow_extra_parameters)
+        for key, value in schema.items()
+    ):
+        return True
+    nested: list[Any] = []
+    for keyword in ("properties", "patternProperties"):
+        value = schema.get(keyword)
+        if isinstance(value, dict):
+            nested.extend(value.values())
+    for keyword in ("items", "additionalProperties"):
+        nested.append(schema.get(keyword))
+    for keyword in ("oneOf", "anyOf", "allOf"):
+        value = schema.get(keyword)
+        if isinstance(value, list):
+            nested.extend(value)
+    return any(
+        has_negatable_target(child, location=location, allow_extra_parameters=allow_extra_parameters, depth=depth + 1)
+        for child in nested
+    )
+
+
 def negate_constraints(
     ctx: MutationContext, draw: Draw, schema: Schema
 ) -> tuple[MutationResult, MutationMetadata | None]:
@@ -926,23 +971,7 @@ def negate_constraints(
     negated_keys = []
 
     def is_mutation_candidate(k: str, v: Any) -> bool:
-        if k == "required":
-            return v != []
-        if k in ("example", "examples", BUNDLE_STORAGE_KEY):
-            return False
-        if ctx.is_path_location and k == "minLength" and v == 1:
-            # Negating `minLength: 1` produces empty paths that the transport drops anyway.
-            return False
-        if (
-            not ctx.allow_extra_parameters
-            and k == "additionalProperties"
-            and ctx.location in (ParameterLocation.QUERY, ParameterLocation.HEADER, ParameterLocation.COOKIE)
-        ):
-            return False
-        return not (
-            k in ("type", "properties", "items", "minItems")
-            or (k == "additionalProperties" and ctx.location.is_in_header)
-        )
+        return is_negatable_keyword(k, v, location=ctx.location, allow_extra_parameters=ctx.allow_extra_parameters)
 
     enabled_keywords = draw(st.shared(FeatureStrategy(), key="keywords"))
     candidates = []
@@ -957,8 +986,8 @@ def negate_constraints(
             if key in candidates or enabled_keywords.is_enabled(key):
                 is_negated = True
                 negated_keys.append(key)
-                # `format` is dropped rather than wrapped in `not:` — hypothesis-jsonschema treats format as
-                # annotation-only, so removing it lets us generate values that won't match without validator help.
+                # Dropping `format` frees the draw to ignore it; barring it would ask for the complement of
+                # a format, which has no spelling. The validator filter still decides what counts as invalid.
                 if key != "format":
                     negated = schema.setdefault("not", {})
                     negated[key] = value

@@ -15321,6 +15321,7 @@ class FormActorAssignmentClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.form.FormActorAssignment")
     def __init__(self,
         owners: Optional[bool]=None,
+        ownershipTypes: Union[None, List[str]]=None,
         groups: Union[None, List[str]]=None,
         users: Union[None, List[str]]=None,
     ):
@@ -15331,11 +15332,13 @@ class FormActorAssignmentClass(DictWrapper):
             self.owners = self.RECORD_SCHEMA.fields_dict["owners"].default
         else:
             self.owners = owners
+        self.ownershipTypes = ownershipTypes
         self.groups = groups
         self.users = users
     
     def _restore_defaults(self) -> None:
         self.owners = self.RECORD_SCHEMA.fields_dict["owners"].default
+        self.ownershipTypes = self.RECORD_SCHEMA.fields_dict["ownershipTypes"].default
         self.groups = self.RECORD_SCHEMA.fields_dict["groups"].default
         self.users = self.RECORD_SCHEMA.fields_dict["users"].default
     
@@ -15349,6 +15352,20 @@ class FormActorAssignmentClass(DictWrapper):
     @owners.setter
     def owners(self, value: bool) -> None:
         self._inner_dict['owners'] = value
+    
+    
+    @property
+    def ownershipTypes(self) -> Union[None, List[str]]:
+        """Optional: Specific ownership types to filter which owners are assigned.
+    When specified, only owners with these ownership types will be assigned the form.
+    If not specified and owners=true, all owners will be assigned regardless of type.
+    Supports both built-in types (e.g., urn:li:ownershipType:__system__technical_owner)
+    and custom ownership types."""
+        return self._inner_dict.get('ownershipTypes')  # type: ignore
+    
+    @ownershipTypes.setter
+    def ownershipTypes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['ownershipTypes'] = value
     
     
     @property
@@ -15376,7 +15393,7 @@ class FormInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'formInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.form.FormInfo")
 
     def __init__(self,
@@ -15401,7 +15418,7 @@ class FormInfoClass(_Aspect):
         else:
             self.prompts = prompts
         if actors is None:
-            # default: {'groups': None, 'owners': True, 'users': None}
+            # default: {'ownershipTypes': None, 'groups': None, 'owners': True, 'users': None}
             self.actors = _json_converter.from_json_object(self.RECORD_SCHEMA.fields_dict["actors"].default, writers_schema=self.RECORD_SCHEMA.fields_dict["actors"].type)
         else:
             self.actors = actors
@@ -19672,7 +19689,7 @@ class DatasetKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'datasetKey'
-    ASPECT_INFO = {'keyForEntity': 'dataset', 'entityCategory': 'core', 'entityAspects': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'operation', 'domains', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'], 'entityDoc': 'Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.'}
+    ASPECT_INFO = {'keyForEntity': 'dataset', 'entityCategory': 'core', 'entityAspects': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'], 'entityDoc': 'Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DatasetKey")
 
     def __init__(self,
@@ -20046,7 +20063,7 @@ class MLFeatureKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlFeatureKey'
-    ASPECT_INFO = {'keyForEntity': 'mlFeature', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation']}
+    ASPECT_INFO = {'keyForEntity': 'mlFeature', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureKey")
 
     def __init__(self,
@@ -20240,7 +20257,7 @@ class MLModelKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlModelKey'
-    ASPECT_INFO = {'keyForEntity': 'mlModel', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'versionProperties', 'subTypes', 'container', 'documentation']}
+    ASPECT_INFO = {'keyForEntity': 'mlModel', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLModelKey")
 
     def __init__(self,
@@ -20977,6 +20994,161 @@ class FilterClass(DictWrapper):
     @criteria.setter
     def criteria(self, value: Union[None, List["CriterionClass"]]) -> None:
         self._inner_dict['criteria'] = value
+    
+    
+class StorageFeaturesClass(_Aspect):
+    """Pre-computed storage-based features for a Dataset, written by the daily usage-reporting job.
+    When populated, resolvers use these values instead of issuing live timeseries queries,
+    eliminating per-result OpenSearch fan-out on search pages."""
+
+
+    ASPECT_NAME = 'storageFeatures'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.search.features.StorageFeatures")
+
+    def __init__(self,
+        rowCount: Union[None, int]=None,
+        columnCount: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.rowCount = rowCount
+        self.columnCount = columnCount
+    
+    def _restore_defaults(self) -> None:
+        self.rowCount = self.RECORD_SCHEMA.fields_dict["rowCount"].default
+        self.columnCount = self.RECORD_SCHEMA.fields_dict["columnCount"].default
+    
+    
+    @property
+    def rowCount(self) -> Union[None, int]:
+        """Total row count from the most recent dataset profile."""
+        return self._inner_dict.get('rowCount')  # type: ignore
+    
+    @rowCount.setter
+    def rowCount(self, value: Union[None, int]) -> None:
+        self._inner_dict['rowCount'] = value
+    
+    
+    @property
+    def columnCount(self) -> Union[None, int]:
+        """Total column count from the most recent dataset profile."""
+        return self._inner_dict.get('columnCount')  # type: ignore
+    
+    @columnCount.setter
+    def columnCount(self, value: Union[None, int]) -> None:
+        self._inner_dict['columnCount'] = value
+    
+    
+class UsageFeaturesClass(_Aspect):
+    """Pre-computed usage-based features for a Dataset, written by the daily usage-reporting job.
+    When populated, resolvers use these values instead of issuing live timeseries queries,
+    eliminating per-result OpenSearch fan-out on search pages."""
+
+
+    ASPECT_NAME = 'usageFeatures'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.search.features.UsageFeatures")
+
+    def __init__(self,
+        queryCountLast30Days: Union[None, int]=None,
+        uniqueUserCountLast30Days: Union[None, int]=None,
+        topUsersLast30Days: Union[None, List[str]]=None,
+        queryCountPercentileLast30Days: Union[None, int]=None,
+        uniqueUserPercentileLast30Days: Union[None, int]=None,
+        combinedSearchRankingMultiplier: Union[None, float]=None,
+        lastOperationTimestampMs: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.queryCountLast30Days = queryCountLast30Days
+        self.uniqueUserCountLast30Days = uniqueUserCountLast30Days
+        self.topUsersLast30Days = topUsersLast30Days
+        self.queryCountPercentileLast30Days = queryCountPercentileLast30Days
+        self.uniqueUserPercentileLast30Days = uniqueUserPercentileLast30Days
+        self.combinedSearchRankingMultiplier = combinedSearchRankingMultiplier
+        self.lastOperationTimestampMs = lastOperationTimestampMs
+    
+    def _restore_defaults(self) -> None:
+        self.queryCountLast30Days = self.RECORD_SCHEMA.fields_dict["queryCountLast30Days"].default
+        self.uniqueUserCountLast30Days = self.RECORD_SCHEMA.fields_dict["uniqueUserCountLast30Days"].default
+        self.topUsersLast30Days = self.RECORD_SCHEMA.fields_dict["topUsersLast30Days"].default
+        self.queryCountPercentileLast30Days = self.RECORD_SCHEMA.fields_dict["queryCountPercentileLast30Days"].default
+        self.uniqueUserPercentileLast30Days = self.RECORD_SCHEMA.fields_dict["uniqueUserPercentileLast30Days"].default
+        self.combinedSearchRankingMultiplier = self.RECORD_SCHEMA.fields_dict["combinedSearchRankingMultiplier"].default
+        self.lastOperationTimestampMs = self.RECORD_SCHEMA.fields_dict["lastOperationTimestampMs"].default
+    
+    
+    @property
+    def queryCountLast30Days(self) -> Union[None, int]:
+        """Total SQL query count over the last 30 days."""
+        return self._inner_dict.get('queryCountLast30Days')  # type: ignore
+    
+    @queryCountLast30Days.setter
+    def queryCountLast30Days(self, value: Union[None, int]) -> None:
+        self._inner_dict['queryCountLast30Days'] = value
+    
+    
+    @property
+    def uniqueUserCountLast30Days(self) -> Union[None, int]:
+        """Unique user count over the last 30 days."""
+        return self._inner_dict.get('uniqueUserCountLast30Days')  # type: ignore
+    
+    @uniqueUserCountLast30Days.setter
+    def uniqueUserCountLast30Days(self, value: Union[None, int]) -> None:
+        self._inner_dict['uniqueUserCountLast30Days'] = value
+    
+    
+    @property
+    def topUsersLast30Days(self) -> Union[None, List[str]]:
+        """URNs of the top users by query count over the last 30 days."""
+        return self._inner_dict.get('topUsersLast30Days')  # type: ignore
+    
+    @topUsersLast30Days.setter
+    def topUsersLast30Days(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['topUsersLast30Days'] = value
+    
+    
+    @property
+    def queryCountPercentileLast30Days(self) -> Union[None, int]:
+        """Percentile rank of query count relative to all datasets, over the last 30 days."""
+        return self._inner_dict.get('queryCountPercentileLast30Days')  # type: ignore
+    
+    @queryCountPercentileLast30Days.setter
+    def queryCountPercentileLast30Days(self, value: Union[None, int]) -> None:
+        self._inner_dict['queryCountPercentileLast30Days'] = value
+    
+    
+    @property
+    def uniqueUserPercentileLast30Days(self) -> Union[None, int]:
+        """Percentile rank of unique user count relative to all datasets, over the last 30 days."""
+        return self._inner_dict.get('uniqueUserPercentileLast30Days')  # type: ignore
+    
+    @uniqueUserPercentileLast30Days.setter
+    def uniqueUserPercentileLast30Days(self, value: Union[None, int]) -> None:
+        self._inner_dict['uniqueUserPercentileLast30Days'] = value
+    
+    
+    @property
+    def combinedSearchRankingMultiplier(self) -> Union[None, float]:
+        """Blended search ranking multiplier derived from usage signals."""
+        return self._inner_dict.get('combinedSearchRankingMultiplier')  # type: ignore
+    
+    @combinedSearchRankingMultiplier.setter
+    def combinedSearchRankingMultiplier(self, value: Union[None, float]) -> None:
+        self._inner_dict['combinedSearchRankingMultiplier'] = value
+    
+    
+    @property
+    def lastOperationTimestampMs(self) -> Union[None, int]:
+        """Timestamp (epoch ms) of the most recent DML operation on this dataset, pre-computed
+    from the operations timeseries. Used by search result cards to show last-updated time
+    without issuing a live timeseries query per result."""
+        return self._inner_dict.get('lastOperationTimestampMs')  # type: ignore
+    
+    @lastOperationTimestampMs.setter
+    def lastOperationTimestampMs(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastOperationTimestampMs'] = value
     
     
 class ChartSnapshotClass(DictWrapper):
@@ -21954,7 +22126,7 @@ class MetricInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'metricInfo'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metric.MetricInfo")
 
     def __init__(self,
@@ -22040,7 +22212,9 @@ class MetricInfoClass(_Aspect):
     
     @property
     def semanticModel(self) -> Union[None, str]:
-        """The semantic model that defines this metric."""
+        """The semantic model that defines this metric.
+    Authoritative non-lineage membership pointer (`ModeledBy`). Drives search /
+    filter / facet and bounding-box membership in the lineage explorer."""
         return self._inner_dict.get('semanticModel')  # type: ignore
     
     @semanticModel.setter
@@ -22125,17 +22299,17 @@ class MetricRelationshipsClass(_Aspect):
     
     
 class MetricUpstreamsClass(_Aspect):
-    """Physical data-flow lineage from a metric to the datasets and columns it reads.
+    """Data-flow lineage from a metric to the datasets and columns it reads.
     Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
     
-    Populate this aspect only for metrics that have no semantic model
-    (`metricInfo.semanticModel` is unset) — e.g. thin catalog / BI metrics or
-    SDK-authored metrics. When a metric is backed by a semantic model, leave
-    `metricUpstreams` empty and let lineage flow through
-    Metric → SemanticModel → Logical Dataset → Physical Dataset
-    (via `ModeledBy`, `Contains`, and the logical dataset's `upstreamLineage`).
-    Emitting both creates a redundant Metric → Dataset shortcut that bypasses
-    the semantic model in the lineage explorer."""
+    For semantic-model-backed metrics, populate `datasetUpstreams` with the
+    Semantic Model Dataset (logical dataset) URNs the metric reads from, and
+    optionally `fieldUpstreams` with the corresponding `schemaField` URNs.
+    The canonical chain is Metric → Logical Dataset → Physical Dataset 
+    (via each logical dataset's `upstreamLineage`).
+    
+    Standalone metrics with no semantic model may also populate this aspect
+    with physical dataset / schemaField URNs directly."""
 
 
     ASPECT_NAME = 'metricUpstreams'
@@ -29267,7 +29441,7 @@ class SemanticModelInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'semanticModelInfo'
-    ASPECT_INFO = {'schemaVersion': 5}
+    ASPECT_INFO = {'schemaVersion': 6}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.semanticmodel.SemanticModelInfo")
 
     def __init__(self,
@@ -29374,11 +29548,7 @@ class SemanticModelInfoClass(_Aspect):
     
     @property
     def datasets(self) -> List[str]:
-        """The logical datasets that this semantic model exposes. Each is a `dataset` entity in its
-    own right, carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect
-    (alias + back-reference to this semantic model). Field-level projection and semantics live
-    on that Dataset's `schemaMetadata` (structural) and per-field `semanticFieldAnnotation`
-    (semantic) aspects."""
+        # No docs available.
         return self._inner_dict.get('datasets')  # type: ignore
     
     @datasets.setter
@@ -32961,6 +33131,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.query.filter.ConjunctiveCriterion': ConjunctiveCriterionClass,
     'com.linkedin.pegasus2avro.metadata.query.filter.Criterion': CriterionClass,
     'com.linkedin.pegasus2avro.metadata.query.filter.Filter': FilterClass,
+    'com.linkedin.pegasus2avro.metadata.search.features.StorageFeatures': StorageFeaturesClass,
+    'com.linkedin.pegasus2avro.metadata.search.features.UsageFeatures': UsageFeaturesClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot': ChartSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot': CorpGroupSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot': CorpUserSnapshotClass,
@@ -33568,6 +33740,8 @@ __SCHEMA_TYPES = {
     'ConjunctiveCriterion': ConjunctiveCriterionClass,
     'Criterion': CriterionClass,
     'Filter': FilterClass,
+    'StorageFeatures': StorageFeaturesClass,
+    'UsageFeatures': UsageFeaturesClass,
     'ChartSnapshot': ChartSnapshotClass,
     'CorpGroupSnapshot': CorpGroupSnapshotClass,
     'CorpUserSnapshot': CorpUserSnapshotClass,
@@ -33817,6 +33991,8 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     ChartInfoClass,
     ChartQueryClass,
     EditableChartPropertiesClass,
+    StorageFeaturesClass,
+    UsageFeaturesClass,
     MLPrimaryKeyKeyClass,
     TelemetryKeyClass,
     MLModelGroupKeyClass,
@@ -34093,6 +34269,8 @@ class AspectBag(TypedDict, total=False):
     chartInfo: ChartInfoClass
     chartQuery: ChartQueryClass
     editableChartProperties: EditableChartPropertiesClass
+    storageFeatures: StorageFeaturesClass
+    usageFeatures: UsageFeaturesClass
     mlPrimaryKeyKey: MLPrimaryKeyKeyClass
     telemetryKey: TelemetryKeyClass
     mlModelGroupKey: MLModelGroupKeyClass
@@ -34514,12 +34692,12 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
     'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
     'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'operation', 'domains', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
+    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
     'dataHubView': ['dataHubViewInfo'],
     'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
     'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
-    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation'],
-    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'versionProperties', 'subTypes', 'container', 'documentation'],
+    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
+    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation'],
     'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
     'dataHubOpenAPISchema': ['systemMetadata'],
     'dataHubRole': ['dataHubRoleInfo'],

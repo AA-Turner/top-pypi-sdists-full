@@ -17,7 +17,8 @@ import warnings
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from subprocess import check_call
-from typing import Any, Dict, List, Optional
+from threading import local
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.request import urlopen
 
 import requests
@@ -62,18 +63,33 @@ class Sequences:
         self._session = Util.mount_standard_session(session)
         self._entities = Entities(session, user)
         self._is_aws = is_aws
+        self._download_warning_state = local()
 
     def _parallel_download(self, entity_ids: List[str]) -> None:
         print('Download starting')
         entities = {}
 
         def download(entity_id: str) -> None:
-            entities[entity_id] = self.download(entity_id, Sequences._get_filepath_for_entity_id(entity_id))
+            self._download_warning_state.suppress = True
+            try:
+                entities[entity_id] = self.download(
+                    entity_id,
+                    Sequences._get_filepath_for_entity_id(entity_id),
+                )
+            finally:
+                self._download_warning_state.suppress = False
 
         list(ThreadPool(8).imap_unordered(download, entity_ids))
 
     def download_to_memory(self, entity_ids: List[str]) -> Dict[str, Any]:
         """Download several documents and return their sequences in memory.
+
+        Deprecated:
+            Use :meth:`PipebioClient.iter_sequence_records` to process one record
+            at a time. The iterator downloads a complete ExportJob artifact to
+            temporary disk, and its Parquet transport does not guarantee row
+            order. Calling ``dict(...)`` on it recreates this method's in-memory
+            behavior.
 
         Args:
             entity_ids: Ids of the documents to download.
@@ -83,6 +99,16 @@ class Sequences:
             each value containing the parsed id, name, sequence, annotations and
             type.
         """
+        warnings.warn(
+            'Sequences.download_to_memory is deprecated and will be removed in a '
+            'future release. Use client.iter_sequence_records() to process entries '
+            'one at a time. The iterator downloads the full ExportJob artifact to '
+            'temporary disk, and its Parquet transport does not guarantee row '
+            'order. Calling dict(...) on that iterator recreates the legacy '
+            'in-memory behavior.',
+            FutureWarning,
+            stacklevel=2,
+        )
         self._parallel_download(entity_ids)
 
         # Build an in memory map that matches this tsv.
@@ -114,6 +140,19 @@ class Sequences:
 
         sequence_map = {} if sequence_map is None else sequence_map
 
+        for compound_id, parsed in Sequences._iter_tsv_entries(
+            filepath, id_prefix, columns
+        ):
+            sequence_map[compound_id] = parsed
+
+        return sequence_map
+
+    @staticmethod
+    def _iter_tsv_entries(filepath: str,
+                          id_prefix: str,
+                          columns: List[Column]) -> Iterator[Tuple[str, Dict[str, Any]]]:
+        """Yield parsed sequence-map entries from a TSV one row at a time."""
+
         print(f'read_tsv_to_map::Reading filepath: "{filepath}"')
         # Read the file.
         with open(filepath, 'r') as tsvfile:
@@ -134,9 +173,7 @@ class Sequences:
                     # Avoid errors like "KeyError: 'type'".
                     parsed[column.name] = column.parse(row[name]) if name in row else column.parse('')
 
-                sequence_map[compound_id] = parsed
-
-        return sequence_map
+                yield compound_id, parsed
 
     def download(self,
                  entity_id: str,
@@ -149,6 +186,18 @@ class Sequences:
                  allow_deleted: bool = True) -> str:
         """Download the sequences of a single document to a local file.
 
+        Deprecated:
+            Use :meth:`PipebioClient.export_to_path` or
+            :meth:`PipebioClient.export` instead. This method defaults
+            ``allow_deleted`` to ``True``; pass ``allow_deleted_entities=True``
+            to the replacement to preserve that behavior.
+
+            The legacy ``sort``, ``query``, ``include_cols``, ``exclude_cols``,
+            and ``limit`` arguments do not map directly to
+            :meth:`PipebioClient.export_to_path`. Migrate them to ExportJob
+            parameters through :meth:`PipebioClient.export` and validate
+            filtering, selected columns, limits, and row ordering.
+
         Args:
             entity_id: Id of the document to download.
             destination: Local path to write the assembled TSV to.
@@ -157,7 +206,11 @@ class Sequences:
             include_cols: Deprecated. Will be removed in a future release.
             exclude_cols: Deprecated. Will be removed in a future release.
             limit: Deprecated. Will be removed in a future release.
-            allow_deleted: Whether to include deleted sequences.
+            allow_deleted: Whether to allow referencing an input document that
+                has been soft-deleted. This authorizes reading a deleted
+                document; it does not add soft-deleted sequences to the output
+                of a live one. Defaults to ``True``; ExportJob-backed
+                replacements default to ``False``.
 
         Returns:
             The ``destination`` path that was written.
@@ -189,14 +242,35 @@ class Sequences:
 
         .. end API reference ::
         """
-        _deprecated = {'sort': sort, 'query': query, 'include_cols': include_cols,
-                       'exclude_cols': exclude_cols, 'limit': limit}
-        for name, value in _deprecated.items():
-            if value is not None:
+        if not getattr(self._download_warning_state, 'suppress', False):
+            warnings.warn(
+                'Sequences.download is deprecated and will be removed in a future '
+                'release. Use client.export_to_path() or client.export() instead. To '
+                'preserve the legacy default for soft-deleted entities, pass '
+                'allow_deleted_entities=True.',
+                FutureWarning,
+                stacklevel=2,
+            )
+
+            _deprecated = {
+                'sort': sort,
+                'query': query,
+                'include_cols': include_cols,
+                'exclude_cols': exclude_cols,
+                'limit': limit,
+            }
+            deprecated_names = [
+                name for name, value in _deprecated.items() if value is not None
+            ]
+            if deprecated_names:
                 warnings.warn(
-                    f'Sequences.download: {name} is deprecated and will be removed in a future release. '
-                    f'Use client.export() for filtering, sorting and column selection.',
-                    DeprecationWarning,
+                    'Sequences.download arguments '
+                    f'{", ".join(deprecated_names)} are deprecated and will be '
+                    'removed in a future release. They do not map directly to '
+                    'client.export_to_path(); migrate them to client.export() '
+                    'parameters and validate filtering, column, limit, and row-order '
+                    'behavior.',
+                    FutureWarning,
                     stacklevel=2,
                 )
 
@@ -230,7 +304,6 @@ class Sequences:
         with self._session.post(url, stream=True, timeout=10 * 60, json=body) as response:
             try:
                 links = response.json()
-                print('links', links)
                 if 'statusCode' in links and links['statusCode'] != 200:
                     raise Exception(links['message'])
                 elif len(links) == 0:

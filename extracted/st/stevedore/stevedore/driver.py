@@ -14,12 +14,11 @@ from collections.abc import Callable
 import importlib.metadata
 from typing import Any, Concatenate, ParamSpec, Self, TypeVar
 
-from .exception import MultipleMatches
 from .exception import NoMatches
 from .extension import ConflictResolverT
+from .extension import error_on_conflict
 from .extension import Extension
 from .extension import ExtensionManager
-from .extension import ignore_conflicts
 from .extension import OnLoadFailureCallbackT
 from .named import NamedExtensionManager
 from .named import OnMissingEntrypointsCallbackT
@@ -60,7 +59,10 @@ class DriverManager(NamedExtensionManager[T]):
         logging.
     :param conflict_resolver: A callable that determines what to do in the
         event that there are multiple entrypoints in the same group with the
-        same name. This is only used if retrieving entrypoint by name.
+        same name. Defaults to :func:`~stevedore.extension.error_on_conflict`,
+        which raises :class:`~stevedore.exception.MultipleMatches`. Pass
+        :func:`~stevedore.extension.ignore_conflicts` (or a custom callable)
+        to select a single driver instead of raising.
     """
 
     def __init__(
@@ -77,7 +79,7 @@ class DriverManager(NamedExtensionManager[T]):
         verify_requirements: bool | None = None,
         warn_on_missing_entrypoint: bool | None = None,
         *,
-        conflict_resolver: 'ConflictResolverT[T]' = ignore_conflicts,
+        conflict_resolver: 'ConflictResolverT[T]' = error_on_conflict,
     ) -> None:
         invoke_args = () if invoke_args is None else invoke_args
         invoke_kwds = {} if invoke_kwds is None else invoke_kwds
@@ -114,7 +116,7 @@ class DriverManager(NamedExtensionManager[T]):
         on_load_failure_callback: 'OnLoadFailureCallbackT[T] | None' = None,
         verify_requirements: bool | None = None,
         *,
-        conflict_resolver: 'ConflictResolverT[T]' = ignore_conflicts,
+        conflict_resolver: 'ConflictResolverT[T]' = error_on_conflict,
     ) -> Self:
         """Construct a test DriverManager
 
@@ -136,7 +138,8 @@ class DriverManager(NamedExtensionManager[T]):
             removed in a future version.
         :param conflict_resolver: A callable that determines what to do in the
             event that there are multiple entrypoints in the same group with
-            the same name. This is only used if retrieving entrypoint by name.
+            the same name. Defaults to
+            :func:`~stevedore.extension.error_on_conflict`.
         :return: The manager instance, initialized for testing
         """
         o = super().make_test_instance(
@@ -152,20 +155,20 @@ class DriverManager(NamedExtensionManager[T]):
     def _init_plugins(self, extensions: list[Extension[T]]) -> None:
         super()._init_plugins(extensions)
 
+        name = self._names[0]
         if not self.extensions:
-            name = self._names[0]
             raise NoMatches(
                 f'No {self.namespace!r} driver found, looking for {name!r}'
             )
         if len(self.extensions) > 1:
-            discovered_drivers = ','.join(
-                e.entry_point_target for e in self.extensions
-            )
-
-            raise MultipleMatches(
-                f'Multiple {self.namespace!r} drivers found: '
-                f'{discovered_drivers}'
-            )
+            # More than one entrypoint was found for the requested name. Since
+            # a DriverManager only ever loads a single name, this can only
+            # happen when multiple entrypoints in the namespace share that
+            # name. Defer to the configured conflict resolver to decide which
+            # one to use (or whether to raise).
+            self.extensions = [
+                self._conflict_resolver(self.namespace, name, self.extensions)
+            ]
 
     def __call__(
         self,

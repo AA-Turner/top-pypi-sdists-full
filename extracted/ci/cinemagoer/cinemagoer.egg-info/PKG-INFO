@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cinemagoer
-Version: 2026.6.27
+Version: 2026.8.20
 Summary: Retrieve data from IMDb.
 Author-email: Davide Alberani <da@mimante.net>, "H. Turgut Uyar" <uyar@tekir.org>
 License:                     GNU GENERAL PUBLIC LICENSE
@@ -368,7 +368,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: lxml>=6.1.1
-Requires-Dist: sqlalchemy<2.1,>=2.0.50
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy<2.1,>=2.0.51; extra == "sqlalchemy"
 Dynamic: license-file
 
 |pypi| |pyversions| |license|
@@ -431,6 +432,12 @@ But if you want, you can also install the latest release from PyPI::
 
    pip install cinemagoer
 
+This base installation includes native SQLite support.  To use PostgreSQL,
+MariaDB, MySQL, or an explicitly selected SQLAlchemy dialect, install the
+optional integration and your chosen database driver::
+
+   pip install "cinemagoer[sqlalchemy]"
+
 
 Example
 -------
@@ -447,8 +454,8 @@ Here's an example that demonstrates how to use Cinemagoer:
     2. Import them with ``s32cinemagoer.py``
     3. Open the populated database with Cinemagoer
 
-    SQLite is used in examples for simplicity, but any SQLAlchemy-supported
-    database can be used.
+    SQLite works with a base installation. Any SQLAlchemy-supported database
+    can be used after installing the ``sqlalchemy`` extra and its DBAPI driver.
 
 .. code-block:: bash
 

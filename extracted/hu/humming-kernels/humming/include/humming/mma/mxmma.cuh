@@ -40,7 +40,7 @@ public:
   typename MmaOpClass::ARegisters regs_a[2][WarpShape::M / MmaShape::M][kPartMmaShapeK / MmaShape::K];
   uint32_t regs_qb[2][ElementB::kBits * (16 / ElementA::kBits)];
   typename MmaOpClass::BRegisters regs_b[2][WarpShape::N / MmaShape::N][kPartMmaShapeK / MmaShape::K];
-  CRegistersArrayType regs_c;
+  alignas(16) CRegistersArrayType regs_c;
 
   uint32_t regs_sfa[2][WarpShape::M / MmaShape::M][kPartMmaShapeK / MmaShape::K];
   uint32_t regs_sfb[2][WarpShape::N / MmaShape::N][kPartMmaShapeK / MmaShape::K];
@@ -201,4 +201,8 @@ public:
   CUDA_INLINE T *final_regs_c_as_ptr() {
     return regs_c_as_ptr<T>(0);
   };
+
+  static constexpr uint32_t final_regs_c_index() {
+    return 0;
+  }
 };

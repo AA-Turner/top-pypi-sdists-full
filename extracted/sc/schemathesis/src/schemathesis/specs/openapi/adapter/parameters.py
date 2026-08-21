@@ -31,12 +31,13 @@ from schemathesis.core.media_types import FORM_MEDIA_TYPES
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import check_header_name
+from schemathesis.generation.jsonschema import EMPTY_STRATEGY
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.python._constants.pool import ConstantDraw, ConstantsPool, ConstantType, ConstantValue, Origin
 from schemathesis.resources import ExtraDataSource, SemanticDraw
 from schemathesis.schemas import APIOperation, ParameterSet
-from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
+from schemathesis.specs.openapi.adapter.protocol import ParameterAdapter
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.formats import HEADER_FORMAT, STRING_FORMATS
@@ -587,6 +588,8 @@ def build_hybrid_strategy(
     original_strategy: st.SearchStrategy,
     captured_variants: list[CapturedVariant],
     usage_tracker: VariantUsageTracker,
+    container_schema: JsonSchema | None = None,
+    validator_cls: type[jsonschema_rs.Validator] | None = None,
 ) -> st.SearchStrategy:
     """Combine original strategy with captured variants using weighted sampling.
 
@@ -598,8 +601,22 @@ def build_hybrid_strategy(
     parameters are present. When a variant is selected, the strategy returns a
     `GeneratedValue` carrying the pool-draw provenance; otherwise it returns the
     raw generated value (a dict or scalar).
+
+    ``container_schema`` is the consumer object schema. An overlay adds keys, which container-level
+    constraints (``maxProperties``, ``additionalProperties``, ``not``) can rule out even when every
+    injected value fits its own slot; the merge is reverted when the result is invalid.
     """
     from hypothesis import strategies as st
+
+    from schemathesis.specs.openapi.examples import _example_is_valid
+
+    container_validator: jsonschema_rs.Validator | None = None
+    if container_schema is not None and validator_cls is not None:
+        try:
+            container_validator = make_validator(container_schema, validator_cls)
+        except jsonschema_rs.ValidationError:
+            # Malformed container schema; the merge goes in unchecked, as it did before.
+            container_validator = None
 
     # Pre-compute keys for all variants
     variant_keys = [_variant_key(v.overlay) for v in captured_variants]
@@ -616,7 +633,7 @@ def build_hybrid_strategy(
         # Always generate base values first, then overlay captured values.
         # This ensures parameters without resource requirements (like `file_name`)
         # still get generated values while resource-linked params use captured data.
-        base = draw(original_strategy)
+        drawn = draw(original_strategy)
 
         # An upstream overlay (e.g. the constants overlay) may wrap the dict in
         # `GeneratedValue`. Unwrap so we can deep-merge captured values into the body,
@@ -626,13 +643,14 @@ def build_hybrid_strategy(
         base_semantic_draws: tuple = ()
         base_dictionary_draws: tuple = ()
         base_constants_draws: tuple = ()
-        if isinstance(base, GeneratedValue):
-            base_meta = base.meta
-            base_pool_draws = base.pool_draws
-            base_semantic_draws = base.semantic_draws
-            base_dictionary_draws = base.dictionary_draws
-            base_constants_draws = base.constants_draws
-            base = base.value
+        base = drawn
+        if isinstance(drawn, GeneratedValue):
+            base_meta = drawn.meta
+            base_pool_draws = drawn.pool_draws
+            base_semantic_draws = drawn.semantic_draws
+            base_dictionary_draws = drawn.dictionary_draws
+            base_constants_draws = drawn.constants_draws
+            base = drawn.value
 
         # Captured variants are partial dict overrides; meaningful only when the base is a dict.
         # Schemas without `type: object` can produce scalars/lists — leave those untouched.
@@ -641,16 +659,22 @@ def build_hybrid_strategy(
 
         # Single variant: no selection needed
         if n_variants == 1:
-            usage_tracker.record_draw(variant_keys[0])
-            chosen = captured_variants[0]
+            idx = 0
         else:
             # Shuffle indices before weighted selection to avoid Hypothesis's bias
             # toward early indices when using cumulative probability selection.
             idx = usage_tracker.weighted_select(variant_keys, random)
-            usage_tracker.record_draw(variant_keys[idx])
-            chosen = captured_variants[idx]
+        chosen = captured_variants[idx]
 
-        _deep_merge_overlay(base, chosen.overlay)
+        if container_validator is not None:
+            merged = deepclone(base)
+            _deep_merge_overlay(merged, chosen.overlay)
+            if not _example_is_valid(merged, container_validator):
+                return drawn
+            base = merged
+        else:
+            _deep_merge_overlay(base, chosen.overlay)
+        usage_tracker.record_draw(variant_keys[idx])
         return GeneratedValue(
             value=base,
             meta=base_meta,
@@ -861,7 +885,12 @@ class OpenApiComponent(ABC):
     definition: JsonSchemaObject
     is_required: bool
     name_to_uri: dict[str, str]
-    adapter: SpecificationAdapter
+    adapter: ParameterAdapter
+
+    @property
+    @abstractmethod
+    def media_type(self) -> str | None:
+        """Media type this component carries, if any."""
 
     __slots__ = (
         "definition",
@@ -942,13 +971,15 @@ class OpenApiComponent(ABC):
 
     def _build_schema(self, *, optimize: bool) -> JsonSchema:
         """Build JSON schema with optional optimizations for data generation."""
+        is_draft_2020_12 = self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
         schema = to_json_schema(
             self.raw_schema,
             nullable_keyword=self.adapter.nullable_keyword,
             update_quantifiers=optimize,
-            upgrade_legacy_exclusive_bounds=(
-                self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
-            ),
+            upgrade_legacy_exclusive_bounds=is_draft_2020_12,
+            # Draft 2020-12 generation reads `prefixItems` and `contains` natively; the Draft 4
+            # rewrite emits `items: [...]` that 2020-12 canonicalization rejects.
+            convert_prefix_items=not is_draft_2020_12,
             name_to_uri=self.name_to_uri,
             merge_ref_siblings=self.adapter.ref_siblings,
         )
@@ -1064,7 +1095,7 @@ class OpenApiParameter(OpenApiComponent):
 
     @classmethod
     def from_definition(
-        cls, *, definition: JsonSchemaObject, name_to_uri: dict[str, str], adapter: SpecificationAdapter
+        cls, *, definition: JsonSchemaObject, name_to_uri: dict[str, str], adapter: ParameterAdapter
     ) -> OpenApiParameter:
         is_required = definition.get("required", False)
         return cls(definition=definition, is_required=is_required, name_to_uri=name_to_uri, adapter=adapter)
@@ -1077,7 +1108,13 @@ class OpenApiParameter(OpenApiComponent):
     @property
     def name(self) -> str:
         """Parameter name."""
-        return self.definition["name"]
+        name = self.definition["name"]
+        # A name is text on the wire, but a document converted from YAML 1.1 spells `on` as the
+        # boolean `true`, and a numeric one arrives as a number. Spelled as JSON writes it, so the
+        # name reads the same as in the document.
+        if not isinstance(name, str):
+            return jsonschema_rs.canonical.json.to_string(name)
+        return name
 
     @property
     def location(self) -> ParameterLocation:
@@ -1149,7 +1186,7 @@ class OpenApiBody(OpenApiComponent):
         media_type: str,
         resource_name: str | None,
         name_to_uri: dict[str, str],
-        adapter: SpecificationAdapter,
+        adapter: ParameterAdapter,
     ) -> OpenApiBody:
         return cls(
             definition=definition,
@@ -1167,7 +1204,7 @@ class OpenApiBody(OpenApiComponent):
         definition: JsonSchemaObject,
         media_type: str,
         name_to_uri: dict[str, str],
-        adapter: SpecificationAdapter,
+        adapter: ParameterAdapter,
     ) -> OpenApiBody:
         return cls(
             definition=definition,
@@ -1317,6 +1354,11 @@ class OpenApiBody(OpenApiComponent):
             target_descriptors=target_descriptors,
         )
 
+        if strategy is EMPTY_STRATEGY:
+            # Every overlay below decorates a drawn value, so there is nothing for them to act on.
+            # Returning as-is keeps the schema recognizable as unsatisfiable to whoever draws from it.
+            return strategy
+
         # Mix in schema examples for positive mode (20% example, 80% generated)
         # Skip during EXAMPLES phase since examples are handled separately there
         if mix_examples and generation_mode == GenerationMode.POSITIVE:
@@ -1391,7 +1433,13 @@ class OpenApiBody(OpenApiComponent):
                     constants_value_source=constants_value_source,
                 )
             else:
-                strategy = build_hybrid_strategy(strategy, captured_variants, usage_tracker)
+                strategy = build_hybrid_strategy(
+                    strategy,
+                    captured_variants,
+                    usage_tracker,
+                    container_schema=schema if isinstance(schema, dict) else None,
+                    validator_cls=operation.schema.adapter.jsonschema_validator_cls,
+                )
 
         from schemathesis.generation.body_overrides import (
             build_body_override_overlay_strategy,
@@ -1543,12 +1591,13 @@ def _bundle_parameter(
     parameter: Mapping,
     resolver: Resolver,
     bundler: Bundler,
-    bundle_cache: dict[int, tuple[dict[str, Any], dict[str, str]]],
+    bundle_cache: BundleCache,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """Bundle a parameter definition to make it self-contained."""
     param_id = id(parameter)
-    if param_id in bundle_cache:
-        cached_definition, cached_name_to_uri = bundle_cache[param_id]
+    cached = bundle_cache.get(param_id)
+    if cached is not None:
+        _, cached_definition, cached_name_to_uri = cached
         return deepclone(cached_definition), dict(cached_name_to_uri)
 
     parameter_resolver, definition = maybe_resolve_with_resolver(parameter, resolver)
@@ -1557,7 +1606,7 @@ def _bundle_parameter(
     if schema is not None:
         definition = dict(definition)
         try:
-            bundled = bundler.bundle_for_generation(
+            bundled = bundler.bundle(
                 schema,
                 parameter_resolver,
             )
@@ -1578,7 +1627,7 @@ def _bundle_parameter(
                 media_type_object = dict(media_type_object)
                 nested_schema = media_type_object.get("schema")
                 if isinstance(nested_schema, dict):
-                    bundled = bundler.bundle_for_generation(
+                    bundled = bundler.bundle(
                         nested_schema,
                         parameter_resolver,
                     )
@@ -1593,7 +1642,9 @@ def _bundle_parameter(
 
     definition_ = cast(dict, definition)
     result = definition_, name_to_uri
-    bundle_cache[param_id] = (deepclone(definition_), dict(name_to_uri))
+    # Keeping `parameter` alive reserves its address, so no later parameter can be allocated onto it
+    # and pick up this entry.
+    bundle_cache[param_id] = (parameter, deepclone(definition_), dict(name_to_uri))
     return result
 
 
@@ -1617,7 +1668,7 @@ def iter_parameters_v2(
     shared_parameters: Sequence[Mapping[str, Any]],
     default_media_types: list[str],
     resolver: Resolver,
-    adapter: SpecificationAdapter,
+    adapter: ParameterAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
 ) -> Iterator[OperationParameter]:
@@ -1689,7 +1740,7 @@ def iter_parameters_v3(
     shared_parameters: Sequence[Mapping[str, Any]],
     default_media_types: list[str],
     resolver: Resolver,
-    adapter: SpecificationAdapter,
+    adapter: ParameterAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
 ) -> Iterator[OperationParameter]:
@@ -1743,7 +1794,7 @@ def iter_parameters_v3(
                         resource_name = resource_name_from_ref(items["$ref"])
                 try:
                     to_bundle = cast(dict[str, Any], schema)
-                    bundled = bundler.bundle_for_generation(
+                    bundled = bundler.bundle(
                         to_bundle,
                         body_resolver,
                     )
@@ -1830,7 +1881,7 @@ class OpenApiParameterSet(ParameterSet):
         location: ParameterLocation,
         items: list[OpenApiParameter] | None = None,
         *,
-        adapter: SpecificationAdapter,
+        adapter: ParameterAdapter,
     ) -> None:
         self.location = location
         self.adapter = adapter
@@ -2011,6 +2062,11 @@ class OpenApiParameterSet(ParameterSet):
                 self.name_to_uri,
                 validation_schema=validation_schema_obj,
             )
+
+            if strategy is EMPTY_STRATEGY:
+                # Every overlay below decorates a drawn value, so there is nothing for them to act on.
+                # Returning as-is keeps the schema recognizable as unsatisfiable to whoever draws from it.
+                return strategy
 
             # For negative strategies, we need to handle GeneratedValue wrappers
             is_negative = strategy_factory is make_negative_strategy

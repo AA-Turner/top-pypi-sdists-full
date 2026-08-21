@@ -67,6 +67,24 @@ class TestNGSIEM:
                 pre_processing_script="string", test_cases="string"),
             "UpdateParserExtension": falcon.update_parser_extension(extension_id="string", post_processing_script="string",
                 pre_processing_script="string", test_cases="string"),
+            "addDashboardLabels": falcon.add_dashboard_labels(id="string", labels="string", search_domain="string"),
+            "addFileLabels": falcon.add_file_labels(filename="string", labels="string", search_domain="string"),
+            "addSavedQueryLabels": falcon.add_saved_query_labels(id="string", labels="string", search_domain="string"),
+            "bulkAddDashboardLabels": falcon.bulk_add_dashboard_labels(items="string", search_domain="string"),
+            "bulkAddLookupFileLabels": falcon.bulk_add_lookup_file_labels(items="string", search_domain="string"),
+            "bulkAddSavedQueryLabels": falcon.bulk_add_saved_query_labels(items="string", search_domain="string"),
+            "bulkRemoveDashboardLabels": falcon.bulk_remove_dashboard_labels(items="string", search_domain="string"),
+            "bulkRemoveLookupFileLabels": falcon.bulk_remove_lookup_file_labels(items="string", search_domain="string"),
+            "bulkRemoveSavedQueryLabels": falcon.bulk_remove_saved_query_labels(items="string", search_domain="string"),
+            "bulkUpdateDashboardLabels": falcon.bulk_update_dashboard_labels(items="string", search_domain="string"),
+            "bulkUpdateLookupFileLabels": falcon.bulk_update_lookup_file_labels(items="string", search_domain="string"),
+            "bulkUpdateSavedQueryLabels": falcon.bulk_update_saved_query_labels(items="string", search_domain="string"),
+            "removeDashboardLabels": falcon.remove_dashboard_labels(),
+            "removeFileLabels": falcon.remove_file_labels(),
+            "removeSavedQueryLabels": falcon.remove_saved_query_labels(),
+            "updateDashboardLabels": falcon.update_dashboard_labels(id="string", labels="string", search_domain="string"),
+            "updateFileLabels": falcon.update_file_labels(filename="string", labels="string", search_domain="string"),
+            "updateSavedQueryLabels": falcon.update_saved_query_labels(id="string", labels="string", search_domain="string"),
         }
         for key in tests:
             if tests[key]["status_code"] not in AllowedResponses:
@@ -390,3 +408,43 @@ class TestNGSIEMUploadCoverage:
         monkeypatch.setattr(ngsiem_mod, "process_service_request", lambda **kw: error_dict)
         result = falcon.upload_file(repository="search-all", lookup_file="tests/testfile.csv")
         assert result["status_code"] == 403
+
+
+class TestNGSIEMStartSearchBody:
+    """Confirm start_search honors the documented body keyword. Closes #1491."""
+
+    SEARCH = {"queryString": "#repo=fusion | head(1)", "start": "24h", "isLive": False}
+
+    @staticmethod
+    def _capture(monkeypatch):
+        """Intercept process_service_request, recording the body it receives."""
+        import falconpy.ngsiem as ngsiem_mod
+
+        captured = {}
+
+        def fake_request(**kwargs):
+            captured.update(kwargs)
+            return {"status_code": 200, "body": {"id": "job-1"}, "headers": {}}
+
+        monkeypatch.setattr(ngsiem_mod, "process_service_request", fake_request)
+        return captured
+
+    def test_body_keyword_reaches_the_api(self, monkeypatch):
+        """body= used to short-circuit into a local error without issuing a request."""
+        captured = self._capture(monkeypatch)
+        result = falcon.start_search(repository="search-all", body=self.SEARCH)
+        assert captured["body"] == self.SEARCH
+        assert result["status_code"] == 200
+
+    def test_search_keyword_still_works(self, monkeypatch):
+        """The pre-existing search= path must be unaffected."""
+        captured = self._capture(monkeypatch)
+        result = falcon.start_search(repository="search-all", search=self.SEARCH)
+        assert captured["body"] == self.SEARCH
+        assert result["status_code"] == 200
+
+    def test_neither_keyword_still_errors(self, monkeypatch):
+        """With no payload and no keywords, the local 500 is still correct."""
+        self._capture(monkeypatch)
+        result = falcon.start_search(repository="search-all")
+        assert result["status_code"] == 500

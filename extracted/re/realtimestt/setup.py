@@ -1,11 +1,12 @@
 import os
 import re
+import shutil
 
 import setuptools
 from setuptools.command.build_py import build_py as _build_py
 
 
-current_version = "1.0.2"
+current_version = "1.0.4"
 
 
 INSTALL_GUIDE = """
@@ -20,9 +21,15 @@ Main ASR backend only, without the faster packaged Silero ONNX Runtime VAD:
 
     pip install "realtimestt[faster-whisper]"
 
-Core package only, without a transcription engine or wake-word backend:
+Base recorder/audio runtime, without a transcription engine or wake-word
+backend:
 
     pip install realtimestt
+
+The base install still includes microphone/audio support, WebRTC VAD, recorder
+VAD logic, websocket client/server dependencies, and shared audio utilities. It
+does not install `faster-whisper`, Porcupine, OpenWakeWord, or another optional
+ASR/wake-word backend unless you request the matching extra.
 
 Install multiple extras by separating them with commas:
 
@@ -35,6 +42,7 @@ Available extras include:
 - whisper-cpp: whisper.cpp backend through pywhispercpp
 - openai-whisper: original OpenAI Whisper Python backend
 - sherpa-onnx: sherpa-onnx CPU backends
+- server/production-server: versioned FastAPI HTTP and WebSocket ASR server
 - silero-vad: packaged Silero model assets and PyTorch wrapper
 - silero-onnx/silero-onnx-cpu: fastest Silero VAD CPU ONNX Runtime backend
 - silero-onnx-gpu: installs Silero's ONNX GPU runtime extra for experiments
@@ -44,12 +52,18 @@ Available extras include:
 - moonshine, granite, cohere: aliases for the Transformers dependency set
 - qwen: Qwen ASR backend
 - qwen-vllm: Qwen ASR with vLLM extras
+- funasr: experimental FunASR/SenseVoice backend
 - kroko-builder: helper command for building/installing Kroko-ONNX plus Hugging Face model downloads
 - porcupine: Porcupine wake-word backend
 - openwakeword: OpenWakeWord wake-word backend
 - wakewords: both wake-word backends
 - recommended/default: faster-whisper backend plus fast Silero CPU ONNX VAD
 - all: all PyPI-installable optional backends
+
+Install the pinned Nemotron live and Parakeet final model bundles into a
+persistent verified cache:
+
+    stt-install-sherpa-models --root ./models/sherpa-onnx --model all
 
 WebRTC VAD is installed with the core package. AudioToTextRecorder also
 initializes a Silero VAD path. Install the recommended/default or
@@ -134,6 +148,16 @@ def is_local_backup_file(path):
 
 
 class build_py(_build_py):
+    def run(self):
+        for package_name in ("RealtimeSTT", "RealtimeSTT_server"):
+            package_build_dir = os.path.join(
+                self.build_lib,
+                *package_name.split("."),
+            )
+            if os.path.isdir(package_build_dir):
+                shutil.rmtree(package_build_dir)
+        super().run()
+
     def find_package_modules(self, package, package_dir):
         modules = super().find_package_modules(package, package_dir)
         return [
@@ -149,6 +173,7 @@ base_requirements = [
     requirement("PyAudio"),
     requirement("webrtcvad-wheels"),
     requirement("halo"),
+    requirement("colorama"),
     requirement("torch"),
     requirement("torchaudio"),
     requirement("scipy"),
@@ -160,7 +185,7 @@ base_requirements = [
 faster_whisper_requirements = [requirement("faster-whisper")]
 whisper_cpp_requirements = ["pywhispercpp"]
 openai_whisper_requirements = ["openai-whisper"]
-sherpa_onnx_requirements = ["sherpa-onnx"]
+sherpa_onnx_requirements = ["sherpa-onnx==1.13.4"]
 silero_vad_requirements = [
     "silero-vad>=6.2.1; python_version >= '3.8'",
 ]
@@ -169,6 +194,11 @@ silero_onnx_requirements = [
 ]
 silero_onnx_gpu_requirements = [
     "silero-vad[onnx-gpu]>=6.2.1; python_version >= '3.8'",
+]
+production_server_requirements = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    *silero_onnx_requirements,
 ]
 transformers_requirements = ["transformers"]
 parakeet_requirements = ["nemo_toolkit[asr]"]
@@ -183,6 +213,7 @@ omnilingual_asr_requirements = [
 ]
 qwen_requirements = ["qwen-asr"]
 qwen_vllm_requirements = ["qwen-asr[vllm]"]
+funasr_requirements = ["funasr"]
 kroko_builder_requirements = ["huggingface_hub"]
 porcupine_requirements = [requirement("pvporcupine")]
 openwakeword_requirements = [requirement("openwakeword")]
@@ -192,11 +223,13 @@ all_optional_requirements = unique_requirements(
     + whisper_cpp_requirements
     + openai_whisper_requirements
     + sherpa_onnx_requirements
+    + production_server_requirements
     + silero_onnx_requirements
     + transformers_requirements
     + parakeet_requirements
     + omnilingual_asr_requirements
     + qwen_requirements
+    + funasr_requirements
     + kroko_builder_requirements
     + porcupine_requirements
     + openwakeword_requirements
@@ -210,6 +243,8 @@ extras_require = {
     "openai-whisper": openai_whisper_requirements,
     "sherpa-onnx": sherpa_onnx_requirements,
     "sherpa": sherpa_onnx_requirements,
+    "server": production_server_requirements,
+    "production-server": production_server_requirements,
     "silero-vad": silero_vad_requirements,
     "silero": silero_vad_requirements,
     "silero-onnx": silero_onnx_requirements,
@@ -229,6 +264,10 @@ extras_require = {
     "qwen": qwen_requirements,
     "qwen3-asr": qwen_requirements,
     "qwen-vllm": qwen_vllm_requirements,
+    "funasr": funasr_requirements,
+    "fun-asr": funasr_requirements,
+    "fun_asr": funasr_requirements,
+    "sensevoice": funasr_requirements,
     "kroko-builder": kroko_builder_requirements,
     "porcupine": porcupine_requirements,
     "pvporcupine": porcupine_requirements,
@@ -271,6 +310,8 @@ setuptools.setup(
             "RealtimeSTT.*",
             "RealtimeSTT_server",
             "RealtimeSTT_server.*",
+            "example_fastapi_server",
+            "example_fastapi_server.*",
         ]
     ),
     # classifiers=[
@@ -282,14 +323,19 @@ setuptools.setup(
     install_requires=base_requirements,
     extras_require=extras_require,
     keywords="real-time, audio, transcription, speech-to-text, voice-activity-detection, VAD, real-time-transcription, ambient-noise-detection, microphone-input, faster_whisper, speech-recognition, voice-assistants, audio-processing, buffered-transcription, pyaudio, ambient-noise-level, voice-deactivity",
-    package_data={"RealtimeSTT": ["assets/warmup_audio.wav"]},
+    package_data={
+        "RealtimeSTT": ["assets/warmup_audio.wav"],
+        "RealtimeSTT_server": ["PRODUCTION_SERVER.md"],
+    },
     include_package_data=True,
     cmdclass={"build_py": build_py},
     entry_points={
         'console_scripts': [
             'stt-server=RealtimeSTT_server.stt_server:main',
+            'stt-server-production=RealtimeSTT_server.production_server:main',
             'stt=RealtimeSTT_server.stt_cli_client:main',
             'stt-install-kroko=RealtimeSTT.install_kroko:main',
+            'stt-install-sherpa-models=RealtimeSTT.install_sherpa_models:main',
         ],
     },
 )

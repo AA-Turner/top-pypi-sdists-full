@@ -250,6 +250,9 @@ Please visit https://vnstocks.com/onboard/agent-guide to learn how to setup AI A
 
 def setup_agent_environment(project_root: str = ".") -> bool:
     try:
+        if os.environ.get("VNSTOCK_DISABLE_AGENT_SETUP") == "1":
+            logger.debug("Agent setup disabled via VNSTOCK_DISABLE_AGENT_SETUP")
+            return False
         home = Path.home()
         api_key = get_api_key()
         instruction_content = load_skill("vnstock-bootstrap", "content") if api_key else None
@@ -286,6 +289,9 @@ def setup_agent_environment(project_root: str = ".") -> bool:
             home / ".github" / "copilot-instructions.md",
             home / ".clauderc",
         ]
+        if os.environ.get("VNSTOCK_DISABLE_GLOBAL_AGENT") == "1":
+            logger.debug("Global agent config injection disabled via VNSTOCK_DISABLE_GLOBAL_AGENT")
+            global_targets = [project_agents_md]
         success = False
         for target in global_targets:
             try:

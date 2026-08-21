@@ -511,7 +511,7 @@ def _build_module_class() -> type:
                     out_features, dtype=compute_dtype, device=meta))
             else:
                 self.bias = None
-            # DECLARED slots, not plain attributes: the with-LoRA graph class
+            # DECLARED slots, not plain attributes: the with-LoRA graph specialization
             # must be a structural fact at trace time, and a plain `None`
             # attribute makes `register_buffer` refuse the name outright
             # ("attribute 'lora_a' already exists"). A declared None slot
@@ -987,7 +987,7 @@ def quantize_tree_w8a8(
     ``exclude`` substrings."""
 
     import torch
-    from safetensors.torch import load_file, save_file
+    from safetensors.torch import save_file
 
     src_tree, out_tree = Path(src_tree), Path(out_tree)
     comp = next((c for c in denoiser_components() if (src_tree / c).is_dir()), None)
@@ -1004,7 +1004,13 @@ def quantize_tree_w8a8(
         if rel.parts[0] != comp:
             shutil.copy2(f, dst)
             continue
-        tensors = load_file(str(f))
+    # pgw#1549: `safetensors.torch.load_file` is the ONE shape a projected
+    # tree cannot serve — it reads the ~128 B TFSSTUB1 pointer stub's first
+    # eight bytes as a header length. `tensor_source.load_state_dict` is its
+    # drop-in replacement and reads the CAS when the path holds a stub, so
+    # this producer is correct on a projected source tree instead of failing
+    # with a lie about the checkpoint.
+        tensors = load_state_dict(f, why="the w8a8 data-free producer reads a source shard")
         out: Dict[str, Any] = {}
         quantized = 0
         for name, t in tensors.items():

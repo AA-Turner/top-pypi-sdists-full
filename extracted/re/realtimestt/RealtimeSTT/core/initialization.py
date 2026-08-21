@@ -14,7 +14,10 @@ import torch
 import torch.multiprocessing as mp
 import webrtcvad
 
-from .realtime import run_realtime_worker
+from .realtime import (
+    _normalize_realtime_punctuation_split_marks,
+    run_realtime_worker,
+)
 from .realtime_text_stabilizer import RealtimeTextStabilizer
 from .recording import run_recording_worker
 from ..transcription_engines import (
@@ -172,6 +175,11 @@ def _assign_initial_attributes(recorder, init_args, normalize_wakeword_backend):
     recorder.on_realtime_text_stabilization_update = (
         init_args["on_realtime_text_stabilization_update"]
     )
+    recorder.realtime_punctuation_split_marks = (
+        _normalize_realtime_punctuation_split_marks(
+            init_args["realtime_punctuation_split_marks"]
+        )
+    )
     recorder.debug_mode = init_args["debug_mode"]
     recorder.handle_buffer_overflow = init_args["handle_buffer_overflow"]
     recorder.beam_size = init_args["beam_size"]
@@ -237,6 +245,12 @@ def _assign_initial_attributes(recorder, init_args, normalize_wakeword_backend):
     recorder.backdate_stop_seconds = 0.0
     recorder.backdate_resume_seconds = 0.0
     recorder.recorded_audio_queue = queue.Queue()
+    recorder._force_current_recording_lowercase_start = False
+    recorder._current_transcription_force_lowercase_start = False
+    recorder._realtime_punctuation_split_lock = threading.RLock()
+    recorder._realtime_punctuation_split_busy = False
+    recorder._last_realtime_punctuation_split_attempt_text = ""
+    recorder._realtime_punctuation_split_candidate = None
     recorder.continuous_listening = False
     recorder.last_transcription_bytes = None
     recorder.last_transcription_bytes_b64 = None
@@ -273,6 +287,9 @@ def _assign_initial_attributes(recorder, init_args, normalize_wakeword_backend):
     recorder.use_extended_logging = init_args["use_extended_logging"]
     recorder.faster_whisper_vad_filter = init_args["faster_whisper_vad_filter"]
     recorder.normalize_audio = init_args["normalize_audio"]
+    recorder.final_transcription_word_timestamps = init_args[
+        "final_transcription_word_timestamps"
+    ]
     recorder.awaiting_speech_end = False
     recorder.start_callback_in_new_thread = (
         init_args["start_callback_in_new_thread"]
@@ -597,6 +614,7 @@ def _initialize_recording_buffers(recorder):
         maxlen=int((recorder.sample_rate // recorder.buffer_size) *
                    0.3)
     )
+    recorder.frames_lock = threading.RLock()
     recorder.frames = []
     recorder.last_frames = []
 

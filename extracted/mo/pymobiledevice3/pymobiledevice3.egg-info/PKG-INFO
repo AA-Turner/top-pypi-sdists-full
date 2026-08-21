@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 10.9.0
+Version: 10.10.1
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -127,6 +127,17 @@ pymobiledevice3 apps list
 - [Protocol internals (RemoteXPC, DTX, iDevice layers)](https://doronz88.github.io/pymobiledevice3/internals/idevice-protocol-layers/)
 
 The docs are built from [`docs/`](docs/) with MkDocs (`mkdocs.yml`).
+
+## Claude Code plugin
+
+The repository ships its
+[device-operator agent skill](https://doronz88.github.io/pymobiledevice3/guides/codex-device-operator-skill/)
+as a Claude Code plugin, teaching the agent to operate a connected iPhone or iPad through pymobiledevice3:
+
+```
+/plugin marketplace add doronz88/pymobiledevice3
+/plugin install pymobiledevice3-device-operator@pymobiledevice3
+```
 
 ## Community
 

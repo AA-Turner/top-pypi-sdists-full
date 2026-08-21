@@ -36,6 +36,9 @@ CONNECTOR_TYPE: Dict[str, List[str]] = {
     ],
     "irc": [
         "workdayicebergrestcatalog",
+        "databricksicebergrestcatalog",
+        "snowflakeicebergrestcatalog",
+        "icebergrestcatalog",
     ],
 }
 

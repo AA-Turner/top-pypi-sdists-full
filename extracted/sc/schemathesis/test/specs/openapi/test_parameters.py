@@ -1,7 +1,7 @@
 import datetime
 
 import pytest
-from flask import jsonify
+from flask import Flask, jsonify, request
 from hypothesis import HealthCheck, assume, find, given, settings
 from hypothesis.errors import FailedHealthCheck, NoSuchExample, Unsatisfiable
 
@@ -761,6 +761,33 @@ def test_request_body_with_boolean_true_schema(ctx, cli, snapshot_cli):
     assert cli.run_openapi_app(app, "--max-examples=1", "--checks=not_a_server_error") == snapshot_cli
 
 
+def test_optimized_schema_untouched_under_draft_2020_12(ctx):
+    # A 3.1 array schema reaches generation as written; respelling it in Draft 4 vocabulary would fail
+    # 2020-12 canonicalization and silently disable the canonical engine for it.
+    array_schema = {
+        "type": "array",
+        "prefixItems": [{"type": "integer"}],
+        "items": {"type": "string"},
+        "allOf": [{"contains": {"const": "A"}}, {"contains": {"const": "B"}}],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/payload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": array_schema}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    assert schema["/payload"]["POST"].body[0].optimized_schema == array_schema
+
+
 def test_parameter_type_detection(ctx, cli, snapshot_cli):
     # See GH-3149
     schema_path = ctx.openapi.write_schema(
@@ -785,3 +812,86 @@ def test_parameter_type_detection(ctx, cli, snapshot_cli):
         cli.run(str(schema_path), f"--url={api.base_url}/api", "--checks=not_a_server_error", "--max-examples=5")
         == snapshot_cli
     )
+
+
+def test_yaml_boolean_parameter_name(tmp_path, app_runner, cli):
+    # YAML 1.1 reads an unquoted `on` as a boolean, but the API still expects the query key `on`.
+    schema_path = tmp_path / "schema.yaml"
+    schema_path.write_text(
+        """
+openapi: 3.0.2
+info:
+  title: Example
+  version: 1.0.0
+paths:
+  /foo:
+    get:
+      parameters:
+        - in: query
+          name: on
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+"""
+    )
+    received = []
+    app = Flask(__name__)
+
+    @app.route("/foo")
+    def foo():
+        received.append(sorted(request.args))
+        return jsonify({})
+
+    port = app_runner.run_flask_app(app)
+    cli.run(str(schema_path), f"--url=http://127.0.0.1:{port}", "--max-examples=1", "--checks=not_a_server_error")
+
+    assert {key for keys in received for key in keys} == {"on"}
+
+
+def test_non_string_parameter_name(ctx):
+    # Specs converted from YAML 1.1 carry `name: on` as the JSON boolean `true`; the name reaches
+    # the wire as text either way.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "get": {
+                    "parameters": [{"in": "query", "name": True, "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(case=schema["/foo"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        assert set(case.query) == {"true"}
+
+    test()
+
+
+def test_non_string_path_parameter_name_recovered_from_template(ctx):
+    # The template is the only place the original name survives, and its schema must still drive the value.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo/{on}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": True, "required": True, "schema": {"type": "string", "enum": ["ALPHA"]}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(case=schema["/foo/{on}"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        assert case.path_parameters == {"on": "ALPHA"}
+        assert case.formatted_path == "/foo/ALPHA"
+
+    test()

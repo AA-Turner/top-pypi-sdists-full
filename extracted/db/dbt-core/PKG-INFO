@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-core
-Version: 1.12.2
+Version: 1.12.3
 Summary: With dbt, data analysts and engineers can build analytics the way engineers build applications.
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-core
 Project-URL: Repository, https://github.com/dbt-labs/dbt-core.git
@@ -46,7 +46,7 @@ Requires-Dist: pytz>=2015.7
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests<3.0.0
 Requires-Dist: snowplow-tracker<2.0,>=1.0.2
-Requires-Dist: sqlparse<0.6.0,>=0.5.5
+Requires-Dist: sqlparse<0.7.0,>=0.5.5
 Requires-Dist: typing-extensions>=4.4
 Description-Content-Type: text/markdown
 

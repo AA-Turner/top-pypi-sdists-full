@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AccessControl
-Version: 7.4
+Version: 7.5
 Summary: Security framework for Zope
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
@@ -71,6 +72,14 @@ Change log
 ==========
 
 For changes before version 3.0, see ``HISTORY.rst``.
+
+
+7.5 (2026-08-20)
+----------------
+
+- Add final support for Python 3.15.
+
+- Switch to PyPI Trusted Publishing.
 
 
 7.4 (2026-07-13)

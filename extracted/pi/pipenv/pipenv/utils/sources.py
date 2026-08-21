@@ -6,11 +6,11 @@ relocated into a dedicated ``Sources`` class accessed via the
 ``@cached_property`` ``Project.sources``. ``Sources`` holds a reference
 back to the owning ``Project`` for two reasons:
 
-1. Reading sources requires read access to ``project.parsed_pipfile``
-   (and, for the ``all`` property, ``project.lockfile_content``).
+1. Reading sources requires read access to ``project.pipfile.parsed``
+   (and, for the ``all`` property, ``project.lockfile.content``).
 2. The single writer in this subsystem
    (:meth:`Sources.add_index_to_pipfile`) needs to call
-   ``project.write_toml`` so that the Pipfile cache is invalidated
+   ``project.pipfile.write_toml`` so that the Pipfile cache is invalidated
    correctly.
 
 Behaviour is preserved verbatim from the previous in-``Project``
@@ -28,8 +28,10 @@ from random import randint
 from urllib import parse
 from urllib.parse import urljoin
 
+from pipenv.patched.pip._internal.exceptions import PipError
 from pipenv.patched.pip._internal.models.link import Link
 from pipenv.patched.pip._internal.utils.hashes import FAVORITE_HASH
+from pipenv.patched.pip._vendor.requests.exceptions import RequestException
 from pipenv.utils import err
 from pipenv.utils.dependencies import clean_pkg_version, pep423_name
 from pipenv.utils.fileutils import open_file
@@ -133,7 +135,7 @@ class Sources:
             for release in cleaned_releases[version]:
                 collected_hashes.add(release["digests"][FAVORITE_HASH])
             return self._prepend_hash_types(collected_hashes, FAVORITE_HASH)
-        except (ValueError, KeyError, ConnectionError):
+        except (ValueError, KeyError, RequestException, PipError):
             return None
 
     def get_hashes_from_remote_index_urls(self, ireq, source):
@@ -215,7 +217,7 @@ class Sources:
 
     def pipfile_sources(self, expand_vars=True):
         project = self._project
-        if project.pipfile_is_empty or "source" not in project.parsed_pipfile:
+        if project.pipfile.is_empty or "source" not in project.pipfile.parsed:
             sources = [project.default_source]
             if os.environ.get("PIPENV_PYPI_MIRROR"):
                 sources[0]["url"] = os.environ["PIPENV_PYPI_MIRROR"]
@@ -233,7 +235,7 @@ class Sources:
                 )
                 for k, v in source.items()
             }
-            for source in project.parsed_pipfile["source"]
+            for source in project.pipfile.parsed["source"]
         ]
         for source in sources:
             if os.environ.get("PIPENV_PYPI_MIRROR") and is_pypi_url(source.get("url")):
@@ -265,8 +267,8 @@ class Sources:
         ``Project.sources`` property.
         """
         project = self._project
-        if project.any_lockfile_exists and hasattr(project.lockfile_content, "keys"):
-            meta_ = project.lockfile_content.get("_meta", {})
+        if project.lockfile.any_exists and hasattr(project.lockfile.content, "keys"):
+            meta_ = project.lockfile.content.get("_meta", {})
             sources_ = meta_.get("sources")
             if sources_:
                 return sources_
@@ -362,7 +364,7 @@ class Sources:
 
         project = self._project
         # Read and append Pipfile.
-        p = project.parsed_pipfile
+        p = project.pipfile.parsed
         source = None
 
         # Try to find existing source by URL or name
@@ -407,5 +409,5 @@ class Sources:
             p["source"].append(tomlkit.item(source))
 
         # Write Pipfile (and invalidate parsed-pipfile cache via project).
-        project.write_toml(p)
+        project.pipfile.write_toml(p)
         return source["name"]

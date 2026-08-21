@@ -12,9 +12,8 @@ from urllib.request import urlopen
 import jsonschema_rs
 import requests
 
-from schemathesis.core.compat import RefResolutionError
 from schemathesis.core.deserialization import deserialize_yaml
-from schemathesis.core.errors import RemoteDocumentError
+from schemathesis.core.errors import RefResolutionError, RemoteDocumentError
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.transforms import UNRESOLVABLE, resolve_pointer
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT
@@ -32,14 +31,24 @@ class Resolver:
     walk results.
     """
 
-    __slots__ = ("base_uri", "inner", "schema", "fragment_cache")
+    __slots__ = ("base_uri", "inner", "schema", "fragment_cache", "_ids")
 
-    def __init__(self, inner: jsonschema_rs.Resolver, schema: JsonSchema) -> None:
+    def __init__(
+        self, inner: jsonschema_rs.Resolver, schema: JsonSchema, ids: dict[str, JsonSchema] | None = None
+    ) -> None:
         self.inner = inner
         self.schema = schema
         # Frozen on the wrapper so hot-path callers don't pay a property+attribute hop.
         self.base_uri: str = inner.base_uri
         self.fragment_cache: dict[str, Any] = {}
+        self._ids = ids
+
+    @property
+    def ids(self) -> dict[str, JsonSchema]:
+        """Names the document gives itself and its subschemas, so a reference to one stays in-document."""
+        if self._ids is None:
+            self._ids = collect_ids(self.schema)
+        return self._ids
 
     def lookup(self, reference: str) -> Any:
         return self.inner.lookup(reference)
@@ -174,6 +183,24 @@ def build_registry(
         return jsonschema_rs.Registry([(base_uri, {})], draft=draft, retriever=retrieve)
 
 
+def collect_ids(root_schema: Any) -> dict[str, JsonSchema]:
+    """Map every absolute name the document gives itself to the node carrying it."""
+    ids: dict[str, JsonSchema] = {}
+    stack: list[Any] = [root_schema]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            for keyword in ("$id", "id"):
+                value = node.get(keyword)
+                # A non-string sits under a property named `$id`/`id`, not under the keyword.
+                if isinstance(value, str) and ("://" in value or value.startswith("urn:")):
+                    ids.setdefault(urldefrag(value)[0], node)
+            stack.extend(value for value in node.values() if isinstance(value, (dict, list)))
+        elif isinstance(node, list):
+            stack.extend(value for value in node if isinstance(value, (dict, list)))
+    return ids
+
+
 def make_root_resolver(
     root_schema: dict[str, Any],
     *,
@@ -231,6 +258,14 @@ def resolve_reference_with_uri(resolver: Resolver, reference: str) -> tuple[str,
         document_uri, _, fragment = resolved_uri.partition("#")
 
         if document_uri and document_uri != current_document_uri:
+            # A document that names itself carries its own target; fetching it would go looking for
+            # a copy that may not exist, or may have drifted from the one in hand.
+            named = resolver.ids.get(document_uri)
+            if named is not None:
+                named_resolver = Resolver(resolver.inner, named, resolver.ids)
+                if fragment:
+                    return resolve_reference_with_uri(named_resolver, f"#{fragment}")
+                return resolved_uri, named_resolver, named
             document = retrieve(document_uri)
             external_resolver = make_root_resolver(document, location=document_uri)
             if fragment:
@@ -249,7 +284,8 @@ def resolve_reference_with_uri(resolver: Resolver, reference: str) -> tuple[str,
         if sys.version_info >= (3, 11):
             error.add_note(reference)
         else:
-            error.__notes__ = [reference]
+            # `add_note` is 3.11+, and this error is ours, so mypy has no `__notes__` to see.
+            error.__notes__ = [reference]  # type: ignore[attr-defined]
         raise error from exc
     # Bind `resolved.contents` so subsequent local-fragment walks land in the right document.
     return resolved_uri, Resolver(resolved.resolver, resolved.contents), resolved.contents

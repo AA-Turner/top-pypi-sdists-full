@@ -95,12 +95,15 @@ from mypy.patterns import (
 from mypy.plugin import (
     AttributeContext,
     ClassDefContext,
+    FunctionContext,
     FunctionSigContext,
+    MethodContext,
     MethodSigContext,
     Plugin,
     ReportConfigContext,
     SemanticAnalyzerPluginInterface,
 )
+from mypy.plugins.default import DefaultPlugin
 from mypy.types import (
     CallableType,
     EllipsisType,
@@ -518,30 +521,6 @@ _IMPLICIT_POSITIONAL_ARGUMENT_COUNTS = {
 }
 
 
-def _preserved_positional_argument_count(
-    ctx: FunctionSigContext | MethodSigContext,
-    fullname: str,
-) -> int:
-    """Return positional arguments used by an implicit protocol
-    operation.
-    """
-    if not isinstance(ctx, MethodSigContext):
-        return 0
-
-    method_name = fullname.rsplit(sep=".", maxsplit=1)[-1]
-    preserved_count = _IMPLICIT_POSITIONAL_ARGUMENT_COUNTS.get(method_name, 0)
-    if preserved_count == 0:
-        return 0
-
-    context = ctx.context
-    if isinstance(context, CallExpr):
-        context = context.callee
-    if isinstance(context, MemberExpr) and context.name == method_name:
-        # An explicit ``obj.__call__(...)``-style access.
-        return 0
-    return preserved_count
-
-
 def _write_debug_fullname(*, fullname: str, path: str) -> None:
     """Write a full name which ``ignore_names`` accepts.
 
@@ -616,14 +595,199 @@ def _check_partial_arguments(
         )
 
 
+_FunctionSigHook = Callable[[FunctionSigContext], FunctionLike]
+_MethodSigHook = Callable[[MethodSigContext], FunctionLike]
+_FunctionHook = Callable[[FunctionContext], Type]
+_MethodHook = Callable[[MethodContext], Type]
+
+
+def _signature_is_overload_item(*, signature: CallableType) -> bool:
+    """Return whether this callable is one item of an overload."""
+    definition = signature.definition
+    if isinstance(definition, (Decorator, FuncDef)):
+        return definition.is_overload
+    return False
+
+
+def _is_overloaded_name(*, mypy_plugin: Plugin, fullname: str) -> bool:
+    """Return whether ``fullname`` refers to an overloaded callable.
+
+    Constructors such as ``builtins.str`` are ``TypeInfo`` nodes whose
+    ``__new__`` or ``__init__`` is overloaded.
+    """
+    symbol = mypy_plugin.lookup_fully_qualified(fullname=fullname)
+    if symbol is None or symbol.node is None:
+        return False
+    node = symbol.node
+    if isinstance(node, OverloadedFuncDef):
+        return True
+    if not isinstance(node, TypeInfo):
+        return False
+    for attribute_name in ("__new__", "__init__"):
+        member = node.names.get(attribute_name)
+        if member is not None and isinstance(member.node, OverloadedFuncDef):
+            return True
+    return False
+
+
+def _callable_description_from_fullname(
+    *,
+    fullname: str,
+    is_method: bool,
+) -> str:
+    """Return the way ``mypy`` names a callable in an error message."""
+    parts = fullname.split(sep=".")
+    if is_method and len(parts) > 1:
+        return f'"{parts[-1]}" of "{parts[-2]}"'
+    return f'"{parts[-1]}"'
+
+
+def _check_overload_call_positional_arguments(
+    *,
+    ctx: FunctionContext | MethodContext,
+    fullname: str,
+    ignore_names: list[str],
+    is_method: bool,
+) -> None:
+    """Report positional arguments for an overloaded call left alone by
+    the signature hook.
+
+    Overloaded signatures are left alone so ``mypy`` can pick a variant;
+    this reports the keyword-only requirement once against the call that
+    was selected.
+
+    Positional arguments aimed at positional-only parameters, or at
+    ``self`` / ``cls``, are allowed: those stay positional after a
+    signature transform too.
+    """
+    if fullname in ignore_names:
+        return
+
+    # ``partial`` / ``partialmethod`` report against the wrapped callable
+    # from the signature hook instead.
+    if fullname in _PARTIAL_FULLNAMES:
+        return
+
+    preserved_positional_argument_count = 0
+    if is_method and isinstance(ctx, MethodContext):
+        preserved_positional_argument_count = (
+            _preserved_positional_argument_count_for_method(
+                ctx=ctx,
+                fullname=fullname,
+            )
+        )
+
+    positional_argument_count = 0
+    for formal_name, formal_kinds in zip(
+        ctx.callee_arg_names,
+        ctx.arg_kinds,
+        strict=True,
+    ):
+        if formal_name is None or formal_name in {"self", "cls"}:
+            continue
+        for kind in formal_kinds:
+            if kind == ArgKind.ARG_POS:
+                positional_argument_count += 1
+            elif kind == ArgKind.ARG_STAR:
+                # A star-argument of unknown length is treated like the
+                # ``super()`` checks: do not guess.
+                return
+
+    if positional_argument_count <= preserved_positional_argument_count:
+        return
+
+    ctx.api.fail(
+        "Too many positional arguments for "
+        + _callable_description_from_fullname(
+            fullname=fullname,
+            is_method=is_method,
+        ),
+        ctx.context,
+        code=CALL_ARG,
+    )
+
+
+def _preserved_positional_argument_count_for_method(
+    *,
+    ctx: MethodContext | MethodSigContext,
+    fullname: str,
+) -> int:
+    """Return positional arguments used by an implicit protocol
+    operation.
+    """
+    method_name = fullname.rsplit(sep=".", maxsplit=1)[-1]
+    preserved_count = _IMPLICIT_POSITIONAL_ARGUMENT_COUNTS.get(method_name, 0)
+    if preserved_count == 0:
+        return 0
+
+    context = ctx.context
+    if isinstance(context, CallExpr):
+        context = context.callee
+    if isinstance(context, MemberExpr) and context.name == method_name:
+        # An explicit ``obj.__call__(...)``-style access.
+        return 0
+    return preserved_count
+
+
+def _check_overload_function_call(
+    ctx: FunctionContext,
+    fullname: str,
+    *,
+    ignore_names: list[str],
+    default_hook: _FunctionHook | None,
+) -> Type:
+    """Check positional arguments for an overloaded function call."""
+    return_type = (
+        ctx.default_return_type if default_hook is None else default_hook(ctx)
+    )
+    _check_overload_call_positional_arguments(
+        ctx=ctx,
+        fullname=fullname,
+        ignore_names=ignore_names,
+        is_method=False,
+    )
+    return return_type
+
+
+def _check_overload_method_call(
+    ctx: MethodContext,
+    fullname: str,
+    *,
+    ignore_names: list[str],
+    default_hook: _MethodHook | None,
+) -> Type:
+    """Check positional arguments for an overloaded method call."""
+    return_type = (
+        ctx.default_return_type if default_hook is None else default_hook(ctx)
+    )
+    _check_overload_call_positional_arguments(
+        ctx=ctx,
+        fullname=fullname,
+        ignore_names=ignore_names,
+        is_method=True,
+    )
+    return return_type
+
+
 def _transform_signature(
     ctx: FunctionSigContext | MethodSigContext,
     fullname: str,
     *,
     ignore_names: list[str],
     debug: bool,
+    default_signature: FunctionLike,
 ) -> CallableType:
-    """Transform positional arguments to keyword-only arguments."""
+    """Transform positional arguments to keyword-only arguments.
+
+    ``default_signature`` is the signature to transform, which is what
+    ``mypy``'s own plugin makes of the call when it has something to say
+    about this name.
+
+    ``mypy`` applies signature hooks to each overload item separately, so
+    this always receives a ``CallableType``.  Overload items are left
+    unchanged so variant matching still works; those calls are checked
+    from ``get_function_hook`` / ``get_method_hook`` instead.
+    """
     if debug:
         _write_debug_fullname(fullname=fullname, path=ctx.api.path)
 
@@ -634,13 +798,67 @@ def _transform_signature(
             ignore_names=ignore_names,
         )
 
+    assert isinstance(default_signature, CallableType)  # noqa: S101
+    if _signature_is_overload_item(signature=default_signature):
+        return default_signature
+
+    preserved_count = (
+        _preserved_positional_argument_count_for_method(
+            ctx=ctx,
+            fullname=fullname,
+        )
+        if isinstance(ctx, MethodSigContext)
+        else 0
+    )
     return _transform_callable_type(
-        signature=ctx.default_signature,
+        signature=default_signature,
         fullname=fullname,
         ignore_names=ignore_names,
         skip_bound_argument=False,
-        preserved_positional_argument_count=(
-            _preserved_positional_argument_count(ctx=ctx, fullname=fullname)
+        preserved_positional_argument_count=preserved_count,
+    )
+
+
+def _transform_function_signature(
+    ctx: FunctionSigContext,
+    fullname: str,
+    *,
+    ignore_names: list[str],
+    debug: bool,
+    default_hook: _FunctionSigHook | None,
+) -> CallableType:
+    """Transform a function signature, after ``mypy``'s own plugin."""
+    return _transform_signature(
+        ctx=ctx,
+        fullname=fullname,
+        ignore_names=ignore_names,
+        debug=debug,
+        default_signature=(
+            ctx.default_signature
+            if default_hook is None
+            else default_hook(ctx)
+        ),
+    )
+
+
+def _transform_method_signature(
+    ctx: MethodSigContext,
+    fullname: str,
+    *,
+    ignore_names: list[str],
+    debug: bool,
+    default_hook: _MethodSigHook | None,
+) -> CallableType:
+    """Transform a method signature, after ``mypy``'s own plugin."""
+    return _transform_signature(
+        ctx=ctx,
+        fullname=fullname,
+        ignore_names=ignore_names,
+        debug=debug,
+        default_signature=(
+            ctx.default_signature
+            if default_hook is None
+            else default_hook(ctx)
         ),
     )
 
@@ -2910,6 +3128,11 @@ class KeywordOnlyPlugin(Plugin):
         This is not friendly to errors yet.
         """
         super().__init__(options=options)
+        # ``mypy`` consults the first plugin which offers a hook for a
+        # name, and this plugin offers one for every name, so its own
+        # plugin would never be asked.  Its hooks run first here, and
+        # what they make of the call is what gets transformed.
+        self._default_plugin = DefaultPlugin(options=options)
         self._pending_super_calls: _PendingSuperCalls = {}
         self._module_lengths: dict[str, dict[str, int]] = {}
         configuration = _plugin_configuration(
@@ -2929,25 +3152,57 @@ class KeywordOnlyPlugin(Plugin):
     def get_function_signature_hook(
         self,
         fullname: str,
-    ) -> Callable[[FunctionSigContext], CallableType] | None:
+    ) -> _FunctionSigHook | None:
         """Transform positional arguments to keyword-only arguments."""
         return partial(
-            _transform_signature,
+            _transform_function_signature,
             fullname=fullname,
             ignore_names=self._ignore_names,
             debug=self._debug,
+            default_hook=self._default_plugin.get_function_signature_hook(
+                fullname=fullname
+            ),
         )
 
     def get_method_signature_hook(
         self,
         fullname: str,
-    ) -> Callable[[MethodSigContext], CallableType] | None:
+    ) -> _MethodSigHook | None:
         """Transform positional arguments to keyword-only arguments."""
         return partial(
-            _transform_signature,
+            _transform_method_signature,
             fullname=fullname,
             ignore_names=self._ignore_names,
             debug=self._debug,
+            default_hook=self._default_plugin.get_method_signature_hook(
+                fullname=fullname
+            ),
+        )
+
+    def get_function_hook(self, fullname: str) -> _FunctionHook | None:
+        """Report positional calls to overloaded functions clearly."""
+        if not _is_overloaded_name(mypy_plugin=self, fullname=fullname):
+            return None
+        return partial(
+            _check_overload_function_call,
+            fullname=fullname,
+            ignore_names=self._ignore_names,
+            default_hook=self._default_plugin.get_function_hook(
+                fullname=fullname
+            ),
+        )
+
+    def get_method_hook(self, fullname: str) -> _MethodHook | None:
+        """Report positional calls to overloaded methods clearly."""
+        if not _is_overloaded_name(mypy_plugin=self, fullname=fullname):
+            return None
+        return partial(
+            _check_overload_method_call,
+            fullname=fullname,
+            ignore_names=self._ignore_names,
+            default_hook=self._default_plugin.get_method_hook(
+                fullname=fullname
+            ),
         )
 
     def get_base_class_hook(

@@ -5,6 +5,7 @@ Internal recording buffer and queued-audio helpers.
 import copy
 import logging
 import queue
+import threading
 
 import numpy as np
 
@@ -14,6 +15,25 @@ from .voice_activity import clear_pre_recording_buffer
 logger = logging.getLogger("realtimestt")
 
 INT16_MAX_ABS_VALUE = 32768.0
+
+
+def get_frames_lock(recorder):
+    """
+    Returns the shared lock guarding active recording frame buffers.
+    """
+    lock = getattr(recorder, "frames_lock", None)
+    if lock is None:
+        lock = threading.RLock()
+        recorder.frames_lock = lock
+    return lock
+
+
+def snapshot_frames(recorder, attr_name="frames"):
+    """
+    Returns a stable tuple snapshot of one recorder frame list.
+    """
+    with get_frames_lock(recorder):
+        return tuple(getattr(recorder, attr_name, None) or ())
 
 
 def set_audio_from_frames(
@@ -70,6 +90,7 @@ def queue_recorded_audio(
         frames,
         backdate_stop_seconds=0.0,
         backdate_resume_seconds=0.0,
+        force_lowercase_start=None,
 ):
     """
     Queues a completed recording for final transcription.
@@ -81,6 +102,11 @@ def queue_recorded_audio(
         "frames": copy.deepcopy(frames),
         "backdate_stop_seconds": backdate_stop_seconds,
         "backdate_resume_seconds": backdate_resume_seconds,
+        "force_lowercase_start": (
+            getattr(recorder, "_force_current_recording_lowercase_start", False)
+            if force_lowercase_start is None
+            else force_lowercase_start
+        ),
     })
 
 

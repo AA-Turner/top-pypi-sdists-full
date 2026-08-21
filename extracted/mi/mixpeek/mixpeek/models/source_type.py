@@ -32,6 +32,7 @@ class SourceType(str, Enum):
     TAXONOMY = 'taxonomy'
     CLUSTER = 'cluster'
     DIRECT_UPSERT = 'direct_upsert'
+    SIGNALS = 'signals'
     NONE = 'none'
 
     @classmethod

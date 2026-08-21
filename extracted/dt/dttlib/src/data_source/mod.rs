@@ -28,6 +28,8 @@ use tokio::sync::mpsc;
 pub(crate) type DataBlockSender = mpsc::Sender<DataBlock>;
 pub(crate) type DataBlockReceiver = mpsc::Receiver<DataBlock>;
 
+pub use nds_cache::replay::Replay;
+
 use crate::params::channel_params::channel::Channel;
 use crate::scope_view::ScopeView;
 #[cfg(feature = "python")]

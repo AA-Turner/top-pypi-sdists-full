@@ -33,9 +33,10 @@ class UserWeightsResponse(BaseModel):
     personal_weights: Dict[str, Union[StrictFloat, StrictInt]] = Field(description="User's personal fusion weights keyed by feature_uri.")
     global_weights: Dict[str, Union[StrictFloat, StrictInt]] = Field(description="Global fusion weights for comparison, keyed by feature_uri.")
     alpha_beta: Dict[str, Dict[str, Any]] = Field(description="Raw alpha/beta parameters per feature_uri.")
+    source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
     hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
-    __properties: ClassVar[List[str]] = ["user_id", "context_level", "interaction_count", "personal_weights", "global_weights", "alpha_beta", "warning", "hint"]
+    __properties: ClassVar[List[str]] = ["user_id", "context_level", "interaction_count", "personal_weights", "global_weights", "alpha_beta", "source", "warning", "hint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +95,7 @@ class UserWeightsResponse(BaseModel):
             "personal_weights": obj.get("personal_weights"),
             "global_weights": obj.get("global_weights"),
             "alpha_beta": obj.get("alpha_beta"),
+            "source": obj.get("source"),
             "warning": obj.get("warning"),
             "hint": obj.get("hint")
         })

@@ -1305,6 +1305,229 @@ class TestConnection(unittest.TestCase):
         self.assertEqual(connection.physical_endpoints[0].aws_account_id, "123456789012")
         self.assertEqual(connection.physical_endpoints[0].aws_region, "us-east-1")
 
+    def test_is_iam_authenticated_returns_true_for_iam_connection(self):
+        """Test _is_iam_authenticated returns True when auth type is IAM."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                    "glueConnection": {
+                        "name": "docdb-iam-test",
+                        "connectionType": "DOCUMENTDB",
+                        "authenticationConfiguration": {"authenticationType": "IAM"},
+                        "connectionProperties": {
+                            "HOST": "docdb-cluster.us-west-2.docdb.amazonaws.com",
+                            "PORT": "27017",
+                        },
+                    },
+                }
+            ],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        self.assertTrue(connection._is_iam_authenticated())
+
+    def test_is_iam_authenticated_returns_false_for_basic_connection(self):
+        """Test _is_iam_authenticated returns False when auth type is BASIC."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                    "glueConnection": {
+                        "name": "docdb-basic-test",
+                        "connectionType": "DOCUMENTDB",
+                        "authenticationConfiguration": {"authenticationType": "BASIC"},
+                        "connectionProperties": {
+                            "HOST": "docdb-cluster.us-west-2.docdb.amazonaws.com",
+                            "PORT": "27017",
+                        },
+                    },
+                }
+            ],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        self.assertFalse(connection._is_iam_authenticated())
+
+    def test_is_iam_authenticated_returns_false_when_no_physical_endpoints(self):
+        """Test _is_iam_authenticated returns False when physical_endpoints is empty."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "physicalEndpoints": [],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        self.assertFalse(connection._is_iam_authenticated())
+
+    def test_is_iam_authenticated_returns_false_when_no_glue_connection(self):
+        """Test _is_iam_authenticated returns False when glue_connection is None."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                }
+            ],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        self.assertFalse(connection._is_iam_authenticated())
+
+    def test_is_iam_authenticated_returns_false_when_no_auth_config(self):
+        """Test _is_iam_authenticated returns False when authenticationConfiguration is missing."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                    "glueConnection": {
+                        "name": "docdb-test",
+                        "connectionType": "DOCUMENTDB",
+                        "connectionProperties": {
+                            "HOST": "docdb-cluster.us-west-2.docdb.amazonaws.com",
+                            "PORT": "27017",
+                        },
+                    },
+                }
+            ],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        self.assertFalse(connection._is_iam_authenticated())
+
+    def test_secret_property_raises_runtime_error_for_documentdb_iam_connection(self):
+        """Test that accessing secret on a DocumentDB IAM connection raises RuntimeError."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "name": "docdb-iam-test",
+            "type": "DOCUMENTDB",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                    "glueConnection": {
+                        "name": "docdb-iam-test",
+                        "connectionType": "DOCUMENTDB",
+                        "authenticationConfiguration": {"authenticationType": "IAM"},
+                        "connectionProperties": {
+                            "HOST": "docdb-cluster.us-west-2.docdb.amazonaws.com",
+                            "PORT": "27017",
+                        },
+                    },
+                }
+            ],
+        }
+        # Ensure get_connection returns the same physical endpoints so
+        # _invoke_get_connection_and_populate_fields doesn't wipe them out
+        self.dz_api_mock.get_connection.return_value = {
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+            "physicalEndpoints": connection_data["physicalEndpoints"],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        with self.assertRaises(RuntimeError) as context:
+            _ = connection.secret
+        self.assertIn("uses IAM authentication", str(context.exception))
+        self.assertIn("does not have an associated secret", str(context.exception))
+
+    def test_secret_property_does_not_raise_for_non_documentdb_iam_connection(self):
+        """Test that non-DocumentDB IAM connections skip the DocumentDB IAM guard."""
+        connection_data = {
+            "connectionId": "test-conn",
+            "name": "redshift-iam-test",
+            "type": "REDSHIFT",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-west-2"},
+                    "glueConnection": {
+                        "name": "redshift-iam-test",
+                        "connectionType": "REDSHIFT",
+                        "authenticationConfiguration": {"authenticationType": "IAM"},
+                        "connectionProperties": {
+                            "HOST": "redshift-cluster.us-west-2.redshift.amazonaws.com",
+                            "PORT": "5439",
+                            "SECRET_ID": "arn:aws:secretsmanager:us-west-2:123456789012:secret:test",
+                        },
+                    },
+                }
+            ],
+        }
+        self.dz_api_mock.get_connection.return_value = {
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+            "physicalEndpoints": connection_data["physicalEndpoints"],
+        }
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        # Should NOT raise RuntimeError about IAM authentication —
+        # non-DocumentDB IAM connections are allowed to access secrets.
+        # It may raise AttributeError for missing secretArn, which is fine —
+        # the point is it doesn't hit the DocumentDB-specific IAM guard.
+        try:
+            _ = connection.secret
+        except (RuntimeError, AttributeError) as e:
+            self.assertNotIn("uses IAM authentication", str(e))
+
+    def test_is_iam_authenticated_handles_exception_gracefully(self):
+        """Test _is_iam_authenticated returns False when internal state causes exception."""
+        connection = Connection(
+            {"connectionId": "test-conn", "physicalEndpoints": []},
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        # Force a broken state where accessing physical_endpoints[0] raises TypeError
+        mock_endpoints = Mock()
+        mock_endpoints.__bool__ = Mock(return_value=True)
+        mock_endpoints.__len__ = Mock(return_value=1)
+        mock_endpoints.__getitem__ = Mock(side_effect=TypeError("broken"))
+        connection.physical_endpoints = mock_endpoints
+        self.assertFalse(connection._is_iam_authenticated())
+
 
 class TestSparkCatalogConfigs(unittest.TestCase):
     """Tests for Connection._spark_catalog_configs."""
@@ -1407,6 +1630,44 @@ class TestSparkCatalogConfigs(unittest.TestCase):
         result = conn._spark_catalog_configs()
         self.assertEqual(result, expected_configs)
         self.mock_glue_lib.GlueConnectionWrapper.create.assert_called_once()
+
+    @patch(
+        "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"
+    )
+    def test_force_token_refresh_sets_additional_option(self, mock_get_client):
+        """force_token_refresh=True is forwarded to the wrapper as forceTokenRefresh."""
+        mock_get_client.return_value = Mock()
+        conn = self._make_connection("DATABRICKSICEBERGRESTCATALOG", "glue-conn-name")
+
+        conn._glue_api = Mock()
+        conn._glue_api.get_connection.return_value = {"Connection": {}}
+        mock_wrapper = Mock()
+        mock_wrapper.get_catalog_configs.return_value = {"ACCESS_TOKEN": "t"}
+        self.mock_glue_lib.GlueConnectionWrapper.create.return_value = mock_wrapper
+
+        conn._spark_catalog_configs(force_token_refresh=True)
+
+        _, kwargs = self.mock_glue_lib.GlueConnectionWrapperInputs.call_args
+        self.assertEqual(kwargs["additional_options"], {"forceTokenRefresh": "true"})
+
+    @patch(
+        "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"
+    )
+    def test_default_call_sends_no_force_option(self, mock_get_client):
+        """Without force_token_refresh, no forceTokenRefresh option is sent."""
+        mock_get_client.return_value = Mock()
+        conn = self._make_connection("DATABRICKSICEBERGRESTCATALOG", "glue-conn-name")
+
+        conn._glue_api = Mock()
+        conn._glue_api.get_connection.return_value = {"Connection": {}}
+        mock_wrapper = Mock()
+        mock_wrapper.get_catalog_configs.return_value = {"ACCESS_TOKEN": "t"}
+        self.mock_glue_lib.GlueConnectionWrapper.create.return_value = mock_wrapper
+
+        conn._spark_catalog_configs()
+
+        _, kwargs = self.mock_glue_lib.GlueConnectionWrapperInputs.call_args
+        self.assertEqual(kwargs["additional_options"], {})
 
     @patch(
         "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"

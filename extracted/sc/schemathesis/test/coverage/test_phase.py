@@ -18,12 +18,13 @@ import schemathesis
 from schemathesis.checks import CheckContext
 from schemathesis.config import ChecksConfig, SanitizationConfig
 from schemathesis.config._projects import ProjectConfig
-from schemathesis.core import NOT_SET
+from schemathesis.core import MAX_GENERATED_PATTERN_LENGTH, NOT_SET
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData
 from schemathesis.core.jsonschema import make_validator_for
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.result import Ok
+from schemathesis.core.transforms import deepclone
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.drivers import CoverageGenerator
 from schemathesis.generation.feedback import FeedbackSources
@@ -35,8 +36,10 @@ from schemathesis.generation.hypothesis.builder import (
 from schemathesis.generation.meta import CoverageScenario, TestPhase
 from schemathesis.resources import PoolDraw, PoolPick
 from schemathesis.specs.openapi.checks import negative_data_rejection
+from schemathesis.specs.openapi.coverage import _schema
 from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
 from schemathesis.specs.openapi.coverage._schema import (
+    MAX_DRAWN_ARRAY_ITEMS,
     CoverageContext,
     HashSet,
     _negative_format,
@@ -45,6 +48,11 @@ from schemathesis.specs.openapi.coverage._schema import (
 )
 from schemathesis.transport.prepare import prepare_request
 from test.utils import assert_requests_call, to_float32
+
+
+class AnyNumber:
+    def __eq__(self, value: object, /) -> bool:
+        return not isinstance(value, bool) and isinstance(value, (int | float))
 
 
 @dataclass
@@ -65,54 +73,44 @@ POSITIVE_CASES = [
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
 ]
 NEGATIVE_CASES = [
-    {"query": {"q1": ANY}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": ["0", "0"]}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": [ANY, ANY], "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "00"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": "4", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {
-        "query": {"q1": ["null", "null"], "q2": "0"},
-        "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")},
-        "body": {"j-prop": 0},
-    },
-    {"query": {"q1": "AAA", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": "null", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": "false", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": "0000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": ANY}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": "null,null"}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": "null"}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": "false"}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": ANY}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "6", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "{}", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "null,null", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "AAA", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "null", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "false", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": [None, None]},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": False},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": 0},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": {}}},
-    {
-        "query": {"q1": ANY, "q2": "0"},
-        "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")},
-        "body": {"j-prop": [None, None]},
-    },
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": "AAA"}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": None}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": False}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": ANY}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": [None, None]},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": "AAA"},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": False},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": 0},
+    {"query": {"q1": "0.5"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": ["0", "0"]}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": ["0.5", "0.5"], "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "00"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "4", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": ["null", "null"], "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "AAA", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "null", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "true", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "0000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "null,null"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "null"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "6", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "{}", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "null,null", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "AAA", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "null", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "true", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": [None, None]},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": True},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": 0.5},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": 0},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": {}}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": [None, None]}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": "AAA"}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": None}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": False}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": AnyNumber()}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": [None, None]},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": "AAA"},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": False},
+    {"query": {"q1": "0.5", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": 0},
 ]
 MIXED_CASES = [
     {"query": {"q1": "5"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
@@ -128,38 +126,36 @@ MIXED_CASES = [
     {"query": {"q1": ["null", "null"], "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "AAA", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "null", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "false", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "true", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "0.5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "6", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "0000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": ANY}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "null,null"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "null"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "false"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": ANY}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": ANY}, "body": {"j-prop": 0}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "00"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "6", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "{}", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "null,null", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "AAA", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "null", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "false", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": ANY, "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "true", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "0.5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "4", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": [None, None]},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": False},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": True},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0.5},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": Pattern(".+")}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": Pattern(".+")}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": "00"}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": "0"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": {}}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": [None, None]}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": "AAA"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": None}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": False}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": ANY}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": AnyNumber()}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": [None, None]},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": "AAA"},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}},
@@ -960,7 +956,7 @@ def test_mixed_type_keyword(ctx):
                 "query": {"key": ["0", "0"]},
             },
             {
-                "query": {"key": [ANY]},
+                "query": {"key": ["AAA"]},
             },
             {
                 "query": {"key": [["null", "null"]]},
@@ -969,7 +965,10 @@ def test_mixed_type_keyword(ctx):
                 "query": {"key": ["null"]},
             },
             {
-                "query": {"key": ["false"]},
+                "query": {"key": ["true"]},
+            },
+            {
+                "query": {"key": ["0.5"]},
             },
             {
                 "query": {"key": ["0"]},
@@ -981,7 +980,10 @@ def test_mixed_type_keyword(ctx):
                 "query": {"key": "null"},
             },
             {
-                "query": {"key": "false"},
+                "query": {"key": "true"},
+            },
+            {
+                "query": {"key": "0.5"},
             },
         ],
     )
@@ -1022,12 +1024,12 @@ def test_negative_type_violations_for_enum_property_under_allof(ctx):
             {"body": False},
             {"body": 0},
             {"body": {}},
+            {"body": {"color": "AAA"}},
             {"body": {"color": {}}},
             {"body": {"color": [None, None]}},
             {"body": {"color": None}},
             {"body": {"color": False}},
             {"body": {"color": 0}},
-            {"body": {"color": "AAA"}},
             {"body": {"color": "blue"}},
             {"body": {"color": "red"}},
         ],
@@ -1265,7 +1267,7 @@ def test_negative_patterns(ctx):
                                 "type": "string",
                                 "minLength": 3,
                                 "maxLength": 10,
-                                "pattern": "^[a-zA-Z0-9-_]$",
+                                "pattern": "^[a-zA-Z0-9-_]+$",
                             },
                         },
                         "required": ["name"],
@@ -1283,7 +1285,8 @@ def test_negative_patterns(ctx):
             },
             {
                 "body": {
-                    "name": "000",
+                    # Arbitrary text that does not match the pattern, drawn within the length bounds.
+                    "name": Pattern("(?s)^.{3,10}$"),
                 },
             },
             {
@@ -1395,69 +1398,27 @@ def test_array_in_header_path_query(ctx):
     assert_negative_coverage(
         schema,
         [
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "true"}},
+            {"path_parameters": {"bar": "true"}, "query": {"key": "true"}},
             {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "false"},
+                "headers": {"X-API-Key-1": "true"},
+                "path_parameters": {"bar": "true"},
+                "query": {"key": ["true", "true"]},
             },
             {
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": ["false", "false"]},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "false"},
+                "headers": {"X-API-Key-1": "true"},
+                "path_parameters": {"bar": "true"},
                 "query": {"key": ["null", "null"]},
             },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "AAA"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "null"},
-            },
-            {
-                "headers": {"X-API-Key-1": "{}"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null,null"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "AAA"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null"},
-                "path_parameters": {"bar": "false"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "null%2Cnull"},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": Pattern(".")},
-                "query": {"key": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-                "path_parameters": {"bar": "null"},
-                "query": {"key": "false"},
-            },
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "true"}, "query": {"key": "AAA"}},
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "true"}, "query": {"key": "null"}},
+            {"headers": {"X-API-Key-1": "{}"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "null,null"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "AAA"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "null"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "null%2Cnull"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "AAA"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "null"}, "query": {"key": "true"}},
         ],
         path=("/foo/{bar}", "post"),
     )
@@ -1646,6 +1607,28 @@ def test_path_parameter_dots(ctx):
     )
 
 
+def test_parameters_only_negative_value_reaches_the_operations_own_method(ctx):
+    # The template takes the first negative value and is only ever sent under some other method,
+    # so a parameter with exactly one of them would otherwise go untested under its own.
+    schema = build_schema(
+        ctx,
+        [
+            {
+                "name": "id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string", "minLength": 1, "maxLength": 255},
+            },
+        ],
+        path="/foo/{id}",
+    )
+    assert_negative_coverage(
+        schema,
+        [{"path_parameters": {"id": Pattern("0{256}$")}}],
+        path=("/foo/{id}", "post"),
+    )
+
+
 def test_required_header(ctx):
     schema = build_schema(
         ctx,
@@ -1658,22 +1641,16 @@ def test_required_header(ctx):
         schema,
         [
             {
-                "headers": {"X-API-Key-1": Pattern(".{5,}")},
+                "headers": {"X-API-Key-1": "null,null"},
             },
             {
-                "headers": {"X-API-Key-2": Pattern(".{5,}")},
+                "headers": {"X-API-Key-2": "null,null"},
             },
             {
-                "headers": {"X-API-Key-1": Pattern(".{5,}"), "X-API-Key-2": Pattern(".{5,}")},
+                "headers": {"X-API-Key-1": "null,null", "X-API-Key-2": "000000"},
             },
             {
-                "headers": {"X-API-Key-1": Pattern(".{5,}"), "X-API-Key-2": Pattern(".{5,}")},
-            },
-            {
-                "headers": {"X-API-Key-1": Pattern(".{5,}"), "X-API-Key-2": Pattern(".{5,}")},
-            },
-            {
-                "headers": {"X-API-Key-1": Pattern(".{5,}"), "X-API-Key-2": Pattern(".{5,}")},
+                "headers": {"X-API-Key-1": "000000", "X-API-Key-2": "null,null"},
             },
         ],
     )
@@ -1715,60 +1692,27 @@ def test_required_and_optional_headers(ctx):
     assert_negative_coverage(
         schema,
         [
-            {
-                "headers": {"X-API-Key-1": "00000", "x-schemathesis-unknown-property": "42"},
-            },
-            {
-                "headers": {"X-API-Key-1": ""},
-            },
-            {
-                "headers": {"X-API-Key-1": "{}"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null,null"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "0"},
-            },
-            {
-                "headers": {"X-API-Key-2": "0"},
-            },
-            {
-                "headers": {"X-API-Key-1": "0", "X-API-Key-2": ""},
-            },
-            {
-                "headers": {"X-API-Key-1": "0", "X-API-Key-2": "{}"},
-            },
-            {
-                "headers": {"X-API-Key-1": "0", "X-API-Key-2": "null,null"},
-            },
-            {
-                "headers": {"X-API-Key-1": "0", "X-API-Key-2": "null"},
-            },
-            {
-                "headers": {"X-API-Key-1": "0", "X-API-Key-2": "false"},
-            },
-            {
-                "headers": {"X-API-Key-1": "", "X-API-Key-2": "0"},
-            },
-            {
-                "headers": {"X-API-Key-1": "{}", "X-API-Key-2": "0"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null,null", "X-API-Key-2": "0"},
-            },
-            {
-                "headers": {"X-API-Key-1": "null", "X-API-Key-2": "0"},
-            },
-            {
-                "headers": {"X-API-Key-1": "false", "X-API-Key-2": "0"},
-            },
+            {"headers": {"X-API-Key-1": "00000", "x-schemathesis-unknown-property": "42"}},
+            {"headers": {"X-API-Key-1": ""}},
+            {"headers": {"X-API-Key-1": "{}"}},
+            {"headers": {"X-API-Key-1": "null,null"}},
+            {"headers": {"X-API-Key-1": "null"}},
+            {"headers": {"X-API-Key-1": "true"}},
+            {"headers": {"X-API-Key-1": "0.5"}},
+            {"headers": {"X-API-Key-1": "0"}},
+            {"headers": {"X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": ""}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": "{}"}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": "null,null"}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": "null"}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": "true"}},
+            {"headers": {"X-API-Key-1": "0", "X-API-Key-2": "0.5"}},
+            {"headers": {"X-API-Key-1": "", "X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "{}", "X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "null,null", "X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "null", "X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "true", "X-API-Key-2": "0"}},
+            {"headers": {"X-API-Key-1": "0.5", "X-API-Key-2": "0"}},
         ],
     )
 
@@ -1836,9 +1780,6 @@ def test_path_parameter(ctx):
                 "path_parameters": {
                     "id": "000000",
                 },
-            },
-            {
-                "path_parameters": {"id": Pattern(".{5,}")},
             },
         ],
         path=("/foo/{id}", "post"),
@@ -2002,37 +1943,15 @@ def test_incorrect_headers_with_enum(ctx):
     )
     assert_negative_coverage(
         schema,
-        (
-            [
-                {},
-                {"headers": {"X-API-Key-1": "{}"}},
-                {"headers": {"X-API-Key-1": "null,null"}},
-                {"headers": {"X-API-Key-1": "null"}},
-                {"headers": {"X-API-Key-1": "false"}},
-                {"headers": {"X-API-Key-1": "0"}},
-            ],
-            [
-                {},
-                {"headers": {"X-API-Key-1": "{}"}},
-                {"headers": {"X-API-Key-1": "null,null"}},
-                {"headers": {"X-API-Key-1": "false"}},
-                {"headers": {"X-API-Key-1": "0"}},
-            ],
-            [
-                {},
-                {"headers": {"X-API-Key-1": "{}"}},
-                {"headers": {"X-API-Key-1": "null,null"}},
-                {"headers": {"X-API-Key-1": "null"}},
-                {"headers": {"X-API-Key-1": "0"}},
-            ],
-            [
-                {},
-                {"headers": {"X-API-Key-1": "{}"}},
-                {"headers": {"X-API-Key-1": "null,null"}},
-                {"headers": {"X-API-Key-1": "null"}},
-                {"headers": {"X-API-Key-1": "false"}},
-            ],
-        ),
+        [
+            {},
+            {"headers": {"X-API-Key-1": "{}"}},
+            {"headers": {"X-API-Key-1": "null,null"}},
+            {"headers": {"X-API-Key-1": "null"}},
+            {"headers": {"X-API-Key-1": "true"}},
+            {"headers": {"X-API-Key-1": "0.5"}},
+            {"headers": {"X-API-Key-1": "0"}},
+        ],
     )
 
 
@@ -2108,8 +2027,8 @@ def test_generate_empty_headers_too(ctx):
             {
                 "type": "array",
                 "items": {
-                    # Use an untranslatable PCRE pattern to test unsupported regex handling
-                    "pattern": "[\\p{Greek}]+",
+                    # No type, so the pattern binds strings only - every other type is a valid element.
+                    "pattern": "[\\p{Tibetan}]+",
                 },
                 "maxItems": 50,
             },
@@ -2284,19 +2203,12 @@ def foo_id(value):
             {
                 "type": "integer",
             },
-            (
-                [
-                    foo_id("null%2Cnull"),
-                    foo_id(Pattern(".")),
-                    foo_id("null"),
-                    foo_id("false"),
-                ],
-                [
-                    foo_id("null%2Cnull"),
-                    foo_id(Pattern(".")),
-                    foo_id("false"),
-                ],
-            ),
+            [
+                foo_id("null%2Cnull"),
+                foo_id("AAA"),
+                foo_id("null"),
+                foo_id("true"),
+            ],
         ),
         (
             {"type": "string", "format": "date-time"},
@@ -2304,7 +2216,8 @@ def foo_id(value):
                 foo_id("0"),
                 foo_id("null%2Cnull"),
                 foo_id("null"),
-                foo_id("false"),
+                foo_id("true"),
+                foo_id("0.5"),
             ],
         ),
     ],
@@ -2359,7 +2272,7 @@ def test_path_parameters_with_unsupported_regex_pattern(ctx):
                 "name": "foo_id",
                 "in": "path",
                 "required": True,
-                "schema": {"pattern": "'^[-._\\p{Greek}]+$'"},
+                "schema": {"pattern": "'^[-._\\p{Tibetan}]+$'"},
             },
         ],
         path="/foo/{foo_id}",
@@ -2402,7 +2315,8 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null&q=null",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
             ],
         ],
         [
@@ -2412,7 +2326,8 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=0&q=0",
                 "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
             ],
         ],
         [
@@ -2423,11 +2338,13 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=",
                 "http://127.0.0.1/foo?q=null&q=null",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
                 "http://127.0.0.1/foo?q=0",
                 "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
             ],
         ],
         [
@@ -2440,11 +2357,13 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=",
                 "http://127.0.0.1/foo?q=null&q=null",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
                 "http://127.0.0.1/foo?q=0",
                 "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
-                "http://127.0.0.1/foo?q=false",
+                "http://127.0.0.1/foo?q=true",
+                "http://127.0.0.1/foo?q=0.5",
             ],
         ],
     ],
@@ -3771,6 +3690,54 @@ def test_positive_body_generated_when_required_excludes_forbidden_properties(ctx
     )
 
 
+def test_positive_body_omits_property_forbidden_by_all_of_sibling(ctx):
+    # A property carrying an `example` stays out of the body when another `allOf` branch marks it `readOnly`.
+    schema = ctx.openapi.load_schema(
+        {
+            "/volumes": {
+                "put": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {"$ref": "#/components/schemas/Volume"},
+                                        {"type": "object", "properties": {"linode_id": {"readOnly": True}}},
+                                    ]
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Volume": {
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string", "example": "my-volume"},
+                        "linode_id": {"type": "integer", "nullable": True, "example": 12346},
+                        "tags": {"$ref": "#/components/schemas/Tags"},
+                    },
+                },
+                # Second component forces bundling so the `$ref` + sibling shape survives into generation.
+                "Tags": {"type": "array", "items": {"type": "string"}},
+            }
+        },
+    )
+    operation = schema["/volumes"]["PUT"]
+    positive_bodies = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+    ]
+    assert positive_bodies, "Expected at least one positive body case"
+    assert [body for body in positive_bodies if "linode_id" in body] == []
+
+
 def test_parameter_positive_coverage_when_body_fallback_negative(ctx):
     # An unsatisfiable body must not suppress positive coverage of unrelated parameters.
     schema = ctx.openapi.load_schema(
@@ -3857,6 +3824,50 @@ def test_parameter_mutation_cases_do_not_inherit_negative_body(ctx):
         if body_component is not None and body_component.mode == GenerationMode.NEGATIVE:
             bad.append((case.meta.phase.data.description, case.body))
     assert bad == []
+
+
+def test_duplicate_items_case_leaves_the_declared_example_alone(ctx):
+    # The duplicated-items value is built from the declared example, so rewriting its booleans into
+    # their wire form must not reach back into the example every other case is built from.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "parameters": [{"in": "header", "name": "X-Token", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "rules": {
+                                            "type": "array",
+                                            "uniqueItems": True,
+                                            "minItems": 1,
+                                            "example": [{"enabled": True}],
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {"enabled": {"type": "boolean"}},
+                                            },
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    operation = schema["/foo"]["POST"]
+    validator = _body_validator(operation)
+
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE):
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY:
+            continue
+        assert validator.is_valid(case.body), case.body
 
 
 def test_positive_number_near_boundary_respects_multiple_of(ctx):
@@ -4935,9 +4946,7 @@ def test_duration_format_generates_required_query_positive_cases(ctx, version):
 )
 def test_hostname_negative_format_respects_validator_draft(monkeypatch, validator_cls, should_generate):
     # `XN--9krT00a` is valid in Draft 4 but invalid in Draft 2020-12.
-    monkeypatch.setattr(
-        "schemathesis.specs.openapi.coverage._schema.from_schema", lambda *_args, **_kwargs: st.just("XN--9krT00a")
-    )
+    monkeypatch.setattr(CoverageContext, "build_strategy", lambda *_args, **_kwargs: st.just("XN--9krT00a"))
     ctx = CoverageContext(
         root_schema={"type": "string", "format": "hostname"},
         location=ParameterLocation.QUERY,
@@ -4995,6 +5004,98 @@ def test_multi_type_union_yields_numeric_branch(types, expected_kind):
     assert any(isinstance(v, expected_kind) and not isinstance(v, bool) for v in values), values
 
 
+def test_anyof_null_branch_filtered_when_allof_sibling_requires_object():
+    # A nullable-derived anyOf branch must not yield null when an allOf sibling pins `type: object`,
+    # even when the merged schema holds nested bundled refs the parent validator must resolve.
+    root_schema = {
+        "x-bundled": {
+            "request": {
+                "additionalProperties": True,
+                "allOf": [{"$ref": "#/x-bundled/base"}, {"type": "object"}],
+                "required": ["start_date"],
+            },
+            "base": {
+                "anyOf": [
+                    {
+                        "additionalProperties": True,
+                        "properties": {"start_date": {"$ref": "#/x-bundled/start"}},
+                    },
+                    {"type": "null"},
+                ]
+            },
+            "start": {"type": "string"},
+        }
+    }
+    ctx = CoverageContext(
+        root_schema=root_schema,
+        location=ParameterLocation.BODY,
+        media_type=("application", "json"),
+        generation_modes=[GenerationMode.POSITIVE],
+        is_required=True,
+        custom_formats={},
+        validator_cls=jsonschema_rs.Draft4Validator,
+    )
+    values = [v.value for v in cover_schema_iter(ctx, {"$ref": "#/x-bundled/request"})]
+    assert None not in values, values
+
+
+def test_not_schema_flipped_values_respect_outer_type_with_bundled_refs():
+    # Flipped `not`-violations must satisfy the outer `type`, also when nested bundled refs
+    # make the outer schema unverifiable without the bundle.
+    root_schema = {"x-bundled": {"name": {"type": "string"}}}
+    ctx = CoverageContext(
+        root_schema=root_schema,
+        location=ParameterLocation.BODY,
+        media_type=("application", "json"),
+        generation_modes=[GenerationMode.POSITIVE],
+        is_required=True,
+        custom_formats={},
+        validator_cls=jsonschema_rs.Draft4Validator,
+    )
+    schema = {
+        "type": "object",
+        "properties": {"name": {"$ref": "#/x-bundled/name"}},
+        "not": {"type": "string"},
+    }
+    positives = [v.value for v in cover_schema_iter(ctx, schema) if v.generation_mode == GenerationMode.POSITIVE]
+    non_objects = [v for v in positives if not isinstance(v, dict)]
+    assert not non_objects, non_objects
+
+
+def test_cover_schema_iter_does_not_mutate_root_schema():
+    # A self-recursive `allOf` $ref used to grow the shared root document until cloning hit its recursion limit.
+    root_schema = {
+        "components": {
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "child": {
+                            "allOf": [
+                                {"$ref": "#/components/schemas/Node"},
+                                {"description": "child node"},
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+    }
+    snapshot = deepclone(root_schema)
+    ctx = CoverageContext(
+        root_schema=root_schema,
+        location=ParameterLocation.QUERY,
+        media_type=None,
+        generation_modes=[GenerationMode.POSITIVE],
+        is_required=True,
+        custom_formats={},
+        validator_cls=jsonschema_rs.validator_for({}).__class__,
+    )
+    for _ in cover_schema_iter(ctx, {"$ref": "#/components/schemas/Node"}):
+        pass
+    assert root_schema == snapshot
+
+
 @pytest.mark.parametrize(
     ("keyword", "bound"),
     [
@@ -5045,6 +5146,248 @@ def test_float_format_collapsing_example_not_emitted(pctx, key):
 def test_float_format_representable_example_still_emitted(pctx):
     schema = {"type": "number", "format": "float", "exclusiveMinimum": 0, "example": 1000}
     assert 1000 in [v.value for v in cover_schema_iter(pctx, schema, HashSet())]
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"allOf": [{"type": "string", "pattern": "^a"}, {"type": "string", "pattern": "b$"}]},
+        {
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "required": ["a"],
+            "allOf": [{"properties": {"a": {"pattern": "^x"}}}, {"properties": {"a": {"pattern": "y$"}}}],
+        },
+    ],
+    ids=["two-patterns", "outer-properties"],
+)
+def test_satisfiable_allof_without_a_flat_form_still_emits_positive_values(pctx, schema):
+    # Two `pattern`s have no single spelling, which used to drop the whole schema from coverage.
+    values = [value.value for value in cover_schema_iter(pctx, schema, HashSet())]
+    assert values, schema
+    validator = make_validator_for(schema)
+    for value in values:
+        assert validator.is_valid(value), value
+
+
+@pytest.mark.parametrize(
+    "conditional",
+    [
+        {"if": {"minLength": 3}, "then": {"pattern": "\\p{L}"}},
+        {"if": {"minLength": 3}, "then": {"pattern": "\\p{L}"}, "else": {"maxLength": 9}},
+    ],
+    ids=["then", "then-else"],
+)
+def test_negative_format_around_a_conditional_the_engine_cannot_follow(ctx_factory, conditional):
+    # `\p{L}` has no Python spelling, so the guarded branch cannot drive a draw; dropping the guard
+    # leaves a wider schema that can, with the validator ruling out what it over-admits.
+    schema = {"type": "string", "format": "date", "minLength": 1, **conditional}
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
+    scenarios = {value.scenario for value in cover_schema_iter(ctx, schema, HashSet())}
+    assert CoverageScenario.INVALID_FORMAT in scenarios, scenarios
+
+
+@pytest.mark.parametrize("hint", ["example", "default"], ids=["example", "default"])
+def test_property_hint_pinned_under_draft4(ctx_factory, hint):
+    # Draft 4 has no `const`, so pinning a hint with one leaves the property free to draw anything.
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"default": {"type": "boolean", hint: True}, "other": {"type": "string"}},
+    }
+    ctx = ctx_factory(location=ParameterLocation.BODY, validator_cls=jsonschema_rs.Draft4Validator)
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for value in cover_schema_iter(ctx, schema, HashSet()):
+        if value.generation_mode == GenerationMode.POSITIVE:
+            assert validator.is_valid(value.value), value.value
+
+
+def test_all_of_keeps_the_tightest_upper_bound(pctx):
+    schema = {"allOf": [{"type": "string", "maxLength": 5}, {"maxLength": 3}]}
+    values = [value.value for value in cover_schema_iter(pctx, schema, HashSet())]
+    assert values and all(len(value) <= 3 for value in values), values
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"allOf": [{"allOf": [{"type": "string", "pattern": "^a"}, {"pattern": "b$"}]}]},
+        {"allOf": [{"allOf": [{"type": "string", "pattern": "^a"}, {"pattern": "b$"}]}, {"type": "string"}]},
+    ],
+    ids=["sole-branch", "beside-a-sibling"],
+)
+def test_nested_all_of_without_a_flat_form_emits_a_conforming_value(pctx, schema):
+    values = [value.value for value in cover_schema_iter(pctx, schema, HashSet())]
+    assert values and all(value.startswith("a") and value.endswith("b") for value in values), values
+
+
+def test_all_of_with_a_boolean_branch_emits_a_conforming_value(pctx):
+    values = [value.value for value in cover_schema_iter(pctx, {"allOf": [{"type": "string"}, True]}, HashSet())]
+    assert values and all(isinstance(value, str) for value in values), values
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"type": "object", "properties": {"a": {"type": "string"}}, "allOf": {"a": 1}}, []),
+        ({"allOf": {"type": "string"}}, []),
+        ({"allOf": "nope"}, []),
+        ({"allOf": [{"enum": [1, 2]}, {"enum": 5}]}, [1, 2]),
+    ],
+    ids=["all-of-not-a-list", "all-of-a-single-key-dict", "all-of-a-string", "enum-not-a-list"],
+)
+def test_malformed_all_of_covers_only_what_parses(pctx, schema, expected):
+    # Real documents carry these shapes; the walk keeps going instead of taking the run down.
+    assert [value.value for value in cover_schema_iter(pctx, schema, HashSet())] == expected
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{}, {"not": {"maxLength": 2}}],
+    ids=["plain", "with-not"],
+)
+def test_negative_format_without_a_buildable_base(ctx_factory, extra):
+    # Stripping `format` leaves a pattern with no Python spelling, so no violation can be drawn from
+    # it - and widening past the `not` does not bring one back.
+    schema = {"type": "string", "format": "date", "pattern": "\\p{Tibetan}", **extra}
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
+    scenarios = {value.scenario for value in cover_schema_iter(ctx, schema, HashSet())}
+    assert CoverageScenario.INVALID_FORMAT not in scenarios, scenarios
+
+
+def test_all_of_branch_judging_outer_properties_as_additional(ctx):
+    # The branch sees the outer schema's own properties as additional, so folding the two property
+    # sets together would admit values the branch rejects.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Outer"}}},
+                    },
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Base": {
+                    "type": "object",
+                    "additionalProperties": {"type": "object"},
+                    "properties": {"a": {"type": "string"}},
+                },
+                "Outer": {
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "type": "object",
+                    "properties": {"b": {"type": "boolean"}},
+                },
+            }
+        },
+    )
+    operation = schema["/x"]["POST"]
+    validator = _body_validator(operation)
+    for case in _iter_cases(operation, GenerationMode.POSITIVE):
+        assert validator.is_valid(case.body), case.body
+
+
+def test_all_of_branch_that_stays_a_reference(ctx):
+    # A branch left as a bare reference cannot carry its siblings' constraints - `$ref` wins over them.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"data": {"$ref": "#/components/schemas/Outer"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Inner": {"allOf": [{"type": "object"}]},
+                "Middle": {"allOf": [{"$ref": "#/components/schemas/Inner"}]},
+                "Outer": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/Middle"},
+                        {"properties": {"workspace": {"type": "string"}}, "required": ["workspace"]},
+                    ]
+                },
+            }
+        },
+    )
+    operation = schema["/x"]["POST"]
+    validator = _body_validator(operation)
+    for case in _iter_cases(operation, GenerationMode.POSITIVE):
+        assert validator.is_valid(case.body), case.body
+
+
+@pytest.mark.parametrize(
+    "branches",
+    [
+        [{"$ref": "#/components/schemas/Node"}],
+        [{"$ref": "#/components/schemas/Node"}, {"type": "object"}],
+    ],
+    ids=["sole-branch", "beside-a-sibling"],
+)
+def test_reference_cycle_through_an_all_of_branch(ctx, branches):
+    # Branches are resolved before the value is built, so the pointer never reaches the cycle counter.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}},
+                    },
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        components={"schemas": {"Node": {"type": "object", "properties": {"child": {"allOf": branches}}}}},
+    )
+    assert _iter_cases(schema["/x"]["POST"], GenerationMode.NEGATIVE)
+
+
+@pytest.mark.parametrize("combinator", ["oneOf", "anyOf"], ids=["one-of", "any-of"])
+def test_reference_cycle_through_a_combinator_branch(ctx, combinator):
+    # A branch resolved before the walk carries no `$ref` for the cycle guard to count.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Block"}}},
+                    },
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Block": {
+                    "type": "object",
+                    "properties": {
+                        "calls": {
+                            "type": "array",
+                            "items": {combinator: [{"$ref": "#/components/schemas/Block"}]},
+                        }
+                    },
+                }
+            }
+        },
+    )
+    assert _iter_cases(schema["/x"]["POST"], GenerationMode.POSITIVE)
 
 
 @pytest.mark.parametrize(
@@ -6945,8 +7288,8 @@ def test_positive_object_example_with_invalid_format_not_yielded(ctx):
 
 
 def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
-    # A pattern like `([a-z0-9]|-[a-z0-9])*` contains alternation inside a quantified group.
-    # POSITIVE values such as "a-project-name" must pass optimized_schema validation.
+    # A group matching one or two characters has no quantifier range that stops at exactly 100, so
+    # the tuned schema settles below it and only the declared one can say whether a value is valid.
     schema = ctx.openapi.load_schema(
         {
             "/items": {
@@ -6971,17 +7314,13 @@ def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
     )
     operation = schema["/items"]["GET"]
     query_param = next(p for p in operation.query if p.name == "name")
-    optimized = query_param.optimized_schema
-    validator = jsonschema_rs.validator_for(optimized)
+    validator = jsonschema_rs.validator_for(query_param.unoptimized_schema)
 
     cases = _generate_cases(operation, GenerationMode.POSITIVE)
     positive_cases = [c for c in cases if c.query and "name" in c.query]
     assert len(positive_cases) > 0
     for case in positive_cases:
-        assert validator.is_valid(case.query["name"]), (
-            f"POSITIVE value {case.query['name']!r} failed optimized_schema validation — "
-            f"pattern was likely corrupted by update_quantifier"
-        )
+        assert validator.is_valid(case.query["name"]), f"Rewritten pattern corrupted: {case.query['name']!r}"
 
 
 def test_coverage_positive_pattern_with_variable_suffix_not_overconstrained(ctx):
@@ -7039,6 +7378,19 @@ def test_coverage_positive_property_names_enum_respected(ctx):
         },
         positive=True,
         version="3.1.0",
+    )
+
+
+def test_coverage_positive_pattern_character_classes_stay_ascii(ctx):
+    # Validators read `\d` and `\w` as ASCII only, so Unicode digits and letters are rejected.
+    collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "required": ["code"],
+            "properties": {"code": {"type": "string", "pattern": r"^(a|b)[\w-]+$", "minLength": 20}},
+        },
+        positive=True,
     )
 
 
@@ -8558,9 +8910,6 @@ def test_coverage_pool_overlay_dict_value_with_undeclared_keys(ctx):
         def pick_correlated_values(self, *, operation):
             return PoolPick(values={(ParameterLocation.BODY, "address"): {"city": "London", "country": "UK"}})
 
-        def pick_captured_value(self, *, operation, location, name, context_constraints):
-            return None
-
     list(
         iter_coverage_cases(
             operation=operation,
@@ -9280,3 +9629,342 @@ def test_negative_coverage_violates_int64_format_bounds(ctx):
     assert violations[CoverageScenario.VALUE_ABOVE_MAXIMUM] == 2**63
     assert violations[CoverageScenario.VALUE_BELOW_MINIMUM] == -(2**63) - 1
     assert all(case.meta.generation.mode == GenerationMode.NEGATIVE for case in cases)
+
+
+def test_coverage_recursive_body_is_generated(ctx):
+    # A pointer back into the value has no unrolled form, so the value is built from the pointer
+    # itself rather than from a copy of what it names.
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {"name": {"type": "string"}, "child": {"$ref": "#/components/schemas/Node"}},
+                }
+            }
+        },
+    )
+    operation = schema["/nodes"]["POST"]
+    validator = _body_validator(operation)
+
+    positives = [case.body for case in _iter_cases(operation, GenerationMode.POSITIVE) if isinstance(case.body, dict)]
+
+    assert positives
+    for body in positives:
+        assert validator.is_valid(body), body
+    assert any("child" in body for body in positives)
+
+
+def test_coverage_recursion_around_a_node_that_cannot_be_built(ctx):
+    # Two formats at once is a conjunction neither generator spells, so the only values left are the
+    # ones `minProperties` alone admits — the pointer around it must not derail them.
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "properties": {
+                        "stamp": {
+                            "allOf": [{"type": "string", "format": "ipv4"}, {"type": "string", "format": "date"}]
+                        },
+                        "child": {"$ref": "#/components/schemas/Node"},
+                    },
+                }
+            }
+        },
+    )
+    operation = schema["/nodes"]["POST"]
+    validator = _body_validator(operation)
+
+    positives = [case.body for case in _iter_cases(operation, GenerationMode.POSITIVE) if isinstance(case.body, dict)]
+
+    assert positives
+    for body in positives:
+        assert validator.is_valid(body), body
+        assert "stamp" not in body, body
+
+
+def test_closing_generator_after_module_globals_are_cleared(pctx, monkeypatch):
+    # Interpreter finalization nulls module globals before suspended generators are closed.
+    generator = cover_schema_iter(pctx, {"type": "string"}, HashSet())
+    next(generator)
+    monkeypatch.setattr(_schema, "jsonschema_rs", None)
+
+    generator.close()
+
+
+def test_closing_reference_generator_after_module_globals_are_cleared(ctx_factory, monkeypatch):
+    # Interpreter finalization nulls module globals before suspended generators are closed.
+    ctx = ctx_factory(
+        generation_modes=[GenerationMode.POSITIVE],
+        root_schema={"definitions": {"Item": {"type": "string"}}},
+    )
+    generator = cover_schema_iter(ctx, {"$ref": "#/definitions/Item"}, HashSet())
+    next(generator)
+    monkeypatch.setattr(_schema, "RefResolutionError", None)
+
+    generator.close()
+
+
+def test_mutually_recursive_pointers_do_not_multiply_the_walk(ctx):
+    # Every pointer doubling on its own multiplies the paths through a cycle graph; ending the walk
+    # at the first doubling keeps the position that points back covered without the product.
+    names = [f"Node{index}" for index in range(4)]
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{names[0]}"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                name: {
+                    "type": "object",
+                    "properties": {
+                        **{f"to{other}": {"$ref": f"#/components/schemas/{other}"} for other in names if other != name},
+                        "leaf": {"type": "string"},
+                    },
+                }
+                for name in names
+            }
+        },
+    )
+    operation = schema["/nodes"]["POST"]
+
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE)
+
+    assert len(cases) < 1000
+
+
+def test_pointer_reached_twice_still_carries_what_it_names(ctx):
+    # The envelope pointer reappears below itself, and a nested value that ignores what it names
+    # is one nothing can accept - the position has to be built from both, not judged after.
+    schema = ctx.openapi.load_schema(
+        {
+            "/connections": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Connection"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Resource": {
+                    "type": "object",
+                    "required": ["location"],
+                    "properties": {"location": {"type": "string"}},
+                },
+                "Api": {
+                    "allOf": [{"$ref": "#/components/schemas/Resource"}],
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                },
+                "Connection": {
+                    "allOf": [{"$ref": "#/components/schemas/Resource"}],
+                    "type": "object",
+                    "properties": {"api": {"$ref": "#/components/schemas/Api"}},
+                },
+            }
+        },
+    )
+    operation = schema["/connections"]["POST"]
+    validator = _body_validator(operation)
+
+    positives = [case.body for case in _iter_cases(operation, GenerationMode.POSITIVE) if isinstance(case.body, dict)]
+
+    assert positives
+    for body in positives:
+        assert validator.is_valid(body), body
+    assert any("api" in body for body in positives)
+
+
+def test_boundary_length_string_at_the_drawable_limit(pctx):
+    # An off-by-one in the guard silently drops the maximum-length case for the whole band.
+    schema = {"type": "string", "pattern": "^[a-z]+$", "maxLength": MAX_GENERATED_PATTERN_LENGTH}
+
+    lengths = {len(value.value) for value in cover_schema_iter(pctx, schema, HashSet())}
+
+    assert MAX_GENERATED_PATTERN_LENGTH in lengths
+
+
+def test_boundary_length_string_beyond_the_drawable_limit_kept_when_pattern_allows_any_character(pctx):
+    # A permissive pattern keeps its maximum-length case even past the length matching can draw.
+    length = MAX_GENERATED_PATTERN_LENGTH * 2
+    schema = {"type": "string", "pattern": ".*", "maxLength": length}
+
+    lengths = {len(value.value) for value in cover_schema_iter(pctx, schema, HashSet())}
+
+    assert length in lengths
+
+
+UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+
+def test_maximum_items_array_of_costly_elements(pctx):
+    # Drawing every element as a pattern match outruns the budget and comes back empty.
+    size = MAX_DRAWN_ARRAY_ITEMS * 4
+    schema = {"type": "array", "items": {"type": "string", "pattern": UUID_PATTERN}, "maxItems": size}
+
+    sizes = {len(value.value) for value in cover_schema_iter(pctx, schema, HashSet())}
+
+    assert size in sizes
+
+
+def test_maximum_items_array_of_costly_elements_stays_valid(pctx):
+    size = MAX_DRAWN_ARRAY_ITEMS * 4
+    schema = {"type": "array", "items": {"type": "string", "pattern": UUID_PATTERN}, "maxItems": size}
+    validator = make_validator_for(schema)
+
+    for value in cover_schema_iter(pctx, schema, HashSet()):
+        assert validator.is_valid(value.value), value.value[:3]
+
+
+def test_maximum_items_array_at_the_drawn_limit(pctx):
+    # An off-by-one in the threshold drops the maximum-items case for arrays right at it.
+    schema = {"type": "array", "items": {"type": "integer"}, "maxItems": MAX_DRAWN_ARRAY_ITEMS}
+
+    sizes = {len(value.value) for value in cover_schema_iter(pctx, schema, HashSet())}
+
+    assert MAX_DRAWN_ARRAY_ITEMS in sizes
+
+
+def test_repeated_object_elements_are_independent(pctx):
+    # Each index has to hold its own object, or editing one request field edits every other.
+    size = MAX_DRAWN_ARRAY_ITEMS * 4
+    schema = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+        "maxItems": size,
+    }
+
+    for value in cover_schema_iter(pctx, schema, HashSet()):
+        if len(value.value) < 2:
+            continue
+        value.value[0]["name"] = "edited"
+        assert value.value[1]["name"] != "edited", value.value[:2]
+
+
+def test_contains_array_is_not_filled_by_repetition(pctx):
+    # Repeating one element cannot make an array hold both a match and a non-match.
+    size = MAX_DRAWN_ARRAY_ITEMS * 4
+    schema = {
+        "type": "array",
+        "items": {"type": "integer"},
+        "contains": {"type": "integer", "minimum": 10},
+        "maxItems": size,
+    }
+    validator = make_validator_for(schema)
+
+    for value in cover_schema_iter(pctx, schema, HashSet()):
+        assert validator.is_valid(value.value), value.value[:3]
+
+
+def test_unique_items_array_is_not_filled_by_repetition(pctx):
+    # Repeating one element would duplicate it, which `uniqueItems` forbids.
+    size = MAX_DRAWN_ARRAY_ITEMS * 4
+    schema = {"type": "array", "items": {"type": "integer"}, "maxItems": size, "uniqueItems": True}
+
+    for value in cover_schema_iter(pctx, schema, HashSet()):
+        assert len(set(value.value)) == len(value.value), value.value[:3]
+
+
+def test_ref_parameter_schema_keeps_combination_coverage(ctx):
+    # Parameter combinations are generated from a synthesized schema, where a `$ref` still has to resolve.
+    enum = {"type": "string", "enum": ["a", "b"]}
+
+    def descriptions(first, second):
+        raw = ctx.openapi.build_schema(
+            {
+                "/r": {
+                    "get": {
+                        "parameters": [
+                            {"name": "q", "in": "query", "required": True, "schema": first},
+                            {"name": "r", "in": "query", "required": False, "schema": second},
+                        ],
+                        "responses": {"default": {"description": "OK"}},
+                    }
+                }
+            },
+            components={"schemas": {"E": enum}},
+        )
+        operation = schemathesis.openapi.from_dict(raw)["/r"]["GET"]
+        return sorted(
+            case.meta.phase.data.description
+            for case in iter_coverage_cases(
+                operation=operation,
+                generation_modes=list(GenerationMode),
+                generate_duplicate_query_parameters=False,
+                unexpected_methods=set(),
+                generation_config=operation.schema.config.generation,
+            )
+        )
+
+    reference = {"$ref": "#/components/schemas/E"}
+    assert descriptions(
+        {"type": "object", "properties": {"t": reference}, "required": ["t"], "additionalProperties": False},
+        reference,
+    ) == descriptions(
+        {"type": "object", "properties": {"t": enum}, "required": ["t"], "additionalProperties": False},
+        enum,
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_allow_header_conformance(ctx, cli, snapshot_cli):
+    # Flask builds `Allow` from its own routing table, so a documented but unimplemented method is missing from it.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "post": {"responses": {"201": {"description": "Created"}}},
+            }
+        }
+    )
+
+    @app.route("/items", methods=["GET"])
+    def items():
+        return jsonify([])
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=allow_header_conformance",
+            "--phases=coverage",
+            "--mode=negative",
+        )
+        == snapshot_cli
+    )

@@ -175,11 +175,13 @@ class Entities:
         Util.raise_detailed_error(response)
         return response.json()
 
-    def get(self, entity_id: str) -> dict:
+    def get(self, entity_id: str, allow_deleted: bool = False) -> dict:
         """Fetch a single entity by id.
 
         Args:
             entity_id: Id of the entity to fetch.
+            allow_deleted: Whether to return the entity when it has been
+                soft-deleted.
 
         Returns:
             The entity object.
@@ -199,7 +201,8 @@ class Entities:
 
         .. end API reference ::
         """
-        response = self._session.get(f'{self._url}/{entity_id}')
+        params = {'allowDeleted': 'true'} if allow_deleted else None
+        response = self._session.get(f'{self._url}/{entity_id}', params=params)
         Util.raise_detailed_error(response)
         return response.json()
 

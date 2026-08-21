@@ -342,3 +342,46 @@ class TestJobsGet:
     def test_get_with_explicit_job_id(self, jobs, mock_session):
         jobs.get(job_id='explicit-id')
         mock_session.get.assert_called_with('jobs/explicit-id')
+
+
+class TestJobsPollJob:
+    """Tests for Jobs.poll_job() timeout behavior."""
+
+    def test_poll_job_waits_indefinitely_by_default(self, jobs):
+        """Polling without a timeout waits past the old 600s default."""
+        responses = [{'status': 'RUNNING'}] * 200 + [
+            {'status': 'COMPLETE', 'id': 'job-456'}
+        ]
+
+        with patch('pipebio.jobs.time.sleep'), \
+                patch('pipebio.jobs.time.time', side_effect=range(0, 10000, 5)), \
+                patch.object(jobs, 'get', side_effect=lambda _: responses.pop(0)), \
+                patch('builtins.print'):
+            job = jobs.poll_job('job-456')
+
+        assert job['status'] == 'COMPLETE'
+
+    def test_poll_job_waits_indefinitely_when_timeout_is_none(self, jobs):
+        """Explicit None matches the omitted-timeout default."""
+        responses = [{'status': 'RUNNING'}] * 200 + [
+            {'status': 'COMPLETE', 'id': 'job-456'}
+        ]
+
+        with patch('pipebio.jobs.time.sleep'), \
+                patch('pipebio.jobs.time.time', side_effect=range(0, 10000, 5)), \
+                patch.object(jobs, 'get', side_effect=lambda _: responses.pop(0)), \
+                patch('builtins.print'):
+            job = jobs.poll_job('job-456', timeout_seconds=None)
+
+        assert job['status'] == 'COMPLETE'
+
+    def test_poll_job_honors_explicit_timeout(self, jobs):
+        """An explicit timeout still raises when elapsed."""
+        times = iter([0, 6, 12])
+
+        with patch('pipebio.jobs.time.sleep'), \
+                patch('pipebio.jobs.time.time', side_effect=lambda: next(times)), \
+                patch.object(jobs, 'get', return_value={'status': 'RUNNING'}), \
+                patch('builtins.print'):
+            with pytest.raises(Exception, match='Timeout waiting for job job-456'):
+                jobs.poll_job('job-456', timeout_seconds=10)

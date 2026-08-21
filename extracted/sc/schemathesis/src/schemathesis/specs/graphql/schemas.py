@@ -26,6 +26,7 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.timing import Instant
+from schemathesis.filters import FilterUsage
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
@@ -61,16 +62,14 @@ if TYPE_CHECKING:
     from schemathesis.auths import AuthContext, AuthStorage
     from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
-    from schemathesis.core.spec import ApiSchema
+    from schemathesis.core.spec import ApiSchema, Scheduler
     from schemathesis.core.transport import HttpMethod, Response
-    from schemathesis.engine.context import EngineContext
     from schemathesis.engine.link_calibration import LinkCalibrationState
+    from schemathesis.engine.observations import Observations
     from schemathesis.engine.run import Phase
-    from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
-    from schemathesis.engine.run.unit._pool import DefaultScheduler
     from schemathesis.generation.stateful.state_machine import APIStateMachine
     from schemathesis.python._constants.pool import ConstantDraw, ConstantsPool
-    from schemathesis.resources import ExtraDataSource
+    from schemathesis.resources import ExtraDataSource, ResourcePool
 
 
 # Reused on every per-draw call; allocating once avoids ~600ns of `LazyStrategy` construction.
@@ -192,7 +191,7 @@ class GraphQLSchema(BaseSchema):
         return self.as_state_machine()
 
     @override
-    def apply_stateful_inference(self, ctx: EngineContext) -> StatefulInference:
+    def apply_stateful_inference(self, observations: Observations | None) -> StatefulInference:
         # All GraphQL transitions are derived from schema structure (no `links` keyword equivalent),
         # so inference accounts for the entire population.
         count = self.analysis.transition_count
@@ -221,7 +220,7 @@ class GraphQLSchema(BaseSchema):
         *,
         generation_modes: list[GenerationMode],
         generation_config: GenerationConfig,
-        extra_data_source: ExtraDataSource | None = None,
+        extra_data_source: ResourcePool | None = None,
         error_feedback: ErrorFeedbackStore | None = None,
     ) -> Iterator[Case]:
         # GraphQL has no coverage phase yet; the schema-level case enumerator is empty.
@@ -232,7 +231,7 @@ class GraphQLSchema(BaseSchema):
         self,
         operations: list[Result[APIOperation, InvalidSchema]],
         phase: Phase,
-    ) -> DefaultScheduler | LayeredScheduler:
+    ) -> Scheduler:
         from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
         from schemathesis.engine.run.unit._pool import DefaultScheduler, split_results
         from schemathesis.specs.graphql.ordering import compute_graphql_layers
@@ -269,7 +268,7 @@ class GraphQLSchema(BaseSchema):
     def _measure_statistic(self) -> ApiStatistic:
         statistic = ApiStatistic()
         raw_schema = self.raw_schema["__schema"]
-        dummy_operation = APIOperation(
+        dummy_operation: APIOperation = APIOperation(
             base_url=self.get_base_url(),
             path=self.base_path,
             label="",
@@ -277,9 +276,10 @@ class GraphQLSchema(BaseSchema):
             schema=self,
             responses=GraphQLResponses(),
             security=None,
-            definition=None,  # type: ignore[arg-type, var-annotated]
+            definition=OperationDefinition(raw={}),
         )
 
+        usage = FilterUsage(self.filter_set) if not self.filter_set.is_empty() else None
         for type_name in ("queryType", "mutationType"):
             type_def = raw_schema.get(type_name)
             if type_def is not None:
@@ -291,6 +291,10 @@ class GraphQLSchema(BaseSchema):
                             dummy_operation.label = f"{query_type_name}.{field['name']}"
                             if not self._should_skip(dummy_operation):
                                 statistic.operations.selected += 1
+                            if usage is not None:
+                                usage.record(SimpleNamespace(operation=dummy_operation))
+        if usage is not None:
+            statistic.unmatched_filters = usage.results()
         return statistic
 
     @override
@@ -394,6 +398,10 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def get_tags(self, operation: APIOperation) -> list[str] | None:
+        return None
+
+    @override
+    def get_operation_id(self, operation: APIOperation) -> str | None:
         return None
 
     @override

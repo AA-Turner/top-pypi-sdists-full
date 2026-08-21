@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zodbpickle"
-version = "4.4"
+version = "4.5"
 description = "Fork of Python 3 pickle module"
 keywords = ["zodb", "pickle"]
 dynamic = ["readme"]
@@ -34,6 +34,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Database",
@@ -89,6 +90,8 @@ source = [
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst", "CHANGES.rst"]}
 
+
 [tool.zest-releaser]
 create-wheel = false
+extra-message = ""
 upload-pypi = false
