@@ -33,24 +33,23 @@ from importlib import import_module
 from io import BytesIO, StringIO
 from mimetypes import MimeTypes
 from pathlib import Path
-from typing import AsyncGenerator, Callable, List, Optional, Type, Union
+from typing import AsyncIterator, Callable, List, Optional, Type, Union
 
 import pyrogram
 from pyrogram import __license__, __version__, enums, raw, utils
+from pyrogram.connection.transport.tcp import ProxyDict
 from pyrogram.crypto import aes
 from pyrogram.errors import (
     AuthBytesInvalid,
+    AuthTokenExpired,
     BadRequest,
     CDNFileHashMismatch,
     ChannelPrivate,
-    FloodPremiumWait,
-    FloodWait,
     PersistentTimestampInvalid,
     PersistentTimestampOutdated,
     SessionPasswordNeeded,
     Unauthorized,
     VolumeLocNotFound,
-    AuthTokenExpired
 )
 from pyrogram.handlers.handler import Handler
 from pyrogram.methods import Methods
@@ -117,8 +116,8 @@ class Client(Methods):
             after which the server address will be updated (works both ways).
             Defaults to False (IPv4).
 
-        proxy (``dict`` | ``str``, *optional*):
-            The Proxy settings as dict.
+        proxy (``str`` | ``dict``, *optional*):
+            The Proxy settings as url or dict.
             E.g.: *dict(scheme="socks5", hostname="11.22.33.44", port=1234, username="user", password="pass")*
             or *"http://11.22.33.44:1234"* or *"socks5://user:pass@11.22.33.44:1234"* or *"tg://user:pass@11.22.33.44:1234"*.
             The *username* and *password* can be omitted if the proxy doesn't require authorization.
@@ -288,7 +287,7 @@ class Client(Methods):
         lang_code: str = LANG_CODE,
         system_lang_code: str = SYSTEM_LANG_CODE,
         ipv6: Optional[bool] = False,
-        proxy: Optional[Union[dict, str]] = None,
+        proxy: Optional[Union[str, ProxyDict]] = None,
         test_mode: Optional[bool] = False,
         bot_token: Optional[str] = None,
         session_string: Optional[str] = None,
@@ -409,6 +408,8 @@ class Client(Methods):
         self.disconnect_handler = None
 
         self.me: Optional[User] = None
+
+        self.message_split_ranges: Optional[List["raw.base.MessageRange"]] = None
 
         self.message_cache = Cache(self.max_message_cache_size)
         self.topic_cache = Cache(self.max_topic_cache_size)
@@ -747,7 +748,7 @@ class Client(Methods):
 
         self.parse_mode = parse_mode
 
-    async def fetch_peers(self, peers: List[Union[raw.types.User, raw.types.Chat, raw.types.Channel]]) -> bool:
+    async def fetch_peers(self, peers: List[Union["raw.base.User", "raw.base.Chat"]]) -> bool:
         is_min = False
         parsed_peers = []
         parsed_usernames = []
@@ -787,6 +788,10 @@ class Client(Methods):
                 peer_id = utils.get_channel_id(peer.id)
                 access_hash = peer.access_hash
                 peer_type = "channel" if peer.broadcast else "supergroup"
+            elif isinstance(peer, (raw.types.Community, raw.types.CommunityForbidden)):
+                peer_id = utils.get_channel_id(peer.id)
+                access_hash = peer.access_hash
+                peer_type = "community"
             else:
                 continue
 
@@ -1115,9 +1120,9 @@ class Client(Methods):
         file_size: int = 0,
         limit: int = 0,
         offset: int = 0,
-        progress: Callable = None,
+        progress: Optional[Callable] = None,
         progress_args: tuple = ()
-    ) -> AsyncGenerator[bytes, None]:
+    ) -> AsyncIterator[bytes]:
         async with self.get_file_semaphore:
             file_type = file_id.file_type
 
@@ -1141,7 +1146,10 @@ class Client(Methods):
                 location = raw.types.InputPeerPhotoFileLocation(
                     peer=peer,
                     photo_id=file_id.media_id,
-                    big=file_id.thumbnail_source == ThumbnailSource.CHAT_PHOTO_BIG
+                    big=file_id.thumbnail_source in (
+                        ThumbnailSource.CHAT_PHOTO_BIG,
+                        ThumbnailSource.CHAT_PHOTO_BIG_LEGACY
+                    )
                 )
             elif file_type == FileType.PHOTO:
                 location = raw.types.InputPhotoFileLocation(
@@ -1425,7 +1433,7 @@ class Client(Methods):
 
     async def get_dc_option(
         self,
-        dc_id: int = None,
+        dc_id: Optional[int] = None,
         is_media: bool = False,
         is_cdn: bool = False,
         ipv6: bool = False
@@ -1524,6 +1532,11 @@ class Client(Methods):
         server_ts = msg_id / float(2**32)
         self._server_time_offset = server_ts - time.time()
         log.info(f"Time synced: offset={self._server_time_offset:.3f}s, server_time={utils.timestamp_to_datetime(server_ts)}")
+
+    async def get_message_split_ranges(self) -> List["raw.base.MessageRange"]:
+        if self.message_split_ranges is None:
+            self.message_split_ranges = await self.invoke(raw.functions.messages.GetSplitRanges())
+        return self.message_split_ranges
 
     def guess_mime_type(self, filename: Union[str, BytesIO]) -> Optional[str]:
         if isinstance(filename, BytesIO):

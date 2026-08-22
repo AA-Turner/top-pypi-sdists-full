@@ -97,6 +97,8 @@ from traveltimepy.requests.time_map import (
 from traveltimepy.requests.time_map_fast import (
     TimeMapFastArrivalSearches,
     TimeMapFastRequest,
+    TimeMapFastUnion,
+    TimeMapFastIntersection,
 )
 from traveltimepy.requests.time_map_fast_geojson import TimeMapFastGeojsonRequest
 from traveltimepy.requests.time_map_fast_wkt import TimeMapFastWKTRequest
@@ -369,8 +371,8 @@ class AsyncClient(AsyncBaseClient):
         self,
         arrival_searches: List[TimeMapArrivalSearch],
         departure_searches: List[TimeMapDepartureSearch],
-        unions: List[TimeMapUnion],
-        intersections: List[TimeMapIntersection],
+        unions: Optional[List[TimeMapUnion]] = None,
+        intersections: Optional[List[TimeMapIntersection]] = None,
     ) -> TimeMapResponse:
         """Creates travel time catchment area polygons with specific departure/arrival
         times, transport modes, and support for complex polygon operations.
@@ -489,6 +491,8 @@ class AsyncClient(AsyncBaseClient):
     async def time_map_fast(
         self,
         arrival_searches: TimeMapFastArrivalSearches,
+        unions: Optional[List[TimeMapFastUnion]] = None,
+        intersections: Optional[List[TimeMapFastIntersection]] = None,
     ) -> TimeMapResponse:
         """Generate high-performance travel time isochrones in JSON format.
 
@@ -498,6 +502,8 @@ class AsyncClient(AsyncBaseClient):
         Args:
             arrival_searches: Isochrone search configurations with many_to_one and one_to_many patterns.
                               Max 10 searches total.
+            unions: Union operations combining multiple isochrone results
+            intersections: Intersection operations finding overlapping areas
 
         Returns:
             TimeMapResponse: Polygon coordinates and metadata in JSON format for map visualization and processing.
@@ -506,7 +512,11 @@ class AsyncClient(AsyncBaseClient):
             TimeMapResponse,
             "time-map/fast",
             AcceptType.JSON,
-            TimeMapFastRequest(arrival_searches=arrival_searches),
+            TimeMapFastRequest(
+                arrival_searches=arrival_searches,
+                unions=unions,
+                intersections=intersections,
+            ),
         )
 
     async def time_map_fast_geojson(
@@ -587,8 +597,8 @@ class AsyncClient(AsyncBaseClient):
         departure_searches: List[H3DepartureSearch],
         properties: List[CellProperty],
         resolution: int,
-        unions: List[H3Union],
-        intersections: List[H3Intersection],
+        unions: Optional[List[H3Union]] = None,
+        intersections: Optional[List[H3Intersection]] = None,
     ) -> H3Response:
         """Standard H3 endpoint with comprehensive features including specific
         departure/arrival times, unions, and intersections of search results.
@@ -626,8 +636,8 @@ class AsyncClient(AsyncBaseClient):
         arrival_searches: H3FastArrivalSearches,
         properties: List[CellProperty],
         resolution: int,
-        unions: List[H3FastUnion],
-        intersections: List[H3FastIntersection],
+        unions: Optional[List[H3FastUnion]] = None,
+        intersections: Optional[List[H3FastIntersection]] = None,
     ) -> H3Response:
         """Calculate travel times to H3 cells within travel time catchment areas.
 
@@ -667,8 +677,8 @@ class AsyncClient(AsyncBaseClient):
         departure_searches: List[GeoHashDepartureSearch],
         properties: List[CellProperty],
         resolution: int,
-        unions: List[GeoHashUnion],
-        intersections: List[GeoHashIntersection],
+        unions: Optional[List[GeoHashUnion]] = None,
+        intersections: Optional[List[GeoHashIntersection]] = None,
     ) -> GeoHashResponse:
         """Calculate travel times to geohash cells within travel time catchment areas.
 
@@ -717,8 +727,8 @@ class AsyncClient(AsyncBaseClient):
         arrival_searches: GeoHashFastArrivalSearches,
         properties: List[CellProperty],
         resolution: int,
-        unions: List[GeoHashFastUnion],
-        intersections: List[GeoHashFastIntersection],
+        unions: Optional[List[GeoHashFastUnion]] = None,
+        intersections: Optional[List[GeoHashFastIntersection]] = None,
     ) -> GeoHashResponse:
         """High-performance version of geohash search with fewer configurable parameters
         and more limited geographic coverage. Returns statistical travel time measures
@@ -874,8 +884,8 @@ class AsyncClient(AsyncBaseClient):
         self,
         arrival_searches: List[DistanceMapArrivalSearch],
         departure_searches: List[DistanceMapDepartureSearch],
-        unions: List[DistanceMapUnion],
-        intersections: List[DistanceMapIntersection],
+        unions: Optional[List[DistanceMapUnion]] = None,
+        intersections: Optional[List[DistanceMapIntersection]] = None,
     ) -> TimeMapResponse:
         """Generate distance maps (isodistance polygons) showing areas reachable within
         specified travel distances.

@@ -29,7 +29,8 @@ import uuid
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from bernstein.core.models import (
+from bernstein.core.persistence.store import BaseTaskStore, RoleSummary, StatusSummary
+from bernstein.core.tasks.models import (
     CompletionSignal,
     Complexity,
     RiskAssessment,
@@ -40,11 +41,11 @@ from bernstein.core.models import (
     TaskType,
     UpgradeProposalDetails,
 )
-from bernstein.core.persistence.store import BaseTaskStore, RoleSummary, StatusSummary
 
 if TYPE_CHECKING:
     from bernstein.core.persistence.store_redis import RedisCoordinator
-    from bernstein.core.server import ArchiveRecord, TaskCreate
+    from bernstein.core.server import TaskCreate
+    from bernstein.core.tasks.task_store import ArchiveRecord
 
 _ARCHIVE_INSERT_SQL = """
                 INSERT INTO task_archive
@@ -184,6 +185,13 @@ AND    version = $2
 AND    status  = 'open'
 RETURNING *
 """
+
+# list_tasks() always issues a SQL LIMIT, even when the caller passes none -
+# an omitted limit falls back to this ceiling rather than fetching every
+# matching row. A caller that genuinely needs the full table pages through
+# it by advancing offset in a loop, or passes an explicit limit above the
+# table size.
+_LIST_TASKS_DEFAULT_LIMIT = 500
 
 
 # ---------------------------------------------------------------------------
@@ -684,8 +692,29 @@ class PostgresTaskStore(BaseTaskStore):
         self,
         status: str | None = None,
         cell_id: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[Task]:
-        """Return tasks filtered by status and/or cell_id."""
+        """Return tasks filtered by status and/or cell_id.
+
+        When *status* is ``"open"``, tasks whose dependencies are not all
+        ``DONE`` are excluded (they are not yet claimable).
+
+        Args:
+            status: If provided, only tasks with this status are returned.
+            cell_id: If provided, only tasks in this cell are returned.
+            limit: Return at most this many tasks after filtering, applied as
+                SQL ``LIMIT``. If ``None`` (the default), falls back to
+                ``_LIST_TASKS_DEFAULT_LIMIT`` — the fetch is always bounded, a
+                caller that needs the full table pages through it by
+                advancing ``offset`` in a loop, or passes an explicit limit
+                above the table size.
+            offset: If provided, skip this many tasks after filtering, applied
+                as SQL ``OFFSET``. Combine with ``limit`` for paginated iteration.
+
+        Returns:
+            List of matching tasks.
+        """
         assert self._pool is not None
 
         conditions: list[str] = []
@@ -705,6 +734,16 @@ class PostgresTaskStore(BaseTaskStore):
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         sql = f"SELECT * FROM tasks {where} ORDER BY priority, created_at"
 
+        effective_limit = limit if limit is not None else _LIST_TASKS_DEFAULT_LIMIT
+        sql += f" LIMIT ${param_n}"
+        params.append(effective_limit)
+        param_n += 1
+
+        if offset is not None:
+            sql += f" OFFSET ${param_n}"
+            params.append(offset)
+            param_n += 1
+
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(sql, *params)
             tasks = [_row_to_task(r) for r in rows]
@@ -714,6 +753,54 @@ class PostgresTaskStore(BaseTaskStore):
                 done_ids = {r["id"] for r in done_row}
                 tasks = [t for t in tasks if all(dep in done_ids for dep in t.depends_on)]
         return tasks
+
+    async def count_tasks(
+        self,
+        status: str | None = None,
+        cell_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> int:
+        """Return task count, optionally filtered, issuing SELECT COUNT(*) FROM tasks."""
+        assert self._pool is not None
+
+        conditions: list[str] = []
+        params: list[Any] = []
+        param_n = 1
+
+        if status is not None:
+            conditions.append(f"status = ${param_n}")
+            params.append(status)
+            param_n += 1
+
+        if cell_id is not None:
+            conditions.append(f"cell_id = ${param_n}")
+            params.append(cell_id)
+            param_n += 1
+
+        if tenant_id is not None:
+            conditions.append(f"tenant_id = ${param_n}")
+            params.append(tenant_id)
+            param_n += 1
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+        async with self._pool.acquire() as conn:
+            if status == "open":
+                sql = f"SELECT * FROM tasks {where} ORDER BY priority, created_at"
+                rows = await conn.fetch(sql, *params)
+                done_rows = await conn.fetch("SELECT id FROM tasks WHERE status='done'")
+                done_ids = {r["id"] for r in done_rows}
+                count = 0
+                for r in rows:
+                    raw_deps = r.get("depends_on")
+                    deps = json.loads(raw_deps) if isinstance(raw_deps, str) else (raw_deps or [])
+                    if all(dep in done_ids for dep in deps):
+                        count += 1
+                return count
+
+            sql = f"SELECT COUNT(*) FROM tasks {where}"
+            val = await conn.fetchval(sql, *params)
+            return int(val or 0)
 
     async def get_task(self, task_id: str) -> Task | None:
         """Return a single task by ID."""
@@ -756,7 +843,7 @@ class PostgresTaskStore(BaseTaskStore):
 
     async def read_archive(self, limit: int = 50) -> list[ArchiveRecord]:
         """Return the last *limit* archive records, oldest-first."""
-        from bernstein.core.server import ArchiveRecord as AR
+        from bernstein.core.tasks.task_store import ArchiveRecord as AR
 
         assert self._pool is not None
         async with self._pool.acquire() as conn:

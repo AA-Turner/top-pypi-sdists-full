@@ -350,5 +350,3 @@ def delta_channel_history_from_proto(
         ch: delta_channel_history_entry_from_proto(entry)
         for ch, entry in entries.items()
     }
-
-

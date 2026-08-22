@@ -1202,6 +1202,15 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // unauthenticated like the other directory read surfaces;
                     // excludes the node's own self key.
                     .merge(crate::federation_peers::router(Arc::clone(&engine)))
+                    // CONTACTS + USER CHAT: GET/POST /v1/contacts, POST /v1/chat,
+                    // GET/POST /v1/chat/{community_id}/messages. Owner-gated on
+                    // every arm. It shares the peers projection above (a contact
+                    // IS a peer, rendered by the same card) and adds nothing to
+                    // the substrate: a contact is a `consent:replication:v1`
+                    // grant, a chat is a two-member `Community` under a derived
+                    // id, and a message is a `chat:message:v1` attestation at
+                    // `cohort_scope: community`. See `crate::contacts_chat`.
+                    .merge(crate::contacts_chat::router(Arc::clone(&engine)))
                     // THE AGENT-COMPAT FEDERATION EDGE SURFACE (CIRISServer#261):
                     // GET /v1/federation/identity + /metrics, POST
                     // /v1/federation/content/{content_id}, and the SSE bridge
@@ -3063,6 +3072,39 @@ pub(crate) fn build_replication_peers(
                     peer_key_id: p.clone(),
                     kind: EnvelopeKind::TransportDestination,
                 },
+                // THE COMMUNITY PLANE — the roster, and its removals.
+                //
+                // A `cohort_scope: community` row is only readable by members,
+                // and membership is decided by the ROSTER: the receiving node
+                // runs the same §4.3 predicate we do, resolving the caller's
+                // communities from `federation_communities`. Without a round for
+                // this kind the roster never crosses, so the far side has no
+                // community to be a member OF — every message it receives is
+                // scoped to a cohort it cannot see, and one-sided initiation
+                // (the common case: one person opens the chat) cannot work at
+                // all. The room existed on exactly one node.
+                //
+                // Structural plane, so this needs no consent-object change:
+                // `consent_transferability(Community)` is `StructuralPlane`, not
+                // `Consentable` — naming it in a grant's `payload.kinds` is
+                // REFUSED. It rides beside Key / IdentityOccurrence /
+                // TransportDestination, which are structural for the same reason.
+                ReplicationPeer {
+                    peer_key_id: p.clone(),
+                    kind: EnvelopeKind::Community,
+                },
+                // Its REMOVAL primitive, wired with it deliberately. The roster
+                // is append-only; effective membership is
+                // `admitted AND NOT revoked`, and `active_community_members`
+                // composes the two. Shipping the admissions without the
+                // revocations would replicate a roster that can only ever GROW
+                // on the far side — a removed member would keep passing
+                // `require_member` there forever, which is the failure the
+                // forward-secrecy primitive exists to prevent.
+                ReplicationPeer {
+                    peer_key_id: p.clone(),
+                    kind: EnvelopeKind::CommunityMembershipRevocation,
+                },
             ]
         })
         .collect()
@@ -3201,9 +3243,49 @@ pub(crate) async fn start_replication_runtime(
     // TransportDestination — resolved by namespace/cohort_scope from persist's registry
     // (v15.1.0) rather than a hand-wired list_* + selector per object type. `None` would
     // preserve the pre-selector cohort projection; we publish our own.
-    let own_key_id = node_key_id.to_string();
-    let self_provider: ciris_edge::replication::CohortProvider =
-        Arc::new(move || vec![own_key_id.clone()]);
+    // CIRISServer#472 arc — the publish-own set names the node AND ITS OWNER.
+    //
+    // Self-projected planes are PUBLISHED-OWN: edge advertises a `self`-scoped
+    // row only when its attester is in this provider's set. The owner-binding
+    // `delegates_to(user → node)` and the owner's occurrence rows are attested
+    // by the USER key — with only the node key here, every node kept its
+    // owner's records to itself, and every person→node resolution walk on
+    // every OTHER node starved (measured: after three ladder fixes the binding
+    // still never crossed; this was the last door). The owner is resolved at
+    // runtime (claiming happens after boot) by the updater task below, through
+    // persist's withdraws-aware owner_of.
+    let self_publish_keys: Arc<std::sync::RwLock<Vec<String>>> =
+        Arc::new(std::sync::RwLock::new(vec![node_key_id.to_string()]));
+    let self_provider: ciris_edge::replication::CohortProvider = {
+        let keys = Arc::clone(&self_publish_keys);
+        Arc::new(move || keys.read().expect("self_publish_keys poisoned").clone())
+    };
+    tokio::spawn({
+        let engine = Arc::clone(engine);
+        let keys = Arc::clone(&self_publish_keys);
+        let node = node_key_id.to_string();
+        async move {
+            // Detached by design: it only reads the directory and updates a
+            // Vec; on shutdown the runtime drop aborts it mid-sleep. Re-checks
+            // every 30s so a claim (or a re-rooted ownership) is picked up
+            // without a restart, and an owner it has already added is a no-op.
+            loop {
+                if let Ok(Some(owner)) = engine.owner_of(&node).await {
+                    let mut w = keys.write().expect("self_publish_keys poisoned");
+                    if !w.contains(&owner) {
+                        tracing::info!(
+                            owner = %owner,
+                            "publish-own set gains this node's OWNER — their \
+                             self-plane rows (owner-binding, occurrences) now \
+                             advertise to consent peers (CIRISServer#472 arc)"
+                        );
+                        w.push(owner);
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+        }
+    });
 
     // CIRISEdge#370 — wire the Edge's metrics handle into the runtime so the
     // scheduler routes per-round RoundEvents into the round-outcome counter

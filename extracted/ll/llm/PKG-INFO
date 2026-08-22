@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm
-Version: 0.32
+Version: 0.32.1
 Summary: CLI utility and Python library for interacting with Large Language Models from organizations like OpenAI, Anthropic and Gemini plus local models installed on your own machine.
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -27,7 +27,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click
 Requires-Dist: condense-json>=1.1
-Requires-Dist: openai>=2.32.0
+Requires-Dist: openai<3,>=2.32.0
 Requires-Dist: click-default-group>=1.2.3
 Requires-Dist: sqlite-utils>=4.0
 Requires-Dist: pydantic>=2.0.0

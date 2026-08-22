@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: render_sdk
-Version: 0.8.0
-Summary: Python SDK for Render Workflows
+Version: 1.0.1
+Summary: Compatibility shim for the renamed 'render' package. Install 'render' instead.
 Author-email: Render <support@render.com>
 License-File: LICENSE
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -15,12 +15,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
-Requires-Dist: aiohttp<4,>=3.12.14
-Requires-Dist: attrs>=23.2.0
-Requires-Dist: httpx<0.29,>=0.28.1
-Requires-Dist: python-dateutil<3,>=2.8.2
+Requires-Dist: render==1.0.1
 Provides-Extra: key-value
-Requires-Dist: redis>=4.2.0; extra == 'key-value'
+Requires-Dist: render[key-value]==1.0.1; extra == 'key-value'
 Description-Content-Type: text/markdown
 
 # Render SDK for Python
@@ -39,31 +36,44 @@ pip install render_sdk
 
 ### Defining Tasks
 
-Use the `Workflows` class to define and register tasks:
+Use the `Workflows` class to define and register tasks. Every task takes a
+`TaskContext` as its first parameter, followed by its inputs:
 
 ```python
-from render_sdk import Workflows
+from render_sdk import TaskContext, Workflows
 
 app = Workflows()
 
 @app.task
-def square(a: int) -> int:
+def square(ctx: TaskContext, a: int) -> int:
     """Square a number."""
     return a * a
 
 
 @app.task
-async def add_squares(a: int, b: int) -> int:
+async def add_squares(ctx: TaskContext, a: int, b: int) -> int:
     """Add the squares of two numbers."""
-    result1 = await square(a)
-    result2 = await square(b)
+    # .run runs the task on its own compute
+    result1 = await ctx.run(square, a)
+    result2 = await ctx.run(square, b)
     return result1 + result2
+```
+
+Run several tasks at once with `asyncio.gather`:
+
+```python
+import asyncio
+
+@app.task
+async def sum_squares(ctx: TaskContext, values: list[int]) -> int:
+    squares = await asyncio.gather(*(ctx.run(square, v) for v in values))
+    return sum(squares)
 ```
 
 You can also specify task parameters like `retry`, `timeout`, and `plan`:
 
 ```python
-from render_sdk import Retry, Workflows
+from render_sdk import Retry, TaskContext, Workflows
 
 app = Workflows(
     default_retry=Retry(max_retries=3, wait_duration_ms=1000),
@@ -72,11 +82,11 @@ app = Workflows(
 )
 
 @app.task(timeout=60, plan="starter")
-def quick_task(x: int) -> int:
+def quick_task(ctx: TaskContext, x: int) -> int:
     return x + 1
 
 @app.task(retry=Retry(max_retries=5, wait_duration_ms=2000, backoff_scaling=2.0))
-def retryable_task(x: int) -> int:
+def retryable_task(ctx: TaskContext, x: int) -> int:
     return x * 2
 ```
 

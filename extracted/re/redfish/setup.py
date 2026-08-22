@@ -12,7 +12,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='redfish',
-      version='3.3.8',
+      version='3.3.9',
       description='Redfish Python Library',
       long_description=long_description,
       long_description_content_type='text/x-rst',
@@ -36,6 +36,11 @@ setup(name='redfish',
           'requests-unixsocket'
       ],
       extras_require={
+          'aiohttp': [
+              'aiohttp>=3.9.0',
+              'multidict>=4.5',
+              'yarl>=1.0'
+          ],
           ':python_version == "3.4"': [
               'jsonpatch<=1.24'
           ],

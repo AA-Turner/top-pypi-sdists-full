@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from pyqwest import ReadError, SyncClient, SyncRequest, SyncResponse
-from pyqwest.middleware.retry import SyncRetryTransport
+from pyqwest import ReadError, SyncClient, SyncRequest, SyncResponse, SyncTransport
+from pyqwest.middleware.retry import RetryMode, SyncRetryTransport
 from pyqwest.testing import WSGITransport
 
 if TYPE_CHECKING:
@@ -63,6 +63,21 @@ class App:
         return [b""]
 
 
+class ConfiguredRetryTransport(SyncRetryTransport):
+    def __init__(self, transport: SyncTransport, mode: bool | RetryMode) -> None:
+        self._mode = mode
+        super().__init__(
+            transport,
+            initial_interval=0.01,
+            randomization_factor=0.0,
+            multiplier=3.0,
+            max_interval=0.05,
+        )
+
+    def should_retry_request(self, request: SyncRequest) -> bool | RetryMode:
+        return self._mode
+
+
 @pytest.fixture
 def app():
     return App()
@@ -87,6 +102,25 @@ def assert_duration_at_least(start: float, end: float, expected: float) -> None:
         return
     duration = end - start
     assert duration >= expected, f"Duration {duration} is less than expected {expected}"
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("GET", RetryMode.BUFFERED),
+        ("HEAD", RetryMode.BUFFERED),
+        ("PUT", RetryMode.BUFFERED),
+        ("DELETE", RetryMode.BUFFERED),
+        ("POST", RetryMode.UNBUFFERED),
+    ],
+)
+def test_default_retry_mode(app: App, method: str, expected: RetryMode) -> None:
+    assert (
+        SyncRetryTransport(WSGITransport(app)).should_retry_request(
+            SyncRequest(method, "http://localhost")
+        )
+        is expected
+    )
 
 
 def test_success(app: App, client: SyncClient) -> None:
@@ -172,6 +206,119 @@ def test_retry_content_iterator(app: App, client: SyncClient) -> None:
     assert res.status == 200
     assert app.count == 2
     assert app.read_content == b"Hello world!"
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_status", "expected_count"),
+    [(True, 200, 2), (RetryMode.BUFFERED, 200, 2), (False, 500, 1)],
+)
+def test_buffered_retry_mode(
+    app: App, mode: bool | RetryMode, expected_status: int, expected_count: int
+) -> None:
+    app.status = [500, 200]
+
+    def content():
+        yield b"Hello world!"
+
+    client = SyncClient(ConfiguredRetryTransport(WSGITransport(app), mode))
+    with client.stream("PUT", "http://localhost", content=content()) as res:
+        assert res.status == expected_status
+    assert app.count == expected_count
+    assert app.read_content == b"Hello world!"
+
+
+def test_unbuffered_bytes(app: App) -> None:
+    app.status = [500, 200]
+    client = SyncClient(
+        ConfiguredRetryTransport(WSGITransport(app), RetryMode.UNBUFFERED)
+    )
+    with client.stream("PUT", "http://localhost", content=b"Hello world!") as res:
+        assert res.status == 200
+    assert app.count == 2
+    assert app.read_content == b"Hello world!"
+
+
+def test_unbuffered_bytes_io_errors(app: App) -> None:
+    app.timeouts = 1
+    client = SyncClient(
+        ConfiguredRetryTransport(WSGITransport(app), RetryMode.UNBUFFERED)
+    )
+    with client.stream("PUT", "http://localhost", content=b"Hello world!") as res:
+        assert res.status == 200
+    assert app.count == 2
+    assert app.read_content == b"Hello world!"
+
+
+def test_unbuffered_stream_connection_error(app: App) -> None:
+    closed = False
+
+    def content():
+        nonlocal closed
+        try:
+            yield b"Hello world!"
+        finally:
+            closed = True
+
+    app.status = [500, 200]
+    client = SyncClient(
+        ConfiguredRetryTransport(WSGITransport(app), RetryMode.UNBUFFERED)
+    )
+    with client.stream("PUT", "http://localhost", content=content()) as res:
+        assert res.status == 500
+    assert app.count == 1
+    assert app.read_content == b"Hello world!"
+    assert closed
+
+
+def test_unread_unbuffered_stream_closed() -> None:
+    class Content:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def __iter__(self) -> Content:
+            return self
+
+        def __next__(self) -> bytes:
+            return b"Hello world!"
+
+        def close(self) -> None:
+            self.closed = True
+
+    def app(
+        _environ: WSGIEnvironment, start_response: StartResponse
+    ) -> Iterable[bytes]:
+        start_response("200 OK", [])
+        return []
+
+    content = Content()
+    client = SyncClient(
+        ConfiguredRetryTransport(WSGITransport(app), RetryMode.UNBUFFERED)
+    )
+    with client.stream("PUT", "http://localhost", content=content) as res:
+        assert res.status == 200
+    assert content.closed
+
+
+def test_connection_error_after_response() -> None:
+    class Transport(SyncTransport):
+        def __init__(self) -> None:
+            self.count = 0
+
+        def execute_sync(self, request: SyncRequest) -> SyncResponse:
+            self.count += 1
+            if self.count == 1:
+                return SyncResponse(status=500, content=b"")
+            if self.count == 2:
+                raise ConnectionError
+            return SyncResponse(status=200, content=b"")
+
+    transport = Transport()
+    client = SyncClient(
+        SyncRetryTransport(transport, initial_interval=0.0, randomization_factor=0.0)
+    )
+    with client.stream("GET", "http://localhost") as res:
+        assert res.status == 200
+    assert transport.count == 3
 
 
 def test_retry_timeout(app: App, client: SyncClient) -> None:

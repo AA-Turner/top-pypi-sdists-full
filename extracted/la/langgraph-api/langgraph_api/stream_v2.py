@@ -180,7 +180,7 @@ async def astream_state_v2(
     """
     # ``langgraph.stream._types`` is alpha-only; ``capabilities.py``
     # rejects v2 runs on older langgraph before this branch fires.
-    from langgraph.stream._types import (  # noqa: PLC0415  # ty: ignore[unresolved-import]
+    from langgraph.stream._types import (  # noqa: PLC0415
         StreamTransformer,
     )
 
@@ -229,7 +229,7 @@ async def astream_state_v2(
     # ``version="v3"`` and the awaitable return are alpha-only;
     # ``capabilities.py`` gates the v3 path at runtime so older
     # langgraph never reaches this call.
-    run_stream = await graph.astream_events(  # ty: ignore[invalid-await]
+    run_stream = await graph.astream_events(
         input,
         config,
         version="v3",

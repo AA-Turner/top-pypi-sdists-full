@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: agent-framework-ag-ui
-Version: 1.1.0
+Version: 1.2.0
 Summary: AG-UI protocol integration for Agent Framework
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
@@ -19,11 +19,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.19
-Requires-Dist: agent-framework-core<2,>=1.14.0
+Requires-Dist: agent-framework-core<2,>=1.15.0
 Requires-Dist: fastapi<0.140.0,>=0.121.0
 Requires-Dist: httpx<1,>=0.28.1
 Requires-Dist: sse-starlette<4,>=3.4.5
 Requires-Dist: uvicorn[standard]<1,>=0.30.0
+Provides-Extra: a2ui
+Requires-Dist: ag-ui-a2ui-toolkit>=0.0.4; extra == 'a2ui'
 Provides-Extra: dev
 Requires-Dist: pytest==9.1.1; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -342,6 +344,22 @@ The `dependencies` parameter accepts any FastAPI dependency, enabling integratio
 - **Custom Authentication** - Implement your organization's auth requirements
 
 For a complete authentication example, see [getting_started/server.py](getting_started/server.py).
+
+### Conversation and Tool Result Trust
+
+In the default stateless mode, the AG-UI client sends the conversation history for each run. Treat that history as
+untrusted input, including client-supplied `assistant` tool calls and `tool` results. A historical tool result is not
+proof that the server emitted the matching call or executed the named backend tool.
+
+Do not use conversation history, tool results, or the model's decision to call a tool as an authorization,
+entitlement, approval, or policy signal. Enforce security decisions deterministically in authenticated server code,
+such as endpoint dependencies, tool middleware, or the server-validated human-in-the-loop approval flow. Tool
+implementations must also authorize the current principal before accessing protected data or performing sensitive
+actions.
+
+For applications that need server-authoritative thread history, configure scoped AG-UI Thread Snapshots. Snapshot
+mode only accepts user turns and results for backend-issued tool calls when extending stored history. It complements
+endpoint authentication and authorization; it does not replace them.
 
 ## AG-UI Thread Snapshots
 

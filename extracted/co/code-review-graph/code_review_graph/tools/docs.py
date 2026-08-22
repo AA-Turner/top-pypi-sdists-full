@@ -8,9 +8,17 @@ from typing import Any
 
 from ..embeddings import EmbeddingStore, embed_all_nodes
 from ..incremental import find_project_root, get_db_path
-from ._common import _get_store, _resolve_root, _validate_repo_root
+from ._common import (
+    _get_store,
+    _resolve_root,
+    _validate_positive_int,
+    _validate_repo_root,
+)
 
 logger = logging.getLogger(__name__)
+
+# Hard ceiling for a single wiki page in one MCP response (~20k tokens).
+_MAX_WIKI_CHARS = 80000
 
 # ---------------------------------------------------------------------------
 # Tool 7: embed_graph
@@ -25,9 +33,11 @@ def embed_graph(
     """Compute vector embeddings for all graph nodes to enable semantic search.
 
     Requires: ``pip install code-review-graph[embeddings]`` (local provider only;
-    cloud providers like ``openai`` / ``google`` / ``minimax`` use stdlib ``urllib``).
+    cloud providers like ``openai`` / ``google`` / ``minimax`` / ``voyage`` use
+    stdlib ``urllib``).
     Default model: all-MiniLM-L6-v2. Override via ``model`` param or
-    CRG_EMBEDDING_MODEL env var.
+    provider-specific env vars such as CRG_EMBEDDING_MODEL, CRG_OPENAI_MODEL, or
+    CRG_VOYAGE_MODEL.
     Changing the model or provider re-embeds all nodes automatically.
 
     Only embeds nodes that don't already have up-to-date embeddings.
@@ -36,13 +46,17 @@ def embed_graph(
         repo_root: Repository root path. Auto-detected if omitted.
         model: Embedding model name. For local: HuggingFace ID or path;
                for openai: model ID (e.g. ``text-embedding-3-small``);
-               for google: Gemini model ID. Falls back to
-               CRG_EMBEDDING_MODEL / CRG_OPENAI_MODEL env vars as appropriate.
+               for google: Gemini model ID; for voyage: Voyage model ID
+               (e.g. ``voyage-code-3``). Falls back to CRG_EMBEDDING_MODEL /
+               CRG_OPENAI_MODEL / CRG_VOYAGE_MODEL env vars as appropriate.
         provider: Provider name: ``local`` (default), ``openai``, ``google``,
-                  or ``minimax``. ``openai`` requires CRG_OPENAI_BASE_URL +
+                  ``minimax``, or ``voyage``. ``openai`` requires CRG_OPENAI_BASE_URL +
                   CRG_OPENAI_API_KEY + CRG_OPENAI_MODEL env vars and accepts
                   any OpenAI-compatible endpoint (real OpenAI, Azure, new-api,
                   LiteLLM, vLLM, LocalAI, Ollama openai-mode, etc.).
+                  ``voyage`` requires VOYAGE_API_KEY and defaults to
+                  voyage-code-3 unless a model arg or CRG_VOYAGE_MODEL is
+                  supplied.
 
     Returns:
         Number of nodes embedded and total embedding count.
@@ -59,7 +73,7 @@ def embed_graph(
             return {"status": "error", "error": str(exc)}
         try:
             if not emb_store.available:
-                if provider in ("openai", "google", "minimax"):
+                if provider in ("openai", "google", "minimax", "voyage"):
                     err = (
                         f"The '{provider}' embedding provider is not available. "
                         "Check the required environment variables "
@@ -70,7 +84,8 @@ def embed_graph(
                     err = (
                         "The local embedding provider needs sentence-transformers. "
                         "Install with: pip install code-review-graph[embeddings] — "
-                        "or switch provider to 'openai' / 'google' / 'minimax'."
+                        "or switch provider to 'openai' / 'google' / 'minimax' "
+                        "/ 'voyage'."
                     )
                 return {"status": "error", "error": err}
 
@@ -242,6 +257,7 @@ def generate_wiki_func(
 def get_wiki_page_func(
     community_name: str,
     repo_root: str | None = None,
+    max_chars: int = 20000,
 ) -> dict[str, Any]:
     """Retrieve a specific wiki page by community name.
 
@@ -251,12 +267,18 @@ def get_wiki_page_func(
     Args:
         community_name: Community name to look up (slugified for filename).
         repo_root: Repository root path. Auto-detected if omitted.
+        max_chars: Maximum characters of page content to return (default
+            20000, capped at 80000). A wiki page grows with its community,
+            so a 3000-member community produces a page no context window
+            wants in one call. ``total_chars`` reports the real length.
 
     Returns:
-        Page content or not_found status.
+        Page content or not_found status, with ``truncated`` when cut.
     """
     from ..incremental import get_data_dir
     from ..wiki import get_wiki_page
+
+    _validate_positive_int(max_chars, "max_chars")
 
     root = _resolve_root(repo_root)
     wiki_dir = get_data_dir(root) / "wiki"
@@ -266,10 +288,16 @@ def get_wiki_page_func(
             "status": "not_found",
             "summary": f"No wiki page found for '{community_name}'.",
         }
+    total_chars = len(content)
+    limit = min(max_chars, _MAX_WIKI_CHARS)
+    truncated = total_chars > limit
     return {
         "status": "ok",
         "summary": (
-            f"Wiki page for '{community_name}' ({len(content)} chars)"
+            f"Wiki page for '{community_name}' ({total_chars} chars)"
+            + (f", showing first {limit}" if truncated else "")
         ),
-        "content": content,
+        "content": content[:limit],
+        "total_chars": total_chars,
+        "truncated": truncated,
     }

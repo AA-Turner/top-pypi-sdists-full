@@ -7,7 +7,7 @@ import os
 import site
 import sys
 from pkgutil import resolve_name
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from setuptools import Command
 
@@ -16,6 +16,10 @@ from cx_Freeze.common import normalize_to_list
 from cx_Freeze.exception import OptionError, SetupError
 from cx_Freeze.freezer import Freezer
 from cx_Freeze.module import ConstantsModule
+
+if TYPE_CHECKING:
+    from cx_Freeze._typing import StrPath
+    from cx_Freeze.executable import Executable
 
 __all__ = ["build_exe"]
 
@@ -121,7 +125,8 @@ class build_exe(Command):
             "optimize=",
             "O",
             'optimization level: -O1 for "python -O", '
-            '-O2 for "python -OO" and -O0 to disable [default: -O0]',
+            '-O2 for "python -OO" and -O0 to disable '
+            f"[default: -O{sys.flags.optimize}]",
         ),
         (
             "silent",
@@ -160,16 +165,18 @@ class build_exe(Command):
         "silent",
     ]
 
-    def add_to_path(self, name) -> None:
+    def add_to_path(self, name: str) -> None:
         source_dir = getattr(self, name.lower())
         if source_dir is not None:
             sys.path.insert(0, source_dir)
 
-    def build_extension(self, name, module_name=None) -> str | None:
+    def build_extension(
+        self, name: str, module_name: str | None = None
+    ) -> str | None:
         # XXX: This method, add_to_path and set_source_location can be deleted?
         if module_name is None:
             module_name = name
-        source_dir = getattr(self, name.lower())
+        source_dir = getattr(self, name.lower(), None)
         if source_dir is None:
             return None
         orig_dir = os.getcwd()
@@ -219,16 +226,27 @@ class build_exe(Command):
             "zip_exclude_packages",
             "zip_include_packages",
         ]
-        for option in self.list_options:
-            setattr(self, option, [])
+        self.excludes = []
+        self.includes = []
+        self.packages = []
+        self.replace_paths = []
+        self.constants = []
+        self.include_files = []
+        self.include_path = []
+        self.bin_excludes = []
+        self.bin_includes = []
+        self.bin_path_excludes = []
+        self.bin_path_includes = []
+        self.zip_includes = []
         self.zip_exclude_packages = ["*"]
+        self.zip_include_packages = []
 
         self.build_exe = None
         self.include_msvcr = None
         self.include_msvcr_version = None
         self.no_compress = False
-        self.optimize = 0
-        self.path = None
+        self.optimize = sys.flags.optimize
+        self.path: list[str] = []
         self.silent = None
         self.silent_level = None
         self.zip_filename = None
@@ -260,7 +278,7 @@ class build_exe(Command):
         # path options
         if self.path and isinstance(self.path, str):
             # accepts os.pathsep to be backwards compatible with CLI
-            self.path = self.path.replace(os.pathsep, ",")
+            self.path = normalize_to_list(self.path.replace(os.pathsep, ","))
         include_path = self.include_path
         if include_path:
             cur_path = normalize_to_list(self.path or sys.path)
@@ -299,13 +317,15 @@ class build_exe(Command):
             self.include_msvcr = False
 
         # optimization level: 0,1,2
-        self.optimize = int(self.optimize or 0)
+        self.optimize = int(self.optimize or sys.flags.optimize)
 
     def run(self) -> None:
         # Update the package metadata
         self.run_command("egg_info")
 
-        executables = self.distribution.executables
+        executables: list[Executable] = getattr(
+            self.distribution, "executables", []
+        )
         metadata = self.distribution.metadata
         constants_module = ConstantsModule(
             metadata.version,
@@ -316,14 +336,14 @@ class build_exe(Command):
         freezer: Freezer = Freezer(
             executables,
             constants_module,
-            self.includes,
-            self.excludes,
-            self.packages,
-            self.replace_paths,
-            (not self.no_compress),
-            self.optimize,
-            self.path,
-            self.build_exe,
+            includes=self.includes,
+            excludes=self.excludes,
+            packages=self.packages,
+            replace_paths=self.replace_paths,
+            compress=(not self.no_compress),
+            optimize=self.optimize,
+            path=cast("list[StrPath]", self.path),
+            target_dir=self.build_exe,
             bin_includes=self.bin_includes,
             bin_excludes=self.bin_excludes,
             bin_path_includes=self.bin_path_includes,
@@ -332,9 +352,9 @@ class build_exe(Command):
             zip_includes=self.zip_includes,
             zip_include_packages=self.zip_include_packages,
             zip_exclude_packages=self.zip_exclude_packages,
-            silent=self.silent,
+            silent=self.silent or 0,
             metadata=metadata,
-            include_msvcr=self.include_msvcr,
+            include_msvcr=self.include_msvcr or False,
             include_msvcr_version=self.include_msvcr_version,
             zip_filename=self.zip_filename,
         )
@@ -342,15 +362,15 @@ class build_exe(Command):
         freezer.freeze()
         freezer.print_report()
 
-    def set_source_location(self, name, *pathParts) -> None:
+    def set_source_location(self, name: str, *path_parts: str) -> None:
         env_name = f"{name.upper()}_BASE"
         attr_name = name.lower()
-        source_dir = getattr(self, attr_name)
+        source_dir = getattr(self, attr_name, None)
         if source_dir is None:
             base_dir = os.environ.get(env_name)
             if base_dir is None:
                 return
-            source_dir = os.path.join(base_dir, *pathParts)
+            source_dir = os.path.join(base_dir, *path_parts)
             if os.path.isdir(source_dir):
                 setattr(self, attr_name, source_dir)
 

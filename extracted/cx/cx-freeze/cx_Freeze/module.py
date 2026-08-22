@@ -3,190 +3,29 @@
 from __future__ import annotations
 
 import ast
-import re
 import socket
 from contextlib import suppress
 from datetime import datetime, timezone
 from functools import cached_property, partial
-from importlib import metadata
 from importlib.machinery import EXTENSION_SUFFIXES
 from keyword import iskeyword
 from pathlib import Path
 from pkgutil import resolve_name
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
-from packaging.requirements import Requirement
-
-from cx_Freeze._compat import IS_MACOS, IS_MINGW, IS_WINDOWS
+from cx_Freeze._compat import IS_MACOS
+from cx_Freeze._metadata import DistributionCache
 from cx_Freeze.exception import ModuleError, OptionError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
+    from importlib.abc import Loader
     from types import CodeType
 
-__all__ = ["ConstantsModule", "DistributionCache", "Module", "ModuleHook"]
+    from cx_Freeze._typing import StrPath
+    from cx_Freeze.finder import ModuleFinder
 
-
-class DistributionCache(metadata.PathDistribution):
-    """Cache the distribution package."""
-
-    def __init__(self, cache_path: Path, name: str) -> None:
-        """Construct a distribution.
-
-        :param cache_path: Path indicating where to store the cache.
-        :param name: The name of the distribution package to cache.
-        :raises ModuleError: When the named package's distribution
-            metadata cannot be found.
-        """
-        try:
-            distribution = metadata.PathDistribution.from_name(name)
-        except metadata.PackageNotFoundError:
-            distribution = None
-        if distribution is None:
-            raise ModuleError(name)
-        self.original = distribution
-
-        # Cache dist-info files in a temporary directory
-        normalized_name = self.normalized_name
-        source_path = getattr(distribution, "_path", None)
-        if source_path is None:
-            mask = f"{normalized_name}-{distribution.version}.*-info"
-            dist_path = list(distribution.locate_file(".").glob(mask))
-            if not dist_path:
-                mask = f"{name}-{distribution.version}.*-info"
-                dist_path = list(distribution.locate_file(".").glob(mask))
-            if dist_path:
-                source_path = dist_path[0]
-        if source_path is None or not source_path.exists():
-            raise ModuleError(name)
-
-        dist_name = f"{normalized_name}-{distribution.version}.dist-info"
-        target_path = cache_path / dist_name
-        super().__init__(target_path)
-        self.distinfo_name = dist_name
-        if target_path.exists():  # already cached
-            return
-
-        # Copy data from dist-info directory or create it.
-        target_path.mkdir(parents=True)
-        purelib = None
-        if source_path.name.endswith(".dist-info"):
-            for source in source_path.rglob("*"):  # type: Path
-                target = target_path / source.relative_to(source_path)
-                if source.is_dir():
-                    target.mkdir(exist_ok=True)
-                else:
-                    target.write_bytes(source.read_bytes())
-        elif source_path.is_file():
-            # old egg-info file is converted to dist-info
-            target = target_path / "METADATA"
-            target.write_bytes(source_path.read_bytes())
-            purelib = (source_path.parent / (normalized_name + ".py")).exists()
-        else:
-            # Copy minimal data from egg-info directory into dist-info
-            source = source_path / "PKG-INFO"
-            if source.is_file():
-                target = target_path / "METADATA"
-                target.write_bytes(source.read_bytes())
-            source = source_path / "entry_points.txt"
-            if source.is_file():
-                target = target_path / "entry_points.txt"
-                target.write_bytes(source.read_bytes())
-            source = source_path / "top_level.txt"
-            if source.is_file():
-                target = target_path / "top_level.txt"
-                target.write_bytes(source.read_bytes())
-            purelib = not source_path.joinpath("not-zip-safe").is_file()
-
-        self._write_wheel_distinfo(purelib)
-        self._write_record_distinfo()
-
-    @property
-    def name(self) -> str:
-        return self.original.metadata["Name"]
-
-    @property
-    def normalized_name(self) -> str:
-        normalized_name = getattr(self.original, "_normalized_name", None)
-        if normalized_name is None:
-            normalized_name = metadata.Prepared.normalize(self.name)
-        return normalized_name
-
-    def _write_wheel_distinfo(self, purelib: bool) -> None:
-        """Create a WHEEL file if it doesn't exist."""
-        target = self.locate_file(f"{self.distinfo_name}/WHEEL")
-        if not target.exists():
-            project = Path(__file__).parent.name  # cx_Freeze
-            version = metadata.version(project)
-            root_is_purelib = "true" if purelib else "false"
-            text = [
-                "Wheel-Version: 1.0",
-                f"Generator: {project} ({version})",
-                f"Root-Is-Purelib: {root_is_purelib}",
-                "Tag: py3-none-any",
-            ]
-            with target.open(mode="w", encoding="utf_8", newline="") as file:
-                file.write("\n".join(text))
-
-    def _write_record_distinfo(self) -> None:
-        """Recreate a minimal RECORD file."""
-        distinfo_name = self.distinfo_name
-        target = self.locate_file(f"{distinfo_name}/RECORD")
-        target_dir = target.parent
-        record = [
-            f"{distinfo_name}/{file.name},," for file in target_dir.iterdir()
-        ]
-        record.append(f"{distinfo_name}/RECORD,,")
-        with target.open(mode="w", encoding="utf_8", newline="") as file:
-            file.write("\n".join(record))
-
-    @property
-    def binary_files(self) -> list[metadata.PackagePath]:
-        """Return the binary files included in the package."""
-        files = self.original.files or []
-
-        if IS_MINGW or IS_WINDOWS:
-            # all .dll's
-            return [file for file in files if file.suffix.lower() == ".dll"]
-
-        # Linux and macOS
-        extensions = tuple([ext for ext in EXTENSION_SUFFIXES if ext != ".so"])
-        # all .so* or .dylib as long as it is not a python extension
-        return [
-            file
-            for file in files
-            if (file.match("*.so*") or file.match("*.dylib"))
-            and not file.name.endswith(extensions)
-        ]
-
-    @property
-    def installer(self) -> str:
-        """Return the installer (pip, conda) for the distribution package."""
-        # consider 'uv' as 'pip'
-        value = self.read_text("INSTALLER") or "pip"
-        return value.splitlines()[0].replace("uv", "pip")
-
-    @property
-    def requires(self) -> list[str]:
-        """Generated requirements specified for this Distribution."""
-        package_names = []
-        requires = super().requires
-        if requires:
-            for requirement_string in requires:
-                require = Requirement(requirement_string)
-                if require.marker is None or require.marker.evaluate():
-                    package_names.append(require.name)
-        return package_names
-
-    @property
-    def version(self) -> tuple[int, ...]:
-        """Return the 'Version' metadata for the distribution package."""
-        version_separators = re.compile(r"[\._-]")
-        version_value = super().version or ""
-        return tuple(
-            part.lower() if not part.isdigit() else int(part)
-            for part in version_separators.split(version_value)
-        )
+__all__ = ["ConstantsModule", "Module", "ModuleHook"]
 
 
 class Module:
@@ -195,8 +34,8 @@ class Module:
     def __init__(
         self,
         name: str,
-        path: Sequence[Path | str] | None = None,
-        filename: Path | str | None = None,
+        path: Sequence[StrPath] | None = None,
+        filename: StrPath | None = None,
         parent: Module | None = None,
     ) -> None:
         self.name: str = name
@@ -206,17 +45,20 @@ class Module:
         self.root: Module = parent.root if parent else self
 
         self.code: CodeType | None = None
-        self.cache_path: Path | None = None
+        self.finder: ModuleFinder | None = None
         self.distribution: DistributionCache | None = None
+        self.error_exc: BaseException | None = None
+        self.error_msg: str | None = None
         self.hook: ModuleHook | Callable | None = None
         self.lazy: bool = False
+        self.loader: Loader | None = None
 
         self.exclude_names: set[str] = set()
         self.global_names: set[str] = set()
         self.ignore_names: set[str] = set()
         self.in_import: bool = True
         self.source_is_zip_file: bool = False
-        self._in_file_system: int = 1
+        self._in_file_system: Literal[0, 1, 2] = 1
         # add the load hook
         self.load_hook()
 
@@ -239,21 +81,23 @@ class Module:
         return self._file
 
     @file.setter
-    def file(self, filename: Path | str | None) -> None:
+    def file(self, filename: StrPath | None) -> None:
         self._file = self._file_validate(filename)
 
-    def _file_validate(self, filename: Path | str | None) -> Path | None:
-        if "stub_code" in self.__dict__:
-            del self.__dict__["stub_code"]  # clear the cache
+    def _file_validate(self, filename: StrPath | None) -> Path | None:
+        if hasattr(self, "_file"):
+            del self.stub_code  # clear the cache
         if not filename:
             return None
         return Path(filename)
 
     @property
-    def in_file_system(self) -> int:
-        """Returns a value indicating where the module/package will be stored:
-        0. in a zip file (not directly in the file system)
-        1. in the file system, package with modules and data
+    def in_file_system(self) -> Literal[0, 1, 2]:
+        """Returns a value indicating where the module/package will be stored.
+
+        Possible values:
+        0. in a zip file (not directly in the file system);
+        1. in the file system, package with modules and data;
         2. in the file system, only detected modules.
         """
         if self.parent is not None:
@@ -263,8 +107,8 @@ class Module:
         return self._in_file_system
 
     @in_file_system.setter
-    def in_file_system(self, value: int) -> None:
-        self._in_file_system: int = value
+    def in_file_system(self, value: Literal[0, 1, 2]) -> None:
+        self._in_file_system = value
 
     @cached_property
     def root_dir(self) -> Path | None:
@@ -280,7 +124,6 @@ class Module:
 
     @cached_property
     def stub_code(self) -> CodeType | None:
-        cache_path: Path | None = self.cache_path
         filename = self._file
         if filename is None:
             return None
@@ -309,8 +152,8 @@ class Module:
             source_file = filename.parent / stub_name
             if source_file.exists():
                 imports_only = self.get_imports_from_file(source_file)
-            if not imports_only and cache_path:
-                target_file = cache_path / package / stub_name
+            if not imports_only and self.finder:
+                target_file = self.finder.cache_path / package / stub_name
                 if target_file.exists():
                     # a parsed stub exists in the cache
                     imports_only = target_file.read_text(encoding="utf_8")
@@ -363,49 +206,55 @@ class Module:
                 lines.append(line)
         return "\n".join([*lines, ""]) if lines else None
 
-    def libs(self) -> Iterator[tuple(Path, str)]:
+    def libs(self) -> Iterator[tuple[Path, str]]:
         """Dynamic libraries distributed along with the package."""
         distribution = self.distribution
         if distribution:
             if self.in_file_system == 0:
                 # the module is in zip file and binary files are
-                for source in distribution.binary_files:
+                for file in distribution.binary_files:
+                    source = distribution.locate_file(file)
                     # .. not in library directories
                     if not source.parent.name.endswith((".libs", ".dylibs")):
                         target = f"lib/{source.name}"
                     else:
-                        target = f"lib/{source.as_posix()}"
-                    yield source.locate().resolve(), target
+                        target = f"lib/{file}"
+                    yield source, target
             else:
                 # the module is in file system, so consider
                 # mirroring the binary files to the lib directory
-                for source in distribution.binary_files:
-                    target = f"lib/{source.as_posix()}"
-                    yield source.locate().resolve(), target
-            return
-
-        module_path = self.path
-        if module_path is None:
-            return
-        for module_dir in module_path:
-            for name in self.libs_dirs():
-                for source in module_dir.parent.joinpath(name).iterdir():
-                    target = f"lib/{name}/{source.name}"
+                for file in distribution.binary_files:
+                    source = distribution.locate_file(file)
+                    target = f"lib/{file}"
                     yield source, target
+        else:
+            module_path = self.path
+            if module_path is None:
+                if self.file is None:
+                    return
+                module_path = [self.file.parent]
+            for name in self.libs_dirs():
+                for module_dir in module_path:
+                    for source in module_dir.parent.joinpath(name).iterdir():
+                        target = f"lib/{name}/{source.name}"
+                        yield source, target
 
     def libs_dirs(self) -> list[str]:
-        """Return the directories where binary files of the package are
-        stored.
-        """
+        """Return the directories where shared library files are stored."""
         distribution = self.distribution
         if distribution:
             return list(
-                {file.parent.as_posix() for file in distribution.binary_files}
+                {
+                    distribution.locate_file(file).parent.as_posix()
+                    for file in distribution.binary_files
+                }
             )
 
         module_path = self.path
         if module_path is None:
-            return []
+            if self.file is None:
+                return []
+            module_path = [self.file.parent]
 
         names = {
             f"../{self.name}.libs",  # numpy >=1.26.0, scipy >=1.9.2
@@ -471,23 +320,23 @@ class Module:
 
     def update_distribution(self, name: str | None = None) -> None:
         """Update the distribution cache based on its name.
+
         This method may be used to link an distribution's name to a module.
 
-        Example: ModuleFinder cannot detects the distribution of _cffi_backend
-        but in a hook we can link it to 'cffi'.
+        Example: ModuleFinder cannot detects the distribution of 'skimage'
+        but in a hook we can link it to 'scikit-image'.
         """
-        cache_path: Path = self.cache_path
-        if cache_path is None:
+        if self.finder is None:
             return
         if name is None:
             name = self.name
         try:
-            distribution = DistributionCache(cache_path, name)
+            distribution = DistributionCache(name, self.finder)
         except ModuleError:
             return
         for req_name in distribution.requires:
             with suppress(ModuleError):
-                DistributionCache(cache_path, req_name)
+                DistributionCache(req_name, self.finder)
         self.distribution = distribution
 
 
@@ -498,7 +347,7 @@ class ModuleHook:
         self.module = module  # the root module
         self.name = module.name.replace(".", "_").lower()
 
-    def __call__(self, finder) -> None:
+    def __call__(self, finder: ModuleFinder) -> None:
         # redirect to the top level hook
         method = getattr(self, self.name, None)
         if method:
@@ -518,7 +367,7 @@ class ConstantsModule:
     ) -> None:
         self.module_name: str = module_name
         self.time_format: str = time_format
-        self.values: dict[str, str | int | float] = {}
+        self.values: dict[str, Any] = {}
         self.values["BUILD_RELEASE_STRING"] = release_string
         self.values["BUILD_COPYRIGHT"] = copyright_string
         if constants:
@@ -539,8 +388,9 @@ class ConstantsModule:
                 self.values[name] = value
 
     def create(self, tmp_path: Path, modules: list[Module]) -> Path:
-        """Create the module which consists of declaration statements for each
-        of the values.
+        """Create the constants module.
+
+        It consists of declaration statements for each of the values.
         """
         today = datetime.now(tz=timezone.utc)
         source_timestamp = 0

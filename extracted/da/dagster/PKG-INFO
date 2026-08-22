@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dagster
-Version: 1.13.18
+Version: 1.13.19
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -28,8 +28,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime<4.14
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.18
-Requires-Dist: dagster-shared==1.13.18
+Requires-Dist: dagster-pipes==1.13.19
+Requires-Dist: dagster-shared==1.13.19
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking<1.82,>=1.44.0; python_version < '3.13'
@@ -80,7 +80,7 @@ Requires-Dist: types-tabulate; extra == 'pyright'
 Requires-Dist: types-toml; extra == 'pyright'
 Requires-Dist: types-tzlocal; extra == 'pyright'
 Provides-Extra: ruff
-Requires-Dist: ruff==0.15.15; extra == 'ruff'
+Requires-Dist: ruff==0.16.2; extra == 'ruff'
 Provides-Extra: test
 Requires-Dist: docker; extra == 'test'
 Requires-Dist: grpcio-tools>=1.44.0; (python_version < '3.13') and extra == 'test'
@@ -99,7 +99,7 @@ Requires-Dist: pytest-xdist==3.6.1; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'
 Requires-Dist: rapidfuzz; extra == 'test'
 Requires-Dist: responses<=0.23.1; extra == 'test'
-Requires-Dist: ruff==0.15.15; extra == 'test'
+Requires-Dist: ruff==0.16.2; extra == 'test'
 Requires-Dist: syrupy>=4.0.0; extra == 'test'
 Requires-Dist: tox-uv>=1.16; extra == 'test'
 Requires-Dist: tox>=4.22; extra == 'test'
@@ -111,7 +111,7 @@ Requires-Dist: tomlkit; extra == 'test-components'
 Provides-Extra: ty
 Requires-Dist: boto3-stubs[essential]; extra == 'ty'
 Requires-Dist: pandas-stubs; extra == 'ty'
-Requires-Dist: ty==0.0.44; extra == 'ty'
+Requires-Dist: ty==0.0.69; extra == 'ty'
 Requires-Dist: types-backports; extra == 'ty'
 Requires-Dist: types-certifi; extra == 'ty'
 Requires-Dist: types-chardet; extra == 'ty'
@@ -175,6 +175,7 @@ import pandas as pd
 
 from sklearn.linear_model import LinearRegression
 
+
 @dg.asset
 def country_populations() -> pd.DataFrame:
     df = pd.read_html("https://tinyurl.com/mry64ebh")[0]
@@ -182,13 +183,17 @@ def country_populations() -> pd.DataFrame:
     df["change"] = df["change"].str.rstrip("%").astype("float")
     return df
 
+
 @dg.asset
 def continent_change_model(country_populations: pd.DataFrame) -> LinearRegression:
     data = country_populations.dropna(subset=["change"])
     return LinearRegression().fit(pd.get_dummies(data[["continent"]]), data["change"])
 
+
 @dg.asset
-def continent_stats(country_populations: pd.DataFrame, continent_change_model: LinearRegression) -> pd.DataFrame:
+def continent_stats(
+    country_populations: pd.DataFrame, continent_change_model: LinearRegression
+) -> pd.DataFrame:
     result = country_populations.groupby("continent").sum()
     result["pop_change_factor"] = continent_change_model.coef_
     return result

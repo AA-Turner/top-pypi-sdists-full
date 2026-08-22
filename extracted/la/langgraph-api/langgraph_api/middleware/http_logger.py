@@ -38,7 +38,7 @@ except ImportError:
     _dd_tracer = None
 
 try:
-    from opentelemetry import trace as _otel_trace  # type: ignore[unresolved-import]
+    from opentelemetry import trace as _otel_trace
 except ImportError:
     _otel_trace = None
 

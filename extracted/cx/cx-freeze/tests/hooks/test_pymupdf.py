@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,6 +17,9 @@ from cx_Freeze._compat import (
     IS_MINGW,
     IS_WINDOWS,
 )
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT_SLOW = 60 if IS_CONDA else 30
 
@@ -38,12 +43,24 @@ pyproject.toml
     executables = ["test_pymupdf.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="pymupdf does not support Python 3.15t yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
+@pytest.mark.xfail(
+    sys.version_info[:2] == (3, 14) and ABI_THREAD == "t" and not IS_LINUX,
+    raises=ModuleNotFoundError,
+    reason="pymupdf support Python 3.14t only in Linux",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.skipif(
     IS_CONDA and (IS_LINUX or IS_WINDOWS or (IS_ARM_64 and IS_MACOS)),
     reason="pymupdf is broken in conda-forge (except on OSX64)",
@@ -53,17 +70,11 @@ pyproject.toml
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="pymupdf does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 14) and ABI_THREAD == "t" and not IS_LINUX,
-    raises=ModuleNotFoundError,
-    reason="pymupdf support Python 3.14t only in Linux",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv
 @zip_packages
-def test_pymupdf(tmp_package, zip_packages: bool) -> None:
+def test_pymupdf(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if pymupdf hook is working correctly."""
     tmp_package.create(SOURCE_TEST_PYMUPDF)
     if zip_packages:

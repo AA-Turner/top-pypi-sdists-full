@@ -261,6 +261,11 @@ class Nemotron3Renderer(Qwen3_5Renderer):
             + [TextPart(type="text", text="\n</tool_response>\n")]
         )
 
+    def _tool_response_continuation_header(self) -> str:
+        """Nemotron-3 responses carry their own trailing newline, so a consecutive
+        <tool_response> follows immediately with no separator."""
+        return ""
+
     def _format_tool_calls_chunks(self, message: Message) -> list[ImagePart | TextPart]:
         """Format tool_calls for Nemotron-3.
 
@@ -509,6 +514,8 @@ class Nemotron3DisableThinkingRenderer(Nemotron3Renderer):
     difference from Nemotron3Renderer is the generation suffix:
     <think></think> (no trailing newlines) instead of <think>\\n.
     """
+
+    disables_thinking = True
 
     def _get_generation_suffix(self, role: Role, ctx: RenderContext) -> list[int]:
         """Return generation suffix tokens with ``<think></think>`` to disable thinking.

@@ -784,6 +784,7 @@ from lusid.models.model_schema import ModelSchema
 from lusid.models.model_selection import ModelSelection
 from lusid.models.move_orders_to_different_blocks_request import MoveOrdersToDifferentBlocksRequest
 from lusid.models.moved_order_to_different_block_response import MovedOrderToDifferentBlockResponse
+from lusid.models.movement_condition_match import MovementConditionMatch
 from lusid.models.movement_settlement_summary import MovementSettlementSummary
 from lusid.models.movement_type import MovementType
 from lusid.models.multi_currency_amounts import MultiCurrencyAmounts
@@ -1119,7 +1120,6 @@ from lusid.models.rec_run_log_entry import RecRunLogEntry
 from lusid.models.rec_submission import RecSubmission
 from lusid.models.rec_superseded_run import RecSupersededRun
 from lusid.models.rec_user_comment import RecUserComment
-from lusid.models.rec_workflow_task import RecWorkflowTask
 from lusid.models.recipe_block import RecipeBlock
 from lusid.models.recipe_composer import RecipeComposer
 from lusid.models.recipe_value import RecipeValue
@@ -2401,6 +2401,7 @@ __all__ = [
     "ModelSelection",
     "MoveOrdersToDifferentBlocksRequest",
     "MovedOrderToDifferentBlockResponse",
+    "MovementConditionMatch",
     "MovementSettlementSummary",
     "MovementType",
     "MultiCurrencyAmounts",
@@ -2736,7 +2737,6 @@ __all__ = [
     "RecSubmission",
     "RecSupersededRun",
     "RecUserComment",
-    "RecWorkflowTask",
     "RecipeBlock",
     "RecipeComposer",
     "RecipeValue",

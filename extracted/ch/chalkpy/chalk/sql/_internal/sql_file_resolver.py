@@ -51,7 +51,7 @@ from chalk.sql._internal.integrations.redshift import RedshiftSourceImpl
 from chalk.sql._internal.integrations.snowflake import SnowflakeSourceImpl
 from chalk.sql._internal.integrations.spanner import SpannerSourceImpl
 from chalk.sql._internal.integrations.sqlite import SQLiteSourceImpl
-from chalk.sql._internal.sql_settings import SQLResolverSettings
+from chalk.sql._internal.sql_settings import ExponentialBackoff, SQLResolverRetryPolicy, SQLResolverSettings
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.sql.finalized_query import Finalizer
 from chalk.streams import KafkaSource, get_resolver_error_builder
@@ -159,6 +159,45 @@ class IncrementalSettingsSQLFileResolver(BaseModel):
         return mode
 
 
+class ExponentialBackoffSQLFileResolver(BaseModel):
+    factor: float
+    n_retries: int
+    base_ns: int
+
+    @validator("factor")
+    @classmethod
+    def validate_factor(cls, factor: float):
+        if factor <= 0:
+            raise ValueError(f"'factor' must be positive, but got {factor}.")
+        return factor
+
+    @validator("n_retries")
+    @classmethod
+    def validate_n_retries(cls, n_retries: int):
+        # The engine's retry loop reads a negative n_retries as "retry forever", so reject it here.
+        if n_retries < 0:
+            raise ValueError(f"'n_retries' must not be negative, but got {n_retries}.")
+        return n_retries
+
+    @validator("base_ns")
+    @classmethod
+    def validate_base_ns(cls, base_ns: int):
+        if base_ns < 0:
+            raise ValueError(f"'base_ns' must not be negative, but got {base_ns}.")
+        return base_ns
+
+
+class RetryConditionSQLFileResolver(BaseModel):
+    """The backoff to apply when a retry condition holds. Exactly one strategy must be given."""
+
+    exp: ExponentialBackoffSQLFileResolver
+
+
+class RetryPolicySQLFileResolver(BaseModel):
+    if_not_found: Optional[RetryConditionSQLFileResolver]
+    if_timeout: Optional[RetryConditionSQLFileResolver]
+
+
 class CommentDict(BaseModel):
     total: Optional[bool]
     source: Optional[str]
@@ -180,6 +219,7 @@ class CommentDict(BaseModel):
     skip_sql_validation: Optional[bool]
     handle_duplicate_outputs: Optional[str]
     use_native_sql: Optional[bool]
+    retry_policy: Optional[RetryPolicySQLFileResolver]
 
     @validator("tags", "environment", "unique_on", "partitioned_by", pre=True)
     @classmethod
@@ -590,6 +630,12 @@ def get_sql_file_resolver(
             )
         else:
             partitioned_by = None
+        retry_policy = _convert_retry_policy(
+            parsed.comment_dict.retry_policy,
+            error_builder=error_builder,
+            path=path,
+            errors=errors,
+        )
         resolver_type_str = parsed.comment_dict.type if parsed.comment_dict.type else "online"
         resolver_type = _RESOLVER_TYPES[resolver_type_str]
 
@@ -772,6 +818,7 @@ def get_sql_file_resolver(
                     field_types=parsed.comment_dict.field_types or {},
                     use_native_sql=parsed.comment_dict.use_native_sql,
                     is_chalk_sql_source=parsed.is_chalk_sql,
+                    retry_policy=retry_policy,
                 ),
                 postprocessing=sql_string_result.postprocessing_expr,
                 handle_duplicate_outputs=parsed.comment_dict.handle_duplicate_outputs,
@@ -2176,6 +2223,7 @@ def make_sql_file_resolver(
     postprocessing_expression: Optional[Underscore] = None,
     handle_duplicate_outputs: Optional[str] = None,
     use_native_sql: Optional[bool] = None,
+    retry_policy: Optional[SQLResolverRetryPolicy] = None,
 ):
     """Generate a Chalk SQL file resolver from a filepath and a sql string.
     This will generate a resolver in your web dashboard that can be queried,
@@ -2315,6 +2363,13 @@ def make_sql_file_resolver(
         If set to not None, overrides whether this resolver uses native sql during execution.
         When set to `True`, will always run with native sql if the dialect is supported.
         When set to `False`, will never run with native sql.
+    retry_policy
+        Conditions under which the resolver re-runs its query. Set
+        ``if_not_found`` to re-run a query that returned no rows (for a
+        resolver reading a store that may not yet reflect a recent write)
+        and/or ``if_timeout`` to re-run a query that failed with a server-side
+        statement timeout, each backing off exponentially. Only honored by the
+        native SQL operator.
 
     Examples
     --------
@@ -2377,6 +2432,7 @@ def make_sql_file_resolver(
         skip_sql_validation=skip_sql_validation,
         handle_duplicate_outputs=handle_duplicate_outputs,
         use_native_sql=use_native_sql,
+        retry_policy=None if retry_policy is None else _convert_retry_policy_to_comment_dict(retry_policy),
     )
     _GENERATED_SQL_FILE_RESOLVER_REGISTRY.add_sql_file_resolver(
         filepath=filename,
@@ -2445,6 +2501,68 @@ def _convert_incremental_settings(settings: IncrementalSettings) -> IncrementalS
         ),
         mode=settings.mode,
         incremental_timestamp=settings.incremental_timestamp,
+    )
+
+
+def _convert_backoff_to_comment_dict(backoff: ExponentialBackoff) -> RetryConditionSQLFileResolver:
+    return RetryConditionSQLFileResolver(
+        exp=ExponentialBackoffSQLFileResolver(
+            factor=backoff.factor,
+            n_retries=backoff.n_retries,
+            base_ns=backoff.base_ns,
+        )
+    )
+
+
+def _convert_retry_policy_to_comment_dict(policy: SQLResolverRetryPolicy) -> RetryPolicySQLFileResolver:
+    """Inverse of `_convert_retry_policy`, for `make_sql_file_resolver` callers who pass the
+    policy as an object rather than as a `-- retry_policy:` comment."""
+    return RetryPolicySQLFileResolver(
+        if_not_found=None if policy.if_not_found is None else _convert_backoff_to_comment_dict(policy.if_not_found),
+        if_timeout=None if policy.if_timeout is None else _convert_backoff_to_comment_dict(policy.if_timeout),
+    )
+
+
+def _convert_retry_policy(
+    policy: Optional[RetryPolicySQLFileResolver],
+    error_builder: SQLFileResolverErrorBuilder,
+    path: str,
+    errors: List[ResolverError],
+) -> Optional[SQLResolverRetryPolicy]:
+    if policy is None:
+        return None
+    if policy.if_not_found is None and policy.if_timeout is None:
+        message = (
+            "'retry_policy' must name a condition to retry on; "
+            "supported conditions are 'if_not_found' and 'if_timeout'."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="215",
+            label="empty retry policy",
+            range=error_builder.full_comment_range(),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter="retry_policy"))
+        return None
+    return SQLResolverRetryPolicy(
+        if_not_found=(
+            None
+            if policy.if_not_found is None
+            else ExponentialBackoff(
+                factor=policy.if_not_found.exp.factor,
+                n_retries=policy.if_not_found.exp.n_retries,
+                base_ns=policy.if_not_found.exp.base_ns,
+            )
+        ),
+        if_timeout=(
+            None
+            if policy.if_timeout is None
+            else ExponentialBackoff(
+                factor=policy.if_timeout.exp.factor,
+                n_retries=policy.if_timeout.exp.n_retries,
+                base_ns=policy.if_timeout.exp.base_ns,
+            )
+        ),
     )
 
 

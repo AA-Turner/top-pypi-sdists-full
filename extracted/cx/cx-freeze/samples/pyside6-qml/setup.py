@@ -1,5 +1,6 @@
-"""A simple setup script to create an executable using PySide6. This also
-demonstrates how to use excludes to get minimal package size.
+"""A simple setup script to create an executable using PySide6.
+
+This also demonstrates how to use excludes to get minimal package size.
 
 test_qml.py is a very simple type of PySide6 application.
 
@@ -14,7 +15,7 @@ from cx_Freeze import setup
 build_exe_options = {
     "bin_excludes": ["libqpdf.so", "libqpdf.dylib"],
     # exclude packages that are not really needed
-    "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"],
+    "excludes": ["tkinter", "email", "http", "xml"],
 }
 
 setup(

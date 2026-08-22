@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.models import (
@@ -63,6 +63,27 @@ class SourceHandlerMixin:
                 # Process source columns for this target column
                 for src_col in tgt_col.to_source_columns(alias_mapping):
                     holder.add_column_lineage(src_col, final_tgt_col)
+
+    @staticmethod
+    def add_write_target_to_alias_mapping(
+        alias_mapping: Dict[str, Union[DataFunction, Location, Path, Table, SubQuery]],
+        write_table: Table,
+        alias: Optional[str] = None,
+    ) -> None:
+        """
+        Register a statement's write target in an alias mapping.
+
+        The mapping is built from the statement's sources, and the target is a write,
+        so `SET a = t.b` on `UPDATE tgt t` would otherwise leave `t` unresolved and
+        resolve to a phantom default-schema table. Sources keep priority on a clash.
+
+        :param alias_mapping: the mapping to extend in place
+        :param write_table: the statement's write target
+        :param alias: the alias the target is declared under, when it has one
+        """
+        for name in filter(None, (alias, write_table.raw_name, str(write_table))):
+            alias_mapping.setdefault(name, write_table)
+            alias_mapping.setdefault(name.lower(), write_table)
 
     @classmethod
     def get_alias_mapping_from_table_group(

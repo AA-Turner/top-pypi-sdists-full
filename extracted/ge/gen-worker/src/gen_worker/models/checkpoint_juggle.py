@@ -42,6 +42,41 @@ layout and a real switch); LoRA variants stay on the fold path (pgw#1571);
 tensors outside the managed regions (non-leaf buffers such as
 ``position_ids`` — architecture-derived, not learned) are NOT swapped, and
 the switch report says how many bytes that leaves untouched.
+
+TWO TEMPLATES, AND WHICH ONE IS LIVE (pgw#1621)
+-----------------------------------------------
+:func:`admission_refusal` is the last-line byte gate, and it diffs an incoming
+checkpoint's safetensors headers against a TEMPLATE. There are now two, and
+they are at different stages, so this says plainly which is which rather than
+letting a reader assume the newer one is the one running:
+
+* :class:`~gen_worker.models.arena_residency.ArenaLayout` — the LIVE arm, and
+  the only one anything constructs today. The template is derived from the
+  SERVING MODULE TREE (``plan_layout``), which is why it can also state byte
+  counts and DLPack dtypes: it is the arena this process actually allocated.
+  :class:`CheckpointCatalog` and :class:`CheckpointJuggler` are built on it.
+* :class:`~gen_worker._vendor.tensorfs.layout2.ExpectedHeader` — the v2 arm,
+  AWAITING ITS PRODUCER. The template is the computed ``quant(topology)``
+  header, and this arm is what tracker ``research/tensor-layout-v2/0-DESIGN-v2.md``
+  row "juggle admission consumes v2" describes. Nothing in ``src/`` calls it
+  yet — and nothing in ``src/`` calls the ArenaLayout arm either: this whole
+  module has NO ``src/`` caller as of pgw#1621 (checked: only
+  ``tests/test_checkpoint_juggle.py`` and
+  ``benchmarks/checkpoint_juggle_pgw1607.py``). The serving-side wiring that
+  builds a residency, admits a checkpoint and hands over a binding is pgw#1602's,
+  not landed.
+
+**THE WORKER ENFORCES; IT NEVER RE-DECIDES.** The v2 arm takes BOTH its inputs
+— the expected header AND the admission verdict — from its caller. It computes
+neither. ``quant(topology)`` is evaluated by the Go engine and by nothing else
+(there is deliberately no pyo3 binding for the evaluator or the decision), and
+the tri-state verdict is the hub bind gate's, arriving binding-carried on
+``DeployBinding.lane_verdicts``. v1 shipped three copies of one matching rule
+and the copies were free to disagree about an admit; a fourth one here, in the
+shape of a header this module computed for itself or a verdict it inferred from
+a clean diff, would undo that cut. So ``verdict=`` is a REQUIRED keyword on the
+v2 arm — a missing verdict refuses, because the one direction that fails
+silently is the permissive one.
 """
 
 from __future__ import annotations
@@ -56,6 +91,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
+from .._vendor.tensorfs.layout2 import ExpectedHeader, LayoutTensor
 from .arena_residency import (
     ArenaLayout,
     ArenaResidency,
@@ -67,17 +103,10 @@ from .safetensors_header import header_len_ok
 
 logger = logging.getLogger(__name__)
 
-#: DLPack uint8, for whole-region byte views.
 _DL_UINT8 = (1, 8)
 
-#: Host RAM the warm tier must always leave for everyone else. The warm
-#: budget is ADAPTIVE, never declared (standing ruling): admit an image only
-#: while MemAvailable minus the image stays above this floor.
 DEFAULT_HOST_FLOOR_BYTES = 4 << 30
 
-#: safetensors dtype spellings this module can place or cast. Closed list —
-#: an unknown spelling is a refusal, never a guess (a wrong size reads the
-#: wrong bytes; a wrong interpretation is a silent numerical fault).
 _SAFETENSORS_DTYPES: Dict[str, Tuple[int, int]] = {
     "F64": (2, 64),
     "F32": (2, 32),
@@ -91,9 +120,6 @@ _SAFETENSORS_DTYPES: Dict[str, Tuple[int, int]] = {
     "BOOL": (6, 8),
 }
 
-#: Casts ingest may perform (file dtype -> lane dtype), float-to-float only.
-#: Anything else is an admission refusal: integer/bool weights that disagree
-#: are a different artifact, not a representation choice.
 _CASTABLE = {(2, 16), (2, 32), (2, 64), (4, 16)}
 
 
@@ -103,11 +129,6 @@ class JuggleRefusal(RuntimeError):
 
 class RegionInvalid(RuntimeError):
     """Typed refusal: a serving region holds no single checkpoint's bytes."""
-
-
-# ---------------------------------------------------------------------------
-# The checkpoint manifest — header-only, $0
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -120,18 +141,20 @@ class SlotSource:
     dtype_code: int
     dtype_bits: int
     shape: Tuple[int, ...]
+    #: The safetensors CONTAINER SPELLING, verbatim from the header (``"BF16"``,
+    #: ``"F8_E4M3"``, ``"U8"``). pgw#1621: the v2 arm compares this against
+    #: ``LayoutTensor.dtypes``, which is a list of container spellings, so the
+    #: spelling is KEPT rather than reconstructed from ``(dtype_code,
+    #: dtype_bits)`` — a reverse table would be a second producer of the fact
+    #: the header already states, and the DLPack pair cannot express the
+    #: spellings the arena has no placement for at all (fp8, packed fp4).
+    spelling: str = ""
 
 
 def read_manifest(
     directory: "str | Path", *, variant: Optional[str] = None
 ) -> Dict[str, SlotSource]:
-    """``{tensor key: SlotSource}`` for one component directory.
-
-    The admission input AND the ingest input: shapes and dtypes for the
-    identity proof, byte ranges for the refill. Same file walk as
-    :func:`~gen_worker.models.arena_residency.safetensors_triples`, keeping
-    the header fields that function drops. No tensor is materialised.
-    """
+    """``{tensor key: SlotSource}`` for one component directory."""
     root = Path(directory)
     tail = f".{variant}.safetensors" if variant else ".safetensors"
     files = sorted(p for p in root.glob("*.safetensors") if p.name.endswith(tail))
@@ -169,6 +192,7 @@ def read_manifest(
                 dtype_code=code_bits[0],
                 dtype_bits=code_bits[1],
                 shape=tuple(int(d) for d in meta["shape"]),
+                spelling=spelling,
             )
     return out
 
@@ -176,16 +200,7 @@ def read_manifest(
 def merge_component_manifests(
     components: Dict[str, "str | Path"], *, variant: Optional[str] = None
 ) -> Dict[str, SlotSource]:
-    """Manifests for a multi-component lane, keyed the way the facade keys.
-
-    ``ArenaResidency`` resolves a slot to ``<inner-module-path>.<attr>`` with
-    the root component name stripped (``_triple_key``), and a component's own
-    weight file keys tensors relative to itself — so a single-component lane's
-    keys collide across components. This helper namespaces nothing when there
-    is one component and PREFIXES the component name when there are several;
-    callers juggling multi-component lanes construct their residency triples
-    with the same prefixing.
-    """
+    """Manifests for a multi-component lane, keyed the way the facade keys."""
     if len(components) == 1:
         (directory,) = components.values()
         return read_manifest(directory, variant=variant)
@@ -196,29 +211,57 @@ def merge_component_manifests(
     return out
 
 
-# ---------------------------------------------------------------------------
-# D1 — admission: the header-proven shape-identity check
-# ---------------------------------------------------------------------------
-
-
 def _slot_key(slot: SlotSpec) -> str:
-    """The facade's ``_triple_key``, restated: root component name stripped."""
     _root, _, rest = slot.leaf.partition(".")
     return f"{rest}.{slot.attr}" if rest else slot.attr
 
 
-def admission_refusal(
-    layout: ArenaLayout, manifest: Dict[str, SlotSource]
-) -> Optional[str]:
-    """None when the checkpoint is byte-layout-identical to the lane template
-    (up to a float cast); else the first refusal, named.
+#: The hub bind gate's tri-state, exactly as it arrives on
+#: ``DeployBinding.lane_verdicts``. Spelled here so the enforcement side and
+#: the transport side share one vocabulary; this module never PRODUCES one.
+LANE_VERDICT_SATISFIES = "satisfies"
+LANE_VERDICT_DERIVABLE = "derivable"
+LANE_VERDICT_INCOMPATIBLE = "incompatible"
 
-    The tensor-layout contract guarantees the key set, dtypes and RANK — not
-    concrete shapes. This check is what makes "all checkpoints in a lane share
-    the byte layout" a PROVEN property per checkpoint instead of an assumed
-    one. It reads headers only.
+
+def admission_refusal(
+    template: "ArenaLayout | ExpectedHeader",
+    manifest: Dict[str, SlotSource],
+    *,
+    verdict: Optional[str] = None,
+    component: Optional[str] = None,
+) -> Optional[str]:
+    """None when the checkpoint may join this lane's juggle set; else the first
+    refusal, naming the offending tensor.
+
+    Two templates, and :func:`admission_refusal` is one gate over both so a
+    future producer swaps the template without moving the call site. See the
+    module docstring for which arm is live.
+
+    ``ArenaLayout`` — the tree-derived template. ``verdict`` and ``component``
+    do not apply and are refused if passed: the arena IS this process's own
+    allocation, so there is no second party whose decision could be carried,
+    and its slot table is already flat.
+
+    ``ExpectedHeader`` — the computed ``quant(topology)`` template. ``verdict``
+    is REQUIRED: the admission DECISION is the hub's and arrives
+    binding-carried, so this arm enforces one rather than reaching a rival
+    conclusion from a clean diff. ``component`` names which component of a
+    multi-component layout the manifest holds; ``None`` compares the whole
+    layout, keyed the way :func:`merge_component_manifests` keys it.
     """
-    for region in layout.regions:
+    if isinstance(template, ExpectedHeader):
+        return _expected_header_refusal(
+            template, manifest, verdict=verdict, component=component
+        )
+    if verdict is not None or component is not None:
+        raise TypeError(
+            "admission_refusal(ArenaLayout, ...): verdict= and component= "
+            "belong to the ExpectedHeader arm. An arena layout is this "
+            "process's OWN allocation — there is no second party whose "
+            "admission decision could be carried, and its slot table is flat."
+        )
+    for region in template.regions:
         for slot in region.slots:
             key = _slot_key(slot)
             src = manifest.get(key)
@@ -250,9 +293,109 @@ def admission_refusal(
     return None
 
 
-# ---------------------------------------------------------------------------
-# D5 — the warm tier: normalized pinned arena images
-# ---------------------------------------------------------------------------
+def _expected_keys(
+    expected: ExpectedHeader, component: Optional[str]
+) -> Dict[str, LayoutTensor]:
+    """The computed header's finite map, keyed the way a manifest is keyed.
+
+    One component -> its own keys, unprefixed. Several -> ``<component>.<key>``.
+    That is :func:`merge_component_manifests`'s rule verbatim, not a parallel
+    one: two spellings of the same key set is how a gate starts refusing a
+    checkpoint for being spelled differently.
+    """
+    if component is not None:
+        return dict(expected.component(component))
+    if len(expected.components) == 1:
+        return dict(next(iter(expected.components.values())))
+    return {
+        f"{name}.{key}": entry
+        for name, tensors in expected.components.items()
+        for key, entry in tensors.items()
+    }
+
+
+def _expected_header_refusal(
+    expected: ExpectedHeader,
+    manifest: Dict[str, SlotSource],
+    *,
+    verdict: Optional[str],
+    component: Optional[str],
+) -> Optional[str]:
+    """The v2 arm: enforce the hub's verdict, then diff against ``quant(topology)``.
+
+    Key set, shape and dtype — the three facts the computed header states, and
+    the three v1 could not state together (v1's schema was deliberately
+    shapeless, which is how SDXL-inpainting's 9-channel ``conv_in`` legally
+    admitted and served garbage).
+
+    Two details that are load-bearing rather than incidental:
+
+    * ``LayoutTensor.dtypes`` is a LIST. Several entries mean the rule is
+      REFERENCE-TOLERANT — the reference packaging the topology was extracted
+      from really did ship this key in a wider container (an ``I64``
+      ``num_batches_tracked`` on a bf16 tree) — so acceptance is
+      :meth:`LayoutTensor.accepts`, membership in the list, never equality with
+      the first entry. Refusing the others would refuse the very checkpoint the
+      topology came from.
+    * ``LayoutTensor.optional`` marks a key a calibration MAY not have produced
+      (``input_scale``, ``pre_quant_scale``). Absent is fine; PRESENT still has
+      to match, because optional is about existence and never about shape.
+
+    Extra tensors the header does not name are not refused: they are bytes this
+    lane does not read, and the checkpoint's admissibility is a statement about
+    what the lane needs. The hub's stamping already decided what the checkpoint
+    IS.
+    """
+    if verdict is None:
+        return (
+            f"no admission verdict was carried for {expected.stamp}. The "
+            f"verdict is the hub bind gate's and arrives binding-carried "
+            f"(`DeployBinding.lane_verdicts`); the worker ENFORCES it and "
+            f"never re-decides, so an absent verdict refuses rather than "
+            f"being read as an admit"
+        )
+    if verdict != LANE_VERDICT_SATISFIES:
+        if verdict == LANE_VERDICT_DERIVABLE:
+            return (
+                f"the hub bind gate answered {LANE_VERDICT_DERIVABLE!r} for "
+                f"{expected.stamp}: these bytes reach the lane only through a "
+                f"priced conversion job, and the endpoint serves the PRODUCED "
+                f"artifact — never the source"
+            )
+        return (
+            f"the hub bind gate answered {verdict!r} for {expected.stamp}; "
+            f"only {LANE_VERDICT_SATISFIES!r} admits"
+        )
+
+    for key, entry in _expected_keys(expected, component).items():
+        src = manifest.get(key)
+        if src is None:
+            if entry.optional:
+                continue
+            return (
+                f"tensor {key!r} is absent from the checkpoint; "
+                f"{expected.stamp} states it at shape {list(entry.shape)}"
+            )
+        if src.shape != entry.shape:
+            return (
+                f"tensor {key!r} is shaped {list(src.shape)} in the checkpoint "
+                f"and {list(entry.shape)} in {expected.stamp} — a different "
+                f"layout, i.e. a different lane"
+            )
+        if not src.spelling:
+            return (
+                f"tensor {key!r} carries no safetensors dtype spelling, so it "
+                f"cannot be checked against {expected.stamp}'s "
+                f"{list(entry.dtypes)}. Manifests come from `read_manifest`, "
+                f"which keeps the header's own spelling"
+            )
+        if not entry.accepts(src.spelling):
+            return (
+                f"tensor {key!r} is dtype {src.spelling!r} in the checkpoint; "
+                f"{expected.stamp} accepts {list(entry.dtypes)} — a different "
+                f"quant rule, not a representation choice"
+            )
+    return None
 
 
 def _mem_available_bytes() -> int:
@@ -267,14 +410,7 @@ def _mem_available_bytes() -> int:
 
 
 class CheckpointImage:
-    """One checkpoint's bytes, normalized into the canonical arena layout.
-
-    A pinned host buffer of ``layout.virtual_bytes``, every slot at its
-    canonical offset in the LANE dtype (cast once at build, never per swap),
-    per-region digests banked. The buffer serves both as the swap's refill
-    source (one contiguous H2D per region) and as the streamed tier's host
-    mirror (zero-copy per-slot views).
-    """
+    """One checkpoint's bytes, normalized into the canonical arena layout."""
 
     def __init__(
         self,
@@ -306,8 +442,6 @@ class CheckpointImage:
                 buffer = torch_mod.frombuffer(
                     self._slab.memoryview(), dtype=torch_mod.uint8
                 )
-                # pyo3 #[getter]: a property, not a method. The memoryview
-                # does NOT keep the slab alive — self._slab held above does.
                 self.pinned = bool(self._slab.is_pinned)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -316,9 +450,6 @@ class CheckpointImage:
                     "slower, counted in the switch report",
                     checkpoint_id, type(exc).__name__, exc,
                 )
-                # A buffer built over a slab we are about to drop would be a
-                # view of unmapped memory (measured: EFAULT from the refill
-                # engine) — discard it WITH the slab.
                 buffer = None
                 self._slab = None
                 self._pool = None
@@ -327,15 +458,7 @@ class CheckpointImage:
         self.buffer = buffer
         self._build(engine)
 
-    # -- construction -------------------------------------------------------
-
     def _build(self, engine: Any) -> None:
-        """Fill the image: straight reads where dtypes agree, cast where not.
-
-        One engine submit for every straight-read slot (the pgw#1507
-        cold-load lesson: per-slot round trips drain the queue), then the cast
-        slots via torch, then the digests.
-        """
         torch = self._torch
         straight: List[Tuple[str, int, int, int, int]] = []
         casts: List[Tuple[SlotSpec, SlotSource]] = []
@@ -375,7 +498,6 @@ class CheckpointImage:
     def _pread(
         self, requests: Sequence[Tuple[str, int, int, int, int]], base_ptr: int
     ) -> None:
-        """Engine-less fallback: plain reads into the buffer. Correct, slower."""
         mv = memoryview(self.buffer.numpy())
         for path, offset, length, host_ptr, _dev in requests:
             start = host_ptr - base_ptr
@@ -387,8 +509,6 @@ class CheckpointImage:
                     f"{self.checkpoint_id}: short read from {path} "
                     f"({got} of {length} bytes)"
                 )
-
-    # -- views --------------------------------------------------------------
 
     def region_bytes(self, region: RegionSpec) -> Any:
         return self.buffer[region.offset : region.offset + region.span]
@@ -404,12 +524,7 @@ class CheckpointImage:
         return [self.slot_view(slot) for slot in region.slots]
 
     def region_digest(self, region: RegionSpec) -> str:
-        """Content digest of the region's WEIGHT bytes (padding excluded).
-
-        Slot-bounded on purpose: padding bytes are whatever the allocator
-        left there and are never read by a kernel, so hashing them would make
-        equal weights hash unequal.
-        """
+        """Content digest of the region's WEIGHT bytes (padding excluded)."""
         h = hashlib.blake2b(digest_size=16)
         for slot in region.slots:
             h.update(memoryview(self.buffer.numpy())[slot.offset : slot.offset + slot.nbytes])
@@ -435,20 +550,8 @@ def _torch_dtype(torch: Any, code: int, bits: int) -> Any:
     raise TypeError(f"no torch dtype for DLPack ({code}, {bits})")
 
 
-# ---------------------------------------------------------------------------
-# The catalog: adaptive warm set, LRU + hysteresis
-# ---------------------------------------------------------------------------
-
-
 class CheckpointCatalog:
-    """The lane's juggle set: admission, warm images, eviction.
-
-    Budget-fed and adaptive: an ingest admits an image only while
-    ``MemAvailable`` minus the image stays above the host floor; under
-    pressure it evicts LRU images first, and an image evicted for pressure is
-    not rebuilt within the same pressure epoch (hysteresis, the pgw#1560
-    rule) — the checkpoint still serves, disk-direct, one tier slower.
-    """
+    """The lane's juggle set: admission, warm images, eviction."""
 
     def __init__(
         self,
@@ -468,20 +571,15 @@ class CheckpointCatalog:
         self._mem_available = mem_available
         self.manifests: Dict[str, Dict[str, SlotSource]] = {}
         self.images: Dict[str, CheckpointImage] = {}
-        self._lru: List[str] = []  # oldest first
-        #: Ids pressure eviction must skip — the SERVING checkpoint's image
-        #: doubles as the streamed tier's live host mirror, so evicting it
-        #: would pull memory out from under bound views.
+        self._lru: List[str] = []
         self.protected: Set[str] = set()
         self.pressure_epoch = 0
         self._evicted_epoch: Dict[str, int] = {}
         self.evictions = 0
         self.ingests = 0
 
-    # -- admission ----------------------------------------------------------
-
     def admit(self, checkpoint_id: str, manifest: Dict[str, SlotSource]) -> None:
-        """D1: the shape-identity proof. Refusal is typed and names the key."""
+        """D1: the shape-identity proof."""
         refusal = admission_refusal(self.layout, manifest)
         if refusal is not None:
             raise JuggleRefusal(
@@ -492,8 +590,6 @@ class CheckpointCatalog:
     def is_admitted(self, checkpoint_id: str) -> bool:
         return checkpoint_id in self.manifests
 
-    # -- the warm tier ------------------------------------------------------
-
     def warm(self, checkpoint_id: str) -> Optional[CheckpointImage]:
         image = self.images.get(checkpoint_id)
         if image is not None:
@@ -501,11 +597,7 @@ class CheckpointCatalog:
         return image
 
     def ensure_warm(self, checkpoint_id: str) -> Optional[CheckpointImage]:
-        """Build the image if RAM admits it; None means SERVE DISK-DIRECT.
-
-        Never raises for capacity: a warm miss is a priced degrade, not a
-        failure. Raises only for admission and integrity refusals.
-        """
+        """Build the image if RAM admits it; None means SERVE DISK-DIRECT."""
         manifest = self.manifests.get(checkpoint_id)
         if manifest is None:
             raise JuggleRefusal(
@@ -588,11 +680,6 @@ class CheckpointCatalog:
             self._evict(checkpoint_id, cause="teardown")
 
 
-# ---------------------------------------------------------------------------
-# D7 — the serving-validity ledger
-# ---------------------------------------------------------------------------
-
-
 class RegionValidity(Enum):
     VALID = "valid"
     REFILLING = "refilling"
@@ -602,16 +689,11 @@ class RegionValidity(Enum):
 @dataclass
 class _RegionState:
     validity: RegionValidity
-    checkpoint_id: str  # the checkpoint whose bytes the region holds/held
+    checkpoint_id: str
 
 
 class ValidityLedger:
-    """Per-region serving validity. The franken-weights fence.
-
-    ``valid@X -> refilling(Y) -> valid@Y | INVALID``. Serving asks
-    :meth:`assert_servable`; a region mid-refill or invalid is a typed
-    refusal, never a serve of mixed bytes.
-    """
+    """Per-region serving validity."""
 
     def __init__(self, layout: ArenaLayout, checkpoint_id: str) -> None:
         self._state: Dict[str, _RegionState] = {
@@ -650,29 +732,20 @@ class ValidityLedger:
                 )
 
 
-# ---------------------------------------------------------------------------
-# The juggler
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class SwitchReport:
-    """One switch, priced. Every field lands on the loud line."""
+    """One switch, priced."""
 
     from_id: str
     to_id: str
-    tier: str  # serving | host-warm | disk-cold
+    tier: str
     wall_s: float
     bytes_moved: int
     regions_refilled: int
-    regions_unbacked: int  # swapped for free (source repointed)
+    regions_unbacked: int
     transfer_gbps: float
-    residue_bytes: int  # managed by nobody, NOT swapped (non-leaf buffers)
+    residue_bytes: int
     pinned_source: bool
-    #: True when every backed region's mapping was checked against the
-    #: DRIVER's truth after the swap (va#12 ``page_signatures(verify=True)``,
-    #: 0.15–0.17 ms/GiB — affordable every swap, so it runs every swap).
-    #: False means the installed varena predates va#12; confessed, not silent.
     backing_verified: bool = False
 
     def loud(self) -> str:
@@ -686,15 +759,7 @@ class SwitchReport:
 
 
 class CheckpointJuggler:
-    """The lane's switch engine over one :class:`ArenaResidency`.
-
-    The residency owns the layout, the reservation and the paging machinery;
-    the juggler owns WHICH checkpoint's bytes those fixed addresses hold. It
-    is driven at request boundaries (the launch-window contract: nothing here
-    runs concurrently with a forward on the same regions — the caller's
-    quiesce; the compute-stream event wait below covers the prior request's
-    still-executing tail).
-    """
+    """The lane's switch engine over one :class:`ArenaResidency`."""
 
     def __init__(
         self,
@@ -723,28 +788,22 @@ class CheckpointJuggler:
         self.serving_id = serving_id
         self.ledger = ValidityLedger(self.layout, serving_id)
         self.switches = 0
-        self.rearms = 0  # incremented by NOTHING here; the zero is the proof
+        self.rearms = 0
         self.reports: List[SwitchReport] = []
         self._residue_bytes = self._count_residue()
-
-    # -- the public seam ----------------------------------------------------
 
     def admit(self, checkpoint_id: str, manifest: Dict[str, SlotSource]) -> None:
         self.catalog.admit(checkpoint_id, manifest)
 
     def hint_next(self, checkpoint_id: str) -> bool:
-        """Warm the image CPU-side while the current checkpoint serves.
-
-        GPU-untouched by construction — safe at any moment, not only at
-        request boundaries. True = warm; False = will serve disk-direct.
-        """
+        """Warm the image CPU-side while the current checkpoint serves."""
         return self.catalog.ensure_warm(checkpoint_id) is not None
 
     def assert_servable(self) -> None:
         self.ledger.assert_servable(self.serving_id)
 
     def switch_to(self, checkpoint_id: str) -> SwitchReport:
-        """The backing swap. Fixed addresses; in-place refill; zero re-arms."""
+        """The backing swap."""
         torch = self.residency._torch
         if checkpoint_id == self.serving_id:
             report = SwitchReport(
@@ -759,9 +818,6 @@ class CheckpointJuggler:
         manifest = self.catalog.manifests[checkpoint_id]
         tier = "host-warm" if image is not None else "disk-cold"
         if image is None:
-            # A disk-cold switch streams file bytes straight into the arena,
-            # so it cannot cast. Refuse BEFORE any region transitions — the
-            # lane keeps serving the current checkpoint, validly.
             for region in self.layout.regions:
                 for slot in region.slots:
                     src = manifest[_slot_key(slot)]
@@ -783,14 +839,8 @@ class CheckpointJuggler:
 
         device = self.residency.device
         stream = torch.cuda.Stream(device=device)
-        # The prior request's tail may still be executing: the side stream
-        # waits on the compute stream ONCE, then every region refill runs
-        # behind that fence.
         stream.wait_stream(torch.cuda.current_stream(device))
         with torch.no_grad():
-            # Retire every deferred unback first: a streamed region pending in
-            # the ring is physically backed with the OLD bytes, and the swap's
-            # "unbacked = free" arm must not run over live physical pages.
             self.residency.ring.drain()
             for region in self.layout.regions:
                 if self.residency.is_resident(region.name):
@@ -810,16 +860,10 @@ class CheckpointJuggler:
                         )
                         raise
                     if image is not None:
-                        # The image doubles as this region's host mirror, so a
-                        # later demote is unmap-only (va#11 write-back
-                        # invariant): the facade skips its D2H capture when a
-                        # mirror already exists.
                         self.residency._host[region.name] = image.region_mirror(region)
                     self.ledger.complete(region.name)
                     refilled += 1
                 else:
-                    # Unbacked: free swap. Repoint the host mirror (or leave
-                    # disk-direct) so the next page-in reads the target.
                     self.ledger.begin(region.name, checkpoint_id)
                     if image is not None:
                         self.residency._host[region.name] = image.region_mirror(region)
@@ -828,7 +872,6 @@ class CheckpointJuggler:
                     self.residency._rebind_off_device(region)
                     self.ledger.complete(region.name)
                     unbacked += 1
-            # Streamed page-ins and any later demote read the new source.
             self.residency._triples = {
                 key: (src.path, src.offset, src.length)
                 for key, src in manifest.items()
@@ -856,17 +899,7 @@ class CheckpointJuggler:
         logger.info(report.loud())
         return report
 
-    # -- byte movement ------------------------------------------------------
-
     def _verify_backing(self, checkpoint_id: str) -> bool:
-        """va#12 driver-truth check over every backed region, every swap.
-
-        Priced at 0.15–0.17 ms/GiB (measured under load) — affordable per
-        swap, so it is not rationed. A zero chunk means the mapping is not
-        what this process believes: the region is poisoned and the swap
-        FAILS rather than serving over a lie. Returns False (confessed on
-        the loud line) when the installed varena predates ``page_signatures``.
-        """
         res = self.residency.reservation
         if not hasattr(res, "page_signatures"):
             return False
@@ -892,12 +925,6 @@ class CheckpointJuggler:
         manifest: Dict[str, SlotSource],
         stream: Any,
     ) -> int:
-        """Overwrite a backed region under its fixed address. Returns bytes.
-
-        No unback, no back, no rebind: the views bound into the modules (and
-        any compiled artifact holding those pointers) read the new bytes the
-        moment the copy lands. That absence IS the zero-re-arm mechanism.
-        """
         if image is not None:
             dst = self._device_bytes(region)
             src = image.region_bytes(region)
@@ -933,7 +960,6 @@ class CheckpointJuggler:
         )
 
     def _count_residue(self) -> int:
-        """Bytes on the tree that NO region manages — stated, not swapped."""
         from .stream_residency import own_tensors, tensor_bytes
 
         managed = {
@@ -952,6 +978,9 @@ class CheckpointJuggler:
 
 
 __all__ = [
+    "LANE_VERDICT_DERIVABLE",
+    "LANE_VERDICT_INCOMPATIBLE",
+    "LANE_VERDICT_SATISFIES",
     "CheckpointCatalog",
     "CheckpointImage",
     "CheckpointJuggler",

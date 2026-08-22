@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 2.2.35
+Version: 2.2.36
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.

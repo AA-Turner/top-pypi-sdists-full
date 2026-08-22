@@ -13,7 +13,7 @@ maintainers = [
     {name = "Felix Dittrich"},
 ]
 readme = "README.md"
-requires-python = ">=3.10.0,<4"
+requires-python = ">=3.11.0,<4"
 license = {file = "LICENSE"}
 keywords=["OCR", "deep learning", "computer vision", "pytorch", "text detection", "text recognition"]
 classifiers=[
@@ -25,9 +25,10 @@ classifiers=[
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = ["version"]
@@ -40,19 +41,21 @@ dependencies = [
     "numpy>=1.16.0,<3.0.0",
     "scipy>=1.4.0,<2.0.0",
     "h5py>=3.1.0,<4.0.0",
-    "opencv-python>=4.5.0,<5.0.0",
+    "opencv-python>=4.5.0,<6.0.0",
     "pypdfium2>=4.11.0,<6.0.0",
     "pyclipper>=1.2.0,<2.0.0",
     "shapely>=1.6.0,<3.0.0",
     "langdetect>=1.0.9,<2.0.0",
     "rapidfuzz>=3.0.0,<4.0.0",
     "huggingface-hub>=0.20.0,<2.0.0",
-    "Pillow>=9.2.0",
-    "defusedxml>=0.7.0",
+    "Pillow>=10.1.0",
     "anyascii>=0.3.2",
     "validators>=0.18.0",
     "tqdm>=4.30.0",
 ]
+
+[project.scripts]
+doctr-cli = "doctr.cli.main:main"
 
 [project.optional-dependencies]
 html = [
@@ -66,11 +69,11 @@ contrib = [
     "onnxruntime>=1.11.0",
 ]
 testing = [
-    "pytest>=5.3.2",
-    "coverage[toml]>=4.5.4",
+    "pytest-cov>=7.0.0",
     "onnxruntime>=1.11.0",
     "requests>=2.20.0",
-    "psutil>=5.9.5"
+    "psutil>=5.9.5",
+    "pandas>=2.0.0",
 ]
 quality = [
     "ruff>=0.1.5",
@@ -97,11 +100,11 @@ dev = [
     "matplotlib>=3.1.0",
     "mplcursors>=0.3",
     # Testing
-    "pytest>=5.3.2",
-    "coverage[toml]>=4.5.4",
+    "pytest-cov>=7.0.0",
     "onnxruntime>=1.11.0",
     "requests>=2.20.0",
     "psutil>=5.9.5",
+    "pandas>=2.0.0",
     # Quality
     "ruff>=0.3.0",
     "mypy>=1.0",
@@ -156,7 +159,6 @@ module = [
 	"pyclipper.*",
 	"shapely.*",
 	"mplcursors.*",
-	"defusedxml.*",
 	"weasyprint.*",
 	"huggingface_hub.*",
 	"pypdfium2.*",
@@ -168,7 +170,7 @@ ignore_missing_imports = true
 [tool.ruff]
 exclude = [".git", "venv*", "build", "**/__init__.py"]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 preview=true
 
 [tool.ruff.lint]
@@ -177,7 +179,7 @@ select = [
     "E", "W", "F", "I", "N", "Q", "C4", "T10", "LOG",
     "D101", "D103", "D201","D202","D207","D208","D214","D215","D300","D301","D417", "D419", "D207"  # pydocstyle
 ]
-ignore = ["E402", "E203", "F403", "E731", "N812", "N817", "C408", "LOG015"]
+ignore = ["E402", "E203", "F403", "E731", "N812", "N817", "C408"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["doctr", "app", "utils"]

@@ -73,6 +73,471 @@ class BassRegressor:
         return preds.mean(axis=0)
 
 
+class GeorgeGPRegressor:
+    """sklearn-style wrapper around ``george`` (dfm/george, C++ GP library) —
+    exact GP regression with a fitted-hyperparameter isotropic kernel.
+
+    Routed like the existing ``gpr`` model: geocif hands it a StandardScaler-
+    scaled numeric matrix (cat features dropped), so inputs arrive standardized.
+    Design choices, per the george docs' production guidance:
+
+    * isotropic ExpSquaredKernel (one shared length scale). ARD with our
+      D≈50-1000 features on a few-hundred-row fold is D+ hyperparameters on a
+      multimodal marginal likelihood — ill-conditioned and slow. Matern 3/2 /
+      5/2 selectable via [ML] george_kernel for rougher response surfaces.
+    * metric initialized to D (squared length scale): squared distances
+      between standardized D-dim points concentrate around 2D, so metric=D
+      keeps exp(-r²/2ℓ²) away from the all-zeros regime at init.
+    * mean=mean(y) with fit_mean=True; amplitude init var(y).
+    * positive-definiteness: fixed jitter via ``yerr`` (relative to std(y))
+      PLUS fitted white noise — the two mechanisms the docs recommend for the
+      near-duplicate rows a region-year yield table is full of.
+    * BasicSolver (default). HODLR "doesn't (in general) scale well with the
+      number of input dimensions" (docs) and is approximate; our n is a few
+      hundred, so exact O(n³) Cholesky is trivially cheap.
+    * hardened NLL optimization (L-BFGS-B, quiet=True, 1e25 on non-finite),
+      verbatim pattern from the george hyperparameter tutorial. Falls back to
+      the init vector if optimization lands on a non-finite optimum.
+
+    george predict() does not store training targets — the wrapper keeps
+    (X_train, y_train) and passes y every call. ``predict_std`` exposes the
+    posterior std (latent var + fitted noise var) for future CI use.
+    george is an OPTIONAL dep (PyPI wheels for linux x86_64/win but not
+    aarch64): ``pip install geocif[george]`` or ``pixi add george``.
+    """
+
+    def __init__(self, kernel="expsquared", jitter=1e-3):
+        self.kernel = kernel
+        self.jitter = jitter
+
+    def get_params(self, deep=True):
+        return dict(kernel=self.kernel, jitter=self.jitter)
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    def _numeric(self, X):
+        X = pd.DataFrame(X).copy()
+        obj = list(X.select_dtypes(include=["object", "category"]).columns)
+        if obj:
+            X = pd.get_dummies(X, columns=obj, dummy_na=False)
+        return X.apply(pd.to_numeric, errors="coerce")
+
+    def _kernel(self, D, var_y):
+        from george import kernels as gk
+
+        metric = float(D)
+        if self.kernel == "matern32":
+            k = gk.Matern32Kernel(metric=metric, ndim=D)
+        elif self.kernel == "matern52":
+            k = gk.Matern52Kernel(metric=metric, ndim=D)
+        else:
+            k = gk.ExpSquaredKernel(metric=metric, ndim=D)
+        return var_y * k
+
+    def fit(self, X, y):
+        try:
+            import george
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'george' requires the `george` GP library, an "
+                "OPTIONAL geocif extra (PyPI ships no aarch64 wheels, so it "
+                "can't be a core dep). Install with:\n"
+                "    pip install geocif[george]\n"
+                "or on the pixi cluster env:\n"
+                "    pixi add --manifest-path <geo-run>/pixi.toml george"
+            ) from exc
+        from scipy.optimize import minimize
+
+        Xn = self._numeric(X)
+        self._median = Xn.median(numeric_only=True)
+        Xn = Xn.fillna(self._median).fillna(0.0)
+        self.columns_ = list(Xn.columns)
+        Xv = Xn.values.astype(float)
+        yv = np.asarray(y, dtype=float).ravel()
+
+        self._X_train = Xv
+        self._y_train = yv
+        D = Xv.shape[1]
+        var_y = float(np.var(yv))
+        if not np.isfinite(var_y) or var_y <= 0:
+            var_y = 1.0
+        std_y = np.sqrt(var_y)
+
+        self._gp = george.GP(
+            self._kernel(D, var_y),
+            mean=float(np.mean(yv)),
+            fit_mean=True,
+            white_noise=np.log(var_y * 0.1),
+            fit_white_noise=True,
+        )
+        self._gp.compute(Xv, yerr=self.jitter * std_y)
+
+        def nll(p):
+            self._gp.set_parameter_vector(p)
+            ll = self._gp.log_likelihood(yv, quiet=True)
+            return -ll if np.isfinite(ll) else 1e25
+
+        def grad_nll(p):
+            self._gp.set_parameter_vector(p)
+            return -self._gp.grad_log_likelihood(yv, quiet=True)
+
+        p0 = self._gp.get_parameter_vector()
+        result = minimize(nll, p0, jac=grad_nll, method="L-BFGS-B")
+        self._gp.set_parameter_vector(
+            result.x if np.isfinite(result.fun) and result.fun < 1e25 else p0
+        )
+        self.fitted_params_ = dict(
+            zip(self._gp.get_parameter_names(), self._gp.get_parameter_vector())
+        )
+        return self
+
+    def _predict(self, X):
+        Xn = self._numeric(X).reindex(columns=self.columns_, fill_value=0.0)
+        Xn = Xn.fillna(self._median).fillna(0.0)
+        return self._gp.predict(
+            self._y_train, Xn.values.astype(float), return_var=True
+        )
+
+    def predict(self, X):
+        mu, _ = self._predict(X)
+        return np.asarray(mu).ravel()
+
+    def predict_std(self, X):
+        """Posterior predictive std for new observations: latent variance
+        plus the fitted white-noise variance (george's return_var excludes
+        observation noise at the test points)."""
+        mu, var = self._predict(X)
+        noise = np.exp(
+            self.fitted_params_.get("white_noise:value", -np.inf)
+        )
+        return np.asarray(mu).ravel(), np.sqrt(np.maximum(var + noise, 0.0))
+
+
+class PyGRFRegressor:
+    """sklearn-style wrapper around PyGRF (geoai-lab/PyGRF, Sun et al. 2024,
+    Transactions in GIS) — Geographical Random Forest: one global sklearn RF
+    plus one local RF per training sample (fit on its band_width nearest
+    neighbors, bisquare-distance-weighted), blended at predict time as
+    ``local_weight * local + (1 - local_weight) * global``.
+
+    Coordinates come from the ``lat``/``lon`` columns of X (present when
+    [ML] include_lat_lon_as_feature = True force-includes them in
+    selected_features); they are POPPED out of the feature matrix — in GRF
+    they define the spatial kernel, not covariates. Because PyGRF computes
+    Euclidean distances and "recommends projected coordinates", lon/lat
+    degrees are locally projected (equirectangular, cos(mean lat) scaling)
+    to km before use — adequate at country scale for k-NN bandwidths.
+
+    PyGRF API quirks this wrapper absorbs (verbatim from PyGRF.py 0.0.12):
+    * fit() REQUIRES a DataFrame X / Series y (uses .iloc + .columns) and a
+      positional (n, 2) coords array — rows are index-reset so pairing stays
+      positional after geocif's region masking.
+    * predict() returns a 3-TUPLE (combined, global, local) and REQUIRES
+      coords_test + local_weight — we return np.asarray(combined).
+    * all features must be numeric — object/category cols are one-hot
+      encoded and NaN median-imputed (mirrors BassRegressor._numeric).
+
+    Defaults: band_width=None → adaptive heuristic (15% of n, floor 20,
+    capped at n-1); local_weight=None → theory-informed global Moran's I of
+    y on band_width-NN weights (the paper's recommendation), fallback 0.25.
+    Both overridable via [ML] pygrf_band_width / pygrf_local_weight.
+
+    COST: PyGRF fits ONE local RF PER TRAINING ROW — a pooled ~1700-row
+    fold trains 1700 local forests (several minutes). Fine for per-region
+    ('individual') clustering; budget accordingly for pooled strategies.
+    """
+
+    def __init__(self, band_width=None, local_weight=None, n_estimators=100,
+                 max_features=1.0, kernel="adaptive", train_weighted=True,
+                 predict_weighted=True, resampled=True, n_jobs=None, seed=0):
+        self.band_width = band_width
+        self.local_weight = local_weight
+        self.n_estimators = n_estimators
+        self.max_features = max_features
+        self.kernel = kernel
+        self.train_weighted = train_weighted
+        self.predict_weighted = predict_weighted
+        self.resampled = resampled
+        self.n_jobs = n_jobs
+        self.seed = seed
+
+    def get_params(self, deep=True):
+        return dict(
+            band_width=self.band_width, local_weight=self.local_weight,
+            n_estimators=self.n_estimators, max_features=self.max_features,
+            kernel=self.kernel, train_weighted=self.train_weighted,
+            predict_weighted=self.predict_weighted, resampled=self.resampled,
+            n_jobs=self.n_jobs, seed=self.seed,
+        )
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    @staticmethod
+    def _require_coords(X, model_label="pygrf"):
+        missing = [c for c in ("lat", "lon") if c not in X.columns]
+        if missing:
+            raise ValueError(
+                f"model = '{model_label}' needs 'lat'/'lon' columns in X "
+                f"(missing: {missing}). Set [ML] include_lat_lon_as_feature "
+                "= True so geocif force-includes region centroids in the "
+                "feature set."
+            )
+
+    def _project(self, lonlat):
+        """Equirectangular lon/lat → km, scaled at the training-mean
+        latitude (``self._lat0``, set in _split(fit=True)). Euclidean
+        distance on the result approximates great-circle distance at
+        country scale, which is all the (rank-based) adaptive k-NN kernel
+        needs."""
+        xy = np.asarray(lonlat, dtype=float)
+        x_km = xy[:, 0] * 111.320 * np.cos(np.radians(self._lat0))
+        y_km = xy[:, 1] * 110.574
+        return np.column_stack([x_km, y_km])
+
+    def _split(self, X, fit):
+        """X → (numeric feature DataFrame, projected (n,2) coords)."""
+        X = pd.DataFrame(X).reset_index(drop=True)
+        if fit:
+            self._require_coords(X)
+        lonlat = X[["lon", "lat"]].astype(float).to_numpy()
+        feats = X.drop(columns=["lat", "lon"], errors="ignore")
+        obj = list(feats.select_dtypes(include=["object", "category"]).columns)
+        if obj:
+            feats = pd.get_dummies(feats, columns=obj, dummy_na=False)
+        feats = feats.apply(pd.to_numeric, errors="coerce")
+        if fit:
+            self._median = feats.median(numeric_only=True)
+            self._coord_mean = np.nanmean(lonlat, axis=0)
+            if not np.all(np.isfinite(self._coord_mean)):
+                self._coord_mean = np.zeros(2)
+        else:
+            feats = feats.reindex(columns=self.columns_, fill_value=0.0)
+        feats = feats.fillna(self._median).fillna(0.0)
+        # coords must be NaN-free for cdist: regions missing from the
+        # boundary-file centroid merge fall back to the train-mean location
+        # (their local blend degrades gracefully toward the global model).
+        nan_rows = np.isnan(lonlat).any(axis=1)
+        if nan_rows.any():
+            lonlat[nan_rows] = self._coord_mean
+        if fit:
+            self._lat0 = float(np.mean(lonlat[:, 1]))
+        coords = self._project(lonlat)
+        # PyGRF's adaptive kernel divides by the band_width-th NN distance
+        # (PyGRF.py:129-131 fit, 250-252 predict). geocif's lat/lon are
+        # per-region centroids repeated for every training year, so that
+        # distance is exactly 0 whenever a region contributes >= band_width
+        # rows (ALWAYS under 'individual' clustering) -> 0/0 NaN sample
+        # weights -> sklearn ValueError. Break exact ties with a
+        # deterministic ~1 mm jitter (coords are in km); separate fit /
+        # predict streams so a test row never lands exactly on a train row.
+        rng = np.random.default_rng(self.seed if fit else self.seed + 1)
+        return feats, coords + rng.normal(0.0, 1e-6, coords.shape)
+
+    def _moran_local_weight(self, y, coords, k):
+        """Theory-informed local_weight = global Moran's I of the response
+        (Sun et al. 2024). Falls back to a conservative 0.25 if the weights
+        build fails (e.g. degenerate/duplicate coordinate sets)."""
+        try:
+            from libpysal.weights import KNN
+            from esda.moran import Moran
+
+            w = KNN.from_array(coords, k=max(1, min(k, len(y) - 1)))
+            mi = Moran(np.asarray(y, dtype=float), w, permutations=0)
+            if np.isfinite(mi.I):
+                return float(np.clip(mi.I, 0.0, 1.0))
+        except Exception:
+            pass
+        return 0.25
+
+    def fit(self, X, y):
+        try:
+            from PyGRF import PyGRFBuilder
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'pygrf' requires the PyGRF package (pure-Python, "
+                "on PyPI):\n    pip install PyGRF"
+            ) from exc
+
+        feats, coords = self._split(X, fit=True)
+        self.columns_ = list(feats.columns)
+        y_series = pd.Series(np.asarray(y, dtype=float).ravel()).reset_index(
+            drop=True
+        )
+        n = len(y_series)
+
+        bw = self.band_width
+        if str(self.kernel).lower() == "fixed":
+            # fixed kernel: band_width is a search RADIUS in km (coords are
+            # projected to km in _split), NOT a neighbor count — the
+            # count clamp / 15%-of-n heuristic has no distance meaning.
+            if bw is None:
+                raise ValueError(
+                    "pygrf kernel='fixed' needs an explicit [ML] "
+                    "pygrf_band_width (search radius in km); the adaptive "
+                    "count heuristic does not apply."
+                )
+            bw = float(bw)
+            if not np.isfinite(bw) or bw <= 0:
+                raise ValueError(
+                    f"pygrf_band_width must be a positive radius in km for "
+                    f"kernel='fixed', got {bw!r}"
+                )
+            # Moran's I still needs a NEIGHBOR COUNT — use the heuristic.
+            moran_k = max(
+                int(np.clip(round(0.15 * n), 1, max(1, n - 1))),
+                min(20, max(1, n - 1)),
+            )
+        else:
+            if bw is None:
+                bw = int(round(0.15 * n))
+                # floor of 2, not 1: band_width=1 makes PyGRF's train-side
+                # bandwidth the row's own self-distance (distance-matrix
+                # diagonal) = exactly 0, which no jitter can fix.
+                bw = int(np.clip(bw, 2, max(2, n - 1)))
+                bw = max(bw, min(20, max(2, n - 1)))
+            else:
+                bw = int(np.clip(int(bw), 2, max(2, n - 1)))
+            moran_k = bw
+        self.band_width_ = bw
+
+        lw = self.local_weight
+        if lw is None:
+            lw = self._moran_local_weight(y_series, coords, moran_k)
+        self.local_weight_ = float(np.clip(lw, 0.0, 1.0))
+
+        self._model = PyGRFBuilder(
+            band_width=bw,
+            n_estimators=self.n_estimators,
+            max_features=self.max_features,
+            kernel=self.kernel,
+            train_weighted=self.train_weighted,
+            predict_weighted=self.predict_weighted,
+            resampled=self.resampled,
+            n_jobs=self.n_jobs,
+            bootstrap=True,
+            random_state=self.seed,
+        )
+        self._model.fit(feats, y_series, coords)
+        return self
+
+    def predict(self, X):
+        feats, coords = self._split(X, fit=False)
+        combined, global_, _local = self._model.predict(
+            feats, coords, self.local_weight_
+        )
+        out = np.asarray(combined, dtype=float).ravel()
+        # kernel='fixed' with a test point that has no training point inside
+        # the radius yields 0/0 = NaN from PyGRF's weighted local average —
+        # fall back to the global RF prediction for those rows.
+        g = np.asarray(global_, dtype=float).ravel()
+        nan_out = np.isnan(out)
+        if nan_out.any():
+            out[nan_out] = g[nan_out]
+        return out
+
+
+class TabPFNGSARegressor:
+    """sklearn-style wrapper around TabPFN-GSA (ruid7181/TabPFN-GSA; Deng,
+    Li & Wang 2026, IJGIS — GSA = Geospatial Sparse Attention). A spatial
+    context-sampler around the stock TabPFNRegressor: predict-time it grids
+    the study area into K cells and, per cell with test points, fits TabPFN
+    in-context on the 3x3-neighborhood training rows plus a fraction ``s``
+    of distant rows, ensembled over 3 samplings; a global-fallback TabPFN
+    (fit on all rows at fit() time) covers empty neighborhoods.
+
+    Spatial columns are geocif's ``lat``/``lon`` feature columns (requires
+    [ML] include_lat_lon_as_feature = True). GSAModel hardcodes
+    include_spatial_features=True — coords double as model features — so
+    x_cols is everything EXCEPT lat/lon (overlap raises ValueError
+    upstream). X stays a DataFrame end-to-end (GSA requires it; slices are
+    handed straight to tabpfn, which infers category-dtype columns like
+    Region on its own). K must be a perfect square — non-square configs are
+    rounded to the nearest one rather than crashing mid-run.
+
+    ignore_pretraining_limits=True mirrors geocif's plain-tabpfn branch:
+    the global fallback fits on the FULL fold (>1000 rows on CPU aborts
+    without it). Degenerate case: an 'individual'-cluster fold where every
+    row shares one centroid collapses the grid to a single cell — GSA then
+    behaves as plain tabpfn (x3 ensembles), no crash.
+
+    tabpfn-gsa is git-only research code (v0.1.0, not on PyPI):
+        pip install git+https://github.com/ruid7181/TabPFN-GSA.git
+    """
+
+    def __init__(self, K=64, s=0.1, device="auto", seed=0):
+        self.K = K
+        self.s = s
+        self.device = device
+        self.seed = seed
+
+    def get_params(self, deep=True):
+        return dict(K=self.K, s=self.s, device=self.device, seed=self.seed)
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    @staticmethod
+    def _fill_nan_coords(X, coord_mean):
+        """Coords must be NaN-free: ONE NaN lat/lon makes tabpfn_gsa's grid
+        mins/spans NaN, silently collapsing EVERY row's cell index to 0 on
+        that axis (grid.py floors NaN -> int-cast warning -> clip 0), i.e.
+        the geospatial attention degenerates with no error. Regions missing
+        from the boundary-file centroid merge fall back to the train-mean
+        location, same as PyGRFRegressor."""
+        nan_mask = X[["lat", "lon"]].isna()
+        if nan_mask.to_numpy().any():
+            X = X.copy()
+            X["lat"] = X["lat"].fillna(coord_mean[0])
+            X["lon"] = X["lon"].fillna(coord_mean[1])
+        return X
+
+    def fit(self, X, y):
+        try:
+            from tabpfn_gsa import GSAModel
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'tabpfn_gsa' requires tabpfn-gsa, a git-only "
+                "optional dependency (not on PyPI):\n"
+                "    pip install git+https://github.com/ruid7181/TabPFN-GSA.git"
+            ) from exc
+
+        X = pd.DataFrame(X)
+        PyGRFRegressor._require_coords(X, model_label="tabpfn_gsa")
+        # Fill at FIT time, not just predict: GSAModel stores X internally
+        # and reuses those coords when building the predict-time grid.
+        self._coord_mean = np.nanmean(
+            X[["lat", "lon"]].to_numpy(dtype=float), axis=0
+        )
+        if not np.all(np.isfinite(self._coord_mean)):
+            self._coord_mean = np.zeros(2)
+        X = self._fill_nan_coords(X, self._coord_mean)
+        x_cols = [c for c in X.columns if c not in ("lat", "lon")]
+        side = max(2, int(round(np.sqrt(self.K))))
+        self._m = GSAModel(
+            spa_cols=["lat", "lon"],
+            x_cols=x_cols,
+            K=side * side,
+            s=float(np.clip(self.s, 0.0, 1.0)),
+            random_state=int(self.seed),
+            device=self.device,
+            model_kwargs={"ignore_pretraining_limits": True},
+        )
+        self._m.fit(X, np.asarray(y, dtype=float).ravel())
+        return self
+
+    def predict(self, X):
+        X = self._fill_nan_coords(pd.DataFrame(X), self._coord_mean)
+        return np.asarray(self._m.predict(X)).ravel()
+
+
 def loocv(
     model,
     df,
@@ -313,6 +778,9 @@ def auto_train(
     seed: int = 0,
     cubist_params: dict = None,
     bass_params: dict = None,
+    george_params: dict = None,
+    pygrf_params: dict = None,
+    gsa_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -874,6 +1342,31 @@ def auto_train(
                         nmcmc=14000, nburn=9000, thin=10)
             bass.update(bass_params or {})
             model = BassRegressor(**bass)
+        elif model_name == "pygrf":
+            # Geographical Random Forest (geoai-lab/PyGRF). Coords come from
+            # the lat/lon feature columns; band_width/local_weight default to
+            # the adaptive heuristic / Moran's I inside the wrapper.
+            # Overridable via [ML] pygrf_* config keys. Local RFs are tiny,
+            # so give the (parallel-capable) sklearn forests the per-worker
+            # thread budget like catboost/extratrees.
+            grf = dict(n_jobs=ml_threads.thread_count(-1))
+            grf.update(pygrf_params or {})
+            model = PyGRFRegressor(seed=int(seed), **grf)
+        elif model_name == "tabpfn_gsa":
+            # TabPFN-GSA (ruid7181) — Geospatial Sparse Attention context
+            # sampler around the stock TabPFNRegressor. K (grid cells,
+            # perfect square) and s (distant-sampling rate) via [ML]
+            # tabpfn_gsa_* config keys.
+            gsa = dict(K=64, s=0.1, device="auto")
+            gsa.update(gsa_params or {})
+            model = TabPFNGSARegressor(seed=int(seed), **gsa)
+        elif model_name == "george":
+            # george (dfm/george) — C++ exact-GP regression, routed through
+            # the same scaled path as 'gpr' (GPRFitter / StandardScaler).
+            # Kernel + jitter overridable via [ML] george_* config keys.
+            geo = dict(kernel="expsquared", jitter=1e-3)
+            geo.update(george_params or {})
+            model = GeorgeGPRegressor(**geo)
         elif model_name == "gpr":
             from sklearn.gaussian_process import GaussianProcessRegressor
             from sklearn.gaussian_process.kernels import (

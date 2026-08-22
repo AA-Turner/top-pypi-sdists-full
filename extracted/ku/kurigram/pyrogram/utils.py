@@ -61,13 +61,13 @@ async def ainput(prompt: str = "", *, hide: bool = False, loop: Optional[asyncio
 
 def get_input_media_from_file_id(
     file_id: str,
-    expected_file_type: FileType = None,
-    ttl_seconds: int = None,
-    has_spoiler: bool = None,
-    video_cover: "raw.types.InputPhoto" = None,
-    video_start_timestamp: int = None,
-    live_photo: bool = None,
-    live_photo_video_file_id: str = None
+    expected_file_type: Optional[FileType] = None,
+    ttl_seconds: Optional[int] = None,
+    has_spoiler: Optional[bool] = None,
+    video_cover: Optional["raw.types.InputPhoto"] = None,
+    video_start_timestamp: Optional[int] = None,
+    live_photo: Optional[bool] = None,
+    live_photo_video_file_id: Optional[str] = None
 ) -> Union["raw.types.InputMediaPhoto", "raw.types.InputMediaDocument"]:
     try:
         decoded = FileId.decode(file_id)
@@ -233,6 +233,10 @@ async def parse_messages(
                     raw.types.UpdateNewChannelMessage,
                     raw.types.UpdateNewScheduledMessage,
                     raw.types.UpdateBotNewBusinessMessage,
+                    raw.types.UpdateNewEphemeralMessage,
+                    raw.types.UpdateEditMessage,
+                    raw.types.UpdateEditChannelMessage,
+                    raw.types.UpdateEditEphemeralMessage
                 )
             ):
                 parsed_messages.append(
@@ -251,8 +255,10 @@ async def parse_messages(
     return types.List(parsed_messages)
 
 
-def parse_deleted_messages(client, update, users, chats) -> List["types.Message"]:
-    messages = update.messages
+async def parse_deleted_messages(client, update, users, chats) -> List["types.Message"]:
+    is_ephemeral = isinstance(update, raw.types.UpdateDeleteEphemeralMessages)
+
+    messages = update.ids if is_ephemeral else update.messages
     channel_id = getattr(update, "channel_id", None)
     peer = getattr(update, "peer", None)
 
@@ -268,27 +274,25 @@ def parse_deleted_messages(client, update, users, chats) -> List["types.Message"
         chat_id = get_raw_peer_id(peer)
         if chat_id:
             if isinstance(peer, raw.types.PeerUser):
-                chat = types.Chat._parse_user_chat(client, users[chat_id])
+                chat = await types.Chat._parse_user_chat(client, users[chat_id])
 
             elif isinstance(peer, raw.types.PeerChat):
-                chat = types.Chat._parse_chat_chat(client, chats[chat_id])
+                chat = await types.Chat._parse_chat_chat(client, chats[chat_id])
 
             else:
-                chat = types.Chat._parse_channel_chat(
+                chat = await types.Chat._parse_channel_chat(
                     client, chats[chat_id]
                 )
 
-    parsed_messages = []
-
-    for message in messages:
-        parsed_messages.append(
-            types.Message(
-                id=message,
-                chat=chat,
-                business_connection_id=getattr(update, "connection_id", None),
-                client=client
-            )
-        )
+    parsed_messages = [
+        types.Message(
+            id=0 if is_ephemeral else message,
+            ephemeral_message_id=message if is_ephemeral else None,
+            chat=chat,
+            business_connection_id=getattr(update, "connection_id", None),
+            client=client
+        ) for message in messages
+    ]
 
     return types.List(parsed_messages)
 
@@ -413,7 +417,7 @@ async def get_reply_to(
     reply_parameters: Optional["types.ReplyParameters"] = None,
     message_thread_id: Optional[int] = None,
     direct_messages_topic_id: Optional[int] = None
-) -> Optional[Union[raw.types.InputReplyToMessage, raw.types.InputReplyToStory, raw.types.InputReplyToMonoForum]]:
+) -> Optional["raw.base.InputReplyTo"]:
     """Get InputReply for reply_to argument"""
     if reply_parameters:
         if reply_parameters.chat_id and reply_parameters.story_id:
@@ -446,6 +450,11 @@ async def get_reply_to(
                 monoforum_peer_id=await client.resolve_peer(direct_messages_topic_id),
                 todo_item_id=reply_parameters.checklist_task_id,
                 poll_option=reply_parameters.poll_option_id.encode() if reply_parameters.poll_option_id is not None else None,
+            )
+
+        if reply_parameters.ephemeral_message_id:
+            return raw.types.InputReplyToEphemeralMessage(
+                id=reply_parameters.ephemeral_message_id
             )
 
     if message_thread_id:
@@ -653,12 +662,12 @@ def split_text(text: str, max_length: int = 4096) -> List[str]:
     return chunks
 
 
-def parse_text_with_entities(client, message: "raw.types.TextWithEntities", users):
+async def parse_text_with_entities(client, message: "raw.types.TextWithEntities", users):
     entities = types.List(
         filter(
             lambda x: x is not None,
             [
-                types.MessageEntity._parse(client, entity, users)
+                await types.MessageEntity._parse(client, entity, users)
                 for entity in getattr(message, "entities", [])
             ]
         )
@@ -721,7 +730,7 @@ def expand_inline_bytes(bytes_data: bytes):
     return header + bytes_data[3:] + footer
 
 
-def from_inline_bytes(data: bytes, file_name: str = None) -> BytesIO:
+def from_inline_bytes(data: bytes, file_name: Optional[str] = None) -> BytesIO:
     b = BytesIO()
 
     b.write(data)

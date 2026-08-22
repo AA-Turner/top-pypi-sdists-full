@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: minimax-coding-plan-mcp
-Version: 0.0.4
+Version: 0.0.5
 Summary: Specialized MiniMax Model Context Protocol (MCP) server designed for coding-plan users
 Author-email: Roy Wu <zhengyu@minimax.chat>
 License: MIT License
@@ -34,13 +34,12 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mcp[cli]>=1.6.0
+Requires-Dist: mcp[cli]<3,>=2.0.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: requests>=2.31.0
 Provides-Extra: dev
 Requires-Dist: pre-commit>=3.6.2; extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
-Requires-Dist: fastmcp>=0.4.1; extra == "dev"
 Requires-Dist: pytest>=8.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: twine>=6.1.0; extra == "dev"

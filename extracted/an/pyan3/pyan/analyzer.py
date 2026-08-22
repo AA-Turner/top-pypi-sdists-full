@@ -15,13 +15,16 @@ from .anutils import (
     Scope,
     UnresolvedSuperCallError,
     canonize_exprs,
+    enclosing_namespaces,
     format_alias,
     get_ast_node_name,
     get_module_name,
     infer_root,
     normalize_symtable_scope_name,
+    parent_namespace,
     resolve_import,
     resolve_method_resolution_order,
+    split_qualified_name,
     tail,
 )
 from .callgraph import CallGraph
@@ -76,7 +79,9 @@ class CallGraphVisitor(ast.NodeVisitor):
     can be gathered."""
 
     def __init__(self, filenames, root: str = None, logger=None,
-                 namespace_constructors: Iterable[str] | None = None):
+                 namespace_constructors: Iterable[str] | None = None,
+                 cull_subsumed_edges: bool = True,
+                 use_parameter_annotations: bool = True):
         """Construct a CallGraphVisitor and analyze *filenames*.
 
         Args:
@@ -93,8 +98,18 @@ class CallGraphVisitor(ast.NodeVisitor):
                 populated with the call's keyword arguments (#129).  Each
                 entry should be the canonical dotted import path
                 (e.g. ``"my.lib.MyNamespace"``).
+            cull_subsumed_edges: drop uses edges that a more specific edge
+                already conveys, such as a module's import-derived edge to a
+                name one of its own functions uses (#140).  Set ``False`` for
+                the raw edge set.
+            use_parameter_annotations: bind an annotated parameter to the class
+                its annotation names, so that attribute access on it resolves
+                the way it does for a local.  ``False`` leaves the parameter
+                unresolved, which is the safer reading when a codebase's
+                annotations are loose and the values are often subclasses.
         """
-        self._init_common(logger, namespace_constructors)
+        self._init_common(logger, namespace_constructors, cull_subsumed_edges,
+                          use_parameter_annotations)
 
         # Infer root from filenames when not explicitly given.
         # This ensures namespace packages (directories without __init__.py)
@@ -114,7 +129,9 @@ class CallGraphVisitor(ast.NodeVisitor):
 
     @classmethod
     def from_sources(cls, sources, logger=None,
-                     namespace_constructors: Iterable[str] | None = None):
+                     namespace_constructors: Iterable[str] | None = None,
+                     cull_subsumed_edges: bool = True,
+                     use_parameter_annotations: bool = True):
         """Create a CallGraphVisitor from in-memory sources (no file I/O).
 
         Args:
@@ -130,12 +147,15 @@ class CallGraphVisitor(ast.NodeVisitor):
                 resolve correctly.
             logger: optional ``logging.Logger`` instance.
             namespace_constructors: see ``CallGraphVisitor.__init__``.
+            cull_subsumed_edges: see ``CallGraphVisitor.__init__``.
+            use_parameter_annotations: see ``CallGraphVisitor.__init__``.
 
         Returns:
             A fully analyzed ``CallGraphVisitor``.
         """
         self = cls.__new__(cls)
-        self._init_common(logger, namespace_constructors)
+        self._init_common(logger, namespace_constructors, cull_subsumed_edges,
+                          use_parameter_annotations)
         self.root = ""
 
         # Normalize sources: unparse ASTs, store source text.
@@ -156,14 +176,27 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.process()
         return self
 
-    def _init_common(self, logger, namespace_constructors: Iterable[str] | None = None):
+    def _init_common(self, logger, namespace_constructors: Iterable[str] | None = None,
+                     cull_subsumed_edges: bool = True,
+                     use_parameter_annotations: bool = True):
         """Shared initialization for both constructors.
 
         *namespace_constructors* — see ``CallGraphVisitor.__init__``.  The
         merged set (built-in registry ∪ user-supplied) is stored on
         ``self.namespace_constructors`` for the recognition path to read.
+
+        *cull_subsumed_edges*, *use_parameter_annotations* — see
+        ``CallGraphVisitor.__init__``.
         """
         self.logger = logger or logging.getLogger(__name__)
+        self.cull_subsumed_edges = cull_subsumed_edges
+        self.use_parameter_annotations = use_parameter_annotations
+
+        # (function namespace, parameter name) → the class a `*args: T` or
+        # `**kwargs: T` annotation names. The parameter itself is a tuple or a
+        # dict and stays unbound; this is what one *element* of it is, which is
+        # what `visit_Subscript` needs for `args[0].method()`.
+        self._starred_element_types = {}
 
         # Merged set of namespace-constructor FQNs (built-in + user-supplied).
         # Read by `_maybe_register_namespace_object` to upgrade the LHS of a
@@ -218,6 +251,7 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.class_stack = []  # Nodes for class definitions currently in scope
         self.context_stack = []  # for detecting which FunctionDefs are methods
         self._anon_scope_idx = {}  # (parent_ns, scope_type) → next index
+        self._inlined_comprehension_scopes = set()  # namespaces synthesized for PEP 709
 
     ###########################################################################
     # Graph state — properties read/write through self.graph so existing call
@@ -353,6 +387,7 @@ class CallGraphVisitor(ast.NodeVisitor):
             else:
                 self._import_module_name = self.module_name
         self._anon_scope_idx = {}  # reset per source unit — must match between analyze_scopes and visitor
+        self._inlined_comprehension_scopes = set()
         self.analyze_scopes(content, self.filename)  # add to the currently known scopes
         self.visit(ast.parse(content, self.filename))
         self.module_name = None
@@ -392,7 +427,7 @@ class CallGraphVisitor(ast.NodeVisitor):
 
     def postprocess(self):
         """Finalize the analysis. Pipeline lives in :mod:`pyan.postprocessor`."""
-        postprocess(self)
+        postprocess(self, cull_subsumed_edges=self.cull_subsumed_edges)
 
     ###########################################################################
     # visitor methods
@@ -630,6 +665,11 @@ class CallGraphVisitor(ast.NodeVisitor):
             # pattern: visit in enclosing scope, bind inside.
             self._visit_function_annotations(node)
 
+            # ...and let an annotated parameter carry its type into the body, so
+            # that attribute access on it resolves the way it does for a local.
+            if self.use_parameter_annotations:
+                self._bind_annotated_parameters(node, inner_ns)
+
             # Analyze the function body
             #
             for stmt in node.body:
@@ -761,6 +801,65 @@ class CallGraphVisitor(ast.NodeVisitor):
             self.visit(node.args.vararg.annotation)
         if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
             self.visit(node.args.kwarg.annotation)
+
+    def _resolve_annotation_to_node(self, ann):
+        """Return the graph Node an annotation expression names, or None.
+
+        Handles a bare name (``Derived``) and a dotted one (``mod.Derived``).
+        A string annotation, ``Optional[X]``, or a union resolves to nothing:
+        picking one arm of a union would be a guess, and pyan does not guess.
+        """
+        if isinstance(ann, ast.Name):
+            return self.get_value(ann.id)
+        if isinstance(ann, ast.Attribute):
+            try:
+                obj_node, attr_name = self.resolve_attribute(ann)
+            except UnresolvedSuperCallError:
+                return None
+            if isinstance(obj_node, Node) and obj_node.namespace is not None:
+                sc = self.scopes.get(obj_node.get_name())
+                if sc is not None and isinstance(sc.defs.get(attr_name), Node):
+                    return sc.defs[attr_name]
+        return None
+
+    def _bind_annotated_parameters(self, node, inner_ns):
+        """Bind each annotated parameter to the class its annotation names.
+
+        Without this, ``def f(obj: Derived): obj.hello()`` leaves ``obj`` on the
+        placeholder every parameter starts on, so the call resolves only to the
+        wildcard ``*.hello``, while the same call on a local — ``thing =
+        Derived(); thing.hello()`` — resolves to ``Derived.hello``. An
+        annotation is the one place a codebase states the type deliberately, so
+        the asymmetry cost more than it bought.
+
+        Classes and modules bind, and nothing else. Attribute resolution looks
+        the name up in the target's *scope*, and for those two the scope is
+        exactly the attribute namespace. A function's scope holds its locals and
+        any attributes assigned to it in one dictionary, undistinguished at
+        lookup, so binding a parameter to a function would resolve
+        `cb.stash.method()` against a local `stash` and draw a call that cannot
+        happen.
+
+        `*args` and `**kwargs` are not bound: their annotation describes the
+        element type, where the parameter itself is a tuple or a dict. The
+        element type is remembered instead, for subscripts to use.
+        """
+        sc = self.scopes[inner_ns]
+        for arg in node.args.args + node.args.posonlyargs + node.args.kwonlyargs:
+            if arg.annotation is None:
+                continue
+            value = self._resolve_annotation_to_node(arg.annotation)
+            if isinstance(value, Node) and value.flavor in (Flavor.CLASS, Flavor.MODULE):
+                self.logger.info(f"Binding parameter {arg.arg} to annotated type {value}")
+                sc.defs[arg.arg] = value
+
+        for star_arg in (node.args.vararg, node.args.kwarg):
+            if star_arg is None or star_arg.annotation is None:
+                continue
+            value = self._resolve_annotation_to_node(star_arg.annotation)
+            if isinstance(value, Node) and value.flavor in (Flavor.CLASS, Flavor.MODULE):
+                self.logger.info(f"Element type of {star_arg.arg} is {value}")
+                self._starred_element_types[(inner_ns, star_arg.arg)] = value
 
     def _record_import(self, target_module):
         """Record that the current namespace imports from `target_module`.
@@ -922,15 +1021,53 @@ class CallGraphVisitor(ast.NodeVisitor):
     # Essentially, this should make '.'.join(...) see str.join.
     # Pyan3 currently handles that in resolve_attribute() and get_attribute().
     #
-    # Python 3.4 does not have ast.Constant, but 3.6 does.
-    # TODO: actually test this with Python 3.6 or later.
-    #
-    def visit_Constant(self, node):
-        self.logger.debug(f"Constant {node.value}, {self.filename}:{node.lineno}")
-        t = type(node.value)
+    def visit_Subscript(self, node):
+        """Subscripting `*args: T` or `**kwargs: T` yields a `T`.
+
+        The parameter itself is a tuple or a dict, so it is deliberately not
+        bound to `T` — but one element of it is exactly what the annotation
+        names, which is what makes `args[0].method()` resolvable.
+        """
+        self.logger.debug(f"Subscript in context {type(node.ctx)}, {self.filename}:{node.lineno}")
+        # Defining this method takes over from `generic_visit`, so the children
+        # have to be walked here or the ordinary case regresses: `TABLE["a"]`
+        # gets its edge to `TABLE` from visiting the value, and the index
+        # expression may reference names of its own.
+        self.visit(node.value)
+        self.visit(node.slice)
+
+        if isinstance(node.ctx, ast.Load):
+            element = self._starred_element_type(node)
+            if element is not None:
+                self.logger.debug(f"Subscript of {node.value.id} resolves to element type {element}")
+                return element
+        # Otherwise contribute no value, as `generic_visit` did: pyan does not
+        # track what a container holds, so the result of a subscript is unknown.
+        return None
+
+    def _starred_element_type(self, subscript_ast):
+        """The element type of a `*args: T` / `**kwargs: T` this subscripts, if any."""
+        if not isinstance(subscript_ast.value, ast.Name):
+            return None
         ns = self.get_node_of_current_namespace().get_name()
-        tn = t.__name__
-        return self.get_node(ns, tn, node, flavor=Flavor.ATTRIBUTE)
+        return self._starred_element_types.get((ns, subscript_ast.value.id))
+
+    def visit_Constant(self, node):
+        """Return no value: a literal does not bind its target to anything."""
+        # Returning the literal's *type* here — a Node named `<namespace>.int` —
+        # was how `x = 42` bound `x`. Every read of a constant then resolved to
+        # `int` or `str` rather than to the constant, and since the builtin types
+        # are never in the analyzed set, those edges were wildcards that no
+        # output draws. It also swallowed enum members: `Color.RED` is a name
+        # bound to a literal, so it resolved to `str` and the reference to the
+        # member disappeared.
+        #
+        # Leaving the name unbound is what a dict or list literal already did,
+        # which is why a dict-valued constant was visible in the graph and an
+        # int-valued one was not. Attribute access on a literal *expression*
+        # (`"hello".upper()`) is unaffected: `resolve_attribute` handles that.
+        self.logger.debug(f"Constant {node.value}, {self.filename}:{node.lineno}")
+        return None
 
     # attribute access (node.ctx is ast.Load/Store/Del)
     # Store context: handled by _bind_target
@@ -1211,6 +1348,23 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.logger.debug(f"GeneratorExp, {self.filename}:{node.lineno}")
         return self.analyze_comprehension(node, "genexpr")
 
+    def is_inside_inlined_comprehension(self, namespace):
+        """Does *namespace* sit anywhere below a comprehension scope we synthesized?
+
+        PEP 709 (Python 3.12+) inlines comprehensions into the enclosing
+        function. Their lexical scope is unchanged — iteration variables still
+        do not leak — but `symtable` no longer reports a table for it, and
+        reports whatever the comprehension contains as a child of the enclosing
+        function instead. So nothing below such a level can be looked up under
+        the namespace the visitor walks, which still models the scope.
+
+        Checks every ancestor rather than the immediate parent: a lambda inside a
+        lambda inside a comprehension is two levels down, and only the outermost
+        of the three is the inlined one.
+        """
+        return any(ns in self._inlined_comprehension_scopes
+                   for ns in enclosing_namespaces(parent_namespace(namespace)))
+
     def _next_anon_scope_name(self, scope_type, ast_node):
         """Return a numbered scope name like ``listcomp.0``, ``lambda.1``, etc.
 
@@ -1283,6 +1437,10 @@ class CallGraphVisitor(ast.NodeVisitor):
             for gen in gens:
                 self._collect_target_names(gen.target, target_names)
             self.scopes[inner_ns] = Scope.from_names(numbered_label, target_names)
+            # Remember that this level exists only in our namespace, not in
+            # symtable's — anything nested inside it is reported one level up,
+            # so its scope has to be synthesized too. See ExecuteInInnerScope.
+            self._inlined_comprehension_scopes.add(inner_ns)
 
         with ExecuteInInnerScope(self, numbered_label) as scope_ctx:
             # Bind outermost targets to the iterator value in inner scope.
@@ -1822,6 +1980,14 @@ class CallGraphVisitor(ast.NodeVisitor):
                 #
                 obj_node = self.get_node("", tn, None, flavor=Flavor.CLASS)
 
+            # attribute of a subscript. `*args: T` annotates the *element* type,
+            # so `args[0]` is a `T` even though `args` itself is a tuple.
+            elif isinstance(ast_node.value, ast.Subscript):
+                obj_node = self._starred_element_type(ast_node.value)
+                if not isinstance(obj_node, Node):
+                    self.logger.debug(f"Unresolved subscript as obj, returning attr {ast_node.attr} of unknown")
+                    return None, ast_node.attr
+
             # attribute of a function call. Detect cases like super().dostuff()
             elif isinstance(ast_node.value, ast.Call):
                 # Note that resolve_builtins() will signal an unresolved
@@ -1894,10 +2060,20 @@ class CallGraphVisitor(ast.NodeVisitor):
         #
         scopes = {}
 
-        def process(parent_ns, table):
+        def register(parent_ns, table):
+            """Register *table* under its own namespace, then its children."""
             sc = Scope(table)
             ns = f"{parent_ns}.{sc.name}" if len(sc.name) else parent_ns
             scopes[ns] = sc
+            register_children(ns, table)
+
+        def register_children(ns, table):
+            """Register the child scopes of *table*, which is itself registered as *ns*.
+
+            Anonymous scopes are numbered per (namespace, kind). That numbering has
+            to match `_next_anon_scope_name`, since the visitor looks a scope up by
+            the name it generates there, and a miss is a hard error.
+            """
             anon_counts = {}  # number duplicate anonymous scope children
             for t in table.get_children():
                 child_name = normalize_symtable_scope_name(t.get_name())
@@ -1905,25 +2081,24 @@ class CallGraphVisitor(ast.NodeVisitor):
                     idx = anon_counts.get(child_name, 0)
                     anon_counts[child_name] = idx + 1
                     child_sc = Scope(t)
-                    numbered_name = f"{child_name}.{idx}"
-                    child_sc.name = numbered_name
-                    child_ns = f"{ns}.{numbered_name}"
+                    child_sc.name = f"{child_name}.{idx}"
+                    child_ns = f"{ns}.{child_sc.name}"
                     scopes[child_ns] = child_sc
-                    for sub_t in t.get_children():
-                        process(child_ns, sub_t)
+                    # Recurse through here rather than through `register`, so that
+                    # the numbering is applied at every depth: a lambda inside a
+                    # lambda is `lambda.0.lambda.0`, which is what the visitor asks
+                    # for. Going through `register` would name it `lambda.0.lambda`.
+                    register_children(child_ns, t)
                 elif _is_type_params_scope(t):
                     # PEP 695 (#123): store the type-parameter scope
                     # under a synthetic key and process its children
                     # under the current namespace (see docstring above).
-                    tp_scope = Scope(t)
-                    tp_key = f"{ns}.<type_params>.{child_name}"
-                    scopes[tp_key] = tp_scope
-                    for sub_t in t.get_children():
-                        process(ns, sub_t)
+                    scopes[f"{ns}.<type_params>.{child_name}"] = Scope(t)
+                    register_children(ns, t)
                 else:
-                    process(ns, t)
+                    register(ns, t)
 
-        process(self.module_name, symtable.symtable(code, filename, compile_type="exec"))
+        register(self.module_name, symtable.symtable(code, filename, compile_type="exec"))
 
         # add to existing scopes (while not overwriting any existing definitions with None)
         for ns in scopes:
@@ -2187,10 +2362,7 @@ class CallGraphVisitor(ast.NodeVisitor):
 
     def get_parent_node(self, graph_node):
         """Get the parent node of the given Node. (Used in postprocessing.)"""
-        if "." in graph_node.namespace:
-            ns, name = graph_node.namespace.rsplit(".", 1)
-        else:
-            ns, name = "", graph_node.namespace
+        ns, name = split_qualified_name(graph_node.namespace)
         return self.get_node(ns, name, None)
 
     @staticmethod
@@ -2231,15 +2403,17 @@ class CallGraphVisitor(ast.NodeVisitor):
         """
         if graph_node.defined:
             return graph_node
-        full = graph_node.get_name()
-        if "." not in full:
+        parent_full = parent_namespace(graph_node.get_name())
+        if not parent_full:
             return None
-        parent_full = full.rsplit(".", 1)[0]
-        return next(
-            (n for lst in self.nodes.values() for n in lst
-             if n.defined and n.get_name() == parent_full),
-            None,
-        )
+        # `self.nodes` is indexed by short name, so ask it for the one bucket the
+        # parent can be in. Scanning every Node and formatting its dotted name to
+        # compare was 80% of the runtime on a 90k-line project: this is called per
+        # unresolved attribute access, and the graph it searched grew with the
+        # codebase, which is where pyan's near-quadratic scaling came from.
+        ns, name = split_qualified_name(parent_full)
+        return next((n for n in self.nodes.get(name, ())
+                     if n.defined and n.namespace == ns), None)
 
     def associate_node(self, graph_node, ast_node, filename=None):
         """Change the AST node (and optionally filename) mapping of a graph node.

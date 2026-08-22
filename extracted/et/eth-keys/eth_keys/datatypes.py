@@ -1,15 +1,12 @@
+import codecs
+import collections
 from abc import (
     ABC,
     abstractmethod,
 )
-import codecs
-import collections
 from typing import (
     TYPE_CHECKING,
     Any,
-    Tuple,
-    Type,
-    Union,
 )
 
 from eth_typing import (
@@ -58,7 +55,7 @@ if TYPE_CHECKING:
 class LazyBackend:
     def __init__(
         self,
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         from eth_keys.backends.base import (  # noqa: F811
             BaseECCBackend,
@@ -150,7 +147,7 @@ class PublicKey(BaseKey, LazyBackend):
     def __init__(
         self,
         public_key_bytes: bytes,
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         validate_uncompressed_public_key_bytes(public_key_bytes)
 
@@ -239,7 +236,7 @@ class PrivateKey(BaseKey, LazyBackend):
     def __init__(
         self,
         private_key_bytes: bytes,
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         validate_private_key_bytes(private_key_bytes)
 
@@ -272,8 +269,8 @@ class BaseSignature(LazyBackend, ABC):
 
     def __init__(
         self,
-        rs: Tuple[int, int],
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        rs: tuple[int, int],
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         for value in rs:
             try:
@@ -293,7 +290,7 @@ class BaseSignature(LazyBackend, ABC):
         return self._s
 
     @property
-    def rs(self) -> Tuple[int, int]:
+    def rs(self) -> tuple[int, int]:
         return (self.r, self.s)
 
     @abstractmethod
@@ -352,8 +349,8 @@ class Signature(BaseSignature):
     def __init__(
         self,
         signature_bytes: bytes = None,
-        vrs: Tuple[int, int, int] = None,
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        vrs: tuple[int, int, int] = None,
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         if bool(signature_bytes) is bool(vrs):
             raise TypeError("You must provide one of `signature_bytes` or `vrs`")
@@ -400,7 +397,7 @@ class Signature(BaseSignature):
         self._s = value
 
     @property
-    def vrs(self) -> Tuple[int, int, int]:
+    def vrs(self) -> tuple[int, int, int]:
         return (self.v, self.r, self.s)
 
     def to_bytes(self) -> bytes:
@@ -424,8 +421,8 @@ class NonRecoverableSignature(BaseSignature):
     def __init__(
         self,
         signature_bytes: bytes = None,
-        rs: Tuple[int, int] = None,
-        backend: "Union[BaseECCBackend, Type[BaseECCBackend], str, None]" = None,
+        rs: tuple[int, int] = None,
+        backend: "BaseECCBackend | type[BaseECCBackend] | str | None" = None,
     ) -> None:
         if signature_bytes is None and rs is None:
             raise TypeError("You must provide one of `signature_bytes` or `vr`")

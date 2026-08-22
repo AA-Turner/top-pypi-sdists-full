@@ -7,18 +7,22 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import OrgPermissionUser
+from plato._generated.models import AuthorizationRole, OrgPermissionUser
 
 
 def _build_request_args(
     org_public_id: str,
     user_public_id: str,
-    role: str,
+    role: AuthorizationRole,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
-    url = f"/api/v2/admin/orgs/{org_public_id}/users/{user_public_id}/roles/{role}"
+    url = "/api/v2/admin/orgs/{org_public_id}/users/{user_public_id}/roles/{role}".format(
+        org_public_id=org_public_id,
+        user_public_id=user_public_id,
+        role=getattr(role, "value", role),
+    )
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -37,16 +41,17 @@ def sync(
     client: httpx.Client,
     org_public_id: str,
     user_public_id: str,
-    role: str,
+    role: AuthorizationRole,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> OrgPermissionUser:
     """Revoke an org-level capability role from a user.
 
-    Revoking the user's *last* role in an org ends their membership there, so
-    this path upholds the same invariants as `remove_user_from_org`: it refuses
-    when that org is their only one, and re-points the active org when the
-    membership it pointed at is the one going away."""
+    Any enum role can be revoked (so legacy rows are cleanable), but the
+    membership invariants still hold: revoking the user's *last* role in an
+    org ends their membership there, so this refuses when that org is their
+    only one, and re-points the active org when the membership it pointed at
+    is the one going away."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,
@@ -65,16 +70,17 @@ async def asyncio(
     client: httpx.AsyncClient,
     org_public_id: str,
     user_public_id: str,
-    role: str,
+    role: AuthorizationRole,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> OrgPermissionUser:
     """Revoke an org-level capability role from a user.
 
-    Revoking the user's *last* role in an org ends their membership there, so
-    this path upholds the same invariants as `remove_user_from_org`: it refuses
-    when that org is their only one, and re-points the active org when the
-    membership it pointed at is the one going away."""
+    Any enum role can be revoked (so legacy rows are cleanable), but the
+    membership invariants still hold: revoking the user's *last* role in an
+    org ends their membership there, so this refuses when that org is their
+    only one, and re-points the active org when the membership it pointed at
+    is the one going away."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,

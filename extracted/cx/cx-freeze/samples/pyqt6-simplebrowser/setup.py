@@ -1,4 +1,5 @@
 """A simple setup script to create an executable using PyQt6-WebEngine.
+
 This also demonstrates how to use excludes to get minimal package size.
 
 Run the build process by running the command 'python setup.py build'
@@ -26,7 +27,7 @@ if get_qt_plugins_paths:
 build_exe_options = {
     "bin_excludes": ["libqpdf.so", "libqpdf.dylib"],
     # exclude packages that are not really needed
-    "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"],
+    "excludes": ["tkinter", "email", "http", "xml"],
     "include_files": include_files,
 }
 

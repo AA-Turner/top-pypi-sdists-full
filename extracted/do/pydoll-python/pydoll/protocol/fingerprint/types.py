@@ -120,6 +120,12 @@ class ScreenFingerprint(TypedDict):
     ``width`` and ``height`` to account for the OS taskbar/dock. Setting
     them equal to width/height is a headless indicator.
 
+    ``avail_top`` (and ``avail_left``) place that reserved area: on macOS
+    ``avail_top`` is the menu-bar height (e.g. 25). When unset it defaults to
+    the whole vertical gap ``height - avail_height`` (all at the top). In
+    headless mode these also drive ``Emulation.updateScreen`` so cross-origin
+    iframes read the same work area (``availTop == 0`` there is a headless tell).
+
     ``outer_width`` and ``outer_height`` represent the browser window
     dimensions including chrome (toolbar, scrollbar). In headless mode
     these are often 0, which is an instant detection signal.
@@ -148,6 +154,8 @@ class ScreenFingerprint(TypedDict):
     height: int  # screen.height
     avail_width: NotRequired[int]  # screen.availWidth
     avail_height: NotRequired[int]  # screen.availHeight
+    avail_top: NotRequired[int]  # screen.availTop (top work-area inset, e.g. macOS menu bar)
+    avail_left: NotRequired[int]  # screen.availLeft (left work-area inset)
     outer_width: NotRequired[int]  # window.outerWidth
     outer_height: NotRequired[int]  # window.outerHeight
     color_depth: NotRequired[int]  # screen.colorDepth (typically 24)
@@ -349,6 +357,40 @@ class PermissionsFingerprint(TypedDict):
     overrides: dict[str, str]  # permission name -> 'granted'|'denied'|'prompt'
 
 
+class MediaFeaturesFingerprint(TypedDict):
+    """CSS media-feature fingerprint profile.
+
+    Controls what ``window.matchMedia`` reports for display and preference
+    media features, applied natively through ``Emulation.setEmulatedMedia`` so
+    the query result stays genuine (no JavaScript wrapper). Detection suites
+    hash these queries, so a headless browser reporting unusual values (or a
+    profile whose display characteristics contradict the claimed device) is a
+    signal.
+
+    Only the features Chrome emulates through the DevTools Protocol are exposed
+    here. ``dynamic-range`` and ``inverted-colors`` are NOT emulatable via CDP
+    and are intentionally omitted.
+
+    ``color_gamut`` is a display-hardware characteristic and the safest to set:
+    Apple/OLED displays report ``'p3'``, a typical sRGB monitor reports
+    ``'srgb'``. The ``prefers_*`` and ``forced_colors`` features are user
+    preferences, and emulating them also changes how the page renders (dark
+    mode, high contrast, reduced motion), so set them only when you want that
+    behavior; leave them unset to keep the browser's real values.
+
+    Example::
+
+        MediaFeaturesFingerprint(color_gamut='p3')
+    """
+
+    color_gamut: NotRequired[str]  # 'srgb' | 'p3' | 'rec2020'
+    forced_colors: NotRequired[str]  # 'none' | 'active'
+    prefers_color_scheme: NotRequired[str]  # 'light' | 'dark'
+    prefers_contrast: NotRequired[str]  # 'no-preference' | 'more' | 'less' | 'custom'
+    prefers_reduced_motion: NotRequired[str]  # 'no-preference' | 'reduce'
+    prefers_reduced_transparency: NotRequired[str]  # 'no-preference' | 'reduce'
+
+
 class FingerprintConfig(TypedDict):
     """Complete browser fingerprint configuration.
 
@@ -414,4 +456,5 @@ class FingerprintConfig(TypedDict):
     network_connection: NotRequired[NetworkConnectionFingerprint]
     fonts: NotRequired[FontFingerprint]
     permissions: NotRequired[PermissionsFingerprint]
+    media_features: NotRequired[MediaFeaturesFingerprint]
     webrtc_ip_policy: NotRequired[str]  # 'default' or 'relay'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.21.0
+Version: 0.22.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -33,7 +33,6 @@ Requires-Dist: harbor[tinker] ; extra == 'all'
 Requires-Dist: harbor[computer-1] ; extra == 'all'
 Requires-Dist: harbor[dspy] ; extra == 'all'
 Requires-Dist: harbor[adapter] ; extra == 'all'
-Requires-Dist: google-antigravity>=0.1.1 ; sys_platform != 'win32' and extra == 'antigravity'
 Requires-Dist: beam-client>=0.2.197 ; extra == 'beam'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'beam'
 Requires-Dist: blaxel>=0.2.52 ; extra == 'blaxel'
@@ -55,8 +54,9 @@ Requires-Dist: harbor[blaxel] ; extra == 'cloud'
 Requires-Dist: harbor[cua] ; extra == 'cloud'
 Requires-Dist: harbor[opensandbox] ; extra == 'cloud'
 Requires-Dist: harbor[beam] ; extra == 'cloud'
-Requires-Dist: harbor[antigravity] ; extra == 'cloud'
+Requires-Dist: harbor[hyperbrowser] ; extra == 'cloud'
 Requires-Dist: harbor[hf-sandbox] ; extra == 'cloud'
+Requires-Dist: harbor[vercel] ; extra == 'cloud'
 Requires-Dist: openai>=2.0 ; extra == 'computer-1'
 Requires-Dist: anthropic[bedrock]>=0.102.0 ; extra == 'computer-1'
 Requires-Dist: google-genai>=2.3.0 ; extra == 'computer-1'
@@ -70,6 +70,8 @@ Requires-Dist: boto3>=1.41.5 ; extra == 'ec2'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
 Requires-Dist: huggingface-hub>=1.22.0 ; extra == 'hf-sandbox'
 Requires-Dist: datasets>=4.4.1 ; extra == 'huggingface'
+Requires-Dist: hyperbrowser>=0.93.1 ; extra == 'hyperbrowser'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'hyperbrowser'
 Requires-Dist: islo>=0.3.3 ; extra == 'islo'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'islo'
 Requires-Dist: harbor-langsmith ; extra == 'langsmith'
@@ -88,12 +90,13 @@ Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
 Requires-Dist: transformers>=5.3.0,<=5.5.3 ; extra == 'tinker'
 Requires-Dist: use-computer>=0.0.2 ; extra == 'use-computer'
+Requires-Dist: vercel>=0.10.0 ; extra == 'vercel'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'vercel'
 Requires-Dist: wandb>=0.27 ; extra == 'wandb'
 Requires-Dist: cwsandbox>=0.23.3 ; extra == 'wandb'
 Requires-Python: >=3.12
 Provides-Extra: adapter
 Provides-Extra: all
-Provides-Extra: antigravity
 Provides-Extra: beam
 Provides-Extra: blaxel
 Provides-Extra: cloud
@@ -107,6 +110,7 @@ Provides-Extra: ec2
 Provides-Extra: gke
 Provides-Extra: hf-sandbox
 Provides-Extra: huggingface
+Provides-Extra: hyperbrowser
 Provides-Extra: islo
 Provides-Extra: langsmith
 Provides-Extra: modal
@@ -117,12 +121,13 @@ Provides-Extra: skypilot
 Provides-Extra: tensorlake
 Provides-Extra: tinker
 Provides-Extra: use-computer
+Provides-Extra: vercel
 Provides-Extra: wandb
 Description-Content-Type: text/markdown
 
 # Harbor
 
- [![](https://dcbadge.limes.pink/api/server/https://discord.gg/6xWPKhGDbA)](https://discord.gg/6xWPKhGDbA)
+ [![](https://dcbadge.limes.pink/api/server/https://discord.gg/QVvyhRw5UQ)](https://discord.gg/QVvyhRw5UQ)
 [![Docs](https://img.shields.io/badge/Docs-000000?style=for-the-badge&logo=mdbook&color=105864)](https://harborframework.com/docs)
 [![Cookbook](https://img.shields.io/badge/Cookbook-000000?style=for-the-badge&logo=mdbook&color=105864)](https://github.com/harbor-framework/harbor-cookbook)
 [![DOI](https://zenodo.org/badge/1032170083.svg)](https://doi.org/10.5281/zenodo.20953922)

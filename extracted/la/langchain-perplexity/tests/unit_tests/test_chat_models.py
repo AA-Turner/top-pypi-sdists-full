@@ -223,13 +223,25 @@ def test_perplexity_invoke_includes_num_search_queries(mocker: MockerFixture) ->
     patcher.assert_called_once()
 
 
+def test_metadata_versions() -> None:
+    """Test that metadata reports the correct version info."""
+    from langchain_perplexity._version import __version__
+
+    llm = ChatPerplexity(model="test")
+    assert llm.metadata is not None
+    versions = llm.metadata["lc_versions"]
+    assert "langchain-core" in versions
+    assert "langchain-perplexity" in versions
+    assert versions["langchain-perplexity"] == __version__
+
+
 def test_profile() -> None:
     model = ChatPerplexity(model="sonar")
     assert model.profile
 
 
 def test_convert_tool_message_to_dict() -> None:
-    """A ToolMessage serializes to a ``tool``-role dict so tool results can be
+    """A ToolMessage serializes to a `tool`-role dict so tool results can be
     fed back to the model in a client-side tool-calling loop."""
     llm = ChatPerplexity(model="test", api_key="test")
     message = ToolMessage(content="result text", tool_call_id="call_123")
@@ -241,7 +253,7 @@ def test_convert_tool_message_to_dict() -> None:
 
 
 def test_convert_ai_message_with_tool_calls_to_dict() -> None:
-    """``AIMessage.tool_calls`` are serialized rather than dropped."""
+    """`AIMessage.tool_calls` are serialized rather than dropped."""
     llm = ChatPerplexity(model="test", api_key="test")
     message = AIMessage(
         content="",
@@ -481,7 +493,7 @@ def test_translate_responses_input_tool_roundtrip() -> None:
         {"role": "tool", "content": "18C cloudy", "tool_call_id": "call_1"},
     ]
     translated = _translate_responses_input(message_dicts)
-    assert translated[0] == {"role": "user", "content": "hi"}
+    assert translated[0] == {"type": "message", "role": "user", "content": "hi"}
     # Empty/None assistant content is dropped; only the function_call item remains.
     assert translated[1] == {
         "type": "function_call",
@@ -513,14 +525,61 @@ def test_translate_responses_input_keeps_assistant_text_with_tool_calls() -> Non
             }
         ]
     )
-    assert translated[0] == {"role": "assistant", "content": "Let me check."}
+    assert translated[0] == {
+        "type": "message",
+        "role": "assistant",
+        "content": "Let me check.",
+    }
     assert translated[1]["type"] == "function_call"
     assert translated[1]["call_id"] == "call_1"
 
 
+def test_to_responses_payload_marks_message_items_with_type() -> None:
+    """Message items use the SDK's `message` union variant."""
+    llm = ChatPerplexity(model="openai/gpt-5", api_key="test")
+    payload = llm._to_responses_payload(
+        [
+            {"role": "system", "content": "Be concise."},
+            {"role": "user", "content": "What is the weather?"},
+            {"role": "assistant", "content": "It is sunny."},
+            {
+                "role": "assistant",
+                "content": "Let me check.",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_weather", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"role": "tool", "content": "18C cloudy", "tool_call_id": "call_1"},
+        ],
+        {},
+    )
+
+    assert payload["input"] == [
+        {"type": "message", "role": "system", "content": "Be concise."},
+        {"type": "message", "role": "user", "content": "What is the weather?"},
+        {"type": "message", "role": "assistant", "content": "It is sunny."},
+        {"type": "message", "role": "assistant", "content": "Let me check."},
+        {
+            "type": "function_call",
+            "call_id": "call_1",
+            "name": "get_weather",
+            "arguments": "{}",
+        },
+        {
+            "type": "function_call_output",
+            "call_id": "call_1",
+            "output": "18C cloudy",
+        },
+    ]
+
+
 def test_to_responses_payload_flattens_tools_and_translates_messages() -> None:
     """End-to-end: `_to_responses_payload` flattens tools and translates tool turns."""
-    llm = ChatPerplexity(model="openai/gpt-5.5", api_key="test", use_responses_api=True)
+    llm = ChatPerplexity(model="openai/gpt-5", api_key="test", use_responses_api=True)
     message_dicts: list[dict[str, Any]] = [
         {"role": "user", "content": "weather in Paris?"},
         {
@@ -594,7 +653,7 @@ def test_convert_responses_stream_event_aggregates_multiple_tool_calls() -> None
     `call_id`/`id` are intentionally omitted so that `index` (derived from each
     event's `output_index`) is the *only* thing separating the two calls. This
     keeps the test sensitive to the indexing logic: with a hardcoded
-    ``index=0`` the chunks would merge into one corrupted call. Real streams
+    `index=0` the chunks would merge into one corrupted call. Real streams
     always carry a unique `call_id`, which would keep the calls distinct on its
     own, so this payload isolates the mechanism rather than mirroring the wire
     format.

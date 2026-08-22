@@ -2688,6 +2688,7 @@ impl Interpreter {
                     stderr_truncated = true;
                 }
             }
+            stderr_truncated |= result.stderr_truncated;
 
             exit_code = result.exit_code;
             self.last_exit_code = exit_code;
@@ -3308,8 +3309,11 @@ impl Interpreter {
                         break;
                     }
                     let data = ps.clone();
-                    if let Some(newline_pos) = data.find('\n') {
-                        let line = data[..newline_pos].to_string();
+                    if let Some(newline_pos) =
+                        data.as_bytes().iter().position(|&byte| byte == b'\n')
+                    {
+                        let line =
+                            String::from_utf8_lossy(&data.as_bytes()[..newline_pos]).into_owned();
                         self.pipeline_stdin = Some(data.as_bytes()[newline_pos + 1..].into());
                         line
                     } else {
@@ -5079,6 +5083,7 @@ impl Interpreter {
         let mut stdin_data: Option<crate::StreamData> = None;
         let mut last_result = ExecResult::ok(String::new());
         let mut pipeline_stderr = crate::StreamData::new();
+        let mut pipeline_stderr_truncated = false;
         let mut pipe_statuses = Vec::new();
 
         for (i, command) in pipeline.commands.iter().enumerate() {
@@ -5103,7 +5108,19 @@ impl Interpreter {
             };
 
             pipe_statuses.push(result.exit_code);
-            pipeline_stderr.append(&result.stderr);
+            if !pipeline_stderr_truncated {
+                let remaining = self
+                    .limits
+                    .max_stderr_bytes
+                    .saturating_sub(pipeline_stderr.len());
+                if result.stderr.len() <= remaining {
+                    pipeline_stderr.append(&result.stderr);
+                    pipeline_stderr_truncated = result.stderr_truncated;
+                } else {
+                    pipeline_stderr.append(&result.stderr.prefix(remaining));
+                    pipeline_stderr_truncated = true;
+                }
+            }
 
             if is_last {
                 last_result = result;
@@ -5112,6 +5129,7 @@ impl Interpreter {
             }
         }
         last_result.stderr = pipeline_stderr;
+        last_result.stderr_truncated |= pipeline_stderr_truncated;
 
         // Store PIPESTATUS array
         self.pipestatus = pipe_statuses.clone();
@@ -5973,8 +5991,11 @@ impl Interpreter {
                     if name == "read" {
                         // Consume one line from pipeline stdin
                         let data = ps.clone();
-                        if let Some(newline_pos) = data.find('\n') {
-                            let line = data[..=newline_pos].to_string();
+                        if let Some(newline_pos) =
+                            data.as_bytes().iter().position(|&byte| byte == b'\n')
+                        {
+                            let line = String::from_utf8_lossy(&data.as_bytes()[..=newline_pos])
+                                .into_owned();
                             self.pipeline_stdin = Some(data.as_bytes()[newline_pos + 1..].into());
                             Some(line.into())
                         } else {
@@ -6058,7 +6079,13 @@ impl Interpreter {
                     let content = match self.fs.read_file(&path).await {
                         Ok(c) => c,
                         Err(e) => {
-                            return Ok(ExecResult::err(format!("bash: {target_path}: {e}\n"), 1));
+                            return Ok(ExecResult::err(
+                                format!(
+                                    "bash: {target_path}: {}\n",
+                                    redirection::redirect_error_reason(&e)
+                                ),
+                                1,
+                            ));
                         }
                     };
                     let text = decode_file_bytes_for_path(&path, &content);
@@ -6619,11 +6646,23 @@ impl Interpreter {
             // Last-chance resolver. Dispatches through `execute_builtin_arc`
             // like every other builtin, so `before_tool` fires with the
             // resolved name and can veto it.
-            if let Some(builtin) = self
-                .command_resolver
-                .as_ref()
-                .and_then(|resolver| resolver.resolve(name))
-            {
+            // THREAT[TM-INT-011]: Resolver host code receives attacker-controlled names.
+            // Contain its panics before dispatching the builtin it returns.
+            let resolved = match self.command_resolver.as_ref() {
+                Some(resolver) => {
+                    match std::panic::catch_unwind(AssertUnwindSafe(|| resolver.resolve(name))) {
+                        Ok(builtin) => builtin,
+                        Err(_panic) => {
+                            return Ok(ExecResult::err(
+                                format!("bash: {}: resolver failed unexpectedly\n", name),
+                                1,
+                            ));
+                        }
+                    }
+                }
+                None => None,
+            };
+            if let Some(builtin) = resolved {
                 return self
                     .execute_builtin_arc(
                         name,

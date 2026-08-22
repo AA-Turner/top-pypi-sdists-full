@@ -44,11 +44,18 @@ by creating an instance of PersistentDB, passing the following parameters:
         for which the connection failover mechanism shall be applied,
         if the default (OperationalError, InterfaceError, InternalError)
         is not adequate for the used database module
+    isfatal: an optional callable deciding whether a given exception is
+        really fatal for the connection and the failover mechanism shall
+        be applied (see the steady_db module for details)
     ping: an optional flag controlling when connections are checked
-        with the ping() method if such a method is available
         (0 = None = never, 1 = default = whenever it is requested,
         2 = when a cursor is created, 4 = when a query is executed,
         7 = always, and all other bit combinations of these values)
+        By default, connections are checked with the ping() method if
+        such a method is available.  You can also pass an SQL statement
+        or a callable that shall be used for the check instead, which is
+        then made as with ping=1, or a tuple with the flag and one of the
+        latter (see the steady_db module for details).
     closeable: if this is set to true, then closing connections will
         be allowed, but by default this will be silently ignored
     threadlocal: an optional class for representing thread-local data
@@ -146,7 +153,8 @@ class PersistentDB:
     def __init__(
             self, creator,
             maxusage=None, setsession=None, failures=None, ping=1,
-            closeable=False, threadlocal=None, *args, **kwargs):
+            closeable=False, threadlocal=None, isfatal=None,
+            *args, **kwargs):
         """Set up the persistent DB-API 2 connection generator.
 
         creator: either an arbitrary function returning new DB-API 2
@@ -160,10 +168,29 @@ class PersistentDB:
             for which the connection failover mechanism shall be applied,
             if the default (OperationalError, InterfaceError, InternalError)
             is not adequate for the used database module
-        ping: determines when the connection should be checked with ping()
+        isfatal: an optional callable that is passed an exception matching
+            the failures and shall return whether that error is really fatal
+            for the connection, i.e. whether the failover mechanism shall be
+            applied.  Use this to distinguish errors that merely report a
+            failed statement (such as a deliberate server side statement
+            timeout) from errors that report a broken connection, when the
+            database module maps both onto the same exception class.  The
+            callable must tolerate arbitrary exception instances, including
+            instances without args.
+        ping: determines when the connection should be checked
             (0 = None = never, 1 = default = whenever it is requested,
             2 = when a cursor is created, 4 = when a query is executed,
             7 = always, and all other bit combinations of these values)
+            By default, the connection is checked with its ping() method.
+            Since ping() is not part of the DB-API 2 specification, you
+            can also pass an SQL statement such as "select 1" that shall
+            be executed instead, or a callable that is passed the
+            underlying DB-API 2 connection and shall return whether that
+            connection is still alive.  Such a check is made as with
+            ping=1, i.e. whenever a connection is requested; if you want
+            it to be made at other times, pass a tuple with one of the
+            integer values above and the SQL statement or the callable,
+            e.g. ping=(4, "select 1").
         closeable: if this is set to true, then closing connections will
             be allowed, but by default this will be silently ignored
         threadlocal: an optional class for representing thread-local data
@@ -191,6 +218,7 @@ class PersistentDB:
         self._maxusage = maxusage
         self._setsession = setsession
         self._failures = failures
+        self._isfatal = isfatal
         self._ping = ping
         self._closeable = closeable
         self._args, self._kwargs = args, kwargs
@@ -201,7 +229,7 @@ class PersistentDB:
         return connect(
             self._creator, self._maxusage, self._setsession,
             self._failures, self._ping, self._closeable,
-            *self._args, **self._kwargs)
+            self._isfatal, *self._args, **self._kwargs)
 
     def connection(self, shareable=False):  # noqa: ARG002
         """Get a steady, persistent DB-API 2 connection.

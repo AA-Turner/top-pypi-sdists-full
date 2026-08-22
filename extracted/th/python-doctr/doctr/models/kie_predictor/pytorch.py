@@ -12,6 +12,7 @@ from torch import nn
 from doctr.io.elements import Document
 from doctr.models._utils import get_language, invert_data_structure
 from doctr.models.detection.predictor import DetectionPredictor
+from doctr.models.layout.predictor import LayoutPredictor
 from doctr.models.recognition.predictor import RecognitionPredictor
 from doctr.utils.geometry import detach_scores
 
@@ -35,6 +36,9 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             page. Doing so will slightly deteriorate the overall latency.
         detect_language: if True, the language prediction will be added to the predictions for each
             page. Doing so will slightly deteriorate the overall latency.
+        preserve_original_coords: if True and straighten_pages is True, bounding boxes are mapped back to the
+            original page coordinates. Useful for redaction and annotation.
+        layout_predictor: optional layout detection module
         **kwargs: keyword args of `DocumentBuilder`
     """
 
@@ -48,6 +52,8 @@ class KIEPredictor(nn.Module, _KIEPredictor):
         symmetric_pad: bool = True,
         detect_orientation: bool = False,
         detect_language: bool = False,
+        preserve_original_coords: bool = False,
+        layout_predictor: LayoutPredictor | None = None,
         **kwargs: Any,
     ) -> None:
         nn.Module.__init__(self)
@@ -60,10 +66,12 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             preserve_aspect_ratio,
             symmetric_pad,
             detect_orientation,
+            preserve_original_coords=preserve_original_coords,
             **kwargs,
         )
         self.detect_orientation = detect_orientation
         self.detect_language = detect_language
+        self.layout_predictor = layout_predictor.eval() if layout_predictor is not None else None
 
     @torch.inference_mode()
     def forward(
@@ -77,16 +85,25 @@ class KIEPredictor(nn.Module, _KIEPredictor):
 
         origin_page_shapes = [page.shape[:2] for page in pages]
 
-        # Localize text elements
-        loc_preds, out_maps = self.det_predictor(pages, return_maps=True, **kwargs)
+        if not self.straighten_pages:
+            # Detect layout regions on the pages
+            regions = self.layout_predictor(pages, **kwargs) if self.layout_predictor is not None else None
+            det_pages = self._mask_regions(pages, regions)
+        else:
+            det_pages = pages
+
+        # Localize text elements (segmentation maps are only materialized when actually consumed)
+        if self.detect_orientation or self.straighten_pages:
+            loc_preds, out_maps = self.det_predictor(det_pages, return_maps=True, **kwargs)
+            bin_thresh = kwargs.get("bin_thresh", getattr(self.det_predictor.model.postprocessor, "bin_thresh", 0.3))
+            seg_maps = [
+                ((np.expand_dims(np.amax(out_map, axis=-1), axis=-1) > bin_thresh).astype(np.uint8) * 255)
+                for out_map in out_maps
+            ]
+        else:
+            loc_preds = self.det_predictor(det_pages, **kwargs)
 
         # Detect document rotation and rotate pages
-        seg_maps = [
-            np.where(np.expand_dims(np.amax(out_map, axis=-1), axis=-1) > kwargs.get("bin_thresh", 0.3), 255, 0).astype(
-                np.uint8
-            )
-            for out_map in out_maps
-        ]
         if self.detect_orientation:
             general_pages_orientations, origin_pages_orientations = self._get_orientations(pages, seg_maps)
             orientations = [
@@ -97,12 +114,21 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             general_pages_orientations = None
             origin_pages_orientations = None
         if self.straighten_pages:
-            pages = self._straighten_pages(pages, seg_maps, general_pages_orientations, origin_pages_orientations)
+            _orig_shapes = origin_page_shapes
+            _orig_pages = list(pages)
+            pages, m_invs = self._straighten_pages(
+                pages, seg_maps, general_pages_orientations, origin_pages_orientations
+            )
             # update page shapes after straightening
             origin_page_shapes = [page.shape[:2] for page in pages]
+            _straight_shapes = origin_page_shapes
+
+            # Detect layout regions on the pages
+            regions = self.layout_predictor(pages, **kwargs) if self.layout_predictor is not None else None
+            det_pages = self._mask_regions(pages, regions)
 
             # Forward again to get predictions on straight pages
-            loc_preds = self.det_predictor(pages, **kwargs)
+            loc_preds = self.det_predictor(det_pages, **kwargs)
 
         dict_loc_preds: dict[str, list[np.ndarray]] = invert_data_structure(loc_preds)  # type: ignore[assignment]
 
@@ -173,7 +199,12 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             crop_orientations_per_page,
             orientations,
             languages_dict,
+            regions,
         )
+
+        # manipulate the already built Document to restore the original pages / shapes and geometries
+        if self.straighten_pages and self.preserve_original_coords:
+            out = self._remap_to_original_coords(out, _orig_shapes, _straight_shapes, m_invs, _orig_pages)  # type: ignore[assignment]
         return out
 
     @staticmethod

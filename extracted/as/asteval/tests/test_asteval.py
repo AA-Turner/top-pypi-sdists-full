@@ -12,6 +12,7 @@ from functools import partial
 from io import StringIO
 from sys import version_info
 from tempfile import NamedTemporaryFile
+from types import SimpleNamespace
 
 import pytest
 
@@ -590,6 +591,20 @@ def test_assignment(nested):
         interp('a[1:5] = 1 + 0.5 * arange(4)')
         isnear(interp, "a", np.array([0., 1., 1.5, 2., 2.5, 5., 6., 7., 8., 9.]))
 
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("attr", ["__private__", "func_globals"])
+def test_unsafe_attribute_assignment(nested, attr):
+    """unsafe attribute assignment"""
+    obj = SimpleNamespace()
+    sym_table = make_symbol_table(nested=nested, obj=obj)
+    interp = Interpreter(symtable=sym_table)
+    interp(f"obj.{attr} = 1", show_errors=False)
+    check_error(interp, 'AttributeError',
+                f'cannot assign to unsafe attribute {attr}')
+    assert not hasattr(obj, attr)
+
+
 @pytest.mark.parametrize("nested", [False, True])
 def test_names(nested):
     """names test"""
@@ -685,7 +700,7 @@ def test_ndarrays(nested):
         istrue(interp, "isinstance(n, ndarray)")
         istrue(interp, "n.shape == (5, 4)")
         interp("myx = n.shape")
-        interp("n.shape = (4, 5)")
+        interp("n.reshape((4, 5))")
         istrue(interp, "n.shape == (4, 5)")
         interp("a = arange(20)")
         interp("gg = a[1:13:3]")
@@ -874,6 +889,43 @@ def test_comprehension_tuple_unpacking(nested):
             result = [a + b + c + d for a, (b, (c, d)) in data]
             """))
     isvalue(interp, 'result', [10, 26])
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_comprehension_no_leak(nested):
+    """comprehension loop variables must not leak into the symbol table"""
+    interp = make_interpreter(nested_symtable=nested)
+
+    # new loop variable must not remain accessible
+    interp('x = [ti for ti in range(13)]')
+    isvalue(interp, 'x', list(range(13)))
+    assert 'ti' not in interp.symtable
+
+    # pre-existing symbol shadowed by comprehension must keep its value
+    interp('j = 42')
+    interp('y = [j*j for j in range(4)]')
+    isvalue(interp, 'y', [0, 1, 4, 9])
+    isvalue(interp, 'j', 42)
+
+    # tuple-unpacking targets are also cleaned up
+    interp('z = [a + b for a, b in [(1, 2), (3, 4)]]')
+    isvalue(interp, 'z', [3, 7])
+    assert 'a' not in interp.symtable
+    assert 'b' not in interp.symtable
+
+    # set and dict comprehensions too
+    interp('s = {k for k in range(3)}')
+    isvalue(interp, 's', {0, 1, 2})
+    assert 'k' not in interp.symtable
+
+    interp('d = {n: n*2 for n in range(3)}')
+    isvalue(interp, 'd', {0: 0, 1: 2, 2: 4})
+    assert 'n' not in interp.symtable
+
+    # nested generators: each loop variable is cleaned up
+    interp('m = [(i, j) for i in range(2) for j in range(3)]')
+    isvalue(interp, 'm', [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)])
+    assert 'i' not in interp.symtable
+    isvalue(interp, 'j', 42)
 
 @pytest.mark.parametrize("nested", [False, True])
 def test_ifexp(nested):
@@ -1370,14 +1422,39 @@ def test_interpreter_opts(nested):
     assert not imin.config['augassign']
     assert not imin.config['with']
 
+    imin('import socket')
+    assert len(imin.error) > 0
+    imin.error = []
+    imin('x = 9')
+    imin('y = 4 if x > 0 else -1')
+    assert len(imin.error) > 0
+
+
     ix = Interpreter(with_import=True, with_importfrom=True, nested_symtable=nested)
     assert ix.node_handlers['ifexp'] != ix.unimplemented
     assert ix.node_handlers['import'] != ix.unimplemented
     assert ix.node_handlers['importfrom'] != ix.unimplemented
 
+    ix('import socket')
+    assert len(ix.error) == 0
+    ix('from pathlib import Path')
+    assert len(ix.error) == 0
+    ix('from pathlib import not_importable')
+    assert len(ix.error) > 0
+
+    ix.error = []
+    ix('import nq77spr23as_module_not_avaiable')
+    assert len(ix.error) > 0
+
     i2 = Interpreter(config=conf, nested_symtable=nested)
     assert i2.node_handlers['ifexp'] != i2.unimplemented
     assert i2.node_handlers['import'] == i2.unimplemented
+    i2('import socket')
+    assert len(i2.error) > 0
+    i2.error = []
+    i2('x = 9')
+    i2('y = 4 if x > 0 else -1')
+    assert len(i2.error) == 0
 
 
 @pytest.mark.parametrize("nested", [False, True])

@@ -736,6 +736,7 @@ class SeeqNames:
         approval_flows = 'ApprovalFlows'
         approval_flow_steps = 'ApprovalFlowSteps'
         approval_flow_assignments = 'ApprovalFlowAssignments'
+        approval_flow_attachments = 'ApprovalFlowAttachments'
         audit = 'Audit'
         auth = 'Auth'
         assets = 'Assets'

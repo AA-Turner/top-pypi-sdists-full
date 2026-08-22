@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-pyproj package is included.
-"""
+"""Hooks triggered by finder when pyproj package is included."""
 
 from __future__ import annotations
 
@@ -22,7 +20,7 @@ class Hook(ModuleHook):
     """The Hook class for pyproj."""
 
     def pyproj_datadir(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for pyproj.datadir."""
+        """Include files required for pyproj.datadir."""
         distribution = module.root.distribution
         if distribution and distribution.installer == "conda":
             if IS_WINDOWS:
@@ -34,7 +32,7 @@ class Hook(ModuleHook):
                     source_path, "share/proj", copy_dependent_files=False
                 )
             return
-        if module.in_file_system == 0:
+        if module.in_file_system == 0 and module.file:
             # in zip file
             source_path = module.file.parent / "proj_dir" / "share" / "proj"
             if source_path.is_dir():

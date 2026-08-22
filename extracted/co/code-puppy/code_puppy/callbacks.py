@@ -3,6 +3,8 @@ import logging
 import traceback
 from typing import Any, Callable, Dict, List, Literal, Optional, Set, Tuple
 
+from pydantic_ai.messages import ModelMessage
+
 PhaseType = Literal[
     "startup",
     "shutdown",
@@ -73,6 +75,7 @@ PhaseType = Literal[
     "awaiting_user_input",
     "git_branch_provider",
     "feature_capability",
+    "transform_model_messages",
 ]
 CallbackFunc = Callable[..., Any]
 
@@ -160,6 +163,7 @@ _callbacks: Dict[PhaseType, List[CallbackFunc]] = {
     "awaiting_user_input": [],
     "git_branch_provider": [],
     "feature_capability": [],
+    "transform_model_messages": [],
 }
 
 logger = logging.getLogger(__name__)
@@ -886,6 +890,13 @@ async def on_stream_event(
     )
 
 
+async def on_transform_model_messages(
+    agent_name: str | None, messages: List[ModelMessage]
+) -> List[Any]:
+    """Let plugins mutate the final outbound model messages in place."""
+    return await _trigger_callbacks("transform_model_messages", agent_name, messages)
+
+
 def on_register_tools() -> List[Dict[str, Any]]:
     """Collect custom tool registrations from plugins.
 
@@ -1553,6 +1564,9 @@ async def on_agent_run_cancel(group_id: str) -> List[Any]:
 
     Plugins use this to cancel any external workflow tracking the run.
     """
+    from code_puppy.observability import emit_cancellation
+
+    emit_cancellation(group_id)
     return await _trigger_callbacks("agent_run_cancel", group_id)
 
 

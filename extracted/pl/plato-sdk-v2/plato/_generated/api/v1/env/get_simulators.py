@@ -11,11 +11,16 @@ from plato._generated.models import AppSchemasEnvResponsesSimulatorListItemRespo
 
 
 def _build_request_args(
+    category: list[str] | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = "/api/v1/env/simulators"
+
+    params: dict[str, Any] = {}
+    if category is not None:
+        params["category"] = category
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -26,18 +31,21 @@ def _build_request_args(
     return {
         "method": "GET",
         "url": url,
+        "params": params,
         "headers": headers,
     }
 
 
 def sync(
     client: httpx.Client,
+    category: list[str] | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[AppSchemasEnvResponsesSimulatorListItemResponse]:
     """Get all simulators with optimized queries."""
 
     request_args = _build_request_args(
+        category=category,
         authorization=authorization,
         x_api_key=x_api_key,
     )
@@ -49,12 +57,14 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
+    category: list[str] | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[AppSchemasEnvResponsesSimulatorListItemResponse]:
     """Get all simulators with optimized queries."""
 
     request_args = _build_request_args(
+        category=category,
         authorization=authorization,
         x_api_key=x_api_key,
     )

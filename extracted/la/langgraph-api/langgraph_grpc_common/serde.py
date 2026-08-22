@@ -169,7 +169,8 @@ def set_serializer(serializer: SerializerProtocol) -> None:
     This only affects every consumer of ``langgraph_grpc_common.conversion.*``.
     """
     global SERIALIZER
-    SERIALIZER = serializer 
+    SERIALIZER = serializer
+
 
 def get_serializer() -> SerializerProtocol:
     """Return the serializer to use for gRPC payload (de)serialization.
@@ -185,8 +186,7 @@ def get_serializer() -> SerializerProtocol:
 
 @contextmanager
 def use_serializer(serializer: SerializerProtocol) -> Iterator[None]:
-    """Bind ``serializer`` for the current async task / sync context.
-    """
+    """Bind ``serializer`` for the current async task / sync context."""
     token = _SCOPED_SERIALIZER.set(serializer)
     try:
         yield

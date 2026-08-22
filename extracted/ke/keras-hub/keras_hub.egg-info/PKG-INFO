@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-hub
-Version: 0.31.0
+Version: 0.31.1
 Summary: Pretrained models for Keras.
 Author-email: Keras team <keras-users@googlegroups.com>
 License-Expression: Apache-2.0
@@ -29,7 +29,7 @@ Requires-Dist: kagglehub!=1.0.1
 Requires-Dist: kagglesdk==0.1.28
 Requires-Dist: sentencepiece<0.2.2
 Requires-Dist: tokenizers
-Requires-Dist: tensorflow-text; platform_system != "Windows"
+Requires-Dist: tensorflow-text<2.21.0,>=2.20.1; platform_system != "Windows"
 
 # KerasHub: Multi-framework Pretrained Models
 [![](https://github.com/keras-team/keras-hub/workflows/Tests/badge.svg?branch=master)](https://github.com/keras-team/keras-hub/actions?query=workflow%3ATests+branch%3Amaster)

@@ -1,10 +1,9 @@
-"""A collection of functions which are triggered automatically by finder when
-multiprocessing package is included.
-"""
+"""Hooks triggered by finder when multiprocessing package is included."""
 
 from __future__ import annotations
 
 import sys
+from importlib.machinery import SourceFileLoader
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -50,7 +49,9 @@ class Hook(ModuleHook):
     """The Module Hook class."""
 
     def multiprocessing(self, finder: ModuleFinder, module: Module) -> None:
-        """The forkserver method calls utilspawnv_passfds in ensure_running to
+        """Patch multiprocessing.
+
+        The forkserver method calls utilspawnv_passfds in ensure_running to
         pass a command line to python. In cx_Freeze the running executable
         is called, then we need to catch this and use exec function.
         For the spawn method there are a similar process to resource_tracker.
@@ -61,11 +62,15 @@ class Hook(ModuleHook):
         # Ignore names that should not be confused with modules to be imported
         module.global_names.update(MULTIPROCESSING_GLOBAL_NAMES)
 
-        if module.file.suffix == ".pyc":  # source unavailable
-            return
         if IS_MINGW or IS_WINDOWS:
             return
-        source = rf"""
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        patch = rf"""
         # cx_Freeze patch start
         import re as _re
         import sys as _sys
@@ -98,13 +103,10 @@ class Hook(ModuleHook):
                 _freeze_support()
         # cx_Freeze patch end
         """
-        code_string = module.file.read_text(encoding="utf_8") + dedent(source)
-        module.code = compile(
-            code_string,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code + dedent(patch),
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     def multiprocessing_context(
@@ -115,13 +117,17 @@ class Hook(ModuleHook):
         For Windows, add a workaround for a bug introduced by gh-80334 in
         Python 3.13.4, which was fixed by gh-135726 in Python 3.14.4.
         """
-        if module.file.suffix == ".pyc":  # source unavailable
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
             return
         if IS_MINGW or IS_WINDOWS:
-            PY_313_BUGGED = (3, 13, 4) <= sys.version_info[:3] <= (3, 13, 12)
-            PY_314_BUGGED = (3, 14, 0) <= sys.version_info[:3] <= (3, 14, 3)
-            if PY_313_BUGGED or PY_314_BUGGED:
-                source = rf"""
+            py_313_bugged = (3, 13, 4) <= sys.version_info[:3] <= (3, 13, 12)
+            py_314_bugged = (3, 14, 0) <= sys.version_info[:3] <= (3, 14, 3)
+            if py_313_bugged or py_314_bugged:
+                patch = rf"""
                 # cx_Freeze patch start
                 def _freeze_support(self):
                     from {module.root.name}.spawn import freeze_support
@@ -132,7 +138,7 @@ class Hook(ModuleHook):
             else:
                 return
         else:
-            source = rf"""
+            patch = rf"""
             # cx_Freeze patch start
             def _freeze_support(self):
                 from {module.root.name}.spawn import freeze_support
@@ -152,13 +158,10 @@ class Hook(ModuleHook):
             DefaultContext.get_context = _get_default_context
             # cx_Freeze patch end
             """
-        code_string = module.file.read_text(encoding="utf_8") + dedent(source)
-        module.code = compile(
-            code_string,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code + dedent(patch),
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     def multiprocessing_synchronize(

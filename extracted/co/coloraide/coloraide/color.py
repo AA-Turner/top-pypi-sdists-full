@@ -1039,7 +1039,7 @@ class Color(metaclass=ColorMeta):
 
         # Handle special gamut requests
         if space in gamut.SPECIAL_GAMUTS:
-            return cast(Self, gamut.SPECIAL_GAMUTS[space]['fit'](self, **kwargs))
+            return cast('Self', gamut.SPECIAL_GAMUTS[space]['fit'](self, **kwargs))
 
         # If within gamut, just normalize hue range by calling clip.
         if self.in_gamut(space, tolerance=0):
@@ -1073,7 +1073,7 @@ class Color(metaclass=ColorMeta):
 
         # Handle special gamut requests
         if space in gamut.SPECIAL_GAMUTS:
-            return cast(bool, gamut.SPECIAL_GAMUTS[space]['check'](self, tolerance=tolerance, **kwargs))
+            return cast('bool', gamut.SPECIAL_GAMUTS[space]['check'](self, tolerance=tolerance, **kwargs))
 
         # Check if gamut is in the provided space
         c = self.convert(space, norm=False) if space is not None and space != self.space() else self
@@ -1421,14 +1421,16 @@ class Color(metaclass=ColorMeta):
         self,
         *,
         white: VectorLike | None = None,
-        complementary: bool = False
+        complementary: bool = False,
+        closest: bool = True
     ) -> tuple[float, Vector, Vector]:
         """Get the dominant wavelength."""
 
         return spectrum.closest_wavelength(
             self.xy(),
             white or self._space.WHITE,
-            reverse=complementary
+            reverse=complementary,
+            closest=closest
         )
 
     @classmethod

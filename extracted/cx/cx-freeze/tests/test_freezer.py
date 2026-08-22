@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import sysconfig
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import pytest
 
@@ -21,6 +21,11 @@ from cx_Freeze._compat import (
 )
 from cx_Freeze.exception import OptionError
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .conftest import TempPackage
+
 ENABLE_SHARED = bool(sysconfig.get_config_var("Py_ENABLE_SHARED"))
 
 SOURCE = """
@@ -29,7 +34,7 @@ hello.py
 """
 
 
-def test_freezer_target_dir_empty(tmp_package) -> None:
+def test_freezer_target_dir_empty(tmp_package: TempPackage) -> None:
     """Test freezer target_dir empty."""
     tmp_package.create(SOURCE)
     freezer = Freezer(executables=["hello.py"])
@@ -40,7 +45,7 @@ def test_freezer_target_dir_empty(tmp_package) -> None:
     )
 
 
-def test_freezer_target_dir_dist(tmp_package) -> None:
+def test_freezer_target_dir_dist(tmp_package: TempPackage) -> None:
     """Test freezer target_dir='dist'."""
     tmp_package.create(SOURCE)
     freezer = Freezer(executables=["hello.py"], target_dir="dist")
@@ -51,7 +56,7 @@ def test_freezer_target_dir_dist(tmp_package) -> None:
     )
 
 
-def test_freezer_target_dir_utf8(tmp_package) -> None:
+def test_freezer_target_dir_utf8(tmp_package: TempPackage) -> None:
     """Test freezer target_dir with a name in utf_8."""
     tmp_package.create(SOURCE)
     expected_target_dir = tmp_package.path / "ação"
@@ -62,7 +67,7 @@ def test_freezer_target_dir_utf8(tmp_package) -> None:
     )
 
 
-def test_freezer_target_dir_in_path(tmp_package) -> None:
+def test_freezer_target_dir_in_path(tmp_package: TempPackage) -> None:
     """Test freezer target_dir in path."""
     tmp_package.create(SOURCE)
     target_dir = tmp_package.executable("hello").parent
@@ -72,10 +77,14 @@ def test_freezer_target_dir_in_path(tmp_package) -> None:
         Freezer(executables=["hello.py"], path=[*sys.path, target_dir])
 
 
-def test_freezer_target_dir_locked(tmp_package) -> None:
+def test_freezer_target_dir_locked(tmp_package: TempPackage) -> None:
     """Test freezer target_dir locked."""
 
-    def t_rmtree(path, _ignore_errors=False, _onerror=None) -> NoReturn:
+    def t_rmtree(
+        path: str,
+        _ignore_errors: bool = False,
+        _onerror: Callable | None = None,
+    ) -> NoReturn:
         msg = f"cannot clean {path}"
         raise OSError(msg)
 
@@ -89,7 +98,7 @@ def test_freezer_target_dir_locked(tmp_package) -> None:
         Freezer(executables=["hello.py"], target_dir=target_dir)
 
 
-def test_freezer_default_bin_includes(tmp_package) -> None:
+def test_freezer_default_bin_includes(tmp_package: TempPackage) -> None:
     """Test freezer.default_bin_includes."""
     tmp_package.create(SOURCE)
 
@@ -121,7 +130,9 @@ def test_freezer_default_bin_includes(tmp_package) -> None:
     assert names != []
 
 
-def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
+def test_freezer_populate_zip_options_invalid_values(
+    tmp_package: TempPackage,
+) -> None:
     """Test freezer _populate_zip_options invalid values."""
     tmp_package.create(SOURCE)
 
@@ -135,18 +146,18 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
         )
 
     # zip_include_packages and zip_exclude_packages has the same package
-    with pytest.raises(OptionError, match="package 'tkinter' cannot be both"):
+    with pytest.raises(OptionError, match="package 'one' cannot be both"):
         Freezer(
             executables=["hello.py"],
-            zip_include_packages=["tkinter"],
-            zip_exclude_packages=["tkinter"],
+            zip_include_packages=["one"],
+            zip_exclude_packages=["one"],
         )
-    msg = "packages 'tkinter, unittest' cannot be both"
+    msg = "packages 'one, two' cannot be both"
     with pytest.raises(OptionError, match=msg):
         Freezer(
             executables=["hello.py"],
-            zip_include_packages=["tkinter", "unittest"],
-            zip_exclude_packages=["tkinter", "unittest", "codeop"],
+            zip_include_packages=["one", "two"],
+            zip_exclude_packages=["one", "two", "codeop"],
         )
 
 
@@ -163,9 +174,9 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
             {"compress": True}, {"compress": True}, id="compress=true"
         ),
         pytest.param(
-            {"excludes": ["tkinter", "unittest"]},
-            {"excludes": ["tkinter", "unittest"]},
-            id="excludes=['tkinter','unittest']",
+            {"excludes": ["tkinter"]},
+            {"excludes": ["tkinter"]},
+            id="excludes=['tkinter']",
         ),
         pytest.param(
             {"include_msvcr": None},
@@ -211,8 +222,8 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
         pytest.param(
             {"zip_include_packages": None, "zip_exclude_packages": None},
             {
-                "zip_include_packages": set(),
-                "zip_exclude_packages": set("*"),
+                "zip_include_packages": [],
+                "zip_exclude_packages": ["*"],
                 "zip_include_all_packages": False,
             },
             id="zip_include_packages/zip_exclude_packages=none/none",
@@ -220,8 +231,8 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
         pytest.param(
             {"zip_include_packages": ["*"], "zip_exclude_packages": None},
             {
-                "zip_include_packages": set("*"),
-                "zip_exclude_packages": set(),
+                "zip_include_packages": ["*"],
+                "zip_exclude_packages": [],
                 "zip_include_all_packages": True,
             },
             id="zip_include_package=*",
@@ -229,8 +240,8 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
         pytest.param(
             {"zip_include_packages": None, "zip_exclude_packages": ["*"]},
             {
-                "zip_include_packages": set(),
-                "zip_exclude_packages": set("*"),
+                "zip_include_packages": [],
+                "zip_exclude_packages": ["*"],
                 "zip_include_all_packages": False,
             },
             id="zip_exclude_packages=*",
@@ -241,8 +252,8 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
                 "zip_exclude_packages": ["zope.event", "zope.interface"],
             },
             {
-                "zip_include_packages": {"namespace"},
-                "zip_exclude_packages": {"zope"},
+                "zip_include_packages": ["namespace"],
+                "zip_exclude_packages": ["zope"],
                 "zip_include_all_packages": False,
             },
             id="zip_include_packages/zip_exclude_packages=namespace/namespace",
@@ -250,7 +261,7 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
     ],
 )
 def test_freezer_options(
-    tmp_package, kwargs: dict[str, ...], expected: dict[str, ...]
+    tmp_package: TempPackage, kwargs: dict[str, Any], expected: dict[str, Any]
 ) -> None:
     """Test freezer options."""
     tmp_package.create(SOURCE)
@@ -266,47 +277,47 @@ def test_freezer_options(
         pytest.param(
             {"zip_filename": None},
             {"zip_filename": "library.zip"},  # default compress is True
-            id="zip_filename=none",
+            id="zip_filename_none",
         ),
         pytest.param(
             {"zip_filename": "test"},
             {"zip_filename": "test.zip"},
-            id="zip_filename=test",
+            id="zip_filename_test",
         ),
         pytest.param(
             {"zip_filename": "test.zip"},
             {"zip_filename": "test.zip"},
-            id="zip_filename=test.zip",
+            id="zip_filename_test_zip",
         ),
         pytest.param(
             {"zip_filename": "test.zip", "target_dir": "ação"},
             {"zip_filename": "test.zip"},
-            id="zip_filename=test.zip/target_dir=utf_8/portuguese",
+            id="zip_filename_test_zip_target_dir_utf_8_portuguese",
         ),
         pytest.param(
             {"zip_filename": "test.zip", "target_dir": "行動"},
             {"zip_filename": "test.zip"},
-            id="zip_filename=test.zip/target_dir=utf_8/chinese",
+            id="zip_filename_test_zip_target_dir_utf_8_chinese",
         ),
         pytest.param(
             {"compress": True},
             {"compress": True, "zip_filename": "library.zip"},
-            id="zip_filename=none/compress=true",
+            id="zip_filename_none_compress_true",
         ),
         pytest.param(
             {"compress": False},
             {"compress": False, "zip_filename": None},
-            id="zip_filename=none/compress=false",
+            id="zip_filename_none_compress_false",
         ),
         pytest.param(
             {"compress": False, "zip_filename": "library.zip"},
             {"compress": False, "zip_filename": "library.zip"},
-            id="zip_filename=name/compress=false",
+            id="zip_filename_name_compress_false",
         ),
     ],
 )
 def test_freezer_zip_filename(
-    tmp_package, kwargs: dict[str, ...], expected: dict[str, ...]
+    tmp_package: TempPackage, kwargs: dict[str, Any], expected: dict[str, Any]
 ) -> None:
     """Test freezer zip_filename option."""
     tmp_package.create(SOURCE)
@@ -320,6 +331,7 @@ def test_freezer_zip_filename(
     for option, value in expected.items():
         if option == "zip_filename":
             if value:
+                assert freezer.zip_filename is not None
                 assert freezer.zip_filename == target_dir / "lib" / value
                 assert freezer.zip_filename.is_file()
             else:
@@ -353,7 +365,7 @@ module/py.typed
 """
 
 
-def test_freezer_copy_package_data(tmp_package) -> None:
+def test_freezer_copy_package_data(tmp_package: TempPackage) -> None:
     """Test freezer._copy_package_data."""
     tmp_package.create(SOURCE_WITH_EXTRA_FILES)
 
@@ -361,6 +373,7 @@ def test_freezer_copy_package_data(tmp_package) -> None:
         executables=["hello.py"],
         include_msvcr=True,
         path=[tmp_package.path, *sys.path],
+        silent=True,
     )
     freezer.freeze()
 
@@ -390,3 +403,116 @@ def test_freezer_copy_package_data(tmp_package) -> None:
         if any(filter(file.match, ignore_patterns))
     ]
     assert names == []
+
+
+SOURCE_2 = """
+namespacepack/firstchildpack/__init__.py
+namespacepack/firstchildpack/main.py
+    from namespacepack.firstchildpack.utils import name
+
+    def main():
+        print(f"Hello, {name()}!")
+
+    if __name__ == "__main__":
+        main()
+namespacepack/firstchildpack/utils/__init__.py
+    def name():
+        return "firstchildpack"
+namespacepack/firstchildpack/utils/basic/readme.txt
+    readme
+namespacepack/firstchildpack/configs/conf.yaml
+    test_key: "firstchildpack"
+namespacepack/firstchildpack/models/model.txt
+    Some model of firstchildpack
+namespacepack/secondchildpack/__init__.py
+namespacepack/secondchildpack/main.py
+    from namespacepack.secondchildpack.utils import name
+
+    def main():
+        print(f"Hello, {name()}!")
+
+    if __name__ == "__main__":
+        main()
+namespacepack/secondchildpack/utils.py
+    def name():
+        return "secondchildpack"
+namespacepack/secondchildpack/configs/conf.yaml
+    test_key: "secondchildpack"
+namespacepack/secondchildpack/models/model.txt
+    Some model of secondchildpack
+regularpack/__init__.py
+regularpack/main.py
+    from regularpack.utils import name
+
+    def main():
+        print(f"Hello, {name()}!")
+
+    if __name__ == "__main__":
+        main()
+regularpack/utils.py
+    def name():
+        return "regularpack"
+regularpack/configs/conf.yaml
+    test_key: "regularpack"
+regularpack/models/model.txt
+    Some model of regularpack
+"""
+
+
+def test_freezer_excludes(tmp_package: TempPackage) -> None:
+    """Test the freeze excludes option."""
+    tmp_package.create(SOURCE_2)
+
+    freezer = Freezer(
+        executables=[
+            {
+                "script": "regularpack/main.py",
+                "target_name": "regularpack",
+            },
+            {
+                "script": "namespacepack/firstchildpack/main.py",
+                "target_name": "firstchildpack",
+            },
+            {
+                "script": "namespacepack/secondchildpack/main.py",
+                "target_name": "secondchildpack",
+            },
+        ],
+        excludes=[
+            "regularpack.configs",
+            "regularpack.models",
+            "namespacepack.firstchildpack.configs",
+            "namespacepack.firstchildpack.models",
+            "namespacepack.firstchildpack.utils.basic",
+            "namespacepack.secondchildpack.configs",
+            "namespacepack.secondchildpack.models",
+        ],
+        include_msvcr=True,
+        packages=[
+            "regularpack",
+            "namespacepack.firstchildpack",
+            "namespacepack.secondchildpack",
+        ],
+        path=[tmp_package.path, *sys.path],
+        silent=True,
+    )
+    freezer.freeze()
+
+    for fullname in (
+        "regularpack",
+        "namespacepack.firstchildpack",
+        "namespacepack.secondchildpack",
+    ):
+        name = fullname.split(".")[-1]
+        executable = tmp_package.executable(name)
+        assert executable.is_file()
+
+        result = tmp_package.run(executable)
+        result.stdout.fnmatch_lines(f"Hello, {name}!")
+
+        pkg_dir = executable.parent / "lib" / fullname.replace(".", "/")
+        print(f"\n-->{fullname}")
+        filelist = [fn for fn in pkg_dir.rglob("*") if fn.is_file()]
+        for fn in filelist:
+            print(fn)
+        assert len(filelist) == 3

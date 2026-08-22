@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
+
 SOURCE = """
 test.py
     print("Hello from cx_Freeze")
@@ -15,15 +20,15 @@ pyproject.toml
     script = "test.py"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 command
     python -m cx_Freeze build_exe --target-dir=dist
 """
 
 
-def test___main__(tmp_package) -> None:
+def test___main__(tmp_package: TempPackage) -> None:
     """Test __main__."""
     tmp_package.create(SOURCE)
     tmp_package.freeze()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-sdk
-Version: 1.42.1
+Version: 1.43.1
 Summary: OpenHands SDK - Core functionality for building AI agents
 Project-URL: Source, https://github.com/OpenHands/software-agent-sdk
 Project-URL: Homepage, https://github.com/OpenHands/software-agent-sdk
@@ -16,7 +16,7 @@ Requires-Dist: httpx[socks]>=0.27.0
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: joserfc>=1.6.8
 Requires-Dist: litellm>=1.93.0
-Requires-Dist: pillow>=12.1.1
+Requires-Dist: pillow>=12.3.0
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: python-frontmatter>=1.1.0
 Requires-Dist: python-json-logger>=3.3.0

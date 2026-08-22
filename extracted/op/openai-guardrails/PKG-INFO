@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openai-guardrails
-Version: 0.3.0
+Version: 0.3.2
 Summary: OpenAI Guardrails: A framework for building safe and reliable AI systems.
 Project-URL: Homepage, https://openai.github.io/openai-guardrails-python/
 Project-URL: Repository, https://github.com/openai/openai-guardrails-python
@@ -22,6 +22,7 @@ Requires-Dist: openai-agents>=0.3.3
 Requires-Dist: openai>=1.75.0
 Requires-Dist: presidio-analyzer>=2.2.360
 Requires-Dist: pydantic>=2.11.3
+Requires-Dist: spacy==3.8.13; python_version == '3.14'
 Requires-Dist: thinc<8.4.0,>=8.3.12
 Provides-Extra: benchmark
 Requires-Dist: matplotlib>=3.7.0; extra == 'benchmark'

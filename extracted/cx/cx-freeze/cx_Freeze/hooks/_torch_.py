@@ -1,9 +1,8 @@
-"""A collection of functions which are triggered automatically by finder when
-PyTorch package is included.
-"""
+"""Hooks triggered by finder when PyTorch package is included."""
 
 from __future__ import annotations
 
+from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING
 
 from cx_Freeze._compat import IS_LINUX, IS_MACOS, IS_MINGW, IS_WINDOWS
@@ -30,7 +29,12 @@ class Hook(ModuleHook):
     """The Hook class for PyTorch."""
 
     def torch(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for PyTorch. Tested in Windows and Linux."""
+        """Include modules and files required by PyTorch (torch).
+
+        Tested on Windows and Linux.
+        """
+        if module.file is None:  # to make ty happy
+            return
         module_path = module.file.parent
         site_packages_path = module_path.parent
 
@@ -50,25 +54,28 @@ class Hook(ModuleHook):
         except ImportError:
             pass
         else:
-            code_string = module.file.read_text(encoding="utf_8")
             # patch the code to ignore CUDA_PATH_Vxx_x installation directory
-            code_string = code_string.replace("CUDA_PATH", "NO_CUDA_PATH")
+            loader = module.loader
+            if not isinstance(loader, SourceFileLoader):
+                return
+            source_code = loader.get_source(module.name)
+            if source_code is None:
+                return
+            source_code = source_code.replace("CUDA_PATH", "NO_CUDA_PATH")
             if IS_LINUX:
                 # fix for issue #2682
-                lines = code_string.splitlines()
+                lines = source_code.splitlines()
                 for i, line in enumerate(lines[:]):
                     if line.strip() == "_load_global_deps()":
                         lines[i] = line.replace(
                             "_load_global_deps()",
                             "import nvidia; _load_global_deps()",
                         )
-                code_string = "\n".join(lines)
-            module.code = compile(
-                code_string,
-                module.file.as_posix(),
-                "exec",
-                dont_inherit=True,
-                optimize=finder.optimize,
+                source_code = "\n".join(lines)
+            module.code = loader.source_to_code(
+                source_code,
+                loader.get_filename(module.name),
+                _optimize=finder.optimize,
             )
 
         # include the shared libraries in 'lib' as fixed libraries
@@ -119,17 +126,20 @@ class Hook(ModuleHook):
         self, finder: ModuleFinder, module: Module
     ) -> None:
         """Patch to work with Python 3.11+."""
-        code_string = module.file.read_text(encoding="utf_8")
-        code_string = code_string.replace(
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        source_code = source_code.replace(
             "return _strip_init_py(m.__file__)",
             'return _strip_init_py(getattr(m, "__file__", ""))',
         )
-        module.code = compile(
-            code_string,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     def torch__numpy(self, finder: ModuleFinder, module: Module) -> None:

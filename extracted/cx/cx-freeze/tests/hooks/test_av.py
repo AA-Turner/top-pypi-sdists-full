@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from typing import TYPE_CHECKING
+
 import pytest
 
 from cx_Freeze._compat import (
+    ABI_THREAD,
     IS_ARM_64,
     IS_CONDA,
     IS_LINUX,
@@ -13,6 +18,9 @@ from cx_Freeze._compat import (
     IS_UCRT,
     IS_WINDOWS,
 )
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 120
 
@@ -36,12 +44,18 @@ pyproject.toml
     executables = ["test_av.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="av does not support Python 3.15t yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.skipif(
     IS_CONDA and (IS_LINUX or (IS_ARM_64 and IS_MACOS)),
     reason="av (pyAV) is too slow in conda-forge (Linux and OSX_ARM64)",
@@ -50,17 +64,17 @@ pyproject.toml
     IS_MINGW and not IS_UCRT,
     raises=ModuleNotFoundError,
     reason="av (pyAV) supported only in mingw linked to ucrt",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="av (pyAV) does not support Windows arm64",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv
 @zip_packages
-def test_av(tmp_package, zip_packages: bool) -> None:
+def test_av(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if av hook is working correctly."""
     tmp_package.create(SOURCE_TEST_AV)
     if zip_packages:

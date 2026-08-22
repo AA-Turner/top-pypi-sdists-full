@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import importlib.metadata
-from typing import TYPE_CHECKING
+from importlib.metadata import distribution
+from pathlib import Path
 
 from cx_Freeze.exception import FileError
 
-if TYPE_CHECKING:
-    from pathlib import Path
 FROZEN_HEADER = """## Why this file is included
 
 This program has been frozen with cx_Freeze.  The freezing process
@@ -27,12 +25,13 @@ def frozen_license(path: Path) -> Path:
 
     path: must be a directory where the file will be generated.
     """
-    dist = importlib.metadata.distribution("freeze_core")
+    dist = distribution("freeze_core")
     srcpath = None
-    for file in dist.files:
-        if file.name == "LICENSE":
-            srcpath = file.locate()
-            break
+    if dist.files:
+        for file in dist.files:
+            if file.name == "LICENSE":
+                srcpath = Path(file.locate())
+                break
     if srcpath is None:
         raise FileError(ERROR0)
 

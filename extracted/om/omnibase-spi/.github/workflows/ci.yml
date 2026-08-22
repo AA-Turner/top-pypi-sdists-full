@@ -102,6 +102,7 @@ jobs:
   detect-changes:
     name: Detect Changes
     needs: [lint, typecheck]
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       is_full_suite: ${{ steps.detect.outputs.is_full_suite }}
@@ -111,6 +112,19 @@ jobs:
       selected_paths: ${{ steps.detect.outputs.selected_paths }}
 
     steps:
+      # OMN-15118 vector-5 fix: `needs: [lint, typecheck]` alone lets GitHub's
+      # implicit `success()`-over-needs skip this job when either upstream
+      # fails/cancels, and a skipped job satisfies branch protection as
+      # passing (this is a REQUIRED context on dev). `if: always()` above
+      # stops the skip; this step is the other required half — it explicitly
+      # fails the job when either dependency did not succeed, so the job's
+      # own conclusion is FAILURE, never a decorative pass.
+      - name: Fail when upstream lint/typecheck did not succeed
+        if: needs.lint.result != 'success' || needs.typecheck.result != 'success'
+        run: |
+          echo "::error::lint result was ${{ needs.lint.result }}, typecheck result was ${{ needs.typecheck.result }}; refusing to run detect-changes."
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -242,7 +256,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint, typecheck, test-parallel, contract-compliance]
+    if: always()
     steps:
+      # OMN-15118 vector-5 fix: `needs: [lint, typecheck, test-parallel,
+      # contract-compliance]` alone lets GitHub's implicit `success()`-over-needs
+      # skip this job when any of the four fails/cancels, and a skipped job
+      # satisfies branch protection as passing (this is a REQUIRED context on
+      # dev). `if: always()` above stops the skip; this step is the other
+      # required half — it explicitly fails the job when any dependency did
+      # not succeed, so the job's own conclusion is FAILURE, never a
+      # decorative pass.
+      - name: Fail when an upstream dependency did not succeed
+        if: |
+          needs.lint.result != 'success' ||
+          needs.typecheck.result != 'success' ||
+          needs.test-parallel.result != 'success' ||
+          needs.contract-compliance.result != 'success'
+        run: |
+          echo "::error::upstream results — lint=${{ needs.lint.result }} typecheck=${{ needs.typecheck.result }} test-parallel=${{ needs.test-parallel.result }} contract-compliance=${{ needs.contract-compliance.result }}; refusing to run build-and-verify."
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -349,7 +382,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Compute changed Python/Markdown files vs PR base
@@ -400,25 +433,101 @@ jobs:
       - name: Validate contract YAML files
         working-directory: onex_change_control
         run: |
-          CONTRACTS=$(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -name "OMN-*.yaml" 2>/dev/null)
-          if [ -z "$CONTRACTS" ]; then
+          # -maxdepth 1: contracts/v1/*.yaml is a deliberately different shape
+          # (occ-contract/v1, validated by check-contract-shape-v1), not
+          # ticket_contract. An unscoped recursive find walks into contracts/v1/
+          # and fails every PR org-wide the moment any v1 contract exists,
+          # regardless of this PR's own diff. Matches omnimarket's ci.yml.
+          mapfile -t CONTRACTS < <(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -type f -name "OMN-*.yaml" 2>/dev/null)
+          if [ "${#CONTRACTS[@]}" -eq 0 ]; then
             echo "No contract YAML files found — skipping validation"
             exit 0
           fi
-          uv run validate-yaml $CONTRACTS
+          uv run validate-yaml "${CONTRACTS[@]}"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  no-noncanonical-lifecycle-classes:
+    name: no-noncanonical-lifecycle-classes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
+        run: |
+          uv run --no-project \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@63635097705d832e0ee9c4811093efb31349105c' \
+            python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
+            --check-stale \
+            --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
+            src/omnibase_spi
 
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [build-and-verify, tests-gate, spi-validation-gate]
+    needs: [build-and-verify, tests-gate, spi-validation-gate, no-noncanonical-lifecycle-classes]
     if: always()
     steps:
       - name: Check all jobs passed
+        env:
+          BUILD_AND_VERIFY_RESULT: ${{ needs.build-and-verify.result }}
+          TESTS_GATE_RESULT: ${{ needs.tests-gate.result }}
+          SPI_VALIDATION_GATE_RESULT: ${{ needs.spi-validation-gate.result }}
+          NO_NONCANONICAL_LIFECYCLE_CLASSES_RESULT: ${{ needs.no-noncanonical-lifecycle-classes.result }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more required jobs failed or were cancelled"
-            exit 1
-          fi
+          # OMN-15304: this aggregator previously read `needs.*.result` only
+          # through `contains(needs.*.result, 'failure'|'cancelled'|'skipped')`.
+          # The required-check-skip-vector guard (vector-6-result-triage-
+          # unverifiable) flags that as not provably fail-closed per-job: a glob
+          # `contains()` over the whole needs.* set does not statically prove
+          # that build-and-verify / tests-gate / spi-validation-gate are each
+          # individually triaged on every non-success value, so dropping or
+          # renaming one context could silently stop gating it. Fixed with an
+          # explicit four-way `case` per job (the omnimarket#1926 / OMN-15296
+          # shape): only `success` passes, `failure`/`cancelled`/`skipped` all
+          # fail closed by name, and a `*` default-deny branch catches any
+          # result value GitHub may add later. Applies to every job this
+          # aggregator reads, including the pre-existing
+          # no-noncanonical-lifecycle-classes check (OMN-14350) and the
+          # OMN-13875 skip-detection rationale below (build-and-verify goes
+          # `skipped`, not `failure`, when ITS upstreams fail).
+          check_result() {
+            local job_name="$1"
+            local result="$2"
+            case "$result" in
+              success)
+                echo "  ${job_name}: success"
+                ;;
+              failure)
+                echo "::error::${job_name} failed (result: ${result}) - fail-closed (OMN-15304)"
+                exit 1
+                ;;
+              cancelled)
+                echo "::error::${job_name} was cancelled, so it produced no verdict - fail-closed (OMN-15304)"
+                exit 1
+                ;;
+              skipped)
+                echo "::error::${job_name} was skipped - fail-closed (OMN-15304). A skipped required-check dependency must never read as passing evidence; build-and-verify in particular goes 'skipped' (not 'failure') when its own upstreams (lint, typecheck, test-parallel, contract-compliance) fail or are skipped (OMN-13875)."
+                exit 1
+                ;;
+              *)
+                echo "::error::Unrecognised result '${result}' for ${job_name} - failing closed by default-deny (OMN-15304)."
+                exit 1
+                ;;
+            esac
+          }
+
+          check_result "no-noncanonical-lifecycle-classes" "${NO_NONCANONICAL_LIFECYCLE_CLASSES_RESULT}"
+          check_result "build-and-verify" "${BUILD_AND_VERIFY_RESULT}"
+          check_result "tests-gate" "${TESTS_GATE_RESULT}"
+          check_result "spi-validation-gate" "${SPI_VALIDATION_GATE_RESULT}"
           echo "All required jobs passed"

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cx_Freeze._compat import ABI_THREAD, IS_MINGW
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -33,15 +38,17 @@ pyproject.toml
     executables = ["test_argon2.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.venv
 @zip_packages
-def test_argon2(tmp_package, zip_packages) -> None:
+def test_argon2(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
     """Test if argon2-cffi is working correctly."""
     tmp_package.map_package_to_mingw["argon2-cffi"] = "python-argon2_cffi"
     tmp_package.create(SOURCE_ARGON2)
@@ -68,23 +75,32 @@ pyproject.toml
     name = "test_bcrypt"
     version = "0.1.2.3"
     dependencies = [
-        "bcrypt<4;python_version < '3.11'",
-        "bcrypt>=4;python_version >= '3.11'",
+        "bcrypt<4;python_version <= '3.11'",
+        "bcrypt<5;python_version == '3.12'",
+        "bcrypt>=5;python_version >= '3.13'",
     ]
 
     [tool.cxfreeze]
     executables = ["test_bcrypt.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="bcrypt does not support Python 3.15t yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.venv
 @zip_packages
-def test_bcrypt(tmp_package, zip_packages) -> None:
+def test_bcrypt(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
     """Test if bcrypt is working correctly."""
     tmp_package.create(SOURCE_BCRYPT)
     if zip_packages:
@@ -123,8 +139,8 @@ pyproject.toml
     executables = ["test_crypto.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
@@ -132,12 +148,14 @@ pyproject.toml
 @pytest.mark.xfail(
     sys.version_info[:2] >= (3, 14) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
-    reason="pycryptodome does not support Python 3.14t",
-    strict=True,
+    reason="pycryptodome does not support Python 3.14t/3.15t",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv
 @zip_packages
-def test_crypto(tmp_package, zip_packages) -> None:
+def test_crypto(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
     """Test if pycryptodome is working correctly."""
     tmp_package.create(SOURCE_CRYPTO)
     if zip_packages:
@@ -174,15 +192,23 @@ pyproject.toml
     executables = ["test_cryptography.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="cryptography does not support Python 3.15t yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.venv
 @zip_packages
-def test_cryptography(tmp_package, zip_packages) -> None:
+def test_cryptography(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
     """Test if cryptography is working correctly."""
     tmp_package.create(SOURCE_CRYPTOGRAPHY)
     if zip_packages:

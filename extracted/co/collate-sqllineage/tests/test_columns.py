@@ -1805,3 +1805,107 @@ WHEN NOT MATCHED THEN INSERT (id, val) VALUES (s.id, s.val)"""
         ],
         dialect="bigquery",
     )
+
+
+def test_update_target_alias_in_set_expression():
+    sql = """UPDATE dbo.t_tgt t
+SET val = t.other
+FROM dbo.src s
+WHERE t.id = s.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("other", "dbo.t_tgt"),
+                TestColumnQualifierTuple("val", "dbo.t_tgt"),
+            )
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_from_subquery():
+    sql = """UPDATE dbo.t_tgt
+SET val = s.label
+FROM (SELECT label, id FROM dbo.src) s
+WHERE t_tgt.id = s.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("label", "dbo.src"),
+                TestColumnQualifierTuple("val", "dbo.t_tgt"),
+            )
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_from_cte():
+    sql = """WITH c AS (SELECT label, id FROM dbo.src)
+UPDATE dbo.t_tgt
+SET val = c.label
+FROM c
+WHERE t_tgt.id = c.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("label", "dbo.src"),
+                TestColumnQualifierTuple("val", "dbo.t_tgt"),
+            )
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_set_unresolvable_qualifier():
+    sql = """UPDATE dbo.t_tgt
+SET val = zzz.label
+FROM dbo.src s
+WHERE t_tgt.id = s.id"""
+    # `zzz` is neither the target nor a source, so no source column can be resolved.
+    # Without a guard the qualifier is turned into a default-schema table of its own
+    # and the edge is attributed to a table the statement never referenced.
+    assert_column_lineage_equal(sql, [], dialect="tsql")
+
+
+def test_update_from_subquery_joined_to_table():
+    sql = """UPDATE dbo.inventory
+SET reorder_level = s.quantity,
+    supplier_lead_time = sup.lead_time_days
+FROM (SELECT product_id, quantity FROM dbo.sales) s
+JOIN dbo.suppliers sup ON sup.id = s.product_id
+WHERE inventory.product_id = s.product_id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("quantity", "dbo.sales"),
+                TestColumnQualifierTuple("reorder_level", "dbo.inventory"),
+            ),
+            (
+                TestColumnQualifierTuple("lead_time_days", "dbo.suppliers"),
+                TestColumnQualifierTuple("supplier_lead_time", "dbo.inventory"),
+            ),
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_from_aliased_cte():
+    sql = """WITH monthly AS (SELECT region, amount FROM dbo.sales)
+UPDATE dbo.region_stats
+SET total_sales = m.amount
+FROM monthly m
+WHERE region_stats.region = m.region"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("amount", "dbo.sales"),
+                TestColumnQualifierTuple("total_sales", "dbo.region_stats"),
+            )
+        ],
+        dialect="tsql",
+    )

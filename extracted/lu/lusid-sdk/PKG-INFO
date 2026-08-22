@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.192
+Version: 2.3.195
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1574,6 +1574,7 @@ Class | Method | HTTP request | Description
  - [ModelSelection](docs/ModelSelection.md)
  - [MoveOrdersToDifferentBlocksRequest](docs/MoveOrdersToDifferentBlocksRequest.md)
  - [MovedOrderToDifferentBlockResponse](docs/MovedOrderToDifferentBlockResponse.md)
+ - [MovementConditionMatch](docs/MovementConditionMatch.md)
  - [MovementSettlementSummary](docs/MovementSettlementSummary.md)
  - [MovementType](docs/MovementType.md)
  - [MultiCurrencyAmounts](docs/MultiCurrencyAmounts.md)
@@ -1909,7 +1910,6 @@ Class | Method | HTTP request | Description
  - [RecSubmission](docs/RecSubmission.md)
  - [RecSupersededRun](docs/RecSupersededRun.md)
  - [RecUserComment](docs/RecUserComment.md)
- - [RecWorkflowTask](docs/RecWorkflowTask.md)
  - [RecipeBlock](docs/RecipeBlock.md)
  - [RecipeComposer](docs/RecipeComposer.md)
  - [RecipeValue](docs/RecipeValue.md)

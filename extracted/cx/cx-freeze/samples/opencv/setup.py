@@ -1,5 +1,6 @@
-"""A simple setup script to create an executable using opencv-python. This also
-demonstrates how to use excludes to get minimal package size.
+"""A simple setup script to create an executable using opencv-python.
+
+This also demonstrates how to use excludes to get minimal package size.
 
 test_opencv.py is a very simple type of opencv-python application.
 
@@ -14,7 +15,7 @@ from cx_Freeze import Executable, setup
 options = {
     "build_exe": {
         # exclude packages that are not really needed
-        "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"],
+        "excludes": ["tkinter", "email", "http", "xml"],
         "include_files": [("image.png", "share/image.png")],
     }
 }

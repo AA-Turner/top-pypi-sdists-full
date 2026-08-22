@@ -1,10 +1,9 @@
-"""A collection of functions which are triggered automatically by finder when
-scipy package is included.
-"""
+"""Hooks triggered by finder when scipy package is included."""
 
 from __future__ import annotations
 
 from contextlib import suppress
+from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING
 
 from cx_Freeze._compat import IS_LINUX, IS_MINGW, IS_WINDOWS
@@ -17,7 +16,7 @@ if TYPE_CHECKING:
 
 __all__ = ["Hook"]
 
-# scipy/__init__.py Line 96 (scipy 1.16.3)
+# scipy/__init__.py Line 96 (scipy 1.18.0rc2)
 submodules = (
     "cluster",
     "constants",
@@ -44,28 +43,30 @@ class Hook(ModuleHook):
     """The Hook class for scipy."""
 
     def scipy(self, finder: ModuleFinder, module: Module) -> None:
-        """The scipy package.
+        """Optimize hook.
 
-        Supported pypi and conda-forge versions (tested until 1.16.3).
+        Supported pypi and conda-forge versions (tested until 1.18.0rc2).
         """
-        # Exclude unnecessary modules
-        distribution = module.distribution
-        if distribution:
+        dist = finder.import_distributions.get(module.name)
+        if dist and dist.files:
             # Exclude tests
             excludes = set()
-            files = distribution.original.files or []
-            for file in files:
+            for file in dist.files:
                 if file.parent.match("**/tests"):
                     excludes.add(file.parent.as_posix().replace("/", "."))
             # >>> excludes.discard("scipy.special.tests")
             for exclude in excludes:
                 finder.exclude_module(exclude)
+
+        # Exclude unnecessary module
         finder.exclude_module("scipy.conftest")
 
         finder.include_package("scipy._lib")
         finder.include_package("scipy.misc")
         with suppress(ImportError):
             finder.include_module("scipy._cyutility")  # v1.16.0
+        with suppress(ImportError):
+            finder.include_package("scipy._external")  # v.18.0rc2
 
     def scipy__distributor_init(
         self, finder: ModuleFinder, module: Module
@@ -77,14 +78,19 @@ class Hook(ModuleHook):
 
         # patch the code when necessary
         if module.in_file_system == 0:
-            module.code = compile(
-                module.file.read_bytes().replace(
-                    b"__file__", b"__file__.replace('library.zip', '.')"
-                ),
-                module.file.as_posix(),
-                "exec",
-                dont_inherit=True,
-                optimize=finder.optimize,
+            loader = module.loader
+            if not isinstance(loader, SourceFileLoader):
+                return
+            source_code = loader.get_source(module.name)
+            if source_code is None:
+                return
+            source_code = source_code.replace(
+                "__file__", "__file__.replace('library.zip', '.')"
+            )
+            module.code = loader.source_to_code(
+                source_code,
+                loader.get_filename(module.name),
+                _optimize=finder.optimize,
             )
 
     def scipy__lib_array_api_compat(
@@ -99,10 +105,11 @@ class Hook(ModuleHook):
 
     def scipy__lib__docscrape(
         self,
-        finder: ModuleFinder,  # noqa: ARG002
+        finder: ModuleFinder,
         module: Module,
     ) -> None:
         module.exclude_names.update(["sphinx.ext.autodoc"])
+        finder.include_module("pydoc")
 
     def scipy__lib__testutils(
         self,
@@ -110,13 +117,15 @@ class Hook(ModuleHook):
         module: Module,
     ) -> None:
         module.exclude_names.update(
-            ["Cython.Compiler.Version", "cython", "psutil", "pytest"]
+            ["Cython.Compiler.Version", "cython", "psutil"]
         )
 
     def scipy_linalg_interface_gen(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """The scipy.linalg.interface_gen module optionally imports the pre
+        """Ignore optional modules.
+
+        The scipy.linalg.interface_gen module optionally imports the pre
         module; ignore the error if this module cannot be found.
         """
         module.ignore_names.add("pre")
@@ -131,7 +140,7 @@ class Hook(ModuleHook):
         finder: ModuleFinder,
         module: Module,  # noqa: ARG002
     ) -> None:
-        """The scipy.sparse.csgraph must be loaded as a package."""
+        """Load as a package the package scipy.sparse.csgraph."""
         finder.include_package("scipy.sparse.csgraph")
 
     def scipy_sparse_linalg(
@@ -147,13 +156,14 @@ class Hook(ModuleHook):
         finder: ModuleFinder,  # noqa: ARG002
         module: Module,
     ) -> None:
-        """The scipy.sparse.linalg._dsolve.linsolve optionally loads
-        scikits.umfpack.
+        """Ignore optional module.
+
+        scipy.sparse.linalg._dsolve.linsolve optionally loads scikits.umfpack.
         """
         module.ignore_names.add("scikits.umfpack")
 
     def scipy_spatial(self, finder: ModuleFinder, module: Module) -> None:
-        """The scipy.spatial must be loaded as a package."""
+        """Load scipy.spatial as a package."""
         module.global_names.update(global_names.SCIPY_SPATIAL_GLOBAL_NAMES)
         finder.include_package("scipy.spatial")
         if IS_WINDOWS or IS_MINGW:
@@ -164,11 +174,11 @@ class Hook(ModuleHook):
         finder: ModuleFinder,
         module: Module,  # noqa: ARG002
     ) -> None:
-        """The scipy.spatial.transform must be loaded as a package."""
+        """Load as a package the package scipy.spatial.transform."""
         finder.include_package("scipy.spatial.transform")
 
     def scipy_special(self, finder: ModuleFinder, module: Module) -> None:
-        """The scipy.special must be loaded as a package."""
+        """Load as a package the package scipy.special."""
         module.global_names.update(global_names.SCIPY_SPECIAL_GLOBAL_NAMES)
         finder.include_package("scipy.special")
         finder.include_package("scipy.special._precompute")
@@ -178,25 +188,13 @@ class Hook(ModuleHook):
         finder: ModuleFinder,  # noqa: ARG002
         module: Module,
     ) -> None:
-        """The scipy.special._cephes is an extension module and the scipy
+        """Include global names.
+
+        The scipy.special._cephes is an extension module and the scipy
         module imports * from it in places; advertise the global names that
         are used in order to avoid spurious errors about missing modules.
         """
         module.global_names.add("gammaln")
-
-    def scipy_special__mptestutils(
-        self,
-        finder: ModuleFinder,  # noqa: ARG002
-        module: Module,
-    ) -> None:
-        module.exclude_names.add("pytest")
-
-    def scipy_special__testutils(
-        self,
-        finder: ModuleFinder,  # noqa: ARG002
-        module: Module,
-    ) -> None:
-        module.exclude_names.add("pytest")
 
     def scipy_stats__binned_statistic(
         self, finder: ModuleFinder, module: Module
@@ -218,18 +216,20 @@ class Hook(ModuleHook):
     def _fix_suppress_warnings(
         self, finder: ModuleFinder, module: Module
     ) -> None:
-        code_bytes = module.file.read_bytes()
-        if b"suppress_warnings" in code_bytes:
-            code_bytes = code_bytes.replace(
-                b"from numpy.testing import suppress_warnings",
-                b"from warnings import catch_warnings as suppress_warnings",
-            )
-            module.code = compile(
-                code_bytes,
-                module.file.as_posix(),
-                "exec",
-                dont_inherit=True,
-                optimize=finder.optimize,
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        if "suppress_warnings" in source_code:
+            module.code = loader.source_to_code(
+                source_code.replace(
+                    "from numpy.testing import suppress_warnings",
+                    "from warnings import catch_warnings as suppress_warnings",
+                ),
+                loader.get_filename(module.name),
+                _optimize=finder.optimize,
             )
 
     def __getattr__(self, name: str) -> object:

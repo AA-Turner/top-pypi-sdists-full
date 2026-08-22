@@ -89,6 +89,25 @@ def test_decompressobj_with_output_buffer_limit(
         assert final_result == uncompressed_data
 
 
+def test_high_expansion_prefix_without_output_buffer_limit():
+    """
+    A fully-consumed mid-stream chunk must not leave stale unconsumed
+    input behind (issue #225).
+    """
+    uncompressed = b''.join(
+        bytes([65 + (i % 26)]) * 4096 for i in range(16)
+    )
+    compressed = brotlicffi.compress(uncompressed, lgwin=12)
+    assert len(compressed) > 64
+
+    o = brotlicffi.Decompressor()
+    result = o.decompress(compressed[:64])
+    assert not o._unconsumed_data
+    assert o.can_accept_more_data()
+    result += o.decompress(compressed[64:])
+    assert result == uncompressed
+
+
 def test_drip_feed(simple_compressed_file):
     """
     Sending in the data one byte at a time still works.

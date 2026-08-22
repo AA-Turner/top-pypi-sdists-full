@@ -4,7 +4,7 @@ requires = ["uv-build>=0.12.1,<0.13"]
 
 [project]
 name = "patchy"
-version = "3.0.0"
+version = "3.1.0"
 description = "Patch the inner source of python functions at runtime."
 readme = "README.rst"
 keywords = ["patchy"]

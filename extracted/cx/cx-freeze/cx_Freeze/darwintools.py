@@ -1,4 +1,5 @@
-# ruff: noqa
+"""Darwin tools."""
+
 from __future__ import annotations
 
 import os
@@ -13,7 +14,9 @@ from cx_Freeze._compat import PLATFORM
 from cx_Freeze.exception import PlatformError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterator
+
+    from cx_Freeze._typing import StrPath
 
 # In a MachO file, need to deal specially with links that use @executable_path,
 # @loader_path, @rpath
@@ -29,10 +32,11 @@ if TYPE_CHECKING:
 
 
 def isMachOFile(path: Path) -> bool:
-    """Determines whether the file is a Mach-O file."""
+    """Determine whether the file is a Mach-O file."""
     if not path.is_file():
         return False
-    return b"Mach-O" in subprocess.check_output(("file", path))
+    cmd = ("file", path)
+    return b"Mach-O" in subprocess.check_output(cmd)
 
 
 class MachOReference:
@@ -44,8 +48,10 @@ class MachOReference:
         raw_path: str,
         resolved_path: Path | None,
     ) -> None:
-        """:param source_file: DarwinFile object for file in which the reference
-        was found
+        """Represent a linking reference from Mach-O file to another file.
+
+        :param source_file: DarwinFile object for file in which the
+        reference was found
         :param raw_path: The load path that appears in the file
         (may include @rpath, etc.)
         :param resolved_path: The path resolved to an explicit path to a file
@@ -60,30 +66,35 @@ class MachOReference:
         # (i.e., not a non-copied system file)
         self.is_copied = False
         # reference to target DarwinFile (but only if file is copied into app)
-        self.target_file: DarwinFile | None = None
+        self._target_file: DarwinFile | None = None
 
-    def isResolved(self) -> bool:
-        return self.resolved_path is not None
+    @property
+    def target_file(self) -> DarwinFile | None:
+        return self._target_file
 
-    def setTargetFile(self, darwin_file: DarwinFile) -> None:
-        self.target_file = darwin_file
+    @target_file.setter
+    def target_file(self, darwin_file: DarwinFile) -> None:
+        self._target_file = darwin_file
         self.is_copied = True
 
 
 class DarwinFile:
-    """A DarwinFile object represents a file that will be copied into the
-    application, and record where it was ultimately moved to in the application
-    bundle. Mostly used to provide special handling for copied files that are
-    Mach-O files.
+    """Represents a file that will be copied into the application.
+
+    And record where it was ultimately moved to in the application bundle.
+    Mostly used to provide special handling for copied files that are Mach-O
+    files.
     """
 
     def __init__(
         self,
-        path: str | Path,
+        path: StrPath,
         referencing_file: DarwinFile | None = None,
         strict: bool = False,
     ) -> None:
-        """:param path: The original path of the DarwinFile
+        """Represent a file that will be copied into the application.
+
+        :param path: The original path of the DarwinFile
         (before copying into app)
         :param referencing_file: DarwinFile object representing the referencing
         source file
@@ -121,7 +132,7 @@ class DarwinFile:
 
         # if this is a Mach-O file, extract linking information from it
         self.isMachO = True
-        self.commands = MachOCommand._getMachOCommands(self.path)
+        self.commands = MachOCommand.getMachOCommands(self.path)
         self.loadCommands = [
             c for c in self.commands if isinstance(c, MachOLoadCommand)
         ]
@@ -162,25 +173,26 @@ class DarwinFile:
 
     def __str__(self) -> str:
         parts = []
-        # parts.append("RPath Commands: {}".format(self.rpathCommands))
-        # parts.append("Load commands: {}".format(self.loadCommands))
+        # parts.append "RPath Commands: {}".format(self.rpathCommands))
+        # parts.append "Load commands: {}".format(self.loadCommands))
         parts.append(f"Mach-O File: {self.path}")
         parts.append("Resolved rpath:")
-        for rpath in self.getRPath():
-            parts.append(f"   {rpath}")
+        parts += [f"   {rpath}" for rpath in self.getRPath()]
         parts.append("Loaded libraries:")
-        for rpath in self.libraryPathResolution:
-            parts.append(f"   {rpath} -> {self.libraryPathResolution[rpath]}")
+        parts += [
+            f"   {rpath} -> {self.libraryPathResolution[rpath]}"
+            for rpath in self.libraryPathResolution
+        ]
         return "\n".join(parts)
 
     def fileReferenceDepth(self) -> int:
-        """Returns how deep this Mach-O file is in the dynamic load order."""
+        """Return how deep this Mach-O file is in the dynamic load order."""
         if self.referencing_file is not None:
             return self.referencing_file.fileReferenceDepth() + 1
         return 0
 
     def printFileInformation(self) -> None:
-        """Prints information about the Mach-O file."""
+        """Print information about the Mach-O file."""
         print(f"[{self.fileReferenceDepth()}] File: {self.path}")
         print("  Commands:")
         if len(self.commands) > 0:
@@ -190,11 +202,6 @@ class DarwinFile:
             print("    [None]")
 
         # This can be included for even more detail on the problem file.
-        # print("  Load commands:")
-        # if len(self.loadCommands) > 0:
-        #     for cmd in self.loadCommands: print(f'    {cmd}')
-        # else: print("    [None]")
-
         print("  RPath commands:")
         if len(self.rpathCommands) > 0:
             for rpc in self.rpathCommands:
@@ -212,11 +219,13 @@ class DarwinFile:
             print("Referenced from:")
             self.referencing_file.printFileInformation()
 
-    def setBuildPath(self, path: Path) -> None:
-        self._build_path = path
-
-    def getBuildPath(self) -> Path | None:
+    @property
+    def build_path(self) -> Path | None:
         return self._build_path
+
+    @build_path.setter
+    def build_path(self, path: StrPath) -> None:
+        self._build_path = Path(path)
 
     @staticmethod
     def isExecutablePath(path: str) -> bool:
@@ -230,9 +239,11 @@ class DarwinFile:
     def isRPath(path: str) -> bool:
         return path.startswith("@rpath")
 
-    def resolveLoader(self, path: str) -> Path | None:
-        """Resolve a path that includes @loader_path. @loader_path represents
-        the directory in which the DarwinFile is located.
+    def resolveLoader(self, path: str) -> Path:
+        """Resolve a path that includes @loader_path.
+
+        @loader_path represents the directory in which the DarwinFile is
+        located.
         """
         if self.isLoaderPath(path):
             return self.path.parent / Path(path).relative_to("@loader_path")
@@ -240,10 +251,11 @@ class DarwinFile:
         raise PlatformError(msg)
 
     def resolveExecutable(self, path: str) -> Path:
-        """@executable_path should resolve to the directory where the original
-        executable was located. By default, we set that to the directory of
-        the library, so it would resolve in the same was as if linked from an
-        executable in the same directory.
+        """Resolve @executable_path to the directory of the executable.
+
+        By default, we set that to the directory of the library, so it would
+        resolve in the same was as if linked from an executable in the same
+        directory.
         """
         # consider making this resolve to the directory of the python
         # interpreter? Apparently not a big issue in practice, since the
@@ -269,13 +281,14 @@ class DarwinFile:
         raise PlatformError(msg)
 
     def getRPath(self) -> list[Path]:
-        """Returns the rpath in effect for this file. Determined by rpath
-        commands in this file and (recursively) the chain of files that
-        referenced this file.
+        """Return the rpath in effect for this file.
+
+        Determined by rpath commands in this file and (recursively) the chain
+        of files that referenced this file.
         """
         if self._rpath is not None:
             return self._rpath
-        raw_paths = [c.rpath for c in self.rpathCommands]
+        raw_paths = [c.rpath for c in self.rpathCommands if c.rpath]
         rpath = []
         for raw_path in raw_paths:
             test_rp = Path(raw_path)
@@ -293,7 +306,9 @@ class DarwinFile:
         return rpath
 
     def resolvePath(self, path: str) -> Path | None:
-        """Resolves any @executable_path, @loader_path, and @rpath references
+        """Resolve any path references.
+
+        Resolve @executable_path, @loader_path, and @rpath references
         in a path.
         """
         if self.isLoaderPath(path):  # replace @loader_path
@@ -321,25 +336,27 @@ class DarwinFile:
     def resolveLibraryPaths(self) -> None:
         for cmd in self.loadCommands:
             raw_path = cmd.load_path
-            resolved_path = self.resolvePath(raw_path)
-            self.libraryPathResolution[raw_path] = resolved_path
+            if raw_path:
+                resolved_path = self.resolvePath(raw_path)
+                self.libraryPathResolution[raw_path] = resolved_path
 
     def getDependentFilePaths(self) -> set[Path]:
-        """Returns a list the available resolved paths to dependencies."""
+        """Return a list the available resolved paths to dependencies."""
         dependents: set[Path] = set()
         for ref in self.machOReferenceForTargetPath.values():
             # skip load references that could not be resolved
-            if ref.isResolved():
+            if ref.resolved_path is not None:
                 dependents.add(ref.resolved_path)
         return dependents
 
     def getMachOReferenceList(self) -> list[MachOReference]:
         return list(self.machOReferenceForTargetPath.values())
 
-    def getMachOReferenceForPath(self, path: Path) -> MachOReference:
-        """Returns the reference pointing to the specified path, based on paths
-        stored in self.machOReferenceTargetPath. Raises Exception if not
-        available.
+    def getMachOReferenceForPath(self, path: Path) -> MachOReference | None:
+        """Return the reference pointing to the specified path.
+
+        Based on paths stored in self.machOReferenceTargetPath.
+        Raises Exception if not available.
         """
         try:
             return self.machOReferenceForTargetPath[path]
@@ -369,16 +386,17 @@ class MachOCommand:
         return f"<MachOCommand ({self.displayString()})>"
 
     @staticmethod
-    def _getMachOCommands(path: Path) -> list[MachOCommand]:
-        """Returns a list of load commands in the specified file, using
-        otool.
+    def getMachOCommands(path: Path) -> list[MachOCommand]:
+        """Return a list of load commands in the specified file.
+
+        Using otool.
         """
-        shell_command = ("otool", "-l", path)
+        cmd = ("otool", "-l", path)
         commands: list[MachOCommand] = []
         current_command_lines = None
 
         # split the output into separate load commands
-        out = subprocess.check_output(shell_command, encoding="utf_8")
+        out = subprocess.check_output(cmd, encoding="utf_8")
         for raw_line in out.splitlines():
             line = raw_line.strip()
             if line[:12] == "Load command":
@@ -408,6 +426,8 @@ class MachOCommand:
 
 
 class MachOLoadCommand(MachOCommand):
+    """Represents a load command in a Mach-O file."""
+
     def __init__(self, lines: list[str]) -> None:
         super().__init__(lines)
         self.load_path = None
@@ -421,7 +441,7 @@ class MachOLoadCommand(MachOCommand):
         pathline = pathline.split("(offset")[0].strip()
         self.load_path = pathline
 
-    def getPath(self):
+    def getPath(self) -> str | None:
         return self.load_path
 
     def __repr__(self) -> str:
@@ -429,6 +449,8 @@ class MachOLoadCommand(MachOCommand):
 
 
 class MachORPathCommand(MachOCommand):
+    """Represents a rpath command in a Mach-O file."""
+
     def __init__(self, lines: list[str]) -> None:
         super().__init__(lines)
         self.rpath = None
@@ -450,10 +472,11 @@ def _printFile(
     darwinFile: DarwinFile,
     seenFiles: set[DarwinFile],
     level: int,
-    noRecurse=False,
+    noRecurse: bool = False,
 ) -> None:
-    """Utility function to prints details about a DarwinFile and (optionally)
-    recursively any other DarwinFiles that it references.
+    """Print details about a DarwinFile.
+
+    Optionally, recursively any other DarwinFiles that it references.
     """
     print("{}{}".format(level * "|  ", os.fspath(darwinFile.path)), end="")
     print(" (already seen)" if noRecurse else "")
@@ -463,17 +486,19 @@ def _printFile(
         if not ref.is_copied:
             continue
         file = ref.target_file
-        _printFile(
-            file,
-            seenFiles=seenFiles,
-            level=level + 1,
-            noRecurse=(file in seenFiles),
-        )
-        seenFiles.add(file)
+        if file:
+            _printFile(
+                file,
+                seenFiles=seenFiles,
+                level=level + 1,
+                noRecurse=(file in seenFiles),
+            )
+            seenFiles.add(file)
     return
 
 
 def printMachOFiles(fileList: list[DarwinFile]) -> None:
+    """Print details about a list of DarwinFile."""
     seenFiles = set()
     for file in fileList:
         if file not in seenFiles:
@@ -484,8 +509,9 @@ def printMachOFiles(fileList: list[DarwinFile]) -> None:
 def change_load_reference(
     filename: str, old_reference: str, new_reference: str, verbose: bool = True
 ) -> None:
-    """Utility function that uses install_name_tool to change old_reference to
-    new_reference in the machO file specified by filename.
+    """Change old_reference to new_reference in the machO file.
+
+    Uses install_name_tool with the specified by filename.
     """
     if verbose:
         print("Redirecting load reference for ", end="")
@@ -494,25 +520,25 @@ def change_load_reference(
     new_mode = original | stat.S_IWUSR
     if new_mode != original:
         os.chmod(filename, new_mode)
-    subprocess.call(
-        (
-            "install_name_tool",
-            "-change",
-            old_reference,
-            new_reference,
-            filename,
-        )
+    cmd = (
+        "install_name_tool",
+        "-change",
+        old_reference,
+        new_reference,
+        filename,
     )
+    subprocess.call(cmd)
     if new_mode != original:
         os.chmod(filename, original)
 
 
 def apply_adhoc_signature(filename: str) -> None:
+    """Apply adhoc signature."""
     if PLATFORM.endswith("x86_64"):
         return
     # Apply for universal2 and arm64 machines
     print("Applying AdHocSignature")
-    args = (
+    cmd = (
         "codesign",
         "--sign",
         "-",
@@ -520,7 +546,7 @@ def apply_adhoc_signature(filename: str) -> None:
         "--preserve-metadata=entitlements,requirements,flags,runtime",
         filename,
     )
-    if subprocess.call(args):
+    if subprocess.call(cmd):
         # It may be a bug in Apple's codesign utility
         # The workaround is to copy the file to another inode, then move it
         # back erasing the previous file. The sign again.
@@ -528,7 +554,7 @@ def apply_adhoc_signature(filename: str) -> None:
             tempname = os.path.join(tmp_dir, os.path.basename(filename))
             shutil.copy(filename, tempname)
             shutil.move(tempname, filename)
-        subprocess.call(args)
+        subprocess.call(cmd)
 
 
 class DarwinFileTracker:
@@ -548,19 +574,18 @@ class DarwinFileTracker:
         # a cache of MachOReference objects pointing to a given source path
         self._reference_cache: dict[Path, MachOReference] = {}
 
-    def __iter__(self) -> Iterable[DarwinFile]:
+    def __iter__(self) -> Iterator[DarwinFile]:
         return iter(self._copied_file_list)
 
     def pathIsAlreadyCopiedTo(self, target_path: Path) -> bool:
-        """Check if the given target_path has already has a file copied to
-        it.
-        """
+        """Check if target_path has already has a file copied to it."""
         return target_path in self._darwin_file_for_build_path
 
     def getDarwinFile(
         self, source_path: Path, target_path: Path
     ) -> DarwinFile:
-        """Gets the DarwinFile for file copied from source_path to target_path.
+        """Get the DarwinFile for file copied from source_path to target_path.
+
         If either (i) nothing, or (ii) a different file has been copied to
         targetPath, raises a PlatformError.
         """
@@ -593,8 +618,9 @@ class DarwinFileTracker:
     def recordCopiedFile(
         self, target_path: Path, darwin_file: DarwinFile
     ) -> None:
-        """Record that a DarwinFile is being copied to a given path. If a
-        file has been copied to that path, raise a PlatformError.
+        """Record that a DarwinFile is being copied to a given path.
+
+        If a file has been copied to that path, raise a PlatformError.
         """
         if self.pathIsAlreadyCopiedTo(target_path):
             msg = (
@@ -616,8 +642,9 @@ class DarwinFileTracker:
         return self._reference_cache.get(source_path)
 
     def findDarwinFileForFilename(self, filename: str) -> DarwinFile | None:
-        """Attempts to locate a copied DarwinFile with the specified filename
-        and returns that. Otherwise returns None.
+        """Attempt to locate a copied DarwinFile with the specified filename.
+
+        Returns the DarwinFile. Otherwise returns None.
         """
         basename = Path(filename).name
         for file in self._copied_file_list:
@@ -626,10 +653,11 @@ class DarwinFileTracker:
         return None
 
     def finalizeReferences(self) -> None:
-        """This function does a final pass through the references for all the
-        copied DarwinFiles and attempts to clean up any remaining references
-        that are not already marked as copied. It covers two cases where the
-        reference might not be marked as copied:
+        """Do a final passthrough to the references for all copied DarwinFiles.
+
+        Attempt to clean up any remaining references that are not already
+        marked as copied. It covers two cases where the reference might not be
+        marked as copied:
         1) Files where _CopyFile was called without copyDependentFiles=True
            (in which the information would not have been added to the
             references at that time).
@@ -642,13 +670,13 @@ class DarwinFileTracker:
         for copied_file in self._copied_file_list:
             for reference in copied_file.getMachOReferenceList():
                 if not reference.is_copied:
-                    if reference.isResolved():
+                    if reference.resolved_path is not None:
                         # if reference is resolve, simply check if the resolved
                         # path was otherwise copied and lookup the DarwinFile
                         # object.
                         target_path = reference.resolved_path.resolve()
                         if target_path in self._darwin_file_for_source_path:
-                            reference.setTargetFile(
+                            reference.target_file = (
                                 self._darwin_file_for_source_path[target_path]
                             )
                     else:
@@ -681,14 +709,12 @@ class DarwinFileTracker:
                             f"resolved to {potential_target.path}."
                         )
                         reference.resolved_path = potential_target.path
-                        reference.setTargetFile(potential_target)
+                        reference.target_file = potential_target
 
     def set_relative_reference_paths(
-        self, build_dir: str, bin_dir: str
+        self, build_dir: StrPath, bin_dir: StrPath
     ) -> None:
-        """Make all the references from included Mach-O files to other included
-        Mach-O files relative.
-        """
+        """Make all the references from included Mach-O files relative."""
         darwin_file: DarwinFile
 
         for darwin_file in self._copied_file_list:
@@ -698,34 +724,45 @@ class DarwinFileTracker:
 
             # get the relative path to darwin_file in build directory
             print(f"Setting relative_reference_path for: {darwin_file}")
-            relative_copy_dest = os.path.relpath(
-                darwin_file.getBuildPath(), build_dir
-            )
-            # figure out directory where it will go in binary directory for
-            # .app bundle, this would be the Content/MacOS subdirectory in
-            # bundle.  This is the file that needs to have its dynamic load
-            # references updated.
-            file_path_in_bin_dir = os.path.join(bin_dir, relative_copy_dest)
-            # for each file that this darwin_file references, update the
-            # reference as necessary; if the file is copied into the binary
-            # package, change the reference to be relative to @executable_path
-            # (so an .app bundle will work wherever it is moved)
-            for reference in darwin_file.getMachOReferenceList():
-                if not reference.is_copied:
-                    # referenced file not copied -- assume this is a system
-                    # file that will also be present on the user's machine,
-                    # and do not change reference
-                    continue
-                # this is the reference in the machO file that needs to be
-                # updated
-                raw_path = reference.raw_path
-                ref_target_file: DarwinFile = reference.target_file
-                # this is where file copied in build dir
-                abs_build_dest = ref_target_file.getBuildPath()
-                rel_build_dest = os.path.relpath(abs_build_dest, build_dir)
-                exe_path = f"@executable_path/{rel_build_dest}"
-                change_load_reference(
-                    file_path_in_bin_dir, raw_path, exe_path, verbose=False
+            if darwin_file.build_path:
+                relative_copy_dest = os.path.relpath(
+                    darwin_file.build_path, build_dir
                 )
+                # figure out directory where it will go in binary directory for
+                # .app bundle, this would be the Content/MacOS subdirectory in
+                # bundle.  This is the file that needs to have its dynamic load
+                # references updated.
+                file_path_in_bin_dir = os.path.join(
+                    bin_dir, relative_copy_dest
+                )
+                # for each file that this darwin_file references, update the
+                # reference as necessary;
+                # if the file is copied into the binary package, change the
+                # reference to be relative to @executable_path
+                # (so an .app bundle will work wherever it is moved)
+                for reference in darwin_file.getMachOReferenceList():
+                    if not reference.is_copied:
+                        # referenced file not copied -- assume this is a system
+                        # file that will also be present on the user's machine,
+                        # and do not change reference
+                        continue
+                    # this is the reference in the machO file that needs to be
+                    # updated
+                    raw_path = reference.raw_path
+                    ref_target_file = reference.target_file
+                    if ref_target_file:
+                        # this is where file copied in build dir
+                        abs_build_dest = ref_target_file.build_path
+                        if abs_build_dest:
+                            rel_build_dest = os.path.relpath(
+                                abs_build_dest, build_dir
+                            )
+                            exe_path = f"@executable_path/{rel_build_dest}"
+                            change_load_reference(
+                                file_path_in_bin_dir,
+                                raw_path,
+                                exe_path,
+                                verbose=False,
+                            )
 
             apply_adhoc_signature(file_path_in_bin_dir)

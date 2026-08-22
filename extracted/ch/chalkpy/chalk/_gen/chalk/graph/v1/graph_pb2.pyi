@@ -1,9 +1,12 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.dataframe.v1 import dataframe_pb2 as _dataframe_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
 from chalk._gen.chalk.graph.v1 import sources_pb2 as _sources_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from chalk._gen.chalk.graph.v2 import sources_pb2 as _sources_pb2_1
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.lsp.v1 import range_pb2 as _range_pb2
 from chalk._gen.chalk.symbolic_value.v1 import symbolic_value_pb2 as _symbolic_value_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
@@ -19,6 +22,12 @@ from typing import (
     Optional as _Optional,
     Union as _Union,
 )
+from chalk._gen.chalk.graph.v1.source_file_reference_pb2 import SourceFileReference as SourceFileReference
+from chalk._gen.chalk.graph.v1.sql_resolver_retry_policy_pb2 import (
+    SQLResolverExponentialBackoff as SQLResolverExponentialBackoff,
+)
+from chalk._gen.chalk.graph.v1.sql_resolver_retry_policy_pb2 import SQLResolverBackoff as SQLResolverBackoff
+from chalk._gen.chalk.graph.v1.sql_resolver_retry_policy_pb2 import SQLResolverRetryPolicy as SQLResolverRetryPolicy
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -241,7 +250,7 @@ class MaterializedFeatureView(_message.Message):
     update_cadence: str
     lower_bound: _timestamp_pb2.Timestamp
     lookback_retention_period: _duration_pb2.Duration
-    source_file_reference: SourceFileReference
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     observation_sampling_strategy: MaterializedFeatureViewObservationSamplingStrategy
     def __init__(
         self,
@@ -250,7 +259,7 @@ class MaterializedFeatureView(_message.Message):
         update_cadence: _Optional[str] = ...,
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         lookback_retention_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
-        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
         observation_sampling_strategy: _Optional[_Union[MaterializedFeatureViewObservationSamplingStrategy, str]] = ...,
     ) -> None: ...
 
@@ -288,7 +297,7 @@ class ModelReference(_message.Message):
     version: int
     alias: str
     as_of: _timestamp_pb2.Timestamp
-    source_file_reference: SourceFileReference
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     relations: _containers.RepeatedCompositeFieldContainer[ModelRelation]
     resolvers: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
@@ -297,7 +306,7 @@ class ModelReference(_message.Message):
         version: _Optional[int] = ...,
         alias: _Optional[str] = ...,
         as_of: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
         relations: _Optional[_Iterable[_Union[ModelRelation, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
@@ -395,7 +404,7 @@ class NamedQuery(_message.Message):
     planner_options: _containers.ScalarMap[str, str]
     file_name: str
     deployment_id: str
-    source_file_reference: SourceFileReference
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     additional_logged_features: _containers.RepeatedScalarFieldContainer[str]
     valid_plan_not_required: bool
     resource_groups: _containers.MessageMap[str, NamedQueryResourceGroups]
@@ -413,7 +422,7 @@ class NamedQuery(_message.Message):
         planner_options: _Optional[_Mapping[str, str]] = ...,
         file_name: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
-        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
         additional_logged_features: _Optional[_Iterable[str]] = ...,
         valid_plan_not_required: bool = ...,
         resource_groups: _Optional[_Mapping[str, NamedQueryResourceGroups]] = ...,
@@ -1705,7 +1714,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
     variable: FunctionGlobalCapturedVariable
     proto: FunctionGlobalCapturedProto
     value_ref: FunctionGlobalCapturedValueRef
-    source_reference: SourceFileReference
+    source_reference: _source_file_reference_pb2.SourceFileReference
     def __init__(
         self,
         global_name: _Optional[str] = ...,
@@ -1719,7 +1728,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
         variable: _Optional[_Union[FunctionGlobalCapturedVariable, _Mapping]] = ...,
         proto: _Optional[_Union[FunctionGlobalCapturedProto, _Mapping]] = ...,
         value_ref: _Optional[_Union[FunctionGlobalCapturedValueRef, _Mapping]] = ...,
-        source_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        source_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
 class FunctionGlobalCapturedBuiltin(_message.Message):
@@ -1857,21 +1866,6 @@ class FunctionGlobalCapturedProto(_message.Message):
         full_name: _Optional[str] = ...,
     ) -> None: ...
 
-class SourceFileReference(_message.Message):
-    __slots__ = ("range", "code", "file_name")
-    RANGE_FIELD_NUMBER: _ClassVar[int]
-    CODE_FIELD_NUMBER: _ClassVar[int]
-    FILE_NAME_FIELD_NUMBER: _ClassVar[int]
-    range: _lsp_pb2.Range
-    code: str
-    file_name: str
-    def __init__(
-        self,
-        range: _Optional[_Union[_lsp_pb2.Range, _Mapping]] = ...,
-        code: _Optional[str] = ...,
-        file_name: _Optional[str] = ...,
-    ) -> None: ...
-
 class StreamKey(_message.Message):
     __slots__ = ("key", "feature")
     KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1891,6 +1885,7 @@ class SQLResolverSettings(_message.Message):
         "field_types",
         "use_native_sql",
         "is_chalk_sql_source",
+        "retry_policy",
     )
     class FieldsRootFqnEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1923,6 +1918,7 @@ class SQLResolverSettings(_message.Message):
     FIELD_TYPES_FIELD_NUMBER: _ClassVar[int]
     USE_NATIVE_SQL_FIELD_NUMBER: _ClassVar[int]
     IS_CHALK_SQL_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    RETRY_POLICY_FIELD_NUMBER: _ClassVar[int]
     finalizer: Finalizer
     incremental_settings: IncrementalSettings
     fields_root_fqn: _containers.ScalarMap[str, str]
@@ -1930,6 +1926,7 @@ class SQLResolverSettings(_message.Message):
     field_types: _containers.ScalarMap[str, str]
     use_native_sql: bool
     is_chalk_sql_source: bool
+    retry_policy: _sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy
     def __init__(
         self,
         finalizer: _Optional[_Union[Finalizer, str]] = ...,
@@ -1939,6 +1936,7 @@ class SQLResolverSettings(_message.Message):
         field_types: _Optional[_Mapping[str, str]] = ...,
         use_native_sql: bool = ...,
         is_chalk_sql_source: bool = ...,
+        retry_policy: _Optional[_Union[_sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy, _Mapping]] = ...,
     ) -> None: ...
 
 class IncrementalSettings(_message.Message):
@@ -1978,6 +1976,7 @@ class SQLResolverCommentDict(_message.Message):
         "unique_on",
         "partitioned_by",
         "use_native_sql",
+        "retry_policy",
     )
     class FieldsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -2004,6 +2003,7 @@ class SQLResolverCommentDict(_message.Message):
     UNIQUE_ON_FIELD_NUMBER: _ClassVar[int]
     PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
     USE_NATIVE_SQL_FIELD_NUMBER: _ClassVar[int]
+    RETRY_POLICY_FIELD_NUMBER: _ClassVar[int]
     total: bool
     source: str
     resolves: str
@@ -2021,6 +2021,7 @@ class SQLResolverCommentDict(_message.Message):
     unique_on: _containers.RepeatedScalarFieldContainer[str]
     partitioned_by: _containers.RepeatedScalarFieldContainer[str]
     use_native_sql: bool
+    retry_policy: _sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy
     def __init__(
         self,
         total: bool = ...,
@@ -2040,6 +2041,7 @@ class SQLResolverCommentDict(_message.Message):
         unique_on: _Optional[_Iterable[str]] = ...,
         partitioned_by: _Optional[_Iterable[str]] = ...,
         use_native_sql: bool = ...,
+        retry_policy: _Optional[_Union[_sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy, _Mapping]] = ...,
     ) -> None: ...
 
 class SQLResolverInfo(_message.Message):
@@ -2239,11 +2241,11 @@ class OnlineStoreConfig(_message.Message):
     name: str
     lru_cache: LRUCacheConfig
     feature_namespaces: _containers.RepeatedScalarFieldContainer[str]
-    source_file_reference: SourceFileReference
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     def __init__(
         self,
         name: _Optional[str] = ...,
         lru_cache: _Optional[_Union[LRUCacheConfig, _Mapping]] = ...,
         feature_namespaces: _Optional[_Iterable[str]] = ...,
-        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
     ) -> None: ...

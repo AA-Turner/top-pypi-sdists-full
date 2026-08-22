@@ -1,9 +1,8 @@
-"""A collection of functions which are triggered automatically by finder when
-tensorflow package is included.
-"""
+"""Hooks triggered by finder when tensorflow package is included."""
 
 from __future__ import annotations
 
+from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING
 
 from cx_Freeze._compat import IS_MINGW, IS_WINDOWS
@@ -20,7 +19,12 @@ class Hook(ModuleHook):
     """The Hook class for tensorflow."""
 
     def tensorflow(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for tensorflow. Tested in Windows and Linux."""
+        """Include modules and files required by tensorflow.
+
+        Tested in Windows and Linux.
+        """
+        if module.file is None:  # to make ty happy
+            return
         module_path = module.file.parent
         site_packages_path = module_path.parent
 
@@ -37,22 +41,25 @@ class Hook(ModuleHook):
                 target = "lib" / source.relative_to(site_packages_path)
                 finder.include_files(source, target)
 
-        # patch the code to search the correct directory
-        code_string = module.file.read_text(encoding="utf_8")
-        code_string = code_string.replace(
+        # patch the source code to search the correct directory
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        source_code = source_code.replace(
             "_site_packages_dirs = []",
             "_site_packages_dirs = [_os.path.join(_sys.prefix, 'lib')]",
         )
-        code_string = code_string.replace(
+        source_code = source_code.replace(
             "_current_file_location = ",
             "_current_file_location = __file__.replace('library.zip', '.')  #",
         )
-        module.code = compile(
-            code_string,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
         # installed version of tensorflow is a variant?

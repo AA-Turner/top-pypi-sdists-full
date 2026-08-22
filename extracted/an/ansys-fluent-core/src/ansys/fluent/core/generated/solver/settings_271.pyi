@@ -8192,6 +8192,7 @@ class wet_steam_settings(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
+    query_names: list[str]
     max_liquid_mass_fraction: max_liquid_mass_fraction
     virial_equation_of_state: virial_equation_of_state
     droplet_growth_rate: droplet_growth_rate
@@ -8207,6 +8208,23 @@ class wet_steam_settings(Group):
                 Specifies whether to use RGP tables for wet steam model properties.
             rgp_table_name : str
                 The RGP table to use for wet steam model properties.
+        """
+    def zonal_phase_change(self, modify: bool, zones: list[str], active_per_zone: list[str]):
+        """
+        Select cell zones where phase change process is active.
+        
+        Parameters
+        ----------
+            modify : bool
+                Confirm modification of the phase change state in specific cell zones.
+            zones : list
+                Fluid cell zones in which the phase change state will be updated.
+            active_per_zone : list
+                Per-zone activation flags ("yes" or "no"), one entry per selected zone. Only used from the Python API; the interactive TUI asks y/n per zone instead.
+        """
+    def get_zonal_state(self):
+        """
+        Get the current phase change state (on/off) for each fluid cell zone.
         """
 
 class wet_steam_enabled(Boolean):
@@ -8381,12 +8399,6 @@ class expose_system_coupling(Boolean):
     fluent_name: str
     _python_name: str
 
-class expose_radiative_eq_wall(Boolean):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
 class two_temperature(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -8399,7 +8411,6 @@ class two_temperature(Group):
     set_verbosity: set_verbosity
     translational_vibrational_energy_relaxation: translational_vibrational_energy_relaxation
     expose_system_coupling: expose_system_coupling
-    expose_radiative_eq_wall: expose_radiative_eq_wall
 
 class energy(Group):
     exposure_level: ExposureLevel
@@ -8444,6 +8455,18 @@ class production(String, AllowedValuesMixin):
     VORTICITY_BASED: Final[str] = 'vorticity-based'
     STRAIN_VORTICITY_BASED: Final[str] = 'strain-vorticity-based'
     _allowed_values: list[str]
+
+class enhanced_wall_treatment(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class damping(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
 
 class cb1(Real, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -8515,6 +8538,8 @@ class spalart_allmaras(Group):
     _python_name: str
     child_names: list[str]
     production: production
+    enhanced_wall_treatment: enhanced_wall_treatment
+    damping: damping
     coefficients: coefficients_2
 
 class reynolds_stress_model(String, AllowedValuesMixin):
@@ -10453,18 +10478,6 @@ class user_defined_functions(Group):
     turbulent_schmidt: turbulent_schmidt
     _child_aliases: dict
 
-class sa_enhanced_wall_treatment(Boolean):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class sa_damping(Boolean):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
 class turbulence(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -10496,8 +10509,6 @@ class turbulence(Group):
     transition: transition
     transition_sst: transition_sst
     user_defined_functions: user_defined_functions
-    sa_enhanced_wall_treatment: sa_enhanced_wall_treatment
-    sa_damping: sa_damping
     _child_aliases: dict
 
 class model_3(String, AllowedValuesMixin):
@@ -15515,13 +15526,13 @@ class erosion_accretion_rate_accumulation_enabled(Boolean):
     fluent_name: str
     _python_name: str
 
-class pressure_dependent_boiling(Boolean, AllowedValuesMixin):
+class pressure_dependent_boiling(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class temperature_dependent_latent_heat(Boolean, AllowedValuesMixin):
+class temperature_dependent_latent_heat(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17032,7 +17043,7 @@ class ligament_constant(Real, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class dsipersion_constant(Real, AllowedValuesMixin):
+class dispersion_constant(Real, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17086,7 +17097,7 @@ class atomizer(Group):
     orifice_width: orifice_width
     sheet_constant: sheet_constant
     ligament_constant: ligament_constant
-    dsipersion_constant: dsipersion_constant
+    dispersion_constant: dispersion_constant
     maximum_half_angle: maximum_half_angle
     flaf_fan_sheet_constant: flaf_fan_sheet_constant
     atomizer_dispersion_angle: atomizer_dispersion_angle
@@ -20941,15 +20952,15 @@ class reactions_1_child(Group):
         Parameters
         ----------
             phase : str
-                Phase of this reactant species.
+                The phase of this reactant species.
             species : str
-                Species name for this reactant.
+                The species name for this reactant.
             stoich_coeff : real
-                Stoichiometric coefficient for this reactant.
+                The stoichiometric coefficient for this reactant.
             rate_exponent : real
-                Rate exponent for this reactant.
+                The rate exponent for this reactant.
             ref_concentration : real
-                Reference concentration for this reactant.
+                The reference concentration for this reactant.
         """
     def add_product(self, phase: str, species: str, stoich_coeff: float | str, rate_exponent: float | str, ref_concentration: float | str):
         """
@@ -20958,79 +20969,79 @@ class reactions_1_child(Group):
         Parameters
         ----------
             phase : str
-                Phase of this product species.
+                The phase of this product species.
             species : str
-                Species name for this product.
+                The species name for this product.
             stoich_coeff : real
-                Stoichiometric coefficient for this product.
+                The stoichiometric coefficient for this product.
             rate_exponent : real
-                Rate exponent for this product.
+                The rate exponent for this product.
             ref_concentration : real
-                Reference concentration for this product.
+                The reference concentration for this product.
         """
     def delete_reactant(self, index: int):
         """
-        Delete a reactant from this reaction by index.
+        Delete the reactant at the specified index from this reaction.
         
         Parameters
         ----------
             index : int
-                Index of the reactant to delete.
+                The index of the reactant to delete.
         """
     def delete_product(self, index: int):
         """
-        Delete a product from this reaction by index.
+        Delete the product at the specified index from this reaction.
         
         Parameters
         ----------
             index : int
-                Index of the product to delete.
+                The index of the product to delete.
         """
     def list_reactants(self):
         """
-        List all reactants for this reaction.
+        List all the reactants for this reaction.
         """
     def list_products(self):
         """
-        List all products for this reaction.
+        List all the products for this reaction.
         """
-    def set_reactant(self, index: int, phase: str, species: str, stoich_coeff: float | str, rate_exponent: float | str, ref_concentration: float | str):
+    def edit_reactant(self, index: int, phase: str, species: str, stoich_coeff: float | str, rate_exponent: float | str, ref_concentration: float | str):
         """
-        Modify an existing reactant in this reaction by index.
+        Modify the reactant at the specified index in this reaction.
         
         Parameters
         ----------
             index : int
-                Index of the reactant to modify.
+                The index of the reactant to modify.
             phase : str
-                Phase of this reactant species.
+                The phase of this reactant species.
             species : str
-                Species name for this reactant.
+                The species name for this reactant.
             stoich_coeff : real
-                Stoichiometric coefficient for this reactant.
+                The stoichiometric coefficient for this reactant.
             rate_exponent : real
-                Rate exponent for this reactant.
+                The rate exponent for this reactant.
             ref_concentration : real
-                Reference concentration for this reactant.
+                The reference concentration for this reactant.
         """
-    def set_product(self, index: int, phase: str, species: str, stoich_coeff: float | str, rate_exponent: float | str, ref_concentration: float | str):
+    def edit_product(self, index: int, phase: str, species: str, stoich_coeff: float | str, rate_exponent: float | str, ref_concentration: float | str):
         """
-        Modify an existing product in this reaction by index.
+        Modify the product at the specified index in this reaction.
         
         Parameters
         ----------
             index : int
-                Index of the product to modify.
+                The index of the product to modify.
             phase : str
-                Phase of this product species.
+                The phase of this product species.
             species : str
-                Species name for this product.
+                The species name for this product.
             stoich_coeff : real
-                Stoichiometric coefficient for this product.
+                The stoichiometric coefficient for this product.
             rate_exponent : real
-                Rate exponent for this product.
+                The rate exponent for this product.
             ref_concentration : real
-                Reference concentration for this product.
+                The reference concentration for this product.
         """
     def get_number_of_reactants(self):
         """
@@ -33204,7 +33215,7 @@ class materials(Group):
             material_names : list
                 The material names to copy from database.
         """
-    def export_to_database(self, user_db_name: str, material_type: str, materials_name: list[str]):
+    def export_to_database(self, user_db_name: str, materials_type: str, materials_name: list[str]):
         """
         Export a case material to the user database.
         
@@ -33212,7 +33223,7 @@ class materials(Group):
         ----------
             user_db_name : str
                 User-defined database name.
-            material_type : str
+            materials_type : str
                 Material type to export.
             materials_name : list
                 The name of the material to export to the user database.
@@ -33828,6 +33839,18 @@ class dir_spec_cond(String, AllowedValuesMixin):
     _allowed_values: list[str]
 
 class cursys_name(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class snap_to_zone(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class snap_to_zone_face_zone(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34567,6 +34590,8 @@ class porous_zone(Group):
     porous: porous
     dir_spec_cond: dir_spec_cond
     cursys_name: cursys_name
+    snap_to_zone: snap_to_zone
+    snap_to_zone_face_zone: snap_to_zone_face_zone
     direction_1_vector: direction_1_vector
     direction_2_vector: direction_2_vector
     cone_axis_vector: cone_axis_vector
@@ -36275,6 +36300,150 @@ class material_7(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
+class enable_21(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class option_55(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class value_27(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class profile_name_1(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class field_name_1(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class udf_2(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class terms_1_child_child(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_55
+    value: value_27
+    profile_name: profile_name_1
+    field_name: field_name_1
+    udf: udf_2
+
+class terms_1_child(ListObject[terms_1_child_child]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: terms_1_child_child
+
+class terms_1(NamedObject[terms_1_child]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : list
+                Objects to be deleted.
+        """
+    def rename(self, old: str, new: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            old : str
+                Object to rename.
+            new : str
+                New name for the object.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: terms_1_child
+
+class sources_2(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    enable: enable_21
+    terms: terms_1
+
 class regions_child(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -36284,6 +36453,7 @@ class regions_child(Group):
     command_names: list[str]
     bodies: bodies
     material: material_7
+    sources: sources_2
     def create_surface(self):
         """
         Create wrapped solid region surface for this solid region.
@@ -51641,19 +51811,11 @@ class rans_les_interface(NamedObject[rans_les_interface_child]):
         """
     child_object_type: rans_les_interface_child
 
-class outlet_zone(Group):
+class outlet_zone(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
-    child_names: list[str]
-    option: option_54
-    function_of: function_of_2
-    value: value_26
-    udf: udf_1
-    piecewise_polynomial: piecewise_polynomial_1
-    piecewise_linear: piecewise_linear_1
-    polynomial: polynomial_1
 
 class temperature_rise_specification(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -51697,7 +51859,7 @@ class freestream_temperature(Real):
     fluent_name: str
     _python_name: str
 
-class transfer_coefficient(Group):
+class heat_transfer_coefficient(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51796,7 +51958,7 @@ class recirculation_inlet_1(Group):
     temperature_rise: temperature_rise
     heat_source: heat_source
     freestream_temperature: freestream_temperature
-    transfer_coefficient: transfer_coefficient
+    heat_transfer_coefficient: heat_transfer_coefficient
     direction_specification: direction_specification
     coordinate_system: coordinate_system_1
     flow_direction: flow_direction
@@ -59030,7 +59192,7 @@ class general_nrbc(Group):
     tangential_source: tangential_source
     verbosity: verbosity_5
 
-class enable_21(Boolean):
+class enable_22(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59061,7 +59223,7 @@ class turbo_specific_nrbc(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enable: enable_21
+    enable: enable_22
     discretization: discretization
     under_relaxation: under_relaxation_1
     verbosity: verbosity_6
@@ -62010,41 +62172,6 @@ class complex(Boolean):
     fluent_name: str
     _python_name: str
 
-class option_56(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    VALUE: Final[str] = 'value'
-    PROFILE: Final[str] = 'profile'
-    UDF: Final[str] = 'udf'
-    _allowed_values: list[str]
-
-class value_27(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class udf_2(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class dispx(Group):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_56
-    value: value_27
-    profile_name: profile_name
-    field_name: field_name
-    udf: udf_2
-    _child_aliases: dict
-
 class option_57(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
@@ -62067,7 +62194,7 @@ class udf_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class dispy(Group):
+class dispx(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62102,7 +62229,7 @@ class udf_4(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class dispz(Group):
+class dispy(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62137,7 +62264,7 @@ class udf_5(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class imagx(Group):
+class dispz(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62172,7 +62299,7 @@ class udf_6(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class imagy(Group):
+class imagx(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62207,7 +62334,7 @@ class udf_7(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class imagz(Group):
+class imagy(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62242,7 +62369,7 @@ class udf_8(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class frequency_2(Group):
+class imagz(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62254,15 +62381,6 @@ class frequency_2(Group):
     field_name: field_name
     udf: udf_8
     _child_aliases: dict
-
-class normalized(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    NORMALIZED: Final[str] = 'normalized'
-    NON_NORMALIZED: Final[str] = 'non-normalized'
-    _allowed_values: list[str]
 
 class option_63(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -62286,7 +62404,7 @@ class udf_9(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class amplitude_2(Group):
+class frequency_2(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62298,6 +62416,15 @@ class amplitude_2(Group):
     field_name: field_name
     udf: udf_9
     _child_aliases: dict
+
+class normalized(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    NORMALIZED: Final[str] = 'normalized'
+    NON_NORMALIZED: Final[str] = 'non-normalized'
+    _allowed_values: list[str]
 
 class option_64(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -62321,7 +62448,7 @@ class udf_10(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class passage_number_1(Group):
+class amplitude_2(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62332,6 +62459,41 @@ class passage_number_1(Group):
     profile_name: profile_name
     field_name: field_name
     udf: udf_10
+    _child_aliases: dict
+
+class option_65(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    VALUE: Final[str] = 'value'
+    PROFILE: Final[str] = 'profile'
+    UDF: Final[str] = 'udf'
+    _allowed_values: list[str]
+
+class value_36(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class udf_11(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class passage_number_1(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_65
+    value: value_36
+    profile_name: profile_name
+    field_name: field_name
+    udf: udf_11
     _child_aliases: dict
 
 class structural_damping_ratio(Real):
@@ -63417,7 +63579,7 @@ class dynamic_mesh(Group):
                 Update the Mesh?.
         """
 
-class enable_26(Boolean):
+class enable_27(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64030,7 +64192,7 @@ class gap_model(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enable: enable_26
+    enable: enable_27
     gap_regions: gap_regions
     advanced_options: advanced_options
     def create(self, gap_region_name: str, face_zone_ids: list[str], threshold: float | str, type: str, flow_modeling_method: str, sponge_resistance_type: str, sponge_gap_reynolds_number: float | str, sponge_gap_viscosity: float | str, sponge_local_stabilization: str, rom_flow_control_type: str, decelerated_customize_inputs: str, decelerated_scale_factor: float | str, decelerated_inertial_coefficient: float | str, decelerated_viscous_coefficient: float | str, decelerated_relative_velocity: str, resisted_customize_inputs: str, resisted_pressure_drop_formulation: str, resisted_correction_coefficient: float | str, resisted_gap_length: float | str, resisted_gap_width: float | str, resisted_relative_velocity: str, gap_flow_x_velocity: float | str, gap_flow_y_velocity: float | str, gap_flow_z_velocity: float | str, udf_source: str):
@@ -66862,7 +67024,7 @@ class circumferential_averaged_profile_enhanced_bands_check(Boolean):
     fluent_name: str
     _python_name: str
 
-class profile_name_1(String, AllowedValuesMixin):
+class profile_name_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67031,7 +67193,7 @@ class replicate_profile(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    profile_name: profile_name_1
+    profile_name: profile_name_2
     new_profile_name: new_profile_name
     number_of_fields: number_of_fields
     use_auto_fill: use_auto_fill
@@ -67043,7 +67205,7 @@ class replicate_profile(Group):
     rotation_axis: rotation_axis_1
     field_entries: field_entries
 
-class profile_name_2(String, AllowedValuesMixin):
+class profile_name_3(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67141,7 +67303,7 @@ class orient_profile(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    profile_name: profile_name_2
+    profile_name: profile_name_3
     new_profile_name: new_profile_name_1
     number_of_fields: number_of_fields
     direction_vector: direction_vector_1
@@ -67647,7 +67809,7 @@ class accelerated_non_iterative_time_marching(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_27(Boolean):
+class enable_28(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67675,11 +67837,11 @@ class convergence_acceleration_for_stretched_meshes(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_27
+    enable: enable_28
     convergence_acceleration_type: convergence_acceleration_type_1
     casm_cutoff_multiplier: casm_cutoff_multiplier_1
 
-class enable_28(Boolean):
+class enable_29(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67697,7 +67859,7 @@ class divergence_prevention(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_28
+    enable: enable_29
     relaxation_factor: relaxation_factor_2
 
 class reactions_4(Boolean):
@@ -67771,7 +67933,7 @@ class frozen_flux(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_29(Boolean):
+class enable_30(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67807,7 +67969,7 @@ class high_order_term_relaxation(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_29
+    enable: enable_30
     relaxation_factor: relaxation_factor_3
     select_variables: select_variables
     type: type_21
@@ -68403,7 +68565,7 @@ class false_time_step_linearization(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_30(Boolean):
+class enable_31(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68445,7 +68607,7 @@ class auto_dt_advanced_controls(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_30
+    enable: enable_31
     dt_init_limit: dt_init_limit
     dt_max: dt_max_1
     dt_factor_min: dt_factor_min
@@ -69006,6 +69168,12 @@ class vanishing_phase_scalar_alternate_treatment(Boolean):
     fluent_name: str
     _python_name: str
 
+class phase_species_clipping_in_postprocessing(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class species_15(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -69013,6 +69181,7 @@ class species_15(Group):
     _python_name: str
     child_names: list[str]
     vanishing_phase_scalar_alternate_treatment: vanishing_phase_scalar_alternate_treatment
+    phase_species_clipping_in_postprocessing: phase_species_clipping_in_postprocessing
 
 class multiphase_numerics(Group):
     exposure_level: ExposureLevel
@@ -69076,7 +69245,7 @@ class skewness_neighbor_coupling_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_31(Boolean):
+class enable_32(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69098,7 +69267,7 @@ class multi_phase_setting(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_31
+    enable: enable_32
     options: options_9
 
 class single_phase_setting(String, AllowedValuesMixin):
@@ -69337,7 +69506,7 @@ class vof_numerics(Group):
     unstructured_var_presto_scheme: unstructured_var_presto_scheme
     new_framework_for_vof_specific_node_based_treatment: new_framework_for_vof_specific_node_based_treatment
 
-class enable_32(Boolean):
+class enable_33(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69367,11 +69536,11 @@ class warped_face_gradient_correction(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_32
+    enable: enable_33
     mode: mode_2
     turbulence_options: turbulence_options
 
-class enable_33(Boolean):
+class enable_34(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69401,7 +69570,7 @@ class high_speed_numerics(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_33
+    enable: enable_34
     expert: expert_9
     robust_fluxes: robust_fluxes
     visualize_pressure_discontinuity_sensor: visualize_pressure_discontinuity_sensor
@@ -69412,7 +69581,7 @@ class species_disc_together(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_34(Boolean):
+class enable_35(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69460,7 +69629,7 @@ class poor_mesh_removal(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_34
+    enable: enable_35
     orthogonal_quality_threshold_enabled: orthogonal_quality_threshold_enabled
     orthogonal_quality_threshold: orthogonal_quality_threshold
     tangent_skewness_threshold_enabled: tangent_skewness_threshold_enabled
@@ -69468,7 +69637,7 @@ class poor_mesh_removal(Group):
     warpage_threshold_enabled: warpage_threshold_enabled
     warpage_threshold: warpage_threshold
 
-class enable_35(Boolean):
+class enable_36(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69522,7 +69691,7 @@ class poor_mesh_numerics_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_35
+    enable: enable_36
     orthogonal_quality_threshold_enabled: orthogonal_quality_threshold_enabled_1
     orthogonal_quality_threshold: orthogonal_quality_threshold_1
     tangent_skewness_threshold_enabled: tangent_skewness_threshold_enabled_1
@@ -69600,7 +69769,7 @@ class gradient_quality_threshold(Real):
     fluent_name: str
     _python_name: str
 
-class enable_36(Boolean):
+class enable_37(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69654,7 +69823,7 @@ class solution_based_pmn(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_36
+    enable: enable_37
     mark_primary_solution_limits: mark_primary_solution_limits
     mark_velocity_limit: mark_velocity_limit
     velocity_limit: velocity_limit
@@ -69750,7 +69919,7 @@ class poor_mesh_numerics(Group):
                 The register to use for poor mesh numerics.
         """
 
-class enable_40(Boolean):
+class enable_41(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69791,7 +69960,7 @@ class turbo_numerics(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_40
+    enable: enable_41
     options: options_10
 
 class variable_time_step_formulation(Boolean):
@@ -69858,13 +70027,13 @@ class moving_mesh_numerics(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_41(Boolean):
+class enable_42(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class enable_42(Boolean):
+class enable_43(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69900,7 +70069,7 @@ class distorted_mesh_handling(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_42
+    enable: enable_43
     grad_disc: grad_disc
     sided_metrics: sided_metrics
     consistent_metrics: consistent_metrics
@@ -69923,7 +70092,7 @@ class diagnostics_verbosity(Integer):
     fluent_name: str
     _python_name: str
 
-class enable_43(Boolean):
+class enable_44(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70011,7 +70180,7 @@ class inspector(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enable: enable_43
+    enable: enable_44
     type_menu: type_menu
     write: write_1
     outlier: outlier
@@ -70032,7 +70201,7 @@ class inspector(Group):
                 Filename for temperature inspection diagnostics output.
         """
 
-class enable_44(Boolean):
+class enable_45(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70074,14 +70243,14 @@ class global_extrema_tracker(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_44
+    enable: enable_45
     velocity: velocity_3
     temperature: temperature_6
     density: density_10
     pressure: pressure_1
     cfl: cfl
 
-class enable_45(Boolean):
+class enable_46(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70159,7 +70328,7 @@ class divergence_tracker(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_45
+    enable: enable_46
     write: write_2
     print: print_2
     velocity_tracker: velocity_tracker
@@ -70172,7 +70341,7 @@ class divergence_tracker(Group):
     stop: stop_2
     verbosity: verbosity_18
 
-class enable_46(Boolean):
+class enable_47(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70190,7 +70359,7 @@ class diagnostics_visualization(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_46
+    enable: enable_47
     expert: expert_11
 
 class diagnostics_tools(Group):
@@ -70256,7 +70425,7 @@ class enhanced_limiter(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_47(Boolean):
+class enable_48(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70298,7 +70467,7 @@ class divergence_prevention_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_47
+    enable: enable_48
     interval: interval
     velocity_range: velocity_range
     max_vel: max_vel_1
@@ -70338,7 +70507,7 @@ class stabilization_tools(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_41
+    enable: enable_42
     distorted_mesh_handling: distorted_mesh_handling
     stabilization_mode: stabilization_mode
     diagnostics_tools: diagnostics_tools
@@ -70410,6 +70579,12 @@ class visualize_sampling_fields(Boolean):
     fluent_name: str
     _python_name: str
 
+class auto_redistribute_particles(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class advanced_4(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -70418,6 +70593,7 @@ class advanced_4(Group):
     child_names: list[str]
     use_cell_pressure_for_symmetry_boundary: use_cell_pressure_for_symmetry_boundary
     visualize_sampling_fields: visualize_sampling_fields
+    auto_redistribute_particles: auto_redistribute_particles
 
 class dsmc(Group):
     exposure_level: ExposureLevel
@@ -72845,7 +73021,7 @@ class energy_reconstruction_gradient_limiting(Boolean):
     fluent_name: str
     _python_name: str
 
-class enable_48(Boolean):
+class enable_49(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72863,7 +73039,7 @@ class bcd_weights_freeze(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enable: enable_48
+    enable: enable_49
     freeze_iteration: freeze_iteration
 
 class enhanced_skewness_correction(Boolean):
@@ -73693,7 +73869,7 @@ class reference_frame_10(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class zones_5(StringList, AllowedValuesMixin):
+class zones_6(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73723,7 +73899,7 @@ class force_child(Group):
     report_type: report_type
     force_vector: force_vector
     reference_frame: reference_frame_10
-    zones: zones_5
+    zones: zones_6
     locations: locations_5
     per_selection: per_selection
     average_over: average_over
@@ -73812,7 +73988,7 @@ class lift_1_child(Group):
     report_type: report_type
     force_vector: force_vector
     reference_frame: reference_frame_10
-    zones: zones_5
+    zones: zones_6
     locations: locations_5
     per_selection: per_selection
     average_over: average_over
@@ -73901,7 +74077,7 @@ class drag_1_child(Group):
     report_type: report_type
     force_vector: force_vector
     reference_frame: reference_frame_10
-    zones: zones_5
+    zones: zones_6
     locations: locations_5
     per_selection: per_selection
     average_over: average_over
@@ -74003,7 +74179,7 @@ class moment_child(Group):
     mom_center: mom_center
     mom_axis: mom_axis
     reference_frame: reference_frame_10
-    zones: zones_5
+    zones: zones_6
     locations: locations_5
     per_selection: per_selection
     average_over: average_over
@@ -74654,7 +74830,7 @@ class aeromechanics_child(Group):
     command_names: list[str]
     name: name_5
     report_type: report_type
-    zones: zones_5
+    zones: zones_6
     per_selection: per_selection
     nodal_diameters: nodal_diameters
     average_over: average_over
@@ -75809,6 +75985,153 @@ class residual(Group):
                 The name you want the file saved with.
         """
 
+class monitor_2(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class check_convergence_1(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class absolute_criteria_1(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class relative_criteria_1(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class equations_2_child(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    monitor: monitor_2
+    check_convergence: check_convergence_1
+    absolute_criteria: absolute_criteria_1
+    relative_criteria: relative_criteria_1
+
+class equations_2(NamedObject[equations_2_child]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : list
+                Objects to be deleted.
+        """
+    def rename(self, old: str, new: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            old : str
+                Object to rename.
+            new : str
+                New name for the object.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: equations_2_child
+
+class print_to_console_1(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    OFF: Final[str] = 'off'
+    SUMMARY: Final[str] = 'summary'
+    DETAILED: Final[str] = 'detailed'
+    _allowed_values: list[str]
+
+class plot_2(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class normalize_imbalance(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class convergence_criterion(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    ABSOLUTE: Final[str] = 'absolute'
+    RELATIVE: Final[str] = 'relative'
+    _allowed_values: list[str]
+
+class options_14(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    print_to_console: print_to_console_1
+    plot: plot_2
+    normalize_imbalance: normalize_imbalance
+    convergence_criterion: convergence_criterion
+
+class imbalance(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    equations: equations_2
+    options: options_14
+
 class file_name_3_1(Filename, _InOutFile):
     exposure_level: ExposureLevel
     _version: str
@@ -76132,7 +76455,7 @@ class report_defs_2(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class plot_3(Boolean):
+class plot_4(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76163,7 +76486,7 @@ class convergence_reports_child(Group):
     stop_criterion: stop_criterion
     report_defs: report_defs_2
     print: print_4
-    plot: plot_3
+    plot: plot_4
     cov: cov
     active: active_1
     x_label: x_label
@@ -76272,6 +76595,7 @@ class monitor(Group):
     _python_name: str
     child_names: list[str]
     residual: residual
+    imbalance: imbalance
     report_files: report_files
     report_plots: report_plots
     convergence_conditions: convergence_conditions
@@ -76288,7 +76612,7 @@ class python_name_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_65(String, AllowedValuesMixin):
+class option_66(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76367,7 +76691,7 @@ class cylinder_1(Group):
     radius: radius_4
     inside: inside
 
-class option_66(String, AllowedValuesMixin):
+class option_67(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76412,7 +76736,7 @@ class distance_option(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_66
+    option: option_67
     cell_distance: cell_distance_1
     normal_distance: normal_distance_1
     volume_distance: volume_distance
@@ -76445,7 +76769,7 @@ class field_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_68(String, AllowedValuesMixin):
+class option_69(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76553,13 +76877,13 @@ class more_than_std_dev(Real):
     fluent_name: str
     _python_name: str
 
-class option_67(Group):
+class option_68(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_68
+    option: option_69
     min_max: min_max
     in_range: in_range
     except_in_range: except_in_range
@@ -76635,7 +76959,7 @@ class field_value(Group):
     child_names: list[str]
     command_names: list[str]
     field: field_1
-    option: option_67
+    option: option_68
     min: min_1
     max: max_1
     average: average
@@ -76718,7 +77042,7 @@ class volume_4(Group):
     volume_change: volume_change
     range: range_1
 
-class option_69(String, AllowedValuesMixin):
+class option_70(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76783,7 +77107,7 @@ class yplus_star(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_69
+    option: option_70
     range: range_2
     min_allowed: min_allowed_1
     max_allowed: max_allowed_1
@@ -76797,7 +77121,7 @@ class yplus_ystar_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_69
+    option: option_70
     range: range_2
     min_allowed: min_allowed_1
     max_allowed: max_allowed_1
@@ -76811,7 +77135,7 @@ class type_23(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_65
+    option: option_66
     hexahedron: hexahedron
     sphere: sphere_1
     cylinder: cylinder_1
@@ -76979,7 +77303,44 @@ class initialization_type(String, AllowedValuesMixin):
     _python_name: str
     STANDARD: Final[str] = 'standard'
     HYBRID: Final[str] = 'hybrid'
+    LPFM: Final[str] = 'lpfm'
+    HYBRID: Final[str] = 'hybrid'
     _allowed_values: list[str]
+
+class full_mesh(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class geometry_zones(StringList, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class flow_boundary(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class vmag_1(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class lpfm(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    full_mesh: full_mesh
+    geometry_zones: geometry_zones
+    flow_boundary: flow_boundary
+    vmag: vmag_1
 
 class reference_frame_11(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -77604,6 +77965,7 @@ class initialization_1(Group):
     child_names: list[str]
     command_names: list[str]
     initialization_type: initialization_type
+    lpfm: lpfm
     reference_frame: reference_frame_11
     initial_operating_pressure: initial_operating_pressure
     defaults: defaults
@@ -77638,6 +78000,10 @@ class initialization_1(Group):
     def hybrid_initialize(self):
         """
         Initialize using the hybrid initialization method.
+        """
+    def lpfm_initialize(self):
+        """
+        Initialize using the LPFM initialization method.
         """
     def list_defaults(self):
         """
@@ -77791,7 +78157,7 @@ class auto_save(Group):
     append_file_name_with: append_file_name_with
     save_data_file_every: save_data_file_every
 
-class enable_49(Boolean):
+class enable_50(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77844,7 +78210,7 @@ class execute_commands_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    enable: enable_49
+    enable: enable_50
     execution_type: execution_type
     execution_command: execution_command
     when_to_execute: when_to_execute
@@ -78338,7 +78704,7 @@ class register_5(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_70(String, AllowedValuesMixin):
+class option_71(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78362,7 +78728,7 @@ class frequency_8(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_70
+    option: option_71
     iterations: iterations_2
     time_steps: time_steps
 
@@ -78378,7 +78744,7 @@ class verbosity_21(Integer):
     fluent_name: str
     _python_name: str
 
-class monitor_2(String, AllowedValuesMixin):
+class monitor_3(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78395,7 +78761,7 @@ class register_based_child(Group):
     frequency: frequency_8
     active: active_2
     verbosity: verbosity_21
-    monitor: monitor_2
+    monitor: monitor_3
 
 class register_based(NamedObject[register_based_child]):
     exposure_level: ExposureLevel
@@ -79438,7 +79804,7 @@ class cfl_based_adaptive_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
 
-class enable_51(Boolean):
+class enable_52(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79475,7 +79841,7 @@ class solution_steering(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enable: enable_51
+    enable: enable_52
     flow_type: flow_type
     first_to_second_order_blending: first_to_second_order_blending_2
     use_fmg: use_fmg
@@ -79868,7 +80234,7 @@ class solid_time_step_size(Group):
     choose_auto_time_stepping: choose_auto_time_stepping
     time_step_size: time_step_size_1
 
-class options_14(Group):
+class options_15(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -80002,7 +80368,7 @@ class data_sampling(Group):
     enable_custom_field_functions: enable_custom_field_functions
     custom_field_functions: custom_field_functions
 
-class zones_6(StringList, AllowedValuesMixin):
+class zones_7(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -80058,7 +80424,7 @@ class data_sets_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    zones: zones_6
+    zones: zones_7
     location: location_4
     min: min_2
     max: max_2
@@ -80867,7 +81233,7 @@ class run_calculation(Group):
     solution_steering: solution_steering
     time_step_count: time_step_count_1
     transient_controls: transient_controls
-    options: options_14
+    options: options_15
     pollutants: pollutants
     data_sampling: data_sampling
     data_sampling_options: data_sampling_options
@@ -81680,7 +82046,7 @@ class boundary_location(Group):
     geometry: geometry_5
     surfaces: surfaces_6
 
-class zones_7(StringList, AllowedValuesMixin):
+class zones_8(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81709,7 +82075,7 @@ class iso_surface_child(Group):
     range: range_3
     surfaces: surfaces_11
     boundary_location: boundary_location
-    zones: zones_7
+    zones: zones_8
     volume_location: volume_location
     def display(self):
         """
@@ -82181,7 +82547,7 @@ class surface_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class zones_8(StringList, AllowedValuesMixin):
+class zones_9(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82202,7 +82568,7 @@ class imprint_surface_child(Group):
     command_names: list[str]
     name: name_5
     surface: surface_3
-    zones: zones_8
+    zones: zones_9
     volumes: volumes_3
     def display(self):
         """
@@ -82440,7 +82806,7 @@ class attribute(RealList):
     fluent_name: str
     _python_name: str
 
-class value_37(Real):
+class value_38(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82455,7 +82821,7 @@ class quadric_surface_child(Group):
     command_names: list[str]
     name: name_5
     attribute: attribute
-    value: value_37
+    value: value_38
     def display(self):
         """
         Display a surface.
@@ -83241,7 +83607,7 @@ class gap(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_15(Group):
+class options_16(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83254,7 +83620,7 @@ class options_15(Group):
     overset: overset_4
     gap: gap
 
-class option_71(String, AllowedValuesMixin):
+class option_72(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83287,7 +83653,7 @@ class edge_type(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_71
+    option: option_72
     all: all
     feature: feature
     outline: outline
@@ -83323,7 +83689,7 @@ class shrink_factor(Real):
     fluent_name: str
     _python_name: str
 
-class option_72(String, AllowedValuesMixin):
+class option_73(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83435,11 +83801,11 @@ class coloring(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_72
+    option: option_73
     automatic: automatic
     manual: manual_1
 
-class option_73(String, AllowedValuesMixin):
+class option_74(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83463,7 +83829,7 @@ class coloring_options(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_73
+    option: option_74
     faces: faces_2
     edges: edges_3
 
@@ -83489,7 +83855,7 @@ class mesh_2_child(Group):
     name: name_42
     surfaces_list: surfaces_list
     locations: locations_5
-    options: options_15
+    options: options_16
     edge_type: edge_type
     edge_type_options: edge_type_options
     shrink_factor: shrink_factor
@@ -83597,7 +83963,7 @@ class field_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_74(String, AllowedValuesMixin):
+class option_75(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83652,7 +84018,7 @@ class range_option(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_74
+    option: option_75
     auto_range_on: auto_range_on
     auto_range_off: auto_range_off
 
@@ -83715,7 +84081,7 @@ class contour_lines_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_16(Group):
+class options_17(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83754,7 +84120,7 @@ class contour_lines(Boolean):
     fluent_name: str
     _python_name: str
 
-class option_75(String, AllowedValuesMixin):
+class option_76(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -83779,7 +84145,7 @@ class coloring_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_75
+    option: option_76
     smooth: smooth
     banded: banded
 
@@ -83954,7 +84320,7 @@ class contour_child(Group):
     locations: locations_5
     range_option: range_option
     range_options: range_options
-    options: options_16
+    options: options_17
     filled: filled_1
     node_values: node_values
     boundary_values: boundary_values
@@ -84099,7 +84465,7 @@ class skip_1(Integer):
     fluent_name: str
     _python_name: str
 
-class options_17(Group):
+class options_18(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -84217,7 +84583,7 @@ class vector_1_child(Group):
     locations: locations_5
     range_option: range_option
     range_options: range_options
-    options: options_17
+    options: options_18
     scale: scale_4
     style: style
     skip: skip
@@ -84350,7 +84716,7 @@ class from_location_1(Group):
     geometry: geometry_12
     surfaces: surfaces_9
 
-class option_77(String, AllowedValuesMixin):
+class option_78(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -84390,7 +84756,7 @@ class range_5(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_77
+    option: option_78
     auto_range: auto_range_2
     clip_to_range: clip_to_range_2
 
@@ -84691,7 +85057,7 @@ class relative_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_18(Group):
+class options_19(Group):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -84703,7 +85069,7 @@ class options_18(Group):
     node_values: node_values_2
     relative: relative_1
 
-class option_78(String, AllowedValuesMixin):
+class option_79(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -84728,7 +85094,7 @@ class accuracy_control_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_78
+    option: option_79
     step_size: step_size
     tolerance: tolerance_4
 
@@ -84798,7 +85164,7 @@ class coarsen_3(Integer):
     fluent_name: str
     _python_name: str
 
-class option_76(Group):
+class option_77(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -84881,7 +85247,7 @@ class file_name_30(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class plot_5(Group):
+class plot_6(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85320,15 +85686,15 @@ class pathline_child(Group):
     range_options: range_options_1
     style_attribute: style_attribute
     style_attributes: style_attributes
-    options: options_18
+    options: options_19
     accuracy_control: accuracy_control_1
-    option: option_76
+    option: option_77
     step: step
     skip: skip_2
     coarsen: coarsen_2
     onzone: onzone
     on_location: on_location
-    plot: plot_5
+    plot: plot_6
     color_map: color_map
     annotations_list: annotations_list
     draw_mesh: draw_mesh_1
@@ -85504,7 +85870,7 @@ class scale_7(Real):
     fluent_name: str
     _python_name: str
 
-class option_80(String, AllowedValuesMixin):
+class option_81(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85555,13 +85921,13 @@ class variable_1(Group):
     range: range_5
     range_options: range_options_2
 
-class options_20(Group):
+class options_21(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_80
+    option: option_81
     constant: constant_2
     variable: variable_1
 
@@ -85573,7 +85939,7 @@ class sphere_settings(Group):
     child_names: list[str]
     scale: scale_7
     sphere_lod: sphere_lod_2
-    options: options_20
+    options: options_21
 
 class style_attribute_1(Group):
     _deprecated_version: str
@@ -85604,7 +85970,7 @@ class style_4(String, AllowedValuesMixin):
     CENTERED_CYLINDER: Final[str] = 'centered-cylinder'
     _allowed_values: list[str]
 
-class option_81(String, AllowedValuesMixin):
+class option_82(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85628,7 +85994,7 @@ class vector_length(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_81
+    option: option_82
     constant_length: constant_length
     variable_length: variable_length
 
@@ -85794,7 +86160,7 @@ class coarsen_5(Integer):
     fluent_name: str
     _python_name: str
 
-class option_79(Group):
+class option_80(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85825,7 +86191,7 @@ class outside(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_21(Group):
+class options_22(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85861,7 +86227,7 @@ class filter_settings(Group):
     _python_name: str
     child_names: list[str]
     field: field_9
-    options: options_21
+    options: options_22
     enabled: enabled_80
     filter_minimum: filter_minimum
     filter_maximum: filter_maximum
@@ -85878,7 +86244,7 @@ class field_10(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_82(Boolean):
+class option_83(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -85918,10 +86284,10 @@ class filter_setting(Group):
     child_names: list[str]
     enabled: enabled_81
     field: field_10
-    option: option_82
+    option: option_83
     range: range_6
 
-class options_19(Group):
+class options_20(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86003,12 +86369,12 @@ class particle_track_child(Group):
     style_attributes: style_attributes
     vector_settings: vector_settings
     vector_setting: vector_setting
-    option: option_79
+    option: option_80
     color_map: color_map
     annotations_list: annotations_list
     filter_settings: filter_settings
     filter_setting: filter_setting
-    options: options_19
+    options: options_20
     track_single_particle_stream: track_single_particle_stream
     skip: skip_4
     coarsen: coarsen_4
@@ -86018,7 +86384,7 @@ class particle_track_child(Group):
     draw_mesh: draw_mesh_1
     mesh_object: mesh_object
     display_state_name: display_state_name
-    plot: plot_5
+    plot: plot_6
     axes: axes_1
     curves: curves_1
     def display(self):
@@ -86642,7 +87008,7 @@ class hide_volume(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_38(Real):
+class value_39(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86667,7 +87033,7 @@ class settings_6_child(Group):
     _python_name: str
     child_names: list[str]
     active: active_3
-    value: value_38
+    value: value_39
     transparency: transparency
     color: color_12
 
@@ -89569,7 +89935,7 @@ class position_on_y_axis(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_22(Group):
+class options_23(Group):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -89594,7 +89960,7 @@ class x_axis_function_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class option_84(String, AllowedValuesMixin):
+class option_85(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89654,7 +90020,7 @@ class x_axis_data(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_84
+    option: option_85
     x_axis_direction: x_axis_direction
     x_axis_function: x_axis_function_2
 
@@ -89681,7 +90047,7 @@ class y_axis_data(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_84
+    option: option_85
     y_axis_direction: y_axis_direction
     y_axis_function: y_axis_function_1
 
@@ -89691,7 +90057,7 @@ class node_values_6(Boolean):
     fluent_name: str
     _python_name: str
 
-class option_83(Group):
+class option_84(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89769,14 +90135,14 @@ class xy_plot_child(Group):
     command_names: list[str]
     query_names: list[str]
     name: name_42
-    options: options_22
+    options: options_23
     y_axis_function: y_axis_function
     x_axis_function: x_axis_function_1
     x_axis_data: x_axis_data
     y_axis_data: y_axis_data
     surfaces_list: surfaces_list
     locations: locations_5
-    option: option_83
+    option: option_84
     plot_direction: plot_direction_1
     axes: axes_1
     curves: curves_1
@@ -89965,7 +90331,7 @@ class histogram(Group):
     minimum: minimum_10
     maximum: maximum_9
     num_divisions: num_divisions
-    zones: zones_6
+    zones: zones_7
     physics: physics_4
     axes: axes
     curves: curves_2
@@ -89991,7 +90357,7 @@ class histogram(Group):
         Get a histogram of a scalar quantity.
         """
 
-class option_85(String, AllowedValuesMixin):
+class option_86(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90058,8 +90424,8 @@ class cumulative_plot_child(Group):
     command_names: list[str]
     query_names: list[str]
     name: name_2
-    option: option_85
-    zones: zones_5
+    option: option_86
+    zones: zones_6
     locations: locations_5
     split_direction: split_direction
     number_of_divisions: number_of_divisions
@@ -90190,7 +90556,7 @@ class node_values_7(Boolean):
     fluent_name: str
     _python_name: str
 
-class zones_11(StringList, AllowedValuesMixin):
+class zones_12(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90217,7 +90583,7 @@ class solution_plot(Group):
     command_names: list[str]
     field: field_13
     node_values: node_values_7
-    zones: zones_11
+    zones: zones_12
     physics: physics_4
     surfaces: surfaces_17
     geometry: geometry_13
@@ -90237,7 +90603,7 @@ class solution_plot(Group):
                 The name you want the file saved with.
         """
 
-class plot_6(Group):
+class plot_7(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90394,7 +90760,7 @@ class interpolated_data(Group):
         Plot interpolated data.
         """
 
-class plot_4(Group):
+class plot_5(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90406,7 +90772,7 @@ class plot_4(Group):
     histogram: histogram
     cumulative_plot: cumulative_plot
     solution_plot: solution_plot
-    plot: plot_6
+    plot: plot_7
     plot_from_file: plot_from_file
     plot_from_file_list: plot_from_file_list
     profile_data: profile_data
@@ -91510,12 +91876,34 @@ class animations(Group):
     playback: playback
     scene_animation: scene_animation
 
+class database_directory(String):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class install_location(String):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class static_directory(String):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class simulation_reports(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
+    child_names: list[str]
     command_names: list[str]
+    database_directory: database_directory
+    install_location: install_location
+    static_directory: static_directory
     def list_simulation_reports(self):
         """
         List all report names.
@@ -94297,7 +94685,7 @@ class results(Group):
     custom_vectors: custom_vectors
     surfaces: surfaces_10
     graphics: graphics_1
-    plot: plot_4
+    plot: plot_5
     ansys_sound_analysis: ansys_sound_analysis
     scene: scene
     annotation: annotation
@@ -95573,7 +95961,7 @@ class integration_domain(String, AllowedValuesMixin):
     CELL_REGISTER: Final[str] = 'cell-register'
     _allowed_values: list[str]
 
-class zones_13(StringList, AllowedValuesMixin):
+class zones_14(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -95608,7 +95996,7 @@ class volume_integral_1_child(Group):
     field_variable: field_variable_2
     target_field: target_field
     integration_domain: integration_domain
-    zones: zones_13
+    zones: zones_14
     location: location_4
     box_bounds: box_bounds
     cell_register: cell_register
@@ -96391,7 +96779,7 @@ class print_9(Boolean):
     fluent_name: str
     _python_name: str
 
-class plot_17(Boolean):
+class plot_18(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -96403,14 +96791,14 @@ class n_display_1(Integer):
     fluent_name: str
     _python_name: str
 
-class options_23(Group):
+class options_24(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     print: print_9
-    plot: plot_17
+    plot: plot_18
     n_display: n_display_1
 
 class monitors(Group):
@@ -96421,7 +96809,7 @@ class monitors(Group):
     child_names: list[str]
     command_names: list[str]
     adjoint_equations: adjoint_equations_1
-    options: options_23
+    options: options_24
     curves: curves
     def plot(self):
         """
@@ -96484,7 +96872,7 @@ class execute_commands_1_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    enable: enable_49
+    enable: enable_50
     execution_type: execution_type
     execution_command: execution_command
     when_to_execute: when_to_execute
@@ -96625,7 +97013,7 @@ class surface_shape_sensitivity(Group):
     method: method_25
     smoothness: smoothness
 
-class options_24(Group):
+class options_25(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -96682,7 +97070,7 @@ class postprocessing(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    options: options_24
+    options: options_25
     reporting: reporting
     _child_aliases: dict
 
@@ -96786,7 +97174,7 @@ class geko_parameter_sensitivity(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_25(Group):
+class options_26(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -96809,7 +97197,7 @@ class automation(Group):
     observable: observable_2
     solvers: solvers
     file_output: file_output
-    options: options_25
+    options: options_26
     def run_analysis(self):
         """
         Run sensitivity analysis for the selected observable.
@@ -96844,7 +97232,7 @@ class observable_3(String):
     fluent_name: str
     _python_name: str
 
-class value_39(Real):
+class value_40(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -96856,6 +97244,8 @@ class step_direction(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
     TARGET_CHANGE_IN_VALUE: Final[str] = 'target-change-in-value'
+    INCREASE_VALUE: Final[str] = 'increase-value'
+    DECREASE_VALUE: Final[str] = 'decrease-value'
     NONE: Final[str] = 'none'
     _allowed_values: list[str]
 
@@ -96884,7 +97274,7 @@ class definitions_1_child(Group):
     _python_name: str
     child_names: list[str]
     observable: observable_3
-    value: value_39
+    value: value_40
     step_direction: step_direction
     target_change: target_change
     change_as_percentage: change_as_percentage
@@ -98301,7 +98691,7 @@ class prescribed(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_40(Real):
+class value_41(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -98314,7 +98704,7 @@ class factor_3(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class parameters_11_child(Group):
     exposure_level: ExposureLevel
@@ -98323,7 +98713,7 @@ class parameters_11_child(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class parameters_11(NamedObject[parameters_11_child]):
     exposure_level: ExposureLevel
@@ -98472,7 +98862,7 @@ class angle_8(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class origin_12(RealList):
     exposure_level: ExposureLevel
@@ -98576,7 +98966,7 @@ class x_12(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class y_12(Group):
     exposure_level: ExposureLevel
@@ -98585,7 +98975,7 @@ class y_12(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class z_11(Group):
     exposure_level: ExposureLevel
@@ -98594,7 +98984,7 @@ class z_11(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class displacement(Group):
     exposure_level: ExposureLevel
@@ -98701,7 +99091,7 @@ class axis_1_2(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class axis_2_2(Group):
     exposure_level: ExposureLevel
@@ -98710,7 +99100,7 @@ class axis_2_2(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class axis_3_1(Group):
     exposure_level: ExposureLevel
@@ -98719,7 +99109,7 @@ class axis_3_1(Group):
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
-    value: value_40
+    value: value_41
 
 class axis_factor(Group):
     exposure_level: ExposureLevel
@@ -99144,7 +99534,7 @@ class display_settings(Group):
     constrained_nodes: constrained_nodes
     surfaces_inside_region_only: surfaces_inside_region_only
 
-class options_26(Group):
+class options_27(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -99162,9 +99552,9 @@ class design_conditions(Group):
     definition: definition_5
     definitions: definitions_2
     selection: selection_1
-    options: options_26
+    options: options_27
 
-class value_41(Real):
+class value_42(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -99182,7 +99572,7 @@ class parameters_12_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    value: value_41
+    value: value_42
     affected_conditions: affected_conditions
 
 class parameters_12(NamedObject[parameters_12_child]):
@@ -99272,7 +99662,7 @@ class results_1_child(Group):
     child_names: list[str]
     file_name: file_name_56
     observable: observable_3
-    value: value_39
+    value: value_40
     weight: weight_7
     expected_change: expected_change
 
@@ -99798,7 +100188,7 @@ class goal(String, AllowedValuesMixin):
     BOUNDED: Final[str] = 'bounded'
     _allowed_values: list[str]
 
-class value_42(Real):
+class value_43(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -99844,7 +100234,7 @@ class objectives_2_child(Group):
     condition: condition_1
     observable: observable_4
     goal: goal
-    value: value_42
+    value: value_43
     value_as_percentage: value_as_percentage
     lower_bound: lower_bound
     upper_bound: upper_bound
@@ -99901,7 +100291,7 @@ class definitions_3_child(Group):
     condition_id: condition_id
     observable: observable_4
     goal: goal
-    value: value_42
+    value: value_43
     value_as_percentage: value_as_percentage
     lower_bound: lower_bound
     upper_bound: upper_bound
@@ -100139,7 +100529,7 @@ class enable_turbulence_source_term(Boolean):
     fluent_name: str
     _python_name: str
 
-class options_27(Group):
+class options_28(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -100226,7 +100616,7 @@ class design_variables(Group):
     child_names: list[str]
     command_names: list[str]
     selection: selection_3
-    options: options_27
+    options: options_28
     limits: limits_1
     def initialize(self):
         """
@@ -100527,7 +100917,7 @@ class optimization_id_to_plot(Integer):
     fluent_name: str
     _python_name: str
 
-class monitor_3(Group):
+class monitor_4(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -100605,7 +100995,7 @@ class execute_commands_2_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    enable: enable_49
+    enable: enable_50
     execution_type: execution_type
     execution_command: execution_command
     when_to_execute: when_to_execute
@@ -100687,7 +101077,7 @@ class calculation_activities_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    monitor: monitor_3
+    monitor: monitor_4
     autosave: autosave_1
     execute_commands: execute_commands_2
 
@@ -100952,7 +101342,7 @@ class enable_in_tui(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_43(Real):
+class value_44(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -100971,7 +101361,7 @@ class scheme_proc_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    value: value_43
+    value: value_44
     apply_function: apply_function
 
 class scheme_proc(NamedObject[scheme_proc_child]):
@@ -101035,7 +101425,7 @@ class scheme_proc(NamedObject[scheme_proc_child]):
         """
     child_object_type: scheme_proc_child
 
-class value_44(Real):
+class value_45(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -101048,7 +101438,7 @@ class udf_side_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    value: value_44
+    value: value_45
 
 class udf_side(NamedObject[udf_side_child]):
     exposure_level: ExposureLevel
@@ -101111,7 +101501,7 @@ class udf_side(NamedObject[udf_side_child]):
         """
     child_object_type: udf_side_child
 
-class value_45(Real):
+class value_46(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -101124,7 +101514,7 @@ class expression_8_child(Group):
     _python_name: str
     child_names: list[str]
     name: name_5
-    value: value_45
+    value: value_46
 
 class expression_8(NamedObject[expression_8_child]):
     exposure_level: ExposureLevel
@@ -102663,7 +103053,7 @@ class user_defined_value(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_46(Real):
+class value_47(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102677,7 +103067,7 @@ class nfaces_as_weights(Group):
     child_names: list[str]
     nfaces_as_weights: nfaces_as_weights_1
     user_defined_value: user_defined_value
-    value: value_46
+    value: value_47
 
 class face_area_as_weights(Boolean):
     exposure_level: ExposureLevel
@@ -102718,7 +103108,7 @@ class use_user_define_value(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_47(Real):
+class value_48(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102732,7 +103122,7 @@ class solid_thread_weight(Group):
     child_names: list[str]
     use: use
     use_user_define_value: use_user_define_value
-    value: value_47
+    value: value_48
 
 class use_enhancement(Boolean):
     exposure_level: ExposureLevel
@@ -102767,7 +103157,7 @@ class user_defined_22(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_48(Real):
+class value_49(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102787,7 +103177,7 @@ class particle_weight(Group):
     child_names: list[str]
     use: use_1
     user_defined: user_defined_22
-    value: value_48
+    value: value_49
     hybrid_optimization: hybrid_optimization
 
 class use_2(Boolean):
@@ -102802,7 +103192,7 @@ class user_defined_23(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_49(Real):
+class value_50(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102816,7 +103206,7 @@ class dsmc_particle_weight(Group):
     child_names: list[str]
     use: use_2
     user_defined: user_defined_23
-    value: value_49
+    value: value_50
 
 class use_3(Boolean):
     exposure_level: ExposureLevel
@@ -102830,7 +103220,7 @@ class user_defined_24(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_50(Real):
+class value_51(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102844,7 +103234,7 @@ class vof_free_surface_weight(Group):
     child_names: list[str]
     use: use_3
     user_defined: user_defined_24
-    value: value_50
+    value: value_51
 
 class use_4(Boolean):
     exposure_level: ExposureLevel
@@ -102858,7 +103248,7 @@ class user_defined_25(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_51(Real):
+class value_52(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102872,7 +103262,7 @@ class isat_weight(Group):
     child_names: list[str]
     use: use_4
     user_defined: user_defined_25
-    value: value_51
+    value: value_52
 
 class use_5(Boolean):
     exposure_level: ExposureLevel
@@ -102886,7 +103276,7 @@ class user_defined_26(Boolean):
     fluent_name: str
     _python_name: str
 
-class value_52(Real):
+class value_53(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -102900,7 +103290,7 @@ class stiff_chemistry_weight(Group):
     child_names: list[str]
     use: use_5
     user_defined: user_defined_26
-    value: value_52
+    value: value_53
 
 class fluid_solid_rebalance_after_read_case(Boolean):
     exposure_level: ExposureLevel

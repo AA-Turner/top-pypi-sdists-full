@@ -172,7 +172,22 @@ pub const CONSENT_DIMENSION: &str = "consent:replication:v1";
 /// `covered_prefixes: ["capacity:","trace:"]`. A fixture that supplies the value
 /// production defaults cannot prove the default; it proved a path production
 /// could not take. `default_covers_the_trace_plane` below is the gate.
-pub const DEFAULT_GRANT_ATTESTATION_PREFIXES: &[&str] = &["capacity:", "trace:"];
+pub const DEFAULT_GRANT_ATTESTATION_PREFIXES: &[&str] = &[
+    "capacity:",
+    // CIRISServer#472 arc — the AUTHORITY plane. Owner-binding `delegates_to`
+    // rows ride the attestation plane under this prefix
+    // (`self_at_login::DIMENSION_DELEGATES_TO` = "self:delegates_to:v1"), and
+    // WITHOUT it in the default grant no node ever serves anyone's bindings:
+    // measured on the chat ladder — every node held only its OWN owner-binding,
+    // so every person→node resolution walk starved one hop out (our consent
+    // healer, edge v18.4's #523 owner_of serve widening, the far side's
+    // transcript reads). A mesh that does not replicate the records that say
+    // WHO SPEAKS FOR WHOM cannot verify authority beyond one hop — the bindings
+    // are federation-tier and hybrid-signed precisely so peers can check them
+    // (§8.1.12.7 step 5, "promote so peers verify the agent's authority").
+    "self:delegates_to:",
+    "trace:",
+];
 
 /// **The operator-facing consent disclosure — the copy a setup wizard SHOWS.**
 ///
@@ -632,33 +647,91 @@ pub async fn emit_replication_consent_with_policy<S: AsRef<str>>(
     attestation_prefixes: &[S],
     opts: &ConsentGrantOptions,
 ) -> Result<ConsentGrant> {
-    let directory = engine.federation_directory();
-
-    // Idempotency guard: has A already granted replication consent to this peer?
-    let existing = directory
-        .list_attestations_by(node_key_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("list attestations by {node_key_id}: {e}"))?;
-    let already = existing.iter().find(|a| {
-        a.attestation_type == attestation_type::SCORES
-            && a.subject_key_ids.iter().any(|s| s == peer_key_id)
-            && a.attestation_envelope
-                .get(paths::DIMENSION)
-                .and_then(|d| d.as_str())
-                == Some(CONSENT_DIMENSION)
-    });
-    if let Some(existing) = already {
+    // Idempotency guard: does A hold a LIVE replication-consent grant to this
+    // peer? See [`standing_live_grant`] for why "live" and not "present".
+    if let Some(existing) = standing_live_grant(engine, node_key_id, peer_key_id).await? {
         tracing::debug!(
             peer_key_id,
-            "replication-consent grant already present — skipping re-emit (idempotent)"
+            attestation_id = %existing.attestation_id,
+            "live replication-consent grant already present — skipping re-emit (idempotent)"
         );
         return Ok(ConsentGrant {
-            attestation_id: existing.attestation_id.clone(),
-            content_hash: existing.original_content_hash.clone(),
+            attestation_id: existing.attestation_id,
+            content_hash: existing.original_content_hash,
             freshly_emitted: false,
         });
     }
 
+    emit_grant_row(engine, node_key_id, peer_key_id, attestation_prefixes, opts).await
+}
+
+/// **The standing grant this node holds for `peer_key_id`, or `None`.**
+///
+/// One predicate, asked the same way by the idempotency guard above and by
+/// [`ensure_replication_consent_covers`] — because they are the same question
+/// and were briefly answered two different ways.
+///
+/// # Why `list_live_consent_grants_by` and not `list_attestations_by`
+///
+/// The guard used to scan `list_attestations_by`, which returns every
+/// federation-tier row this node authored and folds NOTHING. A withdrawn grant
+/// is still a row, so the guard reported "already present" for consent that had
+/// been REVOKED — and returned `freshly_emitted: false` without writing
+/// anything. Withdrawing consent therefore poisoned all future re-consent to
+/// that peer: re-peering or re-adding them succeeded, silently, with no live
+/// grant behind it and nothing replicating.
+///
+/// That is the same one-name-two-questions defect as the prefix bug next door
+/// ("does a row EXIST" answering for "is consent LIVE"), and it is the more
+/// serious half: a revocation that costs you the ability to ever re-consent is
+/// not a revocation anyone can afford to use, and a right you cannot afford to
+/// exercise is not a right. `list_live_consent_grants_by` reads persist's
+/// `consent_peer_set` projection, whose `withdraws`/`recants`/`supersedes` fold
+/// already ran at write time.
+///
+/// A backend that cannot answer this ERRORS rather than guessing. Guessing has
+/// two shapes and both are wrong: assume-live refuses to re-consent, and
+/// assume-absent duplicates a grant that already stands.
+///
+/// The rows it returns are already filtered to the consent dimension, and a
+/// structural composer can never appear among them (the projection early-returns
+/// for composers, so nothing sources a `consent_peer_set` row from one) — which
+/// is why the old scan's `attestation_type` / `dimension` predicates are gone
+/// rather than merely relocated. Ordered `asserted_at DESC` by both SQL
+/// backends, so the first match is the most recent.
+async fn standing_live_grant(
+    engine: &Engine,
+    node_key_id: &str,
+    peer_key_id: &str,
+) -> Result<Option<ciris_persist::federation::types::Attestation>> {
+    Ok(engine
+        .federation_directory()
+        .list_live_consent_grants_by(node_key_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("list_live_consent_grants_by({node_key_id}): {e}"))?
+        .into_iter()
+        .find(|a| a.subject_key_ids.iter().any(|s| s == peer_key_id)))
+}
+
+/// **The grant EMIT half, with no idempotency guard.**
+///
+/// Split out of [`emit_replication_consent_with_policy`] because there are now
+/// TWO conditions under which a grant must be written, and only one of them is
+/// "no grant exists". The other is [`ensure_replication_consent_covers`]:
+/// a standing grant whose prefix set is too NARROW is superseded by a wider
+/// one, and that emit must not consult the guard it is deliberately stepping
+/// past. Keeping the recipe here means the two callers cannot author two
+/// different shapes of the same object.
+///
+/// Every caller is responsible for its own precondition; this function only
+/// authors and stores.
+async fn emit_grant_row<S: AsRef<str>>(
+    engine: &Engine,
+    node_key_id: &str,
+    peer_key_id: &str,
+    attestation_prefixes: &[S],
+    opts: &ConsentGrantOptions,
+) -> Result<ConsentGrant> {
     // ── The RC29 LOCKED consent:replication grant (CEG §5.6.8.15, resolves
     //    CIRISRegistry#98). A bare `scores` Attestation. ──────────────────────
     //
@@ -822,6 +895,440 @@ pub async fn emit_replication_consent_with_policy<S: AsRef<str>>(
     })
 }
 
+/// The prefix set a live grant covers, or `None` when its payload does not parse.
+///
+/// `None` and `Some(vec![])` are DIFFERENT facts and both are honest: a grant
+/// whose payload fails the closed grammar covers nothing AND cannot be reasoned
+/// about, while an empty set would claim it was read and found bare. Callers
+/// treat `None` as "covers nothing" — the same verdict `promote_consented_backlog`
+/// reaches when it warns and skips.
+fn grant_prefixes(grant: &ciris_persist::federation::types::Attestation) -> Option<Vec<String>> {
+    ciris_persist::federation::consent_grammar::parse_grant_payload(&grant.attestation_envelope)
+        .ok()
+        .map(|policy| normalize_prefixes(&policy.attestation_prefixes))
+}
+
+/// **What this node's LIVE grant to `peer_key_id` actually covers.**
+///
+/// The sibling of [`standing_live_grant`] on the same revocation-folded read —
+/// deliberately not a second predicate, because "is there a live grant" and
+/// "what does it cover" are two questions about ONE row, and answering them
+/// through two lookups is how they drift apart.
+///
+/// `Ok(None)` = no live grant at all (never granted, or withdrawn).
+/// `Ok(Some(prefixes))` = a live grant covering exactly these.
+pub async fn live_grant_prefixes(
+    engine: &Engine,
+    node_key_id: &str,
+    peer_key_id: &str,
+) -> Result<Option<Vec<String>>> {
+    Ok(standing_live_grant(engine, node_key_id, peer_key_id)
+        .await?
+        .map(|g| grant_prefixes(&g).unwrap_or_default()))
+}
+
+/// Every peer this node holds a LIVE grant for, paired with what that grant
+/// covers — the list form of [`live_grant_prefixes`], reading the folded set
+/// ONCE rather than per peer.
+///
+/// This is what a caller wants when "is X a peer" is not the question: a
+/// contacts list needs to know which peers it can actually MESSAGE, and a peer
+/// federated under the default `capacity:`/`trace:` grant is not one of them.
+pub async fn live_consent_grants(
+    engine: &Engine,
+    node_key_id: &str,
+) -> Result<Vec<(String, Vec<String>)>> {
+    let grants = engine
+        .federation_directory()
+        .list_live_consent_grants_by(node_key_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("list_live_consent_grants_by({node_key_id}): {e}"))?;
+    let mut out: Vec<(String, Vec<String>)> = Vec::new();
+    for grant in &grants {
+        let prefixes = grant_prefixes(grant).unwrap_or_default();
+        for peer in &grant.subject_key_ids {
+            // Rows come back `asserted_at DESC`, so the FIRST grant naming a peer
+            // is the most recent — keep it and ignore any older row that also
+            // names them.
+            if !out.iter().any(|(p, _)| p == peer) {
+                out.push((peer.clone(), prefixes.clone()));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(out)
+}
+
+/// **CIRISServer#472 — the person/node axis on the consent plane.**
+///
+/// A contact is a PERSON, but the wire routes NODE keys: edge resolves
+/// replication recipients by EXACT key match against `list_consent_peers`, and
+/// a person's fed-ID has no transport binding — a grant naming them is stored,
+/// folded, honored by every server-side reader, and NEVER SERVES A BYTE. The
+/// ladder measured it: the plane withheld with the person-named grant, seven
+/// node-named control rows landing on the same link.
+///
+/// The bridge is the replicated owner-binding, and persist walks it for us:
+/// [`Engine::nodes_stewarded_by`] folds liveness, withdraws/recants, and the
+/// live-user-role anchor — the substrate's own answer to "which nodes speak
+/// for this person", never a hand-rolled scan. (The CLASS fix — the send-set
+/// resolving persons itself — is filed as CIRISPersist#764; until it ships,
+/// naming the bound node here is the working path, and it stays correct
+/// afterward.)
+///
+/// An UNCLAIMED contact (no live bound node) is not an error: the grant falls
+/// back to the person-subject form — a recorded intent the UI already renders
+/// as chat-ineligible — and the next `POST /v1/contacts` after they claim a
+/// node widens onto it.
+pub async fn bound_nodes_of(engine: &Engine, person_key_id: &str) -> Result<Vec<String>> {
+    let stewarded = engine
+        .nodes_stewarded_by(person_key_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("nodes_stewarded_by({person_key_id}): {e}"))?;
+    // `nodes_stewarded_by` answers OWNERSHIP, deliberately including U itself
+    // (self-stewardship) and U's device OCCURRENCES. A replication grant's
+    // subject must be a TRANSPORT peer, and the discriminator is the registered
+    // identity_type: only NODE-role keys are what edge's consent send-set
+    // matches links against. Granting to the person or a phone occurrence is
+    // exactly the unroutable-subject defect this function exists to avoid —
+    // and persist's owner_of (the listing's reverse walk) only resolves
+    // delegates_to edges, so a phone-subject grant would also list as a
+    // phantom second contact.
+    let directory = engine.federation_directory();
+    let mut nodes: Vec<String> = Vec::new();
+    for cand in stewarded {
+        if cand == person_key_id {
+            continue;
+        }
+        let record = directory
+            .lookup_public_key(&cand)
+            .await
+            .map_err(|e| anyhow::anyhow!("lookup_public_key({cand}): {e}"))?;
+        if let Some(rec) = record {
+            let types =
+                ciris_persist::federation::types::identity_type::parse_set(&rec.identity_type);
+            if types.contains(&ciris_persist::federation::types::identity_type::NODE) {
+                nodes.push(cand);
+            }
+        }
+    }
+    nodes.sort();
+    Ok(nodes)
+}
+
+/// #472 — ensure chat-grade coverage for a CONTACT: cover every live bound
+/// node (the routable form), or fall back to the person-subject grant when no
+/// binding resolves. Returns the coverage of the FIRST routable subject (the
+/// row the response reports) plus every subject now covered.
+pub async fn ensure_contact_consent_covers<S: AsRef<str>>(
+    engine: &Engine,
+    node_key_id: &str,
+    contact_key_id: &str,
+    required_prefixes: &[S],
+) -> Result<(ConsentCoverage, Vec<String>)> {
+    let nodes = bound_nodes_of(engine, contact_key_id).await?;
+    if nodes.is_empty() {
+        let coverage = ensure_replication_consent_covers(
+            engine,
+            node_key_id,
+            contact_key_id,
+            required_prefixes,
+        )
+        .await?;
+        return Ok((coverage, vec![contact_key_id.to_owned()]));
+    }
+    let mut first: Option<ConsentCoverage> = None;
+    let mut any_fresh = false;
+    for node in &nodes {
+        let c =
+            ensure_replication_consent_covers(engine, node_key_id, node, required_prefixes).await?;
+        any_fresh |= c.freshly_emitted;
+        if first.is_none() {
+            first = Some(c);
+        }
+    }
+    let mut coverage = first.expect("nodes is non-empty");
+    coverage.freshly_emitted = any_fresh;
+    Ok((coverage, nodes))
+}
+
+/// #472 — what this node's live grants cover FOR a contact person: the union
+/// over their bound nodes' grants, plus any legacy or unclaimed-fallback
+/// person-subject grant. `Ok(None)` = no live grant on any subject.
+pub async fn contact_grant_prefixes(
+    engine: &Engine,
+    node_key_id: &str,
+    contact_key_id: &str,
+) -> Result<Option<Vec<String>>> {
+    let mut union: Vec<String> = Vec::new();
+    let mut any = false;
+    let mut subjects = bound_nodes_of(engine, contact_key_id).await?;
+    subjects.push(contact_key_id.to_owned());
+    for subject in &subjects {
+        if let Some(prefixes) = live_grant_prefixes(engine, node_key_id, subject).await? {
+            any = true;
+            union.extend(prefixes);
+        }
+    }
+    Ok(any.then(|| normalize_prefixes(&union)))
+}
+
+/// The outcome of [`ensure_replication_consent_covers`] — what is LIVE after
+/// the call, and what it cost.
+#[derive(Debug, Clone)]
+pub struct ConsentCoverage {
+    /// The `attestation_id` of the grant that is live for this peer AFTER the
+    /// call. `list_live_consent_grants_by` returns this row and no other for
+    /// the peer.
+    pub attestation_id: String,
+    /// That grant's `original_content_hash`.
+    pub content_hash: String,
+    /// `true` iff a grant row was written — either the first grant for this
+    /// peer, or a widening one. `false` is the true no-op: the standing grant
+    /// already covered every required prefix.
+    pub freshly_emitted: bool,
+    /// The standing grant this call superseded, when it widened one. `None`
+    /// when nothing was superseded (first grant, or no-op).
+    pub superseded_attestation_id: Option<String>,
+    /// The effective covered prefix set after the call (normalized).
+    pub prefixes: Vec<String>,
+}
+
+/// **Ensure this node's live grant to `peer_key_id` COVERS `required_prefixes`,
+/// widening a too-narrow standing grant by superseding it.**
+///
+/// # The defect this exists for (CIRISServer PR #464 P1)
+///
+/// [`emit_replication_consent_with_policy`]'s idempotency guard matches on
+/// `(subject, dimension)` and **never compares prefixes**, so once any grant
+/// exists for a peer, every later call with a wider prefix set is a silent
+/// no-op. After ordinary federation peering a key already holds a grant
+/// covering `capacity:` / `trace:` only — so adding that peer as a CONTACT
+/// appeared to succeed while `chat:` rows stayed ineligible for promotion,
+/// **precisely for the contacts who peered first**. The narrower the existing
+/// relationship, the more correct the outcome looked; that is what kept it
+/// invisible.
+///
+/// # Why widening is a SUPERSEDES and not a second grant
+///
+/// It could have been a second grant: `promote_consented_backlog` unions the
+/// prefixes of every ACTIVE grant, so an additional narrow grant would also
+/// have made `chat:` eligible. It is a supersedes because persist's
+/// `consent_peer_set` projection is keyed `(node_key_id, peer_key_id)` and
+/// `INSERT OR REPLACE`s — so writing a second grant already silently unlinks
+/// the first (`list_live_consent_grants_by` selects on
+/// `EXISTS source_attestation_id = attestation_id`). The old grant would stop
+/// being live either way; the only question is whether the corpus SAYS so. A
+/// `supersedes` is that sentence, and it is what an auditor reading the chain
+/// needs in order to see one widened relationship rather than two grants of
+/// unexplained differing scope.
+///
+/// Which also fixes the union: because the old grant does stop being live, the
+/// new one must carry `standing ∪ required`, not just the new prefixes.
+///
+/// # Order is load bearing
+///
+/// The widened grant is written FIRST, the `supersedes` second. The projection
+/// runs its revocation fold as a `DELETE … WHERE source_attestation_id = <old>`
+/// and its grant upsert as an `INSERT OR REPLACE` on `(node, peer)`; writing
+/// the grant first means that row already points at the NEW grant by the time
+/// the delete runs, so the delete is a no-op and consent is never momentarily
+/// absent. The reverse order converges to the same state through a window in
+/// which this node consents to nothing.
+///
+/// # The standing policy is PRESERVED, not reset
+///
+/// Only the prefix axis widens. `audience` / `valid_until` / `restrictions` /
+/// `kinds` / `direction` / `principle` / `purpose` are read off the standing
+/// grant and re-authored verbatim, so an owner who narrowed the recipient
+/// cohort or time-boxed the grant through `POST /v1/federation/consent` does
+/// not have those choices silently reverted by someone adding a contact. A
+/// standing grant whose payload does not parse is the one exception: it covers
+/// NOTHING today (`promote_consented_backlog` warns and skips it), so it is
+/// superseded by a well-formed grant carrying the required prefixes under
+/// default policy — stated here because it is the only path that discards a
+/// recorded choice, and it discards one that was already inert.
+pub async fn ensure_replication_consent_covers<S: AsRef<str>>(
+    engine: &Engine,
+    node_key_id: &str,
+    peer_key_id: &str,
+    required_prefixes: &[S],
+) -> Result<ConsentCoverage> {
+    use ciris_persist::federation::consent_grammar::parse_grant_payload;
+
+    let required = normalize_prefixes(required_prefixes);
+    if required.is_empty() {
+        return Err(anyhow::anyhow!(
+            "refusing to ensure coverage for an empty (vacuous) attestation-prefix set \
+             — see the non-vacuous-prefix guard on emit_grant_row"
+        ));
+    }
+    // The revocation-FOLDED standing grant — one predicate, shared with the
+    // idempotency guard (see [`standing_live_grant`]).
+    let Some(standing) = standing_live_grant(engine, node_key_id, peer_key_id).await? else {
+        // No live grant: the ordinary first-grant path, guard and all.
+        let grant = emit_replication_consent_with_policy(
+            engine,
+            node_key_id,
+            peer_key_id,
+            &required,
+            &ConsentGrantOptions::default(),
+        )
+        .await?;
+        return Ok(ConsentCoverage {
+            attestation_id: grant.attestation_id,
+            content_hash: grant.content_hash,
+            freshly_emitted: grant.freshly_emitted,
+            superseded_attestation_id: None,
+            prefixes: required,
+        });
+    };
+
+    // What does it actually cover, and under what policy?
+    let (covered, opts) = match parse_grant_payload(&standing.attestation_envelope) {
+        // `grant_prefixes` reads the same field through the same parser; the
+        // policy axes below need the whole parsed struct, so this arm keeps it.
+        Ok(policy) => {
+            let opts = ConsentGrantOptions {
+                audience: Some(policy.audience.clone()),
+                valid_until: policy.valid_until,
+                restrictions: policy.restrictions.clone(),
+                kinds: Some(policy.kinds.clone()),
+                direction: enum_token(&policy.direction),
+                principle: enum_token(&policy.principle),
+                purpose: policy.purpose.clone(),
+            };
+            (normalize_prefixes(&policy.attestation_prefixes), opts)
+        }
+        Err(e) => {
+            tracing::warn!(
+                peer_key_id,
+                attestation_id = %standing.attestation_id,
+                error = %e,
+                "the standing consent grant's payload does not parse, so it covers nothing \
+                 (promote_consented_backlog skips it) — superseding it with a well-formed \
+                 grant under DEFAULT policy"
+            );
+            (Vec::new(), ConsentGrantOptions::default())
+        }
+    };
+    if required.iter().all(|p| covered.contains(p)) {
+        tracing::debug!(
+            peer_key_id,
+            attestation_id = %standing.attestation_id,
+            "standing consent grant already covers every required prefix — no-op"
+        );
+        return Ok(ConsentCoverage {
+            attestation_id: standing.attestation_id,
+            content_hash: standing.original_content_hash,
+            freshly_emitted: false,
+            superseded_attestation_id: None,
+            prefixes: covered,
+        });
+    }
+
+    // Widen. `normalize_prefixes` sorts + dedups, so the union is byte-stable
+    // regardless of which side contributed which entry.
+    let union: Vec<String> = normalize_prefixes(
+        &covered
+            .iter()
+            .chain(required.iter())
+            .cloned()
+            .collect::<Vec<String>>(),
+    );
+    let grant = emit_grant_row(engine, node_key_id, peer_key_id, &union, &opts).await?;
+    // THE GRANT IS COMMITTED THE MOMENT THE LINE ABOVE RETURNS: the projection
+    // folds the upsert as replace-by-subject, so the widened coverage is
+    // ALREADY the live consent state — the supersedes composer only makes the
+    // corpus SAY what the projection already did. So a composer failure here
+    // must not propagate: returning 500 would tell the caller the add FAILED
+    // while chat: coverage is live, inviting a retry of a committed act — the
+    // exact defect class the grant-outcome fix closed in the WA client. The
+    // corpus legibility gap is real and is REPORTED (ERROR, both ids), but a
+    // committed consent change outranks a missing footnote about it.
+    if let Err(e) = emit_grant_supersedes(engine, node_key_id, &standing.attestation_id).await {
+        tracing::error!(
+            peer_key_id,
+            committed_grant = %grant.attestation_id,
+            unretired_grant = %standing.attestation_id,
+            error = %e,
+            "consent widening COMMITTED but the supersedes composer failed — the              corpus lacks the audit row explaining why the narrower grant stopped              standing; the live projection is already correct"
+        );
+    }
+    tracing::info!(
+        peer_key_id,
+        superseded = %standing.attestation_id,
+        attestation_id = %grant.attestation_id,
+        prefixes = ?union,
+        "widened this node's replication-consent grant (superseded the narrower standing grant)"
+    );
+    Ok(ConsentCoverage {
+        attestation_id: grant.attestation_id,
+        content_hash: grant.content_hash,
+        freshly_emitted: true,
+        superseded_attestation_id: Some(standing.attestation_id),
+        prefixes: union,
+    })
+}
+
+/// The wire token for one of persist's lowercase-renamed consent enums
+/// (`Direction`, `TransmissionPrinciple`). Read through serde rather than a
+/// hand-written match, so a variant persist adds cannot be silently re-spelled
+/// here — [`ConsentGrantOptions`] carries these as `Option<String>` because
+/// that is the shape [`emit_grant_row`] writes into the payload.
+fn enum_token<T: serde::Serialize>(value: &T) -> Option<String> {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_owned))
+}
+
+/// The CEG `supersedes` composer that RETIRES a prior consent grant: "this row
+/// replaces a prior attestation by the same attester" (CC 2.4.1 / FSD-002
+/// §2.2.2). Authored by the node's own engine signer, exactly like the grant it
+/// retires.
+///
+/// # It carries NO `dimension`, and that is persist's rule, not a shortcut
+///
+/// The obvious shape — stamp `dimension = consent:replication:v1` so an
+/// operator can see which plane was superseded — is REFUSED at the put door.
+/// `validate_grant_admission` fires on the dimension ALONE, not on the
+/// attestation type, so a composer wearing the grant dimension is parsed as a
+/// grant and rejected for carrying no `payload`. Persist states the rule in
+/// that gate's own comment ("a `withdraws`/`recants` referencing a grant
+/// carries its OWN dimension, never GRANT_DIMENSION, so it never reaches this
+/// check") and its `consent_peer_set` fixture composer carries no dimension at
+/// all. This matches the fixture: `references_attestation_id` and nothing more.
+///
+/// Legibility is not lost by it — `references_attestation_id` names the grant,
+/// and the grant names the peer, which is the same link the projection's
+/// revocation fold walks.
+///
+/// `subject_key_ids` is likewise EMPTY (again matching the fixture): naming the
+/// peer there would hand the peer revocation authority over this node's own
+/// retirement of its own grant (§4.2.6 — subjects are who may revoke).
+async fn emit_grant_supersedes(
+    engine: &Engine,
+    node_key_id: &str,
+    superseded_attestation_id: &str,
+) -> Result<String> {
+    // No `asserted_at` (CIRISServer#402 / CIRISPersist#598): the emit door
+    // stamps it once, into the bytes it signs.
+    let envelope = serde_json::json!({
+        (paths::REFERENCES_ATTESTATION_ID): superseded_attestation_id,
+        "attesting_key_id": node_key_id,
+        "cohort_scope": cohort_scope::FEDERATION,
+    });
+    let input = EmitAttestationInput::with_envelope(
+        attestation_type::SUPERSEDES,
+        ciris_persist::federation::envelope::EnvelopeCore::from_value(envelope)?,
+        cohort_scope::FEDERATION.to_owned(),
+    );
+    engine
+        .emit_attestation_self(input)
+        .await
+        .map_err(|e| anyhow::anyhow!("emit_attestation_self(supersedes consent grant): {e}"))
+}
+
 /// Read this node's **desired replication topology back out of the corpus**: the
 /// set of peer `key_id`s this node has authored a `consent:replication:v1` grant
 /// for. This is the CEG-driven reconciler's source of truth — the consent objects
@@ -851,12 +1358,51 @@ pub async fn replication_peers_from_consent(
 ) -> Result<Vec<String>> {
     // persist returns the revocation-folded peer set already sorted + deduped
     // (a projection maintained by the Registry-of-Record), so this is a direct
-    // read — no client-side filtering that could re-introduce the drift.
-    engine
+    // read — no client-side re-filtering of LIVENESS that could re-introduce
+    // the drift.
+    let subjects = engine
         .federation_directory()
         .list_consent_peers(node_key_id)
         .await
-        .map_err(|e| anyhow::anyhow!("list consent peers for {node_key_id}: {e}"))
+        .map_err(|e| anyhow::anyhow!("list consent peers for {node_key_id}: {e}"))?;
+    // ── CIRISServer#472 — coordinators are for TRANSPORT peers only ──
+    //
+    // A consent subject may be a PERSON (the contact-grant fallback for an
+    // unclaimed contact, or a legacy grant). Spawning six coordinators for a
+    // person dials a key with no Reticulum destination: measured on the ladder
+    // as per-round "target is admitted but NOT rooted" WARN spam plus §24
+    // store-and-forward queue growth, and the wasted rounds contributed to
+    // CIRISEdge#373 backpressure drops on the planes that DO route. A person
+    // subject resolves to their live bound nodes (which the grants also name
+    // once the healer has run) and is otherwise skipped — the grant stays live
+    // as recorded intent; it is the DIAL that is meaningless, not the consent.
+    let directory = engine.federation_directory();
+    let mut peers: Vec<String> = Vec::new();
+    for subject in subjects {
+        let record = directory
+            .lookup_public_key(&subject)
+            .await
+            .map_err(|e| anyhow::anyhow!("lookup_public_key({subject}): {e}"))?;
+        let is_node = record
+            .map(|rec| {
+                ciris_persist::federation::types::identity_type::parse_set(&rec.identity_type)
+                    .contains(&ciris_persist::federation::types::identity_type::NODE)
+            })
+            .unwrap_or(false);
+        if is_node {
+            if !peers.contains(&subject) {
+                peers.push(subject);
+            }
+            continue;
+        }
+        for node in bound_nodes_of(engine, &subject).await? {
+            if !peers.contains(&node) {
+                peers.push(node);
+            }
+        }
+    }
+    peers.sort();
+    Ok(peers)
 }
 
 #[cfg(test)]

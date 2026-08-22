@@ -1,0 +1,1173 @@
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import subprocess
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+from tensor_grep.cli._index_lock import atomic_write_json
+from tensor_grep.cli.subprocess_policy import configured_git_timeout_seconds, run_subprocess
+from tensor_grep.core import result as _json_version_contract
+
+_AUDIT_INDEX_VERSION = 1
+_TG_DIRNAME = ".tensor-grep"
+_AUDIT_SUBDIR = "audit"
+_AUDIT_INDEX_FILE = "index.json"
+_AUDIT_DIFF_IGNORED_KEYS = frozenset({"manifest_sha256", "signature"})
+_REVIEW_BUNDLE_COMPONENTS = (
+    "audit_manifest",
+    "scan_results",
+    "checkpoint_metadata",
+    "diff",
+    # CEO#8 enterprise close-the-loop: an OPTIONAL list of embedded EvidenceReceipt objects.
+    # Deliberately NOT added to _REVIEW_BUNDLE_REQUIRED_COMPONENTS below -- every existing
+    # receipt-less bundle (on disk from a prior tg version, or freshly created without --receipt)
+    # must stay byte-valid and verify green. Because this tuple drives BOTH create_review_bundle's
+    # checksum loop and verify_review_bundle's generic checks loop, adding it here alone is
+    # sufficient to fold evidence_receipts into checksums/bundle_sha256/tamper-detection with no
+    # other changes to either loop.
+    "evidence_receipts",
+)
+_REVIEW_BUNDLE_REQUIRED_COMPONENTS = frozenset({"audit_manifest"})
+
+
+def _json_output_version() -> int:
+    """Wire-schema version for the audit-manifest envelope.
+
+    Second of the two former scrape sites fixed under DC-001 -- see
+    ``tensor_grep.core.result.JSON_OUTPUT_VERSION`` for why a runtime scrape of
+    ``rust_core/src/main.rs`` can never work in a wheel install.
+    """
+    return _json_version_contract.JSON_OUTPUT_VERSION
+
+
+def _envelope(*, routing_reason: str = "audit-manifest-verify") -> dict[str, Any]:
+    return {
+        "version": _json_output_version(),
+        "schema_version": _json_output_version(),
+        "routing_backend": "AuditManifest",
+        "routing_reason": routing_reason,
+        "sidecar_used": False,
+    }
+
+
+def _canonical_manifest_bytes(manifest: dict[str, Any]) -> bytes:
+    # Canonical form for manifest_sha256 AND the hmac-sha256 signature. This MUST be
+    # byte-for-byte identical to what the native Rust writer hashes in
+    # `canonical_manifest_bytes` (rust_core/src/main.rs), which serializes the manifest via
+    # `serde_json::to_value` (a key-sorted Map) + `to_vec_pretty`. That is equivalent to
+    # `json.dumps(canonical, indent=2, sort_keys=True)`; the missing `sort_keys=True` here is
+    # what made the writer's own digest fail verification (audit C1/C2). `sort_keys=True` also
+    # makes the digest independent of the on-disk key ordering of the manifest being verified.
+    canonical = dict(manifest)
+    canonical.pop("manifest_sha256", None)
+    canonical.pop("signature", None)
+    return json.dumps(canonical, indent=2, sort_keys=True).encode("utf-8")
+
+
+def _sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_json_bytes(payload: Any) -> bytes:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _normalize_optional_str(value: Any) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return None
+
+
+def _resolve_root(path: Path) -> Path:
+    resolved = path.expanduser().resolve()
+    return resolved if resolved.is_dir() else resolved.parent
+
+
+def _audit_dir(root: Path) -> Path:
+    return root / _TG_DIRNAME / _AUDIT_SUBDIR
+
+
+def _history_index_path(root: Path) -> Path:
+    return _audit_dir(root) / _AUDIT_INDEX_FILE
+
+
+def _read_manifest_object(manifest_path: Path) -> dict[str, Any]:
+    resolved = manifest_path.expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Audit manifest not found: {resolved}")
+    payload = json.loads(resolved.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Audit manifest must be a JSON object.")
+    return payload
+
+
+def _read_json_value(path: str | Path, *, description: str) -> Any:
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"{description} not found: {resolved}")
+    return json.loads(resolved.read_text(encoding="utf-8"))
+
+
+def _read_review_bundle_object(bundle_path: str | Path) -> dict[str, Any]:
+    resolved = Path(bundle_path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Review bundle not found: {resolved}")
+    payload = json.loads(resolved.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Review bundle must be a JSON object.")
+    return payload
+
+
+def _canonical_review_bundle_bytes(bundle: dict[str, Any]) -> bytes:
+    canonical = dict(bundle)
+    canonical.pop("bundle_sha256", None)
+    return _canonical_json_bytes(canonical)
+
+
+def _component_checksum(value: Any) -> str:
+    return _sha256_hex(_canonical_json_bytes(value))
+
+
+def _format_timestamp(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _review_bundle_created_at(
+    manifest: dict[str, Any],
+    scan_results: Any,
+    checkpoint_metadata: Any,
+    diff_payload: Any,
+) -> str:
+    candidate_values: list[Any] = [manifest.get("created_at")]
+    for value in (scan_results, checkpoint_metadata, diff_payload):
+        if isinstance(value, dict):
+            candidate_values.append(value.get("created_at"))
+
+    candidate_timestamps = [
+        parsed
+        for parsed in (_parse_timestamp(value) for value in candidate_values)
+        if parsed is not None
+    ]
+    if candidate_timestamps:
+        return _format_timestamp(max(candidate_timestamps))
+    return _utc_now_iso()
+
+
+def create_review_bundle(
+    manifest_path: str | Path,
+    *,
+    scan_path: str | Path | None = None,
+    checkpoint_id: str | None = None,
+    previous_manifest: str | Path | None = None,
+    receipt_paths: Sequence[str | Path] | None = None,
+    output_path: str | Path | None = None,
+) -> dict[str, Any]:
+    from tensor_grep.cli.checkpoint_store import load_checkpoint_metadata
+
+    resolved_manifest = Path(manifest_path).expanduser().resolve()
+    manifest = _read_manifest_object(resolved_manifest)
+    root = _resolve_manifest_root(resolved_manifest, manifest)
+
+    scan_results = (
+        _read_json_value(scan_path, description="Scan results") if scan_path is not None else None
+    )
+    checkpoint_metadata = (
+        load_checkpoint_metadata(checkpoint_id, str(root)) if checkpoint_id is not None else None
+    )
+    diff_payload = (
+        diff_audit_manifests(previous_manifest, resolved_manifest)
+        if previous_manifest is not None
+        else None
+    )
+    evidence_receipts: list[dict[str, Any]] | None = None
+    if receipt_paths:
+        # Local import: evidence_signing imports FROM this module (_utc_now_iso), so a module-level
+        # import here would be circular. Reuse its bounded reader (5 MB pre-parse DoS guard, JSON-
+        # object validation) rather than hand-rolling a second receipt-file reader.
+        from tensor_grep.cli import evidence_signing
+
+        evidence_receipts = [
+            evidence_signing.read_receipt_file(receipt_path) for receipt_path in receipt_paths
+        ]
+
+    payload = _envelope(routing_reason="review-bundle-create")
+    payload["created_at"] = _review_bundle_created_at(
+        manifest,
+        scan_results,
+        checkpoint_metadata,
+        diff_payload,
+    )
+    payload["audit_manifest"] = manifest
+    payload["scan_results"] = scan_results
+    payload["checkpoint_metadata"] = checkpoint_metadata
+    payload["diff"] = diff_payload
+    payload["evidence_receipts"] = evidence_receipts
+
+    checksums = {
+        component: _component_checksum(payload[component])
+        for component in _REVIEW_BUNDLE_COMPONENTS
+        if payload[component] is not None
+    }
+    payload["checksums"] = checksums
+    payload["bundle_sha256"] = _sha256_hex(_canonical_review_bundle_bytes(payload))
+
+    if output_path is not None:
+        from tensor_grep.cli.session_store import _write_json_atomic
+
+        # audit C4 / CWE-59: check for a symlink BEFORE `.resolve()` -- resolving first would
+        # follow the symlink to its real target and make `is_symlink()` on the result always
+        # False, silently defeating `_write_json_atomic`'s own symlink guard (mirrors
+        # evidence_signing.generate_keypair's identical ordering fix). `_write_json_atomic` also
+        # makes this write atomic (temp file + fsync + os.replace) instead of the previous bare
+        # `write_text`, which could leave a truncated bundle on a crash mid-write.
+        expanded_output = Path(output_path).expanduser()
+        if expanded_output.is_symlink():
+            raise OSError(
+                f"Refusing to write the review bundle through a symlink: {expanded_output}"
+            )
+        resolved_output = expanded_output.resolve()
+        _write_json_atomic(resolved_output, payload)
+
+    return payload
+
+
+def create_review_bundle_json(
+    manifest_path: str | Path,
+    *,
+    scan_path: str | Path | None = None,
+    checkpoint_id: str | None = None,
+    previous_manifest: str | Path | None = None,
+    receipt_paths: Sequence[str | Path] | None = None,
+    output_path: str | Path | None = None,
+) -> str:
+    return json.dumps(
+        create_review_bundle(
+            manifest_path,
+            scan_path=scan_path,
+            checkpoint_id=checkpoint_id,
+            previous_manifest=previous_manifest,
+            receipt_paths=receipt_paths,
+            output_path=output_path,
+        ),
+        indent=2,
+    )
+
+
+def _resolve_git_ref_commit_sha(
+    ref: str, *, root: str | Path | None = None
+) -> tuple[str | None, str | None]:
+    """Fail-closed resolver for `tg review-bundle verify --against <ref>`: resolves `ref` to a
+    full commit SHA via `git rev-parse --verify <ref>^{commit}`, run against `root` (defaults to
+    the CURRENT WORKING DIRECTORY -- e.g. the CI checkout -- NEVER a bundle-embedded path; a
+    tampered bundle must never be able to redirect which repository the ref is resolved against).
+    `root` is an explicit, backward-compatible keyword only -- `verify_review_bundle` never passes
+    it from the CLI layer, so real invocations always resolve against the process CWD exactly as
+    documented; it exists so tests can pin an explicit temp-repo root without relying solely on
+    `monkeypatch.chdir`.
+
+    Mirrors `evidence_receipt._repo_revision_identity`'s subprocess+timeout plumbing. Returns
+    `(commit_sha, None)` on success or `(None, error_message)` on ANY failure (not a repo, git
+    missing/timeout, or an unresolvable ref) -- there is no "unknown, so skip the check" outcome;
+    every failure mode is surfaced as an explicit error the caller folds into a fail-closed
+    `valid=False`. This mirrors `ledger_store._finding_is_fresh`'s fail-closed contract, NOT
+    claims' `_revision_matches` (audit_manifest.py's sibling module), which returns `None` for
+    "unknown" -- that tri-state is correct for an advisory overlap report, but wrong for a gate.
+
+    CWE-88 / native-argv flag-injection guard (AGENTS.md "Security Hardening Patterns"): a
+    `--against` value starting with `-` would otherwise be parsed by `git rev-parse` as an OPTION
+    rather than a revision. A `--` sentinel does NOT safely close this for this exact invocation
+    shape -- verified empirically: `git rev-parse --verify -- "HEAD^{commit}"` fails ("fatal:
+    Needed a single revision") even for a perfectly valid ref, so inserting one here would trade a
+    security nit for a functional regression. Reject the leading-`-` case up front instead: no
+    legitimate git ref/branch/tag short name can start with `-` (`git branch`/`git tag` themselves
+    refuse to create one), so this can only ever reject a malformed or malicious `--against`
+    value, never a real ref -- and it fails closed the same way every other error path here does.
+    """
+    if ref.startswith("-"):
+        return (
+            None,
+            f"Ref {ref!r} looks like a command-line flag (starts with '-'); refusing to resolve it.",
+        )
+    resolved_root = (Path(root) if root is not None else Path.cwd()).expanduser().resolve()
+    timeout_seconds = configured_git_timeout_seconds()
+    try:
+        result = run_subprocess(
+            ["git", "-C", str(resolved_root), "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            timeout_seconds=timeout_seconds,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"git rev-parse could not run: {exc}"
+    if result.returncode != 0:
+        stderr_text = result.stderr.strip()
+        stderr_tail = stderr_text.splitlines()[-1] if stderr_text else "unknown error"
+        return None, f"Could not resolve --against ref {ref!r}: {stderr_tail}"
+    commit_sha = result.stdout.strip()
+    if not commit_sha:
+        return None, f"git rev-parse returned no output for ref {ref!r}"
+    return commit_sha, None
+
+
+def _receipt_freshness_against(
+    receipt: dict[str, Any],
+    *,
+    against_ref: str,
+    resolved_against_sha: str | None,
+    against_error: str | None,
+) -> dict[str, Any]:
+    """Fail-closed freshness check for ONE embedded EvidenceReceipt against a resolved `--against`
+    commit SHA. Mirrors `ledger_store._finding_is_fresh`'s fail-closed contract (status must be
+    "present"; an unresolvable side never reads as "skip") with two deliberate differences for the
+    CI-gate use case: (1) it compares against a caller-resolved git REF's commit SHA, not a second
+    live `_repo_revision_identity` snapshot; (2) it checks `dirty is False` rather than comparing
+    `dirty_tree_sha256` against a freshly recomputed CI working-tree hash -- the CI checkout may be
+    sitting on a MERGE commit whose tree legitimately differs from the PR-head tree the receipt was
+    captured against, so re-deriving and comparing a dirty-tree hash here would reintroduce the
+    exact $GITHUB_SHA-merge-commit trap this feature exists to close. A receipt captured against a
+    dirty working tree is never reproducible from a commit alone, so it fails regardless of
+    commit_sha match.
+    """
+    if resolved_against_sha is None:
+        return {
+            "valid": False,
+            "against": against_ref,
+            "resolved_commit_sha": None,
+            "receipt_commit_sha": None,
+            "receipt_dirty": None,
+            "error": against_error or f"Could not resolve --against ref {against_ref!r}.",
+        }
+    revision = receipt.get("revision")
+    if not isinstance(revision, dict) or revision.get("status") != "present":
+        return {
+            "valid": False,
+            "against": against_ref,
+            "resolved_commit_sha": resolved_against_sha,
+            "receipt_commit_sha": revision.get("commit_sha")
+            if isinstance(revision, dict)
+            else None,
+            "receipt_dirty": revision.get("dirty") if isinstance(revision, dict) else None,
+            "error": "Receipt revision status is not 'present' (unavailable repo identity).",
+        }
+
+    receipt_commit_sha = revision.get("commit_sha")
+    receipt_dirty = revision.get("dirty")
+    commit_matches = receipt_commit_sha == resolved_against_sha
+    dirty_clean = receipt_dirty is False
+    valid = commit_matches and dirty_clean
+
+    error: str | None = None
+    if not commit_matches:
+        error = (
+            f"Receipt revision commit_sha {receipt_commit_sha!r} does not match resolved "
+            f"--against commit {resolved_against_sha!r} (stale receipt)."
+        )
+    elif not dirty_clean:
+        error = (
+            "Receipt revision was captured against a dirty working tree (dirty is not False); "
+            "not reproducible from a commit alone."
+        )
+
+    return {
+        "valid": valid,
+        "against": against_ref,
+        "resolved_commit_sha": resolved_against_sha,
+        "receipt_commit_sha": receipt_commit_sha,
+        "receipt_dirty": receipt_dirty,
+        "error": error,
+    }
+
+
+def verify_review_bundle(
+    bundle_path: str | Path,
+    *,
+    signing_key: str | Path | None = None,
+    against: str | None = None,
+    trusted_public_keys: Sequence[str] | None = None,
+    require_trusted: bool = False,
+    min_receipts: int = 0,
+    expect_key_ids: Sequence[str] | None = None,
+    root: str | Path | None = None,
+) -> dict[str, Any]:
+    # Local import: evidence_signing imports FROM this module (_utc_now_iso); a module-level
+    # import here would be circular (mirrors the same local import in create_review_bundle above).
+    from tensor_grep.cli import evidence_signing
+
+    resolved_bundle = Path(bundle_path).expanduser().resolve()
+    bundle = _read_review_bundle_object(resolved_bundle)
+    raw_checksums = bundle.get("checksums")
+    checksums = raw_checksums if isinstance(raw_checksums, dict) else {}
+
+    checks: dict[str, dict[str, str | bool | None]] = {}
+    for component in _REVIEW_BUNDLE_COMPONENTS:
+        expected = _normalize_optional_str(checksums.get(component))
+        value = bundle.get(component)
+        if value is None:
+            actual = None
+            valid = component not in _REVIEW_BUNDLE_REQUIRED_COMPONENTS and expected is None
+        else:
+            actual = _component_checksum(value)
+            valid = expected is not None and expected == actual
+        checks[component] = {
+            "expected": expected,
+            "actual": actual,
+            "valid": valid,
+        }
+
+    expected_bundle_sha256 = _normalize_optional_str(bundle.get("bundle_sha256"))
+    actual_bundle_sha256 = _sha256_hex(_canonical_review_bundle_bytes(bundle))
+    bundle_integrity = {
+        "expected": expected_bundle_sha256,
+        "actual": actual_bundle_sha256,
+        "valid": expected_bundle_sha256 is not None
+        and expected_bundle_sha256 == actual_bundle_sha256,
+    }
+
+    # Audit HIGH (integrity bypass): the SHA256 checks above are KEYLESS and cosmetic against a
+    # recomputing adversary (an attacker with write access to the bundle just recomputes them).
+    # Verify the embedded audit_manifest's HMAC signature with an out-of-band signing key: a
+    # SIGNED bundle then reports valid only when the correct key is supplied, and a signed bundle
+    # verified without the key fails closed. (Unsigned bundles have no signature to check.)
+    manifest_signature_valid = True
+    manifest_signature_error: str | None = None
+    embedded_manifest = bundle.get("audit_manifest")
+    if isinstance(embedded_manifest, dict):
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="tg_bundle_verify_") as tmp_dir:
+            tmp_manifest = Path(tmp_dir) / "manifest.json"
+            tmp_manifest.write_text(json.dumps(embedded_manifest), encoding="utf-8")
+            manifest_result = verify_audit_manifest(tmp_manifest, signing_key=signing_key)
+        manifest_checks = manifest_result.get("checks", {})
+        manifest_signature_valid = bool(manifest_checks.get("signature_valid", False))
+        if not manifest_signature_valid:
+            errs = manifest_result.get("errors") or []
+            manifest_signature_error = errs[0] if errs else "Embedded manifest signature invalid."
+
+    # CEO#8 enterprise close-the-loop (Change B): re-verify each embedded EvidenceReceipt's
+    # signature/trust via the SAME crypto `tg evidence verify` uses (never reimplemented here), and
+    # -- only when `against` is supplied -- its freshness against a resolved git ref. An
+    # unresolvable `--against` ref fails the WHOLE bundle closed regardless of whether any receipts
+    # are embedded (trap: "unknown ref, so skip the check" is never an acceptable outcome for a gate).
+    trusted_keys_list = list(trusted_public_keys) if trusted_public_keys else None
+    against_check: dict[str, Any] | None = None
+    resolved_against_sha: str | None = None
+    against_error: str | None = None
+    if against is not None:
+        resolved_against_sha, against_error = _resolve_git_ref_commit_sha(against, root=root)
+        against_check = {
+            "ref": against,
+            "resolved_commit_sha": resolved_against_sha,
+            "valid": resolved_against_sha is not None,
+            "error": against_error,
+        }
+
+    receipt_checks: list[dict[str, Any]] = []
+    embedded_receipts = bundle.get("evidence_receipts")
+    if isinstance(embedded_receipts, list):
+        for index, raw_receipt in enumerate(embedded_receipts):
+            if not isinstance(raw_receipt, dict):
+                receipt_checks.append({
+                    "index": index,
+                    "receipt_sha256": None,
+                    "valid": False,
+                    "error": "evidence_receipts entry is not a JSON object.",
+                })
+                continue
+            signature_result = evidence_signing.verify_receipt(
+                raw_receipt,
+                trusted_public_keys=trusted_keys_list,
+                require_trusted=require_trusted,
+            )
+            entry: dict[str, Any] = {
+                "index": index,
+                "receipt_sha256": raw_receipt.get("receipt_sha256"),
+                "signature": signature_result,
+            }
+            entry_valid = bool(signature_result["valid"])
+            if against is not None:
+                freshness = _receipt_freshness_against(
+                    raw_receipt,
+                    against_ref=against,
+                    resolved_against_sha=resolved_against_sha,
+                    against_error=against_error,
+                )
+                entry["freshness"] = freshness
+                entry_valid = entry_valid and bool(freshness["valid"])
+            entry["valid"] = entry_valid
+            receipt_checks.append(entry)
+
+    against_resolution_valid = against_check is None or bool(against_check["valid"])
+    receipts_valid = all(bool(entry["valid"]) for entry in receipt_checks)
+
+    # NIT-1 (post-gate hardening, CEO#8): close the empty-bundle bypass. Without an opt-in
+    # minimum, `evidence_receipts` null/absent/[] trivially passes (`all([]) == True`) and
+    # `bundle_sha256` is cosmetic against an author who controls review-bundle.json -- they can
+    # strip every receipt, recompute the KEYLESS checksums, and greenlight the gate with NO
+    # evidence at all. `--min-receipts`/`--expect-key` are the org's opt-in POLICY lever: default
+    # 0 / empty is a no-op (both conditions below are trivially satisfied), so this is
+    # byte-identical to the pre-hardening contract until a caller actively opts in. Both counts
+    # are computed over `receipt_checks[].valid`, which already folds in well-formedness
+    # (a non-dict entry is `valid=False`), signature/digest validity, trust (when
+    # `require_trusted`), and freshness (when `against`) -- so "valid receipt" here means exactly
+    # what an operator combining `--require-trusted --trusted-key ... --against ...` would expect,
+    # not merely "present in the list."
+    expect_key_ids_list = list(expect_key_ids) if expect_key_ids else []
+    policy_enabled = min_receipts > 0 or bool(expect_key_ids_list)
+    valid_receipt_count = sum(1 for entry in receipt_checks if bool(entry.get("valid")))
+    min_receipts_satisfied = valid_receipt_count >= min_receipts
+    valid_key_ids = {
+        signature["key_id"]
+        for entry in receipt_checks
+        if bool(entry.get("valid")) and isinstance(entry.get("signature"), dict)
+        for signature in [entry["signature"]]
+        if signature.get("key_id")
+    }
+    missing_expect_key_ids = [
+        key_id for key_id in expect_key_ids_list if key_id not in valid_key_ids
+    ]
+    expect_keys_satisfied = not missing_expect_key_ids
+    policy_valid = min_receipts_satisfied and expect_keys_satisfied
+
+    policy_reasons: list[str] = []
+    if not min_receipts_satisfied:
+        policy_reasons.append(
+            f"policy requires >={min_receipts} valid evidence receipts; found {valid_receipt_count}"
+        )
+    for missing_key_id in missing_expect_key_ids:
+        policy_reasons.append(
+            f"policy requires evidence signed by key_id {missing_key_id!r}; not found among "
+            "valid receipts"
+        )
+
+    payload = _envelope(routing_reason="review-bundle-verify")
+    payload["bundle_path"] = str(resolved_bundle)
+    payload["valid"] = (
+        bundle_integrity["valid"]
+        and all(bool(component_check["valid"]) for component_check in checks.values())
+        and manifest_signature_valid
+        and against_resolution_valid
+        and receipts_valid
+        and policy_valid
+    )
+    payload["checks"] = checks
+    payload["bundle_integrity"] = bundle_integrity
+    payload["manifest_signature_valid"] = manifest_signature_valid
+    if manifest_signature_error is not None:
+        payload["manifest_signature_error"] = manifest_signature_error
+    payload["receipts"] = receipt_checks
+    if against_check is not None:
+        payload["against"] = against_check
+    if policy_enabled:
+        payload["policy"] = {
+            "min_receipts": min_receipts,
+            "valid_receipt_count": valid_receipt_count,
+            "min_receipts_satisfied": min_receipts_satisfied,
+            "expect_key_ids": expect_key_ids_list,
+            "missing_expect_key_ids": missing_expect_key_ids,
+            "expect_keys_satisfied": expect_keys_satisfied,
+            "valid": policy_valid,
+            "reasons": policy_reasons,
+        }
+    return payload
+
+
+def verify_review_bundle_json(
+    bundle_path: str | Path,
+    *,
+    signing_key: str | Path | None = None,
+    against: str | None = None,
+    trusted_public_keys: Sequence[str] | None = None,
+    require_trusted: bool = False,
+    min_receipts: int = 0,
+    expect_key_ids: Sequence[str] | None = None,
+    root: str | Path | None = None,
+) -> str:
+    return json.dumps(
+        verify_review_bundle(
+            bundle_path,
+            signing_key=signing_key,
+            against=against,
+            trusted_public_keys=trusted_public_keys,
+            require_trusted=require_trusted,
+            min_receipts=min_receipts,
+            expect_key_ids=expect_key_ids,
+            root=root,
+        ),
+        indent=2,
+    )
+
+
+def _resolve_history_root(path: str | Path) -> Path:
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Path not found: {resolved}")
+    if resolved.is_file():
+        try:
+            return _resolve_manifest_root(resolved, _read_manifest_object(resolved))
+        except (OSError, ValueError, json.JSONDecodeError):
+            return resolved.parent
+    if resolved.name == _AUDIT_SUBDIR and resolved.parent.name == _TG_DIRNAME:
+        return resolved.parent.parent
+    if resolved.name == _TG_DIRNAME:
+        return resolved.parent
+    return resolved
+
+
+def _resolve_manifest_root(manifest_path: Path, manifest: dict[str, Any]) -> Path:
+    manifest_resolved = manifest_path.expanduser().resolve()
+    manifest_root = _normalize_optional_str(manifest.get("path"))
+    if manifest_root is not None:
+        candidate = Path(manifest_root).expanduser().resolve()
+        # Audit HIGH (path traversal): manifest["path"] is attacker-controlled JSON. Only honor it
+        # when the manifest file actually lives under the declared root (or IS that root) — a
+        # tampered manifest pointing `path` at any other existing directory must NOT redirect the
+        # audit-history writes / checkpoint reads there. Otherwise derive the root from the
+        # manifest file's own location.
+        if candidate.exists() and (
+            candidate == manifest_resolved or candidate in manifest_resolved.parents
+        ):
+            return _resolve_root(candidate)
+
+    for ancestor in manifest_resolved.parents:
+        if ancestor.name == _AUDIT_SUBDIR and ancestor.parent.name == _TG_DIRNAME:
+            return ancestor.parent.parent
+    return manifest_resolved.parent
+
+
+def _audit_diff_field_path(parent: str, field: str) -> str:
+    return f"{parent}.{field}" if parent else field
+
+
+def _audit_diff_index_path(parent: str, index: int) -> str:
+    return f"{parent}[{index}]" if parent else f"[{index}]"
+
+
+_MAX_MANIFEST_DIFF_DEPTH = 64
+
+
+def _diff_manifest_values(
+    previous: Any,
+    current: Any,
+    *,
+    path: str,
+    added: dict[str, Any],
+    removed: dict[str, Any],
+    changed: dict[str, dict[str, Any]],
+    _depth: int = 0,
+) -> None:
+    # Audit LOW (DoS): bound recursion over attacker-supplied manifest JSON so a maliciously
+    # deep manifest raises a clean, bounded error instead of an uncaught RecursionError crashing
+    # `tg audit diff`. Real audit manifests are shallow; 64 is generous headroom.
+    if _depth > _MAX_MANIFEST_DIFF_DEPTH:
+        raise ValueError(
+            f"Audit manifest nesting exceeds the maximum diff depth ({_MAX_MANIFEST_DIFF_DEPTH})."
+        )
+    if isinstance(previous, dict) and isinstance(current, dict):
+        for key in sorted(set(previous) | set(current)):
+            if key in _AUDIT_DIFF_IGNORED_KEYS:
+                continue
+            key_path = _audit_diff_field_path(path, key)
+            if key not in previous:
+                added[key_path] = current[key]
+                continue
+            if key not in current:
+                removed[key_path] = previous[key]
+                continue
+            _diff_manifest_values(
+                previous[key],
+                current[key],
+                path=key_path,
+                added=added,
+                removed=removed,
+                changed=changed,
+                _depth=_depth + 1,
+            )
+        return
+
+    if isinstance(previous, list) and isinstance(current, list):
+        shared_length = min(len(previous), len(current))
+        for index in range(shared_length):
+            _diff_manifest_values(
+                previous[index],
+                current[index],
+                path=_audit_diff_index_path(path, index),
+                added=added,
+                removed=removed,
+                changed=changed,
+                _depth=_depth + 1,
+            )
+        for index in range(shared_length, len(current)):
+            added[_audit_diff_index_path(path, index)] = current[index]
+        for index in range(shared_length, len(previous)):
+            removed[_audit_diff_index_path(path, index)] = previous[index]
+        return
+
+    if previous != current:
+        changed[path or "$"] = {"old": previous, "new": current}
+
+
+def diff_manifest_objects(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    added: dict[str, Any] = {}
+    removed: dict[str, Any] = {}
+    changed: dict[str, dict[str, Any]] = {}
+    _diff_manifest_values(
+        previous,
+        current,
+        path="",
+        added=added,
+        removed=removed,
+        changed=changed,
+    )
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def diff_audit_manifests(
+    previous_manifest_path: str | Path,
+    current_manifest_path: str | Path,
+) -> dict[str, dict[str, Any]]:
+    previous_manifest = _read_manifest_object(Path(previous_manifest_path))
+    current_manifest = _read_manifest_object(Path(current_manifest_path))
+    return diff_manifest_objects(previous_manifest, current_manifest)
+
+
+def diff_audit_manifests_payload(
+    previous_manifest_path: str | Path,
+    current_manifest_path: str | Path,
+) -> dict[str, Any]:
+    payload = _envelope(routing_reason="audit-manifest-diff")
+    payload.update(diff_audit_manifests(previous_manifest_path, current_manifest_path))
+    return payload
+
+
+def diff_audit_manifests_json(
+    previous_manifest_path: str | Path,
+    current_manifest_path: str | Path,
+) -> str:
+    return json.dumps(
+        diff_audit_manifests(previous_manifest_path, current_manifest_path),
+        indent=2,
+    )
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    raw = _normalize_optional_str(value)
+    if raw is None:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _manifest_entry(manifest_path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
+    manifest_sha256 = _normalize_optional_str(manifest.get("manifest_sha256"))
+    if manifest_sha256 is None:
+        manifest_sha256 = _sha256_hex(_canonical_manifest_bytes(manifest))
+    return {
+        "manifest_sha256": manifest_sha256,
+        "kind": _normalize_optional_str(manifest.get("kind")),
+        "created_at": _normalize_optional_str(manifest.get("created_at")),
+        "file_path": str(manifest_path.expanduser().resolve()),
+        "previous_manifest_sha256": _normalize_optional_str(
+            manifest.get("previous_manifest_sha256")
+        ),
+    }
+
+
+def _scan_audit_manifest_entries(root: Path) -> list[dict[str, Any]]:
+    audit_dir = _audit_dir(root)
+    if not audit_dir.exists():
+        return []
+
+    entries: list[dict[str, Any]] = []
+    for manifest_path in sorted(audit_dir.rglob("*.json")):
+        if manifest_path.name == _AUDIT_INDEX_FILE:
+            continue
+        try:
+            manifest = _read_manifest_object(manifest_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        entries.append(_manifest_entry(manifest_path, manifest))
+    return entries
+
+
+def _history_sort_key(entry: dict[str, Any]) -> tuple[datetime, str, str]:
+    return (
+        _parse_timestamp(entry.get("created_at")) or datetime.min.replace(tzinfo=UTC),
+        str(entry.get("manifest_sha256") or ""),
+        str(entry.get("file_path") or ""),
+    )
+
+
+def _write_history_index(root: Path, entries: list[dict[str, Any]]) -> None:
+    # audit C4/#659 residual (task #211): this was a bare `write_text` -- no symlink precheck, no
+    # atomic temp+rename, no fsync -- even though it persists the tamper-evident audit-history
+    # index (.tensor-grep/audit/index.json) that record_audit_manifest/list_audit_history build
+    # the manifest chain from. Route through the same shared C4 baseline every other session/
+    # evidence/checkpoint writer uses; `mkdir` is now handled inside the shared helper.
+    index_path = _history_index_path(root)
+    payload = {
+        "version": _AUDIT_INDEX_VERSION,
+        "schema_version": _AUDIT_INDEX_VERSION,
+        "manifests": sorted(entries, key=_history_sort_key, reverse=True),
+        "updated_at": _utc_now_iso(),
+    }
+    atomic_write_json(index_path, payload)
+
+
+def _load_history_index(root: Path) -> list[dict[str, Any]] | None:
+    index_path = _history_index_path(root)
+    if not index_path.exists():
+        return None
+
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    manifests = payload.get("manifests")
+    if not isinstance(manifests, list):
+        return None
+
+    entries: list[dict[str, Any]] = []
+    for raw in manifests:
+        if not isinstance(raw, dict):
+            continue
+        manifest_sha256 = _normalize_optional_str(raw.get("manifest_sha256"))
+        file_path = _normalize_optional_str(raw.get("file_path"))
+        if manifest_sha256 is None or file_path is None:
+            continue
+        entries.append({
+            "manifest_sha256": manifest_sha256,
+            "kind": _normalize_optional_str(raw.get("kind")),
+            "created_at": _normalize_optional_str(raw.get("created_at")),
+            "file_path": file_path,
+            "previous_manifest_sha256": _normalize_optional_str(
+                raw.get("previous_manifest_sha256")
+            ),
+        })
+    return entries
+
+
+def _ensure_history_index(root: Path) -> list[dict[str, Any]]:
+    entries = _load_history_index(root)
+    if entries is not None:
+        return entries
+
+    scanned_entries = _scan_audit_manifest_entries(root)
+    _write_history_index(root, scanned_entries)
+    return scanned_entries
+
+
+def _history_entry_identity(
+    entry: dict[str, Any],
+) -> tuple[str, str, str | None, str | None, str | None]:
+    return (
+        str(entry["manifest_sha256"]),
+        str(entry["file_path"]),
+        _normalize_optional_str(entry.get("kind")),
+        _normalize_optional_str(entry.get("created_at")),
+        _normalize_optional_str(entry.get("previous_manifest_sha256")),
+    )
+
+
+def _upsert_history_entry(
+    entries: list[dict[str, Any]], entry: dict[str, Any]
+) -> list[dict[str, Any]]:
+    # audit B10: the upsert key is the file path — drop any existing entry for that path so
+    # each path has exactly one current entry.  The old AND condition kept a stale entry
+    # whenever the digest changed (sha256 != new AND file_path != new evaluates False only when
+    # BOTH match), leaving duplicate/contradictory chain entries for one path.
+    file_path = str(entry["file_path"])
+    filtered = [existing for existing in entries if str(existing.get("file_path")) != file_path]
+    filtered.append(entry)
+    return filtered
+
+
+def _sync_history_index(root: Path) -> list[dict[str, Any]]:
+    entries = _ensure_history_index(root)
+    merged = entries
+    for scanned_entry in _scan_audit_manifest_entries(root):
+        merged = _upsert_history_entry(merged, scanned_entry)
+
+    if sorted(merged, key=_history_entry_identity) != sorted(entries, key=_history_entry_identity):
+        _write_history_index(root, merged)
+    return merged
+
+
+def record_audit_manifest(
+    manifest_path: str | Path,
+    *,
+    manifest: dict[str, Any] | None = None,
+) -> None:
+    resolved_manifest = Path(manifest_path).expanduser().resolve()
+    manifest_payload = (
+        manifest if manifest is not None else _read_manifest_object(resolved_manifest)
+    )
+    root = _resolve_manifest_root(resolved_manifest, manifest_payload)
+    entries = _sync_history_index(root)
+    _write_history_index(
+        root,
+        _upsert_history_entry(entries, _manifest_entry(resolved_manifest, manifest_payload)),
+    )
+
+
+def _load_signature_kind(file_path: str) -> str | None:
+    try:
+        manifest = _read_manifest_object(Path(file_path))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    signature = manifest.get("signature")
+    if not isinstance(signature, dict):
+        return None
+    return _normalize_optional_str(signature.get("kind"))
+
+
+def _order_history_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_sha = {
+        str(entry["manifest_sha256"]): entry
+        for entry in entries
+        if _normalize_optional_str(entry.get("manifest_sha256")) is not None
+    }
+    referenced = {
+        previous_sha
+        for entry in entries
+        for previous_sha in [_normalize_optional_str(entry.get("previous_manifest_sha256"))]
+        if previous_sha is not None and previous_sha in by_sha
+    }
+    heads = [entry for entry in entries if str(entry.get("manifest_sha256")) not in referenced]
+
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def append_chain(start: dict[str, Any]) -> None:
+        current: dict[str, Any] | None = start
+        while current is not None:
+            current_sha = _normalize_optional_str(current.get("manifest_sha256"))
+            if current_sha is None or current_sha in seen:
+                return
+            seen.add(current_sha)
+            ordered.append(current)
+            previous_sha = _normalize_optional_str(current.get("previous_manifest_sha256"))
+            current = by_sha.get(previous_sha) if previous_sha is not None else None
+
+    for head in sorted(heads, key=_history_sort_key, reverse=True):
+        append_chain(head)
+
+    for entry in sorted(entries, key=_history_sort_key, reverse=True):
+        append_chain(entry)
+
+    return ordered
+
+
+def list_audit_history(path: str | Path = ".") -> list[dict[str, Any]]:
+    root = _resolve_history_root(path)
+    entries = _sync_history_index(root)
+    known_manifests = {
+        str(entry["manifest_sha256"])
+        for entry in entries
+        if _normalize_optional_str(entry.get("manifest_sha256")) is not None
+    }
+
+    history: list[dict[str, Any]] = []
+    for entry in _order_history_entries(entries):
+        previous_manifest_sha256 = _normalize_optional_str(entry.get("previous_manifest_sha256"))
+        created_at = _normalize_optional_str(entry.get("created_at"))
+        file_path = str(entry["file_path"])
+        history.append({
+            "manifest_sha256": str(entry["manifest_sha256"]),
+            "kind": _normalize_optional_str(entry.get("kind")),
+            "created_at": created_at,
+            "file_path": file_path,
+            "previous_manifest_sha256": previous_manifest_sha256,
+            "missing_timestamp": created_at is None,
+            "chain_gap": previous_manifest_sha256 is not None
+            and previous_manifest_sha256 not in known_manifests,
+            "signature_kind": _load_signature_kind(file_path),
+        })
+    return history
+
+
+def list_audit_history_payload(path: str | Path = ".") -> dict[str, Any]:
+    payload = _envelope(routing_reason="audit-manifest-history")
+    payload["history"] = list_audit_history(path)
+    return payload
+
+
+def list_audit_history_json(path: str | Path = ".") -> str:
+    return json.dumps(list_audit_history(path), indent=2)
+
+
+def _previous_manifest_digest(path: Path) -> str:
+    raw = path.read_bytes()
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return _sha256_hex(raw)
+    if isinstance(payload, dict):
+        digest = payload.get("manifest_sha256")
+        if isinstance(digest, str) and digest:
+            return digest
+    return _sha256_hex(raw)
+
+
+def verify_audit_manifest(
+    manifest_path: str | Path,
+    *,
+    signing_key: str | Path | None = None,
+    previous_manifest: str | Path | None = None,
+) -> dict[str, Any]:
+    resolved_manifest = Path(manifest_path).expanduser().resolve()
+    if not resolved_manifest.exists():
+        raise FileNotFoundError(f"Audit manifest not found: {resolved_manifest}")
+
+    manifest = json.loads(resolved_manifest.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("Audit manifest must be a JSON object.")
+
+    canonical_bytes = _canonical_manifest_bytes(manifest)
+    expected_digest = _sha256_hex(canonical_bytes)
+    stored_digest = manifest.get("manifest_sha256")
+    digest_valid = isinstance(stored_digest, str) and stored_digest == expected_digest
+
+    previous_manifest_sha256 = manifest.get("previous_manifest_sha256")
+    previous_manifest_path = (
+        str(Path(previous_manifest).expanduser().resolve())
+        if previous_manifest is not None
+        else None
+    )
+    chain_valid = True
+    chain_error: str | None = None
+    if previous_manifest_sha256 is not None:
+        if not isinstance(previous_manifest_sha256, str) or not previous_manifest_sha256:
+            chain_valid = False
+            chain_error = (
+                "Manifest previous_manifest_sha256 must be a non-empty string when present."
+            )
+        elif previous_manifest is None:
+            chain_valid = False
+            chain_error = "Manifest chain digest is present but no previous manifest was provided."
+        else:
+            previous_path = Path(previous_manifest).expanduser().resolve()
+            if not previous_path.exists():
+                chain_valid = False
+                chain_error = f"Previous manifest not found: {previous_path}"
+            else:
+                chain_valid = previous_manifest_sha256 == _previous_manifest_digest(previous_path)
+                if not chain_valid:
+                    chain_error = (
+                        "Previous manifest digest does not match previous_manifest_sha256."
+                    )
+
+    signature = manifest.get("signature")
+    signature_valid = True
+    signature_kind: str | None = None
+    signature_key_path: str | None = None
+    signature_error: str | None = None
+    if signature is not None:
+        if not isinstance(signature, dict):
+            signature_valid = False
+            signature_error = "Manifest signature must be an object."
+        else:
+            signature_kind = str(signature.get("kind") or "")
+            signature_value = str(signature.get("value") or "")
+            # signature.key_path is informational only and MUST NOT be used to verify: a
+            # tampered manifest could point it at an attacker-controlled key and forge a
+            # matching HMAC, defeating tamper-evidence. The key must be supplied
+            # out-of-band via `signing_key` (audit S2).
+            signature_key_path = (
+                str(Path(signing_key).expanduser().resolve())
+                if signing_key is not None
+                else str(signature.get("key_path") or "")
+            )
+            if signature_kind != "hmac-sha256":
+                signature_valid = False
+                signature_error = f"Unsupported signature kind: {signature_kind or '<empty>'}"
+            elif signing_key is None:
+                signature_valid = False
+                signature_error = (
+                    "Manifest is hmac-sha256 signed but no signing key was provided; "
+                    "refusing to trust the key_path embedded in the manifest."
+                )
+            else:
+                key_path = Path(signing_key).expanduser().resolve()
+                if not key_path.exists():
+                    signature_valid = False
+                    signature_error = f"Signing key not found: {key_path}"
+                else:
+                    actual_signature = hmac.new(
+                        key_path.read_bytes(),
+                        canonical_bytes,
+                        hashlib.sha256,
+                    ).hexdigest()
+                    signature_valid = hmac.compare_digest(signature_value, actual_signature)
+                    if not signature_valid:
+                        signature_error = (
+                            "Manifest signature does not match the supplied signing key."
+                        )
+    elif signing_key is not None:
+        signature_valid = False
+        signature_error = "Signing key was provided but the manifest is unsigned."
+
+    errors = [message for message in [chain_error, signature_error] if message]
+    if not digest_valid:
+        errors.insert(0, "Manifest digest does not match manifest_sha256.")
+
+    payload = _envelope()
+    payload["manifest_path"] = str(resolved_manifest)
+    payload["signing_key_path"] = signature_key_path
+    payload["previous_manifest_path"] = previous_manifest_path
+    payload["kind"] = manifest.get("kind")
+    payload["manifest_sha256"] = stored_digest
+    payload["previous_manifest_sha256"] = previous_manifest_sha256
+    payload["checks"] = {
+        "digest_valid": digest_valid,
+        "chain_valid": chain_valid,
+        "signature_valid": signature_valid,
+    }
+    payload["signature_kind"] = signature_kind
+    payload["valid"] = digest_valid and chain_valid and signature_valid
+    payload["errors"] = errors
+    # Audit MED: only fold a manifest into the tamper-evident history once it has actually
+    # verified. Recording a failed/tampered manifest would poison the chain (a forged link
+    # would read as legitimate in `tg audit history`) and create the index as a write
+    # side-effect of merely *verifying* an untrusted manifest.
+    if payload["valid"]:
+        try:
+            record_audit_manifest(resolved_manifest, manifest=manifest)
+        except OSError:
+            pass
+    return payload
+
+
+def verify_audit_manifest_json(
+    manifest_path: str | Path,
+    *,
+    signing_key: str | Path | None = None,
+    previous_manifest: str | Path | None = None,
+) -> str:
+    return json.dumps(
+        verify_audit_manifest(
+            manifest_path,
+            signing_key=signing_key,
+            previous_manifest=previous_manifest,
+        ),
+        indent=2,
+    )

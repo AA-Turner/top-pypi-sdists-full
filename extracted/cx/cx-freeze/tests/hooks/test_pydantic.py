@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -40,21 +45,21 @@ pyproject.toml
     [project]
     name = "test_pydantic"
     version = "0.1.2.3"
-    dependencies = ["pydantic==2.13.0b2"]
+    dependencies = ["pydantic>=2.0"]
 
     [tool.cxfreeze]
     executables = ["test_pydantic.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.venv
 @zip_packages
-def test_pydantic(tmp_package, zip_packages: bool) -> None:
+def test_pydantic(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if pydantic hook is working correctly."""
     tmp_package.create(SOURCE_TEST_PYDANTIC)
     if zip_packages:

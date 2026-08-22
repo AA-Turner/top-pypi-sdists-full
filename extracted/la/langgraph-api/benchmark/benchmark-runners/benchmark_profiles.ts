@@ -1,4 +1,4 @@
-import { BenchmarkGraphOptions } from "./types";
+import { BenchmarkGraphOptions } from "./types.js";
 
 export interface BenchmarkContext {
   delay: number;
@@ -6,6 +6,7 @@ export interface BenchmarkContext {
   expand: number;
   steps: number;
   checkpoint_size: number;
+  store_value_size?: number;
   llm_enabled: boolean;
   stream_size: number;
   chunk_size: number;
@@ -24,6 +25,7 @@ export interface BenchmarkProfileEnv {
   EXPAND?: string;
   STEPS?: string;
   CHECKPOINT_SIZE?: string;
+  STORE_VALUE_SIZE?: string;
   LLM_ENABLED?: string;
   STREAM_SIZE?: string;
   CHUNK_SIZE?: string;
@@ -210,6 +212,7 @@ export function get_profile(env: BenchmarkProfileEnv): ParsedBenchmarkProfile {
     ...(parseOptionalInt(env.EXPAND) !== undefined ? { expand: parseOptionalInt(env.EXPAND)! } : {}),
     ...(parseOptionalInt(env.STEPS) !== undefined ? { steps: parseOptionalInt(env.STEPS)! } : {}),
     ...(parseOptionalInt(env.CHECKPOINT_SIZE) !== undefined ? { checkpoint_size: parseOptionalInt(env.CHECKPOINT_SIZE)! } : {}),
+    ...(parseOptionalInt(env.STORE_VALUE_SIZE) !== undefined ? { store_value_size: parseOptionalInt(env.STORE_VALUE_SIZE)! } : {}),
     ...(parseOptionalBool(env.LLM_ENABLED) !== undefined ? { llm_enabled: parseOptionalBool(env.LLM_ENABLED)! } : {}),
     ...(parseOptionalInt(env.STREAM_SIZE) !== undefined ? { stream_size: parseOptionalInt(env.STREAM_SIZE)! } : {}),
     ...(parseOptionalInt(env.CHUNK_SIZE) !== undefined ? { chunk_size: parseOptionalInt(env.CHUNK_SIZE)! } : {}),

@@ -1,16 +1,16 @@
 Metadata-Version: 2.1
 Name: phidget22
-Version: 1.25.20260408
-Summary: Phidget22 Python wrapper library
+Version: 1.26.20260821
+Summary: Phidget22 Python Library
 Home-page: http://www.phidgets.com
 Author: Phidgets Inc
 Author-email: support@phidgets.com
 License: BSD-3-Clause
-Description: # Phidget22
+Description: # phidget22
         
-        [![Python version (Phidget22)](https://img.shields.io/pypi/v/Phidget22.svg?style=flat-square)](https://pypi.org/project/Phidget22/)
+        [![Python version (phidget22)](https://img.shields.io/pypi/v/phidget22.svg?style=flat-square)](https://pypi.org/project/phidget22/)
         
-        **Phidget22** is the official Python library for working with Phidgets in Python applications. It provides lightweight bindings to the native phidget22 library.
+        **phidget22** is the official Python library for working with Phidgets in Python applications. It provides lightweight bindings to the native phidget22 library.
         
         
         ## Installation
@@ -34,8 +34,39 @@ Description: # Phidget22
         ## Changelog
         [Phidget22 Changelog](https://phidgets.com/?view=changelog)
 Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
+Classifier: Topic :: Scientific/Engineering :: Instrument Drivers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Hardware
+Classifier: Topic :: System :: Hardware :: Hardware Drivers
+Classifier: Topic :: System :: Hardware :: Universal Serial Bus (USB)
+Classifier: Topic :: System :: Hardware :: Universal Serial Bus (USB) :: Vendor
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*
 Description-Content-Type: text/markdown

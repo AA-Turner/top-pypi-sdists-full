@@ -30,8 +30,7 @@ def format_signals(message, decoded_signals):
         signal_name = signal.name
 
         if signal.unit is None or \
-           isinstance(value, NamedSignalValue) or \
-           isinstance(value, str):
+           isinstance(value, (NamedSignalValue, str)):
 
             formatted_signal = f'{signal_name}: {value}'
 
@@ -68,7 +67,6 @@ def _format_container_single_line(message : Message,
         if isinstance(cm, Message):
             if isinstance(signals, bytes):
                 formatted_cm = f'{cm.name}: Undecodable data: {signals.hex(" ")}'
-                contained_list.append(formatted_cm)
             else:
                 formatted_cm_signals = format_signals(cm, signals)
                 formatted_cm = _format_message_single_line(cm.name, formatted_cm_signals)
@@ -158,7 +156,7 @@ def format_container_message(message : Message,
         unpacked_message = message.unpack_container(data,
                                                     allow_truncated=allow_truncated)
         decoded_message = message.decode_container(data,
-                                                   decode_choices=True,
+                                                   decode_choices=decode_choices,
                                                    scaling=True,
                                                    allow_truncated=allow_truncated,
                                                    allow_excess=allow_excess)

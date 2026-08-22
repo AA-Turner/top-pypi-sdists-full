@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cx_Freeze._compat import EXE_SUFFIX, IS_MINGW, IS_WINDOWS
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 SOURCE_SETUP = """
 test.py
@@ -16,7 +20,7 @@ setup.py
     options = {
         "build_exe": {
             "include_msvcr": True,
-            "excludes": ["tkinter", "unittest"],
+            "excludes": ["tkinter"],
             "silent": True
         }
     }
@@ -33,14 +37,16 @@ command
 """
 
 
-def test_install(tmp_package) -> None:
+def test_install(tmp_package: TempPackage) -> None:
     """Test a simple install."""
     tmp_package.create(SOURCE_SETUP)
 
     if IS_MINGW or IS_WINDOWS:
         tmp_package.freeze("python setup.py install --root=root")
-        program_files = Path(os.getenv("PROGRAMFILES"))
-        prefix = program_files.relative_to(program_files.anchor) / "hello"
+        program_files = os.getenv("PROGRAMFILES")
+        assert program_files is not None
+        prg_files = Path(program_files)
+        prefix = prg_files.relative_to(prg_files.anchor) / "hello"
     else:
         tmp_package.freeze()
         prefix = "base/lib/hello-0.1.2.3"
@@ -66,22 +72,24 @@ pyproject.toml
     executables = ["test.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 command
     cxfreeze install --prefix=base --root=root
 """
 
 
-def test_install_pyproject(tmp_package) -> None:
+def test_install_pyproject(tmp_package: TempPackage) -> None:
     """Test a simple install."""
     tmp_package.create(SOURCE_PYPROJECT)
 
     if IS_MINGW or IS_WINDOWS:
         tmp_package.freeze("cxfreeze install --root=root")
-        program_files = Path(os.getenv("PROGRAMFILES"))
-        prefix = program_files.relative_to(program_files.anchor) / "hello"
+        program_files = os.getenv("PROGRAMFILES")
+        assert program_files is not None
+        prg_files = Path(program_files)
+        prefix = prg_files.relative_to(prg_files.anchor) / "hello"
     else:
         tmp_package.freeze()
         prefix = "base/lib/hello-0.1.2.3"

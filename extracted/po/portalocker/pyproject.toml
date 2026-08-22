@@ -4,7 +4,7 @@ requires = ["uv_build>=0.11,<0.13"]
 
 [project]
 name = "portalocker"
-version = "4.1.0"
+version = "4.2.0"
 dynamic = []
 description = "Cross-platform file locking, with Redis, PID-file and bounded-semaphore locks"
 readme = "README.rst"
@@ -169,16 +169,9 @@ fail_under = 100
 ignore_errors = true
 exclude_also = [
     "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
     "if typing.TYPE_CHECKING:",
     "if TYPE_CHECKING:",
     '@(typing\.)?overload',
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "except ImportError:",
-    "if 0:",
     "if __name__ == .__main__.:",
     "typing.Protocol",
 ]
@@ -187,6 +180,7 @@ exclude_also = [
 not-nt = "os_name != 'nt'"
 not-posix = "os_name != 'posix'"
 nt-no-pywin32 = "os_name == 'nt' and not is_installed('win32file')"
+nt-or-posix = "os_name in ('nt', 'posix')"
 
 [tool.mypy]
 python_version = "3.10"

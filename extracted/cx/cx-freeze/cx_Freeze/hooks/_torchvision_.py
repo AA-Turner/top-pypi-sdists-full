@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-torchvision package is included.
-"""
+"""Hooks triggered by finder when torchvision package is included."""
 
 from __future__ import annotations
 
@@ -19,7 +17,9 @@ class Hook(ModuleHook):
     """The Hook class for torchvision."""
 
     def torchvision(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for torchvision."""
+        """Include modules and files required by torchvision."""
+        if module.file is None:  # to make ty happy
+            return
         module_path = module.file.parent
         site_packages_path = module_path.parent
 

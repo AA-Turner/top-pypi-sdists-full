@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 2.4.3
+Version: 2.4.4
 Summary: Unified access to Python package metadata at runtime.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -33,8 +33,8 @@ Classifier: Typing :: Typed
 Requires-Python: <4.0.0,>=3.11.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: typing-extensions>=4.15.0
-Requires-Dist: packaging>=26.2.0
+Requires-Dist: typing-extensions>=4.16.0
+Requires-Dist: packaging>=26.3.0
 Requires-Dist: build>=1.5.0
 Dynamic: license-file
 

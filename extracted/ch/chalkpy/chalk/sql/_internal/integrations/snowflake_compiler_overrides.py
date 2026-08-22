@@ -77,6 +77,25 @@ def _compile_interval_func(element: interval, compiler: SnowflakeCompiler, **kw:
     return f"interval {compiler.process(clause, **kw)}"
 
 
+class snowflake_timestamp_to_utc_ntz(AnsiFunction):
+    """Normalizes a TIMESTAMP_LTZ/TIMESTAMP_TZ value to its UTC instant as a TIMESTAMP_NTZ.
+
+    Snowflake refuses to unload TIMESTAMP_LTZ/TZ columns to Parquet (error 100171), so
+    unload queries project TZ-typed result columns through this wrapper. Converting to
+    UTC before dropping the timezone preserves the instant, matching the native driver's
+    unload rewrite.
+    """
+
+    inherit_cache = True
+
+
+def _compile_snowflake_timestamp_to_utc_ntz(
+    element: snowflake_timestamp_to_utc_ntz, compiler: SnowflakeCompiler, **kw: Any
+):
+    clause = get_unique_item(element.clauses.clauses)
+    return f"CAST(CONVERT_TIMEZONE('UTC', {compiler.process(clause, **kw)}) AS TIMESTAMP_NTZ)"
+
+
 def _compile_interval(element: IntervalType, compiler: SnowflakeTypeCompiler, **kw: Any):
     return "INTERVAL"
 
@@ -188,4 +207,5 @@ def register_snowflake_compiler_hooks():
     compiles(sa.TIMESTAMP, "snowflake")(_compile_datetime)
     compiles(sa.DATETIME, "snowflake")(_compile_datetime)
     compiles(interval, "snowflake")(_compile_interval_func)
+    compiles(snowflake_timestamp_to_utc_ntz, "snowflake")(_compile_snowflake_timestamp_to_utc_ntz)
     compiles(functions.now, "snowflake")(_compile_func_now)

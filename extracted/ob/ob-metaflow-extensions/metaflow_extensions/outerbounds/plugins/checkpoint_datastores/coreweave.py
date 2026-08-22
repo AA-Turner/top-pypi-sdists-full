@@ -22,12 +22,15 @@ class coreweave_checkpoints(_ExternalCheckpointFlowDeco):
     bucket_path: str
         The path to the bucket to store the checkpoints/models.
 
+    endpoint_url: str
+        The endpoint URL for the coreweave object store. Defaults to `https://cwobject.com`.
+
     Usage
     -----
     ```python
     from metaflow import checkpoint, step, FlowSpec, coreweave_checkpoints
 
-    @coreweave_checkpoints(secrets=[], bucket_path=None)
+    @coreweave_checkpoints(secrets=[], bucket_path=None, endpoint_url="https://cwobject.com")
     class MyFlow(FlowSpec):
         @checkpoint
         @step
@@ -46,7 +49,7 @@ class coreweave_checkpoints(_ExternalCheckpointFlowDeco):
 
     def init(self, *args, **kwargs):
         super().init(*args, **kwargs)
-        self.coreweave_endpoint_url = f"https://cwobject.com"
+        self.coreweave_endpoint_url = kwargs.get("endpoint_url", "https://cwobject.com")
 
     def pre_mutate(self, mutable_flow: MutableFlow) -> None:
         from metaflow import (

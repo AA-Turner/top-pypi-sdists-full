@@ -22,9 +22,9 @@ def _build_request_args(
 
     params: dict[str, Any] = {}
     if role is not None:
-        params["role"] = role
+        params["role"] = getattr(role, "value", role)
     if resource_type is not None:
-        params["resource_type"] = resource_type
+        params["resource_type"] = getattr(resource_type, "value", resource_type)
     if resource_id is not None:
         params["resource_id"] = resource_id
 

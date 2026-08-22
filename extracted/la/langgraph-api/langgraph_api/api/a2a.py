@@ -11,6 +11,8 @@ Push notifications are not implemented.
 """
 
 import asyncio
+import base64
+import binascii
 import functools
 import os
 import uuid
@@ -93,6 +95,13 @@ ERROR_CODE_INVALID_AGENT_RESPONSE = -32006
 # ============================================================================
 
 A2A_PROTOCOL_VERSION = "1.0"
+_DEFAULT_A2A_INPUT_MODES = ("application/json", "text/plain")
+_DEFAULT_A2A_OUTPUT_MODES = ("application/json", "text/plain")
+
+
+class InvalidAgentResponseError(ValueError):
+    """Raised when public agent output cannot be represented as an A2A part."""
+
 
 # ============================================================================
 # Legacy (v0.x) format helpers
@@ -593,6 +602,7 @@ _AGENT_MESSAGE_TYPES = {"ai", "aimessage", "aimessagechunk"}
 _ROLE_DEFINED_MESSAGE_TYPES = {"chat", "chatmessage", "chatmessagechunk"}
 _USER_MESSAGE_ROLES = {"human", "user"}
 _AGENT_MESSAGE_ROLES = {"agent", "assistant"}
+_MEDIA_CONTENT_BLOCK_TYPES = {"audio", "file", "image", "video"}
 
 
 def _normalize_message_label(value: Any) -> str:
@@ -631,6 +641,117 @@ def _a2a_role_for_message(
     return type_role or role_role
 
 
+def _content_block_to_a2a_file_part(block: dict[str, Any]) -> dict[str, Any]:
+    """Convert one canonical LangChain media block to an A2A FilePart."""
+
+    source = next(
+        (key for key in ("base64", "data", "url") if block.get(key) is not None),
+        None,
+    )
+    if source is None:
+        raise InvalidAgentResponseError(
+            "Media content blocks must contain 'base64', 'data', or 'url'."
+        )
+
+    value = block[source]
+    file_obj: dict[str, Any] = {}
+    if source == "url":
+        if not isinstance(value, str) or not value:
+            raise InvalidAgentResponseError(
+                "Media content block 'url' must be a non-empty string."
+            )
+        file_obj["uri"] = value
+    else:
+        if source == "data" and isinstance(value, (bytes, bytearray)):
+            value = base64.b64encode(value).decode("ascii")
+        if not isinstance(value, str):
+            raise InvalidAgentResponseError(
+                f"Media content block '{source}' must be base64-encoded text or bytes."
+            )
+        compact_value = "".join(value.split())
+        padded_value = compact_value + ("=" * (-len(compact_value) % 4))
+        try:
+            decoded = base64.b64decode(
+                padded_value,
+                altchars=b"-_",
+                validate=True,
+            )
+        except (binascii.Error, ValueError) as e:
+            raise InvalidAgentResponseError(
+                f"Media content block '{source}' must contain valid base64 data."
+            ) from e
+        file_obj["bytes"] = base64.b64encode(decoded).decode("ascii")
+
+    mime_type = block.get("mime_type")
+    if mime_type is not None:
+        if not isinstance(mime_type, str):
+            raise InvalidAgentResponseError(
+                "Media content block 'mime_type' must be a string."
+            )
+        if mime_type:
+            file_obj["mimeType"] = mime_type
+
+    filename = block.get("filename")
+    if filename is None:
+        extras = block.get("extras")
+        if isinstance(extras, dict):
+            filename = extras.get("filename")
+    if filename is not None:
+        if not isinstance(filename, str):
+            raise InvalidAgentResponseError(
+                "Media content block filename must be a string."
+            )
+        if filename:
+            file_obj["name"] = filename
+
+    return {"kind": "file", "file": file_obj}
+
+
+def _content_to_a2a_parts(content: Any) -> list[dict[str, Any]]:
+    """Convert public LangChain message content to ordered A2A parts."""
+
+    if isinstance(content, str):
+        return [{"kind": "text", "text": content}]
+    if content is None:
+        return []
+    if not isinstance(content, list):
+        return [{"kind": "text", "text": str(content)}]
+
+    parts: list[dict[str, Any]] = []
+    text_parts: list[str] = []
+
+    def flush_text() -> None:
+        if text_parts:
+            parts.append({"kind": "text", "text": "".join(text_parts)})
+            text_parts.clear()
+
+    for block in content:
+        if isinstance(block, str):
+            text_parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            text = block.get("text")
+            if isinstance(text, str):
+                text_parts.append(text)
+        elif (
+            isinstance(block, dict) and block.get("type") in _MEDIA_CONTENT_BLOCK_TYPES
+        ):
+            flush_text()
+            parts.append(_content_block_to_a2a_file_part(block))
+
+    flush_text()
+    return parts
+
+
+def _a2a_parts_have_content(parts: list[dict[str, Any]]) -> bool:
+    """Return whether converted parts contain public text or file content."""
+
+    return any(
+        part.get("kind") == "file"
+        or (part.get("kind") == "text" and bool(part.get("text")))
+        for part in parts
+    )
+
+
 def _content_to_text(content: Any) -> str:
     """Convert public LangChain message content to A2A text."""
 
@@ -651,41 +772,41 @@ def _content_to_text(content: Any) -> str:
     return str(content)
 
 
-def _extract_a2a_response(result: dict[str, Any]) -> str:
-    """Extract the last assistant message from graph execution result.
+def _extract_a2a_response(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract public A2A parts from the last assistant response.
 
     Args:
         result: Graph execution result
 
     Returns:
-        Content of the last assistant message
+        Ordered public parts from the last assistant message
 
     Raises:
         ValueError: If result doesn't contain messages or is invalid
     """
     if "__error__" in result:
         # Let the caller handle errors
-        return str(result)
+        return [{"kind": "text", "text": str(result)}]
 
     if "messages" not in result:
         # Fallback to the full result if no messages schema. It is not optimal to do A2A on assistants without
         # a messages key, but it is not a hard requirement.
-        return str(result)
+        return [{"kind": "text", "text": str(result)}]
 
     messages = result["messages"]
     if not isinstance(messages, list) or not messages:
-        return str(result)
+        return [{"kind": "text", "text": str(result)}]
 
     # Find the last assistant message
     for message in reversed(messages):
         if not isinstance(message, dict):
             continue
         if _a2a_role_for_message(message) == "ROLE_AGENT" and "content" in message:
-            text = _content_to_text(message["content"])
-            if text:
-                return text
+            parts = _content_to_a2a_parts(message["content"])
+            if _a2a_parts_have_content(parts):
+                return parts
 
-    return ""
+    return [{"kind": "text", "text": ""}]
 
 
 def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -715,25 +836,27 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def _create_response_artifact(text: str, assistant_id: str) -> dict[str, Any]:
-    """Create an A2A artifact carrying the agent's final response text.
+def _create_response_artifact(
+    parts: list[dict[str, Any]], assistant_id: str
+) -> dict[str, Any]:
+    """Create an A2A artifact carrying the agent's final response parts.
 
     Shared by ``message/send`` and ``message/stream`` so both paths return the
     same first-class Artifact shape. Per A2A spec section 3.7, task outputs
     SHOULD be returned via Artifacts rather than embedded in a status Message.
 
     Args:
-        text: The final response text (from ``_extract_a2a_response``).
+        parts: The final response parts (from ``_extract_a2a_response``).
         assistant_id: The assistant ID, used only for the description.
 
     Returns:
-        A2A artifact dict with a single text part.
+        A2A artifact dict containing the ordered public response parts.
     """
     return {
         "artifactId": str(uuid.uuid4()),
         "name": "Assistant Response",
         "description": f"Response from assistant {assistant_id}",
-        "parts": [{"kind": "text", "text": text}],
+        "parts": parts,
     }
 
 
@@ -741,7 +864,7 @@ def _create_response_artifact_update(
     *,
     task_id: str,
     context_id: str,
-    text: str,
+    parts: list[dict[str, Any]],
     assistant_id: str,
 ) -> dict[str, Any]:
     """Create a final streaming update containing the response artifact."""
@@ -750,7 +873,7 @@ def _create_response_artifact_update(
         "taskId": task_id,
         "contextId": context_id,
         "kind": "artifact-update",
-        "artifact": _create_response_artifact(text, assistant_id),
+        "artifact": _create_response_artifact(parts, assistant_id),
         "append": False,
         "lastChunk": True,
     }
@@ -1046,10 +1169,11 @@ def _convert_messages_to_a2a_format(
                 a2a_role = "ROLE_AGENT"
                 parts = [_tool_results_data_part([tool_result])]
             else:
-                text = _content_to_text(msg.get("content", ""))
-                if a2a_role == "ROLE_AGENT" and not text:
+                parts = _content_to_a2a_parts(msg.get("content", ""))
+                if a2a_role == "ROLE_AGENT" and not _a2a_parts_have_content(parts):
                     continue
-                parts = [{"kind": "text", "text": text}]
+                if not parts:
+                    parts = [{"kind": "text", "text": ""}]
 
             a2a_message = {
                 "kind": "message",
@@ -1618,6 +1742,13 @@ async def handle_message_send(
             history_length=history_length,
         )
 
+    except InvalidAgentResponseError as e:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                "message": str(e),
+            }
+        }
     except Exception:
         logger.exception(f"Error in message/send for assistant {assistant_id}")
         return {
@@ -1766,6 +1897,13 @@ async def handle_tasks_get(
                     context_id,
                     history_length=history_length,
                 )
+            except InvalidAgentResponseError as e:
+                return {
+                    "error": {
+                        "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                        "message": str(e),
+                    }
+                }
             except Exception as e:
                 await logger.aexception(
                     f"Failed to get thread state for tasks/get: {e}"
@@ -2168,6 +2306,13 @@ async def handle_list_tasks(
             }
         }
 
+    except InvalidAgentResponseError as e:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                "message": str(e),
+            }
+        }
     except Exception:
         logger.exception("Error in ListTasks")
         return {
@@ -2218,6 +2363,60 @@ async def handle_get_extended_card(
 # ============================================================================
 
 
+def _validate_agent_card_modes(
+    value: Any,
+    *,
+    field: str,
+    default: tuple[str, ...],
+) -> list[str]:
+    """Validate one optional assistant A2A media-mode override."""
+
+    if value is None:
+        return list(default)
+    if not isinstance(value, list) or not value:
+        raise ValueError(
+            f"Assistant metadata.a2a.{field} must be a non-empty array of strings."
+        )
+
+    modes: list[str] = []
+    for mode in value:
+        if not isinstance(mode, str) or not mode.strip():
+            raise ValueError(
+                f"Assistant metadata.a2a.{field} must be a non-empty array of strings."
+            )
+        modes.append(mode.strip())
+    return modes
+
+
+def _resolve_agent_card_modes(
+    assistant: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    """Resolve per-assistant A2A modes with backward-compatible defaults."""
+
+    metadata = assistant.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        raise ValueError("Assistant metadata must be an object.")
+
+    a2a_metadata = metadata.get("a2a")
+    if a2a_metadata is None:
+        return list(_DEFAULT_A2A_INPUT_MODES), list(_DEFAULT_A2A_OUTPUT_MODES)
+    if not isinstance(a2a_metadata, dict):
+        raise ValueError("Assistant metadata.a2a must be an object.")
+
+    return (
+        _validate_agent_card_modes(
+            a2a_metadata.get("input_modes"),
+            field="input_modes",
+            default=_DEFAULT_A2A_INPUT_MODES,
+        ),
+        _validate_agent_card_modes(
+            a2a_metadata.get("output_modes"),
+            field="output_modes",
+            default=_DEFAULT_A2A_OUTPUT_MODES,
+        ),
+    )
+
+
 async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[str, Any]:
     """Generate A2A Agent Card for a specific assistant.
 
@@ -2245,6 +2444,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
     assistant_description = (
         assistant.get("description") or f"{assistant_name} assistant"
     )
+    input_modes, output_modes = _resolve_agent_card_modes(assistant)
 
     # For now, each assistant has one main skill - itself
     skills = [
@@ -2254,8 +2454,8 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
             "description": assistant_description,
             "tags": ["assistant", "langgraph"],
             "examples": [],
-            "inputModes": ["application/json", "text/plain"],
-            "outputModes": ["application/json", "text/plain"],
+            "inputModes": input_modes,
+            "outputModes": output_modes,
             "metadata": {
                 "inputSchema": {
                     "required": required,
@@ -2304,8 +2504,8 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
             "pushNotifications": False,  # Not implemented yet
             "stateTransitionHistory": False,
         },
-        "defaultInputModes": ["application/json", "text/plain"],
-        "defaultOutputModes": ["application/json", "text/plain"],
+        "defaultInputModes": input_modes,
+        "defaultOutputModes": output_modes,
         "skills": skills,
         "version": __version__,
     }
@@ -2620,19 +2820,32 @@ async def handle_message_stream(
                             is_interrupt = (
                                 isinstance(result, dict) and "__interrupt__" in result
                             )
-                            # Extract the final response text (shared by both
+                            # Extract the final response parts (shared by both
                             # the completed and interrupt paths).
-                            final_text: str | None = None
+                            final_parts: list[dict[str, Any]] | None = None
                             if isinstance(result, dict):
                                 try:
-                                    final_text = _extract_a2a_response(result)
+                                    final_parts = _extract_a2a_response(result)
+                                except InvalidAgentResponseError as e:
+                                    yield (
+                                        b"message",
+                                        {
+                                            "jsonrpc": "2.0",
+                                            "id": rpc_id,
+                                            "error": {
+                                                "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                                                "message": str(e),
+                                            },
+                                        },
+                                    )
+                                    return
                                 except Exception:
                                     await logger.aexception(
                                         "Failed to extract final message from result",
                                         result=result,
                                     )
-                            if final_text is None:
-                                final_text = str(result)
+                            if final_parts is None:
+                                final_parts = [{"kind": "text", "text": str(result)}]
 
                             if is_interrupt:
                                 # Interrupt path is unchanged: emit the interrupt
@@ -2641,7 +2854,7 @@ async def handle_message_stream(
                                 final_message = {
                                     "kind": "message",
                                     "role": "ROLE_AGENT",
-                                    "parts": [{"kind": "text", "text": final_text}],
+                                    "parts": final_parts,
                                     "messageId": str(uuid.uuid4()),
                                     "taskId": task_id,
                                     "contextId": context_id,
@@ -2696,7 +2909,7 @@ async def handle_message_stream(
                                     "result": _create_response_artifact_update(
                                         task_id=task_id,
                                         context_id=context_id,
-                                        text=final_text,
+                                        parts=final_parts,
                                         assistant_id=assistant_id,
                                     ),
                                 },
@@ -2818,13 +3031,26 @@ async def handle_message_stream(
             # its plain terminal status-update.
             if fallback_state == "TASK_STATE_COMPLETED" and isinstance(result, dict):
                 try:
-                    fallback_text = _extract_a2a_response(result)
+                    fallback_parts = _extract_a2a_response(result)
+                except InvalidAgentResponseError as e:
+                    yield (
+                        b"message",
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rpc_id,
+                            "error": {
+                                "code": ERROR_CODE_INVALID_AGENT_RESPONSE,
+                                "message": str(e),
+                            },
+                        },
+                    )
+                    return
                 except Exception:
                     await logger.aexception(
                         "Failed to extract final message from result",
                         result=result,
                     )
-                    fallback_text = str(result)
+                    fallback_parts = [{"kind": "text", "text": str(result)}]
                 yield (
                     b"message",
                     {
@@ -2833,7 +3059,7 @@ async def handle_message_stream(
                         "result": _create_response_artifact_update(
                             task_id=task_id,
                             context_id=context_id,
-                            text=fallback_text,
+                            parts=fallback_parts,
                             assistant_id=assistant_id,
                         ),
                     },

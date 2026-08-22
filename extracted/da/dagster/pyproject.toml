@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster"
-version = "1.13.18"
+version = "1.13.19"
 description = "Dagster is an orchestration platform for the development, production, and observation of data assets."
 authors = [{name = "Dagster Labs", email = "hello@dagsterlabs.com"}]
 license = "Apache-2.0"
@@ -51,8 +51,8 @@ dependencies = [
     "universal_pathlib>=0.2.0; python_version>='3.12'",
     "rich",
     "filelock",
-    "dagster-pipes==1.13.18",
-    "dagster-shared==1.13.18",
+    "dagster-pipes==1.13.19",
+    "dagster-shared==1.13.19",
     "antlr4-python3-runtime<4.14",
 ]
 
@@ -105,7 +105,7 @@ test = [
     "rapidfuzz",
     "pytest-rerunfailures",
     "psutil",
-    "ruff==0.15.15",
+    "ruff==0.16.2",
 ]
 test-components = [
     "tomlkit",
@@ -136,10 +136,10 @@ pyright = [
     "types-toml",
 ]
 ruff = [
-    "ruff==0.15.15",
+    "ruff==0.16.2",
 ]
 ty = [
-    "ty==0.0.44",
+    "ty==0.0.69",
     ### Stub packages for type checking
     "pandas-stubs",  # version will be resolved against pandas
     "types-backports",  # version will be resolved against backports

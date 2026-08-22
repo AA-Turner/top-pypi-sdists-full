@@ -357,6 +357,7 @@ async def get_graph(
     access_context: AccessContext,
     run_id: str | None = None,
     context: Any | None = None,
+    use_langgraph_runtime: bool = False,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
     from langgraph_api.utils import config as lg_config  # noqa: PLC0415
@@ -373,7 +374,13 @@ async def get_graph(
                 CONFIG_KEY_RUNTIME,
             )
 
-            config["configurable"][CONFIG_KEY_RUNTIME] = server_runtime
+            if use_langgraph_runtime:
+                # xray draw calls runtime.override(), which the SDK ServerRuntime lacks (LSD-1713).
+                from langgraph.runtime import Runtime  # noqa: PLC0415
+
+                config["configurable"][CONFIG_KEY_RUNTIME] = Runtime(store=store)
+            else:
+                config["configurable"][CONFIG_KEY_RUNTIME] = server_runtime
         elif store is not None:
             from langgraph.constants import CONFIG_KEY_STORE  # noqa: PLC0415
 

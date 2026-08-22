@@ -1,5 +1,6 @@
-"""A collection of functions which are the base to hooks for PyQt5, PyQt6,
-PySide2 and PySide6.
+"""A collection of functions which are the base to hooks for Qt.
+
+The Qt packages are PyQt5, PyQt6, PySide2 and PySide6.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ __all__ = ["QtHook", "copy_qt_files", "get_qt_paths", "get_qt_plugins_paths"]
 
 
 def _qt_implementation(module: Module) -> str:
-    """Helper function to get the name of the Qt implementation."""
+    """Get the name of the Qt implementation."""
     return module.name.split(".")[0]
 
 
@@ -73,7 +74,7 @@ def _qt_libraryinfo_paths(name: str) -> dict[str, tuple[Path, Path]]:
     prefix_path = source_paths["PrefixPath"]
     source_paths.setdefault("DataPath", prefix_path)
     source_paths.setdefault("LibrariesPath", prefix_path / "lib")
-    source_paths.setdefault("SettingsPath", ".")
+    source_paths.setdefault("SettingsPath", Path("."))
     if name in ("PySide2", "PySide6") and IS_WINDOWS and not IS_CONDA:
         source_paths["BinariesPath"] = prefix_path
         source_paths["LibraryExecutablesPath"] = prefix_path
@@ -122,7 +123,7 @@ def _qt_libraryinfo_paths(name: str) -> dict[str, tuple[Path, Path]]:
 
 
 def get_qt_paths(name: str, variable: str) -> tuple[Path, Path]:
-    """Helper function to get the source and target path of Qt variable."""
+    """Get the source and target path of Qt variable."""
     libraryinfo_paths = _qt_libraryinfo_paths(name)
     source_path, target_path = libraryinfo_paths[variable]
     return (source_path, target_path)
@@ -131,7 +132,7 @@ def get_qt_paths(name: str, variable: str) -> tuple[Path, Path]:
 def _get_qt_files(
     name: str, variable: str, arg: str
 ) -> list[tuple[Path, Path]]:
-    """Helper function to get Qt plugins, resources, translations, etc."""
+    """Get Qt plugins, resources, translations, etc."""
     source_path, target_path = get_qt_paths(name, variable)
     if source_path.joinpath(arg).is_dir():
         source_path = source_path / arg
@@ -146,8 +147,9 @@ def _get_qt_files(
 
 
 def get_qt_plugins_paths(name: str, plugins: str) -> list[tuple[Path, Path]]:
-    """Helper function to get a list of source and target paths of Qt plugins,
-    indicated to be used in include_files.
+    """Get a list of source and target paths of Qt plugins.
+
+    Indicated to be used in include_files.
     """
     return _get_qt_files(name, "PluginsPath", plugins)
 
@@ -155,7 +157,7 @@ def get_qt_plugins_paths(name: str, plugins: str) -> list[tuple[Path, Path]]:
 def copy_qt_files(
     finder: ModuleFinder, name: str, variable: str, arg: str
 ) -> None:
-    """Helper function to copy Qt plugins, resources, translations, etc."""
+    """Copy Qt plugins, resources, translations, etc."""
     for source_path, target_path in _get_qt_files(name, variable, arg):
         finder.lib_files[source_path] = target_path.as_posix()
         finder.include_files(source_path, target_path)
@@ -165,8 +167,9 @@ class QtHook(ModuleHook):
     """The Hook class for PyQt5, PyQt6, PySide2 and PySide6."""
 
     def qt_phonon(self, finder: ModuleFinder, module: Module) -> None:
-        """In Windows, phonon5.dll requires an additional dependency
-        phonon_ds94.dll to be present in the folder phonon_backend.
+        """In Windows, phonon5.dll requires an additional dependency.
+
+        The phonon_ds94.dll must be present in the folder phonon_backend.
         """
         if IS_WINDOWS or IS_MINGW:
             name = _qt_implementation(module)
@@ -211,8 +214,9 @@ class QtHook(ModuleHook):
         copy_qt_files(finder, name, "TranslationsPath", "designer_*.qm")
 
     def qt_qtgui(self, finder: ModuleFinder, module: Module) -> None:
-        """There is a chance that QtGui will use some image formats, then,
-        add the image format plugins.
+        """Add image format plugins.
+
+        There is a chance that QtGui will use some image formats.
         """
         name = _qt_implementation(module)
         for plugin_name in (
@@ -346,7 +350,8 @@ class QtHook(ModuleHook):
     def qt_qtwebenginecore(self, finder: ModuleFinder, module: Module) -> None:
         """Include module dependency and QtWebEngineProcess files."""
         name = _qt_implementation(module)
-        distribution = module.parent.distribution
+        parent = module.parent if module.parent else module.root
+        distribution = parent.distribution
         environment = (distribution and distribution.installer) or "pip"
 
         if IS_WINDOWS:
@@ -430,11 +435,13 @@ class QtHook(ModuleHook):
         copy_qt_files(finder, name, "PluginsPath", "styles")
 
     def qt_uic(self, finder: ModuleFinder, module: Module) -> None:
-        """The uic module makes use of "plugins" that need to be read directly
-        and cannot be frozen; the PyQt5.QtWebKit and PyQt5.QtNetwork modules
-        are also implicitly loaded.
+        """Include "plugins" that need to be read directly by uic.
+
+        The uic module makes use of "plugins" that cannot be frozen.
         """
         name = _qt_implementation(module)
-        source_dir = module.path[0] / "widget-plugins"
-        if source_dir.exists():
-            finder.include_files(source_dir, f"{name}.uic.widget-plugins")
+        path = module.path
+        if path:
+            source_dir = path[0] / "widget-plugins"
+            if source_dir.exists():
+                finder.include_files(source_dir, f"{name}.uic.widget-plugins")

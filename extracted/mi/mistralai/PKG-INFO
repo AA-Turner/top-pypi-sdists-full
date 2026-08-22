@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mistralai
-Version: 2.9.3
+Version: 2.9.4
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral

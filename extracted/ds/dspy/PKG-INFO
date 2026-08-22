@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.3.0
+Version: 3.3.1
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License: MIT License
@@ -46,13 +46,15 @@ Requires-Dist: tenacity>=8.2.3
 Requires-Dist: anyio
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cloudpickle>=3.1.2
-Requires-Dist: gepa[dspy]==0.1.1
+Requires-Dist: gepa[dspy]==0.1.4
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client<4.22.0,>=4.5.4; extra == "weaviate"
 Provides-Extra: mcp
 Requires-Dist: mcp; python_version >= "3.10" and extra == "mcp"
+Provides-Extra: deno
+Requires-Dist: deno<3.0.0,>=2.4.5; extra == "deno"
 Provides-Extra: langchain
 Requires-Dist: langchain_core>=0.3.0; extra == "langchain"
 Provides-Extra: optuna
@@ -72,6 +74,7 @@ Requires-Dist: pillow>=10.1.0; extra == "dev"
 Requires-Dist: datamodel_code_generator>=0.26.3; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
 Requires-Dist: numpy>=1.26.0; extra == "dev"
+Requires-Dist: fastapi<0.140.7; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
 Requires-Dist: litellm>=1.65.8; (sys_platform == "win32" or python_version == "3.14") and extra == "dev"
 Requires-Dist: litellm[proxy]>=1.65.8; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
 Provides-Extra: test-extras

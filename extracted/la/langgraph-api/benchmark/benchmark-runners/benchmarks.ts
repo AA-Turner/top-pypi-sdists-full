@@ -6,6 +6,7 @@ import { EnqueuedRunsOrder } from './enqueued_runs_order.js';
 import { CancelFirstSecondCompletes } from './cancel_first_second_completes.js';
 import { ThreadRunsMetadataSearch } from './thread_runs_metadata_search.js';
 import { ThreadsSearchMetadata } from './threads_search_metadata.js';
+import { Store } from './store.js';
 import { MetaWorkload } from './meta_workload.js';
 import type { BenchmarkRunner } from './benchmark-runner.js';
 
@@ -28,6 +29,8 @@ export class Benchmarks {
         return ThreadRunsMetadataSearch;
       case ThreadsSearchMetadata.toString():
         return ThreadsSearchMetadata;
+      case Store.toString():
+        return Store;
       case MetaWorkload.toString():
         return MetaWorkload;
       default:

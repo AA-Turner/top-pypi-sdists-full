@@ -3,24 +3,22 @@
 from __future__ import annotations
 
 import ctypes
-import importlib.metadata
 import sys
+from importlib.metadata import PackageNotFoundError, distribution
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cx_Freeze._compat import (
     ABI_THREAD,
-    IS_ARM_64,
     IS_CONDA,
     IS_MINGW,
     IS_WINDOWS,
-    IS_X86_32,
-    IS_X86_64,
 )
 from cx_Freeze.dep_parser import PEParser
 
-if sys.platform != "win32":
-    pytest.skip(reason="Windows tests", allow_module_level=True)
+if TYPE_CHECKING:
+    from .conftest import TempPackage
 
 SOURCE = """
 test_manifest.py
@@ -40,22 +38,22 @@ pyproject.toml
     [[tool.cxfreeze.executables]]
     script = "test_manifest.py"
     manifest = "simple.manifest"
-    target_name = "test_simple_manifest"
+    target-name = "test_simple_manifest"
 
     [[tool.cxfreeze.executables]]
     script = "test_manifest.py"
-    uac_admin = true
-    target_name = "test_uac_admin"
+    uac-admin = true
+    target-name = "test_uac_admin"
 
     [[tool.cxfreeze.executables]]
     script = "test_manifest.py"
-    uac_admin = true
-    uac_uiaccess = true
-    target_name = "test_uac_uiaccess"
+    uac-admin = true
+    uac-uiaccess = true
+    target-name = "test_uac_uiaccess"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 simple.manifest
     <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
@@ -71,14 +69,15 @@ simple.manifest
 """
 
 
-def test_manifest(tmp_package) -> None:
+@pytest.mark.skipif(not (IS_MINGW or IS_WINDOWS), reason="Windows tests")
+def test_manifest(tmp_package: TempPackage) -> None:
     """With the correct manifest, windows version return 10.0 in Windows 10."""
     tmp_package.create(SOURCE)
     tmp_package.freeze()
     executable = tmp_package.executable("test_manifest")
     assert executable.is_file()
     result = tmp_package.run(executable)
-    winver = sys.getwindowsversion()
+    winver = sys.getwindowsversion()  # ty: ignore[unresolved-attribute]
     expected = f"Windows version: {winver.major}.{winver.minor}"
     result.stdout.fnmatch_lines(expected)
 
@@ -86,29 +85,35 @@ def test_manifest(tmp_package) -> None:
 LIEF_VERSIONS = []
 if IS_WINDOWS:
     if IS_CONDA:
-        LIEF_VERSIONS += ["installed"]
-    elif IS_ARM_64 and sys.version_info[:2] <= (3, 13) and ABI_THREAD == "":
-        LIEF_VERSIONS += ["0.16.6", "0.17.6"]
-    elif (IS_X86_32 or IS_X86_64) and ABI_THREAD == "":
-        if sys.version_info[:2] <= (3, 13):
-            LIEF_VERSIONS += ["0.15.1", "0.16.6"]
-        LIEF_VERSIONS += ["0.17.6"]
+        LIEF_VERSIONS.append("installed")
+    else:
+        if ABI_THREAD == "":
+            if sys.version_info[:2] <= (3, 13):
+                LIEF_VERSIONS.append("0.16.0")
+                LIEF_VERSIONS.append("0.16.6")
+            if sys.version_info[:2] <= (3, 14):
+                LIEF_VERSIONS.append("0.17.0")
+                LIEF_VERSIONS.append("0.17.6")
+        LIEF_VERSIONS.append("1.0.0")
 elif IS_MINGW:
-    LIEF_VERSIONS += ["installed"]
+    LIEF_VERSIONS.append("installed")
 
 
+@pytest.mark.skipif(not (IS_MINGW or IS_WINDOWS), reason="Windows tests")
 @pytest.mark.parametrize("lief_version", [*LIEF_VERSIONS, "disabled"])
-def test_simple_manifest(tmp_package, lief_version) -> None:
-    """With simple manifest, without "supportedOS Id", windows version returned
-    is the compatible version for Windows 8.1, ie, 6.2.
+def test_simple_manifest(tmp_package: TempPackage, lief_version: str) -> None:
+    """Tests a simple manifest, without "supportedOS Id".
+
+    The returned windows version is the compatible version for Windows 8.1,
+    ie, 6.2.
     """
     tmp_package.create(SOURCE)
     if lief_version == "disabled":
         tmp_package.monkeypatch.setenv("CX_FREEZE_BIND", "imagehlp")
     elif lief_version == "installed":
         try:
-            importlib.metadata.distribution("lief")
-        except importlib.metadata.PackageNotFoundError:
+            distribution("lief")
+        except PackageNotFoundError:
             print("WARNING: LIEF is not installed")
             lief_version = "disabled"
     else:
@@ -123,19 +128,20 @@ def test_simple_manifest(tmp_package, lief_version) -> None:
         expected = "Windows version: 6.2"
     result.stdout.fnmatch_lines(expected)
 
-    parser = PEParser([], [])
+    parser = PEParser([], [], 0, {})
     manifest = parser.read_manifest(executable)
     if lief_version == "disabled":
-        assert manifest == ""
+        assert manifest is None
     else:
         simple = tmp_package.path / "simple.manifest"
         assert manifest == simple.read_bytes().decode()
 
 
+@pytest.mark.skipif(not (IS_MINGW or IS_WINDOWS), reason="Windows tests")
 @pytest.mark.parametrize("lief_version", LIEF_VERSIONS)
-def test_uac_admin(tmp_package, lief_version) -> None:
+def test_uac_admin(tmp_package: TempPackage, lief_version: str) -> None:
     """With the uac_admin, should return WinError 740 - requires elevation."""
-    if ctypes.windll.shell32.IsUserAnAdmin():
+    if ctypes.windll.shell32.IsUserAnAdmin():  # ty: ignore[unresolved-attribute]
         pytest.xfail(reason="User is admin")
 
     tmp_package.create(SOURCE)
@@ -148,10 +154,11 @@ def test_uac_admin(tmp_package, lief_version) -> None:
         tmp_package.run(executable)
 
 
+@pytest.mark.skipif(not (IS_MINGW or IS_WINDOWS), reason="Windows tests")
 @pytest.mark.parametrize("lief_version", LIEF_VERSIONS)
-def test_uac_uiaccess(tmp_package, lief_version) -> None:
+def test_uac_uiaccess(tmp_package: TempPackage, lief_version: str) -> None:
     """With the uac_uiaccess, should return WinError 740."""
-    if ctypes.windll.shell32.IsUserAnAdmin():
+    if ctypes.windll.shell32.IsUserAnAdmin():  # ty: ignore[unresolved-attribute]
         pytest.xfail(reason="User is admin")
 
     tmp_package.create(SOURCE)

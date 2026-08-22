@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-opencv-python package is included.
-"""
+"""Hooks triggered by finder when opencv-python package is included."""
 
 from __future__ import annotations
 
@@ -21,9 +19,9 @@ __all__ = ["Hook"]
 
 WARNING_NUMPY_VERSION = """WARNING:
 
-    {cv2_name} {cv2_version} isn't compatible with numpy {numpy_version}.
+    {name} {version} isn't compatible with numpy {numpy_version}.
     To fix this issue, the easiest solution will be to
-    downgrade to 'numpy<2' or try to upgrade {cv2_name}.
+    downgrade to 'numpy<2' or try to upgrade {name}.
 """
 
 
@@ -31,14 +29,18 @@ class Hook(ModuleHook):
     """The Hook class for opencv-python."""
 
     def cv2(self, finder: ModuleFinder, module: Module) -> None:
-        """Versions of cv2 (opencv-python) above 4.5.3 may require additional
+        """Include additional configuration files.
+
+        Versions of cv2 (opencv-python) above 4.5.3 may require additional
         configuration files.
 
         Additionally, on Linux the opencv_python.libs directory is not
         copied across for versions above 4.5.3.
         """
+        if module.file is None:  # to make ty happy
+            return
         source_dir = module.file.parent
-        target_dir = Path("lib", "cv2")
+        target_dir = "lib/cv2"
 
         if module.distribution is None:
             module.update_distribution("opencv-python")
@@ -46,36 +48,48 @@ class Hook(ModuleHook):
             module.update_distribution("opencv-python-headless")
 
         if module.distribution:
-            name = module.distribution.normalized_name
-            version = module.distribution.version
-            if version[:2] < (4, 10):
-                m_numpy = finder.include_package("numpy")
+            dist = module.distribution
+            name = dist.normalized_name
+            version = tuple(map(int, dist.version[:2]))
+            if version < (4, 10):
+                m_np = finder.include_package("numpy")
                 if (
-                    m_numpy.distribution
-                    and m_numpy.distribution.version[0] >= 2
+                    m_np
+                    and m_np.distribution
+                    and int(m_np.distribution.version[0]) >= 2
                 ):
+                    d_cv2 = finder.import_distributions.get(module.name)
+                    if d_cv2:
+                        v_cv2 = d_cv2.version
+                    else:
+                        v_cv2 = ".".join(str(v) for v in dist.version)
+                    d_np = finder.import_distributions.get(m_np.name)
+                    if d_np:
+                        v_np = d_np.version
+                    else:
+                        v_np = ".".join(
+                            str(v) for v in m_np.distribution.version
+                        )
                     msg = WARNING_NUMPY_VERSION.format(
-                        cv2_name=module.distribution.name,
-                        cv2_version=module.distribution.original.version,
-                        numpy_version=m_numpy.distribution.original.version,
+                        name=dist.name, version=v_cv2, numpy_version=v_np
                     )
                     print(msg, file=sys.stderr)
 
             # cv2 4.9.0-4.10.0 conda-forge uses qt6-main
             if module.distribution.installer == "conda":
-                if version[:2] >= (4, 9):
+                if version >= (4, 9):
                     source = Path(sys.base_prefix, "lib/qt6/plugins/platforms")
                 else:
                     source = Path(sys.base_prefix, "plugins/platforms")
                 if source.is_dir():
                     finder.include_files(
-                        source, target_dir / "plugins" / "platforms"
+                        source, f"{target_dir}/plugins/platforms"
                     )
                 source = Path(sys.base_prefix, "fonts")
                 if source.is_dir():
-                    finder.include_files(source, target_dir / "fonts")
+                    finder.include_files(source, f"{target_dir}/fonts")
                 qt_conf: Path = finder.cache_path / "qt.conf"
-                lines = ["[Paths]", f"Prefix = {target_dir.as_posix()}"]
+                lines = ["[Paths]", f"Prefix = {target_dir}"]
                 with qt_conf.open(
                     mode="w", encoding="utf_8", newline=""
                 ) as file:
@@ -92,16 +106,14 @@ class Hook(ModuleHook):
             # msys2 files is on 'share' subdirectory
             source = Path(sys.base_prefix, "share/qt6/plugins/platforms")
             if source.is_dir():
-                finder.include_files(
-                    source, target_dir / "plugins" / "platforms"
-                )
+                finder.include_files(source, f"{target_dir}/plugins/platforms")
             source = Path(sys.base_prefix, "fonts")
             if not source.is_dir():
                 source = Path(sys.base_prefix, "share/fonts")
             if source.is_dir():
-                finder.include_files(source, target_dir / "fonts")
+                finder.include_files(source, f"{target_dir}/fonts")
             qt_conf: Path = finder.cache_path / "qt.conf"
-            lines = ["[Paths]", f"Prefix = {target_dir.as_posix()}"]
+            lines = ["[Paths]", f"Prefix = {target_dir}"]
             with qt_conf.open(mode="w", encoding="utf_8", newline="") as file:
                 file.write("\n".join(lines))
             finder.include_files(qt_conf, qt_conf.name)
@@ -147,13 +159,13 @@ class Hook(ModuleHook):
             source_config.touch()
 
         # Include config-3 (Linux wheels) or create it for conda-forge
-        finder.include_files(source_config, target_dir / "config.py")
+        finder.include_files(source_config, f"{target_dir}/config.py")
         source_config = source_dir / "config-3.py"
         if not source_config.exists():
             # create config-3 for cv2 4.10.x conda-forge
             extension_dir = f"python-{PYTHON_VERSION}"
             finder.include_files(
-                source_dir / extension_dir, target_dir / extension_dir
+                source_dir / extension_dir, f"{target_dir}/{extension_dir}"
             )
             source_config = finder.cache_path / "cv2-config-3.py"
             source_config.touch()
@@ -167,27 +179,27 @@ class Hook(ModuleHook):
                     """
                 )
             )
-        finder.include_files(source_config, target_dir / "config-3.py")
+        finder.include_files(source_config, f"{target_dir}/config-3.py")
 
         # Include data files
         data_dir = source_dir / "data"
         if data_dir.exists():
             for path in data_dir.glob("*.xml"):
-                finder.include_files(path, target_dir / "data" / path.name)
+                finder.include_files(path, f"{target_dir}/data/{path.name}")
 
         # Copy all binary files
         if IS_WINDOWS:
             for path in source_dir.glob("*.dll"):
-                finder.include_files(path, target_dir / path.name)
+                finder.include_files(path, f"{target_dir}/{path.name}")
             return
 
         if IS_MACOS:
             libs_dir = source_dir / ".dylibs"
             if libs_dir.exists():
-                finder.include_files(libs_dir, target_dir / ".dylibs")
+                finder.include_files(libs_dir, f"{target_dir}/.dylibs")
             return
 
         # Qt files distributed in wheels for Linux
         qt_files = source_dir / "qt"
         if qt_files.exists():
-            finder.include_files(qt_files, target_dir / "qt")
+            finder.include_files(qt_files, f"{target_dir}/qt")

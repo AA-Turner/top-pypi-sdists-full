@@ -966,7 +966,7 @@ class BackupClient(BaseClient):
     ) -> ListBackupJobSummariesOutputTypeDef:
         """
         This is a request for a summary of backup jobs created or running within the
-        most recent 30 days.
+        most recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_backup_job_summaries.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_backup_job_summaries)
@@ -1042,7 +1042,7 @@ class BackupClient(BaseClient):
     ) -> ListCopyJobSummariesOutputTypeDef:
         """
         This request obtains a list of copy jobs created or running within the the most
-        recent 30 days.
+        recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_copy_job_summaries.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_copy_job_summaries)
@@ -1181,7 +1181,7 @@ class BackupClient(BaseClient):
     ) -> ListRestoreJobSummariesOutputTypeDef:
         """
         This request obtains a summary of restore jobs created or running within the
-        the most recent 30 days.
+        the most recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_restore_job_summaries.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_restore_job_summaries)
@@ -1233,7 +1233,7 @@ class BackupClient(BaseClient):
     ) -> ListScanJobSummariesOutputTypeDef:
         """
         This is a request for a summary of scan jobs created or running within the most
-        recent 30 days.
+        recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_scan_job_summaries.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_scan_job_summaries)

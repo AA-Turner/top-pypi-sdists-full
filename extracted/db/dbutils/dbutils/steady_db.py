@@ -90,9 +90,14 @@ Licensed under the MIT license.
 """
 
 import sys
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 
 from . import __version__
+
+__all__ = [
+    'connect', 'SteadyDBConnection', 'SteadyDBCursor',
+    'SteadyDBError', 'InvalidCursorError',
+]
 
 
 class SteadyDBError(Exception):
@@ -107,9 +112,29 @@ class InvalidCursorError(SteadyDBError):
 InvalidCursor = InvalidCursorError
 
 
+_PING_ERROR = (
+    "'ping' must be an integer, an SQL statement, a callable,"
+    " or a tuple with an integer and one of the latter.")
+
+
+def _sql_pinger(sql):
+    """Create a check function executing the given SQL statement."""
+    def pinger(con):
+        """Check the connection by executing an SQL statement."""
+        cursor = con.cursor()
+        try:
+            cursor.execute(sql)
+        finally:
+            with suppress(Exception):
+                cursor.close()
+
+    return pinger
+
+
 def connect(
         creator, maxusage=None, setsession=None,
-        failures=None, ping=1, closeable=True, *args, **kwargs):
+        failures=None, ping=1, closeable=True, isfatal=None,
+        *args, **kwargs):
     """Create a "tough" connection.
 
     A hardened version of the connection function of a DB-API 2 module.
@@ -126,10 +151,32 @@ def connect(
         for which the failover mechanism shall be applied, if the default
         (OperationalError, InternalError, Interface) is not adequate
         for the used database module
-    ping: determines when the connection should be checked with ping()
+    isfatal: an optional callable that is passed an exception matching the
+        failures and shall return whether that error is really fatal for
+        the connection, i.e. whether the failover mechanism shall be
+        applied.  Since the failures can only be specified as exception
+        classes, and Python cannot exclude subclasses from an except
+        clause, this is the only way to distinguish errors that merely
+        report a failed statement (such as a deliberate server side
+        statement timeout) from errors that report a broken connection,
+        when the database module maps both onto the same exception class.
+        The callable must tolerate arbitrary exception instances of the
+        classes given as failures, including instances without args.
+    ping: determines when and how the connection shall be checked
         (0 = None = never, 1 = default = when _ping_check() is called,
         2 = whenever a cursor is created, 4 = when a query is executed,
-        7 = always, and all other bit combinations of these values)
+        7 = always, and all other bit combinations of these values).
+        By default, the connection is checked with its ping() method.
+        Since ping() is not part of the DB-API 2 specification and not
+        available in every database module, you can also pass an SQL
+        statement such as "select 1" that shall be executed instead, or
+        a callable that is passed the underlying DB-API 2 connection and
+        shall return whether that connection is still alive, where None
+        counts as alive and raising an exception counts as not alive.
+        Such a check is made as with ping=1, i.e. when _ping_check()
+        is called; if you want it to be made at other times, pass a tuple
+        with one of the integer values above and the SQL statement or the
+        callable, e.g. ping=(4, "select 1").
     closeable: if this is set to false, then closing the connection will
         be silently ignored, but by default the connection can be closed
     args, kwargs: the parameters that shall be passed to the creator
@@ -137,7 +184,7 @@ def connect(
     """
     return SteadyDBConnection(
         creator, maxusage, setsession,
-        failures, ping, closeable, *args, **kwargs)
+        failures, ping, closeable, isfatal, *args, **kwargs)
 
 
 class SteadyDBConnection:
@@ -147,7 +194,8 @@ class SteadyDBConnection:
 
     def __init__(
             self, creator, maxusage=None, setsession=None,
-            failures=None, ping=1, closeable=True, *args, **kwargs):
+            failures=None, ping=1, closeable=True, isfatal=None,
+            *args, **kwargs):
         """Create a "tough" DB-API 2 connection."""
         # basic initialization to make finalizer work
         self._con = None
@@ -191,10 +239,36 @@ class SteadyDBConnection:
                 failures, tuple) and not issubclass(failures, Exception):
             raise TypeError("'failures' must be a tuple of exceptions.")
         self._failures = failures
-        self._ping = ping if isinstance(ping, int) else 0
+        if isfatal is not None and not callable(isfatal):
+            raise TypeError("'isfatal' must be a callable.")
+        self._isfatal = isfatal
+        self._ping, self._pinger = self._parse_ping(ping)
         self._closeable = closeable
         self._args, self._kwargs = args, kwargs
         self._store(self._create())
+
+    @staticmethod
+    def _parse_ping(ping):
+        """Split the ping parameter into a flag and a check function.
+
+        The ping parameter determines when the connection shall be checked
+        and can also determine how it shall be checked, by passing an SQL
+        statement or a callable instead of or together with the flag.
+        """
+        if isinstance(ping, tuple):
+            try:
+                ping, pinger = ping
+            except ValueError:
+                raise TypeError(_PING_ERROR) from None
+        elif isinstance(ping, str) or callable(ping):
+            ping, pinger = 1, ping
+        else:
+            pinger = None
+        if isinstance(pinger, str):
+            pinger = _sql_pinger(pinger)
+        elif pinger is not None and not callable(pinger):
+            raise TypeError(_PING_ERROR)
+        return ping if isinstance(ping, int) else 0, pinger
 
     def __enter__(self):
         """Enter the runtime context for the connection object."""
@@ -333,29 +407,37 @@ class SteadyDBConnection:
                 self.rollback()
 
     def _ping_check(self, ping=1, reconnect=True):
-        """Check whether the connection is still alive using ping().
+        """Check whether the connection is still alive.
+
+        The connection is checked with the check function that has been
+        derived from the ping parameter, or with the ping() method of the
+        underlying connection if no such function has been specified.
 
         If the underlying connection is not active and the ping
         parameter is set accordingly, the connection will be recreated
         unless the connection is currently inside a transaction.
         """
         if ping & self._ping:
-            try:  # if possible, ping the connection
-                try:  # pass a reconnect=False flag if this is supported
-                    alive = self._con.ping(False)
-                except TypeError:  # the reconnect flag is not supported
-                    alive = self._con.ping()
-            except (AttributeError, IndexError, TypeError, ValueError):
-                self._ping = 0  # ping() is not available
-                alive = None
-                reconnect = False
-            except Exception:
-                alive = False
+            if self._pinger is None:
+                try:  # if possible, ping the connection
+                    try:  # pass a reconnect=False flag if this is supported
+                        alive = self._con.ping(False)
+                    except TypeError:  # the reconnect flag is not supported
+                        alive = self._con.ping()
+                except (AttributeError, IndexError, TypeError, ValueError):
+                    self._ping = 0  # ping() is not available
+                    return None  # the connection cannot be checked
+                except Exception:
+                    alive = False
             else:
-                if alive is None:
-                    alive = True
-                if alive:
-                    reconnect = False
+                try:  # check the connection with the given check function
+                    alive = self._pinger(self._con)
+                except Exception:
+                    alive = False
+            if alive is None:
+                alive = True
+            if alive:
+                reconnect = False
             if reconnect and not self._transaction:
                 try:  # try to reopen the connection
                     con = self._create()
@@ -375,6 +457,20 @@ class SteadyDBConnection:
                 "Could not determine DB-API 2 module"
                 " (please set creator.dbapi).")
         return self._dbapi
+
+    @property
+    def dbapi_connection(self):
+        """Return the underlying DB-API 2 connection.
+
+        Note that operations executed directly on this connection are
+        not covered by the failover mechanism and are not counted
+        towards the maximum usage limit of the steady connection.
+        """
+        return self._con
+
+    def _fatal_check(self, error):
+        """Check whether the error is fatal for the connection."""
+        return self._isfatal is None or self._isfatal(error)
 
     def threadsafety(self):
         """Return the thread safety level of the connection."""
@@ -475,13 +571,19 @@ class SteadyDBConnection:
         transaction = self._transaction
         if not transaction:
             self._ping_check(2)
+        overused = False
         try:
             # check whether the connection has been used too often
             if (self._maxusage and self._usage >= self._maxusage
                     and not transaction):
+                overused = True
                 raise self._failure
             cursor = self._con.cursor(*args, **kwargs)  # try to get a cursor
         except self._failures as error:  # error in getting cursor
+            # the connection must always be reset when it is overused,
+            # otherwise the application can veto the failover mechanism
+            if not overused and not self._fatal_check(error):
+                raise
             try:  # try to reopen the connection
                 con = self._create()
             except Exception:  # noqa: S110
@@ -525,6 +627,8 @@ class SteadyDBCursor:
         # basic initialization to make finalizer work
         self._cursor = None
         self._closed = True
+        # nesting level of no_failover() contexts
+        self._no_failover = 0
         # proper initialization of the cursor
         self._con = con
         self._args, self._kwargs = args, kwargs
@@ -550,6 +654,41 @@ class SteadyDBCursor:
             return iter(cursor)
         except TypeError:  # create iterator if not provided
             return iter(cursor.fetchone, None)
+
+    @property
+    def dbapi_cursor(self):
+        """Return the underlying DB-API 2 cursor.
+
+        Note that operations executed directly on this cursor are not
+        covered by the failover mechanism and are not counted towards
+        the maximum usage limit of the underlying steady connection.
+        Consider using no_failover() instead, which keeps the bookkeeping
+        of the steady connection intact.
+        """
+        cursor = self._cursor
+        if not cursor:
+            raise InvalidCursorError
+        return cursor
+
+    @contextmanager
+    def no_failover(self):
+        """Suspend the failover mechanism inside this context.
+
+        Statements that are executed on this cursor inside the context
+        are not retried when they fail, but the error is raised to the
+        application immediately.  Everything else, particularly the ping
+        check and the usage bookkeeping of the underlying steady
+        connection, is left untouched.
+
+        This is useful for statements that are expected to fail in a
+        controlled way, e.g. when a deliberate server side timeout has
+        been requested, where a retry would multiply the runtime.
+        """
+        self._no_failover += 1
+        try:
+            yield self
+        finally:
+            self._no_failover -= 1
 
     def setinputsizes(self, sizes):
         """Store input sizes in case cursor needs to be reopened."""
@@ -594,10 +733,12 @@ class SteadyDBCursor:
             transaction = con._transaction
             if not transaction:
                 con._ping_check(4)
+            overused = False
             try:
                 # check whether the connection has been used too often
                 if (con._maxusage and con._usage >= con._maxusage
                         and not transaction):
+                    overused = True
                     raise con._failure
                 if execute:
                     self._setsizes()
@@ -606,6 +747,11 @@ class SteadyDBCursor:
                 if execute:
                     self._clearsizes()
             except con._failures as error:  # execution error
+                # the connection must always be reset when it is overused,
+                # otherwise the application can veto the failover mechanism
+                if not overused and (
+                        self._no_failover or not con._fatal_check(error)):
+                    raise
                 if not transaction:
                     try:
                         cursor2 = con._cursor(
@@ -678,7 +824,7 @@ class SteadyDBCursor:
                     with suppress(Exception):
                         con2.close()
                 if transaction:
-                    self._transaction = False
+                    con._transaction = False
                 raise error  # re-raise the original error again
             else:
                 con._usage += 1

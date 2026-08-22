@@ -11,7 +11,7 @@ Use :func:`postprocess` to run the full pipeline; the individual stages
 are exposed for testing and reuse.
 """
 
-from .anutils import ANON_SCOPE_NAMES
+from .anutils import ANON_SCOPE_NAMES, enclosing_namespaces, parent_namespace
 from .node import Flavor
 
 __all__ = [
@@ -19,12 +19,12 @@ __all__ = [
     "resolve_imports",
     "contract_nonexistents",
     "expand_unknowns",
-    "cull_inherited",
     "collapse_inner",
+    "cull_subsumed",
 ]
 
 
-def postprocess(visitor):
+def postprocess(visitor, cull_subsumed_edges=True):
     """Run the full postprocessing pipeline.
 
     First resolve imports (remap IMPORTEDITEM nodes to their targets),
@@ -38,12 +38,17 @@ def postprocess(visitor):
     Now that :func:`expand_unknowns` checks import relationships, we can
     safely return to contract-then-expand, which is the correct order:
     wildcards must exist before expansion can act on them.
+
+    Subsumption culling runs last, so that it sees the edges
+    :func:`collapse_inner` folds into their parent Nodes. Pass
+    ``cull_subsumed_edges=False`` to keep the raw edge set.
     """
     resolve_imports(visitor)
     contract_nonexistents(visitor)
     expand_unknowns(visitor)
-    cull_inherited(visitor)
     collapse_inner(visitor)
+    if cull_subsumed_edges:
+        cull_subsumed(visitor)
 
 
 def resolve_imports(visitor):
@@ -171,20 +176,10 @@ def _has_import_to(visitor, from_node, target_ns):
     target_parts = target_ns.split(".")
     target_ancestors = {".".join(target_parts[:i + 1]) for i in range(len(target_parts))}
 
-    # Walk up from from_node's namespace.
-    ns = from_node.get_name()
-    while True:
-        imports = visitor.namespace_imports.get(ns, set())
-        if imports & target_ancestors:
-            return True
-        if "." not in ns:
-            break
-        ns = ns.rsplit(".", 1)[0]
-
-    # Also check the module-level namespace (which may be the module name itself,
-    # with no dots if it's a top-level module).
-    imports = visitor.namespace_imports.get(ns, set())
-    return bool(imports & target_ancestors)
+    # Walk up from from_node's namespace, ending at the module-level one (which
+    # may be the module name itself, with no dots if it's a top-level module).
+    return any(visitor.namespace_imports.get(ns, set()) & target_ancestors
+               for ns in enclosing_namespaces(from_node.get_name()))
 
 
 def _name_referenced_in_scope(visitor, from_node, name):
@@ -242,36 +237,6 @@ def expand_unknowns(visitor):
                 n.defined = False
 
 
-def cull_inherited(visitor):
-    """For each use edge from W to X.name, if it also has an edge to W to Y.name where
-    Y is used by X, then remove the first edge.
-    """
-    removed_uses_edges = []
-    for n in visitor.uses_edges:
-        for n2 in visitor.uses_edges[n]:
-            inherited = False
-            for n3 in visitor.uses_edges[n]:
-                if (
-                    n3.name == n2.name and
-                    n2.namespace is not None and
-                    n3.namespace is not None and
-                    n3.namespace != n2.namespace
-                ):
-                    pn2 = visitor.get_parent_node(n2)
-                    pn3 = visitor.get_parent_node(n3)
-                    # if pn3 in visitor.uses_edges and pn2 in visitor.uses_edges[pn3]:
-                    # remove the second edge W to Y.name (TODO: add an option to choose this)
-                    if pn2 in visitor.uses_edges and pn3 in visitor.uses_edges[pn2]:  # remove the first edge W to X.name
-                        inherited = True
-
-            if inherited and n in visitor.uses_edges:
-                removed_uses_edges.append((n, n2))
-                visitor.logger.info(f"Removing inherited edge from {n} to {n2}")
-
-    for from_node, to_node in removed_uses_edges:
-        visitor.remove_uses_edge(from_node, to_node)
-
-
 def collapse_inner(visitor):
     """Combine lambda and comprehension Nodes with their parent Nodes to reduce visual noise.
     Also mark those original nodes as undefined, so that they won't be visualized."""
@@ -280,12 +245,98 @@ def collapse_inner(visitor):
 
     # BUG: resolve relative imports causes (RuntimeError: dictionary changed size during iteration)
     # temporary solution is adding list to force a copy of 'visitor.nodes'
-    for name in list(visitor.nodes):
-        if name.partition(".")[0] in ANON_SCOPE_NAMES:
-            for n in visitor.nodes[name]:
-                pn = visitor.get_parent_node(n)
-                if n in visitor.uses_edges:
-                    for n2 in visitor.uses_edges[n]:  # outgoing uses edges
-                        visitor.logger.info(f"Collapsing inner from {n} to {pn}, uses {n2}")
-                        visitor.add_uses_edge(pn, n2)
-                n.defined = False
+    anon_nodes = [n for name in list(visitor.nodes) if name.partition(".")[0] in ANON_SCOPE_NAMES
+                  for n in visitor.nodes[name]]
+
+    # Deepest first. An anonymous scope inside another must hand its uses up
+    # before the one holding it does the same, or the inner scope's calls land
+    # on a node that is itself about to be marked undefined and stop there —
+    # so a lambda returning a lambda lost every edge out of the inner one.
+    anon_nodes.sort(key=lambda n: n.get_name().count("."), reverse=True)
+
+    for n in anon_nodes:
+        pn = visitor.get_parent_node(n)
+        if n in visitor.uses_edges:
+            for n2 in visitor.uses_edges[n]:  # outgoing uses edges
+                if n2 is pn:  # a closure referring to its own enclosing scope
+                    continue
+                visitor.logger.info(f"Collapsing inner from {n} to {pn}, uses {n2}")
+                visitor.add_uses_edge(pn, n2)
+        n.defined = False
+
+
+def cull_subsumed(visitor):
+    """Drop uses edges that a more specific edge already conveys (#140).
+
+    An edge ``S -> T`` is subsumed when either ``S`` is a module and something
+    defined in its own file also uses ``T``, or ``T`` is a module and ``S``
+    also uses something anywhere under it.
+
+    Only modules widen. An edge whose target is a module came from an
+    ``import``, and says nothing a finer edge into that module does not
+    already say; an edge whose target is a class is a constructor call, and
+    stands on its own. The same asymmetry holds on the source side: a module's
+    edge duplicates its members' edges, where a function's does not.
+    """
+    # A bare `import b` yields a uses edge whether or not the name is ever
+    # referenced, so a module node accumulates one edge per imported name on
+    # top of whatever its body actually does. Those are the edges that make a
+    # grouped graph unreadable: they run parallel to the members' own edges,
+    # from a node drawn right beside them.
+    #
+    # What this must not do is remove the last evidence of a dependency. It
+    # cannot: an edge is dropped only when the subsuming edge runs between the
+    # same two subtrees, so collapsing to module granularity (--depth 0)
+    # recovers exactly the same pair.
+    #
+    # The two ends need different notions of "inside", because a package's
+    # dotted-name descendants are its submodules — separate files. A sibling
+    # module importing something says nothing about what `__init__.py` imports,
+    # so the source side counts only what the module's own file defines, while
+    # the target side counts everything under the package.
+    all_nodes = [n for items in visitor.nodes.values() for n in items]
+    modules = {n.get_name() for n in all_nodes if n.flavor == Flavor.MODULE}
+    members = {name: set() for name in modules}  # defined in that module's own file
+    within = {name: set() for name in modules}  # anywhere under that dotted path
+    for node in all_nodes:
+        enclosing_module_seen = False
+        for ns in enclosing_namespaces(parent_namespace(node.get_name())):
+            if ns in modules:
+                within[ns].add(node)
+                if not enclosing_module_seen:
+                    enclosing_module_seen = True
+                    if node.flavor != Flavor.MODULE:
+                        members[ns].add(node)
+
+    def is_subsumed(from_node, to_node):
+        """Is there a finer edge carrying the same dependency?
+
+        Exactly one end widens per test. Widening both at once would let an
+        edge between two unrelated nodes stand in for this one: for a package
+        importing its own subpackage, ``S`` contains ``T``, so a module inside
+        the subpackage importing its neighbour would qualify — an edge that is
+        not ``S``'s code and does not reach ``T``.
+        """
+        widened_sources = members[from_node.get_name()] if from_node.flavor == Flavor.MODULE else ()
+        widened_targets = within[to_node.get_name()] if to_node.flavor == Flavor.MODULE else ()
+        return (
+            # something in the module's own file reaches the same target
+            any(to_node in visitor.uses_edges.get(s, ()) for s in widened_sources) or
+            # this same source reaches somewhere inside the module
+            any(t in widened_targets for t in visitor.uses_edges.get(from_node, ()))
+        )
+
+    # Decide against the original graph, then remove; culling as we go would
+    # make the result depend on iteration order. Deciding up front cannot empty
+    # a chain of subsumptions: each one points at an edge strictly deeper on one
+    # end, so the relation is well-founded and the finest edge always survives.
+    removed_uses_edges = [
+        (from_node, to_node)
+        for from_node, to_nodes in visitor.uses_edges.items()
+        for to_node in to_nodes
+        if is_subsumed(from_node, to_node)
+    ]
+
+    for from_node, to_node in removed_uses_edges:
+        visitor.logger.info(f"Removing subsumed edge from {from_node} to {to_node}")
+        visitor.remove_uses_edge(from_node, to_node)

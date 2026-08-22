@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: graphrag
-Version: 3.1.1
+Version: 3.1.2
 Summary: GraphRAG: A graph-based retrieval-augmented generation (RAG) system.
 Project-URL: Source, https://github.com/microsoft/graphrag
 Author: Mónica Carvajal
@@ -14,29 +14,29 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.11
 Requires-Dist: azure-identity~=1.25
 Requires-Dist: azure-search-documents~=12.0
-Requires-Dist: azure-storage-blob~=12.24
-Requires-Dist: blis~=1.0
+Requires-Dist: azure-storage-blob~=12.30
+Requires-Dist: blis~=1.3
 Requires-Dist: devtools~=0.12
-Requires-Dist: graphrag-cache==3.1.1
-Requires-Dist: graphrag-chunking==3.1.1
-Requires-Dist: graphrag-common==3.1.1
-Requires-Dist: graphrag-input==3.1.1
-Requires-Dist: graphrag-llm==3.1.1
-Requires-Dist: graphrag-storage==3.1.1
-Requires-Dist: graphrag-vectors==3.1.1
+Requires-Dist: graphrag-cache==3.1.2
+Requires-Dist: graphrag-chunking==3.1.2
+Requires-Dist: graphrag-common==3.1.2
+Requires-Dist: graphrag-input==3.1.2
+Requires-Dist: graphrag-llm==3.1.2
+Requires-Dist: graphrag-storage==3.1.2
+Requires-Dist: graphrag-vectors==3.1.2
 Requires-Dist: graspologic-native<1.3,>=1.2
-Requires-Dist: json-repair~=0.30
-Requires-Dist: networkx~=3.4
-Requires-Dist: nltk~=3.9
-Requires-Dist: numpy~=2.1
+Requires-Dist: json-repair~=0.63
+Requires-Dist: networkx~=3.6
+Requires-Dist: nltk~=3.9.0
+Requires-Dist: numpy~=2.4
 Requires-Dist: pandas~=3.0
 Requires-Dist: pyarrow~=25.0
-Requires-Dist: pydantic~=2.10
+Requires-Dist: pydantic~=2.13
 Requires-Dist: spacy~=3.8
-Requires-Dist: textblob~=0.18
-Requires-Dist: tqdm~=4.67
-Requires-Dist: typer~=0.16
-Requires-Dist: typing-extensions~=4.12
+Requires-Dist: textblob~=0.20
+Requires-Dist: tqdm~=4.70
+Requires-Dist: typer~=0.27
+Requires-Dist: typing-extensions~=4.16
 Description-Content-Type: text/markdown
 
 # GraphRAG
@@ -91,7 +91,7 @@ We strongly recommend to fine-tune your prompts following the [Prompt Tuning Gui
 
 Please see the [breaking changes](./breaking-changes.md) document for notes on our approach to versioning the project.
 
-*Always run `uv run poe init --root [path] --force` between minor version bumps to ensure you have the latest config format. Run the provided migration notebook between major version bumps if you want to avoid re-indexing prior datasets. Note that this will overwrite your configuration and prompts, so backup if necessary.*
+*Always run `uv run poe init --root [path] --force` between minor version bumps to ensure you have the latest config format. Run the provided migration notebook between major version bumps if you want to avoid re-indexing prior datasets. Note that this will overwrite your configuration and prompts, so back them up if necessary.*
 
 ## Responsible AI FAQ
 

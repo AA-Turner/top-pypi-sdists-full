@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-doctr
-Version: 1.0.1
+Version: 1.1.0
 Summary: Document Text Recognition (docTR): deep Learning for high-performance OCR on documents.
 Author-email: Mindee <contact@mindee.com>
 Maintainer: François-Guillaume Fernandez, Charles Gaillard, Olivier Dulcy, Felix Dittrich
@@ -219,11 +219,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <4,>=3.10.0
+Requires-Python: <4,>=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch<3.0.0,>=2.0.0
@@ -232,15 +233,14 @@ Requires-Dist: onnx<3.0.0,>=1.12.0
 Requires-Dist: numpy<3.0.0,>=1.16.0
 Requires-Dist: scipy<2.0.0,>=1.4.0
 Requires-Dist: h5py<4.0.0,>=3.1.0
-Requires-Dist: opencv-python<5.0.0,>=4.5.0
+Requires-Dist: opencv-python<6.0.0,>=4.5.0
 Requires-Dist: pypdfium2<6.0.0,>=4.11.0
 Requires-Dist: pyclipper<2.0.0,>=1.2.0
 Requires-Dist: shapely<3.0.0,>=1.6.0
 Requires-Dist: langdetect<2.0.0,>=1.0.9
 Requires-Dist: rapidfuzz<4.0.0,>=3.0.0
 Requires-Dist: huggingface-hub<2.0.0,>=0.20.0
-Requires-Dist: Pillow>=9.2.0
-Requires-Dist: defusedxml>=0.7.0
+Requires-Dist: Pillow>=10.1.0
 Requires-Dist: anyascii>=0.3.2
 Requires-Dist: validators>=0.18.0
 Requires-Dist: tqdm>=4.30.0
@@ -252,11 +252,11 @@ Requires-Dist: mplcursors>=0.3; extra == "viz"
 Provides-Extra: contrib
 Requires-Dist: onnxruntime>=1.11.0; extra == "contrib"
 Provides-Extra: testing
-Requires-Dist: pytest>=5.3.2; extra == "testing"
-Requires-Dist: coverage[toml]>=4.5.4; extra == "testing"
+Requires-Dist: pytest-cov>=7.0.0; extra == "testing"
 Requires-Dist: onnxruntime>=1.11.0; extra == "testing"
 Requires-Dist: requests>=2.20.0; extra == "testing"
 Requires-Dist: psutil>=5.9.5; extra == "testing"
+Requires-Dist: pandas>=2.0.0; extra == "testing"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.1.5; extra == "quality"
 Requires-Dist: mypy>=0.812; extra == "quality"
@@ -277,11 +277,11 @@ Requires-Dist: onnx<3.0.0,>=1.12.0; extra == "dev"
 Requires-Dist: weasyprint>=55.0; extra == "dev"
 Requires-Dist: matplotlib>=3.1.0; extra == "dev"
 Requires-Dist: mplcursors>=0.3; extra == "dev"
-Requires-Dist: pytest>=5.3.2; extra == "dev"
-Requires-Dist: coverage[toml]>=4.5.4; extra == "dev"
+Requires-Dist: pytest-cov>=7.0.0; extra == "dev"
 Requires-Dist: onnxruntime>=1.11.0; extra == "dev"
 Requires-Dist: requests>=2.20.0; extra == "dev"
 Requires-Dist: psutil>=5.9.5; extra == "dev"
+Requires-Dist: pandas>=2.0.0; extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
 Requires-Dist: mypy>=1.0; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
@@ -299,10 +299,16 @@ Dynamic: license-file
   <img src="https://github.com/mindee/doctr/raw/main/docs/images/Logo_doctr.gif" width="40%">
 </p>
 
-[![Slack Icon](https://img.shields.io/badge/Slack-Community-4A154B?style=flat-square&logo=slack&logoColor=white)](https://slack.mindee.com) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) ![Build Status](https://github.com/mindee/doctr/workflows/builds/badge.svg) [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/mindee/doctr/pkgs/container/doctr) [![codecov](https://codecov.io/gh/mindee/doctr/branch/main/graph/badge.svg?token=577MO567NM)](https://codecov.io/gh/mindee/doctr) [![CodeFactor](https://www.codefactor.io/repository/github/mindee/doctr/badge?s=bae07db86bb079ce9d6542315b8c6e70fa708a7e)](https://www.codefactor.io/repository/github/mindee/doctr) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/340a76749b634586a498e1c0ab998f08)](https://app.codacy.com/gh/mindee/doctr?utm_source=github.com&utm_medium=referral&utm_content=mindee/doctr&utm_campaign=Badge_Grade) [![Doc Status](https://github.com/mindee/doctr/workflows/doc-status/badge.svg)](https://mindee.github.io/doctr) [![Pypi](https://img.shields.io/badge/pypi-v1.0.0-blue.svg)](https://pypi.org/project/python-doctr/) [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/mindee/doctr) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mindee/notebooks/blob/main/doctr/quicktour.ipynb) [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20docTR%20Guru-006BFF)](https://gurubase.io/g/doctr)
+[![Slack Icon](https://img.shields.io/badge/Slack-Community-4A154B?style=flat-square&logo=slack&logoColor=white)](https://slack.mindee.com) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) ![Build Status](https://github.com/mindee/doctr/workflows/builds/badge.svg) [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/mindee/doctr/pkgs/container/doctr) [![codecov](https://codecov.io/gh/mindee/doctr/branch/main/graph/badge.svg?token=577MO567NM)](https://codecov.io/gh/mindee/doctr) [![CodeFactor](https://www.codefactor.io/repository/github/mindee/doctr/badge?s=bae07db86bb079ce9d6542315b8c6e70fa708a7e)](https://www.codefactor.io/repository/github/mindee/doctr) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/340a76749b634586a498e1c0ab998f08)](https://app.codacy.com/gh/mindee/doctr?utm_source=github.com&utm_medium=referral&utm_content=mindee/doctr&utm_campaign=Badge_Grade) [![Doc Status](https://github.com/mindee/doctr/workflows/doc-status/badge.svg)](https://mindee.github.io/doctr) [![Pypi](https://img.shields.io/badge/pypi-v1.1.0-blue.svg)](https://pypi.org/project/python-doctr/) [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/mindee/doctr) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mindee/notebooks/blob/main/doctr/quicktour.ipynb) [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20docTR%20Guru-006BFF)](https://gurubase.io/g/doctr)
 
 
 **Optical Character Recognition made seamless & accessible to anyone, powered by PyTorch**
+
+## Project responsibility
+
+**docTR** was originally created by [Mindee](https://mindee.com). It is now actively developed and maintained by [t2k GmbH](https://www.text2knowledge.de/de).
+
+[![Need help solving a complex use case?](https://github.com/mindee/doctr/raw/main/docs/images/doctr-need-help.png)](https://www.text2knowledge.de/de)
 
 What you can expect from this repository:
 
@@ -321,7 +327,7 @@ As such, you can select the architecture used for [text detection](https://minde
 ```python
 from doctr.models import ocr_predictor
 
-model = ocr_predictor(det_arch='db_resnet50', reco_arch='crnn_vgg16_bn', pretrained=True)
+model = ocr_predictor(det_arch="db_resnet50", reco_arch="crnn_vgg16_bn", pretrained=True)
 ```
 
 ### Reading files
@@ -330,6 +336,7 @@ Documents can be interpreted from PDF or images:
 
 ```python
 from doctr.io import DocumentFile
+
 # PDF
 pdf_doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
 # Image
@@ -353,6 +360,23 @@ model = ocr_predictor(pretrained=True)
 doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
 # Analyze
 result = model(doc)
+```
+
+### Detecting the document layout
+
+You can additionally run a layout detection model as part of the pipeline by passing `detect_layout=True`. The detected regions (e.g. `Title`, `Text`, `Table`, `Page-header`, `Page-footer`) are attached to every page and rendered by `.show()`:
+
+```python
+from doctr.io import DocumentFile
+from doctr.models import ocr_predictor
+
+model = ocr_predictor(pretrained=True, detect_layout=True)
+doc = DocumentFile.from_images("path/to/your/doc.jpg")
+result = model(doc)
+
+# Access the detected layout regions of the first page
+for region in result.pages[0].layout:
+    print(region.type, region.confidence, region.geometry)
 ```
 
 ### Dealing with rotated documents
@@ -384,7 +408,9 @@ Or even rebuild the original document from its predictions:
 import matplotlib.pyplot as plt
 
 synthetic_pages = result.synthesize()
-plt.imshow(synthetic_pages[0]); plt.axis('off'); plt.show()
+plt.imshow(synthetic_pages[0])
+plt.axis("off")
+plt.show()
 ```
 
 ![Synthesis sample](https://github.com/mindee/doctr/raw/main/docs/images/synthesized_sample.png)
@@ -409,7 +435,7 @@ from doctr.io import DocumentFile
 from doctr.models import kie_predictor
 
 # Model
-model = kie_predictor(det_arch='db_resnet50', reco_arch='crnn_vgg16_bn', pretrained=True)
+model = kie_predictor(det_arch="db_resnet50", reco_arch="crnn_vgg16_bn", pretrained=True)
 # PDF
 doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
 # Analyze
@@ -424,15 +450,11 @@ for class_name in predictions.keys():
 
 The KIE predictor results per page are in a dictionary format with each key representing a class name and it's value are the predictions for that class.
 
-### If you are looking for support from the Mindee team
-
-[![Bad OCR test detection image asking the developer if they need help](https://github.com/mindee/doctr/raw/main/docs/images/doctr-need-help.png)](https://mindee.com/product/doctr)
-
 ## Installation
 
 ### Prerequisites
 
-Python 3.10 (or higher) and [pip](https://pip.pypa.io/en/stable/) are required to install docTR.
+Python 3.11 (or higher) and [pip](https://pip.pypa.io/en/stable/) are required to install docTR.
 
 ### Latest release
 
@@ -485,6 +507,14 @@ Credits where it's due: this repository is implementing, among others, architect
 - ViTSTR: [Vision Transformer for Fast and Efficient Scene Text Recognition](https://arxiv.org/pdf/2105.08582.pdf).
 - PARSeq: [Scene Text Recognition with Permuted Autoregressive Sequence Models](https://arxiv.org/pdf/2207.06966).
 - VIPTR: [A Vision Permutable Extractor for Fast and Efficient Scene Text Recognition](https://arxiv.org/abs/2401.10110).
+
+### Layout Analysis
+
+- LW-DETR: [A Transformer Replacement to YOLO for Real-Time Detection](https://arxiv.org/pdf/2406.03459v1).
+
+### Table Structure Recognition
+
+- TableCenterNet: [A one-stage network for table structure recognition](https://arxiv.org/abs/2504.17522).
 
 ## More goodies
 
@@ -539,7 +569,7 @@ docker run -it --gpus all ghcr.io/mindee/doctr:torch-py3.9.18-2024-10 bash
 The Docker images for docTR follow a specific tag nomenclature: `<deps>-py<python_version>-<doctr_version|YYYY-MM>`. Here's a breakdown of the tag structure:
 
 - `<deps>`: `torch`, `torch-viz-html-contrib`.
-- `<python_version>`: `3.9.18`, `3.10.13` or `3.11.8`.
+- `<python_version>`: `3.10.13`, `3.11.8`, etc.
 - `<doctr_version>`: a tag >= `v0.11.0`
 - `<YYYY-MM>`: e.g. `2014-10`
 
@@ -610,7 +640,7 @@ import requests
 
 params = {"det_arch": "db_resnet50", "reco_arch": "crnn_vgg16_bn"}
 
-with open('/path/to/your/doc.jpg', 'rb') as f:
+with open("/path/to/your/doc.jpg", "rb") as f:
     files = [  # application/pdf, image/jpeg, image/png supported
         ("files", ("doc.jpg", f.read(), "image/jpeg")),
     ]
@@ -621,12 +651,6 @@ print(requests.post("http://localhost:8080/ocr", params=params, files=files).jso
 
 Looking for more illustrations of docTR features? You might want to check the [Jupyter notebooks](https://github.com/mindee/doctr/tree/main/notebooks) designed to give you a broader overview.
 
-## Supported By
-
-This project is supported by [t2k GmbH](https://www.text2knowledge.de/de),
-<p align="center">
-  <img src="https://github.com/mindee/doctr/raw/main/docs/images/t2k_logo.png" width="40%">
-</p>
 
 ## Citation
 
@@ -641,6 +665,22 @@ If you wish to cite this project, feel free to use this [BibTeX](http://www.bibt
     howpublished = {\url{https://github.com/mindee/doctr}}
 }
 ```
+
+## Custom Development and Support
+
+[t2k GmbH](https://www.text2knowledge.de/de) offers professional services around docTR : whether you are building a product or contributing to the open-source project.
+
+### For organizations
+
+Interested in docTR and want to develop, implement, or ship your own solution? t2k can help with:
+
+- **Custom OCR development** : individual detection, recognition, and pipeline work built on docTR
+- **Project implementation** : turning your ideas into production-ready docTR integrations
+- **Technical consulting** : architecture, deployment, and integration guidance
+- **Ongoing development** : feature extensions and implementation support tailored to your use case
+- **Workshops & advisory** : verbal consulting, hands-on sessions, and recommendations for working with docTR
+
+Contact [info@text2knowledge.de](mailto:info@text2knowledge.de) or visit our [home page](https://www.text2knowledge.de) to discuss your project.
 
 ## Contributing
 

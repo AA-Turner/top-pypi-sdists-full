@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cx_Freeze
-Version: 8.6.4
+Version: 8.7.0
 Summary: Create standalone executables from Python scripts
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, Anthony Tuininga <anthony.tuininga@gmail.com>
 License-Expression: PSF-2.0
@@ -23,26 +23,26 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: freeze-core>=0.6.1
 Requires-Dist: packaging>=25.0
-Requires-Dist: setuptools<83.0,>=78.1.1
-Requires-Dist: tomli>=2.0.1; python_version == "3.10"
+Requires-Dist: setuptools<85.0,>=78.1.1
 Requires-Dist: filelock>=3.20.3; sys_platform == "linux"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "x86_64"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "i686"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "aarch64"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "armv7l"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "ppc64le"
-Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "s390x"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "x86_64"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "i686"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "aarch64"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "armv7l"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "ppc64le"
+Requires-Dist: patchelf>=0.16.1; sys_platform == "linux" and platform_machine == "s390x"
 Requires-Dist: dmgbuild>=1.6.1; sys_platform == "darwin"
-Requires-Dist: lief<0.18,>=0.15.1; sys_platform == "win32"
+Requires-Dist: lief<1.1.0,>=0.16.0; sys_platform == "win32"
 Requires-Dist: python-msilib>=0.4.1; sys_platform == "win32" and python_version >= "3.13"
 Dynamic: license-file
 

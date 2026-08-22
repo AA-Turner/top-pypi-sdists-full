@@ -6,7 +6,7 @@ description = "Ephemeral SQL index over a local directory"
 # version stays for the binding crates (publish = false). The literal
 # intentionally lags the published version: putitoutthere rewrites it to
 # the planned release version at build time and never commits it back.
-version = "0.4.29"
+version = "0.4.30"
 edition.workspace = true
 # Literal `license` (not `license.workspace = true`) because
 # putitoutthere's preflight check reads `[package].license` directly

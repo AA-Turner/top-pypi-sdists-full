@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geoh5py
-Version: 0.13.0
+Version: 0.13.1
 Summary: Python API for geoh5, an open file format for geoscientific data
 License-Expression: LGPL-3.0-or-later
 License-File: COPYING
@@ -25,7 +25,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: Pillow (>=12.2.0,<12.3.0)
+Requires-Dist: Pillow (>=12.2.0,<13.0.0)
 Requires-Dist: h5py (>=3.15.0,<3.16.0)
 Requires-Dist: numpy (>=2.4.0,<2.5.0)
 Requires-Dist: psutil (>=7.2.2,<7.3.0)

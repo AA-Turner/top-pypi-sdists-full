@@ -1,16 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: seekablehttpfile
-Version: 0.1.0
+Version: 0.1.1
 Summary: A lazy-loading, seekable, remote file object using http range requests
 Home-page: https://github.com/thatch/seekablehttpfile/
 Author: Tim Hatch
 Author-email: tim@timhatch.com
 License: MIT
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
-Requires-Dist: keke; python_version >= "3.8"
+Requires-Dist: keke
 Provides-Extra: dev
 Requires-Dist: black==23.12.1; extra == "dev"
 Requires-Dist: checkdeps==0.9.0; extra == "dev"
@@ -21,8 +21,10 @@ Requires-Dist: twine==4.0.2; extra == "dev"
 Requires-Dist: ufmt==2.3.0; extra == "dev"
 Requires-Dist: usort==1.0.7; extra == "dev"
 Requires-Dist: wheel==0.42.0; extra == "dev"
+Requires-Dist: pip; extra == "dev"
 Provides-Extra: test
 Requires-Dist: coverage>=6; extra == "test"
+Dynamic: license-file
 
 # seekablehttpfile
 
@@ -40,7 +42,7 @@ range requests as needed.
 9414
 >>> # find out how much we actually read
 >>> f.stats
-{'num_requests': 4, 'optimistic_bytes_read': 256000, 'lazy_bytes_read': 1078669, 'satisfied_from_cache': 2}
+{'num_requests': 2, 'optimistic_bytes_read': 256000, 'lazy_bytes_read': 1078669, 'satisfied_from_cache': 2}
 
 ```
 

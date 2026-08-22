@@ -459,7 +459,7 @@ def _setup_apps() -> None:
     if is_worker_service():
         if is_dev_queue_serving():
             # vercel-queue SDK path: the module's subscriptions registered
-            # on import; serve them through vercel.queue's ASGI app.
+            # on import; serve them through the runtime callback adapter.
             _asgi_user_app = cast("ASGI", bootstrap_queue_service_app())
             return
         worker_app = maybe_bootstrap_worker_service_app(mod)

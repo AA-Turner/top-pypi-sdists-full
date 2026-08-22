@@ -1,0 +1,75 @@
+# Copyright (c) 2015-2026 Phidgets Inc.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+from enum import IntEnum
+
+
+class VoltageSensorType(IntEnum):
+    SENSOR_TYPE_VOLTAGE = 0
+    SENSOR_TYPE_1114 = 11140
+    SENSOR_TYPE_1117 = 11170
+    SENSOR_TYPE_1123 = 11230
+    SENSOR_TYPE_1127 = 11270
+    SENSOR_TYPE_1130_PH = 11301
+    SENSOR_TYPE_1130_ORP = 11302
+    SENSOR_TYPE_1132 = 11320
+    SENSOR_TYPE_1133 = 11330
+    SENSOR_TYPE_1135 = 11350
+    SENSOR_TYPE_1142 = 11420
+    SENSOR_TYPE_1143 = 11430
+    SENSOR_TYPE_3500 = 35000
+    SENSOR_TYPE_3501 = 35010
+    SENSOR_TYPE_3502 = 35020
+    SENSOR_TYPE_3503 = 35030
+    SENSOR_TYPE_3507 = 35070
+    SENSOR_TYPE_3508 = 35080
+    SENSOR_TYPE_3509 = 35090
+    SENSOR_TYPE_3510 = 35100
+    SENSOR_TYPE_3511 = 35110
+    SENSOR_TYPE_3512 = 35120
+    SENSOR_TYPE_3513 = 35130
+    SENSOR_TYPE_3514 = 35140
+    SENSOR_TYPE_3515 = 35150
+    SENSOR_TYPE_3516 = 35160
+    SENSOR_TYPE_3517 = 35170
+    SENSOR_TYPE_3518 = 35180
+    SENSOR_TYPE_3519 = 35190
+    SENSOR_TYPE_3584 = 35840
+    SENSOR_TYPE_3585 = 35850
+    SENSOR_TYPE_3586 = 35860
+    SENSOR_TYPE_3587 = 35870
+    SENSOR_TYPE_3588 = 35880
+    SENSOR_TYPE_3589 = 35890
+    SENSOR_TYPE_MOT2002_LOW = 20020
+    SENSOR_TYPE_MOT2002_MED = 20021
+    SENSOR_TYPE_MOT2002_HIGH = 20022
+    SENSOR_TYPE_VCP4114 = 41140
+    SENSOR_TYPE_VCP4115 = 41150
+    SENSOR_TYPE_VCP4116 = 41160
+
+    @classmethod
+    def getName(cls, val: int) -> str: ...

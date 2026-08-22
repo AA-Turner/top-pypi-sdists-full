@@ -8,12 +8,11 @@ import sys
 from pathlib import Path
 
 from cx_Freeze import __version__, setup
-from cx_Freeze._pyproject import get_pyproject_tool_data
 
 __all__ = ["main"]
 
 DESCRIPTION = """
-Freeze a Python script and all of its referenced modules to a base \
+Freeze a Python script and all of its referenced modules to a standalone \
 executable which can then be distributed without requiring a Python \
 installation.
 """
@@ -46,7 +45,7 @@ Windows:
 
 
 def prepare_parser() -> argparse.ArgumentParser:
-    """Helper function to parse the arguments."""
+    """Parse the arguments."""
     parser = argparse.ArgumentParser(
         prog="cxfreeze",
         description=DESCRIPTION,
@@ -64,27 +63,28 @@ def prepare_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--init-script",
         metavar="NAME",
-        help="script which will be executed upon startup; if the name of the "
-        "file is not an absolute file name, the subdirectory initscripts "
-        "(rooted in the directory in which the cx_Freeze package is found) "
-        "will be searched for a file matching the name",
+        help="script which will be executed upon startup (before script); "
+        "this script is used to set up the environment for the executable; "
+        'pre-defined values: "console", "streamlit"; '
+        "an user-defined initscripts is accepted if it is given with "
+        "an absolute path name [default: console]",
     )
     parser.add_argument(
         "--base",
         "--base-name",
         metavar="NAME",
-        help="the name of the base executable; the pre-defined values are: "
-        '"console", "gui", "gui_dgpu" and "service"; '
-        "an user-defined base is accepted if it is given with an absolute "
-        "path name [default: console]",
+        help="the name of the base executable; "
+        'pre-defined values: "console", "gui", "gui_dgpu" and "service"; '
+        "an user-defined base is accepted if it is given with "
+        "an absolute path name [default: console]",
     )
     parser.add_argument(
         "--target-name",
         metavar="NAME",
-        help="the name of the target executable; the default value is the "
-        "name of the script; it is recommended NOT to use an extension "
-        "(automatically added on Windows); target-name with version is "
-        "supported; if specified a path, raise an error",
+        help="the name of the target executable; it is recommended NOT to "
+        "use an extension (automatically added on Windows); target_name with "
+        "version is supported; if specified a path, raise an error "
+        "[default: the name of script]",
     )
     parser.add_argument(
         "--target-dir",
@@ -155,9 +155,9 @@ def prepare_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs=argparse.OPTIONAL,
-        metavar="COMMAND",
-        help="build, build_exe or supported bdist commands (and to be "
-        "backwards compatible, can replace --script option)",
+        metavar="COMMAND [command_options] ...",
+        help="build, build_exe or supported bdist commands and options "
+        "(commands can be chained in the order of execution)",
     )
     # Version
     parser.add_argument("--version", action="version", version=VERSION)
@@ -188,17 +188,18 @@ def main() -> None:
         parser.exit()
 
     # usage
-    deprecated = []
     if script is None:
         if command is None:
             parser.error("--script or command must be specified")
         elif not command.startswith(("build", "bdist", "install")):
-            args.script, command = command, script  # backwards compatible
-            deprecated.append("usage: required to use --script NAME")
+            msg = "command not valid"
+            msg += f" - Did you mean '--script={command}'?"
+            parser.error(msg)
     if command is None:
         command = "build_exe"
 
     # deprecated options
+    deprecated = []
     if command == "build_exe" or "build_exe" in argv:
         args_to_replace = [
             ("--install-dir", "--build-exe"),
@@ -235,7 +236,7 @@ def main() -> None:
         import setuptools.dist  # noqa: PLC0415
 
         os.environ["DISTUTILS_DEBUG"] = "1"
-        setuptools.dist.DEBUG = 1
+        setuptools.dist.DEBUG = "1"
 
     # finalize command line options
     executables = []
@@ -265,12 +266,7 @@ def main() -> None:
                     sys.path.pop(i)
         sys.path.insert(0, os.getcwd())
 
-    # get options from pyproject.toml
-    options = get_pyproject_tool_data()
-    executables.extend(options.pop("executables", []))
-
     setup(
-        command_options=options,
         executables=executables,
         script_args=script_args,
         script_name=parser.prog,

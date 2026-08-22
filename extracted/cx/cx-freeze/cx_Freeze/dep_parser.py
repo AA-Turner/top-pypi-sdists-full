@@ -1,5 +1,6 @@
-"""Implements `Parser` interface to create an abstraction to parse binary
-files.
+"""Implements `Parser` interface.
+
+Creates an abstraction to parse binary files.
 """
 
 from __future__ import annotations
@@ -9,14 +10,21 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from ctypes.util import find_library
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING, cast
 
 from cx_Freeze._compat import PLATFORM
 from cx_Freeze.exception import PlatformError
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from cx_Freeze._typing import StrPath
 
 # In Windows, to get dependencies, the default is to use lief package,
 # but LIEF can be disabled with:
@@ -40,14 +48,18 @@ class Parser(ABC):
     """`Parser` interface."""
 
     def __init__(
-        self, path: list[str], bin_path_includes: list[str], silent: int = 0
+        self,
+        path: list[str],
+        bin_path_includes: list[str],
+        silent: int,
+        warnings: dict[str, bool],
     ) -> None:
         self._path: list[str] = path
         self._bin_path_includes: list[str] = bin_path_includes
         self._silent: int = silent
+        self._warnings: dict[str, bool] = warnings
 
         self.dependent_files: dict[Path, set[Path]] = {}
-        self.linker_warnings: dict = {}
 
     @property
     def search_path(self) -> list[Path]:
@@ -64,18 +76,18 @@ class Parser(ABC):
         return new_path
 
     def find_library(
-        self, name: str, search_path: list[str | Path] | None = None
+        self, name: str, search_path: list[StrPath] | None = None
     ) -> Path | None:
-        """Returns the pathname of a library, or None."""
+        """Return the pathname of a library, or None."""
         if search_path is None:
-            search_path = self.search_path
+            search_path = cast("list[StrPath]", self.search_path)
         for directory in map(Path, search_path):
             library = directory / name
             if self._is_binary(library):
                 return library.resolve()
         return None
 
-    def get_dependent_files(self, filename: str | Path) -> set[Path]:
+    def get_dependent_files(self, filename: StrPath) -> set[Path]:
         """Return the file's dependencies using platform-specific tools."""
         filename = Path(filename).resolve()
 
@@ -91,39 +103,50 @@ class Parser(ABC):
 
     @abstractmethod
     def _get_dependent_files(self, filename: Path) -> set[Path]:
-        """Return the file's dependencies using platform-specific tools
-        (lief package or the imagehlp library on Windows, otool on macOS X or
-        ldd on Linux); limit this list by the exclusion lists as needed.
+        """Return the file's dependencies using platform-specific tools.
+
+        The tools used are `patchelf" and `ldd` on Linux, `otool` on macOS and
+        `lief` on Windows. The imagehlp library can be used, through
+        `freeze_core.util` extension module, on Windows when lief is disabled
+        or is not available.
+        Limit this list by the exclusion lists as needed.
         (Implemented separately for each platform).
         """
 
     @staticmethod  # pragma: no cover
     def _is_binary(filename: Path) -> bool:
-        """Determines whether the file is a binary file
-        (executable, shared library).
+        """Determine whether the file is a binary file.
+
+        Binary file can be an executable or a shared library.
         (Implemented separately for each platform).
         """
         return filename.is_file()
 
 
 class PEParser(Parser):
-    """`PEParser` is based on the `lief` package. If it is disabled,
-    use the old friend `freeze_core.util` extension module.
+    """`PEParser` is based on the `lief` package.
+
+    If it is disabled, or not available, use the old friend `freeze_core.util`
+    extension module.
     """
 
     def __init__(
-        self, path: list[str], bin_path_includes: list[str], silent: int = 0
+        self,
+        path: list[str],
+        bin_path_includes: list[str],
+        silent: int,
+        warnings: dict[str, bool],
     ) -> None:
         if os.environ.get("CX_FREEZE_BIND", "") == "imagehlp":
             lief = None
         else:
             try:
-                import lief  # noqa: PLC0415
+                import lief  # noqa: PLC0415 # ty: ignore[unresolved-import]
             except ImportError:
-                lief = None
+                lief = None  # ty: ignore[invalid-assignment]
             else:
                 lief.logging.set_level(lief.logging.LEVEL.ERROR)
-        super().__init__(path, bin_path_includes, silent)
+        super().__init__(path, bin_path_includes, silent, warnings)
         if lief:
             imports_only = lief.PE.ParserConfig()
             imports_only.parse_exports = False
@@ -139,10 +162,7 @@ class PEParser(Parser):
             resource_only.parse_rsrc = True
             resource_only.parse_signature = False
             self.resource_only = resource_only
-        else:
-            self.imports_only = None
-            self.resource_only = None
-        if lief:
+            self.lief_errors = lief.lief_errors
             self._pe = lief.PE
         else:
             from freeze_core.util import (  # noqa: PLC0415
@@ -152,39 +172,48 @@ class PEParser(Parser):
 
             self.GetDependentFiles = GetDependentFiles
             self.BindError = BindError
-            self._get_dependent_files = self._get_dependent_files_imagehlp
             self._pe = None
 
     @staticmethod
-    def _is_binary(filename: str | Path) -> bool:
-        """Determines whether the file is a PE file."""
+    def _is_binary(filename: StrPath) -> bool:
+        """Determine whether the file is a PE file."""
         filename = Path(filename)
         return filename.suffix.lower().endswith(PE_EXT) and filename.is_file()
 
     is_pe = _is_binary
 
     def _get_dependent_files(self, filename: Path) -> set[Path]:
+        if self._pe is None:
+            return self._get_dependent_files_imagehlp(filename)
         with filename.open("rb", buffering=0) as raw:
-            binary = self._pe.parse(raw, self.imports_only or filename.name)
+            binary = self._pe.parse(raw, self.imports_only)
         if not binary:
             return set()
 
         libraries: list[str] = []
         if binary.has_imports:
-            libraries += binary.libraries
-        for delay_import in binary.delay_imports:
-            libraries.append(delay_import.name)
+            for library in binary.libraries:
+                if not isinstance(library, str):
+                    libraries.append(library.decode())
+                else:
+                    libraries.append(library)
+        if binary.has_delay_imports:
+            for library in binary.delay_imports:
+                if not isinstance(library.name, str):
+                    libraries.append(library.name.decode())
+                else:
+                    libraries.append(library.name)
 
         dependent_files: set[Path] = set()
-        search_path = [filename.parent, *self.search_path]
+        search_path: list[StrPath] = [filename.parent, *self.search_path]
         for name in libraries:
             library = self.find_library(name, search_path)
             if library:
                 dependent_files.add(library)
-                if name in self.linker_warnings:
-                    self.linker_warnings[name] = False
-            elif name not in self.linker_warnings:
-                self.linker_warnings[name] = True
+                if name in self._warnings:
+                    self._warnings[name] = False
+            elif name not in self._warnings:
+                self._warnings[name] = True
         return dependent_files
 
     def _get_dependent_files_imagehlp(self, filename: Path) -> set[Path]:
@@ -204,69 +233,75 @@ class PEParser(Parser):
             os.environ["PATH"] = env_path
         return set()
 
-    def read_manifest(self, filename: str | Path) -> str:
-        """:return: the XML schema of the manifest included in the executable
-        :rtype: str
-
-        """
+    def read_manifest(self, filename: StrPath) -> str | None:
+        """Read the XML schema of the manifest included in the executable."""
         if self._pe is None:
             if self._silent < 3:
                 print(f"WARNING: ignoring read manifest for {filename}")
-            return ""
+            return None
         filename = Path(filename)
         with filename.open("rb", buffering=0) as raw:
-            binary = self._pe.parse(raw, self.resource_only or filename.name)
-        resources_manager = binary.resources_manager
-        return (
-            resources_manager.manifest
-            if resources_manager.has_manifest
-            else None
-        )
+            binary = self._pe.parse(raw, self.resource_only)
+        if binary and binary.has_resources:
+            resources_manager = binary.resources_manager
+            if (
+                not isinstance(resources_manager, self.lief_errors)
+                and resources_manager.has_manifest
+            ):
+                manifest = resources_manager.manifest
+                if not isinstance(manifest, str):
+                    manifest = manifest.decode()
+                return manifest
+        if self._silent < 3:
+            print(f"WARNING: ignoring read manifest for {filename}")
+        return None
 
-    def write_manifest(self, filename: str | Path, manifest: str) -> None:
-        """:return: write the XML schema of the manifest into the executable
-        :rtype: str
-
-        """
+    def write_manifest(self, filename: StrPath, manifest: str) -> None:
+        """Write the XML schema of the manifest into the executable."""
         if self._pe is None:
             if self._silent < 3:
                 print(f"WARNING: ignoring write manifest for {filename}")
             return
         filename = Path(filename)
         with filename.open("rb", buffering=0) as raw:
-            binary = self._pe.parse(raw, self.resource_only or filename.name)
-        resources_manager = binary.resources_manager
-        resources_manager.manifest = manifest
-        with TemporaryDirectory(prefix="cxfreeze-") as tmp_dir:
-            tmp_path = Path(tmp_dir, filename.name)
-            binary.write(os.fspath(tmp_path))
-            shutil.move(tmp_path, filename)
+            binary = self._pe.parse(raw, self.resource_only)
+        if binary:
+            resources_manager = binary.resources_manager
+            if not isinstance(resources_manager, self.lief_errors):
+                resources_manager.manifest = manifest
+                with TemporaryDirectory(prefix="cxfreeze-") as tmp_dir:
+                    tmp_path = os.path.join(tmp_dir, filename.name)
+                    binary.write(tmp_path)
+                    shutil.move(tmp_path, filename)
 
 
 class ELFParser(Parser):
-    """`ELFParser` is based on the logic around invoking `patchelf` and
-    `ldd`.
-    """
+    """`ELFParser` is based on the `patchelf` and `ldd` tools."""
 
     def __init__(
-        self, path: list[str], bin_path_includes: list[str], silent: int = 0
+        self,
+        path: list[str],
+        bin_path_includes: list[str],
+        silent: int,
+        warnings: dict[str, bool],
     ) -> None:
-        super().__init__(path, bin_path_includes, silent)
-        self._patchelf = shutil.which("patchelf")
+        super().__init__(path, bin_path_includes, silent, warnings)
+        # Search for patchelf on binary directory of the venv.
+        self._patchelf = shutil.which("patchelf", path=Path(sys.prefix, "bin"))
         self._verify_patchelf()
 
     def find_library(
-        self, name: str, search_path: list[str | Path] | None = None
+        self, name: str, search_path: list[StrPath] | None = None
     ) -> Path | None:
         library = super().find_library(name, search_path)
         if library is None:
-            name = find_library(name)
-            if name:
-                library = super().find_library(name, search_path)
+            filename = find_library(name)
+            if filename:
+                library = super().find_library(filename, search_path)
         return library
 
     @staticmethod
-    def _is_binary(filename: str | Path) -> bool:
+    def _is_binary(filename: StrPath) -> bool:
         """Check if the executable is an ELF."""
         filename = Path(filename)
         if filename.suffix in NON_ELF_EXT or not filename.is_file():
@@ -302,13 +337,13 @@ class ELFParser(Parser):
                     partname = Path(bin_path, name)
                     if partname.is_file():
                         dependent_files.add(partname)
-                        if name in self.linker_warnings:
-                            self.linker_warnings[name] = False
+                        if name in self._warnings:
+                            self._warnings[name] = False
                         break
                 if not partname.is_file():
                     name = partname.name
-                    if name not in self.linker_warnings:
-                        self.linker_warnings[name] = True
+                    if name not in self._warnings:
+                        self._warnings[name] = True
                 continue
             if partname.startswith("("):
                 continue
@@ -323,17 +358,19 @@ class ELFParser(Parser):
         return dependent_files
 
     def _get_dependent_files_patchelf(self, filename: Path) -> set[Path]:
-        libraries: set[Path] = self.get_needed(filename)
-        rpath: set[Path] = self.get_resolved_rpath(filename) or []
+        libraries: list[str] = self.get_needed(filename)
+        rpath: list[Path] = self.get_resolved_rpath(filename) or []
 
         dependent_files: set[Path] = set()
-        search_path = rpath + self.search_path + [filename.parent]
+        search_path = cast(
+            "list[StrPath]", rpath + self.search_path + [filename.parent]
+        )
         for name in libraries:
             library = self.find_library(name, search_path)
             if library:
                 dependent_files.add(library)
-            elif name not in self.linker_warnings:
-                self.linker_warnings[name] = True
+            elif name not in self._warnings:
+                self._warnings[name] = True
         return dependent_files
 
     if LDD_DISABLED:
@@ -341,8 +378,8 @@ class ELFParser(Parser):
     else:
         _get_dependent_files = _get_dependent_files_ldd
 
-    def get_needed(self, filename: Path) -> list[str]:
-        """Gets the DT_NEEDED entry of the dynamic table."""
+    def get_needed(self, filename: StrPath) -> list[str]:
+        """Get the DT_NEEDED entry of the dynamic table."""
         libraries: list[str] = []
         with suppress(subprocess.CalledProcessError):
             libraries.extend(
@@ -350,31 +387,30 @@ class ELFParser(Parser):
             )
         return libraries
 
-    def get_resolved_rpath(self, filename: str | Path) -> list[Path] | None:
-        """Gets the resolved rpath of the executable."""
-        filename = Path(filename)
+    def get_resolved_rpath(self, filename: StrPath) -> list[Path] | None:
+        """Get the resolved rpath of the executable."""
         rpath = self.get_rpath(filename)
         if rpath:
-            origin = filename.parent.as_posix()
+            origin = Path(filename).parent.as_posix()
             rpath_list = rpath.replace("$ORIGIN", origin).split(":")
             return [Path(p).resolve() for p in rpath_list]
         return None
 
-    def get_rpath(self, filename: str | Path) -> str:
-        """Gets the rpath of the executable."""
+    def get_rpath(self, filename: StrPath) -> str:
+        """Get the rpath of the executable."""
         with suppress(subprocess.CalledProcessError):
             return self.run_patchelf(["--print-rpath", filename]).strip()
         return ""
 
     def replace_needed(
-        self, filename: str | Path, so_name: str, new_so_name: str
+        self, filename: StrPath, so_name: str, new_so_name: str
     ) -> None:
         """Replace DT_NEEDED entry in the dynamic table."""
         self._set_write_mode(filename)
         self.run_patchelf(["--replace-needed", so_name, new_so_name, filename])
 
-    def set_rpath(self, filename: str | Path, rpath: str) -> None:
-        """Sets the rpath of the executable."""
+    def set_rpath(self, filename: StrPath, rpath: str) -> None:
+        """Set the rpath of the executable."""
         self._set_write_mode(filename)
         rpath_list = rpath.split(":")
         for i, rp in enumerate(rpath_list):
@@ -389,14 +425,15 @@ class ELFParser(Parser):
             self.run_patchelf(["--remove-rpath", filename])
             self.run_patchelf(["--add-rpath", rpath, filename])
 
-    def set_soname(self, filename: str | Path, new_so_name: str) -> None:
-        """Sets DT_SONAME entry in the dynamic table."""
+    def set_soname(self, filename: StrPath, new_so_name: str) -> None:
+        """Set DT_SONAME entry in the dynamic table."""
         self._set_write_mode(filename)
         self.run_patchelf(["--set-soname", new_so_name, filename])
 
-    def run_patchelf(self, args: list[str]) -> str:
+    def run_patchelf(self, args: Sequence[StrPath]) -> str:
+        cmd = list(map(str, [self._patchelf, *args]))
         process = subprocess.run(
-            [self._patchelf, *args], check=True, capture_output=True, text=True
+            cmd, check=True, capture_output=True, text=True
         )
         if self._silent < 1:
             print("patchelf", *args, "returns:", repr(process.stdout))
@@ -405,17 +442,23 @@ class ELFParser(Parser):
         return process.stdout
 
     @staticmethod
-    def _set_write_mode(filename: str | Path) -> None:
+    def _set_write_mode(filename: StrPath) -> None:
         filename = Path(filename)
         mode = filename.stat().st_mode
         if mode & stat.S_IWUSR == 0:
             filename.chmod(mode | stat.S_IWUSR)
 
     def _verify_patchelf(self) -> None:
-        """Looks for the ``patchelf`` external binary in the PATH, checks for
-        the required version, and throws an exception if a proper version
-        can't be found. Otherwise, silence is golden.
+        """Look for the ``patchelf`` external binary.
+
+        The default is the search on binary directory of the venv.
+        Otherwise, search the PATH environment variable.
+
+        Checks for the required version, and throws an exception if a proper
+        version can't be found. Otherwise, silence is golden.
         """
+        if not self._patchelf:
+            self._patchelf = shutil.which("patchelf")
         if not self._patchelf:
             msg = "Cannot find required utility `patchelf` in PATH"
             raise PlatformError(msg)
@@ -426,8 +469,13 @@ class ELFParser(Parser):
             raise PlatformError(msg) from None
 
         mobj = re.match(r"patchelf\s+(\d+(.\d+)?)", version)
-        if mobj and tuple(map(int, mobj.group(1).split("."))) >= (0, 14):
-            return
-        version = mobj.group(1)
-        msg = f"patchelf {version} found. cx_Freeze requires patchelf >= 0.14."
+        if mobj:
+            version = mobj.group(1)
+            version_tuple = tuple(map(int, version.split(".")))
+            if version_tuple[:2] >= (0, 14) and version_tuple[:2] != (0, 18):
+                return
+        msg = (
+            f"patchelf {version} found. "
+            "cx_Freeze requires 'patchelf>=0.14,!=0.18'."
+        )
         raise ValueError(msg)

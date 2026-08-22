@@ -43,6 +43,7 @@ from plato.cli.utils import (
     require_plato_config_field,
     safe_print,
 )
+from plato.utils.sim_config import sim_config_dict
 from plato.v1.flow_executor import FlowExecutor
 from plato.v1.models.flow import Flow
 from plato.v1.sdk import Plato
@@ -981,7 +982,7 @@ async def _submit_reject_no_browser(
             x_api_key=api_key,
         )
         simulator_id = sim.id
-        current_config = sim.config or {}
+        current_config = sim_config_dict(sim.config)
         current_status = current_config.get("status", "not_started")
 
         artifact_id = artifact_id_arg or current_config.get("data_artifact_id")
@@ -1905,7 +1906,7 @@ def start_env(
                         name=sim_name,
                         x_api_key=api_key,
                     )
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 github_url = current_config.get("source_code_url", "")
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 status = current_config.get("status", "not_started")
@@ -2112,7 +2113,7 @@ def start_data(
                         name=sim_name,
                         x_api_key=api_key,
                     )
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 status = current_config.get("status", "not_started")
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
@@ -2291,7 +2292,7 @@ def start_checker(
                             name=sim_name,
                             x_api_key=api_key,
                         )
-                    current_config = sim.config or {}
+                    current_config = sim_config_dict(sim.config)
                     base_artifact_id = current_config.get("base_artifact_id", "")
                     data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2492,7 +2493,7 @@ def start_blank(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2651,7 +2652,7 @@ def start_from_template(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2814,7 +2815,7 @@ def open_sim(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -3054,7 +3055,7 @@ def archive(
                         name=sim_name,
                         x_api_key=api_key,
                     )
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 status = current_config.get("status", "not_started")
                 existing_notes = current_config.get("notes", "") or ""
                 to_archive.append(
@@ -3218,7 +3219,7 @@ def review_env(
                     x_api_key=api_key,
                 )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             console.print(f"[cyan]Current status:[/cyan] {current_status}")
@@ -3544,7 +3545,7 @@ def review_env(
                             name=simulator_name,
                             x_api_key=api_key,
                         )
-                    existing_assignees = (fresh_sim.config or {}).get("env_assignees") or []
+                    existing_assignees = sim_config_dict(fresh_sim.config).get("env_assignees") or []
                 except Exception:
                     existing_assignees = current_config.get("env_assignees") or []
                 if existing_assignees:
@@ -3706,7 +3707,7 @@ def review_env(
                                 name=simulator_name,
                                 x_api_key=api_key,
                             )
-                        fresh_config = fresh_sim.config or {}
+                        fresh_config = sim_config_dict(fresh_sim.config)
                         updates = {}
                         if not fresh_config.get("data_assignees"):
                             updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
@@ -3871,7 +3872,7 @@ def review_data(
                     name=simulator_name,
                     x_api_key=api_key,
                 )
-                config = sim.config or {}
+                config = sim_config_dict(sim.config)
 
                 # If no artifact provided, try to get data_artifact_id from server
                 if not artifact_id:
@@ -4163,7 +4164,7 @@ def review_data(
                         name=simulator_name,
                         x_api_key=api_key,
                     )
-                post_config = post_sim.config or {}
+                post_config = sim_config_dict(post_sim.config)
                 post_status = post_config.get("status", "")
                 simulator_id = post_sim.id
 
@@ -4338,7 +4339,7 @@ def submit_env():
                 x_api_key=api_key,
             )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             # Validate status transition
@@ -4458,7 +4459,7 @@ def submit_data(
                 x_api_key=api_key,
             )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             # Validate status transition

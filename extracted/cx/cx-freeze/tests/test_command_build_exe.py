@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from setuptools import Distribution
 
 from cx_Freeze._compat import BUILD_EXE_DIR, IS_UCRT
+from cx_Freeze._pyproject import get_pyproject_options, update_command_options
 from cx_Freeze.command.build_exe import build_exe
 from cx_Freeze.exception import SetupError
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
+
 
 DIST_ATTRS = {
     "name": "foo",
@@ -28,17 +35,19 @@ DIST_ATTRS = {
             id="build-exe=none",
         ),
         pytest.param(
-            {"build_exe": "dist"}, {"build_exe": "dist"}, id="build-exe=dist"
+            {"build_exe": "dist"},
+            {"build_exe": "dist"},
+            id="build-exe=dist",
         ),
         pytest.param(
-            {"excludes": "tkinter,unittest"},
-            {"excludes": ["tkinter", "unittest"]},
-            id="excludes='tkinter,unittest'",
+            {"excludes": "tkinter"},
+            {"excludes": ["tkinter"]},
+            id="excludes='tkinter'",
         ),
         pytest.param(
-            {"excludes": ["tkinter", "unittest"]},
-            {"excludes": ["tkinter", "unittest"]},
-            id="excludes=['tkinter','unittest']",
+            {"excludes": ["tkinter"]},
+            {"excludes": ["tkinter"]},
+            id="excludes=['tkinter']",
         ),
         pytest.param(
             {"include_msvcr": None},
@@ -85,23 +94,45 @@ DIST_ATTRS = {
             {"replace_paths": ["*="]},
             id="replace_paths=[*=]",
         ),
-        pytest.param({"silent": None}, {"silent": 0}, id="silent=none->0"),
-        pytest.param({"silent": False}, {"silent": 0}, id="silent=false->0"),
-        pytest.param({"silent": True}, {"silent": 1}, id="silent=true->1"),
         pytest.param(
-            {"silent_level": None}, {"silent": 0}, id="silent-level=none->0"
+            {"silent": None},
+            {"silent": 0},
+            id="silent=none->0",
         ),
         pytest.param(
-            {"silent_level": 0}, {"silent": 0}, id="silent-level=0->0"
+            {"silent": False},
+            {"silent": 0},
+            id="silent=false->0",
         ),
         pytest.param(
-            {"silent_level": 1}, {"silent": 1}, id="silent-level=1->1"
+            {"silent": True},
+            {"silent": 1},
+            id="silent=true->1",
         ),
         pytest.param(
-            {"silent_level": 2}, {"silent": 2}, id="silent-level=2->2"
+            {"silent_level": None},
+            {"silent": 0},
+            id="silent-level=none->0",
         ),
         pytest.param(
-            {"silent_level": "3"}, {"silent": 3}, id="silent-level=3->3"
+            {"silent_level": 0},
+            {"silent": 0},
+            id="silent-level=0->0",
+        ),
+        pytest.param(
+            {"silent_level": 1},
+            {"silent": 1},
+            id="silent-level=1->1",
+        ),
+        pytest.param(
+            {"silent_level": 2},
+            {"silent": 2},
+            id="silent-level=2->2",
+        ),
+        pytest.param(
+            {"silent_level": "3"},
+            {"silent": 3},
+            id="silent-level=3->3",
         ),
         pytest.param(
             {"zip_include_packages": None, "zip_exclude_packages": None},
@@ -152,17 +183,17 @@ DIST_ATTRS = {
         pytest.param(
             {},
             {"no_compress": False, "zip_filename": "library.zip"},
-            id="zip_filename=",
+            id="empty/zip_filename=library.zip",
         ),
         pytest.param(
             {"no_compress": None},
             {"no_compress": False, "zip_filename": "library.zip"},
-            id="zip_filename=",
+            id="no_compress=none/zip_filename=library.zip",
         ),
         pytest.param(
             {"no_compress": False},
             {"no_compress": False, "zip_filename": "library.zip"},
-            id="no_compress=false",
+            id="no_compress=false/zip_filename=library.zip",
         ),
         pytest.param(
             {"no_compress": True},
@@ -171,8 +202,8 @@ DIST_ATTRS = {
         ),
     ],
 )
-def test_build_exe_finalize_options(
-    kwargs: dict[str, ...], expected: dict[str, ...]
+def test_build_exe_call(
+    kwargs: dict[str, Any], expected: dict[str, Any]
 ) -> None:
     """Test the build_exe finalize_options."""
     dist = Distribution(DIST_ATTRS)
@@ -193,8 +224,10 @@ def test_build_exe_finalize_options(
         ),
     ],
 )
-def test_build_exe_finalize_options_raises(
-    kwargs: dict[str, ...], expected_exception, expected_match: str
+def test_build_exe_call_invalid(
+    kwargs: dict[str, Any],
+    expected_exception: type[BaseException],
+    expected_match: str,
 ) -> None:
     """Test the build_exe finalize_options that raises an exception."""
     dist = Distribution(DIST_ATTRS)
@@ -217,25 +250,39 @@ def test_build_exe_finalize_options_raises(
             id="--build-exe=",
         ),
         pytest.param(
-            ["--build-exe=dist"], {"build_exe": "dist"}, id="--build-exe=dist"
+            ["--build-exe=dist"],
+            {"build_exe": "dist"},
+            id="--build-exe=dist",
         ),
-        pytest.param(["--excludes="], {"excludes": []}, id="--excludes="),
         pytest.param(
-            ["--excludes=tkinter,unittest"],
-            {"excludes": ["tkinter", "unittest"]},
-            id="--excludes=tkinter,unittest",
+            ["--excludes="],
+            {"excludes": []},
+            id="--excludes=",
         ),
-        pytest.param(["--includes="], {"includes": []}, id="--includes="),
         pytest.param(
-            ["--includes=tkinter,unittest"],
-            {"includes": ["tkinter", "unittest"]},
-            id="--includes=tkinter,unittest",
+            ["--excludes=tkinter"],
+            {"excludes": ["tkinter"]},
+            id="--excludes=tkinter",
         ),
-        pytest.param(["--packages="], {"packages": []}, id="--packages="),
         pytest.param(
-            ["--packages=tkinter,unittest"],
-            {"packages": ["tkinter", "unittest"]},
-            id="--packages=tkinter,unittest",
+            ["--includes="],
+            {"includes": []},
+            id="--includes=",
+        ),
+        pytest.param(
+            ["--includes=tkinter"],
+            {"includes": ["tkinter"]},
+            id="--includes=tkinter",
+        ),
+        pytest.param(
+            ["--packages="],
+            {"packages": []},
+            id="--packages=",
+        ),
+        pytest.param(
+            ["--packages=tkinter"],
+            {"packages": ["tkinter"]},
+            id="--packages=tkinter",
         ),
         pytest.param(
             ["--replace-paths=*="],
@@ -243,10 +290,14 @@ def test_build_exe_finalize_options_raises(
             id="--replace-paths=*=",
         ),
         pytest.param(
-            ["--bin-excludes="], {"bin_excludes": []}, id="--bin-excludes="
+            ["--bin-excludes="],
+            {"bin_excludes": []},
+            id="--bin-excludes=",
         ),
         pytest.param(
-            ["--bin-includes="], {"bin_includes": []}, id="--bin-includes="
+            ["--bin-includes="],
+            {"bin_includes": []},
+            id="--bin-includes=",
         ),
         pytest.param(
             ["--bin-path-excludes="],
@@ -259,10 +310,14 @@ def test_build_exe_finalize_options_raises(
             id="--bin-path-includes=",
         ),
         pytest.param(
-            ["--include-files="], {"include_files": []}, id="--include-files="
+            ["--include-files="],
+            {"include_files": []},
+            id="--include-files=",
         ),
         pytest.param(
-            ["--zip-includes="], {"zip_includes": []}, id="--zip-includes="
+            ["--zip-includes="],
+            {"zip_includes": []},
+            id="--zip-includes=",
         ),
         pytest.param(
             [],
@@ -320,29 +375,75 @@ def test_build_exe_finalize_options_raises(
             {"no_compress": True, "zip_filename": None},
             id="--no-compress",
         ),
-        pytest.param([], {"optimize": 0}, id="--optimize(notused)"),
-        pytest.param(["--optimize=0"], {"optimize": 0}, id="--optimize=0"),
-        pytest.param(["--optimize=1"], {"optimize": 1}, id="--optimize=1"),
-        pytest.param(["--optimize=2"], {"optimize": 2}, id="--optimize=2"),
-        pytest.param(["-O0"], {"optimize": 0}, id="--optimize(-O0"),
-        pytest.param(["-O1"], {"optimize": 1}, id="--optimize(-O1"),
-        pytest.param(["-O2"], {"optimize": 2}, id="--optimize(-O2"),
-        pytest.param([], {"silent": 0}, id="--silent(notused)"),
-        pytest.param(["--silent"], {"silent": 1}, id="--silent"),
         pytest.param(
-            ["--silent-level=0"], {"silent": 0}, id="--silent-level=0->0"
+            [],
+            {"optimize": 0},
+            id="--optimize(notused)",
         ),
         pytest.param(
-            ["--silent-level=1"], {"silent": 1}, id="--silent-level=1->1"
+            ["--optimize=0"],
+            {"optimize": 0},
+            id="--optimize=0",
         ),
         pytest.param(
-            ["--silent-level=2"], {"silent": 2}, id="--silent-level=2->2"
+            ["--optimize=1"],
+            {"optimize": 1},
+            id="--optimize=1",
         ),
         pytest.param(
-            ["--silent-level=3"], {"silent": 3}, id="--silent-level=3->3"
+            ["--optimize=2"],
+            {"optimize": 2},
+            id="--optimize=2",
         ),
         pytest.param(
-            [], {"include_msvcr": False}, id="--include-msvcr(notused)"
+            ["-O0"],
+            {"optimize": 0},
+            id="--optimize=-O0",
+        ),
+        pytest.param(
+            ["-O1"],
+            {"optimize": 1},
+            id="--optimize=-O1",
+        ),
+        pytest.param(
+            ["-O2"],
+            {"optimize": 2},
+            id="--optimize=-O2",
+        ),
+        pytest.param(
+            [],
+            {"silent": 0},
+            id="--silent(notused)",
+        ),
+        pytest.param(
+            ["--silent"],
+            {"silent": 1},
+            id="--silent",
+        ),
+        pytest.param(
+            ["--silent-level=0"],
+            {"silent": 0},
+            id="--silent-level=0->0",
+        ),
+        pytest.param(
+            ["--silent-level=1"],
+            {"silent": 1},
+            id="--silent-level=1->1",
+        ),
+        pytest.param(
+            ["--silent-level=2"],
+            {"silent": 2},
+            id="--silent-level=2->2",
+        ),
+        pytest.param(
+            ["--silent-level=3"],
+            {"silent": 3},
+            id="--silent-level=3->3",
+        ),
+        pytest.param(
+            [],
+            {"include_msvcr": False},
+            id="--include-msvcr(notused)",
         ),
         pytest.param(
             ["--include-msvcr"],
@@ -366,11 +467,11 @@ def test_build_exe_finalize_options_raises(
         ),
     ],
 )
-def test_build_exe_script_args(
-    build_args: list[str], expected: dict[str, ...]
+def test_build_exe_command_line(
+    build_args: list[str], expected: dict[str, Any]
 ) -> None:
     """Test the build_exe with command line parameters."""
-    attrs = DIST_ATTRS.copy()
+    attrs = deepcopy(DIST_ATTRS)
     attrs["script_args"] = ["build_exe", *build_args]
     dist = Distribution(attrs)
     dist.parse_command_line()
@@ -381,12 +482,62 @@ def test_build_exe_script_args(
         assert getattr(cmd_obj, option) == value
 
 
-def test_build_exe_asmodule(tmp_package) -> None:
+@pytest.mark.parametrize(
+    ("build_args", "expected"),
+    [
+        pytest.param(
+            [],
+            {"build_exe": os.path.normpath(BUILD_EXE_DIR)},
+            id="--build-exe(notused)",
+        ),
+        pytest.param(
+            ['build-exe = "dist"'],
+            {"build_exe": "dist"},
+            id="--build-exe=dist",
+        ),
+    ],
+)
+def test_build_exe_pyproject(
+    tmp_package: TempPackage, build_args: list[str], expected: dict[str, Any]
+) -> None:
+    """Test the build_exe using pyproject."""
+    extra_args = "\n".join(build_args)
+    source = f"""
+pyproject.toml
+    [project]
+    name = "hello"
+    version = "0.0.1"
+    description = "Sample cx_Freeze script"
+
+    [[tool.cxfreeze.executables]]
+    script = "hello.py"
+
+    [tool.cxfreeze.build_exe]
+    {extra_args}
+    """
+    tmp_package.create(source)
+    # get options from pyproject.toml
+    options, executables = get_pyproject_options()
+    attrs = {
+        "executables": executables,
+        "script_name": "pyproject.toml",
+        "script_args": ["build_exe"],
+        "command_options": update_command_options({}, options, {}),
+    }
+    dist = Distribution(attrs)
+    dist.parse_config_files()
+    dist.dump_option_dicts()
+    cmd_obj = dist.get_command_obj("build_exe")
+    cmd_obj.ensure_finalized()
+    for option, value in expected.items():
+        assert getattr(cmd_obj, option) == value
+
+
+def test_build_exe_asmodule(tmp_package: TempPackage) -> None:
     """Test the asmodule sample."""
     tmp_package.create_from_sample("asmodule")
     tmp_package.freeze(
-        "python setup.py build_exe"
-        " --excludes=tkinter,unittest --include-msvcr --silent"
+        "python setup.py build_exe --excludes=tkinter --include-msvcr --silent"
     )
 
     executable = tmp_package.executable("asmodule")
@@ -416,7 +567,7 @@ pyproject.toml
     script = "test2.py"
 
     [tool.cxfreeze.build_exe]
-    excludes = ["tkinter", "unittest"]
+    excludes = ["tkinter"]
     include_msvcr = true
     include_path = ["extra"]
     silent = true
@@ -442,7 +593,7 @@ pyproject.toml
     script = "src/test2.py"
 
     [tool.cxfreeze.build_exe]
-    excludes = ["tkinter", "unittest"]
+    excludes = ["tkinter"]
     include_msvcr = true
     include_path = ["src/extra"]
     silent = true
@@ -478,7 +629,7 @@ src/extra/second.py
     ],
 )
 def test_build_exe_advanced(
-    tmp_package, source: str, zip_packages: bool | None
+    tmp_package: TempPackage, source: str, zip_packages: bool | None
 ) -> None:
     """Test an advanced sample."""
     tmp_package.create(source)
@@ -512,7 +663,7 @@ def test_build_exe_advanced(
         pytest.param(SOURCE_SRC_LAYOUT, id="src"),
     ],
 )
-def test_egg_info(tmp_package, source: str) -> None:
+def test_egg_info(tmp_package: TempPackage, source: str) -> None:
     """Test version update."""
     tmp_package.create(source)
     # update the version in the pyproject

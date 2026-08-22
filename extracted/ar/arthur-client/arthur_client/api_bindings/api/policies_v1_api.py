@@ -7413,6 +7413,7 @@ class PoliciesV1Api:
         policy_id: StrictStr,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -7438,6 +7439,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -7468,6 +7471,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -7498,6 +7502,7 @@ class PoliciesV1Api:
         policy_id: StrictStr,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -7523,6 +7528,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -7553,6 +7560,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -7583,6 +7591,7 @@ class PoliciesV1Api:
         policy_id: StrictStr,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -7608,6 +7617,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -7638,6 +7649,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -7663,6 +7675,7 @@ class PoliciesV1Api:
         policy_id,
         compliance_status,
         name,
+        application_name,
         page,
         page_size,
         _request_auth,
@@ -7696,6 +7709,10 @@ class PoliciesV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if application_name is not None:
+            
+            _query_params.append(('application_name', application_name))
             
         if page is not None:
             
@@ -8978,6 +8995,7 @@ class PoliciesV1Api:
         policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -9005,6 +9023,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -9036,6 +9056,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -9067,6 +9088,7 @@ class PoliciesV1Api:
         policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -9094,6 +9116,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -9125,6 +9149,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -9156,6 +9181,7 @@ class PoliciesV1Api:
         policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        application_name: Annotated[Optional[StrictStr], Field(description="Filter by application name (case-insensitive partial match).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -9183,6 +9209,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param name: Filter by policy name (case-insensitive partial match).
         :type name: str
+        :param application_name: Filter by application name (case-insensitive partial match).
+        :type application_name: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -9214,6 +9242,7 @@ class PoliciesV1Api:
             policy_id=policy_id,
             compliance_status=compliance_status,
             name=name,
+            application_name=application_name,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -9240,6 +9269,7 @@ class PoliciesV1Api:
         policy_id,
         compliance_status,
         name,
+        application_name,
         page,
         page_size,
         _request_auth,
@@ -9277,6 +9307,10 @@ class PoliciesV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if application_name is not None:
+            
+            _query_params.append(('application_name', application_name))
             
         if page is not None:
             

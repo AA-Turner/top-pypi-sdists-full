@@ -9,6 +9,31 @@ if TYPE_CHECKING:
     from chalk.sql.finalized_query import Finalizer
 
 
+@dataclass(frozen=True)
+class ExponentialBackoff:
+    """Backoff for a SQL resolver retry policy: the retry after attempt ``i`` (0-based) waits
+    ``base_ns * factor**i``, and at most ``n_retries`` retries are performed."""
+
+    factor: float
+    n_retries: int
+    base_ns: int
+
+
+@dataclass(frozen=True)
+class SQLResolverRetryPolicy:
+    """Conditions under which a SQL resolver re-runs its query, from ``-- retry_policy:``.
+
+    Only the native SQL operator honors this; the SQLAlchemy path ignores it.
+    """
+
+    if_not_found: ExponentialBackoff | None = None
+    """Re-run the query when an attempt returns no rows, for resolvers reading a store that may
+    not yet reflect a recent write."""
+
+    if_timeout: ExponentialBackoff | None = None
+    """Re-run the query when an attempt fails with a server-side statement timeout."""
+
+
 @dataclass
 class SQLResolverSettings:
     finalizer: Finalizer
@@ -20,3 +45,4 @@ class SQLResolverSettings:
     is_chalk_sql_source: bool = False
     """Set by `-- source: chalksql`. The query targets no external datasource: the engine compiles it
     into a logical plan with its own SQL compiler."""
+    retry_policy: SQLResolverRetryPolicy | None = None

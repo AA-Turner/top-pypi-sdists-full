@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.14.0
+Version: 1.15.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10

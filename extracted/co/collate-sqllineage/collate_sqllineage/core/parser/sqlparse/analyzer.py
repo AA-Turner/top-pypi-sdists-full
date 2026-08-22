@@ -1,7 +1,7 @@
 import logging
 from functools import reduce
 from operator import add
-from typing import List, Union
+from typing import List, Optional, Union
 
 import sqlparse
 from sqlparse.sql import (
@@ -132,13 +132,17 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
         # SELECT column lineage is resolved. The SET clause is walked after the tables
         # are known because in `UPDATE ... SET ... FROM ...` the FROM comes last.
         holder = cls._extract_from_dml(stmt, AnalyzerContext())
-        if holder.write:
+        write_table = cls._get_update_target(holder)
+        if write_table is not None:
             cls._resolve_aliased_update_target(holder)
+            write_table = cls._get_update_target(holder) or write_table
             alias_mapping = SourceHandlerMixin.get_alias_mapping_from_table_group(
-                list(holder.read), holder
+                sorted(holder.read, key=str), holder
             )
-            read_tables = set(holder.read)
-            write_table = list(holder.write)[0]
+            SourceHandlerMixin.add_write_target_to_alias_mapping(
+                alias_mapping, write_table, write_table.alias
+            )
+            resolvable = set(holder.read) | {write_table}
             for comparison in cls._get_update_set_comparisons(stmt):
                 if not isinstance(comparison.left, Identifier):
                     continue
@@ -150,13 +154,30 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                 )
                 target_column.parent = write_table
                 for source_column in target_column.to_source_columns(alias_mapping):
-                    # Only emit when the source resolves to a real table in the
-                    # statement. sqlparse cannot tokenize a three part name with a
-                    # space alias, so an unresolved qualifier would otherwise create
-                    # a phantom default-schema table.
-                    if source_column.parent in read_tables:
+                    # Only emit when the qualifier resolved to a dataset the
+                    # statement references. sqlparse cannot tokenize a three part
+                    # name with a space alias, so an unresolved qualifier would
+                    # otherwise create a phantom default-schema table.
+                    if source_column.parent in resolvable:
                         holder.add_column_lineage(source_column, target_column)
         return StatementLineageHolder.of(holder)
+
+    @staticmethod
+    def _get_update_target(holder) -> Optional[Table]:
+        """
+        Return the real table an UPDATE writes to.
+
+        holder.write is a set that can also carry the SubQuery a `FROM (SELECT ...) s`
+        clause writes into, so indexing it directly picks a different element per
+        interpreter run. Keep only real tables and pick the first by name.
+
+        :param holder: the holder built for the UPDATE statement
+        :return: the write target, or None when the statement writes to no table
+        """
+        write_tables = sorted(
+            (tbl for tbl in holder.write if isinstance(tbl, Table)), key=str
+        )
+        return write_tables[0] if write_tables else None
 
     @staticmethod
     def _resolve_aliased_update_target(holder) -> None:
@@ -167,31 +188,26 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
         The target is matched only against an explicit alias, never a table's own
         name, so a self-join source is not misread as the target.
         """
-        write_tables = list(holder.write)
-        if write_tables:
-            write_table = write_tables[0]
-            if (
-                isinstance(write_table, Table)
-                and str(write_table.schema) == Schema.unknown
-            ):
-                matched = next(
-                    (
-                        tbl
-                        for tbl in holder.read
-                        if isinstance(tbl, Table)
-                        and tbl.alias != tbl.raw_name
-                        and write_table.raw_name == tbl.alias
-                    ),
-                    None,
-                )
-                if matched is not None and matched != write_table:
-                    for alias in list(holder.graph.successors(matched)):
-                        if not isinstance(alias, (Table, SubQuery)):
-                            holder.graph.remove_node(alias)
-                    if write_table in holder.graph:
-                        holder.graph.remove_node(write_table)
-                    holder.add_write(matched)
-                    holder.graph.nodes[matched][NodeTag.READ] = False
+        write_table = SqlParseLineageAnalyzer._get_update_target(holder)
+        if write_table is not None and str(write_table.schema) == Schema.unknown:
+            matched = next(
+                (
+                    tbl
+                    for tbl in sorted(holder.read, key=str)
+                    if isinstance(tbl, Table)
+                    and tbl.alias != tbl.raw_name
+                    and write_table.raw_name == tbl.alias
+                ),
+                None,
+            )
+            if matched is not None and matched != write_table:
+                for alias in list(holder.graph.successors(matched)):
+                    if not isinstance(alias, (Table, SubQuery)):
+                        holder.graph.remove_node(alias)
+                if write_table in holder.graph:
+                    holder.graph.remove_node(write_table)
+                holder.add_write(matched)
+                holder.graph.nodes[matched][NodeTag.READ] = False
 
     @staticmethod
     def _get_update_set_comparisons(stmt: Statement) -> List[Comparison]:

@@ -15,14 +15,25 @@ if TYPE_CHECKING:
 
     from cx_Freeze.module import Module
 
-if sys.version_info[:2] >= (3, 13):
-    from dis import _unpack_opargs
-else:
-    from dis import _unpack_opargs as dis_unpack_opargs
+from dis import _unpack_opargs  # ty: ignore[unresolved-import]
 
-    def _unpack_opargs(co_code) -> Generator:
-        for i, op, arg in dis_unpack_opargs(co_code):
+if sys.version_info[:2] >= (3, 13):
+    unpack_opargs = _unpack_opargs
+else:
+
+    def unpack_opargs(co_code: bytes) -> Generator:
+        for i, op, arg in _unpack_opargs(co_code):
             yield (i, i, op, arg)
+
+
+if sys.version_info[:2] >= (3, 14):
+    from dis import _common_constants  # ty: ignore[unresolved-import]
+else:
+    _common_constants = []
+if sys.version_info[:2] >= (3, 15):
+    HAS_LAZY = True
+else:
+    HAS_LAZY = False
 
 
 CALL = opmap.get("CALL")  # Python 3.11+
@@ -31,9 +42,10 @@ PRECALL = opmap.get("PRECALL")  # Python 3.11 only
 PUSH_NULL = opmap.get("PUSH_NULL")  # Python 3.11+
 
 EXTENDED_ARG = opmap["EXTENDED_ARG"]
+LOAD_COMMON_CONSTANT = opmap.get("LOAD_COMMON_CONSTANT")  # Python 3.14+
 LOAD_CONST = opmap["LOAD_CONST"]
 LOAD_NAME = opmap["LOAD_NAME"]
-LOAD_SMALL_INT = opmap.get("LOAD_SMALL_INT")  # Python 3.14
+LOAD_SMALL_INT = opmap.get("LOAD_SMALL_INT")  # Python 3.14+
 
 IMPORT_NAME = opmap["IMPORT_NAME"]
 IMPORT_FROM = opmap["IMPORT_FROM"]
@@ -56,8 +68,9 @@ __all__ = [
 
 
 def code_object_replace(code: CodeType, **kwargs) -> CodeType:
-    """Return a copy of the code object with new values for the specified
-    fields.
+    """Return a copy of the code object.
+
+    With new values for the specified fields.
     """
     with suppress(ValueError, KeyError):
         kwargs["co_consts"] = tuple(kwargs["co_consts"])
@@ -92,9 +105,10 @@ def code_object_replace_function(
     return code_object_replace(code, co_consts=consts)
 
 
-def code_object_replace_package(module: Module) -> CodeType:
-    """Replace the value of __package__ directly in the code, when the
-    module is in a package and will be stored in shared zip file.
+def code_object_replace_package(module: Module) -> CodeType | None:
+    """Replace the value of __package__ directly in the code.
+
+    When the module is in a package and will be stored in shared zip file.
     """
     code = module.code
     # Check if module is in a package and will be stored in zip file
@@ -108,8 +122,8 @@ def code_object_replace_package(module: Module) -> CodeType:
         return code
     # Only if the code references it.
     if "__package__" in code.co_names:
-        consts = list(code.co_consts)
-        pkg_const_index = len(consts)
+        co_consts = list(code.co_consts)
+        pkg_const_index = len(co_consts)
         pkg_name_index = code.co_names.index("__package__")
         if pkg_const_index > 255 or pkg_name_index > 255:
             # Don't touch modules with many constants or names;
@@ -117,12 +131,13 @@ def code_object_replace_package(module: Module) -> CodeType:
             return code
         # Insert a bytecode to set __package__ as module.parent.name
         codes = [LOAD_CONST, pkg_const_index, STORE_NAME, pkg_name_index]
-        codestring = bytes(codes) + code.co_code
-        if module.file.stem == "__init__":
-            consts.append(module.name)
-        else:
-            consts.append(module.parent.name)
-        code = code_object_replace(code, co_code=codestring, co_consts=consts)
+        co_code = bytes(codes) + code.co_code
+        if module.file:
+            if module.file.stem == "__init__":
+                co_consts.append(module.name)
+            else:
+                co_consts.append(module.parent.name)
+        code = code_object_replace(code, co_code=co_code, co_consts=co_consts)
     return code
 
 
@@ -130,7 +145,7 @@ def scan_code(code: CodeType) -> Generator:
     arguments = []
     names = code.co_names
     consts = code.co_consts
-    for _i, _offset, opc, arg in _unpack_opargs(code.co_code):
+    for _i, _offset, opc, arg in unpack_opargs(code.co_code):
         # keep track of constants (these are used for importing)
         # immediately restart loop so arguments are retained
         if opc == LOAD_CONST:
@@ -139,6 +154,12 @@ def scan_code(code: CodeType) -> Generator:
         # constants in Python 3.14
         if LOAD_SMALL_INT and opc == LOAD_SMALL_INT:
             arguments.append(arg)
+            continue
+        # constants in Python 3.15 (extended use of LOAD_COMMON_CONSTANT)
+        if LOAD_COMMON_CONSTANT and opc == LOAD_COMMON_CONSTANT:
+            # arg 0-6 are callables; 7-11 are literal values.
+            if 7 <= arg <= 11:
+                arguments.append(_common_constants[arg])
             continue
 
         # keep track of the name which can be the name of the import func
@@ -180,7 +201,9 @@ def scan_code(code: CodeType) -> Generator:
 
         # import statement: attempt to import module
         elif opc == IMPORT_NAME:
-            name = names[arg]
+            # IMPORT_NAME encodes lazy/eager flags in bits 0-1,
+            # name index in bits 2+.
+            name = names[arg >> 2 if HAS_LAZY else arg]
             if len(arguments) >= 2:
                 relative_import_index, from_list = arguments[-2:]
             else:

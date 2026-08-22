@@ -7,7 +7,7 @@
 import numpy as np
 from anyascii import anyascii
 from scipy.optimize import linear_sum_assignment
-from shapely.geometry import Polygon
+from shapely import STRtree, area, intersection, polygons
 
 __all__ = [
     "TextMatch",
@@ -17,6 +17,8 @@ __all__ = [
     "LocalizationConfusion",
     "OCRMetric",
     "DetectionMetric",
+    "ObjectDetectionMetric",
+    "TableCellMetric",
 ]
 
 
@@ -144,7 +146,7 @@ def box_iou(boxes_1: np.ndarray, boxes_2: np.ndarray) -> np.ndarray:
 
         intersection = np.clip(right - left, 0, np.inf) * np.clip(bot - top, 0, np.inf)
         union = (r1 - l1) * (b1 - t1) + ((r2 - l2) * (b2 - t2)).T - intersection
-        iou_mat = intersection / union
+        iou_mat = np.divide(intersection, union, out=np.zeros_like(intersection), where=union > 0)
 
     return iou_mat
 
@@ -155,8 +157,6 @@ def polygon_iou(polys_1: np.ndarray, polys_2: np.ndarray) -> np.ndarray:
     Args:
         polys_1: rotated bounding boxes of shape (N, 4, 2)
         polys_2: rotated bounding boxes of shape (M, 4, 2)
-        mask_shape: spatial shape of the intermediate masks
-        use_broadcasting: if set to True, leverage broadcasting speedup by consuming more memory
 
     Returns:
         the IoU matrix of shape (N, M)
@@ -164,17 +164,20 @@ def polygon_iou(polys_1: np.ndarray, polys_2: np.ndarray) -> np.ndarray:
     if polys_1.ndim != 3 or polys_2.ndim != 3:
         raise AssertionError("expects boxes to be in format (N, 4, 2)")
 
-    iou_mat = np.zeros((polys_1.shape[0], polys_2.shape[0]), dtype=np.float32)
+    n, m = polys_1.shape[0], polys_2.shape[0]
+    if n == 0 or m == 0:
+        return np.zeros((n, m), dtype=np.float32)
 
-    shapely_polys_1 = [Polygon(poly) for poly in polys_1]
-    shapely_polys_2 = [Polygon(poly) for poly in polys_2]
+    geoms_1 = polygons(polys_1)
+    geoms_2 = polygons(polys_2)
 
-    for i, poly1 in enumerate(shapely_polys_1):
-        for j, poly2 in enumerate(shapely_polys_2):
-            intersection_area = poly1.intersection(poly2).area
-            union_area = poly1.area + poly2.area - intersection_area
-            iou_mat[i, j] = intersection_area / union_area
-
+    iou_mat = np.zeros((n, m), dtype=np.float32)
+    idcs_1, idcs_2 = STRtree(geoms_2).query(geoms_1)
+    if idcs_1.size > 0:
+        # Compute intersections and areas for the candidate pairs only
+        intersections = area(intersection(geoms_1[idcs_1], geoms_2[idcs_2]))
+        unions = area(geoms_1)[idcs_1] + area(geoms_2)[idcs_2] - intersections
+        iou_mat[idcs_1, idcs_2] = np.divide(intersections, unions, out=np.zeros_like(intersections), where=unions > 0)
     return iou_mat
 
 
@@ -269,7 +272,7 @@ class LocalizationConfusion:
             gts: a set of relative bounding boxes either of shape (N, 4) or (N, 5) if they are rotated ones
             preds: a set of relative bounding boxes either of shape (M, 4) or (M, 5) if they are rotated ones
         """
-        if preds.shape[0] > 0:
+        if gts.shape[0] > 0 and preds.shape[0] > 0:
             # Compute IoU
             if self.use_polygons:
                 iou_mat = polygon_iou(gts, preds)
@@ -307,6 +310,89 @@ class LocalizationConfusion:
         self.num_preds = 0
         self.matches = 0
         self.tot_iou = 0.0
+
+
+class TableCellMetric:
+    r"""Implements a table-structure-recognition metric.
+
+    Predicted cells are matched to ground-truth cells by maximising the total IoU (Hungarian assignment); a pair
+    counts as a match when its IoU is at least `iou_thresh`. From the matches it reports cell-detection recall,
+    precision, F1 and the **structure accuracy** (the fraction of matched cells whose logical coordinates
+    `[start_col, end_col, start_row, end_row]` exactly equal the ground-truth ones).
+
+    >>> import numpy as np
+    >>> from doctr.utils import TableCellMetric
+    >>> metric = TableCellMetric(iou_thresh=0.5)
+    >>> gt = np.array([[0, 0, 1, 1]], dtype=np.float32)
+    >>> metric.update(gt, np.array([[0, 0, 0, 0]]), gt, np.array([[0, 0, 0, 0]]))
+    >>> metric.summary()
+
+    Args:
+        iou_thresh: minimum IoU for a predicted/ground-truth cell pair to be considered a match
+        use_polygons: if set to True, predictions and targets will be expected to have polygon format
+    """
+
+    def __init__(
+        self,
+        iou_thresh: float = 0.5,
+        use_polygons: bool = False,
+    ) -> None:
+        self.iou_thresh = iou_thresh
+        self.use_polygons = use_polygons
+        self.reset()
+
+    def update(
+        self,
+        gt_cells: np.ndarray,
+        gt_logic: np.ndarray,
+        pred_cells: np.ndarray,
+        pred_logic: np.ndarray,
+    ) -> None:
+        """Update the metric with one sample.
+
+        Args:
+            gt_cells: ground-truth cells, shape (N, 4) or (N, 4, 2) when `use_polygons=True`
+            gt_logic: ground-truth logical coordinates, shape (N, 4)
+            pred_cells: predicted cells, shape (M, 4) or (M, 4, 2) when `use_polygons=True`
+            pred_logic: predicted logical coordinates, shape (M, 4)
+        """
+        self.num_gts += gt_cells.shape[0]
+        self.num_preds += pred_cells.shape[0]
+        if gt_cells.shape[0] == 0 or pred_cells.shape[0] == 0:
+            return
+
+        if self.use_polygons:
+            iou_mat = polygon_iou(gt_cells, pred_cells)
+        else:
+            iou_mat = box_iou(gt_cells, pred_cells)
+        gt_idx, pred_idx = linear_sum_assignment(-iou_mat)
+        for gi, pi in zip(gt_idx, pred_idx):
+            if iou_mat[gi, pi] >= self.iou_thresh:
+                self.matches += 1
+                if np.array_equal(np.asarray(gt_logic[gi]), np.asarray(pred_logic[pi])):
+                    self.struct_matches += 1
+
+    def summary(self) -> dict[str, float | None]:
+        """Compute the aggregated metrics.
+
+        Returns:
+            a dict with `recall`, `precision`, `f1` (cell detection) and `structure_acc`
+        """
+        recall = self.matches / self.num_gts if self.num_gts > 0 else None
+        precision = self.matches / self.num_preds if self.num_preds > 0 else None
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision is not None and recall is not None and (precision + recall) > 0
+            else None
+        )
+        structure_acc = self.struct_matches / self.matches if self.matches > 0 else None
+        return {"recall": recall, "precision": precision, "f1": f1, "structure_acc": structure_acc}
+
+    def reset(self) -> None:
+        self.num_gts = 0
+        self.num_preds = 0
+        self.matches = 0
+        self.struct_matches = 0
 
 
 class OCRMetric:
@@ -379,8 +465,7 @@ class OCRMetric:
                 "there should be the same number of boxes and string both for the ground truth and the predictions"
             )
 
-        # Compute IoU
-        if pred_boxes.shape[0] > 0:
+        if gt_boxes.shape[0] > 0 and pred_boxes.shape[0] > 0:
             if self.use_polygons:
                 iou_mat = polygon_iou(gt_boxes, pred_boxes)
             else:
@@ -509,8 +594,7 @@ class DetectionMetric:
                 "there should be the same number of boxes and string both for the ground truth and the predictions"
             )
 
-        # Compute IoU
-        if pred_boxes.shape[0] > 0:
+        if gt_boxes.shape[0] > 0 and pred_boxes.shape[0] > 0:
             if self.use_polygons:
                 iou_mat = polygon_iou(gt_boxes, pred_boxes)
             else:
@@ -549,3 +633,251 @@ class DetectionMetric:
         self.num_preds = 0
         self.tot_iou = 0.0
         self.num_matches = 0
+
+
+class ObjectDetectionMetric:
+    r"""Implements a COCO-style object detection metric (mAP@[.5:.95]) inspired by the COCO evaluation protocol.
+
+    The aggregated metrics are computed as follows:
+
+    .. math::
+
+        \forall (B, C) \in \mathcal{B}^N \times \mathcal{C}^N,
+        \forall (\hat{B}, \hat{C}, S) \in \mathcal{B}^M \times \mathcal{C}^M \times \mathbb{R}^M, \\
+
+        AP_t(C) =
+        \frac{1}{101}
+        \sum\limits_{r \in \{0, 0.01, \dots, 1.0\}}
+        \max_{\tilde{r} \geq r} Precision_t(\tilde{r}, C) \\
+
+        mAP@[.5:.95] =
+        \frac{1}{|\mathcal{T}|}
+        \sum\limits_{t \in \mathcal{T}}
+        \frac{1}{|\mathcal{C}|}
+        \sum\limits_{c \in \mathcal{C}} AP_t(c)
+
+    where:
+        - :math:`\mathcal{B}` is the set of possible bounding boxes,
+        - :math:`\mathcal{C}` is the set of possible class indices,
+        - :math:`S` are confidence scores associated to predictions,
+        - :math:`\mathcal{T} = \{0.5, 0.55, \dots, 0.95\}` is the set of IoU thresholds,
+        - :math:`AP_t(c)` is the Average Precision for class :math:`c`
+        at IoU threshold :math:`t`.
+
+    For a given class and IoU threshold, predictions from all images are
+    aggregated and sorted globally by decreasing confidence score.
+
+    Each prediction is greedily matched to the unmatched ground-truth box
+    with the highest IoU, provided that:
+
+        - the IoU is greater than or equal to the threshold,
+        - the ground-truth box has not already been matched.
+
+    True positives and false positives are accumulated to build a
+    precision-recall curve.
+
+    Average Precision is computed using the COCO 101-point interpolated
+    precision-recall curve.
+
+    >>> import numpy as np
+    >>> from doctr.utils import ObjectDetectionMetric
+    >>> metric = ObjectDetectionMetric()
+    >>> metric.update(
+    ...     np.asarray([[0, 0, 100, 100]]),
+    ...     np.asarray([[0, 0, 80, 80], [120, 120, 200, 200]]),
+    ...     np.asarray([0]),
+    ...     np.asarray([0, 1]),
+    ...     np.asarray([0.9, 0.3])
+    ... )
+    >>> metric.summary()
+
+    Args:
+        iou_thresholds: sequence of IoU thresholds used to compute the metric
+            (defaults to np.arange(0.5, 1.0, 0.05))
+        num_classes: total number of classes. If None, inferred from data
+        use_polygons: if set to True, predictions and targets will be expected
+            to have rotated format
+    """
+
+    def __init__(
+        self,
+        iou_thresholds: np.ndarray | None = None,
+        num_classes: int | None = None,
+        use_polygons: bool = False,
+    ) -> None:
+        self.iou_thresholds = iou_thresholds if iou_thresholds is not None else np.round(np.arange(0.5, 1.0, 0.05), 2)
+        self.num_classes = num_classes
+        self.use_polygons = use_polygons
+        self.reset()
+
+    def update(
+        self,
+        gt_boxes: np.ndarray,
+        pred_boxes: np.ndarray,
+        gt_labels: np.ndarray,
+        pred_labels: np.ndarray,
+        pred_scores: np.ndarray,
+    ) -> None:
+        if (
+            gt_boxes.shape[0] != gt_labels.shape[0]
+            or pred_boxes.shape[0] != pred_labels.shape[0]
+            or pred_boxes.shape[0] != pred_scores.shape[0]
+        ):
+            raise AssertionError("Mismatch between boxes, labels, scores")
+
+        self._gts.append({"boxes": gt_boxes, "labels": gt_labels})
+        self._preds.append({"boxes": pred_boxes, "labels": pred_labels, "scores": pred_scores})
+
+    def summary(self) -> dict[str, float | dict[float, float]]:
+        """Computes the aggregated metrics
+
+        Returns:
+            a dictionary with the mAP@[.5:.95], AP@[.5], AP@[.75] and AP per IoU threshold
+        """
+        if len(self._gts) == 0:
+            raise AssertionError("No samples added")
+
+        # Determine classes
+        if self.num_classes is None:
+            labels = []
+            for g in self._gts:
+                labels.extend(g["labels"].tolist())
+            for p in self._preds:
+                labels.extend(p["labels"].tolist())
+            classes = np.unique(labels)
+        else:
+            classes = np.arange(self.num_classes)
+
+        ap_per_iou = {}
+
+        for iou_thresh in self.iou_thresholds:
+            class_aps = []
+
+            for c in classes:
+                # Collect GTs per image
+                gt_by_image = {}
+                total_gt = 0
+
+                for img_idx, gt in enumerate(self._gts):
+                    mask = gt["labels"] == c
+                    gt_boxes = gt["boxes"][mask]
+
+                    gt_by_image[img_idx] = {
+                        "boxes": gt_boxes,
+                        "matched": np.zeros(len(gt_boxes), dtype=bool),
+                    }
+
+                    total_gt += len(gt_boxes)
+
+                if total_gt == 0:
+                    continue
+
+                # Collect all detections globally
+                detections = []
+
+                for img_idx, pred in enumerate(self._preds):
+                    mask = pred["labels"] == c
+
+                    pred_boxes = pred["boxes"][mask]
+                    pred_scores = pred["scores"][mask]
+
+                    for box, score in zip(pred_boxes, pred_scores):
+                        detections.append({
+                            "image_id": img_idx,
+                            "box": box,
+                            "score": float(score),
+                        })
+
+                if len(detections) == 0:
+                    class_aps.append(0.0)
+                    continue
+
+                # Global sorting COCO-style
+                detections.sort(key=lambda x: -x["score"])
+
+                tp = np.zeros(len(detections))
+                fp = np.zeros(len(detections))
+
+                # Evaluate detections
+                for det_idx, det in enumerate(detections):
+                    img_idx = det["image_id"]
+                    pred_box = det["box"]
+
+                    gt_data = gt_by_image[img_idx]
+                    gt_boxes = gt_data["boxes"]
+
+                    if len(gt_boxes) == 0:
+                        fp[det_idx] = 1
+                        continue
+
+                    # Compute IoUs
+                    if self.use_polygons:
+                        iou_mat = polygon_iou(
+                            gt_boxes,
+                            np.expand_dims(pred_box, axis=0),
+                        )
+                    else:
+                        iou_mat = box_iou(
+                            gt_boxes,
+                            np.expand_dims(pred_box, axis=0),
+                        )
+
+                    ious = iou_mat[:, 0]
+
+                    best_gt = np.argmax(ious)
+                    best_iou = ious[best_gt]
+
+                    if best_iou >= iou_thresh and not gt_data["matched"][best_gt]:
+                        tp[det_idx] = 1
+                        gt_data["matched"][best_gt] = True
+                    else:
+                        fp[det_idx] = 1
+
+                # Precision / Recall
+                tp_cum = np.cumsum(tp)
+                fp_cum = np.cumsum(fp)
+
+                recall = tp_cum / total_gt
+                precision = tp_cum / np.maximum(tp_cum + fp_cum, 1e-8)
+
+                ap = self._compute_ap(recall, precision)
+                class_aps.append(ap)
+
+            ap_per_iou[float(iou_thresh)] = float(np.mean(class_aps)) if len(class_aps) > 0 else 0.0
+
+        map_value = float(np.mean(list(ap_per_iou.values())))
+        ap50 = ap_per_iou.get(0.5, 0.0)
+        ap75 = ap_per_iou.get(0.75, 0.0)
+
+        return {
+            "mAP@[.5:.95]": map_value,
+            "AP@[.5]": ap50,
+            "AP@[.75]": ap75,
+            "AP_per_IoU": ap_per_iou,
+        }
+
+    def _compute_ap(self, recall: np.ndarray, precision: np.ndarray) -> float:
+        """Computes the Average Precision using the 101-point interpolation method from COCO
+
+        Args:
+            recall: array of recall values
+            precision: array of precision values
+
+        Returns:
+            the Average Precision score
+        """
+        # 101-point interpolation as per COCO
+        precision = np.maximum.accumulate(precision[::-1])[::-1]
+
+        recall_levels = np.linspace(0, 1, 101)
+        precisions = np.zeros_like(recall_levels)
+
+        for i, r in enumerate(recall_levels):
+            p = precision[recall >= r]
+            precisions[i] = np.max(p) if p.size > 0 else 0.0
+
+        return float(np.mean(precisions))
+
+    def reset(self):
+        self._gts = []
+        self._preds = []

@@ -171,6 +171,68 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                         break
         return resolved
 
+    @staticmethod
+    def _get_ctes(statement: Expression) -> List[exp.CTE]:
+        """
+        Return the CTEs a statement declares.
+
+        exp.Update keeps its WITH clause under the `with_` argument and has no `ctes`
+        property, so reading `ctes` alone misses every CTE an UPDATE declares and the
+        CTE name is then read as a table in its own right.
+
+        :param statement: a sqlglot Expression
+        :return: the statement's CTE expressions, empty when it declares none
+        """
+        ctes = getattr(statement, "ctes", None)
+        if not ctes:
+            with_exp = statement.args.get("with_")
+            ctes = with_exp.expressions if with_exp is not None else []
+        return [cte for cte in ctes if isinstance(cte, exp.CTE)]
+
+    @staticmethod
+    def _resolve_cte_reference(
+        table: exp.Table, holder: SqlGlotSubQueryLineageHolder
+    ) -> Optional[SubQuery]:
+        """
+        Resolve a bare table reference against the CTEs the statement declares.
+
+        :param table: the referenced table expression
+        :param holder: the holder the statement's CTEs were registered on
+        :return: the matching CTE, or None when the reference is a real table
+        """
+        resolved = None
+        if not table.db and not table.catalog:
+            name = table.name.lower()
+            resolved = next(
+                (
+                    cte
+                    for cte in sorted(holder.cte, key=str)
+                    if cte.alias and cte.alias.lower() == name
+                ),
+                None,
+            )
+        return resolved
+
+    def _extract_update_from_subquery(
+        self, subquery: exp.Subquery, holder: SqlGlotSubQueryLineageHolder
+    ) -> None:
+        """
+        Read the subquery of an `UPDATE ... FROM (SELECT ...) alias` clause into the holder.
+
+        :param subquery: the FROM clause subquery
+        :param holder: the holder for the UPDATE statement
+        """
+        if subquery.alias and isinstance(subquery.this, exp.Select):
+            source = SqlGlotSubQuery.of(subquery.this, subquery.alias)
+            holder.add_read(source)
+            select_extractor = DmlSelectExtractor(self.dialect)
+            sq_holder = select_extractor.extract(
+                subquery.this, AnalyzerContext(source, holder.cte), False
+            )
+            for table in sq_holder.read:
+                holder.add_read(table)
+            holder |= sq_holder
+
     def extract(
         self,
         statement: Expression,
@@ -186,20 +248,25 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
         """
         holder = self._init_holder(context)
 
-        if hasattr(statement, "ctes") and statement.ctes:
-            for cte in statement.ctes:
-                cte_alias = cte.alias or None
-                cte_query = cte.this if hasattr(cte, "this") else cte
-                if cte_alias and cte_query:
-                    cte_subquery = SqlGlotSubQuery.of(cte_query, cte_alias)
-                    holder.add_cte(cte_subquery)
+        for cte_expression in self._get_ctes(statement):
+            cte_alias = cte_expression.alias or None
+            cte_query = cte_expression.this
+            if cte_alias and cte_query:
+                cte_subquery = SqlGlotSubQuery.of(cte_query, cte_alias)
+                holder.add_cte(cte_subquery)
 
-                    select_extractor = DmlSelectExtractor(self.dialect)
-                    cte_holder = select_extractor.extract(
-                        cte_query, AnalyzerContext(cte_subquery, holder.cte), False
-                    )
-                    for table in cte_holder.read:
-                        holder.add_read(table)
+                select_extractor = DmlSelectExtractor(self.dialect)
+                cte_holder = select_extractor.extract(
+                    cte_query, AnalyzerContext(cte_subquery, holder.cte), False
+                )
+                for table in cte_holder.read:
+                    holder.add_read(table)
+                if isinstance(statement, exp.Update):
+                    # An UPDATE body is resolved here rather than by the select
+                    # extractor, so its CTE column edges have to be kept. Every other
+                    # statement hands its body to the select extractor, which extracts
+                    # the same CTE again, and a second copy here contradicts it.
+                    holder |= cte_holder
 
         if isinstance(statement, (exp.Insert, exp.Update, exp.Delete, exp.Merge)):
             target_table = statement.this
@@ -378,20 +445,34 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
             from_exp = statement.args.get("from_")
             if from_exp and from_exp.this:
                 table = from_exp.this
-                if isinstance(table, exp.Table):
-                    if table is not update_target_from_table:
+                if isinstance(table, exp.Subquery) and isinstance(
+                    statement, exp.Update
+                ):
+                    self._extract_update_from_subquery(table, holder)
+                elif isinstance(table, exp.Table):
+                    cte_source = self._resolve_cte_reference(table, holder)
+                    if cte_source is not None:
+                        holder.add_read(cte_source)
+                        if table.alias and table.alias != cte_source.alias:
+                            # `FROM cte_name alias` reads the CTE under a second name.
+                            # add_read only registers the CTE's own name, so a SET
+                            # source qualified by the alias would not resolve.
+                            holder.graph.add_edge(
+                                cte_source, table.alias, type=EdgeType.HAS_ALIAS
+                            )
+                    elif table is not update_target_from_table:
                         holder.add_read(SqlGlotTable.of(table))
-                    # Extract JOINs from FROM clause
-                    joins = table.args.get("joins")
-                    if joins:
-                        for join in joins:
-                            if isinstance(join, exp.Join):
-                                join_table = join.this
-                                if (
-                                    isinstance(join_table, exp.Table)
-                                    and join_table is not update_target_from_table
-                                ):
-                                    holder.add_read(SqlGlotTable.of(join_table))
+
+                # JOINs hang off the FROM item, which is a subquery as often as it is
+                # a table, so they are read here rather than inside either branch.
+                for join in table.args.get("joins") or []:
+                    if isinstance(join, exp.Join):
+                        join_table = join.this
+                        if (
+                            isinstance(join_table, exp.Table)
+                            and join_table is not update_target_from_table
+                        ):
+                            holder.add_read(SqlGlotTable.of(join_table))
 
             # Column lineage for a plain UPDATE. Each `SET target = expr` assignment is
             # treated as a projection `expr AS target` and resolved through the same
@@ -399,8 +480,17 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
             # real tables instead of a default-schema alias.
             if isinstance(statement, exp.Update):
                 alias_mapping = self.get_alias_mapping_from_table_group(
-                    list(holder.read), holder
+                    sorted(holder.read, key=str), holder
                 )
+                resolvable = set(holder.read) | set(holder.cte)
+                if target_table_obj is not None:
+                    target = statement.this
+                    self.add_write_target_to_alias_mapping(
+                        alias_mapping,
+                        target_table_obj,
+                        target.alias if isinstance(target, exp.Table) else None,
+                    )
+                    resolvable.add(target_table_obj)
                 for set_expr in statement.args.get("expressions", []):
                     if not (
                         isinstance(set_expr, exp.EQ)
@@ -414,7 +504,11 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                     if target_table_obj is not None:
                         target_column.parent = target_table_obj
                     for source_column in target_column.to_source_columns(alias_mapping):
-                        holder.add_column_lineage(source_column, target_column)
+                        # Only emit when the qualifier resolved to a dataset the
+                        # statement actually references. An unresolved one would
+                        # otherwise create a phantom default-schema table.
+                        if source_column.parent in resolvable:
+                            holder.add_column_lineage(source_column, target_column)
 
             if isinstance(statement, exp.Merge):
                 # Extract USING clause

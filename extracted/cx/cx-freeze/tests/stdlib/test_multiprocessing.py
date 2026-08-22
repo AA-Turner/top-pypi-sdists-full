@@ -1,0 +1,134 @@
+"""Tests for hooks of multiprocessing."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pytest
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
+
+TIMEOUT = 15
+
+SOURCE = """\
+sample0.py
+    from multiprocessing import Pool, freeze_support, set_start_method
+
+    def foo(n):
+        return f"Hello from cx_Freeze #{n}"
+
+    if __name__ == "__main__":
+        freeze_support()
+        set_start_method('spawn')
+        with Pool(2) as pool:
+            results = pool.map(foo, range(10))
+        for line in sorted(results):
+            print(line)
+sample1.py
+    import multiprocessing
+
+    def foo(q):
+        q.put("Hello from cx_Freeze")
+
+    if __name__ == "__main__":
+        multiprocessing.freeze_support()
+        multiprocessing.set_start_method('spawn')
+        q = multiprocessing.SimpleQueue()
+        p = multiprocessing.Process(target=foo, args=(q,))
+        p.start()
+        print(q.get())
+        p.join()
+sample2.py
+    import multiprocessing
+
+    def foo(q):
+        q.put("Hello from cx_Freeze")
+
+    if __name__ == "__main__":
+        ctx = multiprocessing.get_context('spawn')
+        ctx.freeze_support()
+        q = ctx.Queue()
+        p = ctx.Process(target=foo, args=(q,))
+        p.start()
+        print(q.get())
+        p.join()
+sample3.py
+    if __name__ == "__main__":
+        import multiprocessing, sys
+        multiprocessing.freeze_support()
+        multiprocessing.set_start_method('spawn')
+        mgr = multiprocessing.Manager()
+        var = [1] * 10000000
+        print("creating dict", end="...")
+        mgr_dict = mgr.dict({'test': var})
+        print("done!")
+pyproject.toml
+    [project]
+    name = "test_mp"
+    version = "0.1.2.3"
+    description = "Sample for test with cx_Freeze"
+
+    [tool.cxfreeze]
+    executables = ["sample0.py", "sample1.py", "sample2.py", "sample3.py"]
+
+    [tool.cxfreeze.build_exe]
+    include-msvcr = true
+    excludes = ["tkinter"]
+    silent = true
+"""
+EXPECTED_OUTPUT = [
+    "Hello from cx_Freeze #9",
+    "Hello from cx_Freeze",
+    "Hello from cx_Freeze",
+    "creating dict...done!",
+]
+
+
+def _parameters_data() -> list:
+    import multiprocessing as mp  # noqa: PLC0415
+
+    data = []
+    methods = mp.get_all_start_methods()
+    for method in methods:
+        source = SOURCE.replace("('spawn')", f"('{method}')")
+        for i, expected in enumerate(EXPECTED_OUTPUT):
+            if method == "forkserver" and i != 3:
+                continue  # only sample3 works with forkserver method
+            sample = f"sample{i}"
+            test_id = f"{sample}-{method}"
+            data.append(
+                pytest.param(source, sample, expected, False, id=test_id)
+            )
+            test_id = f"{sample}-{method}-zip_packages"
+            data.append(
+                pytest.param(source, sample, expected, True, id=test_id)
+            )
+    return data
+
+
+@pytest.mark.parametrize(
+    ("source", "sample", "expected", "zip_packages"), _parameters_data()
+)
+def test_multiprocessing(
+    tmp_package: TempPackage,
+    source: str,
+    sample: str,
+    expected: str,
+    zip_packages: pytest.MarkDecorator,
+) -> None:
+    """Provides test cases for multiprocessing."""
+    tmp_package.create(source)
+    if zip_packages:
+        pyproject = tmp_package.path / "pyproject.toml"
+        buf = pyproject.read_bytes().decode().splitlines()
+        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    tmp_package.freeze()
+
+    executable = tmp_package.executable(sample)
+    assert executable.is_file()
+    result = tmp_package.run(
+        executable, cwd=executable.parent, timeout=TIMEOUT
+    )
+    result.stdout.fnmatch_lines(expected)

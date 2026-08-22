@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arviz-plots
-Version: 1.3.0
+Version: 1.3.1
 Summary: ArviZ-plots provides ready to use and composable plots for Bayesian Workflow.
 Author-email: ArviZ team <arvizdevs@gmail.com>
 Requires-Python: >=3.12

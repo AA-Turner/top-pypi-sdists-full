@@ -119,7 +119,7 @@ class RichText(Object):
         if isinstance(rich_text, raw.types.TextMentionName):
             return RichTextTextMention(
                 text=await RichText._parse(client, rich_text.text),
-                user=types.User._parse(client, users.get(rich_text.user_id)),
+                user=await types.User._parse(client, users.get(rich_text.user_id)),
             )
 
         if isinstance(rich_text, raw.types.TextSubscript):
@@ -196,7 +196,7 @@ class RichText(Object):
 
             return RichTextMention(
                 text=content,
-                username=content.lstrip("@"),
+                username=RichText._to_plain_text(content).lstrip("@"),
             )
 
         if isinstance(rich_text, raw.types.TextHashtag):
@@ -204,7 +204,7 @@ class RichText(Object):
 
             return RichTextHashtag(
                 text=content,
-                hashtag=content.lstrip("#"),
+                hashtag=RichText._to_plain_text(content).lstrip("#"),
             )
 
         if isinstance(rich_text, raw.types.TextCashtag):
@@ -212,7 +212,7 @@ class RichText(Object):
 
             return RichTextCashtag(
                 text=content,
-                cashtag=content.lstrip("$"),
+                cashtag=RichText._to_plain_text(content).lstrip("$"),
             )
 
         if isinstance(rich_text, raw.types.TextBotCommand):
@@ -220,7 +220,7 @@ class RichText(Object):
 
             return RichTextBotCommand(
                 text=content,
-                bot_command=content.lstrip("/"),
+                bot_command=RichText._to_plain_text(content).lstrip("/"),
             )
 
         if isinstance(rich_text, raw.types.TextAnchor):
@@ -234,6 +234,27 @@ class RichText(Object):
             )
 
         # TODO: if isinstance(rich_text, raw.types.TextImage):
+
+    @staticmethod
+    def _to_plain_text(text: "RichText") -> str:
+        if isinstance(text, str):
+            return text
+
+        if isinstance(text, (list, types.List)):
+            return "".join(RichText._to_plain_text(t) for t in text)
+
+        if hasattr(text, "text"):
+            return RichText._to_plain_text(text.text)
+
+        # Math expression
+        if hasattr(text, "expression"):
+            return RichText._to_plain_text(text.expression)
+
+        # Custom emoji
+        if hasattr(text, "alternative_text"):
+            return RichText._to_plain_text(text.alternative_text)
+
+        return ""
 
 
 class RichTextBold(RichText):

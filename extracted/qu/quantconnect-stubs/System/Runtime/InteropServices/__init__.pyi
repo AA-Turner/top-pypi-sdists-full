@@ -1859,7 +1859,7 @@ class RuntimeInformation(System.Object):
 
     RUNTIME_IDENTIFIER: str
 
-    process_architecture: System.Runtime.InteropServices.Architecture
+    PROCESS_ARCHITECTURE: System.Runtime.InteropServices.Architecture
 
     @staticmethod
     def is_os_platform(os_platform: System.Runtime.InteropServices.OSPlatform) -> bool:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: river
-Version: 0.26.0
+Version: 0.26.1
 Requires-Dist: scipy>=1.14.1,<2
 Requires-Dist: numpy>=2.2.5,<3
 Requires-Dist: narwhals>=2.0.0

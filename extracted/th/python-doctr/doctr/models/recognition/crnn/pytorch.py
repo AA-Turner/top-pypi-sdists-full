@@ -73,10 +73,8 @@ class CTCPostProcessor(RecognitionPostProcessor):
         probs = F.softmax(logits, dim=-1).max(dim=-1).values.min(dim=1).values
 
         # collapse best path (using itertools.groupby), map to chars, join char list to string
-        words = [
-            decode_sequence([k for k, _ in groupby(seq.tolist()) if k != blank], vocab)
-            for seq in torch.argmax(logits, dim=-1)
-        ]
+        best_paths = torch.argmax(logits, dim=-1).detach().cpu().numpy()
+        words = [decode_sequence([k for k, _ in groupby(seq.tolist()) if k != blank], vocab) for seq in best_paths]
 
         return list(zip(words, probs.tolist()))
 
@@ -279,7 +277,7 @@ def crnn_vgg16_bn(pretrained: bool = False, **kwargs: Any) -> CRNN:
     >>> out = model(input_tensor)
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on our text recognition dataset
+        pretrained: If True, returns a model pre-trained on our text recognition dataset
         **kwargs: keyword arguments of the CRNN architecture
 
     Returns:
@@ -299,7 +297,7 @@ def crnn_mobilenet_v3_small(pretrained: bool = False, **kwargs: Any) -> CRNN:
     >>> out = model(input_tensor)
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on our text recognition dataset
+        pretrained: If True, returns a model pre-trained on our text recognition dataset
         **kwargs: keyword arguments of the CRNN architecture
 
     Returns:
@@ -325,7 +323,7 @@ def crnn_mobilenet_v3_large(pretrained: bool = False, **kwargs: Any) -> CRNN:
     >>> out = model(input_tensor)
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on our text recognition dataset
+        pretrained: If True, returns a model pre-trained on our text recognition dataset
         **kwargs: keyword arguments of the CRNN architecture
 
     Returns:

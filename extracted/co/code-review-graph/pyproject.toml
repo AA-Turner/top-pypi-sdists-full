@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "code-review-graph"
-version = "2.3.7"
+version = "2.3.8"
 description = "Local-first knowledge graph for token-efficient code review through MCP and CLI"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "MIT"
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
-    "mcp>=1.0.0,<2",
+    "mcp>=1.0.0,<3",
     # fastmcp >=3.2.4 is required for Message-based prompts and includes the
     # CVE-2025-62800/62801/66416 fixes; <4 prevents the next major release
     # from breaking the server the way fastmcp 3.0 did. See: #488
@@ -55,7 +55,7 @@ embeddings = [
     "numpy>=1.26,<3",
 ]
 google-embeddings = [
-    "google-generativeai>=0.8.0,<1",
+    "google-genai>=1.0.0,<3",
 ]
 communities = [
     "igraph>=0.11.0",
@@ -69,6 +69,7 @@ wiki = [
 ]
 all = [
     "code-review-graph[embeddings]",
+    "code-review-graph[google-embeddings]",
     "code-review-graph[communities]",
     "code-review-graph[enrichment]",
     "code-review-graph[eval]",
@@ -78,6 +79,7 @@ enrichment = [
     "jedi>=0.19.2",
 ]
 dev = [
+    "mypy>=1.10,<3",
     "pytest>=8.0,<9",
     "pytest-asyncio>=0.23,<2",
     "pytest-cov>=4.0,<8",
@@ -87,9 +89,6 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["code_review_graph"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"docs/LLM-OPTIMIZED-REFERENCE.md" = "code_review_graph/docs/LLM-OPTIMIZED-REFERENCE.md"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -115,6 +114,7 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 "code_review_graph/visualization.py" = ["E501"]  # embedded HTML/JS template
+"code_review_graph/_legacy_instructions.py" = ["E501"]  # verbatim past output, must not be reflowed
 "tests/fixtures/sample_databricks_export.py" = ["F841", "W292"]  # intentional fixture patterns
 "tests/fixtures/sample_notebook.ipynb" = ["F401", "I001"]  # fixture imports: intentionally unused, split across cells
 "tests/test_multilang.py" = ["E501"]  # long assertions with explanatory comments

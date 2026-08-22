@@ -5,7 +5,10 @@ from __future__ import annotations
 import os
 import platform
 from contextlib import suppress
+from copy import deepcopy
+from ctypes.util import find_library
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from filelock import FileLock
@@ -14,6 +17,9 @@ from setuptools import Distribution
 from cx_Freeze._compat import IS_LINUX
 from cx_Freeze.command.bdist_appimage import bdist_appimage
 from cx_Freeze.exception import PlatformError
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 DIST_ATTRS = {
     "name": "foo",
@@ -24,9 +30,9 @@ DIST_ATTRS = {
 }
 
 
-@pytest.mark.skipif(IS_LINUX, reason="Test not on Linux platform")
-def test_bdist_appimage_not_posix() -> None:
-    """Test the bdist_appimage fail if not on Linux."""
+@pytest.mark.skipif(IS_LINUX, reason="Test for non-Linux platform")
+def test_bdist_appimage_in_non_linux() -> None:
+    """Test the bdist_appimage fail in non-Linux."""
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_appimage(dist)
     msg = "bdist_appimage is only supported on Linux"
@@ -41,6 +47,7 @@ def test_bdist_appimage_download_appimagetool() -> None:
     cmd = bdist_appimage(dist)
     cmd.finalize_options()
     appimagetool = cmd.appimagetool
+    assert appimagetool is not None
     # remove
     with FileLock(appimagetool + ".lock"), suppress(FileNotFoundError):
         os.unlink(appimagetool)
@@ -48,12 +55,14 @@ def test_bdist_appimage_download_appimagetool() -> None:
     cmd2 = bdist_appimage(dist)
     cmd2.finalize_options()
     cmd2.ensure_finalized()
-    assert os.path.exists(cmd2.appimagetool)
+    appimagetool = cmd2.appimagetool
+    assert appimagetool is not None
+    assert os.path.exists(appimagetool)
     assert cmd2.fullname == "foo-0.0"
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_download_runtime(tmp_path) -> None:
+def test_bdist_appimage_download_runtime(tmp_path: Path) -> None:
     """Test bdist_appimage for "offline" builds."""
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_appimage(dist)
@@ -93,9 +102,10 @@ def test_bdist_appimage_target_name_and_version() -> None:
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
 def test_bdist_appimage_target_name_and_name_none() -> None:
     """Test the bdist_appimage with target options."""
-    attrs = DIST_ATTRS.copy()
+    attrs = deepcopy(DIST_ATTRS)
     del attrs["name"]
-    attrs["executables"].append("other.py")
+    executables = cast("list[str]", attrs["executables"])
+    executables.append("other.py")
     dist = Distribution(attrs)
     cmd = bdist_appimage(dist)
     cmd.finalize_options()  # name = None, target_name = first script name
@@ -106,7 +116,7 @@ def test_bdist_appimage_target_name_and_name_none() -> None:
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
 def test_bdist_appimage_target_name_and_version_none() -> None:
     """Test the bdist_appimage with target options."""
-    attrs = DIST_ATTRS.copy()
+    attrs = deepcopy(DIST_ATTRS)
     del attrs["version"]
     dist = Distribution(attrs)
     cmd = bdist_appimage(dist)
@@ -117,30 +127,36 @@ def test_bdist_appimage_target_name_and_version_none() -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_target_name_with_extension(tmp_package) -> None:
-    """Test the tkinter sample, with a specified target_name that includes an
-    ".AppImage" extension.
+def test_bdist_appimage_target_name_with_extension(
+    tmp_package: TempPackage,
+) -> None:
+    """Test the simple sample with specific option.
+
+    With a specified target_name that includes an ".AppImage" extension.
+    Equivalent to:
+        python setup.py bdist_appimage --target-name=output.AppImage
     """
     name = "output.AppImage"
 
     # create bdist and dist to test coverage
-    tmp_package.create_from_sample("tkinter")
+    tmp_package.create_from_sample("simple")
     dist = Distribution(DIST_ATTRS)
-    cmd = bdist_appimage(dist)
+    cmd = bdist_appimage(dist, target_name=name)
     cmd.finalize_options()
     cmd.ensure_finalized()
-    cmd.mkpath(os.path.join(cmd.bdist_base, "AppDir"))
-    cmd.mkpath(cmd.dist_dir)
-    outfile = os.path.join(cmd.dist_dir, name)
-    cmd.save_as_file("data", outfile, mode="rwx")
-
-    tmp_package.freeze(f"python setup.py bdist_appimage --target-name {name}")
+    bdist_base = cmd.bdist_base
+    assert bdist_base is not None
+    dist_dir = cmd.dist_dir
+    assert dist_dir is not None
+    cmd.mkpath(dist_dir)
+    outfile = os.path.join(dist_dir, name)
+    cmd.run()
     file_created = Path(outfile)
     assert file_created.is_file()
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_skip_build(tmp_package) -> None:
+def test_bdist_appimage_skip_build(tmp_package: TempPackage) -> None:
     """Test the tkinter sample with bdist_appimage."""
     name = "test_tkinter"
     version = "0.3.2"
@@ -155,7 +171,7 @@ def test_bdist_appimage_skip_build(tmp_package) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_implicit_skip_build(tmp_package) -> None:
+def test_bdist_appimage_implicit_skip_build(tmp_package: TempPackage) -> None:
     """Test the simple sample with build_exe then a bdist_appimage.
 
     This forces a implicit skip_build.
@@ -174,9 +190,14 @@ def test_bdist_appimage_implicit_skip_build(tmp_package) -> None:
     app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
     assert app.is_file(), f"{name}-{version}-{arch}.AppImage"
 
-    result = tmp_package.run(app)
+    if find_library("fuse") is None:  # libfuse.so.2 is not found
+        result = tmp_package.run(f"{app} --appimage-extract-and-run")
+    else:
+        result = tmp_package.run(app)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
+    if find_library("fuse") is None:  # libfuse.so.2 is not found
+        pytest.xfail("fuse not found")
     result = tmp_package.run(f"{app} --appimage-updateinformation")
     result.stdout.fnmatch_lines(updateinformation)
 
@@ -185,7 +206,7 @@ def test_bdist_appimage_implicit_skip_build(tmp_package) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_simple(tmp_package) -> None:
+def test_bdist_appimage_simple(tmp_package: TempPackage) -> None:
     """Test the simple sample with bdist_appimage."""
     name = "simple"
     version = "0.1.2.3"
@@ -201,8 +222,9 @@ def test_bdist_appimage_simple(tmp_package) -> None:
     app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
     assert app.is_file(), f"file not found: {app}"
 
-    result = tmp_package.run(app)
-    result.stdout.fnmatch_lines("Hello from cx_Freeze")
+    if find_library("fuse") is not None:  # libfuse.so.2 found
+        result = tmp_package.run(app)
+        result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
     result = tmp_package.run(f"{app} --appimage-extract-and-run")
     result.stdout.fnmatch_lines("Hello from cx_Freeze")

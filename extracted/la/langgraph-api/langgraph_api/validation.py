@@ -36,6 +36,7 @@ RESERVED_METADATA_KEYS = (
     "assistant_id",
     "run_id",
     "cron_id",
+    "counters_since_delta_snapshot",
 )
 RESERVED_OR_NULL_OR_ESCAPED_PATTERN = rf"^(?!.*\\[uU]0000)(?!({'|'.join(f'{re.escape(k)}$' for k in RESERVED_CONFIGURABLE_KEYS)}))[^\u0000]*$"
 WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (
@@ -128,7 +129,7 @@ def _strip_reserved(
 
 
 def _strip_metadata(d: dict, location: str) -> None:
-    """Strip reserved resource IDs from a ``metadata`` sub-dict if present."""
+    """Strip reserved keys from a ``metadata`` sub-dict if present."""
     metadata = d.get("metadata")
     if isinstance(metadata, dict):
         _strip_reserved(

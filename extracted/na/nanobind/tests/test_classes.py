@@ -1,15 +1,12 @@
 import sys
 import test_classes_ext as t
 import pytest
-from common import skip_on_pypy, collect, parallelize
+from common import is_pypy, skip_on_pypy, collect, parallelize
 
 
 
 def optional(arg: str, /) -> str:
-    if sys.version_info < (3, 10):
-        return "typing.Optional[" + arg + "]"
-    else:
-        return arg + " | " + "None"
+    return arg + " | " + "None"
 
 
 @pytest.fixture
@@ -322,6 +319,13 @@ def test13_implicitly_convertible():
     d = t.D(5)
     assert t.get_d(d) == 10005
     assert t.get_optional_d(d) == 10005
+
+    # The copy constructor must copy without invoking an implicit conversion
+    # (D(D(...)) would otherwise recurse), and implicit conversions of other
+    # argument types must still work in its presence
+    d2 = t.D(d)
+    assert d2.value == 10005
+    assert t.D(a).value == 11
     assert t.get_d_via_cast(d) == (10005, 10005, 10005, 10005)
     assert t.get_d_via_try_cast(d) == (10005, 10005, 10005, 10005)
 
@@ -411,7 +415,7 @@ def test16_keep_alive_custom(clean):
         x = 5
         t.keep_alive_ret(x, s)
 
-    assert "nanobind::detail::keep_alive(): could not create a weak reference!" in str(
+    assert "nanobind::detail::keep_alive_py(): could not create a weak reference!" in str(
         excinfo.value
     )
 
@@ -566,10 +570,10 @@ def test25_none_arg():
     assert t.none_3(None) is True
     assert t.none_4(arg=None) is True
     assert t.none_0.__doc__ == "none_0(arg: test_classes_ext.Struct, /) -> bool"
-    assert t.none_1.__doc__ == "none_1(arg: test_classes_ext.Struct) -> bool"
+    assert t.none_1.__doc__ == "none_1(arg: test_classes_ext.Struct, /) -> bool"
     assert t.none_2.__doc__ == "none_2(arg: test_classes_ext.Struct) -> bool"
     opt_struct = optional("test_classes_ext.Struct")
-    assert t.none_3.__doc__ == f"none_3(arg: {opt_struct}) -> bool"
+    assert t.none_3.__doc__ == f"none_3(arg: {opt_struct}, /) -> bool"
     assert t.none_4.__doc__ == f"none_4(arg: {opt_struct}) -> bool"
 
 
@@ -645,6 +649,15 @@ def test30_property_assignment_instance():
     assert s.s2.value() == 456
     assert s1.value() == 123
     assert s2.value() == 456
+
+
+def test30b_property_policy_override():
+    # A user-provided policy must take precedence over the implicit
+    # 'reference_internal' policy of def_prop_ro
+    s = t.PairStruct()
+    c = s.s1_copy
+    c.set_value(123)
+    assert s.s1.value() != 123
 
 
 # cpyext reference cycles are not supported, see https://foss.heptapod.net/pypy/pypy/-/issues/3849
@@ -1219,3 +1232,192 @@ def test61_pooled_custom_traverse():
     gc.collect()
     c, d = t.pooled_tr_stats()
     assert c == 1 and d == 1
+
+
+def test62_type_namespace():
+    # 'type_dict' returns the writable namespace of a type
+    d = t.type_dict(t.Struct)
+    assert isinstance(d, dict) and "value_plus" in d
+    assert t.type_dict(t.Struct) is d
+
+    class Sub(t.Struct):
+        pass
+
+    t.type_dict_insert(Sub, "injected", 5)
+    assert Sub.injected == 5
+
+    # Inherited entries are not part of the namespace, but visible to a lookup
+    assert "value" in t.type_dict(t.StaticProperties)
+    assert "value" not in t.type_dict(t.StaticProperties2)
+    assert t.type_lookup(t.StaticProperties2, "value") is \
+           t.type_dict(t.StaticProperties)["value"]
+
+    # The lookup returns raw entries without invoking the descriptor protocol
+    assert t.Struct.static_ro == 42
+    assert type(t.type_lookup(t.Struct, "static_ro")).__name__ == \
+           "nb_static_property"
+
+    # It also does not fall back to the metaclass
+    assert t.Struct.__name__ == "Struct"
+    assert t.type_lookup(t.Struct, "__name__") is None
+    assert t.type_lookup(t.Struct, "does_not_exist") is None
+
+    # Python string keys produce the same results
+    for name in ("static_ro", "__name__", "does_not_exist"):
+        assert t.type_lookup_key(t.Struct, name) is t.type_lookup(t.Struct, name)
+
+
+def test63_freeze():
+    if t.freeze_supported():
+        with pytest.raises(TypeError):
+            t.Frozen.extra = 1
+        with pytest.raises(TypeError):
+            t.Frozen2.extra = 1
+
+        # Freezing requires that all base classes are immutable
+        with pytest.raises(TypeError, match="mutable base"):
+            t.freeze_type(t.StaticProperties2)
+    else:
+        assert not t.freeze_type(t.StaticProperties2)
+        t.Frozen.extra = 1
+        del t.Frozen.extra
+
+    # Instances and subclasses remain usable either way
+    v = t.Frozen()
+    v.value = 5
+    assert v.value == 5
+
+    class Sub(t.Frozen):
+        pass
+
+    assert Sub().value == 3
+
+
+def test64_inst_dict():
+    s = t.StructWithAttr(5)
+    d = t.inst_dict(s)
+    assert d == {} and s.__dict__ is d
+
+    s.attr = 10
+    assert d["attr"] == 10
+    t.inst_dict_insert(s, "attr_2", 11)
+    assert s.attr_2 == 11
+
+    # A Python subclass holds attributes even when the base type does not
+    # declare 'nb::dynamic_attr'
+    class Sub(t.Struct):
+        pass
+
+    x = Sub(2)
+    t.inst_dict_insert(x, "attr", 12)
+    assert x.attr == 12 and x.__dict__ == {"attr": 12}
+
+    # The function also accepts objects unrelated to nanobind. Such instances
+    # may keep their attributes in a managed dictionary that only materializes
+    # when it is requested.
+    class Plain:
+        def __init__(self):
+            self.attr = 13
+
+    y = Plain()
+    d = t.inst_dict(y)
+    assert d == {"attr": 13} and y.__dict__ is d
+    t.inst_dict_insert(y, "attr_2", 14)
+    assert y.attr_2 == 14
+
+    # Objects that cannot store attributes report an invalid dictionary
+    # (PyPy equips every instance with one)
+    if not is_pypy:
+        assert t.inst_dict(t.Struct(1)) is None
+        assert t.inst_dict(object()) is None and t.inst_dict(1) is None
+
+
+def test65_init_subclass_setattr():
+    # '__init_subclass__' and '__set_name__' observe the new class before the
+    # metaclass 'tp_init' slot runs. The nanobind type record must already be
+    # complete at this point.
+    class BaseWithInitSubclass(t.Animal):
+        def __init_subclass__(cls, **kwargs):
+            super().__init_subclass__(**kwargs)
+            cls.foo = 123
+
+    class Derived(BaseWithInitSubclass):
+        pass
+
+    assert Derived.foo == 123
+
+    class Descriptor:
+        def __set_name__(self, owner, name):
+            owner.bar = name
+
+    class Derived2(t.Animal):
+        descr = Descriptor()
+
+    assert Derived2.bar == "descr"
+
+    class Mixin:
+        pass
+
+    with pytest.raises(TypeError, match="multiple inheritance"):
+        class Derived3(Mixin, t.Animal):
+            pass
+
+    with pytest.raises(TypeError, match="requires a nanobind base type"):
+        class Derived4(metaclass=type(t.Animal)):
+            pass
+
+
+def test66_uninitialized_type_use():
+    # Instantiation from '__init_subclass__' / '__set_name__', and types
+    # created via 'type.__new__()', which skips the metaclass 'tp_init' slot
+    class BaseWithInitSubclass(t.Animal):
+        def __init_subclass__(cls, **kwargs):
+            super().__init_subclass__(**kwargs)
+            cls.inst = cls()
+
+    class Derived(BaseWithInitSubclass):
+        pass
+
+    assert isinstance(Derived.inst, Derived)
+    assert Derived.inst.name() == "Animal"
+
+    class Descriptor:
+        def __set_name__(self, owner, name):
+            owner.inst = owner()
+
+    class Derived2(t.Animal):
+        descr = Descriptor()
+
+    assert isinstance(Derived2.inst, Derived2)
+
+    meta = type(t.Animal)
+    Derived3 = type.__new__(meta, "Derived3", (t.Animal,), {})
+    Derived3.baz = 1
+    assert Derived3.baz == 1 and isinstance(Derived3(), t.Animal)
+
+    # 'type.__new__()' cannot be intercepted, the error surfaces on first use
+    Derived4 = type.__new__(meta, "Derived4", (t.FinalType,), {})
+    with pytest.raises(TypeError, match="prohibits subclassing"):
+        Derived4()
+    with pytest.raises(TypeError, match="prohibits subclassing"):
+        Derived4.foo = 1
+
+    # Chains of types whose first use happens via a subclass
+    Derived5 = type.__new__(meta, "Derived5", (t.Animal,), {})
+
+    class Derived6(Derived5):
+        pass
+
+    assert isinstance(Derived6(), Derived5)
+
+    class BaseWithCompanion(t.Animal):
+        def __init_subclass__(cls, **kwargs):
+            super().__init_subclass__(**kwargs)
+            if cls.__name__ != "Companion":
+                cls.companion = type("Companion", (cls,), {})()
+
+    class Derived7(BaseWithCompanion):
+        pass
+
+    assert isinstance(Derived7.companion, Derived7)
+    assert Derived7.companion.name() == "Animal"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tinker_cookbook
-Version: 0.5.4
+Version: 0.5.5
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook

@@ -25,6 +25,7 @@ from .chat_join_request_query_result import ChatJoinRequestQueryResult
 from .chat_join_type import ChatJoinType
 from .chat_member_status import ChatMemberStatus
 from .chat_members_filter import ChatMembersFilter
+from .chat_photo_sticker_type import ChatPhotoStickerType
 from .chat_type import ChatType
 from .client_platform import ClientPlatform
 from .folder_color import FolderColor
@@ -48,9 +49,7 @@ from .phone_number_code_type import PhoneNumberCodeType
 from .poll_type import PollType
 from .privacy_key import PrivacyKey
 from .privacy_rule_type import PrivacyRuleType
-from .profile_color import ProfileColor
 from .profile_tab import ProfileTab
-from .reply_color import ReplyColor
 from .sent_code_type import SentCodeType
 from .sticker_type import StickerType
 from .stories_privacy_rules import StoriesPrivacyRules
@@ -70,6 +69,7 @@ __all__ = [
     'ChatJoinType',
     'ChatMemberStatus',
     'ChatMembersFilter',
+    'ChatPhotoStickerType',
     'ChatType',
     'ClientPlatform',
     'FolderColor',
@@ -93,9 +93,7 @@ __all__ = [
     'PollType',
     'PrivacyKey',
     'PrivacyRuleType',
-    'ProfileColor',
     'ProfileTab',
-    'ReplyColor',
     'SentCodeType',
     'StickerType',
     'StoriesPrivacyRules',

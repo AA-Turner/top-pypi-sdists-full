@@ -67,6 +67,7 @@ from sky.server import config as server_config
 from sky.server import constants as server_constants
 from sky.server import csp_utils
 from sky.server import daemons
+from sky.server import loop_stall
 from sky.server import metrics
 from sky.server import middleware_utils
 from sky.server import plugins
@@ -680,14 +681,12 @@ class AuthProxyMiddleware(starlette.middleware.base.BaseHTTPMiddleware):
                 logger.error(f'Concurrent worker exhausted during auth proxy '
                              f'user upsert: {e}')
                 return db_lookup.worker_exhausted_response()
-            if newly_added:
-                # Offload the blocking config reload + role seed to a worker
-                # thread so this async middleware doesn't block the event loop.
-                # The reload lets a runtime `rbac.default_role` change take
-                # effect for this new user without a restart (the main
-                # API-server process does not reload config per request).
-                await asyncio.to_thread(permission.seed_new_user_role,
-                                        auth_user.id)
+            # Same deadline as the upsert above; see the helper for why a new
+            # user's seed is awaited while a returning one's repair is queued.
+            failed = await db_lookup.ensure_role_for_authenticated_user(
+                auth_user.id, newly_added)
+            if failed is not None:
+                return failed
 
         # Store user info in request.state for access by GET endpoints
         if auth_user is not None:
@@ -876,8 +875,21 @@ async def cleanup_sky_logs():
         await asyncio.sleep(3600)
 
 
-async def loop_lag_monitor(loop: asyncio.AbstractEventLoop,
-                           interval: float = 0.1) -> None:
+# Cadence of the per-worker loop lag timer. Also the heartbeat interval the
+# stall watchdog measures against, so the two must agree.
+LOOP_LAG_INTERVAL = 0.1
+
+
+async def loop_lag_monitor(
+        loop: asyncio.AbstractEventLoop,
+        interval: float = LOOP_LAG_INTERVAL,
+        stall_watchdog: Optional[loop_stall.LoopStallWatchdog] = None) -> None:
+    """Measures the loop's own scheduling lag on a fixed timer.
+
+    The single tick on the loop for this: it feeds the lag metrics when those
+    are enabled, and the stall watchdog's heartbeat when that is enabled. Each
+    consumer is gated on its own, so neither can silently disable the other.
+    """
     target = loop.time() + interval
 
     pid = str(os.getpid())
@@ -893,17 +905,21 @@ async def loop_lag_monitor(loop: asyncio.AbstractEventLoop,
         nonlocal target, lag_max_window_end, lag_max_in_window
         now = loop.time()
         lag = max(0.0, now - target)
-        if lag_threshold is not None and lag > lag_threshold:
-            logger.warning(f'Event loop lag {lag} seconds exceeds threshold '
-                           f'{lag_threshold} seconds.')
-        metrics_utils.SKY_APISERVER_EVENT_LOOP_LAG_SECONDS.observe(lag)
-        if now >= lag_max_window_end:
-            lag_max_window_end = now + lag_max_window_seconds
-            lag_max_in_window = lag
-        else:
-            lag_max_in_window = max(lag_max_in_window, lag)
-        metrics_utils.SKY_APISERVER_EVENT_LOOP_LAG_MAX_SECONDS.labels(
-            pid=pid).set(lag_max_in_window)
+        if stall_watchdog is not None:
+            stall_watchdog.beat()
+        if metrics_utils.METRICS_ENABLED:
+            if lag_threshold is not None and lag > lag_threshold:
+                logger.warning(
+                    f'Event loop lag {lag} seconds exceeds threshold '
+                    f'{lag_threshold} seconds.')
+            metrics_utils.SKY_APISERVER_EVENT_LOOP_LAG_SECONDS.observe(lag)
+            if now >= lag_max_window_end:
+                lag_max_window_end = now + lag_max_window_seconds
+                lag_max_in_window = lag
+            else:
+                lag_max_in_window = max(lag_max_in_window, lag)
+            metrics_utils.SKY_APISERVER_EVENT_LOOP_LAG_MAX_SECONDS.labels(
+                pid=pid).set(lag_max_in_window)
         target = now + interval
         loop.call_at(target, tick)
 
@@ -945,11 +961,24 @@ async def lifespan(app: fastapi.FastAPI):  # pylint: disable=redefined-outer-nam
     asyncio.create_task(cleanup_upload_ids())
     # Start periodic version check task (runs daily)
     asyncio.create_task(version_check.check_versions_periodically())
-    if metrics_utils.METRICS_ENABLED:
-        # Start monitoring the event loop lag in each server worker
-        # event loop (process).
-        asyncio.create_task(loop_lag_monitor(asyncio.get_event_loop()))
-    yield
+    # Attribute event loop stalls to the code that caused them. Not gated on
+    # METRICS_ENABLED: its primary output is a log line, which is the only
+    # thing available when debugging a deployment after the fact.
+    stall_watchdog = loop_stall.start_watchdog(
+        heartbeat_interval=LOOP_LAG_INTERVAL)
+    if metrics_utils.METRICS_ENABLED or stall_watchdog is not None:
+        # One timer per worker loop, shared by the lag metrics and the stall
+        # watchdog's heartbeat.
+        asyncio.create_task(
+            loop_lag_monitor(asyncio.get_event_loop(),
+                             stall_watchdog=stall_watchdog))
+    try:
+        yield
+    finally:
+        # Runs after uvicorn has drained its connections, so a stall during
+        # the drain itself is still attributed.
+        if stall_watchdog is not None:
+            stall_watchdog.stop()
 
 
 class SecurityHeadersMiddleware(starlette.middleware.base.BaseHTTPMiddleware):

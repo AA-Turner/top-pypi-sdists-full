@@ -22,7 +22,7 @@ def _build_request_args(
 
     params: dict[str, Any] = {}
     if resource_type is not None:
-        params["resource_type"] = resource_type
+        params["resource_type"] = getattr(resource_type, "value", resource_type)
     if q is not None:
         params["q"] = q
     if include_wildcard is not None:

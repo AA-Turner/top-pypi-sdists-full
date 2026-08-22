@@ -18,10 +18,10 @@ import cx_Freeze
         ("linux", ["bdist_appimage", "bdist_deb", "bdist_rpm"]),
     ],
 )
-def test_exposed_namespaces(platform, extra_modules) -> None:
-    """Test asserts all the namespaces that should be exposed when
-    `importing cx_Freeze` are available.
-    """
+def test_exposed_namespaces(
+    platform: str | None, extra_modules: list[str]
+) -> None:
+    """Tests all the namespaces that should be exposed on import."""
     # These namespaces are there regardless of platform
     expected_namespaces = [
         "build_exe",

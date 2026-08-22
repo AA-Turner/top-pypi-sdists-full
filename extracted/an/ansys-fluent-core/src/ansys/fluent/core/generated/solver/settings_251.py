@@ -14,8 +14,6 @@ from ansys.fluent.core.solver.flobject import (
     _FlStringConstant,
 )
 
-SHASH = "94d02db1e3683bc6f1e270923747683161bfe4ecd892b8dc0cd2f96044fba4e2"
-
 class single_precision_coordinates(Boolean):
     """
     Specifies whether to write nodal coordinates in single precision.

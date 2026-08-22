@@ -600,7 +600,7 @@ def test_to_responses_payload_renames_and_drops_keys() -> None:
         },
     )
 
-    assert payload["input"] == [{"role": "user", "content": "hi"}]
+    assert payload["input"] == [{"type": "message", "role": "user", "content": "hi"}]
     assert payload["model"] == "sonar-pro"
     assert payload["max_output_tokens"] == 128
     assert "max_tokens" not in payload
@@ -814,15 +814,17 @@ def test_to_responses_payload_raises_for_non_dict_extra_body() -> None:
 
 def test_to_responses_payload_preserves_existing_extra_body() -> None:
     llm = ChatPerplexity(model="sonar-pro", api_key="test")
+    extra_body = {"caller_set": True}
     payload = llm._to_responses_payload(
         [{"role": "user", "content": "hi"}],
         {
             "model": "sonar-pro",
-            "extra_body": {"caller_set": True},
+            "extra_body": extra_body,
             "search_mode": "academic",
         },
     )
     assert payload["extra_body"] == {"caller_set": True, "search_mode": "academic"}
+    assert extra_body == {"caller_set": True}
 
 
 # ---------------------------------------------------------------------------

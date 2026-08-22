@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dbt-fabricspark
-Version: 1.13.0
+Version: 1.13.1
 Summary: A Microsoft Fabric Spark adapter plugin for dbt
 Project-URL: homepage, https://github.com/microsoft/dbt-fabricspark
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabricspark-profile

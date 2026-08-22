@@ -322,7 +322,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.16.0", features = ["git"] }
+//! bashkit = { version = "0.17.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -353,7 +353,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.16.0", features = ["python"] }
+//! bashkit = { version = "0.17.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -419,6 +419,17 @@
 // Stricter panic prevention - prefer proper error handling over unwrap()
 #![warn(clippy::unwrap_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+
+// The rustls-backed HTTP client installs its own crypto provider (reqwest is
+// built with `rustls-no-provider`), so a backend must be selected. Fail here
+// instead of at the first TLS handshake.
+#[cfg(all(
+    feature = "http_client",
+    not(any(feature = "ring", feature = "aws-lc-rs"))
+))]
+compile_error!(
+    "bashkit's `http_client` needs a crypto backend: enable `ring` (default) or `aws-lc-rs`"
+);
 
 /// Static, pre-execution introspection of a script.
 pub mod analysis;
@@ -1178,7 +1189,7 @@ impl Bash {
         // Record history entry for each line of the script
         if let Ok(ref exec_result) = result {
             let cwd = self.interpreter.cwd().to_string_lossy().to_string();
-            let timestamp = chrono::Utc::now().timestamp();
+            let timestamp = crate::time_compat::now_utc().timestamp();
             for line in script.lines() {
                 let trimmed = line.trim();
                 if !trimmed.is_empty() && !trimmed.starts_with('#') {
@@ -1537,6 +1548,44 @@ impl Bash {
         self.interpreter.shell_state_view()
     }
 
+    /// Set an exported environment variable on a live interpreter.
+    ///
+    /// The counterpart to [`mount()`](Self::mount) for environment: hosts can
+    /// contribute variables **after** build without rebuilding, so a bundle of
+    /// setup (mount + env + builtins) can be applied to an existing instance
+    /// instead of only through [`BashBuilder::env`]. Shell state — variables,
+    /// cwd, history — is preserved.
+    ///
+    /// The variable is exported, so scripts see it via `$NAME` and child
+    /// contexts see it in `env`. A later script assignment wins; embedders
+    /// that need the host value back can call this again.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bashkit::Bash;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> bashkit::Result<()> {
+    /// let mut bash = Bash::new();
+    /// bash.exec("cd /tmp").await?;
+    ///
+    /// bash.set_env("SKILL_PATH", "/skills/my-skill");
+    ///
+    /// let result = bash.exec("echo $SKILL_PATH").await?;
+    /// assert_eq!(result.stdout, "/skills/my-skill\n");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_env(&mut self, key: &str, value: &str) {
+        // Mirrors what `BashBuilder::env` does at build time: the exported
+        // entry alone is shadowed by a same-named shell variable during
+        // expansion, so a host value applied later would silently lose to a
+        // builder-configured one.
+        self.interpreter.set_env(key, value);
+        self.interpreter.set_var(key, value);
+    }
+
     /// Restore shell state from a previous snapshot.
     ///
     /// Restores variables, env, cwd, arrays, functions, aliases, traps, and
@@ -1729,7 +1778,13 @@ impl HostMounts {
     /// mounted.
     pub fn new(mounts: impl IntoIterator<Item = HostMount>) -> Self {
         Self {
-            mounts: mounts.into_iter().collect(),
+            mounts: mounts
+                .into_iter()
+                .map(|mut mount| {
+                    mount.vfs_path = normalize_path(&mount.vfs_path);
+                    mount
+                })
+                .collect(),
         }
     }
 
@@ -1760,6 +1815,9 @@ impl HostMounts {
         if !vfs_path.has_root() {
             return None;
         }
+        // Match the VFS meaning of the path, not its spelling. Otherwise the
+        // stripped suffix can retain `..` and escape when the host joins it.
+        let vfs_path = normalize_path(vfs_path);
         self.mounts
             .iter()
             .filter_map(|mount| {

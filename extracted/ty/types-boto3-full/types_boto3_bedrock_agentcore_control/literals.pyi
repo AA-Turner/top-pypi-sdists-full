@@ -164,6 +164,7 @@ __all__ = (
     "ServerProtocolType",
     "ServiceName",
     "SigningAlgorithmType",
+    "StaticQueryParameterConflictResolutionType",
     "StatusType",
     "SynchronizationTypeType",
     "TargetProtocolTypeType",
@@ -245,7 +246,7 @@ CredentialProviderVendorTypeType = Literal[
 DatasetSchemaTypeType = Literal[
     "AGENTCORE_EVALUATION_PREDEFINED_V1",
     "AGENTCORE_EVALUATION_SIMULATED_V1",
-    "GENERIC_EVALUATION_PREDEFINED_V1",
+    "THIRD_PARTY_EVALUATION_V1",
 ]
 DatasetStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -433,6 +434,7 @@ SearchTypeType = Literal["SEMANTIC"]
 SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 SigningAlgorithmType = Literal["ES256", "PS256", "RS256"]
+StaticQueryParameterConflictResolutionType = Literal["CLIENT_OVERRIDE", "STATIC_OVERRIDE"]
 StatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]

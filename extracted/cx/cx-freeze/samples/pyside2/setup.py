@@ -1,5 +1,6 @@
-"""A simple setup script to create an executable using PySide2. This also
-demonstrates how to use excludes to get minimal package size.
+"""A simple setup script to create an executable using PySide2.
+
+This also demonstrates how to use excludes to get minimal package size.
 
 test_pyside2.py is a very simple type of PySide2 application.
 
@@ -30,7 +31,7 @@ if get_qt_plugins_paths:
 options = {
     "build_exe": {
         # exclude packages that are not really needed
-        "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"],
+        "excludes": ["tkinter", "email", "http", "xml"],
         "include_files": include_files,
     },
     "bdist_mac": {

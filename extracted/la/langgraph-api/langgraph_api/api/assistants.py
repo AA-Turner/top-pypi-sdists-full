@@ -27,7 +27,13 @@ from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     USE_RUNTIME_CONTEXT_API,
 )
-from langgraph_api.graph import get_assistant_id, get_graph
+from langgraph_api.graph import (
+    GRAPHS,
+    assert_graph_exists,
+    get_assistant_id,
+    get_graph,
+    graph_exists,
+)
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import ASSISTANT_ENCRYPTION_FIELDS, ASSISTANT_FIELDS
@@ -57,6 +63,14 @@ if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Assistants
 else:
     from langgraph_runtime.ops import Assistants
+
+
+def graph_scope() -> dict[str, list[str]]:
+    """Restrict assistant reads to the graphs this server has registered."""
+    if not IS_POSTGRES_OR_GRPC_BACKEND:
+        return {}
+    return {"graph_id_allowlist": sorted(GRAPHS)}
+
 
 EXCLUDED_CONFIG_SCHEMA = (
     "__pregel_checkpointer",
@@ -187,6 +201,8 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
         except jsonschema_rs.ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
+    assert_graph_exists(payload["graph_id"])
+
     if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
         effective_payload = payload
     else:
@@ -227,6 +243,9 @@ async def search_assistants(
     payload = await request.json(AssistantSearchRequest)
     select = validate_select_columns(payload.get("select") or None, ASSISTANT_FIELDS)
     offset = int(payload.get("offset") or 0)
+    graph_id = payload.get("graph_id")
+    if graph_id is not None:
+        assert_graph_exists(graph_id)
     config = payload.get("config")
     if config:
         try:
@@ -236,7 +255,7 @@ async def search_assistants(
     async with connect() as conn:
         assistants_iter, next_offset = await Assistants.search(
             conn,
-            graph_id=payload.get("graph_id"),
+            graph_id=graph_id,
             name=payload.get("name"),
             metadata=payload.get("metadata"),
             limit=int(payload.get("limit") or 10),
@@ -244,6 +263,7 @@ async def search_assistants(
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
             select=select,
+            **graph_scope(),
         )
     assistants, response_headers = await get_pagination_headers(
         assistants_iter, next_offset, offset
@@ -267,12 +287,16 @@ async def count_assistants(
 ) -> ApiResponse:
     """Count assistants."""
     payload = await request.json(AssistantCountRequest)
+    graph_id = payload.get("graph_id")
+    if graph_id is not None:
+        assert_graph_exists(graph_id)
     async with connect() as conn:
         count = await Assistants.count(
             conn,
-            graph_id=payload.get("graph_id"),
+            graph_id=graph_id,
             name=payload.get("name"),
             metadata=payload.get("metadata"),
+            **graph_scope(),
         )
     return ApiResponse(count)
 
@@ -288,6 +312,12 @@ async def get_assistant(
         assistant = await Assistants.get(conn, assistant_id)
 
     assistant_data = await fetchone(assistant)
+    # Assistants outside this server's registry are hidden rather than reported,
+    # matching the filter graph_scope() applies to search and count.
+    if not graph_exists(assistant_data["graph_id"]):
+        raise HTTPException(
+            status_code=404, detail=f"assistant {assistant_id} not found"
+        )
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         assistant_data = await decrypt_response(
             assistant_data,
@@ -311,29 +341,30 @@ async def get_assistant_graph(
     configurable = config.setdefault("configurable", {})
     configurable.update(get_configurable_headers(request.headers))
 
+    xray: bool | int = False
+    xray_query = request.query_params.get("xray")
+    if xray_query:
+        if xray_query in ("true", "True"):
+            xray = True
+        elif xray_query in ("false", "False"):
+            xray = False
+        else:
+            try:
+                xray = int(xray_query)
+            except ValueError:
+                raise HTTPException(422, detail="Invalid xray value") from None
+
+            if xray <= 0:
+                raise HTTPException(422, detail="Invalid xray value") from None
+
     async with get_graph(
         assistant["graph_id"],
         config,
         checkpointer=(await api_checkpointer.get_checkpointer()),
         store=(await api_store.get_store()),
         access_context="assistants.read",
+        use_langgraph_runtime=bool(xray),
     ) as graph:
-        xray: bool | int = False
-        xray_query = request.query_params.get("xray")
-        if xray_query:
-            if xray_query in ("true", "True"):
-                xray = True
-            elif xray_query in ("false", "False"):
-                xray = False
-            else:
-                try:
-                    xray = int(xray_query)
-                except ValueError:
-                    raise HTTPException(422, detail="Invalid xray value") from None
-
-                if xray <= 0:
-                    raise HTTPException(422, detail="Invalid xray value") from None
-
         if isinstance(graph, BaseRemotePregel):
             drawable_graph = await graph.fetch_graph(xray=xray)
             json_graph = drawable_graph.to_json()
@@ -463,6 +494,11 @@ async def patch_assistant(
         except jsonschema_rs.ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
+    # A patch that leaves graph_id alone needs no check.
+    graph_id = payload.get("graph_id")
+    if graph_id is not None:
+        assert_graph_exists(graph_id)
+
     if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
         effective_payload = payload
     else:
@@ -478,7 +514,7 @@ async def patch_assistant(
             assistant_id,
             config=effective_payload.get("config"),
             context=effective_payload.get("context"),
-            graph_id=payload.get("graph_id"),
+            graph_id=graph_id,
             metadata=effective_payload.get("metadata"),
             name=payload.get("name"),
             description=payload.get("description"),

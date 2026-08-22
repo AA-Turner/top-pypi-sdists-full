@@ -6171,9 +6171,9 @@ class BucketBatchesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> Dict[str, object]:
-        """Retry Vector Write from S3
+        """Retry Vector Write from Object Storage
 
-        Retry vector write by reading processed output from S3. Use when validation detects 'vector_write_failed'.
+        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -6252,9 +6252,9 @@ class BucketBatchesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[Dict[str, object]]:
-        """Retry Vector Write from S3
+        """Retry Vector Write from Object Storage
 
-        Retry vector write by reading processed output from S3. Use when validation detects 'vector_write_failed'.
+        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -6333,9 +6333,9 @@ class BucketBatchesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Retry Vector Write from S3
+        """Retry Vector Write from Object Storage
 
-        Retry vector write by reading processed output from S3. Use when validation detects 'vector_write_failed'.
+        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str

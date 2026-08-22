@@ -486,6 +486,7 @@ nav:
           - Task lifecycle CLI: reference/cli/task-lifecycle.md
           - Replay CLI: reference/cli/replay.md
           - Verify CLI: reference/cli/verify.md
+          - Receipt CLI: reference/receipt.md
       - Configuration & schemas:
           - Configuration: operations/CONFIG.md
           - Task format: operations/task_format.md
@@ -512,17 +513,22 @@ nav:
           - SPIFFE workload identity: reference/spiffe-workload-identity.md
           - Volunteer project manifest: reference/volunteer-manifest.md
           - Volunteer sandbox profile: reference/volunteer-sandbox.md
+          - Volunteer issue text: reference/volunteer-issue-text.md
+          - Volunteer task runner: reference/volunteer-runner.md
+          - Volunteer lease store: reference/volunteer-lease-store.md
           - MCP catalog: reference/mcp-catalog.md
           - MCP tool tiers: mcp/tool_tiers.md
       - Compatibility & limits:
           - Capabilities: reference/capabilities.md
           - Feature matrix: reference/FEATURE_MATRIX.md
           - Adapter compatibility: adapters/compatibility.md
+          - MkDocs Material coupling: reference/mkdocs-material-coupling.md
           - Known limitations: reference/KNOWN_LIMITATIONS.md
           - Glossary: reference/GLOSSARY.md
       - Release notes:
           - Changelog: CHANGELOG.md
           - Unreleased: release-notes/unreleased.md
+          - v3.17.0: release-notes/v3.17.0.md
           - v3.16.0: release-notes/v3.16.0.md
           - v3.15.1: release-notes/v3.15.1.md
           - v3.15.0: release-notes/v3.15.0.md

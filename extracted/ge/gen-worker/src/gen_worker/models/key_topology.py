@@ -1,4 +1,5 @@
-"""Which tensor-KEY convention an artifact on disk is written in.
+"""Which tensor-KEY convention an artifact on disk is written in — a HEURISTIC,
+and the fallback for a tree that carries no v2 topology stamp of its own.
 
 Header reads only — no tensor data, no torch, no model construction. That is
 the whole point: the answer must be available BEFORE a 71 GB fetch turns into
@@ -17,7 +18,7 @@ projection split does not.
 **Unclassified is not silently OK.** The caller is told three things — the
 token, whether the tree is in the DENOISER position, and whether any tensors
 were read — and it fails closed on the one combination that is dangerous: a
-denoiser whose key convention matches nothing registered. The axis does not
+denoiser whose key convention matches nothing here. The axis does not
 apply to a VAE, a text encoder or a scheduler, and reporting "unknown" for
 those is a fact, not a hedge; `gen_worker.discovery.decode_set` is where that
 distinction becomes a refusal or a pass.
@@ -32,68 +33,64 @@ from typing import Iterable
 import msgspec
 
 from .safetensors_header import read_header
-from .tensor_layout_contract import (
-    KEYS_DIFFUSERS_SPLIT_QKV,
-    KEYS_NATIVE_FUSED_QKV,
-    KEYS_TRANSFORMERS_SPLIT_QKV,
-)
 
-# Ordered: the first rule that matches wins. FUSED is checked first because a
-# tree carrying fused projections is the one no diffusers class can ingest, and
-# a tree carrying both spellings is a repackaging in progress, not a diffusers
-# tree.
+# ── THIS VOCABULARY IS LOCAL, AND IT IS A HEURISTIC (pgw#1621) ───────────────
+#
+# These three tokens used to be `KEYS_*` constants in `tensor_layout_contract`,
+# one of the five v1 DECODE AXES. They are gone from there because the axis
+# they enumerated is now the TOPOLOGY half of a v2 lane stamp — a finite
+# `{key -> logical shape}` map EXTRACTED MECHANICALLY from a reference
+# checkpoint's headers, ratified in tensorfs `spec/v2/topologies/`, and
+# compared exactly. `minimax-h3.diffusers@1` and `minimax-h3.native@1` are two
+# such topologies related by a ratified morphism.
+#
+# THE STAMP IS THE AUTHORITATIVE ANSWER. What follows is a REGEX GUESS over
+# attention-projection spellings, kept for the one thing the stamp cannot do
+# here: a tree arriving at this worker carries no stamp of its own, and the
+# question "is this denoiser addressed in a way anything in this image knows
+# how to read" has to be answerable from its bytes, before a 71 GB fetch turns
+# into a rented pod. So these tokens name CONVENTIONS, never handles: nothing
+# intersects on them, no manifest carries them, and the only thing they feed is
+# the fail-closed refusal in `discovery.decode_set`.
+KEYS_NATIVE_FUSED_QKV = "native.fused-qkv"
+KEYS_DIFFUSERS_SPLIT_QKV = "diffusers.split-qkv"
+KEYS_TRANSFORMERS_SPLIT_QKV = "transformers.split-qkv"
+
 _RULES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     (KEYS_NATIVE_FUSED_QKV, re.compile(r"\.(qkv_proj|to_qkv|qkv)\.")),
     (KEYS_DIFFUSERS_SPLIT_QKV, re.compile(r"\.(to_q|to_k|to_v)\.")),
-    # th#1937's ruled keying for `transformers.split-qkv@1`:
+    # th#1937's ruled keying for the transformers convention:
     # `*layers.N.self_attn.q_proj` OR `*layers.N.attention.self.query`, so
     # encoder-style text encoders answer alongside decoder-style ones.
     (KEYS_TRANSFORMERS_SPLIT_QKV,
      re.compile(r"layers?\.\d+\.(self_attn\.q_proj|attention\.self\.query)\.")),
 )
 
-#: Header bytes are bounded by `header_len_ok`; this caps how many FILES we
-#: open. It is high, and the scan stops at the first file that classifies,
-#: because the cap now sits on a FAIL-CLOSED path: a 30-shard denoiser whose
-#: leading shards hold only embeddings would otherwise read as unclassified
-#: and refuse. Attention projections appear early in practice, so the walk
-#: costs one or two headers on every real tree and the cap only bounds the
-#: pathological one.
+
+def known_key_conventions() -> tuple[str, ...]:
+    """Every convention this heuristic can name. A refusal quotes it so the
+    reader sees what was tried, not just that nothing matched."""
+    return tuple(token for token, _ in _RULES)
+
 _MAX_FILES = 64
 
-#: How many keys a refusal quotes. Enough to recognize the convention, few
-#: enough that the message stays readable.
 _SAMPLE = 6
 
-# Whether the tree has ATTENTION substructure at all. This axis discriminates
-# attention-projection conventions, so a tree with no attention in it is not
-# something the axis can be about — the same reason a vae is out of scope, but
-# derived from the BYTES instead of from the component name.
-#
-# It is what keeps the unclassified REFUSAL precise. Without it, every tree
-# whose keys the three rules do not match refuses, and CI produced the
-# counter-example immediately: the corrupt-load quarantine fixture
-# (`test_p2_residency_reconcile.py`) is a root-layout snapshot holding one
-# tensor named `w`, which is a legal thing to hand a loader and carries no
-# convention to get wrong. With it, a FOURTH attention spelling — the H3 class
-# of failure, one no rule here has seen — still refuses, which is the case the
-# refusal exists for.
 _ATTENTION_SHAPED = re.compile(r"(^|\.)(attn|attention|self_attn)[\._]")
 
 
 class SnapshotKeys(msgspec.Struct, frozen=True, kw_only=True):
     """What the header scan found, and where it looked."""
 
-    topology: str            # a registered token, or "" for unclassified
-    denoiser: bool           # the scanned tree is in the DENOISER position
-    saw_tensors: bool        # any safetensors header was actually read
-    attention_shaped: bool = False   # the keys carry attention substructure
+    topology: str
+    denoiser: bool
+    saw_tensors: bool
+    attention_shaped: bool = False
     sample: tuple[str, ...] = ()
 
     @property
     def unclassified_denoiser(self) -> bool:
-        """The one combination that must fail closed: a DENOISER carrying
-        attention substructure spelled in no way this image recognizes."""
+        """The one combination that must fail closed: a DENOISER carrying attention substructure spelled in no way this image recognizes."""
         return (
             self.denoiser
             and self.saw_tensors
@@ -133,13 +130,6 @@ def attention_shaped(keys: Iterable[str]) -> bool:
 
 
 def _scan(directory: Path) -> tuple[str, bool, tuple[str, ...]]:
-    """Classify a directory's shards, stopping at the first file that answers.
-
-    Early exit matters on the fail-closed path: reading every shard of a
-    30-way tree to reach the same answer the first one gave is wasted IO, and
-    reading only the first few and giving up would REFUSE a tree whose leading
-    shards happen to hold embeddings.
-    """
     files = sorted(p for p in directory.glob("*.safetensors") if p.is_file())
     if not files:
         return "", False, ()
@@ -154,14 +144,7 @@ def _scan(directory: Path) -> tuple[str, bool, tuple[str, ...]]:
 
 
 def classify_snapshot(root: Path, component: str = "") -> SnapshotKeys:
-    """Classify a snapshot's tree, reporting whether it is the DENOISER.
-
-    ``component`` names the subdirectory to read; empty scans the denoiser
-    component dirs and then the root. A ROOT-layout tree — one with no
-    ``model_index.json`` — is itself the denoiser (the singlefile and
-    sharded-transformers artifacts the quantized loaders detect), which is why
-    the position is derived here rather than guessed by the caller.
-    """
+    """Classify a snapshot's tree, reporting whether it is the DENOISER."""
     from ..component_vocab import denoiser_components
 
     base = Path(root)
@@ -192,8 +175,6 @@ def classify_snapshot(root: Path, component: str = "") -> SnapshotKeys:
                                 saw_tensors=True, attention_shaped=attention,
                                 sample=sample)
     topology, attention, sample = _scan(base)
-    # A root-layout tree IS the denoiser; a pipeline root that merely happens
-    # to hold loose tensors beside a `model_index.json` is not.
     return SnapshotKeys(
         topology=topology,
         denoiser=bool(sample) and not (base / "model_index.json").exists(),

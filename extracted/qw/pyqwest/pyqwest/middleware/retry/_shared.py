@@ -1,7 +1,21 @@
 from __future__ import annotations
 
 from email.utils import parsedate_to_datetime
+from enum import Enum
 from http import HTTPStatus
+
+
+class RetryMode(Enum):
+    """Controls how request content is retained for retries."""
+
+    BUFFERED = "buffered"
+    """Streaming requests are fully buffered in memory for retries on connection errors and server responses."""
+
+    UNBUFFERED = "unbuffered"
+    """Streaming requests are not buffered in memory and can only be retried on connection errors."""
+
+
+_IDEMPOTENT_METHODS = ("GET", "HEAD", "PUT", "DELETE")
 
 
 def parse_retry_after(header: str | None) -> float | None:
@@ -28,13 +42,16 @@ def parse_retry_after(header: str | None) -> float | None:
     return delta
 
 
-def default_should_retry_request(_method: str) -> bool:
-    # By default, allow retries for any methods for connection errors.
-    # The default response hook checks idempotency for other errors.
-    return True
+def default_should_retry_request(method: str) -> RetryMode:
+    if method in _IDEMPOTENT_METHODS:
+        return RetryMode.BUFFERED
+    return RetryMode.UNBUFFERED
 
 
-_IDEMPOTENT_METHODS = ("GET", "HEAD", "PUT", "DELETE")
+def normalize_retry_mode(*, value: bool | RetryMode) -> RetryMode | None:
+    if isinstance(value, RetryMode):
+        return value
+    return RetryMode.BUFFERED if value else None
 
 
 def default_should_retry_response(method: str, status: int | Exception) -> bool:

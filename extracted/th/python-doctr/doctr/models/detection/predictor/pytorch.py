@@ -51,11 +51,12 @@ class DetectionPredictor(nn.Module):
 
         processed_batches = self.pre_processor(pages)
         _params = next(self.model.parameters())
-        self.model, processed_batches = set_device_and_dtype(
+        self.model, processed_batches = set_device_and_dtype(  # type: ignore[assignment]
             self.model, processed_batches, _params.device, _params.dtype
         )
         predicted_batches = [
-            self.model(batch, return_preds=True, return_model_output=True, **kwargs) for batch in processed_batches
+            self.model(batch, return_preds=True, return_model_output=return_maps, **kwargs)
+            for batch in processed_batches
         ]
         # Remove padding from loc predictions
         preds = _remove_padding(

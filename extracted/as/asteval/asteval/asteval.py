@@ -46,7 +46,7 @@ from sys import exc_info, stderr, stdout
 
 from .astutils import (HAS_NUMPY, ExceptionHolder, ReturnedNone,
                        Empty, make_symbol_table, op2func,
-                       safe_getattr, safe_format, valid_symbol_name,
+                       safe_getattr, safe_setattr, safe_format, valid_symbol_name,
                        Procedure)
 
 ALL_NODES = ['arg', 'assert', 'assign', 'attribute', 'augassign',
@@ -280,7 +280,7 @@ class Interpreter:
         except Exception:
             self.raise_exception(None, exc=RuntimeError, expr=text)
         except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
-            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+            self.raise_exception(None, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
 
         out = ast.fix_missing_locations(out)
         return out
@@ -361,7 +361,7 @@ class Interpreter:
                         raise lerr.exc(errmsg)
                 if show_errors:
                     print(errmsg, file=self.err_writer)
-                return None
+                return
             except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
                 self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
 
@@ -428,7 +428,7 @@ class Interpreter:
             except Exception:
                 self.raise_exception(None, exc=ImportError, msg='Import Error')
             except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
-                self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+                self.raise_exception(None, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
 
 
         if fromlist is None:
@@ -480,7 +480,7 @@ class Interpreter:
 
     def on_pass(self, node):
         """Pass statement."""
-        return None  # ()
+        return
 
     # for break and continue: set the instance variable _interrupt
     def on_interrupt(self, node):    # ()
@@ -575,7 +575,8 @@ class Interpreter:
                 msg = f"cannot assign to attribute {node.attr}"
                 self.raise_exception(node, exc=AttributeError, msg=msg)
 
-            setattr(self.run(node.value), node.attr, val)
+            safe_setattr(self.run(node.value), node.attr, val,
+                         self.raise_exception, node)
 
         elif node.__class__ == ast.Subscript:
             self.run(node.value)[self.run(node.slice)] = val
@@ -817,6 +818,7 @@ class Interpreter:
     def _comp_save_syms(self, node):
         """find and save symbols that will be used in a comprehension"""
         saved_syms = {}
+        delete_syms = set()
         for tnode in node.generators:
             # Extract all names from the target (handles nested tuples)
             names = self._extract_names_from_target(tnode.target)
@@ -826,7 +828,9 @@ class Interpreter:
                     self.raise_exception(tnode.target, exc=NameError, msg=errmsg)
                 if name in self.symtable:
                     saved_syms[name] = copy.deepcopy(self.symtable.get(name))
-        return saved_syms
+                else:
+                    delete_syms.add(name)
+        return saved_syms, delete_syms
 
 
     def do_generator(self, gnodes, node, out):
@@ -860,12 +864,14 @@ class Interpreter:
 
     def on_listcomp(self, node):
         """List comprehension v2"""
-        saved_syms = self._comp_save_syms(node)
+        saved_syms, delete_syms = self._comp_save_syms(node)
 
         out = []
         self.do_generator(node.generators, node, out)
         for name, val in saved_syms.items():
             self.symtable[name] = val
+        for name in delete_syms:
+            self.symtable.pop(name, None)
         return out
 
     def on_setcomp(self, node):
@@ -874,12 +880,14 @@ class Interpreter:
 
     def on_dictcomp(self, node):
         """Dict comprehension v2"""
-        saved_syms = self._comp_save_syms(node)
+        saved_syms, delete_syms = self._comp_save_syms(node)
 
         out = {}
         self.do_generator(node.generators, node, out)
         for name, val in saved_syms.items():
             self.symtable[name] = val
+        for name in delete_syms:
+            self.symtable.pop(name, None)
         return out
 
     def on_excepthandler(self, node):  # ('type', 'name', 'body')
@@ -935,7 +943,7 @@ class Interpreter:
     def on_call(self, node):
         """Function execution."""
         func = self.run(node.func)
-        if not hasattr(func, '__call__') and not isinstance(func, type):
+        if not callable(func) and not isinstance(func, type):
             msg = f"'{func}' is not callable!!"
             self.raise_exception(node, exc=TypeError, msg=msg)
         args = [self.run(targ) for targ in node.args]

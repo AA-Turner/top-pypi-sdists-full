@@ -17,13 +17,13 @@ prek: install
 
 .PHONY: pylint
 pylint:
-	uvx pylint cx_Freeze
+	uvx pylint -j 0 cx_Freeze
 
 .PHONY: clean
 clean: uninstall
 	@$(MAKE) -C doc clean
 	@rm -f .coverage* || true
-	@rm -rf build dist wheelhouse
+	@rm -rf build dist condahouse wheelhouse
 	@prek cache clean -q
 
 .PHONY: install
@@ -38,9 +38,9 @@ uninstall:
 	@prek uninstall -q
 	@rm -f .git/hooks/pre-commit
 
-.PHONY: upgrade
-upgrade: install
-	prek auto-update --freeze
+.PHONY: update
+update: install
+	prek update --freeze
 	$(MAKE) prek
 
 .PHONY: html
@@ -51,10 +51,8 @@ html:
 	else\
 		$(MAKE) -C doc html;\
 	fi
-
-.PHONY: htmltest
-htmltest:
-	$(MAKE) -C doc test
+	@echo -n "Wrote HTML documentation to "
+	@echo -e "\e]8;;file://$(PWD)/build/doc/html/index.html\e\\\build/doc/html\e]8;;\e\\"
 
 .PHONY: doc
 doc:
@@ -72,6 +70,7 @@ tests: wheel
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
 	cp -a tests $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && pytest --dist=loadfile -nauto -v -rpfEsXx tests|| true
 
 .PHONY: cov
@@ -81,6 +80,7 @@ cov: wheel
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
 	cp -a tests $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && coverage run ||true
 	coverage combine --keep --quiet -a $(COV_TMPDIR)/
 	coverage report

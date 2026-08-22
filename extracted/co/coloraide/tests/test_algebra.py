@@ -7,6 +7,28 @@ from coloraide import algebra as alg
 class TestAlgebra(unittest.TestCase):
     """Test Algebra."""
 
+    def test_ascopy(self):
+        """Test "as copy"."""
+
+        a = [1, 2, 3, 4]
+        b = alg.ascopy(a)
+
+        self.assertEqual(a, b)
+
+        a[-1] = 5
+
+        self.assertNotEqual(a, b)
+
+    def test_astype(self):
+        """Test "as type"."""
+
+        a = [1, 2, 3, 4]
+        b = alg.astype(a, float)
+
+        self.assertEqual(a, b)
+        self.assertTrue(isinstance(a[0], int))
+        self.assertTrue(isinstance(b[0], float))
+
     def test_cross(self):
         """Test cross product."""
 
@@ -2832,14 +2854,6 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(alg.order(2), 0)
         self.assertEqual(alg.order(0.002), -3)
 
-    def test_min_max(self):
-        """Test getting the minimum and maximum value."""
-
-        self.assertEqual(alg.minmax([-4, 2, 8, 1]), (-4, 8))
-
-        with self.assertRaises(ValueError):
-            alg.minmax([])
-
     def test_sign(self):
         """Test sign."""
 
@@ -2919,7 +2933,47 @@ class TestAlgebra(unittest.TestCase):
             lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
             bounds=(0, 1)
         )
-        self.assertEqual(results, (0.0878714700191443, True))
+        self.assertEqual(results, (0.08787147001914432, True))
+
+        # Solved (flip bounds)
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
+            bounds=(1, 0)
+        )
+        self.assertEqual(results, (0.08787147001914432, True))
+
+        # Solved (Solution on start boundary edge)
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
+            bounds=(0.08787147001914432, 1.0)
+        )
+        self.assertEqual(results, (0.08787147001914432, True))
+
+        # Solved (Solution on end boundary edge)
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
+            bounds=(0, 0.08787147001914432)
+        )
+        self.assertEqual(results, (0.08787147001914432, True))
+
+        # Cannot Solve
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
+            bounds=(5, 6)
+        )
+        self.assertEqual(results, (math.nan, False))
 
     def test_pinv(self):
         """Test Moore-Penrose pseudo inverse."""
@@ -3499,7 +3553,11 @@ class TestAlgebra(unittest.TestCase):
         t = 0.9
         b = _bezier(a, b, c)(t)
         f0 = _bezier(a, b, c, y=t)
-        r, converged = alg.solve_bisect(0.0, 1.0, f0, start=0.5)
+        r, converged = alg.solve_bisect(0.0, 1.0, f0)
+        self.assertTrue(converged)
+        self.assertEqual(r, 0.4539687953174507)
+
+        r, converged = alg.solve_bisect(1.0, 0.0, f0)
         self.assertTrue(converged)
         self.assertEqual(r, 0.4539687953174507)
 
@@ -3668,33 +3726,6 @@ class TestAlgebra(unittest.TestCase):
             [[8, 9, 5, 6, 7],
              [3, 4, 0, 1, 2]]
         )
-
-    def test_unique(self):
-        """Test unique."""
-
-        self.assertEqual(alg.unique([1, 1, 2, 2, 3, 3]), [1, 2, 3])
-        self.assertEqual(alg.unique([[1, 1], [2, 3]]), [1, 2, 3])
-        self.assertEqual(
-            alg.unique([[1, 0, 0], [1, 0, 0], [2, 3, 4]], axis=0),
-            [[1, 0, 0], [2, 3, 4]]
-        )
-
-        m = [1, 2, 6, 4, 2, 3, 2]
-        self.assertEqual(
-            alg.unique(m, return_index=True),
-            ([1, 2, 3, 4, 6], [0, 1, 5, 3, 2])
-        )
-        self.assertEqual(
-            alg.unique(m, return_inverse=True),
-            ([1, 2, 3, 4, 6], [0, 1, 4, 3, 1, 2, 1])
-        )
-        self.assertEqual(
-            alg.unique(m, return_counts=True),
-            ([1, 2, 3, 4, 6], [1, 3, 1, 1, 1])
-        )
-
-        with self.assertRaises(ValueError):
-            alg.unique([[1, 0, 0], [1, 0, 0], [2, 3, 4]], axis=2)
 
     def test_ndenumerate(self):
         """Test N-D array enumeration."""

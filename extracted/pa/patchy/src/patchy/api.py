@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import linecache
 from collections.abc import Callable
 from functools import wraps
 from textwrap import dedent
@@ -72,7 +73,7 @@ class temp_patch:
         @wraps(decorable)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             with self:
-                decorable(*args, **kwargs)
+                return decorable(*args, **kwargs)
 
         return cast(AnyFunc, wrapper)
 
@@ -185,6 +186,10 @@ def _set_source(func: Callable[..., Any], func_source: str) -> None:
     real_func = _get_real_func(func)
     # Figure out any future headers that may be required
     feature_flags = real_func.__code__.co_flags & FEATURE_MASK
+    # Compile with a per-function virtual filename, under which the patched
+    # source is stored in linecache below. Line numbers relative to the
+    # patched source then match, so tools show the right lines.
+    filename = f"<patchy: {real_func.__module__}.{real_func.__qualname__}>"
 
     class_name = _class_name(func)
 
@@ -193,7 +198,7 @@ def _set_source(func: Callable[..., Any], func_source: str) -> None:
         flags: int = 0,
     ) -> CodeType | ast.Module:
         result: CodeType | ast.Module = compile(
-            code, "<patchy>", "exec", flags=feature_flags | flags, dont_inherit=True
+            code, filename, "exec", flags=feature_flags | flags, dont_inherit=True
         )
         return result
 
@@ -233,8 +238,35 @@ def _set_source(func: Callable[..., Any], func_source: str) -> None:
         else:
             fv_force_use = []
         _ast = _parse(func_source).body[0]
-        _ast.body = _ast.body + fv_force_use  # type: ignore [attr-defined]
+        assert isinstance(_ast, (ast.FunctionDef, ast.AsyncFunctionDef))
+        _replace_defaults(_ast)
+        _ast.body = _ast.body + fv_force_use
         return _def, _ast, fv_body
+
+    def _replace_defaults(
+        func_ast: ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> None:
+        """
+        Replace default value expressions with None. Only the code object of
+        the new function is transplanted onto the original function, so the
+        recompiled defaults are discarded and the original ones remain in use.
+        The expressions may not even evaluate at patch time, since they can
+        refer to names that were only available when the function was
+        originally defined, such as class attributes or enclosing function
+        locals.
+        """
+        args = func_ast.args
+        args.defaults = [
+            ast.copy_location(ast.Constant(None), default) for default in args.defaults
+        ]
+        args.kw_defaults = [
+            (
+                None
+                if default is None
+                else ast.copy_location(ast.Constant(None), default)
+            )
+            for default in args.kw_defaults
+        ]
 
     def _process_method() -> ast.Module:
         """
@@ -294,6 +326,16 @@ def _set_source(func: Callable[..., Any], func_source: str) -> None:
     # Store the modified source. This used to be attached to the function but
     # that is a bit naughty
     _source_map[real_func] = func_source
+    # Store the modified source in linecache, under the virtual filename, so
+    # tools that read source through it, like tracebacks, pdb, and
+    # inspect.getsource(), show it. Done the same way as doctest and timeit.
+    # The None mtime means linecache.checkcache() never drops the entry.
+    linecache.cache[filename] = (
+        len(func_source),
+        None,
+        func_source.splitlines(keepends=True),
+        filename,
+    )
 
 
 def _get_real_func(func: Callable[..., Any]) -> Callable[..., Any]:

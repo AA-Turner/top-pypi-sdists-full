@@ -1,47 +1,85 @@
-import sys
-import ctypes
-class RFIDTagType:
-	# MIFARE Classic 1K
-	TAGTYPE_MIFARE_CLASSIC_1K = 1
-	# MIFARE Classic 4K
-	TAGTYPE_MIFARE_CLASSIC_4K = 2
-	# Generic Type 2
-	TAGTYPE_GENERIC_TYPE_2 = 3
-	# MIFARE Ultralight
-	TAGTYPE_MIFARE_ULTRALIGHT = 4
-	# MIFARE Ultralight EV1
-	TAGTYPE_MIFARE_ULTRALIGHT_EV1 = 5
-	# MIFARE Ultralight C
-	TAGTYPE_MIFARE_ULTRALIGHT_C = 6
-	# NTAG 213
-	TAGTYPE_MIFARE_NTAG_213 = 7
-	# NTAG 215
-	TAGTYPE_MIFARE_NTAG_215 = 8
-	# NTAG 216
-	TAGTYPE_MIFARE_NTAG_216 = 9
-	# Unsupported
-	TAGTYPE_UNSUPPORTED = 255
+# coding=utf-8
+# Copyright (c) 2015-2026 Phidgets Inc.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-	@classmethod
-	def getName(self, val):
-		if val == self.TAGTYPE_MIFARE_CLASSIC_1K:
-			return "TAGTYPE_MIFARE_CLASSIC_1K"
-		if val == self.TAGTYPE_MIFARE_CLASSIC_4K:
-			return "TAGTYPE_MIFARE_CLASSIC_4K"
-		if val == self.TAGTYPE_GENERIC_TYPE_2:
-			return "TAGTYPE_GENERIC_TYPE_2"
-		if val == self.TAGTYPE_MIFARE_ULTRALIGHT:
-			return "TAGTYPE_MIFARE_ULTRALIGHT"
-		if val == self.TAGTYPE_MIFARE_ULTRALIGHT_EV1:
-			return "TAGTYPE_MIFARE_ULTRALIGHT_EV1"
-		if val == self.TAGTYPE_MIFARE_ULTRALIGHT_C:
-			return "TAGTYPE_MIFARE_ULTRALIGHT_C"
-		if val == self.TAGTYPE_MIFARE_NTAG_213:
-			return "TAGTYPE_MIFARE_NTAG_213"
-		if val == self.TAGTYPE_MIFARE_NTAG_215:
-			return "TAGTYPE_MIFARE_NTAG_215"
-		if val == self.TAGTYPE_MIFARE_NTAG_216:
-			return "TAGTYPE_MIFARE_NTAG_216"
-		if val == self.TAGTYPE_UNSUPPORTED:
-			return "TAGTYPE_UNSUPPORTED"
-		return "<invalid enumeration value>"
+import sys
+
+if sys.version_info >= (3, 4):
+    from enum import IntEnum
+else:
+    from _int_enum import IntEnum
+
+
+class RFIDTagType(IntEnum):
+    """
+    The tag type of the NFC tag
+    """
+
+    TAGTYPE_MIFARE_CLASSIC_1K = 1
+    """MIFARE Classic 1K"""
+    TAGTYPE_MIFARE_CLASSIC_4K = 2
+    """MIFARE Classic 4K"""
+    TAGTYPE_GENERIC_TYPE_2 = 3
+    """Generic Type 2"""
+    TAGTYPE_MIFARE_ULTRALIGHT = 4
+    """MIFARE Ultralight"""
+    TAGTYPE_MIFARE_ULTRALIGHT_EV1 = 5
+    """MIFARE Ultralight EV1"""
+    TAGTYPE_MIFARE_ULTRALIGHT_C = 6
+    """MIFARE Ultralight C"""
+    TAGTYPE_MIFARE_NTAG_213 = 7
+    """NTAG 213"""
+    TAGTYPE_MIFARE_NTAG_215 = 8
+    """NTAG 215"""
+    TAGTYPE_MIFARE_NTAG_216 = 9
+    """NTAG 216"""
+    TAGTYPE_UNSUPPORTED = 255
+    """Unsupported"""
+
+    @classmethod
+    def getName(cls, val):
+        if val == cls.TAGTYPE_MIFARE_CLASSIC_1K:
+            return "TAGTYPE_MIFARE_CLASSIC_1K"
+        if val == cls.TAGTYPE_MIFARE_CLASSIC_4K:
+            return "TAGTYPE_MIFARE_CLASSIC_4K"
+        if val == cls.TAGTYPE_GENERIC_TYPE_2:
+            return "TAGTYPE_GENERIC_TYPE_2"
+        if val == cls.TAGTYPE_MIFARE_ULTRALIGHT:
+            return "TAGTYPE_MIFARE_ULTRALIGHT"
+        if val == cls.TAGTYPE_MIFARE_ULTRALIGHT_EV1:
+            return "TAGTYPE_MIFARE_ULTRALIGHT_EV1"
+        if val == cls.TAGTYPE_MIFARE_ULTRALIGHT_C:
+            return "TAGTYPE_MIFARE_ULTRALIGHT_C"
+        if val == cls.TAGTYPE_MIFARE_NTAG_213:
+            return "TAGTYPE_MIFARE_NTAG_213"
+        if val == cls.TAGTYPE_MIFARE_NTAG_215:
+            return "TAGTYPE_MIFARE_NTAG_215"
+        if val == cls.TAGTYPE_MIFARE_NTAG_216:
+            return "TAGTYPE_MIFARE_NTAG_216"
+        if val == cls.TAGTYPE_UNSUPPORTED:
+            return "TAGTYPE_UNSUPPORTED"
+        return "<invalid enumeration value>"

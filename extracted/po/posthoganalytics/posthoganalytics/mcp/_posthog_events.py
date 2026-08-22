@@ -131,6 +131,12 @@ def _add_common_properties(event: Event, properties: Dict[str, Any]) -> None:
         properties[_P.CLIENT_NAME] = event["client_name"]
     if event.get("client_version"):
         properties[_P.CLIENT_VERSION] = event["client_version"]
+    # HTTP transports only, and only for the request that carried the header —
+    # stdio and in-memory servers simply never set these.
+    if event.get("client_user_agent"):
+        properties[_P.CLIENT_USER_AGENT] = event["client_user_agent"]
+    if event.get("vendor_client"):
+        properties[_P.VENDOR_CLIENT] = event["vendor_client"]
     if event.get("protocol_version"):
         properties[_P.PROTOCOL_VERSION] = event["protocol_version"]
     if event.get("user_intent"):
@@ -139,6 +145,8 @@ def _add_common_properties(event: Event, properties: Dict[str, Any]) -> None:
         properties[_P.INTENT_SOURCE] = event["user_intent_source"]
     if event.get("is_error") is not None:
         properties[_P.IS_ERROR] = event["is_error"]
+    if event.get("is_error"):
+        _add_error_details(event, properties)
     if event.get("parameters") is not None:
         properties[_P.PARAMETERS] = event["parameters"]
     if event.get("response") is not None:
@@ -147,6 +155,36 @@ def _add_common_properties(event: Event, properties: Dict[str, Any]) -> None:
     if identify_actor_data and len(identify_actor_data) > 0:
         # Person properties from identify().properties go straight to $set.
         properties["$set"] = {**identify_actor_data}
+
+
+def _add_error_details(event: Event, properties: Dict[str, Any]) -> None:
+    """Surface the failure reason on the primary event itself.
+
+    Without these the dashboard has to join to the ``$exception`` sibling to
+    know *why* a call failed — and that sibling can be switched off with
+    ``enable_exception_autocapture``, or never emitted when no error value was
+    passed. Both values are read off the ``$exception_list`` the sibling would
+    carry, so the two always agree; the message is already bounded to
+    ``_MAX_ERROR_MESSAGE_LENGTH`` because truncation runs before this mapping.
+    """
+    first: Dict[str, Any] = {}
+    error = event.get("error")
+    if isinstance(error, dict):
+        exception_list = error.get("$exception_list")
+        if isinstance(exception_list, list) and exception_list:
+            candidate = exception_list[0]
+            if isinstance(candidate, dict):
+                first = candidate
+
+    # An explicit coarse category (e.g. "validation", "timeout") beats the
+    # thrown type; a custom dispatcher can pass one that means something to the
+    # product, where the class name rarely does.
+    error_type = event.get("error_type") or first.get("type")
+    if error_type:
+        properties[_P.ERROR_TYPE] = error_type
+    message = first.get("value")
+    if message:
+        properties[_P.ERROR_MESSAGE] = message
 
 
 def _add_custom_properties(event: Event, properties: Dict[str, Any]) -> None:

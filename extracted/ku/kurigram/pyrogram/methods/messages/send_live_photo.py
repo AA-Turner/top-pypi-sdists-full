@@ -17,15 +17,12 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import os
-import re
 from datetime import datetime
 from typing import BinaryIO, Callable, List, Optional, Union
 
 import pyrogram
 from pyrogram import StopTransmission, enums, raw, types, utils
 from pyrogram.errors import FilePartMissing
-from pyrogram.file_id import FileType
 
 log = logging.getLogger(__name__)
 
@@ -38,29 +35,31 @@ class SendLivePhoto:
         photo: Union[str, BinaryIO],
         caption: str = "",
         parse_mode: Optional["enums.ParseMode"] = None,
-        caption_entities: List["types.MessageEntity"] = None,
+        caption_entities: Optional[List["types.MessageEntity"]] = None,
         has_spoiler: Optional[bool] = None,
         width: int = 0,
         height: int = 0,
         disable_notification: Optional[bool] = None,
         message_thread_id: Optional[int] = None,
         direct_messages_topic_id: Optional[int] = None,
+        receiver_user_id: Optional[Union[int, str]] = None,
+        callback_query_id: Optional[str] = None,
         effect_id: Optional[int] = None,
         show_caption_above_media: Optional[bool] = None,
-        reply_parameters: "types.ReplyParameters" = None,
+        reply_parameters: Optional["types.ReplyParameters"] = None,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
         protect_content: Optional[bool] = None,
         business_connection_id: Optional[str] = None,
         allow_paid_broadcast: Optional[bool] = None,
         paid_message_star_count: Optional[int] = None,
-        suggested_post_parameters: "types.SuggestedPostParameters" = None,
-        reply_markup: Union[
+        suggested_post_parameters: Optional["types.SuggestedPostParameters"] = None,
+        reply_markup: Optional[Union[
             "types.InlineKeyboardMarkup",
             "types.ReplyKeyboardMarkup",
             "types.ReplyKeyboardRemove",
             "types.ForceReply",
-        ] = None,
+        ]] = None,
         progress: Optional[Callable] = None,
         progress_args: tuple = (),
     ) -> Optional["types.Message"]:
@@ -119,7 +118,16 @@ class SendLivePhoto:
 
             direct_messages_topic_id (``int``, *optional*):
                 Unique identifier of the topic in a channel direct messages chat administered by the current user.
-                For directs only only.
+                For direct chats only.only.
+
+            receiver_user_id (``int`` | ``str``, *optional*):
+                For outgoing ephemeral messages, unique identifier (int) or username (str) of the user who will receive the message.
+                For group and supergroup chats only.
+                It is not guaranteed that the user will receive the message, especially if they are offline.
+                See `ephemeral message sending <https://core.telegram.org/bots/api#ephemeral-messages-and-commands>`__ for more details.
+
+            callback_query_id (``str``, *optional*):
+                For outgoing ephemeral messages, identifier of the callback query which triggered the message if any.
 
             effect_id (``int``, *optional*):
                 Unique identifier of the message effect.
@@ -195,8 +203,37 @@ class SendLivePhoto:
         try:
             while True:
                 try:
-                    r = await self.invoke(
-                        raw.functions.messages.SendMedia(
+                    if receiver_user_id:
+                        rpc = raw.functions.ephemeral.SendMessage(
+                            peer=peer,
+                            receiver_id=await self.resolve_peer(receiver_user_id),
+                            query_id=int(callback_query_id) if callback_query_id is not None else None,
+                            media=await types.InputMediaLivePhoto(
+                                media=live_photo,
+                                photo=photo,
+                                caption=caption,
+                                parse_mode=parse_mode,
+                                caption_entities=caption_entities,
+                                has_spoiler=has_spoiler,
+                            ).write(
+                                client=self,
+                                width=width,
+                                height=height,
+                                progress=progress,
+                                progress_args=progress_args,
+                            ),
+                            reply_to=await utils.get_reply_to(
+                                self,
+                                reply_parameters,
+                                message_thread_id,
+                                direct_messages_topic_id
+                            ),
+                            random_id=self.rnd_id(),
+                            reply_markup=await reply_markup.write(self) if reply_markup else None,
+                            **await utils.parse_text_entities(self, caption, parse_mode, caption_entities)
+                        )
+                    else:
+                        rpc = raw.functions.messages.SendMedia(
                             peer=peer,
                             media=await types.InputMediaLivePhoto(
                                 media=live_photo,
@@ -231,11 +268,11 @@ class SendLivePhoto:
                             **await utils.parse_text_entities(
                                 self, caption, parse_mode, caption_entities
                             ),
-                        ),
-                        business_connection_id=business_connection_id,
-                    )
+                        )
+
+                    r = await self.invoke(rpc, business_connection_id=business_connection_id)
                 except FilePartMissing as e:
-                    await self.save_file(live_photo, file_id=file.id, file_part=e.value)
+                    await self.save_file(live_photo, file_id=file.id, file_part=e.file_part)
                 else:
                     messages = await utils.parse_messages(client=self, messages=r)
 

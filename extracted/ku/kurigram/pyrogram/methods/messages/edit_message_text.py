@@ -34,11 +34,11 @@ class EditMessageText:
         text: Optional[str] = None,
         parse_mode: Optional["enums.ParseMode"] = None,
         entities: Optional[List["types.MessageEntity"]] = None,
-        link_preview_options: "types.LinkPreviewOptions" = None,
+        link_preview_options: Optional["types.LinkPreviewOptions"] = None,
         schedule_date: Optional[datetime] = None,
         business_connection_id: Optional[str] = None,
         rich_message: Optional["types.InputRichMessage"] = None,
-        reply_markup: "types.InlineKeyboardMarkup" = None,
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
         show_caption_above_media: Optional[bool] = None,
         disable_web_page_preview: Optional[bool] = None,
     ) -> "types.Message":
@@ -124,11 +124,11 @@ class EditMessageText:
         input_rich_message = None
         entities = None
 
-        if text:
+        if text is not None:
             message, entities = (
                 await utils.parse_text_entities(self, text, parse_mode, entities)
             ).values()
-        elif rich_message:
+        elif rich_message is not None:
             input_rich_message = rich_message.write()
         else:
             raise ValueError("Either text or rich_message must be specified")

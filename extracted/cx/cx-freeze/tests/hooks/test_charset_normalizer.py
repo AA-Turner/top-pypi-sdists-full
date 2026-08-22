@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -21,23 +26,25 @@ pyproject.toml
     name = "test_charset_normalizer"
     version = "0.1.2.3"
     dependencies = [
-        "charset_normalizer<3.0;python_version < '3.12'",
-        "charset_normalizer>=3.0;python_version >= '3.12'",
+        "charset-normalizer<3.0;python_version < '3.12'",
+        "charset-normalizer>=3.0;python_version >= '3.12'",
     ]
 
     [tool.cxfreeze]
     executables = ["test_charset_normalizer.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.venv
 @zip_packages
-def test_charset_normalizer(tmp_package, zip_packages: bool) -> None:
+def test_charset_normalizer(
+    tmp_package: TempPackage, zip_packages: bool
+) -> None:
     """Test if charset_normalizer hook is working correctly."""
     tmp_package.create(SOURCE_TEST_CHARSET_NORMALIZER)
     if zip_packages:

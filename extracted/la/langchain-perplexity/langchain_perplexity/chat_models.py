@@ -56,6 +56,7 @@ from perplexity import AsyncPerplexity, Perplexity
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
+from langchain_perplexity._version import __version__
 from langchain_perplexity.data._profiles import _PROFILES
 from langchain_perplexity.output_parsers import (
     ReasoningJsonOutputParser,
@@ -236,7 +237,9 @@ def _translate_responses_input(message_dicts: list[dict[str, Any]]) -> list[Any]
             # as `function_call` items.
             text = _content_to_text(message.get("content"))
             if text:
-                translated.append({"role": "assistant", "content": text})
+                translated.append(
+                    {"type": "message", "role": "assistant", "content": text}
+                )
             for tool_call in message["tool_calls"]:
                 function = tool_call.get("function", {})
                 call_id = tool_call.get("id")
@@ -273,6 +276,8 @@ def _translate_responses_input(message_dicts: list[dict[str, Any]]) -> list[Any]
                     "output": output,
                 }
             )
+        elif role in {"assistant", "system", "user", "developer"}:
+            translated.append({**message, "type": "message"})
         else:
             translated.append(message)
     return translated
@@ -840,6 +845,12 @@ class ChatPerplexity(BaseChatModel):
         return values
 
     @model_validator(mode="after")
+    def _set_perplexity_version(self) -> Self:
+        """Set package version in metadata."""
+        self._add_version("langchain-perplexity", __version__)
+        return self
+
+    @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that api key and python package exists in environment."""
         pplx_api_key = (
@@ -1067,7 +1078,7 @@ class ChatPerplexity(BaseChatModel):
                 payload["tools"] = [_flatten_responses_tool(tool) for tool in value]
                 continue
             if key in _RESPONSES_PASSTHROUGH_KEYS:
-                payload[key] = value
+                payload[key] = dict(value) if isinstance(value, dict) else value
                 continue
             # Unknown / Perplexity-specific keys: route under extra_body so the
             # SDK forwards them to the Agent API without breaking strict typing.
@@ -1521,7 +1532,7 @@ class ChatPerplexity(BaseChatModel):
 
         Client-side function tools require the Perplexity Responses (Agent) API:
         construct the model with `use_responses_api=True` and a tool-capable
-        model such as `openai/gpt-5.5`. The `sonar` family does not support
+        model such as `openai/gpt-5`. The `sonar` family does not support
         client-side function tools.
 
         Args:

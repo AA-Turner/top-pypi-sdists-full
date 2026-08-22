@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-timm package is included.
-"""
+"""Hooks triggered by finder when timm package is included."""
 
 from __future__ import annotations
 
@@ -19,7 +17,12 @@ class Hook(ModuleHook):
     """The Hook class for timm."""
 
     def timm(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for timm. Tested in Windows and Linux."""
+        """Include modules and files required by timm.
+
+        Tested in Windows and Linux.
+        """
+        if module.file is None:  # to make ty happy
+            return
         module_path = module.file.parent
         site_packages_path = module_path.parent
 

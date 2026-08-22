@@ -1,9 +1,8 @@
-"""A collection of functions which are triggered automatically by finder when
-nvidia package is included.
-"""
+"""Hooks triggered by finder when nvidia package is included."""
 
 from __future__ import annotations
 
+from importlib.machinery import SourceFileLoader
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -21,8 +20,7 @@ class Hook(ModuleHook):
     """The Hook class for nvidia."""
 
     def nvidia(self, finder: ModuleFinder, module: Module) -> None:
-        """Hook for nvidia."""
-        # include the cuda libraries as fixed libraries
+        """Include the cuda libraries as fixed libraries."""
         if IS_MINGW or IS_WINDOWS:
             extension = "*.dll"
         elif IS_MACOS:
@@ -30,6 +28,8 @@ class Hook(ModuleHook):
         else:
             extension = "*.so*"
 
+        if module.file is None:  # to make ty happy
+            return
         source_lib = module.file.parent
         if source_lib.exists():
             target_lib = f"lib/{source_lib.name}"
@@ -37,10 +37,8 @@ class Hook(ModuleHook):
                 library = source.relative_to(source_lib).as_posix()
                 finder.lib_files[source] = f"{target_lib}/{library}"
 
-        code_string = module.file.read_text(encoding="utf_8")
         # fix for issue #2682
-        patch = dedent(
-            f"""
+        patch = f"""
             def _cxfreeze_patch():
                 import ctypes
                 import sys
@@ -50,12 +48,15 @@ class Hook(ModuleHook):
                 for source in source_lib.glob("*/lib/{extension}"):
                     ctypes.CDLL(source)
             _cxfreeze_patch()
-            """
-        )
-        module.code = compile(
-            code_string + patch,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        """
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        module.code = loader.source_to_code(
+            source_code + dedent(patch),
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )

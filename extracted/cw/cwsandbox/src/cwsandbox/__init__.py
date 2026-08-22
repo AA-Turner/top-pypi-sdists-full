@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -28,6 +28,7 @@ from cwsandbox._loop_manager import _LoopManager
 from cwsandbox._sandbox import Sandbox, SandboxStatus
 from cwsandbox._session import Session
 from cwsandbox._types import (
+    EgressRule,
     Endpoint,
     EndpointAuth,
     EndpointKind,
@@ -292,6 +293,7 @@ __all__ = [
     "CWSandboxValidationError",
     "DiscoveryError",
     "DiscoveryValidationError",
+    "EgressRule",
     "Endpoint",
     "EndpointAuth",
     "EndpointKind",

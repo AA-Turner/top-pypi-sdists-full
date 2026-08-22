@@ -920,13 +920,33 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
+                    self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
+                    self.EFM = self._EFM(self, "EFM", service, rules, path)
+                    self.OpP = self._OpP(self, "OpP", service, rules, path)
+                    self.Density = self._Density(self, "Density", service, rules, path)
                     self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
                     self.Energy = self._Energy(self, "Energy", service, rules, path)
                     self.WF = self._WF(self, "WF", service, rules, path)
-                    self.OpP = self._OpP(self, "OpP", service, rules, path)
-                    self.Density = self._Density(self, "Density", service, rules, path)
-                    self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
-                    self.EFM = self._EFM(self, "EFM", service, rules, path)
+
+                class _CEBtn(PyArgumentsParameterSubItem):
+                    """
+                    Argument CEBtn.
+                    """
+
+                class _EFM(PyArgumentsTextualSubItem):
+                    """
+                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
+                    """
+
+                class _OpP(PyArgumentsNumericalSubItem):
+                    """
+                    Specify the operating pressure, or keep the default value.
+                    """
+
+                class _Density(PyArgumentsNumericalSubItem):
+                    """
+                    Provide a value for the density of air, or use the default value.
+                    """
 
                 class _Vrpm(PyArgumentsNumericalSubItem):
                     """
@@ -941,26 +961,6 @@ class Root(PyMenu):
                 class _WF(PyArgumentsTextualSubItem):
                     """
                     Choose one of the following materials as the working fluid for the CFD model.
-                    """
-
-                class _OpP(PyArgumentsNumericalSubItem):
-                    """
-                    Specify the operating pressure, or keep the default value.
-                    """
-
-                class _Density(PyArgumentsNumericalSubItem):
-                    """
-                    Provide a value for the density of air, or use the default value.
-                    """
-
-                class _CEBtn(PyArgumentsParameterSubItem):
-                    """
-                    Argument CEBtn.
-                    """
-
-                class _EFM(PyArgumentsTextualSubItem):
-                    """
-                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
                     """
 
         def create_instance(self) -> _TWF_TurboPhysicsArguments:
@@ -992,17 +992,17 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.UseUndo = self._UseUndo(self, "UseUndo", service, rules, path)
                     self.UndoOperationsLog = self._UndoOperationsLog(self, "UndoOperationsLog", service, rules, path)
-
-                class _UseUndo(PyArgumentsParameterSubItem):
-                    """
-                    Argument UseUndo.
-                    """
+                    self.UseUndo = self._UseUndo(self, "UseUndo", service, rules, path)
 
                 class _UndoOperationsLog(PyArgumentsTextualSubItem):
                     """
                     Argument UndoOperationsLog.
+                    """
+
+                class _UseUndo(PyArgumentsParameterSubItem):
+                    """
+                    Argument UseUndo.
                     """
 
         def create_instance(self) -> _TWF_TurboRegionsZonesArguments:

@@ -87,8 +87,10 @@ from bernstein.core.tasks.checkpoint_retry import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from bernstein.core.persistence.agent_checkpoint import AgentCheckpoint
     from bernstein.core.persistence.work_ledger import LedgerEntry, WorkLedger
     from bernstein.core.security.audit_chain import AuditChainStore, AuditEvent
+    from bernstein.core.security.permissions import AgentPermissions
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,15 @@ JOURNAL_EVENT_SUSPEND = "task.suspend"
 
 #: Event-journal row type for a recorded durable resume (wake).
 JOURNAL_EVENT_RESUME = "task.resume"
+
+#: Event-journal row type for the authenticated grant-continuation entry
+#: appended immediately after a successful resume.  Binds
+#: ``(checkpoint_hash, grant_hash, chain_head_at_suspend, chain_head_at_resume)``
+#: so a verifier can chain suspend -> resume with no filesystem access.
+#: Absence of this row for a given resume means the resumed run never
+#: completed its first authority check; the verifier treats the run as a
+#: *new* run, never as a continuation.
+JOURNAL_EVENT_GRANT_CONTINUATION = "task.grant_continuation"
 
 #: Canonical resource kinds a park releases, each referencing the suspend
 #: receipt hash. ``budget`` is always released (headroom returns to the pool);
@@ -856,6 +867,55 @@ def release_resources(
 # ---------------------------------------------------------------------------
 
 
+def resolve_task_role(sdd_dir: Path, task_id: str) -> str:
+    """Return the agent role recorded for ``task_id``, or ``""`` when unknown.
+
+    The park writes a checkpoint whose ``grant_hash`` is computed over the
+    role's permission set, and the resume re-derives that hash from
+    ``get_permissions_for_role(checkpoint.role)``. So the role is not a label:
+    it is the authority the resume is checked against, and a role that is
+    merely plausible produces a grant that binds nothing.
+
+    ``CheckpointRef`` has never carried a role, so it is read where the task
+    server persists it -- the task log under ``<sdd>/runtime/tasks.jsonl``,
+    which is the same record ``TaskStore`` replays on restart.
+
+    Returns ``""`` when the log is missing, unreadable, or holds no row for
+    ``task_id``. An absent role makes :func:`park_task` write an empty
+    ``grant_hash``, which the resume reads as "not grant-bound" -- an honest
+    absence, rather than a hash over a guessed role that would pass the
+    authority check by construction.
+
+    Args:
+        sdd_dir: Project ``.sdd`` directory.
+        task_id: The task whose role is wanted.
+
+    Returns:
+        The recorded role, or ``""`` when it cannot be determined.
+    """
+    from bernstein.core.tasks.models import TaskStoreUnavailable
+    from bernstein.core.tasks.task_store import TaskStore
+
+    try:
+        store = TaskStore(
+            jsonl_path=sdd_dir / "runtime" / "tasks.jsonl",
+            archive_path=sdd_dir / "archive" / "tasks.jsonl",
+        )
+        store.replay_jsonl()
+        task = store.get_task(task_id)
+    except (TaskStoreUnavailable, OSError, KeyError, ValueError):
+        # A task log we cannot read must not block the park: the suspension
+        # itself is still durable and auditable. It costs the checkpoint its
+        # grant binding, so it is logged rather than swallowed.
+        logger.warning(
+            "role lookup for task %s failed; parking without a grant-bound checkpoint",
+            task_id,
+            exc_info=True,
+        )
+        return ""
+    return task.role if task is not None else ""
+
+
 @dataclass(frozen=True)
 class ParkResult:
     """Anchors produced by :func:`park_task`.
@@ -875,6 +935,29 @@ class ParkResult:
     ledger_entry_hash: str
 
 
+def _find_checkpoint_for_task_safe(task_id: str, runtime_dir: Path) -> AgentCheckpoint | None:
+    """Return the AgentCheckpoint for ``task_id``, or ``None`` on any error.
+
+    A checkpoint that cannot be read must not fail the resume it belongs to,
+    so the lookup degrades to "absent". This module reads absence as *a new
+    run, never a continuation*, which is the safe direction but also a real
+    loss of evidence -- and ``find_checkpoint_for_task`` already tolerates a
+    corrupt individual file on its own. Anything that still escapes it is a
+    surprise worth a line in the log rather than a silent downgrade.
+    """
+    from bernstein.core.persistence.agent_checkpoint import find_checkpoint_for_task
+
+    try:
+        return find_checkpoint_for_task(task_id, runtime_dir)
+    except Exception:
+        logger.warning(
+            "checkpoint lookup for task %s failed; treating as absent",
+            task_id,
+            exc_info=True,
+        )
+        return None
+
+
 def park_task(
     *,
     sdd_dir: Path,
@@ -889,6 +972,9 @@ def park_task(
     handles: ResourceHandles | None = None,
     ledger: WorkLedger | None = None,
     wake_condition: str = "",
+    role: str = "",
+    permissions: AgentPermissions | None = None,
+    parent_run_id: str = "",
 ) -> ParkResult:
     """Durably park ``task_id``: row, receipt, releases, then ledger.
 
@@ -917,6 +1003,9 @@ def park_task(
         handles: Physical release effects; ``None`` releases only budget.
         ledger: Optional work ledger to persist the SUSPENDED transition.
         wake_condition: ``""`` or :data:`WAKE_APPROVAL`.
+        role: Agent role name at suspend time.
+        permissions: Live :class:`AgentPermissions` at suspend time.
+        parent_run_id: Run that owns the task.
 
     Returns:
         A :class:`ParkResult` with the row, receipt hash, release outcome, and
@@ -928,6 +1017,7 @@ def park_task(
             path would later refuse.
     """
     from bernstein.core.cost.budget_actions import compute_released_headroom
+    from bernstein.core.persistence.agent_checkpoint import AgentCheckpoint, compute_grant_hash, save_checkpoint
     from bernstein.core.persistence.work_ledger import KIND_TASK_SUSPENDED
     from bernstein.core.security.audit_chain import record_task_suspension
 
@@ -949,6 +1039,12 @@ def park_task(
         wake_condition=wake_condition,
     )
 
+    from bernstein.core.security.permissions import get_permissions_for_role
+
+    effective_permissions = (
+        permissions if permissions is not None else (get_permissions_for_role(role) if role else None)
+    )
+
     # Receipt before effect: the suspend receipt exists on the chain before a
     # single resource is freed.
     receipt = record_task_suspension(
@@ -964,6 +1060,26 @@ def park_task(
         released_usd=released_usd,
         wake_condition=wake_condition,
     )
+
+    grant_hash = ""
+    if role and effective_permissions is not None:
+        grant_hash = compute_grant_hash(
+            role=role,
+            permissions=effective_permissions,
+            task_id=task_id,
+            parent_run_id=parent_run_id,
+            chain_head=suspend_row.event_hash,
+        )
+    checkpoint = AgentCheckpoint(
+        agent_id=task_run_id(task_id),
+        task_id=task_id,
+        worktree_path=str(worktree_path),
+        role=role,
+        grant_hash=grant_hash,
+        parent_run_id=parent_run_id,
+        chain_head_at_suspend=suspend_row.event_hash,
+    )
+    save_checkpoint(checkpoint, sdd_dir / "runtime")
 
     release = release_resources(
         chain=chain,
@@ -1164,6 +1280,35 @@ def resume_task(
         msg = f"resume journal append failed for task {suspend_row.task_id!r}"
         raise RuntimeError(msg)
     resume_event_hash = journal.head()
+    # Captured before the continuation row is appended: the resume receipt
+    # documents this as the index of the *resume* row, and it already refuses
+    # a receipt whose hash and index name different rows on the suspend side.
+    resume_journal_index = journal.event_count() - 1
+
+    # --- Journal append of ContinuationEntry (issue #3649) ---
+    # Look up the AgentCheckpoint for this task.  If it carries a grant_hash
+    # (stamped at park time by park_task), append a task.grant_continuation row
+    # that binds (checkpoint_hash, grant_hash, chain_head_at_suspend,
+    # chain_head_at_resume).  A verifier can then chain suspend -> resume with
+    # no filesystem access.  A park that could not source a role writes an
+    # empty grant_hash, and a task parked before checkpoints existed has no
+    # checkpoint at all; neither produces a continuation row, and the verifier
+    # reads that absence as a new run rather than as a continuation.
+    _cp_for_cont = _find_checkpoint_for_task_safe(suspend_row.task_id, sdd_dir / "runtime")
+    if _cp_for_cont is not None and _cp_for_cont.grant_hash:
+        from bernstein.core.persistence.agent_checkpoint import (
+            build_continuation_entry as _bce,
+        )
+
+        _entry = _bce(_cp_for_cont, chain_head_at_resume=resume_event_hash)
+        journal.record(
+            JOURNAL_EVENT_GRANT_CONTINUATION,
+            task_id=suspend_row.task_id,
+            checkpoint_hash=_entry.checkpoint_hash,
+            grant_hash=_entry.grant_hash,
+            chain_head_at_suspend=_entry.chain_head_at_suspend,
+            chain_head_at_resume=_entry.chain_head_at_resume,
+        )
 
     receipt = record_task_resume(
         chain=chain,
@@ -1171,7 +1316,7 @@ def resume_task(
         suspend_receipt_hash=suspend_receipt_hash,
         suspend_event_hash=suspend_row.event_hash,
         resume_event_hash=resume_event_hash,
-        journal_index=journal.event_count() - 1,
+        journal_index=resume_journal_index,
         effective_mode=str(decision.effective_mode),
         requested_mode=str(decision.requested_mode),
         workspace_match=decision.workspace_match,
@@ -1551,6 +1696,7 @@ __all__ = [
     "CONTINUITY_FAILED",
     "CONTINUITY_PENDING",
     "CONTINUITY_VERIFIED",
+    "JOURNAL_EVENT_GRANT_CONTINUATION",
     "JOURNAL_EVENT_RESUME",
     "JOURNAL_EVENT_SUSPEND",
     "RESOURCE_BUDGET",
@@ -1579,6 +1725,7 @@ __all__ = [
     "park_task",
     "record_task_suspension_row",
     "release_resources",
+    "resolve_task_role",
     "resume_task",
     "validate_task_id",
     "verify_suspension_continuity",

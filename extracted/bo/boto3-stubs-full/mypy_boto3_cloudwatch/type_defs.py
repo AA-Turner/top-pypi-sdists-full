@@ -223,6 +223,7 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "WaiterConfigTypeDef",
     "WallClockWindowTypeDef",
+    "WarmUpConfigurationTypeDef",
 )
 
 
@@ -546,6 +547,11 @@ class ListTagsForResourceInputTypeDef(TypedDict):
 class TagTypeDef(TypedDict):
     Key: str
     Value: str
+
+
+class WarmUpConfigurationTypeDef(TypedDict):
+    WarmUpPeriodDurationInMinutes: int
+    OnlyStartEvaluatingAfterWarmUpPeriodEnds: NotRequired[bool]
 
 
 class ManagedRuleStateTypeDef(TypedDict):
@@ -1212,6 +1218,7 @@ class LogAlarmTypeDef(TypedDict):
     EvaluationState: NotRequired[EvaluationStateType]
     ActionLogLineCount: NotRequired[int]
     ActionLogLineRoleArn: NotRequired[str]
+    WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
 
 
 ScheduledQueryConfigurationUnionTypeDef = Union[
@@ -1303,6 +1310,7 @@ class PutLogAlarmInputTypeDef(TypedDict):
     InsufficientDataActions: NotRequired[Sequence[str]]
     TreatMissingData: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
 
 
 class MetricAlarmTypeDef(TypedDict):
@@ -1336,6 +1344,7 @@ class MetricAlarmTypeDef(TypedDict):
     EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
     EvaluationWindow: NotRequired[EvaluationWindowOutputTypeDef]
+    WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1479,6 +1488,7 @@ class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
     EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
+    WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1507,6 +1517,7 @@ class PutMetricAlarmInputTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
     EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
+    WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 

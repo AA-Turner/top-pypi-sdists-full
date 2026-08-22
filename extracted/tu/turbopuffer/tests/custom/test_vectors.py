@@ -10,10 +10,9 @@ from tests.custom import test_prefix
 from turbopuffer.types import (
     Row,
     Vector,
-    RowParam,
-    ColumnsParam,
     QueryBilling,
     VectorEncoding,
+    NamespaceWriteParams,
     NamespaceQueryResponse,
     namespace_query_params,
 )
@@ -566,11 +565,59 @@ def test_transparent_vector_encoding():
     # Due to the nature of the hack, there's a high risk of a future refactoring
     # to the Stainless specification breaking the fast path.
 
-    transformed = transform({"id": 1, "vector": [0.1, 0.2, 0.3]}, RowParam)
-    assert transformed == {"id": 1, "vector": "zczMPc3MTD6amZk+"}
+    transformed = transform({"upsert_rows": [{"id": 1, "vector": [0.1, 0.2, 0.3]}]}, NamespaceWriteParams)
+    assert transformed == {"upsert_rows": [{"id": 1, "vector": "zczMPc3MTD6amZk+"}]}
 
-    transformed = transform({"id": [1, 2], "vector": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]}, ColumnsParam)
-    assert transformed == {"id": [1, 2], "vector": ["zczMPc3MTD6amZk+", "zczMPgAAAD+amRk/"]}
+    transformed = transform(
+        {"upsert_columns": {"id": [1, 2], "vector": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]}}, NamespaceWriteParams
+    )
+    assert transformed == {"upsert_columns": {"id": [1, 2], "vector": ["zczMPc3MTD6amZk+", "zczMPgAAAD+amRk/"]}}
+
+    # Named vector columns are encoded when schema sets ann; ann: False does not encode.
+    body = {
+        "upsert_rows": [
+            {
+                "id": 1,
+                "title_embedding": [0.1, 0.2, 0.3],
+                "image_embedding": [0.4, 0.5],
+                "other_embedding": [0.6, 0.7, 0.8],
+                "title": "hello",
+            }
+        ],
+        "schema": {
+            "title_embedding": {"type": "[3]f32", "ann": True},
+            "image_embedding": {"type": "[2]f16", "ann": True},
+            "other_embedding": {"type": "[3]f32", "ann": False},
+        },
+    }
+    transformed = transform(body, NamespaceWriteParams)
+    assert transformed == {
+        "upsert_rows": [
+            {
+                "id": 1,
+                "title_embedding": "zczMPc3MTD6amZk+",
+                "image_embedding": b64encode_vector([0.4, 0.5]),
+                "other_embedding": [0.6, 0.7, 0.8],
+                "title": "hello",
+            }
+        ],
+        "schema": {
+            "title_embedding": {"type": "[3]f32", "ann": True},
+            "image_embedding": {"type": "[2]f16", "ann": True},
+            "other_embedding": {"type": "[3]f32", "ann": False},
+        },
+    }
+
+    # ann:{} is accepted server-side as enabled; empty dict must still encode.
+    body_empty_ann: dict[str, object] = {
+        "upsert_rows": [{"id": 1, "title_embedding": [0.1, 0.2, 0.3]}],
+        "schema": {"title_embedding": {"type": "[3]f32", "ann": dict[str, object]()}},
+    }
+    transformed = transform(body_empty_ann, NamespaceWriteParams)
+    assert transformed == {
+        "upsert_rows": [{"id": 1, "title_embedding": "zczMPc3MTD6amZk+"}],
+        "schema": {"title_embedding": {"type": "[3]f32", "ann": {}}},
+    }
 
 
 @pytest.mark.asyncio
@@ -579,11 +626,47 @@ async def test_transparent_vector_encoding_async():
     # Due to the nature of the hack, there's a high risk of a future refactoring
     # to the Stainless specification breaking the fast path.
 
-    transformed = await async_transform({"id": 1, "vector": [0.1, 0.2, 0.3]}, RowParam)
-    assert transformed == {"id": 1, "vector": "zczMPc3MTD6amZk+"}
+    transformed = await async_transform({"upsert_rows": [{"id": 1, "vector": [0.1, 0.2, 0.3]}]}, NamespaceWriteParams)
+    assert transformed == {"upsert_rows": [{"id": 1, "vector": "zczMPc3MTD6amZk+"}]}
 
-    transformed = await async_transform({"id": [1, 2], "vector": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]}, ColumnsParam)
-    assert transformed == {"id": [1, 2], "vector": ["zczMPc3MTD6amZk+", "zczMPgAAAD+amRk/"]}
+    transformed = await async_transform(
+        {"upsert_columns": {"id": [1, 2], "vector": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]}}, NamespaceWriteParams
+    )
+    assert transformed == {"upsert_columns": {"id": [1, 2], "vector": ["zczMPc3MTD6amZk+", "zczMPgAAAD+amRk/"]}}
+
+    body = {
+        "upsert_rows": [
+            {
+                "id": 1,
+                "title_embedding": [0.1, 0.2, 0.3],
+                "image_embedding": [0.4, 0.5],
+                "other_embedding": [0.6, 0.7, 0.8],
+                "title": "hello",
+            }
+        ],
+        "schema": {
+            "title_embedding": {"type": "[3]f32", "ann": True},
+            "image_embedding": {"type": "[2]f16", "ann": True},
+            "other_embedding": {"type": "[3]f32", "ann": False},
+        },
+    }
+    transformed = await async_transform(body, NamespaceWriteParams)
+    assert transformed == {
+        "upsert_rows": [
+            {
+                "id": 1,
+                "title_embedding": "zczMPc3MTD6amZk+",
+                "image_embedding": b64encode_vector([0.4, 0.5]),
+                "other_embedding": [0.6, 0.7, 0.8],
+                "title": "hello",
+            }
+        ],
+        "schema": {
+            "title_embedding": {"type": "[3]f32", "ann": True},
+            "image_embedding": {"type": "[2]f16", "ann": True},
+            "other_embedding": {"type": "[3]f32", "ann": False},
+        },
+    }
 
 
 def test_upsert_base64_vectors(tpuf: Turbopuffer):

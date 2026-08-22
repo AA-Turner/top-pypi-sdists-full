@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: unstructured
-Version: 0.25.2
+Version: 0.27.1
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -57,7 +57,7 @@ Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'all-docs'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'all-docs'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system != 'Windows') and extra == 'all-docs'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system == 'Windows' and python_version < '3.13') and extra == 'all-docs'
-Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'all-docs'
+Requires-Dist: pypdf<7.0.0,>=6.9.1; extra == 'all-docs'
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'all-docs'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'all-docs'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system != 'Windows') and extra == 'all-docs'
@@ -88,7 +88,7 @@ Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'image'
 Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'image'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'image'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'image'
-Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'image'
+Requires-Dist: pypdf<7.0.0,>=6.9.1; extra == 'image'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system != 'Windows') and extra == 'image'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'image'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'image'
@@ -109,7 +109,7 @@ Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'local-inference'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'local-inference'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system != 'Windows') and extra == 'local-inference'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system == 'Windows' and python_version < '3.13') and extra == 'local-inference'
-Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'local-inference'
+Requires-Dist: pypdf<7.0.0,>=6.9.1; extra == 'local-inference'
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'local-inference'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'local-inference'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system != 'Windows') and extra == 'local-inference'
@@ -135,7 +135,7 @@ Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'pdf'
 Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'pdf'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'pdf'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'pdf'
-Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'pdf'
+Requires-Dist: pypdf<7.0.0,>=6.9.1; extra == 'pdf'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system != 'Windows') and extra == 'pdf'
 Requires-Dist: unstructured-inference<2.0.0,>=1.6.12; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'pdf'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'pdf'
@@ -451,4 +451,6 @@ Encountered a bug? Please create a new [GitHub issue](https://github.com/Unstruc
 
 ## :chart_with_upwards_trend: Analytics
 
-Telemetry is **off by default**. To opt in, set `UNSTRUCTURED_TELEMETRY_ENABLED=true` (or `=1`) before importing `unstructured`. To opt out, set `DO_NOT_TRACK` or `SCARF_NO_ANALYTICS` to any non-empty value (e.g. `true`, `1`, `yes`, `false`, `0`—any non-empty string opts out); opt-out takes precedence. Unset the variable or leave it empty if you do not want to opt out. See our [Privacy Policy](https://unstructured.io/privacy-policy).
+Unstructured sends lightweight analytics to `GET https://packages.unstructured.io/python-telemetry` by default: one library-load ping when it is imported and one best-effort local attempt for each top-level public partition call. The shared endpoint supports separate startup and runtime query-parameter schemas. Runtime events contain the package version, normalized platform/Python/architecture values, fixed-enum partition characteristics, and aggregate final-element counts as URL query parameters; there is no request body. They never contain document or element content, filenames, paths, URLs supplied for partitioning, raw MIME values, exception details, credentials, proxy configuration, or persistent installation, machine, process, account, user, or developer identifiers. Runtime delivery never waits on the network from partition processing, has no redirects, retries, response-body download, or queue, and does not consult proxy or netrc environment settings. At most one telemetry daemon can remain stranded in a network operation; later events drop while that slot is occupied, and process exit does not wait for it. Connect/read timeouts limit socket operations, not total network wall-clock duration.
+
+To opt out before importing or partitioning, set either `DO_NOT_TRACK` or `SCARF_NO_ANALYTICS` to any non-empty value after trimming whitespace (for example, `true`, `1`, `yes`, `false`, or `0`); either variable disables both library-load and runtime telemetry. Unset the variables or leave them empty or whitespace-only to retain the default behavior. See our [Privacy Policy](https://unstructured.io/privacy-policy).

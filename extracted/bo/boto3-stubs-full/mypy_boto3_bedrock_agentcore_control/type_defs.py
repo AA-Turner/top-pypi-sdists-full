@@ -110,6 +110,7 @@ from .literals import (
     SecretSourceTypeType,
     ServerProtocolType,
     SigningAlgorithmType,
+    StaticQueryParameterConflictResolutionType,
     StatusType,
     TargetProtocolTypeType,
     TargetStatusType,
@@ -812,6 +813,7 @@ __all__ = (
     "OpenResponsesEvaluatorModelConfigTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "PassthroughTargetConfigurationOutputTypeDef",
     "PassthroughTargetConfigurationTypeDef",
     "PaymentConnectorSummaryTypeDef",
     "PaymentCredentialProviderConfigurationTypeDef",
@@ -913,6 +915,7 @@ __all__ = (
     "StartPolicyGenerationResponseTypeDef",
     "StaticOverrideTypeDef",
     "StaticRouteTypeDef",
+    "StickinessConfigurationOutputTypeDef",
     "StickinessConfigurationTypeDef",
     "StrategyConfigurationTypeDef",
     "StreamDeliveryResourceOutputTypeDef",
@@ -2769,9 +2772,16 @@ class ReasoningConfigurationTypeDef(TypedDict):
     effort: NotRequired[str]
 
 
+class StickinessConfigurationOutputTypeDef(TypedDict):
+    identifier: str
+    timeout: NotRequired[int]
+    compositeIdentifier: NotRequired[list[str]]
+
+
 class StickinessConfigurationTypeDef(TypedDict):
     identifier: str
     timeout: NotRequired[int]
+    compositeIdentifier: NotRequired[Sequence[str]]
 
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
@@ -5583,11 +5593,22 @@ class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedAgentSkillsDescriptorFieldsTypeDef]
 
 
+class PassthroughTargetConfigurationOutputTypeDef(TypedDict):
+    endpoint: str
+    protocolType: PassthroughProtocolTypeType
+    schema: NotRequired[HttpApiSchemaConfigurationTypeDef]
+    stickinessConfiguration: NotRequired[StickinessConfigurationOutputTypeDef]
+    staticQueryParameters: NotRequired[dict[str, str]]
+    staticQueryParameterConflictResolution: NotRequired[StaticQueryParameterConflictResolutionType]
+
+
 class PassthroughTargetConfigurationTypeDef(TypedDict):
     endpoint: str
     protocolType: PassthroughProtocolTypeType
     schema: NotRequired[HttpApiSchemaConfigurationTypeDef]
     stickinessConfiguration: NotRequired[StickinessConfigurationTypeDef]
+    staticQueryParameters: NotRequired[Mapping[str, str]]
+    staticQueryParameterConflictResolution: NotRequired[StaticQueryParameterConflictResolutionType]
 
 
 class RuntimeTargetConfigurationTypeDef(TypedDict):
@@ -5976,7 +5997,7 @@ OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
 
 class HttpTargetConfigurationOutputTypeDef(TypedDict):
     agentcoreRuntime: NotRequired[RuntimeTargetConfigurationTypeDef]
-    passthrough: NotRequired[PassthroughTargetConfigurationTypeDef]
+    passthrough: NotRequired[PassthroughTargetConfigurationOutputTypeDef]
     connector: NotRequired[HttpConnectorTargetConfigurationOutputTypeDef]
 
 

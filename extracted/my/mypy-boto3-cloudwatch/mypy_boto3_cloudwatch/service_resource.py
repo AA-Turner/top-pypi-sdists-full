@@ -52,6 +52,7 @@ from .type_defs import (
     PutMetricAlarmInputMetricPutAlarmTypeDef,
     PutMetricDataInputMetricPutDataTypeDef,
     SetAlarmStateInputAlarmSetStateTypeDef,
+    WarmUpConfigurationTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -360,6 +361,7 @@ class Alarm(ServiceResource):
     evaluation_state: EvaluationStateType
     state_transitioned_timestamp: datetime
     evaluation_window: EvaluationWindowOutputTypeDef
+    warm_up_configuration: WarmUpConfigurationTypeDef
     evaluation_criteria: EvaluationCriteriaTypeDef
     evaluation_interval: int
     meta: CloudWatchResourceMeta  # type: ignore[override]

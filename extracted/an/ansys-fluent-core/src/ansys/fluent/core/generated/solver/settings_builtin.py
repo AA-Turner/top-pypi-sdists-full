@@ -315,7 +315,7 @@ class Injection(_CreatableNamedObjectSetting):
 
     _db_name = "Injection"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class VirtualBladeModel(_SingletonSetting):
@@ -411,7 +411,7 @@ class FluidMaterial(_CreatableNamedObjectSetting):
 
     _db_name = "FluidMaterial"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SolidMaterials(_SingletonSetting):
@@ -427,7 +427,7 @@ class SolidMaterial(_CreatableNamedObjectSetting):
 
     _db_name = "SolidMaterial"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class MixtureMaterials(_SingletonSetting):
@@ -443,7 +443,7 @@ class MixtureMaterial(_CreatableNamedObjectSetting):
 
     _db_name = "MixtureMaterial"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ParticleMixtureMaterials(_SingletonSetting):
@@ -459,7 +459,7 @@ class ParticleMixtureMaterial(_CreatableNamedObjectSetting):
 
     _db_name = "ParticleMixtureMaterial"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class CellZoneConditions(_SingletonSetting):
@@ -491,7 +491,7 @@ class FluidCellZone(_CreatableNamedObjectSetting):
 
     _db_name = "FluidCellZone"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SolidCellZones(_SingletonSetting):
@@ -507,7 +507,7 @@ class SolidCellZone(_CreatableNamedObjectSetting):
 
     _db_name = "SolidCellZone"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class BoundaryConditions(_SingletonSetting):
@@ -539,7 +539,7 @@ class AxisBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "AxisBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class DegassingBoundaries(_SingletonSetting):
@@ -555,7 +555,7 @@ class DegassingBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "DegassingBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ExhaustFanBoundaries(_SingletonSetting):
@@ -571,7 +571,7 @@ class ExhaustFanBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "ExhaustFanBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class FanBoundaries(_SingletonSetting):
@@ -587,7 +587,7 @@ class FanBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "FanBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class GeometryBoundaries(_SingletonSetting):
@@ -603,7 +603,7 @@ class GeometryBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "GeometryBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class InletVentBoundaries(_SingletonSetting):
@@ -619,7 +619,7 @@ class InletVentBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "InletVentBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class IntakeFanBoundaries(_SingletonSetting):
@@ -635,7 +635,7 @@ class IntakeFanBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "IntakeFanBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class InterfaceBoundaries(_SingletonSetting):
@@ -651,7 +651,7 @@ class InterfaceBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "InterfaceBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class InteriorBoundaries(_SingletonSetting):
@@ -667,7 +667,7 @@ class InteriorBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "InteriorBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class MassFlowInlets(_SingletonSetting):
@@ -683,7 +683,7 @@ class MassFlowInlet(_CreatableNamedObjectSetting):
 
     _db_name = "MassFlowInlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class MassFlowOutlets(_SingletonSetting):
@@ -699,7 +699,7 @@ class MassFlowOutlet(_CreatableNamedObjectSetting):
 
     _db_name = "MassFlowOutlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class NetworkBoundaries(_SingletonSetting):
@@ -715,7 +715,7 @@ class NetworkBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "NetworkBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class NetworkEndBoundaries(_SingletonSetting):
@@ -731,7 +731,7 @@ class NetworkEndBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "NetworkEndBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class OutflowBoundaries(_SingletonSetting):
@@ -747,7 +747,7 @@ class OutflowBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "OutflowBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class OutletVentBoundaries(_SingletonSetting):
@@ -763,7 +763,7 @@ class OutletVentBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "OutletVentBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class OversetBoundaries(_SingletonSetting):
@@ -779,7 +779,7 @@ class OversetBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "OversetBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PeriodicBoundaries(_SingletonSetting):
@@ -795,7 +795,7 @@ class PeriodicBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "PeriodicBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PorousJumpBoundaries(_SingletonSetting):
@@ -811,7 +811,7 @@ class PorousJumpBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "PorousJumpBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PressureFarFieldBoundaries(_SingletonSetting):
@@ -827,7 +827,7 @@ class PressureFarFieldBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "PressureFarFieldBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PressureInlets(_SingletonSetting):
@@ -843,7 +843,7 @@ class PressureInlet(_CreatableNamedObjectSetting):
 
     _db_name = "PressureInlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PressureOutlets(_SingletonSetting):
@@ -859,7 +859,7 @@ class PressureOutlet(_CreatableNamedObjectSetting):
 
     _db_name = "PressureOutlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class RadiatorBoundaries(_SingletonSetting):
@@ -875,7 +875,7 @@ class RadiatorBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "RadiatorBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class RansLesInterfaceBoundaries(_SingletonSetting):
@@ -891,7 +891,7 @@ class RansLesInterfaceBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "RansLesInterfaceBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class RecirculationInlets(_SingletonSetting):
@@ -907,7 +907,7 @@ class RecirculationInlet(_CreatableNamedObjectSetting):
 
     _db_name = "RecirculationInlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class RecirculationOutlets(_SingletonSetting):
@@ -923,7 +923,7 @@ class RecirculationOutlet(_CreatableNamedObjectSetting):
 
     _db_name = "RecirculationOutlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ShadowBoundaries(_SingletonSetting):
@@ -939,7 +939,7 @@ class ShadowBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "ShadowBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SymmetryBoundaries(_SingletonSetting):
@@ -955,7 +955,7 @@ class SymmetryBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "SymmetryBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class VelocityInlets(_SingletonSetting):
@@ -971,7 +971,7 @@ class VelocityInlet(_CreatableNamedObjectSetting):
 
     _db_name = "VelocityInlet"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class WallBoundaries(_SingletonSetting):
@@ -987,7 +987,7 @@ class WallBoundary(_CreatableNamedObjectSetting):
 
     _db_name = "WallBoundary"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class NonReflectingBoundary(_SingletonSetting):
@@ -1043,7 +1043,7 @@ class ReferenceFrame(_CreatableNamedObjectSetting):
 
     _db_name = "ReferenceFrame"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class NamedExpressions(_SingletonSetting):
@@ -1059,7 +1059,7 @@ class NamedExpression(_CreatableNamedObjectSetting):
 
     _db_name = "NamedExpression"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Solution(_SingletonSetting):
@@ -1123,7 +1123,7 @@ class ReportFile(_CreatableNamedObjectSetting):
 
     _db_name = "ReportFile"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ReportPlots(_SingletonSetting):
@@ -1139,7 +1139,7 @@ class ReportPlot(_CreatableNamedObjectSetting):
 
     _db_name = "ReportPlot"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ConvergenceConditions(_SingletonSetting):
@@ -1163,7 +1163,7 @@ class CellRegister(_CreatableNamedObjectSetting):
 
     _db_name = "CellRegister"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Initialization(_SingletonSetting):
@@ -1235,7 +1235,7 @@ class PointSurface(_CreatableNamedObjectSetting):
 
     _db_name = "PointSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class LineSurfaces(_SingletonSetting):
@@ -1251,7 +1251,7 @@ class LineSurface(_CreatableNamedObjectSetting):
 
     _db_name = "LineSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class RakeSurfaces(_SingletonSetting):
@@ -1267,7 +1267,7 @@ class RakeSurface(_CreatableNamedObjectSetting):
 
     _db_name = "RakeSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PlaneSurfaces(_SingletonSetting):
@@ -1283,7 +1283,7 @@ class PlaneSurface(_CreatableNamedObjectSetting):
 
     _db_name = "PlaneSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class IsoSurfaces(_SingletonSetting):
@@ -1299,7 +1299,7 @@ class IsoSurface(_CreatableNamedObjectSetting):
 
     _db_name = "IsoSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class IsoClips(_SingletonSetting):
@@ -1315,7 +1315,7 @@ class IsoClip(_CreatableNamedObjectSetting):
 
     _db_name = "IsoClip"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ZoneSurfaces(_SingletonSetting):
@@ -1331,7 +1331,7 @@ class ZoneSurface(_CreatableNamedObjectSetting):
 
     _db_name = "ZoneSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PartitionSurfaces(_SingletonSetting):
@@ -1347,7 +1347,7 @@ class PartitionSurface(_CreatableNamedObjectSetting):
 
     _db_name = "PartitionSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class TransformSurfaces(_SingletonSetting):
@@ -1363,7 +1363,7 @@ class TransformSurface(_CreatableNamedObjectSetting):
 
     _db_name = "TransformSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ImprintSurfaces(_SingletonSetting):
@@ -1379,7 +1379,7 @@ class ImprintSurface(_CreatableNamedObjectSetting):
 
     _db_name = "ImprintSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class PlaneSlices(_SingletonSetting):
@@ -1395,7 +1395,7 @@ class PlaneSlice(_CreatableNamedObjectSetting):
 
     _db_name = "PlaneSlice"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SphereSlices(_SingletonSetting):
@@ -1411,7 +1411,7 @@ class SphereSlice(_CreatableNamedObjectSetting):
 
     _db_name = "SphereSlice"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class QuadricSurfaces(_SingletonSetting):
@@ -1427,7 +1427,7 @@ class QuadricSurface(_CreatableNamedObjectSetting):
 
     _db_name = "QuadricSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SurfaceCells(_SingletonSetting):
@@ -1443,7 +1443,7 @@ class SurfaceCell(_CreatableNamedObjectSetting):
 
     _db_name = "SurfaceCell"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ExpressionVolumes(_SingletonSetting):
@@ -1459,7 +1459,7 @@ class ExpressionVolume(_CreatableNamedObjectSetting):
 
     _db_name = "ExpressionVolume"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class GroupSurfaces(_SingletonSetting):
@@ -1475,7 +1475,7 @@ class GroupSurface(_CreatableNamedObjectSetting):
 
     _db_name = "GroupSurface"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Graphics(_SingletonSetting):
@@ -1499,7 +1499,7 @@ class Mesh(_CreatableNamedObjectSetting):
 
     _db_name = "Mesh"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Contours(_SingletonSetting):
@@ -1515,7 +1515,7 @@ class Contour(_CreatableNamedObjectSetting):
 
     _db_name = "Contour"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Vectors(_SingletonSetting):
@@ -1531,7 +1531,7 @@ class Vector(_CreatableNamedObjectSetting):
 
     _db_name = "Vector"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Pathlines(_SingletonSetting):
@@ -1547,7 +1547,7 @@ class Pathline(_CreatableNamedObjectSetting):
 
     _db_name = "Pathline"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ParticleTracks(_SingletonSetting):
@@ -1563,7 +1563,7 @@ class ParticleTrack(_CreatableNamedObjectSetting):
 
     _db_name = "ParticleTrack"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class LICs(_SingletonSetting):
@@ -1579,7 +1579,7 @@ class LIC(_CreatableNamedObjectSetting):
 
     _db_name = "LIC"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Plots(_SingletonSetting):
@@ -1603,7 +1603,7 @@ class XYPlot(_CreatableNamedObjectSetting):
 
     _db_name = "XYPlot"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class Histogram(_SingletonSetting):
@@ -1627,7 +1627,7 @@ class CumulativePlot(_CreatableNamedObjectSetting):
 
     _db_name = "CumulativePlot"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class ProfileData(_SingletonSetting):
@@ -1659,7 +1659,7 @@ class Scene(_CreatableNamedObjectSetting):
 
     _db_name = "Scene"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SceneAnimation(_SingletonSetting):
@@ -1739,7 +1739,7 @@ class CustomFieldFunction(_CreatableNamedObjectSetting):
 
     _db_name = "CustomFieldFunction"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class CustomVectors(_SingletonSetting):
@@ -1755,7 +1755,7 @@ class CustomVector(_CreatableNamedObjectSetting):
 
     _db_name = "CustomVector"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class SimulationReports(_SingletonSetting):
@@ -1779,7 +1779,7 @@ class ParametricStudy(_CreatableNamedObjectSetting):
 
     _db_name = "ParametricStudy"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name)
 
 class DesignPoints(_SingletonSetting):
@@ -1795,7 +1795,7 @@ class DesignPoint(_CreatableNamedObjectSetting):
 
     _db_name = "DesignPoint"
 
-    def __init__(self, parametric_studies: str, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
+    def __init__(self, parametric_studies: str, settings_source: SettingsBase | Solver | None = None, name: str | None = None, new_instance_name: str | None = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name, parametric_studies=parametric_studies)
 
 class ParameterWorkspace(_SingletonSetting):

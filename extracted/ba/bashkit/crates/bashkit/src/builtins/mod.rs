@@ -443,8 +443,9 @@ impl BuiltinRegistry {
 /// Decision: resolvers return a [`Builtin`] rather than executing directly.
 /// The resolved builtin runs through the same dispatch path as every other
 /// builtin, so `before_tool` hooks fire with the resolved name and can veto it,
-/// `catch_unwind` still contains panics, and redirects and stdin behave
-/// identically. A bespoke execution path would have to re-earn all of that.
+/// `catch_unwind` contains panics from both resolution and execution, and
+/// redirects and stdin behave identically. A bespoke execution path would have
+/// to re-earn all of that.
 ///
 /// Returning `None` falls through to the normal `command not found` error.
 ///
@@ -456,6 +457,8 @@ impl BuiltinRegistry {
 /// the set of names reaching host code stops being enumerable in advance, so
 /// `Bash::builtin_names()` no longer bounds it. `before_tool` remains the
 /// enforcement backstop; see `knowledge/integrations/script-analysis.md`.
+/// Resolver panics become a sanitized, non-zero shell result rather than
+/// unwinding through the interpreter.
 ///
 /// # Example
 ///
@@ -1112,7 +1115,10 @@ where
     T: ClapBuiltin,
 {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        let mut command = <T::Args as CommandFactory>::command().color(clap::ColorChoice::Never);
+        // No `.color(ColorChoice::Never)` here: the workspace builds clap with
+        // `default-features = false`, so the `color` feature is absent and clap
+        // is unconditionally colourless. See the clap pin in the root Cargo.toml.
+        let mut command = <T::Args as CommandFactory>::command();
         let command_name = command.get_name().to_string();
         let argv = std::iter::once(command_name).chain(ctx.args.iter().cloned());
 

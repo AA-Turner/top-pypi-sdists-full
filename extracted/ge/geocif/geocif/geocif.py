@@ -387,6 +387,55 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.bass_params[_opt.replace("bass_", "")] = _cast("ML", _opt)
+        # Optional george (GP regression, model='george') overrides. Absent
+        # keys keep trainers.GeorgeGPRegressor defaults (isotropic
+        # expsquared kernel, jitter=1e-3). Config keys map george_<x> -> <x>;
+        # george_kernel ∈ {expsquared, matern32, matern52}.
+        self.george_params: dict = {}
+        for _opt, _cast in (
+            ("george_kernel", self.parser.get),
+            ("george_jitter", self.parser.getfloat),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.george_params[_opt.replace("george_", "")] = _cast("ML", _opt)
+        # Optional PyGRF (Geographical RF, model='pygrf') overrides. Absent
+        # keys keep trainers.PyGRFRegressor defaults (band_width heuristic,
+        # local_weight = Moran's I of y). Config keys map pygrf_<x> -> <x>.
+        # band_width is a float: a neighbor COUNT for kernel=adaptive but a
+        # RADIUS in km for kernel=fixed. max_features follows sklearn RF
+        # semantics: 'sqrt'/'log2'/None, int = count, float = fraction.
+        def _cast_max_features(section, opt):
+            raw = self.parser.get(section, opt).strip()
+            if raw.lower() in ("sqrt", "log2"):
+                return raw.lower()
+            if raw.lower() in ("none", ""):
+                return None
+            try:
+                return int(raw)
+            except ValueError:
+                return float(raw)
+
+        self.pygrf_params: dict = {}
+        for _opt, _cast in (
+            ("pygrf_band_width", self.parser.getfloat),
+            ("pygrf_local_weight", self.parser.getfloat),
+            ("pygrf_n_estimators", self.parser.getint),
+            ("pygrf_max_features", _cast_max_features),
+            ("pygrf_kernel", self.parser.get),
+            ("pygrf_resampled", self.parser.getboolean),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.pygrf_params[_opt.replace("pygrf_", "")] = _cast("ML", _opt)
+        # Optional TabPFN-GSA (model='tabpfn_gsa') overrides: K = grid cells
+        # (perfect square), s = distant-sampling rate in [0,1]. Keys map
+        # tabpfn_gsa_<x> -> <x>.
+        self.gsa_params: dict = {}
+        for _opt, _cast in (
+            ("tabpfn_gsa_K", self.parser.getint),
+            ("tabpfn_gsa_s", self.parser.getfloat),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.gsa_params[_opt.replace("tabpfn_gsa_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -545,6 +594,22 @@ class Geocif:
             raise ValueError("Model type is regression but classify_target is True")
         elif self.model_type == "CLASSIFICATION" and not self.classify_target:
             raise ValueError("Model type is classification but classify_target is False")
+        # pygrf / tabpfn_gsa consume region centroids from the lat/lon
+        # feature columns. Without the flag, every region's fit raises
+        # inside loop_ml's per-region catch and the run "succeeds" with
+        # zero stored predictions — fail here instead, at setup time.
+        # dispatch_name (not model_name) so curated_/top<N>_/auto_
+        # wrappers of these algos are covered too.
+        if (
+            self.dispatch_name in ("pygrf", "tabpfn_gsa")
+            and not self.include_lat_lon_as_feature
+        ):
+            raise ValueError(
+                f"model = '{self.model_name}' (dispatch '{self.dispatch_name}') "
+                "requires [ML] include_lat_lon_as_feature = True — region "
+                "centroid lat/lon are its spatial coordinates. Set it in the "
+                "config before running."
+            )
 
     def _refresh_target_column(self):
         """Refresh ``self.target_column`` after ``self.check_yield_trend`` was
@@ -587,13 +652,13 @@ class Geocif:
         # CIs despite estimate_ci=True in config. Cubist is a full ML model
         # (fits on features, supports crepes/mapie conformal wrapping), so it
         # routes to _setup_standard_ml_flags and honours the config CI flags.
-        if not self.ml_model or self.dispatch_name in ["linear", "gam", "merf", "gpr"]:
+        if not self.ml_model or self.dispatch_name in ["linear", "gam", "merf", "gpr", "george"]:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa"]:
             self._setup_tabular_flags()
-        elif self.dispatch_name in ["oblique", "ydf"]:
+        elif self.dispatch_name in ["oblique", "ydf", "pygrf"]:
             self._setup_tree_flags()
         elif self.dispatch_name == "ngboost":
             self._setup_ngboost_flags()
@@ -640,6 +705,17 @@ class Geocif:
     def _setup_tabular_flags(self):
         """Flags for tabular models."""
         self.do_xai = self.parser.getboolean("ML", "do_xai", fallback=False)
+        # XAI is unsupported for tabpfn_gsa: xai.explain has no explainer
+        # path for it — TreeExplainer rejects the non-tree wrapper, and the
+        # permutation path would refit local TabPFN ensembles per grid cell
+        # per permutation (prohibitively slow) while dropping the Region
+        # column GSAModel requires at predict.
+        if self.do_xai and self.dispatch_name == "tabpfn_gsa":
+            self.logger.warning(
+                f"[ML] do_xai = True is not supported for {self.model_name}; "
+                f"disabling XAI for this model (no SHAP explainer path for GSAModel)"
+            )
+            self.do_xai = False
         self.alpha = self.parser.getfloat("ML", "alpha")
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
@@ -4327,11 +4403,16 @@ class Geocif:
                 self.selected_features = X_for_selection.columns.tolist()
             self.logger.info(f"Selected features: {self.selected_features}")
         
-        # Ensure lat/lon are included if configured
-        if "lat" not in self.selected_features and self.include_lat_lon_as_feature:
-            self.selected_features.append("lat")
-        if "lon" not in self.selected_features and self.include_lat_lon_as_feature:
-            self.selected_features.append("lon")
+        # Ensure lat/lon are included if configured. Guarded on actual
+        # presence in df_train (same idiom as the static-EO append in
+        # create_feature_names): appending a column the frame doesn't carry
+        # made _prepare_training_data raise KeyError "['lat','lon'] not in
+        # index" for EVERY region — 2555 failed folds and zero stored
+        # predictions on the first usa_admin1 pygrf/tabpfn_gsa run.
+        if self.include_lat_lon_as_feature:
+            for _c in ("lat", "lon"):
+                if _c not in self.selected_features and _c in self.df_train.columns:
+                    self.selected_features.append(_c)
 
         # Force-include FLDAS / S2S forecast CIDs back into the selected set
         # even if the feature-selection method (gOMP/Boruta/etc.) dropped
@@ -4594,7 +4675,7 @@ class Geocif:
 
     def _preprocess_test_data(self, X_test: pd.DataFrame, scaler) -> pd.DataFrame:
         """Preprocess test data based on model requirements."""
-        if self.model_name in ("linear", "gpr"):
+        if self.dispatch_name in ("linear", "gpr", "george"):
             X_test = X_test.drop(
                 columns=[item for item in self.cat_features if item != "Harvest Year"]
             )
@@ -5242,7 +5323,10 @@ class Geocif:
         integer levels, not standard-scaled values.  Handling scaling
         outside the model would break ``f()`` on Harvest Year.
         """
-        if self.model_name in ("linear", "gpr"):
+        # dispatch_name, not model_name: curated_/top<N>_/auto_ variants of
+        # the scaled models must get the scaler too — the fitter map is
+        # keyed by dispatch_name and would otherwise fit on raw magnitudes.
+        if self.dispatch_name in ("linear", "gpr", "george"):
             return StandardScaler()
         return None
 
@@ -5320,8 +5404,21 @@ class Geocif:
             if selected is not None and not selected.empty:
                 self.create_feature_names(stages, selected)
             else:
-                # No correlation-based selection — use all CID features
+                # No correlation-based selection — use all CID features.
+                # NOTE: this branch bypasses create_feature_names, so the
+                # engineered-feature appends at the end of it (lat/lon, lag
+                # yield, medians, _zreg, nbr_) never run. lat/lon must still
+                # be added here: apply_feature_selector force-includes them
+                # in selected_features, and without them in feature_names
+                # they never reach df_region via _get_common_columns — which
+                # is exactly how the first usa_admin1 pygrf/tabpfn_gsa run
+                # lost all 2555 folds to KeyError. Configs with
+                # include_lat_lon_as_feature = False are unaffected.
                 self.feature_names = self.get_cid_column_names(self.df_train)
+                if self.include_lat_lon_as_feature:
+                    self.feature_names.extend(
+                        c for c in ("lat", "lon") if c in self.df_train.columns
+                    )
                 self.logger.warning(
                     f"  [{self.country} {self.crop} {self.model_name} "
                     f"forecast_season={getattr(self, 'forecast_season', '?')} "
@@ -5365,6 +5462,65 @@ class Geocif:
                     self.number_median_years, self.target,
                 )
             self.analogous_year_yield_as_feature = True
+
+        self._warn_if_coords_degenerate()
+
+    def _warn_if_coords_degenerate(self):
+        """Loudly flag unusable region centroids for the coordinate-driven
+        models (pygrf / tabpfn_gsa).
+
+        Both degrade SILENTLY rather than crash when centroids are absent or
+        constant: PyGRFRegressor falls back to the train-mean location and
+        TabPFNGSARegressor mean-fills, after which every row shares one
+        coordinate — PyGRF's local forests become clones of each other and
+        GSA's grid collapses to a single cell (i.e. plain TabPFN wearing a
+        spatial-model name). The usual cause is a boundary-file join miss
+        (``_add_lat_lon_to_data`` merges on ``"<Country> <Region>"``
+        lowercased, so an underscored Country or renamed admin never
+        matches) and it is invisible in the metrics.
+        """
+        if self.dispatch_name not in ("pygrf", "tabpfn_gsa"):
+            return
+        # Once per (country, crop, model) — the check is per-region-per-fold
+        # but the geodata join is not, so repeating it would spam the log.
+        _key = (self.country, self.crop, self.model_name)
+        if getattr(self, "_coord_check_done", None) == _key:
+            return
+        self._coord_check_done = _key
+        missing = [c for c in ("lat", "lon") if c not in self.df_train.columns]
+        if missing:
+            self.logger.warning(
+                f"  [{self.country} {self.crop} {self.model_name}] "
+                f"region centroids {missing} absent from df_train — the "
+                f"spatial component is inert (predictions come from the "
+                f"non-spatial part only). Check the boundary_file join."
+            )
+            return
+        coords = self.df_train[["lat", "lon"]]
+        n_finite = coords.notna().all(axis=1).sum()
+        n_unique = coords.dropna().drop_duplicates().shape[0]
+        n_regions = self.df_train["Region"].nunique() if "Region" in self.df_train else 0
+        if n_finite == 0:
+            self.logger.warning(
+                f"  [{self.country} {self.crop} {self.model_name}] region "
+                f"centroids are ALL NaN — boundary_file join produced no "
+                f"matches, so the spatial component is inert. Check that "
+                f"Country/Region names match the shapefile's "
+                f"ADM0_NAME/ADM1_NAME."
+            )
+        elif n_unique <= 1 and n_regions > 1:
+            self.logger.warning(
+                f"  [{self.country} {self.crop} {self.model_name}] all "
+                f"{n_regions} regions share ONE centroid — the spatial "
+                f"component is degenerate (PyGRF local models collapse / "
+                f"GSA grid becomes 1 cell)."
+            )
+        else:
+            self.logger.info(
+                f"  [{self.country} {self.crop} {self.model_name}] centroids "
+                f"OK: {n_unique} unique location(s) over {n_regions} region(s), "
+                f"{n_finite}/{len(coords)} rows with finite coords"
+            )
 
     def _apply_ml_year_range_filter(self, df_region_train: pd.DataFrame) -> pd.DataFrame:
         """Drop training rows outside [min_year, max_year] per region.
@@ -5793,6 +5949,9 @@ class ModelTrainer:
             cat_features=self.obj.cat_features,
             cubist_params=getattr(self.obj, "cubist_params", None),
             bass_params=getattr(self.obj, "bass_params", None),
+            george_params=getattr(self.obj, "george_params", None),
+            pygrf_params=getattr(self.obj, "pygrf_params", None),
+            gsa_params=getattr(self.obj, "gsa_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):
@@ -5853,6 +6012,9 @@ class ModelTrainer:
             # because the wrapper-prefix regex in trainers.py strips
             # "auto_" and would route that name to the plain tabpfn branch.
             "tabpfn_phe": TabPFNFitter(self.obj),
+            # tabpfn_gsa wraps GSAModel behind a plain .fit(X, y) — the
+            # TabPFNFitter path (DataFrame in, y ravel) is exactly right.
+            "tabpfn_gsa": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
             "tabicl_ft": TabICLFTFitter(self.obj),
             "tabpfn_ft": TabPFNFTFitter(self.obj),
@@ -5865,6 +6027,9 @@ class ModelTrainer:
             "gam": GAMFitter(self.obj),
             "cubist": CubistFitter(self.obj),
             "gpr": GPRFitter(self.obj),
+            # george routes through GPRFitter: same scaled-numpy fit path as
+            # sklearn's GaussianProcessRegressor (StandardScaler upstream).
+            "george": GPRFitter(self.obj),
         }
         
         if self.obj.model_name.startswith("cumulative_"):

@@ -497,10 +497,8 @@ class Decompressor(object):
             chunks.append(chunk)
             chunks_len += len(chunk)
 
-            # Save any unconsumed input for the next call.
-            if available_in[0] > 0:
-                remaining_input = ffi.buffer(next_in[0], available_in[0])[:]
-                self._unconsumed_data = remaining_input
+            # Save input for the next call
+            self._unconsumed_data = ffi.buffer(next_in[0], available_in[0])[:]
 
             # Check if we've reached the output limit.
             if (

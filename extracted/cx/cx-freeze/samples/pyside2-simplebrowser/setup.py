@@ -1,4 +1,5 @@
 """Creates an executable using PySide2 WebEngineWidgets.
+
 This also demonstrates how to use excludes to get minimal package size.
 
 simplebrowser.py is the "PySide2 WebEngineWidgets Example".
@@ -16,7 +17,7 @@ from cx_Freeze import Executable, setup
 options = {
     "build_exe": {
         # exclude packages that are not really needed
-        "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"]
+        "excludes": ["tkinter", "email", "http", "xml"]
     },
     "bdist_mac": {
         "custom_info_plist": None,  # Set this to use a custom info.plist file

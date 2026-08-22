@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import grpc.aio
 from langgraph.store.base import IndexConfig, Op, PutOp, Result, SearchOp
@@ -66,7 +66,9 @@ class GrpcStore(AsyncBatchedBaseStore):
             return []
 
         proto_ops: list[store_pb2.Op] = []
-        has_index = self._index_config is not None and self._embeddings is not None
+        index_config = self._index_config
+        embeddings = self._embeddings
+        has_index = index_config is not None and embeddings is not None
         for op in op_list:
             if (
                 has_index
@@ -75,12 +77,16 @@ class GrpcStore(AsyncBatchedBaseStore):
                 and op.index is not False
             ):
                 vectors = await vectors_for_put_op(
-                    op, self._index_config, self._embeddings
+                    op,
+                    cast("Any", index_config),
+                    cast("Any", embeddings),
                 )
                 proto_ops.append(op_to_proto(op, vectors=vectors))
             elif has_index and isinstance(op, SearchOp) and op.query:
                 search_vector = await query_embedding_for_search_op(
-                    op, self._index_config, self._embeddings
+                    op,
+                    cast("Any", index_config),
+                    cast("Any", embeddings),
                 )
                 proto_ops.append(op_to_proto(op, search_vector=search_vector))
             else:

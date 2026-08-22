@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from packaging.version import Version
 
 from cx_Freeze._compat import ABI_THREAD, EXE_SUFFIX, IS_MINGW, IS_WINDOWS
 from cx_Freeze.winversioninfo import COMMENTS_MAX_LEN, VersionInfo, main_test
+
+if TYPE_CHECKING:
+    from .conftest import TempPackage
 
 SOURCE_SIMPLE_TEST = """
 test.py
@@ -23,8 +28,8 @@ pyproject.toml
     script = "test.py"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
@@ -42,12 +47,12 @@ class TestVersionInfo:
         assert default_version.valid_version == valid_version
         assert default_version.internal_name is None
         assert default_version.original_filename is None
-        assert default_version.comments is None
-        assert default_version.company is None
-        assert default_version.description is None
-        assert default_version.copyright is None
-        assert default_version.trademarks is None
-        assert default_version.product is None
+        assert default_version.comments == ""
+        assert default_version.company == ""
+        assert default_version.description == ""
+        assert default_version.copyright == ""
+        assert default_version.trademarks == ""
+        assert default_version.product == ""
         assert default_version.dll is None
         assert default_version.debug is None
         assert default_version.verbose is True
@@ -62,7 +67,7 @@ class TestVersionInfo:
         input_description = "TestDescription"
         input_copyright = "TestCopyright"
         input_trademarks = "TestMark"
-        input_product = object()
+        input_product = None
         input_dll = True
         input_debug = True
         input_verbose = False
@@ -91,7 +96,7 @@ class TestVersionInfo:
         assert version_instance.description == input_description
         assert version_instance.copyright == input_copyright
         assert version_instance.trademarks == input_trademarks
-        assert version_instance.product == input_product
+        assert version_instance.product == ""
         assert version_instance.dll is input_dll
         assert version_instance.debug is input_debug
         assert version_instance.verbose is input_verbose
@@ -118,10 +123,8 @@ class TestVersionInfo:
             ("1.0.post1", "1.0.0.0"),
         ],
     )
-    def test_windows_versions(self, input_version, version) -> None:
-        """Tests that short versions get padded to the expected x4 digit
-        windows versions.
-        """
+    def test_windows_versions(self, input_version: str, version: str) -> None:
+        """Tests that short versions get padded to 4 digit windows versions."""
         default_version = VersionInfo(input_version)
         assert default_version.version == version
         assert default_version.version_info(Path(f"test{EXE_SUFFIX}"))
@@ -141,7 +144,12 @@ class TestVersionInfo:
             pytest.param("--pywin32", marks=pytest.mark.xfail),
         ],
     )
-    def test_main(self, tmp_package, option, capsys) -> None:
+    def test_main(
+        self,
+        tmp_package: TempPackage,
+        option: str,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
         """Test the cx_Freeze.winversioninfo __main_ entry point."""
         tmp_package.create(SOURCE_SIMPLE_TEST)
         if option == "--pywin32":
@@ -168,10 +176,10 @@ class TestVersionInfo:
         ABI_THREAD == "t",
         raises=ModuleNotFoundError,
         reason="pywin32 does not support Python 3.14t",
-        strict=True,
+        strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
     )
     @pytest.mark.venv
-    def test_main_with_environ(self, tmp_package) -> None:
+    def test_main_with_environ(self, tmp_package: TempPackage) -> None:
         """Test argparse error exception."""
         tmp_package.install("pywin32")
         tmp_package.monkeypatch.setenv("CX_FREEZE_STAMP", "pywin32")

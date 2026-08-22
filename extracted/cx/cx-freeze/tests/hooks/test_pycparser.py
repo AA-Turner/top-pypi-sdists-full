@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -49,15 +54,15 @@ pyproject.toml
     executables = ["test_pycparser.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.venv
 @zip_packages
-def test_pycparser(tmp_package, zip_packages: bool) -> None:
+def test_pycparser(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if pycparser hook is working correctly."""
     tmp_package.create(SOURCE_TEST_PYCPARSER)
     if zip_packages:

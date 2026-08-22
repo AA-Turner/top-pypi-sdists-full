@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore-protobuf-specs
-Version: 0.5.1
+Version: 0.5.2
 Summary: A library for serializing and deserializing Sigstore messages
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
 Requires-Python: >=3.8

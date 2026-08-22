@@ -7,16 +7,16 @@ coverage = ["coverage[toml]"]
 test = ["pytest", {include-group = "coverage"}]
 docs = ["sphinx>=8.1", "sphinx-issues>=5", "furo"]
 lint = ["pre-commit"]
-typing = ["mypy", "packaging"]
+typing = ["mypy", "packaging", "pytest"]
 build = ["twine", "build"]
 dev = [{include-group = "test"}]
 
 [project]
 name = "dependency-groups"
-version = "1.3.1"
+version = "1.3.2"
 description = 'A tool for resolving PEP 735 Dependency Group data'
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE.txt"]
 keywords = []
@@ -26,12 +26,13 @@ authors = [
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -64,6 +65,17 @@ environments = [
 ]
 
 
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+log_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+
 [tool.coverage.run]
 parallel = true
 source = ["dependency_groups"]
@@ -93,11 +105,109 @@ exclude_lines = [
 strict = true
 ignore_missing_imports = true
 disallow_subclassing_any = false
-files = ["src"]
+files = ["src", "tests"]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["mddj"]
+[tool.ruff]
+line-length = 88
+show-fixes = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "C4", "I", "TC", "UP"]
+ignore = ["E203"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dependency_groups"]
 
 [tool.check-sdist]
 git-only = [".*", "Makefile", "docs/*", "scripts/*"]
+
+
+[tool.tox]
+requires = ["tox>=4.22"]
+env_list = [
+    "lint",
+    "mypy",
+    "covclean",
+    "covcombine",
+    "covreport",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "3.15",
+]
+
+[tool.tox.labels]
+ci = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "covcombine", "covreport"]
+ci-mypy = ["mypy-py39", "mypy-py313"]
+ci-package-check = ["twine-check"]
+
+[tool.tox.env_run_base]
+description = "Run tests and coverage"
+package = "wheel"
+wheel_build_env = "build_wheel"
+dependency_groups = ["test"]
+commands = [["coverage", "run", "-m", "pytest", "-v", {replace = "posargs", extend = true}]]
+depends = ["clean"]
+
+[tool.tox.env.covclean]
+description = "Clean coverage outputs"
+skip_install = true
+dependency_groups = ["coverage"]
+commands = [["coverage", "erase"]]
+
+[tool.tox.env.covcombine]
+description = "Combine coverage outputs"
+skip_install = true
+dependency_groups = ["coverage"]
+commands = [["coverage", "combine"]]
+depends = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+
+[tool.tox.env.covreport]
+description = "Report on combined coverage outputs"
+skip_install = true
+dependency_groups = ["coverage"]
+commands_pre = [["coverage", "html", "--fail-under=0"]]
+commands = [["coverage", "report"]]
+depends = ["covcombine"]
+
+[tool.tox.env.lint]
+description = "Run linterse and formatters"
+dependency_groups = ["lint"]
+commands = [["pre-commit", "run", "-a", {replace = "posargs", extend = true}]]
+depends = []
+
+[tool.tox.env.mypy]
+package = "skip"
+description = "Run static type checking under {base_python}"
+dependency_groups = ["typing"]
+commands = [["mypy", {replace = "posargs", extend = true} ]]
+depends = []
+
+[tool.tox.env.mypy-py39]
+base = ["tool.tox.env.mypy"]
+
+[tool.tox.env.mypy-py313]
+base = ["env.mypy"]
+
+[tool.tox.env.twine-check]
+description = "check the metadata on a package build"
+allowlist_externals = ["rm"]
+dependency_groups = ["build"]
+commands_pre = [["rm", "-rf", "dist/"]]
+# check that twine validating package data works
+commands = [["python", "-m", "build"],
+           ["twine", "check", "dist/*"]]
+
+
+[tool.tox.env.docs]
+description = "build docs with sphinx"
+basepython = ["python3.12"]
+dependency_groups = ["docs"]
+allowlist_externals = ["rm"]
+changedir = "docs/"
+# clean the build dir before rebuilding
+commands_pre = [["rm", "-rf", "_build/"]]
+commands = [["sphinx-build", "-d", "_build/doctrees", "-b", "dirhtml", "-W", ".", "_build/dirhtml", {replace = "posargs", extend = true}]]

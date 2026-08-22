@@ -1,14 +1,14 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-17T19:44:19.590479                                                            #
+# Generated on 2026-08-21T18:12:41.347025                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
+import metaflow
 import threading
 import typing
-import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.card_utils.async_cards
     import threading

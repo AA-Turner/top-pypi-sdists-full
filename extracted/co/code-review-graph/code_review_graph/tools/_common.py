@@ -11,6 +11,7 @@ from typing import Any
 
 from ..graph import GraphStore
 from ..incremental import find_project_root, get_db_path
+from ..parser import normalize_file_path
 
 _PROVENANCE_READ_TIMEOUT_SECONDS = 0.05
 _PROVENANCE_GIT_TIMEOUT_SECONDS = 1.0
@@ -64,7 +65,7 @@ def graph_provenance(repo_root: str | None = None) -> dict[str, Any] | None:
     """
     try:
         root = _resolve_root(repo_root)
-        db_path = get_db_path(root)
+        db_path = get_db_path(root, read_only=True)
         if not db_path.exists():
             return None
 
@@ -87,36 +88,36 @@ def graph_provenance(repo_root: str | None = None) -> dict[str, Any] | None:
         finally:
             connection.close()
 
+        provenance: dict[str, Any] = {}
         updated_at = rows.get("last_updated")
-        if not isinstance(updated_at, str) or not updated_at:
-            return None
+        if isinstance(updated_at, str) and updated_at:
+            provenance["updated_at"] = updated_at
+            try:
+                built_at = datetime.fromisoformat(updated_at)
+                # Match aware timestamps with an aware ``now`` in the same
+                # timezone; None preserves the stored naive/local format.
+                now = datetime.now(tz=built_at.tzinfo)
+                provenance["age_seconds"] = max(
+                    0, int((now - built_at).total_seconds()),
+                )
+            except (OverflowError, TypeError, ValueError):
+                # A malformed timestamp only removes the derived age. The raw
+                # timestamp and independently valid branch/SHA remain useful.
+                pass
 
-        provenance: dict[str, Any] = {"updated_at": updated_at}
-        try:
-            built_at = datetime.fromisoformat(updated_at)
-            # Match aware timestamps with an aware ``now`` in the same
-            # timezone; None preserves the stored naive/local format.
-            now = datetime.now(tz=built_at.tzinfo)
-            provenance["age_seconds"] = max(
-                0, int((now - built_at).total_seconds()),
-            )
-        except (OverflowError, TypeError, ValueError):
-            # A malformed timestamp only removes the derived age. The raw
-            # timestamp and independently valid branch/SHA remain useful.
-            pass
-
-        branch = rows.get("git_branch")
-        if isinstance(branch, str) and branch:
-            provenance["built_on_branch"] = branch
         head_sha = rows.get("git_head_sha")
         if isinstance(head_sha, str) and head_sha:
             provenance["built_at_sha"] = head_sha
-        live_head_sha = _read_live_git_head(root)
-        if live_head_sha:
-            provenance["head_sha"] = live_head_sha
-            if isinstance(head_sha, str) and head_sha:
-                provenance["head_matches_build"] = live_head_sha == head_sha
-        return provenance
+        if provenance:
+            branch = rows.get("git_branch")
+            if isinstance(branch, str) and branch:
+                provenance["built_on_branch"] = branch
+            live_head_sha = _read_live_git_head(root)
+            if live_head_sha:
+                provenance["head_sha"] = live_head_sha
+                if isinstance(head_sha, str) and head_sha:
+                    provenance["head_matches_build"] = live_head_sha == head_sha
+        return provenance or None
     except Exception:
         return None
 
@@ -242,7 +243,7 @@ def _resolve_graph_file_paths(
             except ValueError:
                 pass
         else:
-            candidates.append(str(root / path))
+            candidates.append(normalize_file_path(root / path))
 
         for candidate in candidates:
             if store.get_nodes_by_file(candidate):
@@ -259,6 +260,53 @@ def _resolve_graph_file_paths(
                 add(matched_path)
 
     return resolved
+
+
+# ---------------------------------------------------------------------------
+# Result bounding (#849 follow-up)
+# ---------------------------------------------------------------------------
+#
+# Every MCP tool response has to survive a client-side context window. #849
+# found get_affected_flows returning 247k tokens inside a workflow documented
+# as "5 tool calls, 800 tokens total"; PR #853 capped that one tool. These
+# helpers give the remaining tools the same contract:
+#
+#   * ``total`` always reports the untruncated count,
+#   * ``truncated`` marks that the list was cut,
+#   * the summary line says how many of how many are shown.
+#
+# Each tool pairs a caller-facing default with a hard ceiling. The ceiling
+# exists so a caller passing ``max_results=1_000_000`` still gets a response
+# that fits the ~25k-token budget most MCP clients allow for one tool result.
+
+
+def _validate_positive_int(value: int, name: str) -> int:
+    """Validate a caller-supplied result bound.
+
+    Mirrors the check ``query.py`` applies to ``max_results``: ``bool`` is
+    rejected explicitly because ``True`` would otherwise silently mean 1.
+    """
+    if isinstance(value, bool) or value < 1:
+        raise ValueError(f"{name} must be an integer greater than or equal to 1")
+    return value
+
+
+def _bounded(
+    items: "list[Any]", max_results: int, hard_cap: int,
+) -> tuple[list[Any], int, bool]:
+    """Cap *items* at ``min(max_results, hard_cap)``.
+
+    Returns ``(visible, total, truncated)`` where ``total`` is the
+    untruncated length, so callers can always report the real count.
+    """
+    total = len(items)
+    limit = min(max_results, hard_cap)
+    return list(items[:limit]), total, total > limit
+
+
+def _shown_of(shown: int, total: int) -> str:
+    """Return the ``", showing N of M"`` fragment used by capped summaries."""
+    return f", showing {shown} of {total}" if shown < total else ""
 
 
 def compact_response(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-foundry-hosting
-Version: 1.0.0b260813
+Version: 1.0.0b260821
 Summary: Foundry Hosting integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.13.0,<2
+Requires-Dist: agent-framework-core>=1.15.0,<2
 Requires-Dist: azure-ai-agentserver-core>=2.1.0b1,<3
 Requires-Dist: azure-ai-agentserver-responses>=2.1.0b1,<3
 Requires-Dist: azure-ai-agentserver-invocations>=1.1.0b1,<2
@@ -76,3 +76,4 @@ locally. Stored checkpoints are scoped under `checkpoints`.
 `ResponsesHostServer` persists function approvals durably. By default, it uses the
 `FoundryFunctionApprovalStore`, backed by Foundry storage when hosted and file-based
 storage locally. Stored approvals are scoped under `function_approvals`.
+

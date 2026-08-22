@@ -2,12 +2,10 @@
 # mode: run
 # tag: cyfunction
 
+import platform
 cimport cython
 
-include "skip_limited_api_helper.pxi"
-
-import sys
-from functools import wraps
+from functools import wraps, update_wrapper
 
 def inspect_isroutine():
     """
@@ -67,7 +65,6 @@ def inspect_signature(a, b, c=123, *, d=234):
 #     return inspect_signature.__signature__
 
 
-@skip_if_limited_api("tp_dictoffset not set", min_runtime_version=(3, 9))
 def test_dict():
     """
     >>> test_dict.foo = 123
@@ -432,14 +429,6 @@ def test_fused_module(cython.numeric arg):
     pass
 
 
-if sys.version_info < (3, 9):
-    # In Limited API 3.8, @wraps() fails on a missing "__wrapped__" attribute.
-    def wraps(f):
-        def nowrap(func):
-            return f
-        return nowrap
-
-
 def to_be_wrapped(a: int, b: float):
     """
     Hello from to_be_wrapped's docstring
@@ -506,8 +495,6 @@ def test_annotate():
     future.
 
     >>> f = test_annotate()
-    >>> list(f.__annotate__().keys())
-    ['a', 'b']
     >>> list(f.__annotate__(1).keys())
     ['a', 'b']
 
@@ -567,6 +554,14 @@ def test_annotate():
     >>> f.__annotations__
     {'a': 'int', 'b': 'str'}
 
+    Setting __annotate__ to itself should not cause a recursion disaster.
+    >>> f = test_annotate()
+    >>> f.__annotate__ = f.__annotate__
+    >>> list(f.__annotate__(1).keys())
+    ['a', 'b']
+    >>> f.__annotations__
+    {'a': 'int', 'b': 'str'}
+
     Setting __annotations__ should clear any assigned lazy annotation function.
     >>> f = test_annotate()
     >>> f.__annotate__ = lambda arg=0: {'different_argument': 5}
@@ -587,10 +582,37 @@ def test_annotate():
     return inner
 
 
+class FuncWrapper:
+    def __init__(self, function):
+        self.function = function
+        update_wrapper(self, self.function)
+
+    def __call__(self, *args, **kwds):
+        return self.function(*args, **kwds)
+
+
+def test_pickle_unpickle() -> int:
+    """
+    >>> import pickle
+    >>> unpickled = pickle.loads(pickle.dumps(test_pickle_unpickle))
+    >>> unpickled()
+    1
+
+    >>> wrapped = FuncWrapper(test_pickle_unpickle)
+    >>> unpickled = pickle.loads(pickle.dumps(wrapped))
+    >>> unpickled()
+    1
+    """
+    return 1
+
+
+
 __doc__ = """
 >>> test_module.__module__
 'cyfunction'
->>> type(test_module).__module__.startswith("_cython")
+
+# Our metaclass doesn't stick on PyPy unfortunately
+>>> type(test_module).__module__.startswith("_cython") if platform.python_implementation() != 'PyPy' else True
 True
 >>> test_module.__module__ = "something_else"
 >>> test_module.__module__
@@ -599,7 +621,7 @@ True
 >>> test_module.__module__
 >>> test_fused_module.__module__
 'cyfunction'
->>> type(test_fused_module).__module__.startswith("_cython")
+>>> type(test_fused_module).__module__.startswith("_cython") if platform.python_implementation() != 'PyPy' else True
 True
 >>> test_fused_module.__module__ = "something_else"
 >>> test_fused_module.__module__

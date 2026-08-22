@@ -525,6 +525,106 @@ def _remove_toml_entry(
     )
 
 
+def _remove_yaml_entry(
+    path: Path,
+    key: str,
+    boundary: Path,
+    report: UninstallReport,
+    *,
+    dry_run: bool,
+) -> None:
+    """Delete ``<key>.code-review-graph`` from a YAML config, text-surgically.
+
+    The rest of the document — comments, ordering, formatting — is preserved
+    byte-for-byte; the parsed document is used only to locate the entry and to
+    validate the result before writing.
+    """
+    import yaml  # type: ignore[import-untyped]
+
+    if not path.exists() or not _safe_path(path, boundary, report):
+        return
+    raw = _read_text(path, report)
+    if raw is None:
+        return
+    try:
+        parsed = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        report.skipped_paths.append(f"{path} (YAML parse failed; left unchanged: {exc})")
+        return
+    if not isinstance(parsed, dict):
+        return
+    container = parsed.get(key)
+    if not isinstance(container, dict) or _ENTRY_NAME not in container:
+        return
+
+    lines = raw.splitlines(keepends=True)
+    bounds = skills._yaml_section_bounds(lines, key)
+    if bounds is None:
+        report.skipped_paths.append(
+            f"{path} ({key} is not a block mapping; left unchanged)"
+        )
+        return
+    header, section_end = bounds
+    child_indent = skills._yaml_block_indent(lines, header + 1, section_end)
+    entry_prefix = f"{' ' * child_indent}{_ENTRY_NAME}:"
+    start = next(
+        (
+            index
+            for index in range(header + 1, section_end)
+            if lines[index].rstrip("\n") == entry_prefix.rstrip()
+            or lines[index].startswith(entry_prefix)
+        ),
+        None,
+    )
+    if start is None:
+        report.skipped_paths.append(
+            f"{path} (could not locate {_ENTRY_NAME} block; left unchanged)"
+        )
+        return
+    end = start + 1
+    while end < len(lines):
+        line = lines[end]
+        if line.strip() and (len(line) - len(line.lstrip())) <= child_indent:
+            break
+        end += 1
+    # Blank lines after the block separate it from what follows and belong to
+    # the user's formatting, not to our entry. Leave them in place.
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1
+
+    rewritten = "".join(lines[:start] + lines[end:])
+    try:
+        reparsed = yaml.safe_load(rewritten)
+    except yaml.YAMLError as exc:  # pragma: no cover - defensive validation
+        report.skipped_paths.append(f"{path} (safe YAML edit failed; left unchanged: {exc})")
+        return
+    if not isinstance(reparsed, dict):
+        report.skipped_paths.append(f"{path} (safe YAML edit failed; left unchanged)")
+        return
+    remaining = reparsed.get(key)
+    if _ENTRY_NAME in (remaining or {}):
+        report.skipped_paths.append(f"{path} (safe YAML edit failed; left unchanged)")
+        return
+    # Every other setting must survive the edit untouched.
+    expected = copy.deepcopy(parsed)
+    del expected[key][_ENTRY_NAME]
+    if not expected[key]:
+        # An emptied mapping is written as ``key:`` (None) rather than ``{}``.
+        expected[key] = None
+    if reparsed != expected:
+        report.skipped_paths.append(
+            f"{path} (safe YAML edit changed unrelated settings; left unchanged)"
+        )
+        return
+    _write_text(
+        path,
+        rewritten,
+        report,
+        detail=f"removed {key}.{_ENTRY_NAME}",
+        dry_run=dry_run,
+    )
+
+
 def _commands(value: Any) -> set[str]:
     found: set[str] = set()
     if isinstance(value, dict):
@@ -739,34 +839,69 @@ def _remove_skill_file(
         _prune_empty_directory(path.parent, boundary)
 
 
+def _join_without_instruction(before: str, after: str) -> str:
+    """Close the gap a removed instruction block leaves behind.
+
+    The text on either side is kept. Only the whitespace at the seam is
+    normalised, so removing a block from the middle of a file does not leave a
+    pile of blank lines where it used to be.
+    """
+    if not after.strip():
+        # The block ran to the end, which is where install appends it.
+        return before.rstrip() + ("\n" if before.strip() else "")
+    if not before.strip():
+        return after.lstrip("\n")
+    return before.rstrip("\n") + "\n\n" + after.lstrip("\n")
+
+
 def _remove_instruction(
     path: Path,
-    section: str,
     boundary: Path,
     report: UninstallReport,
     *,
     dry_run: bool,
 ) -> None:
+    """Strip every generated instruction block from a file.
+
+    Only text that exactly equals a block this project generated is removed, so
+    a section someone edited by hand survives and is reported instead. Blocks
+    written before the closing marker existed have no end boundary, which is why
+    nothing here searches for one: their full recorded text is the boundary.
+    Matching every known variant means a block from any past release comes out,
+    not just one written by the running version (#314).
+    """
     if not path.exists() or not _safe_path(path, boundary, report):
         return
     raw = _read_text(path, report)
     if raw is None:
         return
-    exact_index = raw.find(section)
-    if exact_index >= 0:
-        start = exact_index
-        end = exact_index + len(section)
-        rewritten = raw[:start] + raw[end:]
-    else:
-        marker_index = raw.find(skills._CLAUDE_MD_SECTION_MARKER)
-        if marker_index < 0:
-            return
-        report.skipped_paths.append(
-            f"{path} (marked instruction section differs from a known installed section; "
-            "left unchanged)"
-        )
+
+    rewritten = raw
+    # Longest first, so removing a short variant cannot strand the tail of a
+    # longer one that contains it. The loop also clears duplicate blocks that
+    # older releases stacked up (#558).
+    for known in skills._known_instruction_sections():
+        while (index := rewritten.find(known)) >= 0:
+            rewritten = _join_without_instruction(
+                rewritten[:index], rewritten[index + len(known) :]
+            )
+
+    if rewritten == raw:
+        if skills._CLAUDE_MD_SECTION_MARKER in raw:
+            report.skipped_paths.append(
+                f"{path} (marked instruction section differs from a known installed section; "
+                "left unchanged)"
+            )
         return
-    rewritten = rewritten.rstrip() + ("\n" if rewritten.strip() else "")
+
+    if skills._CLAUDE_MD_SECTION_MARKER in rewritten:
+        # One block was generated and another was edited. Remove what this
+        # project owns and name the file so the user can deal with the rest.
+        report.skipped_paths.append(
+            f"{path} (a further marked instruction section differs from a known "
+            "installed section; left unchanged)"
+        )
+
     if rewritten:
         _write_text(
             path,
@@ -904,6 +1039,13 @@ def _scope_for_config(path: Path, repo_root: Path, home: Path) -> tuple[str, Pat
         return "repo", repo_root
     if _is_lexical_child(path, home):
         return "user", home
+    # ``HERMES_HOME`` may relocate the Hermes Agent config outside the user's
+    # home directory. That directory is then the user-scope boundary for its
+    # own config, otherwise install would write a file uninstall refuses to
+    # clean up.
+    hermes_home = _absolute(skills._hermes_home())
+    if _is_lexical_child(path, hermes_home):
+        return "user", hermes_home
     return None
 
 
@@ -914,9 +1056,12 @@ def _process_platform_configs(
     *,
     scope: str,
     dry_run: bool,
+    platforms: frozenset[str] | None = None,
 ) -> None:
     seen: set[tuple[Path, str, str]] = set()
     for platform_name, spec in skills.PLATFORMS.items():
+        if platforms is not None and platform_name not in platforms:
+            continue
         try:
             path = _absolute(spec["config_path"](repo_root))
             key = str(spec["key"])
@@ -936,25 +1081,34 @@ def _process_platform_configs(
         config_scope, boundary = destination
         if config_scope != scope:
             continue
-        identity = (path, key, format_name)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        if format_name == "toml":
-            _remove_toml_entry(path, key, boundary, report, dry_run=dry_run)
-        elif format_name in {"object", "array"}:
-            _remove_mcp_entry(
-                path,
-                key=key,
-                format_name=format_name,
-                boundary=boundary,
-                report=report,
-                dry_run=dry_run,
-            )
-        else:
-            report.skipped_paths.append(
-                f"{path} ({platform_name} has unsupported config format {format_name!r})"
-            )
+        legacy_keys = tuple(str(item) for item in spec.get("legacy_keys", ()))
+        for entry_key in (key, *legacy_keys):
+            identity = (path, entry_key, format_name)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            if format_name == "toml":
+                _remove_toml_entry(
+                    path, entry_key, boundary, report, dry_run=dry_run
+                )
+            elif format_name == "yaml":
+                _remove_yaml_entry(
+                    path, entry_key, boundary, report, dry_run=dry_run
+                )
+            elif format_name in {"object", "array"}:
+                _remove_mcp_entry(
+                    path,
+                    key=entry_key,
+                    format_name=format_name,
+                    boundary=boundary,
+                    report=report,
+                    dry_run=dry_run,
+                )
+            else:
+                report.skipped_paths.append(
+                    f"{path} ({platform_name} has unsupported config format "
+                    f"{format_name!r})"
+                )
 
 
 def _generated_skill_slugs() -> list[str]:
@@ -992,8 +1146,17 @@ def _process_repo(
     *,
     keep_data: bool,
     dry_run: bool,
+    platforms: frozenset[str] | None = None,
 ) -> None:
-    _process_platform_configs(repo_root, home, report, scope="repo", dry_run=dry_run)
+    _process_platform_configs(
+        repo_root, home, report, scope="repo", dry_run=dry_run, platforms=platforms
+    )
+    if platforms is not None:
+        # Platform-scoped unbind: remove only the MCP registration for the
+        # selected platform(s). Shared graph data, hooks, generated skills, and
+        # instruction sections are left untouched so other platforms keep
+        # working. A full ``uninstall`` (no --platform) removes everything.
+        return
     _remove_legacy_mcp_configs(
         repo_root,
         home,
@@ -1083,20 +1246,18 @@ def _process_repo(
                         dry_run=dry_run,
                     )
 
-    instruction_sections = {
-        "CLAUDE.md": skills._CLAUDE_MD_SECTION,
-        **{
-            relative: skills._PLATFORM_INSTRUCTION_CUSTOM_SECTIONS.get(
-                relative,
-                (skills._CLAUDE_MD_SECTION_MARKER, skills._CLAUDE_MD_SECTION),
-            )[1]
-            for relative in skills._PLATFORM_INSTRUCTION_FILES
-        },
-    }
-    for relative, section in instruction_sections.items():
+    # Every variant is matched per file, so which section a given path was
+    # written with no longer has to be worked out here.
+    instruction_files = dict.fromkeys(
+        (
+            "CLAUDE.md",
+            *skills._PLATFORM_INSTRUCTION_FILES,
+            *skills._LEGACY_PLATFORM_INSTRUCTION_FILES,
+        )
+    )
+    for relative in instruction_files:
         _remove_instruction(
             repo_root / relative,
-            section,
             repo_root,
             report,
             dry_run=dry_run,
@@ -1113,8 +1274,14 @@ def _process_user(
     *,
     keep_data: bool,
     dry_run: bool,
+    platforms: frozenset[str] | None = None,
 ) -> None:
-    _process_platform_configs(reference_repo, home, report, scope="user", dry_run=dry_run)
+    _process_platform_configs(
+        reference_repo, home, report, scope="user", dry_run=dry_run, platforms=platforms
+    )
+    if platforms is not None:
+        # See _process_repo: platform-scoped unbind touches MCP config only.
+        return
     _remove_legacy_mcp_configs(
         reference_repo,
         home,
@@ -1158,6 +1325,15 @@ def _process_user(
         report,
         dry_run=dry_run,
     )
+
+    hermes_skills = skills._hermes_home() / "skills" / "code-review-graph"
+    for slug in _generated_skill_slugs():
+        _remove_skill_file(
+            hermes_skills / slug / "SKILL.md",
+            hermes_skills,
+            report,
+            dry_run=dry_run,
+        )
 
 
 def _registry_repo_paths(home: Path, report: UninstallReport) -> list[Path]:
@@ -1223,6 +1399,24 @@ def _normalise_repo(path: Path, home: Path, report: UninstallReport) -> Path | N
     return repository_root
 
 
+def _normalise_platform_filter(platforms: Sequence[str] | None) -> frozenset[str] | None:
+    """Return the platform keys to scope an unbind to, or ``None`` for all.
+
+    ``None``, an empty selection, or an explicit ``"all"`` disables scoping and
+    restores the full uninstall. ``"claude-code"`` is accepted as an alias for
+    ``"claude"`` so the flag matches the install command's spelling.
+    """
+    if not platforms:
+        return None
+    selected: set[str] = set()
+    for name in platforms:
+        key = "claude" if name == "claude-code" else name
+        if key == "all":
+            return None
+        selected.add(key)
+    return frozenset(selected) or None
+
+
 def run(
     *,
     repo: Path | None = None,
@@ -1230,10 +1424,17 @@ def run(
     keep_data: bool = False,
     keep_user_configs: bool = False,
     dry_run: bool = False,
+    platforms: Sequence[str] | None = None,
 ) -> UninstallReport:
-    """Uninstall CRG artifacts and return a precise action report."""
+    """Uninstall CRG artifacts and return a precise action report.
+
+    When ``platforms`` names one or more specific platforms, the run is scoped
+    to *unbinding* those platforms: only their MCP server registration is
+    removed and all graph data is preserved, regardless of ``keep_data``.
+    """
     report = UninstallReport()
     home = _absolute(Path.home())
+    platform_filter = _normalise_platform_filter(platforms)
     requested = [repo if repo is not None else Path.cwd()]
     if all_repos:
         requested.extend(_registry_repo_paths(home, report))
@@ -1251,6 +1452,7 @@ def run(
             report,
             keep_data=keep_data,
             dry_run=dry_run,
+            platforms=platform_filter,
         )
 
     if not keep_user_configs:
@@ -1261,5 +1463,6 @@ def run(
             report,
             keep_data=keep_data,
             dry_run=dry_run,
+            platforms=platform_filter,
         )
     return report

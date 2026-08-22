@@ -214,15 +214,31 @@ class PooledPg:
         return SteadyPgConnection(self._maxusage, self._setsession, True,
                                   *self._args, **self._kwargs)
 
-    def connection(self):
-        """Get a steady, cached PostgreSQL connection from the pool."""
+    def pooled_connection(self):
+        """Get a steady PostgreSQL connection from the pool cache.
+
+        This is the unwrapped connection that is kept in the pool cache.
+        It reserves one of the generally allowed connections, so it must
+        be balanced with a corresponding call of the cache() method.
+        """
         if self._connections and not self._connections.acquire(self._blocking):
             raise TooManyConnectionsError
         try:
-            con = self._cache.get_nowait()
-        except Empty:
-            con = self.steady_connection()
-        return PooledPgConnection(self, con)
+            try:
+                return self._cache.get_nowait()
+            except Empty:
+                return self.steady_connection()
+        except Exception:
+            # the connection could not be established, so give back the
+            # reservation that has been made above (note that this must
+            # not happen when the reservation itself has already failed)
+            if self._connections:
+                self._connections.release()
+            raise
+
+    def connection(self):
+        """Get a steady, cached PostgreSQL connection from the pool."""
+        return PooledPgConnection(self, self.pooled_connection())
 
     def cache(self, con):
         """Put a connection back into the pool cache."""
@@ -240,13 +256,16 @@ class PooledPg:
 
     def close(self):
         """Close all connections in the pool."""
+        # Note that the connections in the cache have already given back
+        # their share of the generally allowed connections when they were
+        # returned to the pool, so the semaphore must not be released here.
+        # Connections that are still in use are not closed here, and they
+        # will release their share as usual by calling the cache() method.
         while 1:
             try:
                 con = self._cache.get_nowait()
                 with suppress(Exception):
                     con.close()
-                if self._connections:
-                    self._connections.release()
             except Empty:
                 break
 
@@ -289,7 +308,10 @@ class PooledPgConnection:
         if self._con:
             self._con.reopen()
         else:
-            self._con = self._pool.connection()
+            # take the steady connection itself out of the pool, since
+            # wrapping another pooled connection would nest the proxies
+            # and put a proxy instead of a connection into the pool cache
+            self._con = self._pool.pooled_connection()
 
     def __getattr__(self, name):
         """Proxy all members of the class."""

@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-ortools package is included.
-"""
+"""Hooks triggered by finder when ortools package is included."""
 
 from __future__ import annotations
 
@@ -22,5 +20,5 @@ class Hook(ModuleHook):
         if module.in_file_system == 0:
             module.in_file_system = 2
         distribution = module.distribution
-        if distribution.installer == "conda":
+        if distribution and distribution.installer == "conda":
             finder.include_module("numpy")

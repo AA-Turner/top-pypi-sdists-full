@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 SOURCE = """
 test.py
@@ -11,11 +15,11 @@ test.py
 """
 
 
-def test_cxfreeze(tmp_package) -> None:
+def test_cxfreeze(tmp_package: TempPackage) -> None:
     """Test cxfreeze."""
     tmp_package.create(SOURCE)
     command = "cxfreeze --script test.py --target-dir=dist"
-    command += " --excludes=tkinter,unittest --include-msvcr"
+    command += " --excludes=tkinter --include-msvcr"
     tmp_package.freeze(command)
 
     executable = tmp_package.executable_in_dist("test")
@@ -25,25 +29,25 @@ def test_cxfreeze(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-def test_cxfreeze_help(tmp_package) -> None:
+def test_cxfreeze_help(tmp_package: TempPackage) -> None:
     """Test cxfreeze help."""
     tmp_package.create(SOURCE)
     result = tmp_package.freeze("cxfreeze --help")
     result.stdout.fnmatch_lines("usage: *")
 
 
-def test_cxfreeze_additional_help(tmp_package) -> None:
+def test_cxfreeze_additional_help(tmp_package: TempPackage) -> None:
     """Test cxfreeze additional help."""
     tmp_package.create(SOURCE)
     result = tmp_package.freeze("cxfreeze build_exe --help")
     result.stdout.fnmatch_lines("*--help-commands*")
 
 
-def test_cxfreeze_debug_verbose(tmp_package) -> None:
+def test_cxfreeze_debug_verbose(tmp_package: TempPackage) -> None:
     """Test cxfreeze --debug --verbose."""
     tmp_package.create(SOURCE)
     command = "cxfreeze --script test.py --debug --verbose"
-    command += " --excludes=tkinter,unittest --include-msvcr"
+    command += " --excludes=tkinter --include-msvcr"
     tmp_package.freeze(command)
 
     file_created = tmp_package.executable("test")
@@ -53,11 +57,13 @@ def test_cxfreeze_debug_verbose(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-def test_cxfreeze_target_name_not_isidentifier(tmp_package) -> None:
+def test_cxfreeze_target_name_not_isidentifier(
+    tmp_package: TempPackage,
+) -> None:
     """Test cxfreeze --target-name not isidentifier, but valid filename."""
     tmp_package.create(SOURCE)
     command = "cxfreeze --script test.py --target-name=12345"
-    command += " --excludes=tkinter,unittest --include-msvcr"
+    command += " --excludes=tkinter --include-msvcr"
     tmp_package.freeze(command)
 
     file_created = tmp_package.executable("12345")
@@ -67,26 +73,22 @@ def test_cxfreeze_target_name_not_isidentifier(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-def test_cxfreeze_deprecated_behavior(tmp_package) -> None:
-    """Test cxfreeze deprecated behavior."""
+def test_cxfreeze_command_not_valid(tmp_package: TempPackage) -> None:
+    """Test cxfreeze command not valid.
+
+    Deprecated, but valid up to 8.6.4.
+    """
     tmp_package.create(SOURCE)
-    tmp_package.path.joinpath("test.py").rename(tmp_package.path / "test2")
-    command = "cxfreeze --install-dir=dist test2"
-    command += " --excludes=tkinter,unittest --include-msvcr"
-    tmp_package.freeze(command)
-
-    file_created = tmp_package.executable_in_dist("test2")
-    assert file_created.is_file(), f"file not found: {file_created}"
-
-    result = tmp_package.run(file_created)
-    result.stdout.fnmatch_lines("Hello from cx_Freeze")
+    command = "cxfreeze test.py"
+    result = tmp_package.freeze(command)
+    result.stderr.fnmatch_lines("cxfreeze: error: command not valid*")
 
 
-def test_cxfreeze_deprecated_option(tmp_package) -> None:
+def test_cxfreeze_deprecated_option(tmp_package: TempPackage) -> None:
     """Test cxfreeze deprecated option."""
     tmp_package.create(SOURCE)
-    command = "cxfreeze -c -O -OO test.py --target-dir=dist"
-    command += " --excludes=tkinter,unittest --include-msvcr"
+    command = "cxfreeze --script=test.py -c -O -OO --target-dir=dist"
+    command += " --excludes=tkinter --include-msvcr"
     result = tmp_package.freeze(command)
     assert "WARNING: deprecated" in str(result.stdout)
 
@@ -97,11 +99,13 @@ def test_cxfreeze_deprecated_option(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-def test_cxfreeze_without_options(tmp_package) -> None:
+def test_cxfreeze_without_options(tmp_package: TempPackage) -> None:
     """Test cxfreeze without options."""
     tmp_package.create(SOURCE)
     result = tmp_package.freeze("cxfreeze")
-    assert result.ret > 0
+    result.stderr.fnmatch_lines(
+        "cxfreeze: error: --script or command must be specified"
+    )
 
 
 SOURCE_TEST_PATH = """
@@ -129,16 +133,16 @@ pyproject.toml
 
     [tool.cxfreeze.build_exe]
     build_exe = "dist"
-    excludes = ["tkinter", "unittest"]
+    excludes = ["tkinter"]
     includes = ["testfreeze_1", "testfreeze_2"]
-    include_msvcr = true
+    include-msvcr = true
     silent = true
 """
 OUTPUT0 = "Hello from cx_Freeze Advanced #{}"
 OUTPUT1 = "Test freeze module #{}"
 
 
-def test_cxfreeze_include_path(tmp_package) -> None:
+def test_cxfreeze_include_path(tmp_package: TempPackage) -> None:
     """Test cxfreeze."""
     tmp_package.create(SOURCE_TEST_PATH)
     tmp_package.freeze(

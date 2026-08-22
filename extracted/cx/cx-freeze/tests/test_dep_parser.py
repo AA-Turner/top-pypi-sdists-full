@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import stat
 import sys
@@ -12,19 +13,19 @@ import pytest
 
 from cx_Freeze._compat import (
     ABI_THREAD,
-    IS_ARM_64,
     IS_CONDA,
     IS_LINUX,
     IS_MINGW,
     IS_WINDOWS,
-    IS_X86_32,
-    IS_X86_64,
 )
 from cx_Freeze.dep_parser import ELFParser
 from cx_Freeze.exception import PlatformError
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from tests.conftest import TempPackage, TempPackageVenv
+
 
 SOURCE = """
 test.py
@@ -34,15 +35,16 @@ test.py
 if IS_WINDOWS:
     PACKAGE_VERSION = [("imagehlp", "bind")]
     if IS_CONDA:
-        PACKAGE_VERSION += [("py-lief", "0.17.6")]
-    elif IS_ARM_64 and ABI_THREAD == "":
-        if sys.version_info[:2] <= (3, 13):
-            PACKAGE_VERSION += [("lief", "0.16.6")]
-        PACKAGE_VERSION += [("lief", "0.17.6")]
-    elif (IS_X86_32 or IS_X86_64) and ABI_THREAD == "":
-        if sys.version_info[:2] <= (3, 13):
-            PACKAGE_VERSION += [("lief", "0.15.1"), ("lief", "0.16.6")]
-        PACKAGE_VERSION += [("lief", "0.17.6")]
+        PACKAGE_VERSION.append(("py-lief", "0.17.6"))
+    else:
+        if ABI_THREAD == "":
+            if sys.version_info[:2] <= (3, 13):
+                PACKAGE_VERSION.append(("lief", "0.16.0"))
+                PACKAGE_VERSION.append(("lief", "0.16.6"))
+            if sys.version_info[:2] <= (3, 14):
+                PACKAGE_VERSION.append(("lief", "0.17.0"))
+                PACKAGE_VERSION.append(("lief", "0.17.6"))
+        PACKAGE_VERSION.append(("lief", "1.0.0"))
 elif IS_MINGW:
     PACKAGE_VERSION = [("imagehlp", "bind")]
 elif IS_LINUX:
@@ -52,7 +54,7 @@ else:
 
 
 @pytest.mark.parametrize(("package", "version"), PACKAGE_VERSION)
-def test_parser(tmp_package, package, version) -> None:
+def test_parser(tmp_package: TempPackage, package: str, version: str) -> None:
     """Test a simple build."""
     tmp_package.create(SOURCE)
 
@@ -63,7 +65,7 @@ def test_parser(tmp_package, package, version) -> None:
 
     # first run, count the files
     command = "cxfreeze --script test.py --silent"
-    command += " --excludes=tkinter,unittest --include-msvcr"
+    command += " --excludes=tkinter --include-msvcr"
     tmp_package.freeze(command)
 
     file_created = tmp_package.executable("test")
@@ -74,10 +76,10 @@ def test_parser(tmp_package, package, version) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_elf_parser(tmp_package) -> None:
+def test_elf_parser(tmp_package: TempPackage) -> None:
     """Test the search_path and find_library."""
     tmp_package.create(SOURCE)
-    parser = ELFParser(sys.path, [sysconfig.get_config_var("LIBDIR")])
+    parser = ELFParser(sys.path, [sysconfig.get_config_var("LIBDIR")], 0, {})
     names = ("python", "sqlite3")
     found = None
     for name in names:
@@ -102,24 +104,39 @@ def test_elf_parser(tmp_package) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_verify_patchelf(monkeypatch) -> None:
+def test_verify_patchelf(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the _verify_patchelf."""
-    monkeypatch.setattr("shutil.which", lambda cmd: cmd != "patchelf")
+
+    def _which(
+        cmd: str,
+        mode: int = os.F_OK | os.X_OK,  # noqa: ARG001
+        path: str | None = None,  # noqa: ARG001
+    ) -> str | None:
+        return None if cmd == "patchelf" else cmd
+
+    monkeypatch.setattr("shutil.which", _which)
     msg = "Cannot find required utility `patchelf` in PATH"
     with pytest.raises(PlatformError, match=msg):
-        ELFParser([], [])
+        ELFParser([], [], 0, {})
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
 @pytest.mark.skipif(IS_LINUX and IS_CONDA, reason="Disabled on conda-forge")
 @pytest.mark.venv
-def test_verify_patchelf_older(tmp_package) -> None:
+def test_verify_patchelf_older(tmp_package: TempPackageVenv) -> None:
     """Test the _verify_patchelf with older version."""
     tmp_package.create(SOURCE)
     tmp_package.install("patchelf<0.14")
 
-    tmp_bin = tmp_package.venv_prefix / "bin"
-    tmp_package.monkeypatch.setattr("shutil.which", lambda cmd: tmp_bin / cmd)
+    def _which(
+        cmd: str,
+        mode: int = os.F_OK | os.X_OK,  # noqa: ARG001
+        path: str | None = None,  # noqa: ARG001
+    ) -> str | None:
+        prefix = tmp_package.venv_prefix or tmp_package.prefix
+        return prefix.joinpath("bin", cmd).as_posix()
+
+    tmp_package.monkeypatch.setattr("shutil.which", _which)
     msg = r"patchelf\s+(\d+(.\d+)?)\s+found."
     with pytest.raises(ValueError, match=msg):
-        ELFParser([], [])
+        ELFParser([], [], 0, {})

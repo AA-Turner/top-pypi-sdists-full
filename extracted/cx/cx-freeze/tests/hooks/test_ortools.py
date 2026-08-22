@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cx_Freeze._compat import (
     ABI_THREAD,
     IS_ARM_64,
-    IS_CONDA,
     IS_LINUX,
     IS_MINGW,
     IS_WINDOWS,
 )
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -87,45 +91,53 @@ pyproject.toml
     [project]
     name = "test_ortools"
     version = "0.1.2.3"
-    dependencies = ["ortools>9.6"]
+    dependencies = ["ortools"]
 
     [tool.cxfreeze]
     executables = ["test_ortools.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
+ORTOOLS_VERSIONS = []
+if sys.version_info[:2] <= (3, 11):
+    ORTOOLS_VERSIONS.append("ortools~=9.6.0")
+ORTOOLS_VERSIONS.append("ortools>=9.15.0")
+
 
 @pytest.mark.xfail(
-    IS_CONDA and (not IS_LINUX or sys.version_info[:2] > (3, 11)),
+    sys.version_info[:2] >= (3, 15),
     raises=ModuleNotFoundError,
-    reason="ortools is supported in conda python <= 3.11 on Linux only",
-    strict=True,
+    reason="ortools does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     IS_MINGW,
     raises=ModuleNotFoundError,
     reason="ortools not supported in mingw",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="ortools does not support Windows arm64",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     ABI_THREAD == "t" and not IS_LINUX,
     raises=ModuleNotFoundError,
     reason="ortools supports Python free-threaded on Linux only",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
-@pytest.mark.venv
+@pytest.mark.venv(install_dependencies=False)
 @zip_packages
-def test_ortools(tmp_package, zip_packages: bool) -> None:
+@pytest.mark.parametrize("ortools_version", ORTOOLS_VERSIONS)
+def test_ortools(
+    tmp_package: TempPackage, zip_packages: bool, ortools_version: str
+) -> None:
     """Test if ortools is working correctly."""
     tmp_package.map_package_to_conda["ortools"] = "ortools-python"
     tmp_package.create(SOURCE_TEST)
@@ -134,36 +146,7 @@ def test_ortools(tmp_package, zip_packages: bool) -> None:
         buf = pyproject.read_bytes().decode().splitlines()
         buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
         pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    tmp_package.freeze()
-
-    executable = tmp_package.executable("test_ortools")
-    assert executable.is_file()
-    result = tmp_package.run(executable, timeout=TIMEOUT)
-    lines = []
-    for i in range(100):
-        prefix = " "
-        suffix = ","
-        if i == 0:
-            prefix = "["
-        elif i == 99:
-            suffix = "]"
-        lines.append(f"{prefix}vars_{i}(*){suffix}")
-    result.stdout.fnmatch_lines(lines)
-
-
-@pytest.mark.skipif(not IS_CONDA, reason="conda-forge test only")
-@pytest.mark.venv(install_dependencies=False)
-@zip_packages
-def test_ortools_pip_on_conda(tmp_package, zip_packages: bool) -> None:
-    """Test if ortools is working in conda-forge using pip."""
-    tmp_package.create(SOURCE_TEST)
-    if zip_packages:
-        pyproject = tmp_package.path / "pyproject.toml"
-        buf = pyproject.read_bytes().decode().splitlines()
-        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
-        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    # install from pypi
-    tmp_package.install("ortools", backend="pip")
+    tmp_package.install(ortools_version)
     tmp_package.freeze()
 
     executable = tmp_package.executable("test_ortools")

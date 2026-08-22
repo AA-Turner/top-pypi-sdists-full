@@ -9,6 +9,7 @@ from . import (
     revoke_org_role,
     set_user_active_org,
     set_user_admin,
+    sync_user_external_access,
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "set_user_admin",
     "get_user_orgs",
     "set_user_active_org",
+    "sync_user_external_access",
     "remove_user_from_org",
 ]

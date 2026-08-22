@@ -14,6 +14,7 @@ holds if the suffix tracks the file, which is the second assertion here.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -72,25 +73,81 @@ def test_mcpb_manifest_derives_the_identifier_rather_than_copying_it() -> None:
     assert build_manifest()["license"] == _declared_expression()
 
 
-def test_the_version_suffix_tracks_the_license_file() -> None:
-    """A LICENSE version bump that forgets the identifier is the failure here.
+# The LICENSE text as it stands at the declared major version. Bump the
+# identifier's suffix AND this digest together when the terms change
+# substantively; update the digest alone for an editorial change.
+#
+# ⚠ Over the NORMALISED text, never the raw bytes. Git rewrites line endings
+# on checkout, so a byte digest is a property of the checkout rather than of the
+# terms: this pin was red on all four Ubuntu legs and green on all four Windows
+# legs on its first run. **A licence says the same thing in either encoding.**
+_LICENSE_DIGEST = "66ed60bbc2a646e4bf7cde22a636b1a7ddeef514bb95b3b88af1e944457d6f38"
 
-    Without this, 1.2's terms ship under 1.1's identifier and every allowlist
-    that approved 1.1 keeps matching — consent inherited by terms nobody read.
+
+def _license_terms() -> bytes:
+    """The licence text with line endings normalised, so the digest is portable."""
+    normalised = LICENSE.read_text(encoding="utf-8").replace("\r\n", "\n")
+    return normalised.encode("utf-8")
+
+
+def test_the_suffix_and_the_license_major_version_imply_each_other() -> None:
+    """The identifier tracks the MAJOR version, not the full version.
+
+    A minor bump is editorial or clarifying and must not invalidate an
+    allowlist; a major bump means the terms changed substantively and
+    re-approval is the honest outcome. Requested by @marcelruhf, who operates
+    an allowlist against this identifier and proposed the major-only form.
+
+    ⚠ The implication runs BOTH WAYS — his improvement on the version we first
+    shipped. Asserting a suffix exists unconditionally encodes this repo's
+    accident: jdocmunch-mcp and jdatamunch-mcp state no version at all, and
+    there the same assertion would demand one the file never makes.
     """
     expression = _declared_expression()
-    suffix = re.search(r"-(\d+\.\d+)$", expression)
-    assert suffix, (
-        f"{expression!r} carries no version suffix. If that is deliberate, "
-        "delete this test and say why on the commit — but see the module "
-        "docstring first; the suffix is what forces re-approval."
-    )
+    suffix = re.search(r"-(\d+)$", expression)
     header = LICENSE.read_text(encoding="utf-8")[:400]
-    in_file = re.search(r"^Version\s+(\d+\.\d+)", header, re.M)
-    assert in_file, f"{LICENSE.name} no longer states its version in its header"
-    assert suffix.group(1) == in_file.group(1), (
-        f"the identifier claims license version {suffix.group(1)}; "
-        f"{LICENSE.name} says {in_file.group(1)}"
+    in_file = re.search(r"^Version\s+(\d+)\.\d+", header, re.M)
+    if in_file:
+        assert suffix, (
+            f"{expression!r} carries no version suffix but {LICENSE.name} "
+            f"states a version"
+        )
+        assert suffix.group(1) == in_file.group(1), (
+            f"the identifier claims licence major version {suffix.group(1)}; "
+            f"{LICENSE.name} says {in_file.group(1)}"
+        )
+    else:
+        assert not suffix, (
+            f"{expression!r} carries version suffix {suffix.group(1)} but "
+            f"{LICENSE.name} states no version"
+        )
+
+
+def test_the_license_text_cannot_change_without_a_decision_being_made() -> None:
+    """A major-only identifier is a PROMISE; this is what makes it checkable.
+
+    ⚠⚠ We have already broken it once. `f3c925c` (2026-07-10) ADDED a
+    redistribution and attribution obligation to condition 2 — a substantive
+    change to what a licensee may do — while the header stayed at
+    `Version 1.1 — effective 2026-06-30`. **Nothing failed, because a version
+    line is a convention and conventions do not fail builds.**
+
+    So the identifier cannot rest on our discipline about bumping the version.
+    This pins the terms text to the declared version: any edit to LICENSE fails
+    here, and clearing the failure requires deciding which kind of edit it was.
+    It cannot make that judgement — it forces it to be made at the moment the
+    text moves, rather than discovered by a licensee later.
+    """
+    actual = hashlib.sha256(_license_terms()).hexdigest()
+    assert actual == _LICENSE_DIGEST, (
+        f"{LICENSE.name} changed (digest {actual}).\n"
+        "  Substantive change to the terms -> bump the MAJOR version in the "
+        "LICENSE header, bump the identifier suffix in pyproject.toml and "
+        ".claude-plugin/plugin.json, and update _LICENSE_DIGEST.\n"
+        "  Editorial change (typo, formatting, a clarification that grants and "
+        "removes nothing) -> update _LICENSE_DIGEST alone.\n"
+        "  Allowlists downstream key on the identifier, so the first case "
+        "must be visible to them and the second must not churn them."
     )
 
 

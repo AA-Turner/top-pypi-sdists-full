@@ -1,10 +1,8 @@
+from collections.abc import (
+    Callable,
+)
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    Tuple,
-    Type,
-    Union,
-    cast,
     overload,
 )
 
@@ -17,7 +15,7 @@ if TYPE_CHECKING:
         SupportsIndex,
     )
 
-BytesLike = Union[bool, bytearray, bytes, int, str, memoryview]
+BytesLike = bool | bytearray | bytes | int | str | memoryview
 
 
 class HexBytes(bytes):
@@ -31,9 +29,9 @@ class HexBytes(bytes):
         3. ``to_0x_hex`` returns a 0x-prefixed hex string
     """
 
-    def __new__(cls: Type[bytes], val: BytesLike) -> "HexBytes":
+    def __new__(cls, val: BytesLike) -> "HexBytes":
         bytesval = to_bytes(val)
-        return cast(HexBytes, super().__new__(cls, bytesval))  # type: ignore  # https://github.com/python/typeshed/issues/2630  # noqa: E501
+        return super().__new__(cls, bytesval)
 
     @overload
     def __getitem__(self, key: "SupportsIndex") -> int:  # noqa: F811
@@ -44,8 +42,8 @@ class HexBytes(bytes):
         ...
 
     def __getitem__(  # noqa: F811
-        self, key: Union["SupportsIndex", slice]
-    ) -> Union[int, bytes, "HexBytes"]:
+        self, key: "SupportsIndex | slice"
+    ) -> "int | bytes | HexBytes":
         result = super().__getitem__(key)
         if hasattr(result, "hex"):
             return type(self)(result)
@@ -63,7 +61,7 @@ class HexBytes(bytes):
 
     def __reduce__(
         self,
-    ) -> Tuple[Callable[..., bytes], Tuple[Type["HexBytes"], bytes]]:
+    ) -> tuple[Callable[..., bytes], tuple[type["HexBytes"], bytes]]:
         """
         An optimized ``__reduce__`` that bypasses the input validation in
         ``HexBytes.__new__`` since an existing HexBytes instance has already been

@@ -1,0 +1,1193 @@
+from __future__ import annotations
+
+import os
+import re
+from collections import OrderedDict
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, cast
+from urllib.parse import unquote, urlparse
+
+from lsprotocol.types import (
+    INITIALIZE,
+    TEXT_DOCUMENT_DEFINITION,
+    TEXT_DOCUMENT_DID_CHANGE,
+    TEXT_DOCUMENT_DID_CLOSE,
+    TEXT_DOCUMENT_DID_OPEN,
+    TEXT_DOCUMENT_DID_SAVE,
+    TEXT_DOCUMENT_DOCUMENT_SYMBOL,
+    TEXT_DOCUMENT_PREPARE_RENAME,
+    TEXT_DOCUMENT_REFERENCES,
+    TEXT_DOCUMENT_RENAME,
+    WORKSPACE_SYMBOL,
+    DefinitionParams,
+    DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams,
+    DidSaveTextDocumentParams,
+    DocumentSymbol,
+    DocumentSymbolParams,
+    InitializeParams,
+    Location,
+    OptionalVersionedTextDocumentIdentifier,
+    Position,
+    PrepareRenameParams,
+    PrepareRenamePlaceholder,
+    Range,
+    ReferenceParams,
+    RenameParams,
+    SymbolInformation,
+    SymbolKind,
+    TextDocumentEdit,
+    TextEdit,
+    WorkspaceEdit,
+    WorkspaceSymbolParams,
+)
+from pygls.lsp.server import LanguageServer
+
+from tensor_grep.cli import repo_map
+from tensor_grep.cli.lsp_external_provider import ExternalLSPProviderManager, LSPTransportError
+
+# audit I3: max entries per LRU cache dict.
+_DOCUMENTS_CACHE_MAX = 512
+_REPO_MAP_CACHE_MAX = 64
+
+
+class TensorGrepLSPServer(LanguageServer):  # type: ignore
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # audit I3: use OrderedDict-backed LRU caches so that open documents and
+        # repo maps cannot grow without bound.  Eviction is LRU (move_to_end on
+        # access, popitem(last=False) when over limit).
+        self.documents_cache: OrderedDict[str, str] = OrderedDict()
+        self.repo_map_cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self.provider_mode = "native"
+        self.external_providers = ExternalLSPProviderManager()
+        # audit B13: position encoding negotiated with the client, mirrored from
+        # pygls' own ``ls.workspace.position_encoding`` once INITIALIZE runs (see
+        # the ``initialize`` feature handler + ``_negotiate_position_encoding``
+        # below). "utf-16" is the LSP default and stays in effect until then.
+        self._position_encoding: str = "utf-16"
+
+
+server = TensorGrepLSPServer("tensor-grep-lsp", "v0.3.0")
+
+
+_WINDOWS_DRIVE_SCHEME_RE = re.compile(r"^[a-zA-Z]:[\\/]")
+_URI_SCHEME_TOKEN_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+
+
+def _uri_scheme(uri: str) -> str | None:
+    """Return the lowercased URI scheme of *uri*, or None if it is not URI-shaped.
+
+    URI-shaped: starts with a scheme token (``[a-zA-Z][a-zA-Z0-9+.-]*:``) that is NOT a
+    Windows drive prefix (``C:\\...`` / ``c:/...`` — a single-letter colon form). So
+    ``file:/C:/x`` and ``file:///C:/x`` are URIs while ``C:/x`` and ``C:\\x`` stay bare
+    local paths (audit-M3 gate finding 3). ``untitled:`` and other non-file schemes ARE
+    scheme-shaped and are refused by ``_uri_to_path`` (fail closed).
+    """
+    if _WINDOWS_DRIVE_SCHEME_RE.match(uri):
+        return None
+    if _URI_SCHEME_TOKEN_RE.match(uri):
+        return urlparse(uri).scheme.lower()
+    return None
+
+
+def _uri_to_path(uri: str) -> Path:
+    """Resolve a URI — or a bare local path handed in by an in-process caller — to a Path.
+
+    Only URI-shaped strings (a ``scheme:`` token that is not a Windows drive prefix) are
+    URI-parsed, and the scheme is matched case-insensitively — ``file://`` and ``FILE://`` are
+    both valid file targets. Any NON-file scheme (``http://``, ``ftp://``, ``untitled:``,
+    unknown schemes) raises ``ValueError`` fail-closed instead of being silently resolved as a
+    relative filesystem path: an ``http://`` string previously resolved relative to the process
+    CWD and could land INSIDE the workspace root, so the confinement check compared the wrong
+    thing (audit-M3 gate finding 1). All RFC-8089 ``file:`` forms parse to a local Path
+    (``file:///``, single-slash ``file:/``, ``file:``, and UNC ``file://host/share``) — the
+    single-slash form previously fell through to drive-relative path resolution and could
+    escape the root (gate finding 3). Bare relative/absolute local paths (no scheme token,
+    e.g. ``C:\\...``, ``c:/...``, ``repo/mod.py``) keep their path semantics for the
+    in-process callers that pass paths.
+    """
+    if _uri_scheme(uri) is not None:
+        parsed = urlparse(uri)
+        if parsed.scheme.lower() != "file":
+            raise ValueError(f"non-file URI scheme {parsed.scheme!r} is not a confined edit target")
+        path = unquote(parsed.path)
+        if parsed.netloc:
+            path = f"//{parsed.netloc}{path}"
+        # Drive-absolute strip, WINDOWS ONLY: ``/C:/...`` is a Windows drive-absolute path
+        # (``file:/C:/Windows/evil`` -> ``C:\Windows\evil``). On POSIX that leading ``/`` is
+        # ROOT-ANCHORED and must stay — stripping it produces a RELATIVE path (``C:/Windows/
+        # evil``) that resolves inside the process CWD, recreating the drive-relative escape
+        # the contract forbids (caught on Linux CI by test_uri_to_path_handles_single_slash_
+        # file_uri: `assert True is False`).
+        if os.name == "nt" and len(path) >= 3 and path[0] == "/" and path[2] == ":":
+            path = path[1:]
+        return Path(path).resolve()
+    return Path(uri).expanduser().resolve()
+
+
+def _path_to_uri(path: str | Path) -> str:
+    return Path(path).resolve().as_uri()
+
+
+def _valid_external_document_uri(uri: object) -> bool:
+    """Whether a provider-supplied target is a syntactically valid ABSOLUTE ``file:`` URI.
+
+    External (untrusted) WorkspaceEdit targets must be full ``file:`` DocumentUris — never
+    bare paths or server-local forms — because the original string is FORWARDED UNCHANGED
+    to the LSP client, so the path proven safe here must be exactly the path the client
+    applies (audit-M3 gate round-3 HIGH: path-rootless/malformed forms such as ``file:C:evil``,
+    ``file:relative.py``, `` file:///C:/x`` or ``+file://...`` resolved against the server's
+    per-drive CWD and PASSED as in-root). Rejects:
+
+    - non-string values,
+    - leading/trailing whitespace (a DocumentUri never starts/ends with a space),
+    - a non-``file`` scheme (and Windows-drive bare paths, which are not URIs at all),
+    - decoded control characters in the path (``%00`` NUL and friends),
+    - path-rootless forms: after stripping the scheme the path component must be absolute
+      (``/``-leading, an UNC share path under a netloc, or a drive-absolute ``C:/...`` form).
+
+    Trusted in-process bare-path callers do NOT go through this validator — only external
+    provider responses do (``_workspace_edit_refused`` / ``_document_change_member_targets``).
+    """
+    if not isinstance(uri, str):
+        return False
+    if uri != uri.strip():
+        return False
+    if _WINDOWS_DRIVE_SCHEME_RE.match(uri) or not _URI_SCHEME_TOKEN_RE.match(uri):
+        return False
+    parsed = urlparse(uri)
+    if parsed.scheme.lower() != "file":
+        return False
+    decoded_path = unquote(parsed.path)
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in decoded_path):
+        return False
+    if parsed.netloc:
+        return parsed.path.startswith("/")
+    return parsed.path.startswith("/") or bool(_WINDOWS_DRIVE_SCHEME_RE.match(parsed.path))
+
+
+def _resolve_repo_root(path: Path) -> Path:
+    markers = ("pyproject.toml", "package.json", "Cargo.toml", ".git")
+    for candidate in [path.parent, *path.parent.parents]:
+        if any((candidate / marker).exists() for marker in markers):
+            return candidate.resolve()
+    return path.parent.resolve()
+
+
+def _path_within_root(path: str | Path, root: Path) -> bool:
+    """Whether ``path`` resolves inside (or is) ``root`` — used to confine LSP edits."""
+    try:
+        target = Path(path).resolve()
+    except (OSError, ValueError):
+        return False
+    root_resolved = root.resolve()
+    return target == root_resolved or root_resolved in target.parents
+
+
+def _uri_within_root(uri: str, root: Path) -> bool:
+    try:
+        return _path_within_root(_uri_to_path(uri), root)
+    except (OSError, ValueError):
+        return False
+
+
+_LSP_FILE_OP_KINDS = frozenset({"create", "rename", "delete"})
+
+
+def _document_change_member_targets(entry: object) -> tuple[list[str], bool]:
+    """Classify ONE ``documentChanges`` member as exactly one recognized shape.
+
+    Returns ``(target_uris, opaque)``: a text edit (``kind`` absent, ``textDocument.uri`` a
+    non-empty string) or a file-op (``kind`` create/delete with a non-empty string ``uri``, or
+    rename with non-empty string ``oldUri``+``newUri``). EVERYTHING else is opaque — both shapes
+    at once (a hybrid member), neither, an unknown ``kind``, wrong value types — and cannot be
+    proven within-root, so the whole edit must be refused (A53 no-weaker-fallback; audit-M3 gate
+    finding 2).
+    """
+    if not isinstance(entry, dict):
+        return [], True
+    kind = entry.get("kind")
+    if "kind" not in entry:
+        # Text-edit shape: the kind key must be ABSENT. A present-but-null ``"kind": null``
+        # is an opaque member, not a text edit (gate finding 2a).
+        text_document = entry.get("textDocument")
+        if isinstance(text_document, dict):
+            uri = text_document.get("uri")
+            if isinstance(uri, str) and uri and _valid_external_document_uri(uri):
+                return [uri], False
+        return [], True
+    # A file-op member carrying a textDocument key is a hybrid: neither shape alone, refuse.
+    if "textDocument" in entry:
+        return [], True
+    if kind == "rename":
+        old_uri = entry.get("oldUri")
+        new_uri = entry.get("newUri")
+        if (
+            isinstance(old_uri, str)
+            and old_uri
+            and _valid_external_document_uri(old_uri)
+            and isinstance(new_uri, str)
+            and new_uri
+            and _valid_external_document_uri(new_uri)
+        ):
+            return [old_uri, new_uri], False
+        return [], True
+    if kind in _LSP_FILE_OP_KINDS:  # create / delete
+        uri = entry.get("uri")
+        if isinstance(uri, str) and uri and _valid_external_document_uri(uri):
+            return [uri], False
+        return [], True
+    return [], True
+
+
+def _workspace_edit_target_uris(result: dict[str, Any]) -> list[str]:
+    """Collect every edited document URI from an external provider's WorkspaceEdit response
+    (the ``changes`` map AND every recognized ``documentChanges`` shape — text edits plus the
+    CreateFile / RenameFile / DeleteFile file-operation members) so they can be confined.
+
+    Audit M3: the file-op members carry no ``textDocument`` key, so they were previously
+    invisible and a file-op-only edit collected zero URIs — the enforcement guard then
+    passed vacuously and out-of-root file-ops were not confined.
+
+    Relay residual (relay-only TOCTOU): tg resolves each target here at relay time while the
+    IDE applies the edit later, so a filesystem swap between check and apply is an inherent
+    relay-only TOCTOU (tg never opens the file). ``_path_within_root`` canonicalizes
+    junctions/case/8.3 aliases at CHECK time, so the alias-escape class is covered there;
+    confinement is NOT an opened-identity guarantee.
+    """
+    uris: list[str] = []
+    changes = result.get("changes")
+    if isinstance(changes, dict):
+        uris.extend(str(key) for key in changes)
+    document_changes = result.get("documentChanges")
+    if isinstance(document_changes, list):
+        for entry in document_changes:
+            targets, _opaque = _document_change_member_targets(entry)
+            uris.extend(targets)
+    return uris
+
+
+def _workspace_edit_has_opaque_member(result: dict[str, Any]) -> bool:
+    """Whether a WorkspaceEdit has a ``documentChanges`` value tg cannot confine.
+
+    Fail closed (A53 no-weaker-fallback): a present ``document_changes`` (snake_case) key in a
+    RAW provider response is opaque — the confinement paths read only the wire form
+    ``documentChanges``, so its value can never be enumerated, yet ``WorkspaceEdit(**result)``
+    accepts that field name and serializes it outbound (gate finding 2b); a
+    present-but-non-list ``documentChanges`` value can never be enumerated either (gate
+    finding 2); and any member that is not EXACTLY one recognized shape — text edit,
+    CreateFile, RenameFile, DeleteFile — cannot be proven within-root. In every such case the
+    whole edit is refused rather than passed through an empty confinement guarantee.
+    """
+    if "document_changes" in result:
+        return True
+    document_changes = result.get("documentChanges")
+    if document_changes is None:
+        return False
+    if not isinstance(document_changes, list):
+        return True
+    return any(
+        opaque
+        for _, opaque in (_document_change_member_targets(entry) for entry in document_changes)
+    )
+
+
+def _workspace_edit_refused(result: dict[str, Any], workspace_root: Path) -> bool:
+    """Fail-closed confinement decision for an external provider WorkspaceEdit.
+
+    Returns True (refuse the WHOLE edit) if any collected target is not a syntactically valid
+    absolute ``file:`` URI (gate round-3 HIGH: path-rootless/malformed forms such as
+    ``file:C:evil`` or `` file:///C:/x`` resolve against the server's per-drive CWD and pass as
+    in-root, yet the ORIGINAL string is forwarded unchanged), OR resolves outside
+    ``workspace_root``, OR any ``documentChanges`` member is opaque (unrecognized shape /
+    missing required URI) — i.e. it cannot be proven within-root. Replaces the old vacuous
+    ``if edit_uris and all(...)`` guard, which collected nothing for the file-op shape and so
+    passed silently: an empty guarantee that read as a check.
+    """
+    if _workspace_edit_has_opaque_member(result):
+        return True
+    for uri in _workspace_edit_target_uris(result):
+        if not _valid_external_document_uri(uri):
+            return True
+        if not _uri_within_root(uri, workspace_root):
+            return True
+    return False
+
+
+def _invalidate_repo_map_cache(ls: TensorGrepLSPServer, uri: str) -> None:
+    try:
+        repo_root = _resolve_repo_root(_uri_to_path(uri))
+    except Exception:
+        return
+    ls.repo_map_cache.pop(str(repo_root), None)
+
+
+def _lru_put(od: OrderedDict[str, Any], key: str, value: Any, max_size: int) -> None:
+    """Insert/update *key* in the LRU OrderedDict, evicting the oldest entry if needed."""
+    od.pop(key, None)
+    od[key] = value
+    while len(od) > max_size:
+        od.popitem(last=False)
+
+
+def _lru_get(od: OrderedDict[str, Any], key: str) -> Any | None:
+    """Return the value for *key* and promote it to MRU position, or None."""
+    value = od.pop(key, None)
+    if value is None:
+        return None
+    od[key] = value
+    return value
+
+
+def _get_repo_map(ls: TensorGrepLSPServer, uri: str) -> dict[str, Any]:
+    repo_root = _resolve_repo_root(_uri_to_path(uri))
+    cache_key = str(repo_root)
+    cached = _lru_get(ls.repo_map_cache, cache_key)
+    if cached is not None:
+        return cast(dict[str, Any], cached)
+    current = repo_map.build_repo_map(repo_root)
+    _lru_put(ls.repo_map_cache, cache_key, current, _REPO_MAP_CACHE_MAX)
+    return current
+
+
+def _external_client_for_uri(
+    ls: TensorGrepLSPServer,
+    uri: str,
+    *,
+    deadline_monotonic: float | None = None,
+) -> Any | None:
+    language = _infer_language(uri)
+    workspace_root = _resolve_repo_root(_uri_to_path(uri))
+    try:
+        client = ls.external_providers.get_client(language=language, workspace_root=workspace_root)
+        deadline = (
+            deadline_monotonic
+            if deadline_monotonic is not None
+            else repo_map._lsp_operation_deadline()
+        )
+        repo_map._run_lsp_with_operation_budget(
+            client,
+            deadline,
+            lambda: client.ensure_document(
+                uri=uri, text=_document_text(ls, uri), language_id=language
+            ),
+        )
+        return client
+    except (FileNotFoundError, LSPTransportError, ValueError):
+        return None
+
+
+def _document_text(ls: TensorGrepLSPServer, uri: str) -> str:
+    # audit I3: promote to MRU on each access.
+    cached = _lru_get(ls.documents_cache, uri)
+    if cached is not None:
+        return cast(str, cached)
+    path = _uri_to_path(uri)
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+        _lru_put(ls.documents_cache, uri, text, _DOCUMENTS_CACHE_MAX)
+        return text
+    return ""
+
+
+def _infer_language(uri: str) -> str:
+    normalized = uri.lower()
+    if normalized.endswith(".js") or normalized.endswith(".ts"):
+        return "javascript"
+    if normalized.endswith(".rs"):
+        return "rust"
+    return "python"
+
+
+# audit B13: position encoding conversion helpers.
+def _utf16_col_to_codepoint(line_text: str, utf16_col: int) -> int:
+    """Convert a UTF-16 column offset to a Unicode codepoint (str index) offset.
+
+    The LSP specification §3.17 defaults to UTF-16 for ``character`` fields.
+    Python strings are codepoint-indexed, so when the client sends UTF-16
+    offsets we must convert before indexing into the line.
+    """
+    cp = 0
+    utf16_units = 0
+    for ch in line_text:
+        if utf16_units >= utf16_col:
+            break
+        ordinal = ord(ch)
+        utf16_units += 2 if ordinal > 0xFFFF else 1
+        cp += 1
+    return cp
+
+
+def _codepoint_col_to_utf16(line_text: str, cp_col: int) -> int:
+    """Convert a codepoint (str index) column offset to UTF-16 units."""
+    utf16_units = 0
+    for ch in line_text[:cp_col]:
+        ordinal = ord(ch)
+        utf16_units += 2 if ordinal > 0xFFFF else 1
+    return utf16_units
+
+
+def _utf8_col_to_codepoint(line_text: str, utf8_col: int) -> int:
+    """Convert a UTF-8 byte-offset column to a Unicode codepoint (str index) offset.
+
+    audit B13: a client that negotiates ``positionEncoding: "utf-8"`` sends
+    ``character`` as a count of UTF-8 code *units* (bytes) — a single codepoint
+    is 1-4 UTF-8 bytes, so (unlike UTF-32) a UTF-8 offset is NOT already a
+    codepoint index and needs the same kind of conversion as UTF-16.
+    """
+    cp = 0
+    utf8_units = 0
+    for ch in line_text:
+        if utf8_units >= utf8_col:
+            break
+        utf8_units += len(ch.encode("utf-8"))
+        cp += 1
+    return cp
+
+
+def _codepoint_col_to_utf8(line_text: str, cp_col: int) -> int:
+    """Convert a codepoint (str index) column offset to UTF-8 byte units."""
+    return len(line_text[:cp_col].encode("utf-8"))
+
+
+def _to_cp_col(ls: TensorGrepLSPServer, line_text: str, col: int) -> int:
+    """Convert *col* from the client's position encoding to a codepoint index."""
+    if ls._position_encoding == "utf-16":
+        return _utf16_col_to_codepoint(line_text, col)
+    if ls._position_encoding == "utf-8":
+        return _utf8_col_to_codepoint(line_text, col)
+    # "utf-32" — already a codepoint count; Python str indexing is correct as-is.
+    return col
+
+
+def _from_cp_col(ls: TensorGrepLSPServer, line_text: str, cp_col: int) -> int:
+    """Convert a codepoint column index to the client's position encoding."""
+    if ls._position_encoding == "utf-16":
+        return _codepoint_col_to_utf16(line_text, cp_col)
+    if ls._position_encoding == "utf-8":
+        return _codepoint_col_to_utf8(line_text, cp_col)
+    return cp_col
+
+
+def _word_range_at_position(
+    text: str,
+    position: Position,
+    ls: TensorGrepLSPServer | None = None,
+) -> tuple[str, Range] | None:
+    # audit B13: convert the incoming column from the client's encoding to a
+    # codepoint index before indexing into the Python string.
+    lines = text.splitlines()
+    if position.line < 0 or position.line >= len(lines):
+        return None
+    line = lines[position.line]
+    if not line:
+        return None
+    # Convert the wire column to a codepoint offset.
+    raw_col = int(position.character)
+    character = _to_cp_col(ls, line, raw_col) if ls is not None else raw_col
+    character = max(0, min(character, len(line)))
+    start = character
+    end = character
+
+    def _is_symbol_char(current: str) -> bool:
+        return current.isalnum() or current == "_"
+
+    if start == len(line) and start > 0:
+        start -= 1
+        end = start + 1
+    elif start < len(line) and not _is_symbol_char(line[start]) and start > 0:
+        start -= 1
+        end = start + 1
+    elif end < len(line):
+        end += 1
+
+    if start < 0 or start >= len(line) or not _is_symbol_char(line[start]):
+        return None
+
+    while start > 0 and _is_symbol_char(line[start - 1]):
+        start -= 1
+    while end < len(line) and _is_symbol_char(line[end]):
+        end += 1
+
+    symbol = line[start:end]
+    if not symbol:
+        return None
+    # audit B13: convert the codepoint columns back to the client encoding for
+    # the returned Range so that clients receive correct character offsets.
+    wire_start = _from_cp_col(ls, line, start) if ls is not None else start
+    wire_end = _from_cp_col(ls, line, end) if ls is not None else end
+    return (
+        symbol,
+        Range(
+            start=Position(line=position.line, character=wire_start),
+            end=Position(line=position.line, character=wire_end),
+        ),
+    )
+
+
+def _symbol_and_range_for_position(
+    ls: TensorGrepLSPServer,
+    uri: str,
+    position: Position,
+) -> tuple[str, Range] | None:
+    # audit B13: pass ls so that position encoding is honoured.
+    return _word_range_at_position(_document_text(ls, uri), position, ls)
+
+
+def _kind_to_symbol_kind(kind: str) -> SymbolKind:
+    normalized = kind.lower()
+    if normalized == "class":
+        return SymbolKind.Class
+    if normalized in {"function", "method"}:
+        return SymbolKind.Function
+    if normalized in {"constant", "const"}:
+        return SymbolKind.Constant
+    if normalized in {"module", "namespace"}:
+        return SymbolKind.Namespace
+    if normalized in {"interface", "trait"}:
+        return SymbolKind.Interface
+    if normalized == "struct":
+        return SymbolKind.Struct
+    if normalized == "enum":
+        return SymbolKind.Enum
+    if normalized in {"variable", "field"}:
+        return SymbolKind.Variable
+    return SymbolKind.Object
+
+
+def _location_from_entry(entry: dict[str, Any]) -> Location:
+    start_line = max(0, int(entry.get("line", 1)) - 1)
+    end_line = max(start_line, int(entry.get("end_line", entry.get("line", 1))) - 1)
+    text = str(entry.get("text", ""))
+    end_character = max(1, len(text.strip()) or len(str(entry.get("name", ""))))
+    return Location(
+        uri=_path_to_uri(str(entry["file"])),
+        range=Range(
+            start=Position(line=start_line, character=0),
+            end=Position(line=end_line, character=end_character),
+        ),
+    )
+
+
+def _location_from_external_payload(entry: dict[str, Any]) -> Location | None:
+    try:
+        payload_range = dict(entry["range"])
+        payload_start = dict(payload_range["start"])
+        payload_end = dict(payload_range["end"])
+        return Location(
+            uri=str(entry["uri"]),
+            range=Range(
+                start=Position(
+                    line=int(payload_start["line"]), character=int(payload_start["character"])
+                ),
+                end=Position(
+                    line=int(payload_end["line"]), character=int(payload_end["character"])
+                ),
+            ),
+        )
+    except Exception:
+        return None
+
+
+def _run_external_lsp_operation(
+    client: Any,
+    operation: Callable[[], Any],
+    *,
+    deadline_monotonic: float | None = None,
+) -> Any:
+    return repo_map._run_lsp_with_operation_budget(
+        client,
+        deadline_monotonic
+        if deadline_monotonic is not None
+        else repo_map._lsp_operation_deadline(),
+        operation,
+    )
+
+
+def _document_symbols_for_uri(ls: TensorGrepLSPServer, uri: str) -> list[DocumentSymbol]:
+    if ls.provider_mode != "native":
+        deadline_monotonic = repo_map._lsp_operation_deadline()
+        client = _external_client_for_uri(ls, uri, deadline_monotonic=deadline_monotonic)
+        if client is not None:
+            try:
+                external_result = _run_external_lsp_operation(
+                    client,
+                    lambda: client.request(
+                        "textDocument/documentSymbol", {"textDocument": {"uri": uri}}
+                    ),
+                    deadline_monotonic=deadline_monotonic,
+                )
+            except LSPTransportError:
+                external_result = None
+            if isinstance(external_result, list):
+                external_symbols: list[DocumentSymbol] = []
+                for current in external_result:
+                    if not isinstance(current, dict):
+                        continue
+                    if "selectionRange" not in current or "range" not in current:
+                        continue
+                    payload_range = dict(current["range"])
+                    payload_selection = dict(current["selectionRange"])
+                    external_symbols.append(
+                        DocumentSymbol(
+                            name=str(current.get("name", "")),
+                            kind=_kind_to_symbol_kind(str(current.get("kind", "symbol"))),
+                            range=Range(
+                                start=Position(
+                                    line=int(payload_range["start"]["line"]),
+                                    character=int(payload_range["start"]["character"]),
+                                ),
+                                end=Position(
+                                    line=int(payload_range["end"]["line"]),
+                                    character=int(payload_range["end"]["character"]),
+                                ),
+                            ),
+                            selection_range=Range(
+                                start=Position(
+                                    line=int(payload_selection["start"]["line"]),
+                                    character=int(payload_selection["start"]["character"]),
+                                ),
+                                end=Position(
+                                    line=int(payload_selection["end"]["line"]),
+                                    character=int(payload_selection["end"]["character"]),
+                                ),
+                            ),
+                            detail=str(current.get("detail", "")) or None,
+                            children=None,
+                        )
+                    )
+                if external_symbols:
+                    return external_symbols
+    path = _uri_to_path(uri)
+    current_repo_map = _get_repo_map(ls, uri)
+    symbols = [
+        dict(current)
+        for current in current_repo_map.get("symbols", [])
+        if str(Path(str(current.get("file", ""))).resolve()) == str(path)
+    ]
+    symbols.sort(key=lambda item: (int(item.get("line", 0)), str(item.get("name", ""))))
+    native_symbols: list[DocumentSymbol] = []
+    for current in symbols:
+        location = _location_from_entry(current)
+        native_symbols.append(
+            DocumentSymbol(
+                name=str(current.get("name", "")),
+                kind=_kind_to_symbol_kind(str(current.get("kind", "symbol"))),
+                range=location.range,
+                selection_range=location.range,
+                detail=str(current.get("kind", "")) or None,
+                children=None,
+            )
+        )
+    return native_symbols
+
+
+def _resolve_workspace_root(ls: TensorGrepLSPServer, path_hint: str | None) -> Path | None:
+    """Resolve the workspace root independently of open documents (audit B16).
+
+    Resolution order:
+    1. Explicit *path_hint* URI (most specific — used by the handler when available).
+    2. Any document currently in the cache.
+    3. Current working directory (last resort — avoids returning None when no
+       documents are open, which blocked workspace/symbol before this fix).
+    """
+    if path_hint:
+        try:
+            return _resolve_repo_root(_uri_to_path(path_hint))
+        except Exception:
+            pass
+    if ls.documents_cache:
+        try:
+            return _resolve_repo_root(_uri_to_path(next(iter(ls.documents_cache))))
+        except Exception:
+            pass
+    # audit B16: fall back to cwd so workspace/symbol works before any doc is open.
+    try:
+        return _resolve_repo_root(Path.cwd())
+    except Exception:
+        return None
+
+
+def _workspace_symbols(
+    ls: TensorGrepLSPServer, query: str, path_hint: str | None = None
+) -> list[SymbolInformation]:
+    # audit B16: resolve workspace root independently of open docs.
+    if ls.provider_mode != "native":
+        # For external delegation, we still prefer path_hint; if absent we
+        # synthesise a URI from the resolved workspace root.
+        effective_hint = path_hint
+        if effective_hint is None:
+            root = _resolve_workspace_root(ls, None)
+            if root is not None:
+                effective_hint = root.as_uri()
+        if effective_hint is not None:
+            deadline_monotonic = repo_map._lsp_operation_deadline()
+            client = _external_client_for_uri(
+                ls, effective_hint, deadline_monotonic=deadline_monotonic
+            )
+            if client is not None:
+                try:
+                    result = _run_external_lsp_operation(
+                        client,
+                        lambda: client.request("workspace/symbol", {"query": query}),
+                        deadline_monotonic=deadline_monotonic,
+                    )
+                except LSPTransportError:
+                    result = None
+                if isinstance(result, list):
+                    external_symbols: list[SymbolInformation] = []
+                    for current in result:
+                        if not isinstance(current, dict):
+                            continue
+                        location_payload = current.get("location")
+                        if not isinstance(location_payload, dict):
+                            continue
+                        resolved = _location_from_external_payload(location_payload)
+                        if resolved is None:
+                            continue
+                        external_symbols.append(
+                            SymbolInformation(
+                                name=str(current.get("name", "")),
+                                kind=_kind_to_symbol_kind(str(current.get("kind", "symbol"))),
+                                location=resolved,
+                                container_name=str(current.get("containerName", "")) or None,
+                            )
+                        )
+                    if external_symbols:
+                        return external_symbols
+    repo_root = _resolve_workspace_root(ls, path_hint)
+    if repo_root is None:
+        return []
+    current_repo_map = cast(
+        dict[str, Any], _lru_get(ls.repo_map_cache, str(repo_root))
+    ) or repo_map.build_repo_map(repo_root)
+    _lru_put(ls.repo_map_cache, str(repo_root), current_repo_map, _REPO_MAP_CACHE_MAX)
+
+    normalized_query = query.strip().lower()
+    matches: list[dict[str, Any]] = []
+    for current in current_repo_map.get("symbols", []):
+        name = str(current.get("name", ""))
+        if not normalized_query or normalized_query in name.lower():
+            matches.append(dict(current))
+    matches.sort(
+        key=lambda item: (
+            str(item.get("name", "")),
+            str(item.get("file", "")),
+            int(item.get("line", 0)),
+        )
+    )
+    return [
+        SymbolInformation(
+            name=str(current.get("name", "")),
+            kind=_kind_to_symbol_kind(str(current.get("kind", "symbol"))),
+            location=_location_from_entry(current),
+            container_name=str(Path(str(current.get("file", ""))).name),
+        )
+        for current in matches
+    ]
+
+
+def _definitions_for_position(
+    ls: TensorGrepLSPServer, uri: str, position: Position
+) -> list[Location]:
+    text = _document_text(ls, uri)
+    # audit B13: pass ls for encoding-aware column conversion.
+    resolved = _word_range_at_position(text, position, ls)
+    if resolved is None:
+        return []
+    symbol, _ = resolved
+    native_locations = [
+        _location_from_entry(dict(current))
+        for current in repo_map.build_symbol_defs_from_map(_get_repo_map(ls, uri), symbol).get(
+            "definitions", []
+        )
+    ]
+    if ls.provider_mode == "native":
+        return native_locations
+    deadline_monotonic = repo_map._lsp_operation_deadline()
+    client = _external_client_for_uri(ls, uri, deadline_monotonic=deadline_monotonic)
+    if client is None:
+        return native_locations
+    try:
+        result = _run_external_lsp_operation(
+            client,
+            lambda: client.request(
+                "textDocument/definition",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": position.line, "character": position.character},
+                },
+            ),
+            deadline_monotonic=deadline_monotonic,
+        )
+    except LSPTransportError:
+        return native_locations
+    external_locations: list[Location] = []
+    if isinstance(result, dict):
+        current = _location_from_external_payload(result)
+        if current is not None:
+            external_locations.append(current)
+    elif isinstance(result, list):
+        for current in result:
+            if isinstance(current, dict):
+                resolved_location = _location_from_external_payload(current)
+                if resolved_location is not None:
+                    external_locations.append(resolved_location)
+    if ls.provider_mode == "lsp":
+        return external_locations or native_locations
+    deduped: dict[tuple[str, int, int, int, int], Location] = {}
+    for current in [*external_locations, *native_locations]:
+        key = (
+            current.uri,
+            int(current.range.start.line),
+            int(current.range.start.character),
+            int(current.range.end.line),
+            int(current.range.end.character),
+        )
+        deduped[key] = current
+    return list(deduped.values())
+
+
+def _references_for_position(
+    ls: TensorGrepLSPServer, uri: str, position: Position
+) -> list[Location]:
+    resolved = _symbol_and_range_for_position(ls, uri, position)
+    if resolved is None:
+        return []
+    symbol, _ = resolved
+    native_locations = [
+        _location_from_entry(dict(current))
+        for current in repo_map.build_symbol_refs_from_map(_get_repo_map(ls, uri), symbol).get(
+            "references", []
+        )
+    ]
+    if ls.provider_mode == "native":
+        return native_locations
+    deadline_monotonic = repo_map._lsp_operation_deadline()
+    client = _external_client_for_uri(ls, uri, deadline_monotonic=deadline_monotonic)
+    if client is None:
+        return native_locations
+    try:
+        result = _run_external_lsp_operation(
+            client,
+            lambda: client.request(
+                "textDocument/references",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": position.line, "character": position.character},
+                    "context": {"includeDeclaration": True},
+                },
+            ),
+            deadline_monotonic=deadline_monotonic,
+        )
+    except LSPTransportError:
+        return native_locations
+    external_locations: list[Location] = []
+    if isinstance(result, list):
+        for current in result:
+            if isinstance(current, dict):
+                resolved_location = _location_from_external_payload(current)
+                if resolved_location is not None:
+                    external_locations.append(resolved_location)
+    if ls.provider_mode == "lsp":
+        return external_locations or native_locations
+    deduped: dict[tuple[str, int, int, int, int], Location] = {}
+    for current in [*external_locations, *native_locations]:
+        key = (
+            current.uri,
+            int(current.range.start.line),
+            int(current.range.start.character),
+            int(current.range.end.line),
+            int(current.range.end.character),
+        )
+        deduped[key] = current
+    return list(deduped.values())
+
+
+def _workspace_edit_for_symbol(
+    ls: TensorGrepLSPServer,
+    uri: str,
+    position: Position,
+    new_name: str,
+) -> WorkspaceEdit | None:
+    resolved = _symbol_and_range_for_position(ls, uri, position)
+    if resolved is None:
+        return None
+    symbol, _ = resolved
+    # Audit MED (edit-outside-workspace): confine every rename edit — external provider OR
+    # native — to the resolved workspace root, so a rename can never write to a file outside it.
+    workspace_root = _resolve_repo_root(_uri_to_path(uri))
+    if ls.provider_mode != "native":
+        deadline_monotonic = repo_map._lsp_operation_deadline()
+        client = _external_client_for_uri(ls, uri, deadline_monotonic=deadline_monotonic)
+        if client is not None:
+            try:
+                result = _run_external_lsp_operation(
+                    client,
+                    lambda: client.request(
+                        "textDocument/rename",
+                        {
+                            "textDocument": {"uri": uri},
+                            "position": {
+                                "line": position.line,
+                                "character": position.character,
+                            },
+                            "newName": new_name,
+                        },
+                    ),
+                    deadline_monotonic=deadline_monotonic,
+                )
+            except LSPTransportError:
+                result = None
+            if isinstance(result, dict) and result:
+                # Audit M3 (file-op confinement): refuse the WHOLE edit fail-closed if any of
+                # the five target fields (textDocument.uri, CreateFile.uri, RenameFile.oldUri/
+                # newUri, DeleteFile.uri, changes-map keys) resolves outside the workspace root,
+                # OR any documentChanges member is opaque. The old `edit_uris and all(...)`
+                # guard collected nothing for file-ops and passed vacuously.
+                if not _workspace_edit_refused(result, workspace_root):
+                    # LSP-EDIT-CONSTRUCTION mismatch (pre-existing, NOT fixed in the M3
+                    # confinement PR): lsprotocol 2025.0.0's WorkspaceEdit field is the
+                    # snake_case `document_changes`, so `WorkspaceEdit(**result)` rejects the
+                    # standard camelCase `documentChanges` a provider actually sends and the
+                    # edit falls through to the native branch. Owner: lsp-change-control.
+                    # Disposition: pre-existing. Reopen trigger: an external provider actually
+                    # sending documentChanges to tg's edit-forward path. An all-in-root
+                    # confined edit is NOT refused by this — it just flows through the
+                    # existing native fallback (pinned by test_fileop_all_in_root_edit_is_
+                    # not_refused_and_still_returns_an_edit).
+                    try:
+                        return WorkspaceEdit(**result)
+                    except Exception:
+                        pass
+    current_repo_map = _get_repo_map(ls, uri)
+    defs_payload = repo_map.build_symbol_defs_from_map(current_repo_map, symbol)
+    refs_payload = repo_map.build_symbol_refs_from_map(current_repo_map, symbol)
+    entries_by_file: dict[str, list[dict[str, Any]]] = {}
+    for current in [*defs_payload.get("definitions", []), *refs_payload.get("references", [])]:
+        entries_by_file.setdefault(str(current["file"]), []).append(dict(current))
+
+    document_changes: list[TextDocumentEdit] = []
+    for current_file, entries in sorted(entries_by_file.items()):
+        if not _path_within_root(current_file, workspace_root):
+            continue  # never emit an edit for a file outside the workspace root
+        edits: list[TextEdit] = []
+        seen_ranges: set[tuple[int, int, int, int]] = set()
+        for entry in sorted(
+            entries, key=lambda item: (int(item.get("line", 0)), str(item.get("text", "")))
+        ):
+            location = _location_from_entry(entry)
+            current_range = (
+                int(location.range.start.line),
+                int(location.range.start.character),
+                int(location.range.end.line),
+                int(location.range.end.character),
+            )
+            if current_range in seen_ranges:
+                continue
+            seen_ranges.add(current_range)
+            edits.append(TextEdit(range=location.range, new_text=new_name))
+        if edits:
+            document_changes.append(
+                TextDocumentEdit(
+                    text_document=OptionalVersionedTextDocumentIdentifier(
+                        uri=_path_to_uri(current_file),
+                        version=None,
+                    ),
+                    edits=edits,
+                )
+            )
+
+    if not document_changes:
+        return None
+    return WorkspaceEdit(document_changes=document_changes)
+
+
+@server.feature(TEXT_DOCUMENT_DID_OPEN)  # type: ignore
+def did_open(ls: TensorGrepLSPServer, params: DidOpenTextDocumentParams) -> None:
+    """Document opened."""
+    # audit I3: use LRU-bounded cache.
+    _lru_put(
+        ls.documents_cache,
+        params.text_document.uri,
+        params.text_document.text,
+        _DOCUMENTS_CACHE_MAX,
+    )
+    _invalidate_repo_map_cache(ls, params.text_document.uri)
+    if ls.provider_mode != "native":
+        _external_client_for_uri(ls, params.text_document.uri)
+
+
+@server.feature(TEXT_DOCUMENT_DID_CLOSE)  # type: ignore
+def did_close(ls: TensorGrepLSPServer, params: DidCloseTextDocumentParams) -> None:
+    """Document closed — evict from all caches (audit I3)."""
+    uri = params.text_document.uri
+    ls.documents_cache.pop(uri, None)
+    # repo_map_cache is keyed by repo root, not URI, so we invalidate via the
+    # normal helper which resolves the root from the URI.
+    _invalidate_repo_map_cache(ls, uri)
+    if ls.provider_mode != "native":
+        client: Any = None
+        try:
+            language = _infer_language(uri)
+            workspace_root = _resolve_repo_root(_uri_to_path(uri))
+            client = ls.external_providers.get_client(
+                language=language, workspace_root=workspace_root
+            )
+        except Exception:
+            pass
+        if client is not None:
+            try:
+                client.close_document(uri=uri)
+            except Exception:
+                pass
+
+
+@server.feature(TEXT_DOCUMENT_DID_CHANGE)  # type: ignore
+def did_change(ls: TensorGrepLSPServer, params: DidChangeTextDocumentParams) -> None:
+    """Document changed."""
+    if params.content_changes:
+        new_text = cast(Any, params.content_changes[0]).text
+        # audit I3: use LRU-bounded cache.
+        _lru_put(ls.documents_cache, params.text_document.uri, new_text, _DOCUMENTS_CACHE_MAX)
+        _invalidate_repo_map_cache(ls, params.text_document.uri)
+        if ls.provider_mode != "native":
+            client = _external_client_for_uri(ls, params.text_document.uri)
+            if client is not None:
+                # audit B15: pass the client-supplied version as a hint; the
+                # client's did_change() method will enforce monotonicity itself.
+                client.did_change(
+                    uri=params.text_document.uri,
+                    text=new_text,
+                    version=int(getattr(params.text_document, "version", 1) or 1),
+                )
+
+
+@server.feature(TEXT_DOCUMENT_DID_SAVE)  # type: ignore
+def did_save(ls: TensorGrepLSPServer, params: DidSaveTextDocumentParams) -> None:
+    """Document saved."""
+    # audit I3: promote to MRU so a just-saved document isn't first to be evicted.
+    _lru_get(ls.documents_cache, params.text_document.uri)
+    _invalidate_repo_map_cache(ls, params.text_document.uri)
+    if ls.provider_mode != "native":
+        client = _external_client_for_uri(ls, params.text_document.uri)
+        if client is not None:
+            client.did_save(uri=params.text_document.uri)
+
+
+@server.feature(TEXT_DOCUMENT_DEFINITION)  # type: ignore
+def definition(ls: TensorGrepLSPServer, params: DefinitionParams) -> list[Location]:
+    """Return exact definition locations for the symbol under the cursor."""
+    return _definitions_for_position(ls, params.text_document.uri, params.position)
+
+
+@server.feature(TEXT_DOCUMENT_REFERENCES)  # type: ignore
+def references(ls: TensorGrepLSPServer, params: ReferenceParams) -> list[Location]:
+    """Return semantic references for the symbol under the cursor."""
+    return _references_for_position(ls, params.text_document.uri, params.position)
+
+
+@server.feature(TEXT_DOCUMENT_PREPARE_RENAME)  # type: ignore
+def prepare_rename(
+    ls: TensorGrepLSPServer,
+    params: PrepareRenameParams,
+) -> PrepareRenamePlaceholder | None:
+    """Return the renamable symbol range under the cursor."""
+    resolved = _symbol_and_range_for_position(ls, params.text_document.uri, params.position)
+    if resolved is None:
+        return None
+    symbol, current_range = resolved
+    return PrepareRenamePlaceholder(range=current_range, placeholder=symbol)
+
+
+@server.feature(TEXT_DOCUMENT_RENAME)  # type: ignore
+def rename(ls: TensorGrepLSPServer, params: RenameParams) -> WorkspaceEdit | None:
+    """Return a workspace edit that renames a symbol across known definitions and references."""
+    return _workspace_edit_for_symbol(
+        ls, params.text_document.uri, params.position, params.new_name
+    )
+
+
+@server.feature(TEXT_DOCUMENT_DOCUMENT_SYMBOL)  # type: ignore
+def document_symbol(ls: TensorGrepLSPServer, params: DocumentSymbolParams) -> list[DocumentSymbol]:
+    """Return document symbols for the current file."""
+    return _document_symbols_for_uri(ls, params.text_document.uri)
+
+
+@server.feature(WORKSPACE_SYMBOL)  # type: ignore
+def workspace_symbol(
+    ls: TensorGrepLSPServer, params: WorkspaceSymbolParams
+) -> list[SymbolInformation]:
+    """Return workspace symbols matching the query."""
+    # audit B16: _workspace_symbols now resolves the root without open docs.
+    path_hint = next(iter(ls.documents_cache), None)
+    return _workspace_symbols(ls, params.query, path_hint=path_hint)
+
+
+@server.feature(INITIALIZE)  # type: ignore
+def initialize(ls: TensorGrepLSPServer, params: InitializeParams) -> None:
+    """Synchronize our column-conversion encoding with the client (audit B13).
+
+    ``@server.feature(INITIALIZE)`` is pygls' documented extension point for
+    the ``initialize`` request. pygls' own built-in handling
+    (``LanguageServerProtocol.lsp_initialize``) negotiates the position
+    encoding and builds ``ls.workspace`` with it *before* invoking this
+    handler, and finalises + returns the ``InitializeResult`` only *after*
+    this handler returns — see ``_negotiate_position_encoding`` for why
+    ``params`` itself is not re-inspected here.
+    """
+    _negotiate_position_encoding(ls)
+
+
+def _negotiate_position_encoding(ls: TensorGrepLSPServer) -> None:
+    """Adopt the position encoding pygls negotiated for this session (audit B13).
+
+    Previously dead code: nothing called this function, so ``ls._position_encoding``
+    stayed at its "utf-16" default forever, and the column-conversion helpers
+    (``_to_cp_col`` / ``_from_cp_col``) silently mis-converted columns for any
+    client that negotiated "utf-8" or "utf-32" on a line with non-ASCII text
+    before the target column.
+
+    pygls (>=1.1.0; confirmed against both pygls==2.0.1, the version pinned in
+    uv.lock, and pygls==2.1.1) already negotiates the encoding itself inside
+    ``LanguageServerProtocol.lsp_initialize``
+    — see ``pygls.capabilities.ServerCapabilitiesBuilder.choose_position_encoding``
+    — by walking the client's ``general.positionEncodings`` *in the client's own
+    preference order* and picking the first one pygls also supports (utf-8,
+    utf-16, or utf-32), defaulting to "utf-16" when the capability is absent or
+    empty. That negotiated value is what pygls both (a) uses to construct
+    ``ls.workspace`` before any user ``INITIALIZE`` handler runs, and (b)
+    unconditionally reports back to the client as
+    ``InitializeResult.capabilities.positionEncoding`` — fixed at negotiation
+    time, before a user ``INITIALIZE`` handler is even invoked, so nothing a
+    user handler does can change what gets reported.
+
+    We therefore mirror ``ls.workspace.position_encoding`` — the exact value
+    pygls will report — onto ``ls._position_encoding`` instead of re-deriving
+    our own answer from the raw client capabilities a second time. A second,
+    independent negotiation algorithm could disagree with pygls' own choice
+    (e.g. by not respecting the client's preference order the way pygls does)
+    and silently reintroduce the very client/server encoding mismatch this fix
+    is meant to close.
+    """
+    try:
+        encoding = ls.workspace.position_encoding
+    except RuntimeError:
+        # Defensive only: pygls always creates ls.workspace before invoking a
+        # user INITIALIZE handler, so this is unreachable via the real
+        # initialize dispatch. Guards a direct/out-of-band call.
+        encoding = None
+    ls._position_encoding = encoding if encoding else "utf-16"
+
+
+def run_lsp() -> None:
+    """Start the pygls language server on standard IO."""
+    server.provider_mode = os.environ.get("TG_LSP_PROVIDER", "native").strip().lower() or "native"
+    server.start_io()
+
+
+if __name__ == "__main__":
+    run_lsp()

@@ -1,11 +1,10 @@
-"""A collection of functions which are triggered automatically by finder when
-pytz package is included.
-"""
+"""Hooks triggered by finder when pytz package is included."""
 
 from __future__ import annotations
 
 import os
 import sys
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING
@@ -23,20 +22,28 @@ class Hook(ModuleHook):
     """The Hook class for pytz."""
 
     def pytz(self, finder: ModuleFinder, module: Module) -> None:
-        """The pytz module requires timezone data to be found in a known
+        """Include required timezone data for the pytz package.
+
+        The pytz module requires timezone data to be found in a known
         directory or in the zip file where the package is written.
         """
-        module.exclude_names.add("doctest")
-        source_path = module.file.parent / "zoneinfo"
-        if not source_path.is_dir():
-            # Fedora (and possibly other systems) use a separate location to
-            # store timezone data so look for that here as well
-            source_path = Path(
-                os.getenv("PYTZ_TZDATADIR", "/usr/share/zoneinfo")
-            )
+        module.ignore_names.add("pkg_resources")
+        if module.file:
+            source_path = module.file.parent / "zoneinfo"
             if not source_path.is_dir():
-                return
-        code_bytes = module.file.read_bytes()
+                # Fedora (and possibly other systems) use a separate location
+                # to store timezone data so look for that here as well
+                source_path = Path(
+                    os.getenv("PYTZ_TZDATADIR", "/usr/share/zoneinfo")
+                )
+                if not source_path.is_dir():
+                    return
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
         if module.in_file_system == 0:
             finder.zip_include_files(source_path, "pytz/zoneinfo")
             if sys.version_info[:2] < (3, 13):
@@ -48,7 +55,7 @@ class Hook(ModuleHook):
                         submodule = target_fn.as_posix().replace("/", ".")
                         finder.include_module(f"pytz.zoneinfo.{submodule}")
                 # patch source code
-                source = """
+                patch = """
                     # cx_Freeze patch start
                     import warnings
                     import os as _os
@@ -65,22 +72,22 @@ class Hook(ModuleHook):
                     warnings.filterwarnings("ignore", "pkg_resources")
                     # cx_Freeze patch end
                 """
-                code_bytes = dedent(source).encode() + code_bytes.replace(
-                    b"resource_stream = None",
-                    b"resource_stream = _resource_stream",
+                source_code = dedent(patch) + source_code.replace(
+                    "resource_stream = None",
+                    "resource_stream = _resource_stream",
                 )
             else:
                 # patch source code
-                source = """
+                patch = """
                     # cx_Freeze patch start
                     import os as _os
                     _os.environ["PYTZ_SKIPEXISTSCHECK"] = "1"  # import-speed
                     # cx_Freeze patch end
                 """
-                code_bytes = dedent(source).encode() + code_bytes.replace(
-                    b"from pkg_resources import resource_stream",
-                    b"from importlib.resources import open_binary"
-                    b" as resource_stream",
+                source_code = dedent(patch) + source_code.replace(
+                    "from pkg_resources import resource_stream",
+                    "from importlib.resources import open_binary"
+                    " as resource_stream",
                 )
         else:
             target_path = "share/zoneinfo"
@@ -88,7 +95,7 @@ class Hook(ModuleHook):
                 source_path, target_path, copy_dependent_files=False
             )
             # patch source code
-            source = f"""
+            patch = f"""
                 # cx_Freeze patch start
                 import os as _os
                 import sys as _sys
@@ -105,11 +112,9 @@ class Hook(ModuleHook):
                 _os.environ["PYTZ_SKIPEXISTSCHECK"] = "1"  # import-speed
                 # cx_Freeze patch end
             """
-            code_bytes += dedent(source).encode()
-        module.code = compile(
-            code_bytes,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+            source_code += dedent(patch)
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )

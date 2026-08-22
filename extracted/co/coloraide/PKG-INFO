@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: coloraide
-Version: 8.11.1
+Version: 8.12
 Summary: A color library for Python.
 Project-URL: Homepage, https://github.com/facelessuser/coloraide
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>

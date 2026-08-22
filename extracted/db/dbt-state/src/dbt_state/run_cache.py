@@ -1792,13 +1792,10 @@ class RunCache:
             )
             return None
 
-        # Relation identifiers are treated as case-sensitive, so lowercase them here.
-        # The macro-based resolver is also case-insensitive, as the identifiers are generated
-        # rather than being an actual observed relation name.
         return (
-            parsed.catalog.lower() if parsed.catalog else None,
-            parsed.db.lower() if parsed.db else None,
-            parsed.name.lower(),
+            parsed.catalog if parsed.catalog else None,
+            parsed.db if parsed.db else None,
+            parsed.name,
         )
 
     def _node_to_deferred_table(self, node: ManifestNode) -> exp.Table:

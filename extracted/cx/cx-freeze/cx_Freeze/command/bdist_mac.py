@@ -1,6 +1,4 @@
-"""Implements the 'bdist_mac' commands (create macOS
-app blundle).
-"""
+"""Implements the 'bdist_mac' command (create macOS app blundle)."""
 
 from __future__ import annotations
 
@@ -9,17 +7,22 @@ import plistlib
 import shutil
 import subprocess
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from setuptools import Command
 
+from cx_Freeze._compat import IS_MACOS
 from cx_Freeze.common import normalize_to_list
 from cx_Freeze.darwintools import (
     apply_adhoc_signature,
     change_load_reference,
     isMachOFile,
 )
-from cx_Freeze.exception import OptionError
+from cx_Freeze.exception import OptionError, PlatformError
+
+if TYPE_CHECKING:
+    from cx_Freeze._typing import StrPath
+    from cx_Freeze.executable import Executable
 
 __all__ = ["bdist_mac"]
 
@@ -137,25 +140,28 @@ class bdist_mac(Command):
         for option in self.list_options:
             setattr(self, option, [])
 
-        self.absolute_reference_path = None
+        self.absolute_reference_path: str | None = None
         self.bundle_name = self.distribution.get_fullname()
         self.codesign_deep = None
-        self.codesign_entitlements = None
-        self.codesign_identity = None
+        self.codesign_entitlements: str | None = None
+        self.codesign_identity: str | None = None
         self.codesign_timestamp = None
-        self.codesign_strict = None
-        self.codesign_options = None
+        self.codesign_strict: str | None = None
+        self.codesign_options: str | None = None
         self.codesign_resource_rules = None
         self.codesign_verify = None
         self.spctl_assess = None
         self.custom_info_plist = None
-        self.iconfile = None
-        self.qt_menu_nib = False
+        self.iconfile: str | None = None
+        self.qt_menu_nib: str | None = None
 
         self.build_base = None
         self.build_dir = None
 
     def finalize_options(self) -> None:
+        if not IS_MACOS:
+            msg = "bdist_mac is only supported on macOS"
+            raise PlatformError(msg)
         # Make sure all options of multiple values are lists
         for option in self.list_options:
             setattr(self, option, normalize_to_list(getattr(self, option)))
@@ -173,9 +179,8 @@ class bdist_mac(Command):
             ("build_base", "build_base"),
             ("build_exe", "build_dir"),
         )
-        self.bundle_dir = os.path.join(
-            self.build_base, f"{self.bundle_name}.app"
-        )
+        build_base = cast("str", self.build_base)
+        self.bundle_dir = os.path.join(build_base, f"{self.bundle_name}.app")
         self.contents_dir = os.path.join(self.bundle_dir, "Contents")
         self.bin_dir = os.path.join(self.contents_dir, "MacOS")
         self.frameworks_dir = os.path.join(self.contents_dir, "Frameworks")
@@ -187,7 +192,7 @@ class bdist_mac(Command):
         # Use custom plist if supplied, otherwise create a simple default.
         if self.custom_info_plist:
             with open(self.custom_info_plist, "rb") as file:
-                contents = plistlib.load(file)
+                contents: dict[str, str] = plistlib.load(file)
         else:
             contents = {
                 "CFBundleIconFile": "icon.icns",
@@ -201,6 +206,12 @@ class bdist_mac(Command):
                 "NSHighResolutionCapable": "True",
             }
 
+        # Optional
+        if self.distribution.metadata.version:
+            contents.setdefault(
+                "CFBundleVersion", self.distribution.metadata.get_version()
+            )
+
         # Ensure CFBundleExecutable is set correctly
         contents["CFBundleExecutable"] = self.bundle_executable
 
@@ -211,12 +222,14 @@ class bdist_mac(Command):
         with open(os.path.join(self.contents_dir, "Info.plist"), "wb") as file:
             plistlib.dump(contents, file)
 
-    def set_absolute_reference_paths(self, path=None) -> None:
-        """For all files in Contents/MacOS, set their linked library paths to
-        be absolute paths using the given path instead of @executable_path.
+    def set_absolute_reference_paths(self, path: str | None = None) -> None:
+        """Set linked library paths to be absolute paths.
+
+        For all files in Contents/MacOS, using the given path instead of
+        @executable_path.
         """
         if not path:
-            path = self.absolute_reference_path
+            path = cast("str", self.absolute_reference_path)
 
         files = os.listdir(self.bin_dir)
 
@@ -244,8 +257,9 @@ class bdist_mac(Command):
             apply_adhoc_signature(filepath)
 
     def find_qt_menu_nib(self) -> str | None:
-        """Returns a location of a qt_menu.nib folder, or None if this is not
-        a Qt application.
+        """Return the location of a qt_menu.nib folder for a Qt application.
+
+        Returns None for non-Qt app.
         """
         if self.qt_menu_nib:
             return self.qt_menu_nib
@@ -283,8 +297,9 @@ class bdist_mac(Command):
         raise OSError(msg)
 
     def prepare_qt_app(self) -> None:
-        """Add resource files for a Qt application. Should do nothing if the
-        application does not use QtCore.
+        """Add resource files for a Qt application.
+
+        Should do nothing if the application does not use QtCore.
         """
         qt_conf = os.path.join(self.resources_dir, "qt.conf")
         qt_conf_2 = os.path.join(self.resources_dir, "qt_bdist_mac.conf")
@@ -316,12 +331,15 @@ class bdist_mac(Command):
         # ( avoids confusing issues where prior builds persist! )
         self.execute(
             shutil.rmtree,
-            (self.bundle_dir, True),
+            (self.bundle_dir, True, None),
             msg=f"staging - removed existing '{self.bundle_dir}'",
         )
 
         # Find the executable name
-        executable = self.distribution.executables[0].target_name
+        executables: list[Executable] = getattr(
+            self.distribution, "executables", []
+        )
+        executable = executables[0].target_name
         _, self.bundle_executable = os.path.split(executable)
         print(f"Executable name: {self.build_dir}/{executable}")
 
@@ -331,10 +349,11 @@ class bdist_mac(Command):
         self.mkpath(self.resources_dir)  # /Resources
 
         # Copy the full build_exe to Contents/Resources
-        self.copy_tree(self.build_dir, self.resources_dir)
+        build_dir = cast("str", self.build_dir)
+        self.copy_tree(build_dir, self.resources_dir)
 
         # Move only executables in Contents/Resources to Contents/MacOS
-        for executable in self.distribution.executables:
+        for executable in executables:
             source = os.path.join(self.resources_dir, executable.target_name)
             target = os.path.join(self.bin_dir, executable.target_name)
             self.move_file(source, target)
@@ -390,7 +409,7 @@ class bdist_mac(Command):
         if self.absolute_reference_path:
             self.execute(
                 self.set_absolute_reference_paths,
-                (),
+                (None,),
                 msg="set absolute reference path "
                 f"'{self.absolute_reference_path}",
             )
@@ -432,8 +451,9 @@ class bdist_mac(Command):
             msg=f"sign: '{self.bundle_dir}'",
         )
 
-    def _codesign(self, root_path) -> None:
+    def _codesign(self, root_path: StrPath) -> None:
         """Run codesign on all .so, .dylib and binary files in reverse order.
+
         Signing from inside-out.
         """
         if not self.codesign_identity:
@@ -453,13 +473,19 @@ class bdist_mac(Command):
         binaries_to_sign.sort(key=lambda x: str(x).count(os.sep), reverse=True)
 
         for binary_path in binaries_to_sign:
-            self._codesign_file(binary_path, self._get_sign_args())
+            self._codesign_file(binary_path.as_posix())
 
         self._verify_signature()
         print("Finished .app signing")
 
-    def _get_sign_args(self) -> list[str]:
-        signargs = ["codesign", "--sign", self.codesign_identity, "--force"]
+    def _codesign_file(self, file_path: str) -> None:
+        print(f"Signing file: {file_path}")
+
+        signargs = ["codesign", "--force"]
+
+        if self.codesign_identity:
+            signargs.append("--sign")
+            signargs.append(self.codesign_identity)
 
         if self.codesign_timestamp:
             signargs.append("--timestamp")
@@ -477,12 +503,9 @@ class bdist_mac(Command):
         if self.codesign_entitlements:
             signargs.append("--entitlements")
             signargs.append(self.codesign_entitlements)
-        return signargs
 
-    def _codesign_file(self, file_path, sign_args) -> None:
-        print(f"Signing file: {file_path}")
-        sign_args.append(file_path)
-        subprocess.run(sign_args, check=False)
+        signargs.append(file_path)
+        subprocess.run(signargs, check=False)
 
     def _verify_signature(self) -> None:
         if self.codesign_verify:

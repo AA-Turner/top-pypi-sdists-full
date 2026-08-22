@@ -17,6 +17,7 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 from .accepted_gift_types import AcceptedGiftTypes
+from .animated_chat_photo import AnimatedChatPhoto
 from .birthday import Birthday
 from .bot_verification import BotVerification
 from .business_bot_rights import BusinessBotRights
@@ -28,20 +29,37 @@ from .business_working_hours import BusinessWorkingHours
 from .chat import Chat
 from .chat_admin_with_invite_links import ChatAdminWithInviteLinks
 from .chat_administrator_rights import ChatAdministratorRights, ChatPrivileges
-from .chat_color import ChatColor
 from .chat_event import ChatEvent
 from .chat_event_filter import ChatEventFilter
 from .chat_folder_invite_link_info import ChatFolderInviteLinkInfo
 from .chat_invite_link import ChatInviteLink
 from .chat_join_request import ChatJoinRequest
-from .chat_join_result import ChatJoinResult, ChatJoinResultSuccess, ChatJoinResultRequestSent, ChatJoinResultGuardBotApprovalRequired, ChatJoinResultDeclined
+from .chat_join_result import (
+    ChatJoinResult,
+    ChatJoinResultDeclined,
+    ChatJoinResultGuardBotApprovalRequired,
+    ChatJoinResultRequestSent,
+    ChatJoinResultSuccess,
+)
 from .chat_joiner import ChatJoiner
 from .chat_member import ChatMember
 from .chat_member_updated import ChatMemberUpdated
 from .chat_permissions import ChatPermissions
 from .chat_photo import ChatPhoto
+from .chat_photo_sticker import ChatPhotoSticker
 from .chat_reactions import ChatReactions
 from .chat_settings import ChatSettings
+from .community import Community
+from .community_administrator_rights import CommunityAdministratorRights
+from .community_member_status import (
+    CommunityMemberStatus,
+    CommunityMemberStatusAdministrator,
+    CommunityMemberStatusBanned,
+    CommunityMemberStatusCreator,
+    CommunityMemberStatusLeft,
+    CommunityMemberStatusMember,
+)
+from .community_permissions import CommunityPermissions
 from .dialog import Dialog
 from .emoji_status import EmojiStatus
 from .failed_to_add_member import FailedToAddMember
@@ -51,7 +69,6 @@ from .found_contacts import FoundContacts
 from .global_privacy_settings import GlobalPrivacySettings
 from .group_call_member import GroupCallMember
 from .history_cleared import HistoryCleared
-from .invite_link_importer import InviteLinkImporter
 from .phone_call_ended import PhoneCallEnded
 from .phone_call_started import PhoneCallStarted
 from .privacy_rule import PrivacyRule
@@ -68,6 +85,7 @@ from .video_chat_started import VideoChatStarted
 
 __all__ = [
     "AcceptedGiftTypes",
+    "AnimatedChatPhoto",
     "Birthday",
     "BotVerification",
     "BusinessBotRights",
@@ -79,25 +97,34 @@ __all__ = [
     "Chat",
     "ChatAdminWithInviteLinks",
     "ChatAdministratorRights",
-    "ChatColor",
     "ChatEvent",
     "ChatEventFilter",
     "ChatFolderInviteLinkInfo",
     "ChatInviteLink",
     "ChatJoinRequest",
     "ChatJoinResult",
-    "ChatJoinResultSuccess",
-    "ChatJoinResultRequestSent",
-    "ChatJoinResultGuardBotApprovalRequired",
     "ChatJoinResultDeclined",
+    "ChatJoinResultGuardBotApprovalRequired",
+    "ChatJoinResultRequestSent",
+    "ChatJoinResultSuccess",
     "ChatJoiner",
     "ChatMember",
     "ChatMemberUpdated",
     "ChatPermissions",
     "ChatPhoto",
+    "ChatPhotoSticker",
     "ChatPrivileges",
     "ChatReactions",
     "ChatSettings",
+    "Community",
+    "CommunityAdministratorRights",
+    "CommunityMemberStatus",
+    "CommunityMemberStatusAdministrator",
+    "CommunityMemberStatusBanned",
+    "CommunityMemberStatusCreator",
+    "CommunityMemberStatusLeft",
+    "CommunityMemberStatusMember",
+    "CommunityPermissions",
     "Dialog",
     "EmojiStatus",
     "FailedToAddMember",
@@ -107,7 +134,6 @@ __all__ = [
     "GlobalPrivacySettings",
     "GroupCallMember",
     "HistoryCleared",
-    "InviteLinkImporter",
     "PhoneCallEnded",
     "PhoneCallStarted",
     "PrivacyRule",
@@ -120,5 +146,5 @@ __all__ = [
     "VideoChatEnded",
     "VideoChatMembersInvited",
     "VideoChatScheduled",
-    "VideoChatStarted"
+    "VideoChatStarted",
 ]

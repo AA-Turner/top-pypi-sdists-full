@@ -417,16 +417,16 @@ class PARSeqPostProcessor(_PARSeqPostProcessor):
     ) -> list[tuple[str, float]]:
         # compute pred with argmax for attention models
         out_idxs = logits.argmax(-1)
-        preds_prob = torch.softmax(logits, -1).max(dim=-1)[0]
+        preds_prob = torch.softmax(logits, -1).max(dim=-1)[0].detach().cpu().numpy()
 
         # Manual decoding
         word_values = [
             "".join(self._embedding[idx] for idx in encoded_seq).split("<eos>")[0]
-            for encoded_seq in out_idxs.cpu().numpy()
+            for encoded_seq in out_idxs.detach().cpu().numpy()
         ]
         # compute probabilties for each word up to the EOS token
         probs = [
-            preds_prob[i, : len(word)].clip(0, 1).mean().item() if word else 0.0 for i, word in enumerate(word_values)
+            float(preds_prob[i, : len(word)].clip(0, 1).mean()) if word else 0.0 for i, word in enumerate(word_values)
         ]
 
         return list(zip(word_values, probs))
@@ -482,7 +482,7 @@ def parseq(pretrained: bool = False, **kwargs: Any) -> PARSeq:
     >>> out = model(input_tensor)
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on our text recognition dataset
+        pretrained: If True, returns a model pre-trained on our text recognition dataset
         **kwargs: keyword arguments of the PARSeq architecture
 
     Returns:

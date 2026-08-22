@@ -85,6 +85,8 @@ import_parser.add_argument('--show-skipped', dest='show_skipped', action='store_
                            help='Display skipped records')
 import_parser.add_argument('--secret-ids', dest='secret_ids', action='store',
                            help='Comma separated list of secret IDs to fetch (Thycotic)')
+import_parser.add_argument('--target-node', '--node', dest='target_node', action='store',
+                           help='node name or ID for CyberArk-provisioned users, teams, and roles (default: root node)')
 import_parser.add_argument(
     'name', type=str,
     help='file name (json, csv , keepass, 1password), account name (lastpass), or URL (ManageEngine, Thycotic). '
@@ -104,6 +106,8 @@ export_parser.add_argument('-kkf', '--keepass-key-file', dest='kbdx_key_file', a
                            help='Keepass key file for the exported file')
 export_parser.add_argument('--zip', dest='zip_archive', action='store_true',
                            help='Create ZIP archive for file attachments. JSON only')
+export_parser.add_argument('--owned-only', dest='owned_only', action='store_true',
+                           help='Only export owned records')                           
 export_parser.add_argument('--save-in-vault', dest='save_in_vault', action='store_true',
                            help='Stores exports file as a record attachment. KeePass only')
 export_parser.add_argument('--force', dest='force', action='store_true', help='Suppress user interaction. Assume "yes"')
@@ -284,6 +288,10 @@ class RecordImportCommand(ImporterCommand):
             if rti is None:
                 logging.warning(f'Record type "{record_type}" not found.')
                 return
+
+        if kwargs.get('target_node') and import_format != 'cyberark':
+            logging.warning('--target-node/--node is only used with --format=cyberark; ignoring')
+            kwargs['target_node'] = None
 
         logging.info('Processing... please wait.')
         imp_exp._import(params, import_format, import_name, manage_users=manage_users, manage_records=manage_records,

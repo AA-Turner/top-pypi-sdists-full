@@ -38,7 +38,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get branches for a repository"""
+    """Get branches for a repository in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,
@@ -59,7 +59,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get branches for a repository"""
+    """Get branches for a repository in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,

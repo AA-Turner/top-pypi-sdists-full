@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: taskiq
-Version: 0.12.4
+Version: 0.12.5
 Summary: Distributed task queue with full async support
 Project-URL: Bug Tracker, https://github.com/taskiq-python/taskiq/issues
 Project-URL: Changelog, https://github.com/taskiq-python/taskiq/releases
@@ -44,6 +44,7 @@ Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-api<2.0.0,>=1.38.0; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-instrumentation<1,>=0.59b0; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-semantic-conventions<1,>=0.59b0; extra == 'opentelemetry'
+Requires-Dist: psutil>=7; extra == 'opentelemetry'
 Provides-Extra: orjson
 Requires-Dist: orjson>=3; extra == 'orjson'
 Provides-Extra: reload

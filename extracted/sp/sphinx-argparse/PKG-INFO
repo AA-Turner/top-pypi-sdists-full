@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-argparse
-Version: 0.6.0
+Version: 0.6.1
 Summary: A sphinx extension that automatically documents argparse commands and options
 Author-email: Ash Berlin-Taylor <ash_github@firemirror.com>
 Requires-Python: >=3.10

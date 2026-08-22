@@ -5898,6 +5898,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
     * `DOMAIN`: Domain
     * `INGEST`: Ingest
     * `LINEAGE_API`: Lineage API
+    * `SFDC_DATA_360_RETRIEVER`: Salesforce Data 360 Retriever
     * `TAGS_COLLECTION`: Tags Collection
     * `USE_CASE`: Use Case
     """
@@ -5911,6 +5912,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
         "DOMAIN",
         "INGEST",
         "LINEAGE_API",
+        "SFDC_DATA_360_RETRIEVER",
         "TAGS_COLLECTION",
         "USE_CASE",
     )
@@ -20023,6 +20025,7 @@ class IMonitorStatus(sgqlc.types.Interface):
         "monitor_status",
         "consolidated_monitor_status",
         "exceptions",
+        "exceptions_detail",
     )
     monitor_run_status = sgqlc.types.Field(
         sgqlc.types.non_null(MonitorRunStatusType), graphql_name="monitorRunStatus"
@@ -20055,6 +20058,14 @@ class IMonitorStatus(sgqlc.types.Interface):
 
     exceptions = sgqlc.types.Field(String, graphql_name="exceptions")
     """Exceptions if any occurred during the last run"""
+
+    exceptions_detail = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("JobExecutionException")),
+        graphql_name="exceptionsDetail",
+    )
+    """Structured detail (type, description, SQL) of the exceptions from
+    the last run, when it failed
+    """
 
 
 class Node(sgqlc.types.Interface):
@@ -21728,8 +21739,9 @@ class AddRedshiftConsumerConnectionMutation(sgqlc.types.Type):
 
 class AddSalesforceDataCloudEtlConnection(sgqlc.types.relay.Connection):
     """Enable ETL monitoring on an existing Salesforce Data Cloud
-    connection. Data streams are collected as jobs alongside the
-    connection's existing metadata and query monitoring.
+    connection. Data Cloud ETL objects such as data streams are
+    collected as jobs alongside the connection's existing metadata and
+    query monitoring.
     """
 
     __schema__ = schema
@@ -99781,9 +99793,9 @@ class RemovePowerBiDataflowsFromConnection(sgqlc.types.relay.Connection):
 
 
 class RemoveSalesforceDataCloudEtlFromConnection(sgqlc.types.relay.Connection):
-    """Stop ETL monitoring on a Salesforce Data Cloud connection. Data
-    stream monitoring is turned off and the connection's existing
-    metadata and query monitoring is kept.
+    """Stop ETL monitoring on a Salesforce Data Cloud connection. ETL job
+    monitoring is turned off and the connection's existing metadata
+    and query monitoring is kept.
     """
 
     __schema__ = schema
@@ -111127,6 +111139,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "monitor_uuids",
         "notification_status",
         "invalid_rows",
+        "execution_error",
         "domains",
         "comment_count",
         "last_comment_text",
@@ -111245,6 +111258,12 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     invalid_rows = sgqlc.types.Field(String, graphql_name="invalidRows")
     """Number of invalid rows of a breached monitor if available"""
+
+    execution_error = sgqlc.types.Field(JobExecutionException, graphql_name="executionError")
+    """For a monitor-execution-error alert: the failed run's error — the
+    exception type, its full message, and the SQL that triggered it.
+    Null when the alert is not a run failure.
+    """
 
     domains = sgqlc.types.Field(sgqlc.types.list_of(DomainRef), graphql_name="domains")
     """List of domain associated with the alert"""
@@ -113342,6 +113361,7 @@ class CollectionBlock(sgqlc.types.Type, CollectionPreferenceNode):
         "resource_id",
         "project",
         "dataset",
+        "table_name",
         "match_type",
         "target_object_type",
         "effect",
@@ -113355,6 +113375,11 @@ class CollectionBlock(sgqlc.types.Type, CollectionPreferenceNode):
 
     dataset = sgqlc.types.Field(String, graphql_name="dataset")
     """Intermediate object hierarchy e.g. schema, database, etc."""
+
+    table_name = sgqlc.types.Field(String, graphql_name="tableName")
+    """Table name matched by this rule. Present only for table-level
+    rules (targetObjectType: table).
+    """
 
     match_type = sgqlc.types.Field(
         sgqlc.types.non_null(CollectionPreferenceMatchType), graphql_name="matchType"
@@ -113775,6 +113800,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "is_draft",
         "is_auto_created",
         "auto_apply_tuning_override",
+        "auto_triage_override",
         "alert_grouping",
         "rule_type",
         "warehouse_uuid",
@@ -113922,6 +113948,12 @@ class CustomRule(sgqlc.types.Type, Node):
 
     auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
     """Per-monitor override for auto-apply tuning (null = inherit from
+    domain/account, true/false = force enable/disable for this
+    monitor).
+    """
+
+    auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
+    """Per-monitor override for auto-triage (null = inherit from
     domain/account, true/false = force enable/disable for this
     monitor).
     """
@@ -117536,7 +117568,7 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Job performance summary"""
 
     __schema__ = schema
-    __field_names__ = ("object_path", "alerts_count", "generates_alerts")
+    __field_names__ = ("object_path", "alerts_count", "generates_alerts", "terminology")
     object_path = sgqlc.types.Field(String, graphql_name="objectPath")
     """Parent-folder hierarchy of the asset within its source system
     (e.g. 'Default / Customer Loads'), with the trailing object name
@@ -117557,6 +117589,15 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     disabled (the job runs but is not monitored). null: the
     integration type does not support this setting — null must not be
     read as 'not monitored'.
+    """
+
+    terminology = sgqlc.types.Field(Terminology, graphql_name="terminology")
+    """The ETL tool's display-noun overrides (group/job/task) for this
+    job, resolved from the integration's connection manifest — e.g.
+    Airflow's DAG/Task, ADF's Pipeline/Activity, or a custom
+    connector's registered nouns (e.g. job "State Machine"). Null when
+    the integration has no manifest terminology (e.g. dbt) or the job
+    has no ETL container.
     """
 
 
@@ -117590,6 +117631,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "is_draft",
         "is_auto_created",
         "auto_apply_tuning_override",
+        "auto_triage_override",
         "alert_grouping",
         "type",
         "warehouse_uuid",
@@ -117718,6 +117760,12 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
     """Per-monitor override for auto-apply tuning (null = inherit from
+    domain/account, true/false = force enable/disable for this
+    monitor).
+    """
+
+    auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
+    """Per-monitor override for auto-triage (null = inherit from
     domain/account, true/false = force enable/disable for this
     monitor).
     """
@@ -120860,6 +120908,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "sampling_config",
         "alert_grouping",
         "auto_apply_tuning_override",
+        "auto_triage_override",
         "agent_names",
         "entity_mcons",
         "agent_span_filters",
@@ -121064,6 +121113,9 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     """Per-monitor auto-apply tuning override from monitors (null =
     inherit)
     """
+
+    auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
+    """Per-monitor auto-triage override from monitors (null = inherit)"""
 
     agent_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="agentNames"

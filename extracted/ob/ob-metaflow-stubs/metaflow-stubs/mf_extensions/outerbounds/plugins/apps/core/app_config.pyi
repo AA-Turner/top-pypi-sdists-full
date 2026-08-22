@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-17T19:44:19.555674                                                            #
+# Generated on 2026-08-21T18:12:41.310538                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from .config.unified_config import CoreConfig as CoreConfig
 from .config.unified_config import AuthType as AuthType

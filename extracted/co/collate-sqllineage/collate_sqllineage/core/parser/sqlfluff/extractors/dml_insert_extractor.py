@@ -132,9 +132,17 @@ class DmlInsertExtractor(LineageHolderExtractor):
 
         self._handle_source_tables(holder, conditional_handlers[0])
 
+        # A subquery in the FROM clause is registered by the source handler but never
+        # expanded here, unlike in the select extractor, so the tables and columns
+        # inside it would stay invisible to `UPDATE ... FROM (SELECT ...) alias`.
+        for sq in holder.extra_subqueries:
+            holder |= DmlSelectExtractor(self.dialect).extract(
+                sq.query, AnalyzerContext(sq, holder.cte)
+            )
+
         if set_clause_list_segment is not None:
             self._extract_update_set_columns(
-                holder, set_clause_list_segment, conditional_handlers[0]
+                statement, holder, set_clause_list_segment, conditional_handlers[0]
             )
 
         if where_clause_segment is not None:
@@ -199,8 +207,25 @@ class DmlInsertExtractor(LineageHolderExtractor):
             if select_stmt:
                 self._extract_select(holder, select_stmt)
 
+    @staticmethod
+    def _get_update_target(holder: SubQueryLineageHolder) -> Optional[Table]:
+        """
+        Return the real table an UPDATE writes to.
+
+        holder.write is a set that can also carry a SubQuery, so indexing it directly
+        picks a different element per interpreter run.
+
+        :param holder: the holder built for the statement
+        :return: the write target, or None when the statement writes to no table
+        """
+        write_tables = sorted(
+            (tbl for tbl in holder.write if isinstance(tbl, Table)), key=str
+        )
+        return write_tables[0] if write_tables else None
+
     def _extract_update_set_columns(
         self,
+        statement: BaseSegment,
         holder: SubQueryLineageHolder,
         set_clause_list: BaseSegment,
         source_handler: Any,
@@ -210,15 +235,29 @@ class DmlInsertExtractor(LineageHolderExtractor):
         assignment maps the expression's source columns onto the target column,
         resolved through the same alias mapping the SELECT extractor uses so an
         alias like `s` lands on its real table.
+
+        :param statement: the update statement segment
+        :param holder: the holder for the statement
+        :param set_clause_list: the SET clause list segment
+        :param source_handler: the handler holding the statement's source tables
         """
-        if not holder.write:
+        write_table = self._get_update_target(holder)
+        if write_table is None:
             return
-        write_table = list(holder.write)[0]
-        read_tables = set(holder.read)
         source_tables = getattr(source_handler, "tables", [])
         alias_mapping = source_handler.get_alias_mapping_from_table_group(
             source_tables, holder
         )
+        alias_expression = statement.get_child("alias_expression")
+        identifier = (
+            alias_expression.get_child("identifier")
+            if alias_expression is not None
+            else None
+        )
+        source_handler.add_write_target_to_alias_mapping(
+            alias_mapping, write_table, identifier.raw if identifier else None
+        )
+        resolvable = set(holder.read) | set(holder.cte) | {write_table}
         for set_clause in retrieve_segments(set_clause_list):
             if set_clause.type != "set_clause":
                 continue
@@ -251,9 +290,9 @@ class DmlInsertExtractor(LineageHolderExtractor):
             )
             target_column.parent = write_table
             for source_column in target_column.to_source_columns(alias_mapping):
-                # Only emit when the source resolves to a real table in the
-                # statement, never to a phantom default-schema alias.
-                if source_column.parent in read_tables:
+                # Only emit when the qualifier resolved to a dataset the statement
+                # actually references, never to a phantom default-schema alias.
+                if source_column.parent in resolvable:
                     holder.add_column_lineage(source_column, target_column)
 
     def _resolve_update_aliased_target(

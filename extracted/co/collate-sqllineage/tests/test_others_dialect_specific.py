@@ -595,3 +595,41 @@ FROM dbo.t_upd t JOIN dbo.src s ON t.id = s.id"""
         {"dbo.t_upd"},
         dialect=dialect,
     )
+
+
+@pytest.mark.parametrize("dialect", ["tsql"])
+def test_update_from_subquery(dialect: str):
+    """A subquery in the UPDATE FROM clause is a source, and the tables inside it
+    are the ones reported."""
+    sql = """UPDATE dbo.t_tgt
+SET val = s.label
+FROM (SELECT label, id FROM dbo.src) s
+WHERE t_tgt.id = s.id"""
+    assert_table_lineage_equal(sql, {"dbo.src"}, {"dbo.t_tgt"}, dialect=dialect)
+
+
+@pytest.mark.parametrize("dialect", ["tsql"])
+def test_update_from_cte(dialect: str):
+    """An UPDATE that follows a WITH clause keeps its write target, and the CTE
+    resolves to the table it selects from rather than becoming a table itself."""
+    sql = """WITH c AS (SELECT label, id FROM dbo.src)
+UPDATE dbo.t_tgt
+SET val = c.label
+FROM c
+WHERE t_tgt.id = c.id"""
+    assert_table_lineage_equal(sql, {"dbo.src"}, {"dbo.t_tgt"}, dialect=dialect)
+
+
+@pytest.mark.parametrize("dialect", ["tsql"])
+def test_update_from_subquery_joined_to_table(dialect: str):
+    """A table JOINed onto an UPDATE FROM subquery is a source. The joins hang off
+    the FROM item, which is a subquery here rather than a table."""
+    sql = """UPDATE dbo.inventory
+SET reorder_level = s.quantity,
+    supplier_lead_time = sup.lead_time_days
+FROM (SELECT product_id, quantity FROM dbo.sales) s
+JOIN dbo.suppliers sup ON sup.id = s.product_id
+WHERE inventory.product_id = s.product_id"""
+    assert_table_lineage_equal(
+        sql, {"dbo.sales", "dbo.suppliers"}, {"dbo.inventory"}, dialect=dialect
+    )

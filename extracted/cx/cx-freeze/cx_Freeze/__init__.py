@@ -7,12 +7,13 @@ that Python runs on.
 
 from __future__ import annotations
 
-import importlib.metadata
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import setuptools
 
+from cx_Freeze._pyproject import get_pyproject_options, update_command_options
 from cx_Freeze.command.build_exe import build_exe
 from cx_Freeze.command.install import Install as install
 from cx_Freeze.command.install_exe import install_exe
@@ -51,7 +52,7 @@ else:
     __all__ += ["bdist_appimage", "bdist_deb", "bdist_rpm"]
 
 
-__version__ = importlib.metadata.version(__name__)
+__version__ = version(__name__)
 
 
 def setup(**attrs) -> setuptools.Distribution:  # noqa: D103
@@ -68,7 +69,15 @@ def setup(**attrs) -> setuptools.Distribution:  # noqa: D103
     cmdclass.setdefault("build_exe", build_exe)
     cmdclass.setdefault("install", install)
     cmdclass.setdefault("install_exe", install_exe)
-    attrs.setdefault("executables", [])
+
+    # get options from pyproject.toml
+    pyproject_options, pyproject_executables = get_pyproject_options()
+    command_options = attrs.setdefault("command_options", {})
+    options = attrs.pop("options", {})
+    update_command_options(command_options, pyproject_options, options)
+    executables = attrs.setdefault("executables", [])
+    if pyproject_executables:
+        executables.extend(pyproject_executables)
     return setuptools.setup(**attrs)
 
 
@@ -79,7 +88,8 @@ def plugin_install(dist: setuptools.Distribution) -> None:
     """Use a setuptools extension to customize Distribution options."""
     if getattr(dist, "executables", None) is None:
         return
-    validate_executables(dist, "executables", dist.executables)
+    executables = dist.executables  # ty: ignore[unresolved-attribute]
+    validate_executables(dist, "executables", executables)
 
     # Enable package discovery for src-layout
     if Path("src").is_dir() and dist.packages is None:
@@ -89,7 +99,7 @@ def plugin_install(dist: setuptools.Distribution) -> None:
     # Disable package discovery for modules
     dist.py_modules = []
     # Disable subcommand build_py
-    dist.has_pure_modules = lambda: False
+    dist.has_pure_modules = lambda: False  # ty: ignore[invalid-assignment]
 
     # Add/update commands (provisional)
     cmdclass = dist.cmdclass
@@ -100,5 +110,8 @@ def plugin_install(dist: setuptools.Distribution) -> None:
     # Add build_exe as subcommand of setuptools build (plugin)
     build = dist.get_command_obj("build")
     build.user_options.insert(1, ("build-exe=", None, "[REMOVED]"))
-    build.build_exe = None
-    build.sub_commands = [*build.sub_commands, ("build_exe", None)]
+    build.build_exe = None  # ty: ignore[unresolved-attribute]
+    build.sub_commands = [  # ty: ignore[invalid-attribute-access]
+        *build.sub_commands,
+        ("build_exe", None),
+    ]

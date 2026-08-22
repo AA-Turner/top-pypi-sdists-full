@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dvsim
-Version: 1.51.0
+Version: 1.51.2
 Summary: DV system
 Author: lowRISC contributors (OpenTitan project)
 License-Expression: Apache-2.0
@@ -9,7 +9,7 @@ Requires-Python: >=3.10
 Requires-Dist: anybadge>=1.16.0
 Requires-Dist: click>=8.1.7
 Requires-Dist: enlighten>=1.12.4
-Requires-Dist: gitpython>=3.1.45
+Requires-Dist: gitpython>=3.1.58
 Requires-Dist: hjson>=3.1.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: matplotlib>=3.10.9

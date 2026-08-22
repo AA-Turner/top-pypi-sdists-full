@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DBUtils
-Version: 3.1.2
+Version: 3.2.0
 Summary: Database connections for multi-threaded environments.
 Author-email: Christoph Zwerschke <cito@online.de>
 License-Expression: MIT
@@ -49,7 +49,7 @@ to a database that can be used in all kinds of multi-threaded environments.
 The suite supports DB-API 2 compliant database interfaces
 and the classic PyGreSQL interface.
 
-The current version 3.1.2 of DBUtils supports Python versions 3.7 to 3.14.
+The current version 3.2.0 of DBUtils supports Python versions 3.7 to 3.14.
 
 **Please have a look at the [changelog](https://webwareforpython.github.io/DBUtils/changelog.html), because there were some breaking changes in version 2.0.**
 

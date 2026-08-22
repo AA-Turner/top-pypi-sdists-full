@@ -31,33 +31,35 @@ class SendContact:
         chat_id: Union[int, str],
         phone_number: str,
         first_name: str,
-        last_name: str = None,
-        vcard: str = None,
-        disable_notification: bool = None,
-        message_thread_id: int = None,
-        direct_messages_topic_id: int = None,
-        effect_id: int = None,
-        reply_parameters: "types.ReplyParameters" = None,
-        suggested_post_parameters: "types.SuggestedPostParameters" = None,
-        schedule_date: datetime = None,
-        protect_content: bool = None,
-        business_connection_id: str = None,
-        allow_paid_broadcast: bool = None,
-        paid_message_star_count: int = None,
-        reply_markup: Union[
+        last_name: Optional[str] = None,
+        vcard: Optional[str] = None,
+        disable_notification: Optional[bool] = None,
+        message_thread_id: Optional[int] = None,
+        direct_messages_topic_id: Optional[int] = None,
+        receiver_user_id: Optional[Union[int, str]] = None,
+        callback_query_id: Optional[str] = None,
+        effect_id: Optional[int] = None,
+        reply_parameters: Optional["types.ReplyParameters"] = None,
+        suggested_post_parameters: Optional["types.SuggestedPostParameters"] = None,
+        schedule_date: Optional[datetime] = None,
+        protect_content: Optional[bool] = None,
+        business_connection_id: Optional[str] = None,
+        allow_paid_broadcast: Optional[bool] = None,
+        paid_message_star_count: Optional[int] = None,
+        reply_markup: Optional[Union[
             "types.InlineKeyboardMarkup",
             "types.ReplyKeyboardMarkup",
             "types.ReplyKeyboardRemove",
             "types.ForceReply"
-        ] = None,
+        ]] = None,
 
-        reply_to_message_id: int = None,
-        reply_to_chat_id: Union[int, str] = None,
-        quote_text: str = None,
+        reply_to_message_id: Optional[int] = None,
+        reply_to_chat_id: Optional[Union[int, str]] = None,
+        quote_text: Optional[str] = None,
         parse_mode: Optional["enums.ParseMode"] = None,
-        quote_entities: List["types.MessageEntity"] = None,
-        quote_offset: int = None,
-    ) -> "types.Message":
+        quote_entities: Optional[List["types.MessageEntity"]] = None,
+        quote_offset: Optional[int] = None,
+    ) -> Optional["types.Message"]:
         """Send phone contacts.
 
         .. include:: /_includes/usable-by/users-bots.rst
@@ -90,7 +92,16 @@ class SendContact:
 
             direct_messages_topic_id (``int``, *optional*):
                 Unique identifier of the topic in a channel direct messages chat administered by the current user.
-                For directs only only.
+                For direct chats only.
+
+            receiver_user_id (``int`` | ``str``, *optional*):
+                For outgoing ephemeral messages, unique identifier (int) or username (str) of the user who will receive the message.
+                For group and supergroup chats only.
+                It is not guaranteed that the user will receive the message, especially if they are offline.
+                See `ephemeral message sending <https://core.telegram.org/bots/api#ephemeral-messages-and-commands>`__ for more details.
+
+            callback_query_id (``str``, *optional*):
+                For outgoing ephemeral messages, identifier of the callback query which triggered the message if any.
 
             effect_id (``int``, *optional*):
                 Unique identifier of the message effect.
@@ -125,7 +136,8 @@ class SendContact:
                 instructions to remove reply keyboard or to force a reply from the user.
 
         Returns:
-            :obj:`~pyrogram.types.Message`: On success, the sent contact message is returned.
+            :obj:`~pyrogram.types.Message` | ``None``: On success, the sent contact message is returned,
+            otherwise, in case the server answered with no message, None is returned.
 
         Example:
             .. code-block:: python
@@ -181,9 +193,29 @@ class SendContact:
                 quote_position=quote_offset
             )
 
-
-        r = await self.invoke(
-            raw.functions.messages.SendMedia(
+        if receiver_user_id:
+            rpc = raw.functions.ephemeral.SendMessage(
+                peer=await self.resolve_peer(chat_id),
+                receiver_id=await self.resolve_peer(receiver_user_id),
+                query_id=int(callback_query_id) if callback_query_id is not None else None,
+                media=raw.types.InputMediaContact(
+                    phone_number=phone_number,
+                    first_name=first_name,
+                    last_name=last_name or "",
+                    vcard=vcard or ""
+                ),
+                reply_to=await utils.get_reply_to(
+                    self,
+                    reply_parameters,
+                    message_thread_id,
+                    direct_messages_topic_id
+                ),
+                random_id=self.rnd_id(),
+                reply_markup=await reply_markup.write(self) if reply_markup else None,
+                message=""
+            )
+        else:
+            rpc = raw.functions.messages.SendMedia(
                 peer=await self.resolve_peer(chat_id),
                 media=raw.types.InputMediaContact(
                     phone_number=phone_number,
@@ -207,9 +239,9 @@ class SendContact:
                 effect=effect_id,
                 allow_paid_stars=paid_message_star_count,
                 suggested_post=suggested_post_parameters.write() if suggested_post_parameters else None,
-            ),
-            business_connection_id=business_connection_id
-        )
+            )
+
+        r = await self.invoke(rpc, business_connection_id=business_connection_id)
 
         messages = await utils.parse_messages(client=self, messages=r)
 

@@ -1,9 +1,8 @@
-"""A collection of functions which are triggered automatically by finder when
-pandas package is included.
-"""
+"""Hooks triggered by finder when pandas package is included."""
 
 from __future__ import annotations
 
+from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING
 
 from cx_Freeze.module import Module, ModuleHook
@@ -18,14 +17,11 @@ __all__ = ["Hook"]
 class Hook(ModuleHook):
     """The Hook class for pandas."""
 
-    def pandas(
-        self,
-        finder: ModuleFinder,
-        module: Module,
-    ) -> None:
-        """The pandas package.
+    def pandas(self, finder: ModuleFinder, module: Module) -> None:
+        """Patch the pandas package.
 
-        Supported pypi and conda-forge versions (tested from 1.3.3 to 2.3.0).
+        Supported pypi and conda-forge versions.
+        Tested pandas versions of pypi from 1.3.3 to 3.0.5.
         """
         finder.exclude_module("pandas.conftest")
         finder.exclude_module("pandas.testing")
@@ -34,295 +30,338 @@ class Hook(ModuleHook):
         finder.include_package("pandas._config")
         finder.include_package("pandas._libs")
 
-        code_bytes = module.file.read_bytes()
-        code_bytes = code_bytes.replace(
-            b"from pandas import testing", b"testing = None"
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        source_code = source_code.replace(
+            "from pandas import testing", "testing = None"
         )
-        module.code = compile(
-            code_bytes,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
+
+    def pandas_core_arrays_sparse_accessor(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """Ignore optional module."""
+        module.ignore_names.add("scipy.sparse")
+
+    def pandas_core_arrays_sparse_array(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """Ignore optional module."""
+        module.ignore_names.add("scipy.sparse")
+
+    def pandas_core_arrays_sparse_scipy_sparse(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """Ignore optional module."""
+        module.ignore_names.add("scipy.sparse")
+
+    def pandas_core_dtypes_common(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """Ignore optional module."""
+        module.ignore_names.add("scipy.sparse")
 
     def pandas_core__numba_executor(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        module.ignore_names.add("numba")
 
     def pandas_core__numba_extensions(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(
-            [
-                "numba",
-                "numba.core",
-                "numba.core.datamodel",
-                "numba.core.extending",
-                "numba.core.imputils",
-                "numba.typed",
-            ]
-        )
+        module.ignore_names |= {
+            "numba",
+            "numba.core",
+            "numba.core.datamodel",
+            "numba.core.extending",
+            "numba.core.imputils",
+            "numba.typed",
+        }
 
     def pandas_core__numba_kernels_mean_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core__numba_kernels_min_max_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core__numba_kernels_shared(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core__numba_kernels_sum_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba", "numba.extending"])
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "numba",
+            "numba.extending",
+        }
 
     def pandas_core__numba_kernels_var_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core_computation_engines(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numexpr"])
+        """Ignore optional module."""
+        module.ignore_names.add("numexpr")
 
     def pandas_core_computation_expressions(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numexpr"])
+        """Ignore optional module."""
+        module.ignore_names.add("numexpr")
 
     def pandas_core_groupby_numba_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core_nanops(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["scipy.stats"])
+        """Ignore optional module."""
+        module.ignore_names.add("scipy.stats")
 
     def pandas_core_missing(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["scipy"])
+        """Ignore optional module."""
+        module.ignore_names.add("scipy")
 
     def pandas_core_util_numba_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core_window_numba_(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_core_window_online(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.core module."""
-        module.ignore_names.update(["numba"])
+        """Ignore optional module."""
+        module.ignore_names.add("numba")
 
     def pandas_io_clipboard(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.formats.style module."""
-        module.ignore_names.update(
-            [
-                "AppKit",
-                "Foundation",
-                "PyQt4",
-                "PyQt4.QtGui",
-                "PyQt5",
-                "PyQt5.QtWidgets",
-                "qtpy",
-                "qtpy.QtWidgets",
-            ]
-        )
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "AppKit",
+            "Foundation",
+            "PyQt4",
+            "PyQt4.QtGui",
+            "PyQt5",
+            "PyQt5.QtWidgets",
+            "qtpy",
+            "qtpy.QtWidgets",
+        }
 
     def pandas_io_common(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["botocore.exceptions"])
+        """Ignore optional module."""
+        module.ignore_names.add("botocore.exceptions")
 
     def pandas_io_excel__base(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["xlrd"])
+        """Ignore optional module."""
+        module.ignore_names.add("xlrd")
 
     def pandas_io_excel__calamine(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["python_calamine"])
+        """Ignore optional module."""
+        module.ignore_names.add("python_calamine")
 
     def pandas_io_excel__odfreader(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(
-            [
-                "odf.element",
-                "odf.namespaces",
-                "odf.office",
-                "odf.opendocument",
-                "odf.table",
-                "odf.text",
-            ]
-        )
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "odf.element",
+            "odf.namespaces",
+            "odf.office",
+            "odf.opendocument",
+            "odf.table",
+            "odf.text",
+        }
 
     def pandas_io_excel__odswriter(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(
-            [
-                "odf.config",
-                "odf.opendocument",
-                "odf.style",
-                "odf.table",
-                "odf.text",
-            ]
-        )
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "odf.config",
+            "odf.opendocument",
+            "odf.style",
+            "odf.table",
+            "odf.text",
+        }
 
     def pandas_io_excel__openpyxl(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(
-            [
-                "openpyxl",
-                "openpyxl.cell.cell",
-                "openpyxl.descriptors.serialisable",
-                "openpyxl.styles",
-                "openpyxl.workbook",
-            ]
-        )
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "openpyxl",
+            "openpyxl.cell.cell",
+            "openpyxl.descriptors.serialisable",
+            "openpyxl.styles",
+            "openpyxl.workbook",
+        }
 
     def pandas_io_excel__pyxlsb(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["pyxlsb"])
+        """Ignore optional module."""
+        module.ignore_names.add("pyxlsb")
 
     def pandas_io_excel__xlrd(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["xlrd"])
+        """Ignore optional module."""
+        module.ignore_names.add("xlrd")
 
     def pandas_io_excel__xlsxwriter(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.excel module."""
-        module.ignore_names.update(["xlsxwriter"])
+        """Ignore optional module."""
+        module.ignore_names.add("xlsxwriter")
 
     def pandas_io_feather_format(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in pandas.io.parsers.base_parser module."""
-        module.ignore_names.update(["pyarrow"])
+        """Ignore optional module."""
+        module.ignore_names.add("pyarrow")
 
     def pandas_io_formats_printing(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """Ignore optional modules in the pandas.io.formats.printing module."""
-        module.ignore_names.update(
-            ["IPython", "IPython.core.formatters", "traitlets"]
-        )
+        """Ignore optional modules."""
+        module.ignore_names |= {
+            "IPython",
+            "IPython.core.formatters",
+            "traitlets",
+        }
 
     def pandas_io_formats_xml(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.io.formats.xml module."""
-        module.ignore_names.update(["lxml.etree"])
+        module.ignore_names |= {
+            "xml.dom.minidom",
+            "lxml.etree",
+            "xml.etree.ElementTree",
+        }
 
     def pandas_io_formats_style(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.io.formats.style module."""
-        module.ignore_names.update(
-            ["matplotlib", "matplotlib.colors", "matplotlib.pyplot"]
-        )
+        module.ignore_names |= {
+            "matplotlib",
+            "matplotlib.colors",
+            "matplotlib.pyplot",
+        }
 
     def pandas_io_formats_style_render(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in pandas.io.formats.style_render module."""
-        module.ignore_names.update(
-            ["markupsafe", "pandas.api.types.is_list_like"]
-        )
+        module.ignore_names |= {
+            "markupsafe",
+            "pandas.api.types.is_list_like",
+        }
 
     def pandas_io_gbq(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in pandas.io.parsers.base_parser module."""
-        module.ignore_names.update(["google.auth.credentials"])
+        module.ignore_names.add("google.auth.credentials")
 
     def pandas_io_html(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in the pandas.io.html module."""
-        module.ignore_names.update(["bs4", "lxml.etree", "lxml.html"])
+        module.ignore_names |= {
+            "bs4",
+            "lxml.etree",
+            "lxml.html",
+        }
 
     def pandas_io_orc(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in the pandas.io.orc module."""
-        module.ignore_names.update(["fsspec", "pyarrow.fs"])
+        module.ignore_names |= {
+            "fsspec",
+            "pyarrow.fs",
+        }
 
     def pandas_io_parsers_base_parser(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in pandas.io.parsers.base_parser module."""
-        module.ignore_names.update(["pyarrow"])
+        module.ignore_names.add("pyarrow")
 
     def pandas_io_parquet(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules in the pandas.io.sql module."""
-        module.ignore_names.update(["pyarrow.parquet"])
+        """Ignore optional modules in the pandas.io.parquet module."""
+        module.ignore_names.add("pyarrow.parquet")
 
     def pandas_io_pytables(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.io.pytables module."""
-        module.ignore_names.update(["pandas.core.internals.Block", "tables"])
+        module.ignore_names |= {
+            "pandas.core.internals.Block",
+            "tables",
+        }
 
     def pandas_io_sql(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in the pandas.io.sql module."""
-        module.ignore_names.update(
-            [
-                "pyarrow",
-                "sqlalchemy",
-                "sqlalchemy.engine",
-                "sqlalchemy.schema",
-                "sqlalchemy.sql.expression",
-                "sqlalchemy.types",
-            ]
-        )
+        module.ignore_names |= {
+            "adbc_driver_manager",
+            "pyarrow",
+            "sqlalchemy",
+            "sqlalchemy.engine",
+            "sqlalchemy.exc",
+            "sqlalchemy.schema",
+            "sqlalchemy.sql.expression",
+            "sqlalchemy.types",
+        }
 
     def pandas_io__util(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in the pandas.io._util module."""
-        module.ignore_names.update(["pyarrow"])
+        module.ignore_names.add("pyarrow")
 
     def pandas_io_xml(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules in the pandas.io.xml module."""
-        module.ignore_names.update(["lxml", "lxml.etree"])
+        module.ignore_names |= {
+            "lxml",
+            "lxml.etree",
+            "xml.etree.ElementTree",
+        }
 
     def pandas__libs_testing(
         self,
@@ -342,27 +381,15 @@ class Hook(ModuleHook):
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas.plotting._misc module."""
-        module.ignore_names.update(
-            [
-                "matplotlib.axes",
-                "matplotlib.colors",
-                "matplotlib.figure",
-                "matplotlib.table",
-            ]
-        )
-
-    def pandas__testing(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules in the pandas._testing module."""
-        module.exclude_names.add("pytest")
+        module.ignore_names |= {
+            "matplotlib.axes",
+            "matplotlib.colors",
+            "matplotlib.figure",
+            "matplotlib.table",
+        }
 
     def pandas__testing_asserters(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules in the pandas._testing.asserters module."""
         module.ignore_names.add("matplotlib.pyplot")
-
-    def pandas__testing__io(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules in the pandas._testing._io module."""
-        module.exclude_names.add("pytest")

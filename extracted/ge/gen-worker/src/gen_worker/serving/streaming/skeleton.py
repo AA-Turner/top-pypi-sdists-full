@@ -1,22 +1,22 @@
 """Step 1 of ``ctx.load``: the pipeline, built from CONFIGS, holding no bytes.
 
-``model_index.json`` names every component and the class that builds it. Each
-nn.Module component is constructed ``from_config`` under
-:func:`gen_worker.models.meta_init.init_empty_weights`, so its parameters land
-on ``meta`` — no storage, no read, no allocation. Everything else (scheduler,
-tokenizer, feature extractor, image processor) keeps its stock
-``from_pretrained`` against the projected tree: those are small REAL files that
-stay symlinks, and reading a 2 KB tokenizer through a streaming engine would
-be ceremony without a payoff.
+The skeleton is what ``from_pretrained`` would have handed back MINUS THE
+WEIGHTS — and that is a claim about the PREPARATION, not only about bytes.
+``cls(config)`` runs a constructor; ``from_pretrained`` runs a constructor
+inside a preparation, and every step of it this module skips is a STRUCTURAL
+difference the engine then blames the checkpoint for. Two members have been
+paid for on hardware: ``post_init()``/``tie_weights()`` (pgw#1626, one orphan
+alias) and the quantizer's module swap (pgw#1638, 357 orphan
+``weight_scale_inv`` — ``cls(config)`` leaves plain ``nn.Linear`` where
+``from_pretrained`` leaves ``FP8Linear``). A third was found by AUDITING the
+family instead of renting a pod for it: ``model.eval()``, which both
+``from_pretrained`` implementations end with and this one never did, leaving
+every weight-bearing component on the fleet serving with dropout armed.
 
-The result is a genuine instance of the pipeline class the author named. It is
-not a proxy, not a subclass, not a patched object — handlers, ``ctx.compile``
-marking and ``load_lora_weights`` all meet exactly what they would have met
-after ``from_pretrained``, minus the weights, which arrive next.
-
-Symmetry with the publish moment (pgw#1370): the SAME construction on meta,
-with nothing streamed into it, is what the derive traces. One surface, two
-moments — the ``ctx.compile`` duality, for weights.
+So the preparation is written out here in the order ``from_pretrained`` runs
+it — construct, cast to the lane, swap the modules the config's quantizer
+declares, put the module in eval mode — and its trailing half, which cannot
+run before bytes land, is :func:`finish_quantized`.
 """
 
 from __future__ import annotations
@@ -24,9 +24,11 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from typing import (
+    TYPE_CHECKING, Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple,
+)
 
 from ...models.meta_init import init_empty_weights
 
@@ -42,38 +44,37 @@ class SkeletonError(RuntimeError):
     """The meta skeleton could not be built from configs alone."""
 
 
+@dataclass(frozen=True, slots=True)
+class Quantization:
+    """What one component's DECLARED quantizer did to its meta skeleton.
+
+    ``rule`` is the cozy quant rule those bytes are, so a refusal and the
+    decode-set check name the contract rather than transformers' internal
+    method string. ``tensors`` is every parameter/buffer name the swap now
+    owns: their dtypes are the RULE's (fp8 weights, an F32 128x128 scale
+    grid), never the lane's, which is why the engine's lane cast and lane
+    assertion both skip them. ``quantizer`` is kept for
+    :func:`finish_quantized`.
+    """
+
+    rule: str
+    quantizer: Any
+    tensors: FrozenSet[str]
+
+
 @dataclass(slots=True)
 class Skeleton:
     """A meta-built pipeline and the components weights must reach."""
 
     pipeline: Any
-    #: component name -> the nn.Module built on meta. Component ``""`` is a
-    #: single-module checkpoint with no ``model_index.json``.
     modules: Dict[str, Any]
-    #: Components that came from a stock ``from_pretrained`` (small real
-    #: files); no tensor container of theirs is streamed.
     passthrough: Tuple[str, ...] = ()
+    #: component -> its :class:`Quantization`, for the components whose
+    #: config declared one. Absent means "no quantizer ran", never "unknown".
+    quantized: Dict[str, Quantization] = field(default_factory=dict)
 
 
 def _resolve(library: str, class_name: str) -> type:
-    """The class a ``model_index.json`` entry names.
-
-    A library entry is EITHER an importable module (``transformers``,
-    ``diffusers``) OR a diffusers PIPELINE SUBMODULE name — ``stable_diffusion``
-    for ``StableDiffusionSafetyChecker``, which is not importable as a
-    top-level module and never was. diffusers' own loader tests exactly this,
-    in this order (`hasattr(diffusers.pipelines, library_name)` →
-    ``getattr(pipeline_module, class_name)``), so this mirrors it rather than
-    inventing a second rule for the same file format.
-
-    Found by RUNNING it (pgw#1518, via pgw#1491's acceptance): every sd15 checkpoint on the
-    hub names ``stable_diffusion.StableDiffusionSafetyChecker``, and
-    `gen-worker up` died on it. It had gone unseen because the eager bridge
-    (``from_pretrained``) resolves it correctly and this skeleton is reached
-    ONLY when the tree has a chunk store behind it — i.e. exactly the
-    production-shaped path, and never the bare-tree local one the campaign
-    used.
-    """
     module: Any
     try:
         module = importlib.import_module(library)
@@ -100,12 +101,6 @@ def _resolve(library: str, class_name: str) -> type:
 
 
 def _diffusers_pipelines() -> Any:
-    """``diffusers.pipelines``, or ``None`` when diffusers is absent.
-
-    Absent is legal: a non-diffusers endpoint's model_index names no pipeline
-    submodule, and importing diffusers to prove that would be a hard dependency
-    this module does not otherwise have.
-    """
     try:
         import diffusers.pipelines as pipelines
     except ImportError:
@@ -119,24 +114,158 @@ def _is_module(cls: type) -> bool:
     return issubclass(cls, torch.nn.Module)
 
 
-def _build_on_meta(cls: type, directory: Path, component: str) -> Any:
-    """Construct one nn.Module component from its config, on meta."""
+def _declared_quantization(config: Any) -> Any:
+    """The ``quantization_config`` a component's config declares, or None."""
+    if isinstance(config, Mapping):
+        return config.get("quantization_config")
+    return getattr(config, "quantization_config", None)
+
+
+def _quant_rule(declared: Any, component: str, directory: Path) -> str:
+    """The cozy quant rule this ``quantization_config`` names.
+
+    A method with no rule here is REFUSED rather than swapped on
+    transformers' word alone: the swap is only as honest as the image's
+    declaration behind it, and a rule this image cannot decode must fail by
+    name at the skeleton rather than as N orphan scale tensors two steps
+    later.
+    """
+    from ...models import hf_fp8_blockwise
+
+    if hf_fp8_blockwise.declares_quant_rule(declared):
+        return hf_fp8_blockwise.QUANT_RULE
+    method = getattr(declared, "quant_method", None)
+    if method is None and isinstance(declared, Mapping):
+        method = declared.get("quant_method")
+    raise SkeletonError(
+        f"component {component!r} ({directory}) declares "
+        f"quantization_config quant_method={getattr(method, 'value', method)!r}, "
+        f"which names no tensor-layout quant rule this loader knows. "
+        f"ctx.load builds the module set the config asks for and cannot "
+        f"guess which linears a method replaces; a checkpoint quantized by a "
+        f"method with no rule is refused here rather than loaded as plain "
+        f"linears whose scale tensors then name nothing (pgw#1638)"
+    )
+
+
+def _prepare_quantized(
+    built: Any, config: Any, *, component: str, directory: Path,
+    transformers_class: bool,
+) -> Optional[Quantization]:
+    """Run the config's own quantizer over the meta skeleton (pgw#1638).
+
+    ``HfQuantizer.preprocess_model`` is the step ``from_pretrained`` runs
+    between construction and weight loading, and its own docstring says the
+    model "should be initialized on the meta device" at that point — so this
+    is the API used as designed, not a second implementation of the swap.
+    ``pre_quantized=True``: this loader reads pre-quantized artifacts and
+    never quantizes.
+
+    ``validate_environment`` is deliberately NOT called. Whether this card
+    can run the rule's kernels is the lane contract's ``capability_floor_sm``
+    and the hub's pod pick, which is the one place that fact is allowed to
+    live; asking transformers again here would fork it and would make the
+    skeleton unbuildable off a GPU, which is where the conformance suite runs.
+    """
+    declared = _declared_quantization(config)
+    if declared is None:
+        return None
+    rule = _quant_rule(declared, component, directory)
+
+    from ...discovery.decode_set import require_decodable
+
+    require_decodable(rule, where=f"{directory} (component {component!r})")
+
+    if not transformers_class:
+        raise SkeletonError(
+            f"component {component!r} ({type(built).__name__}) declares "
+            f"quantization_config {rule!r} but is built through the diffusers "
+            f"from_config path, which runs no quantizer. Streaming it would "
+            f"fill plain modules and leave every scale tensor naming nothing "
+            f"(pgw#1638's shape). This component needs a diffusers-side "
+            f"quantizer preparation before it can be served on this loader"
+        )
+
+    from transformers.quantizers.auto import AutoHfQuantizer
+
+    quantizer = AutoHfQuantizer.from_config(declared, pre_quantized=True)
+    before = {name: type(sub) for name, sub in built.named_modules()}
+    with init_empty_weights():
+        quantizer.preprocess_model(model=built, config=config)
+    swapped = [
+        name for name, sub in built.named_modules()
+        if before.get(name) is not type(sub)
+    ]
+    owned: Set[str] = set()
+    for prefix in swapped:
+        sub = built.get_submodule(prefix) if prefix else built
+        head = f"{prefix}." if prefix else ""
+        for leaf, _ in sub.named_parameters(remove_duplicate=False):
+            owned.add(head + leaf)
+        for leaf, _ in sub.named_buffers(remove_duplicate=False):
+            owned.add(head + leaf)
+    if not swapped:
+        raise SkeletonError(
+            f"component {component!r} declares {rule!r} but "
+            f"{type(quantizer).__name__} replaced no module in the meta "
+            f"skeleton. Every scale tensor the container carries would name "
+            f"nothing; a quantized config that swaps nothing is a mismatch "
+            f"between this image's transformers and the tree, not a load"
+        )
+    logger.info(
+        "ctx.load: component %r prepared for %s — %d module(s) swapped, "
+        "%d tensor(s) now belong to the rule",
+        component, rule, len(swapped), len(owned),
+    )
+    return Quantization(rule=rule, quantizer=quantizer, tensors=frozenset(owned))
+
+
+def _build_on_meta(
+    cls: type, directory: Path, component: str, compute_dtype: Any = None,
+) -> Tuple[Any, Optional[Quantization]]:
     load_config = getattr(cls, "load_config", None)
     from_config = getattr(cls, "from_config", None)
+    built: Any = None
+    config: Any = None
+    transformers_class = False
     if callable(load_config) and callable(from_config):
-        # diffusers ConfigMixin: the config is a plain dict on disk.
         config = load_config(str(directory))
         if isinstance(config, tuple):
             config = config[0]
         with init_empty_weights():
-            return from_config(config)
-
-    config_class = getattr(cls, "config_class", None)
-    if config_class is not None and hasattr(config_class, "from_pretrained"):
-        # transformers PreTrainedModel: the config is a typed object.
-        config = config_class.from_pretrained(str(directory))
-        with init_empty_weights():
-            return cls(config)
+            built = from_config(config)
+    else:
+        config_class = getattr(cls, "config_class", None)
+        if config_class is not None and hasattr(config_class, "from_pretrained"):
+            config = config_class.from_pretrained(str(directory))
+            transformers_class = True
+            with init_empty_weights():
+                built = cls(config)
+    if built is not None:
+        # The lane cast runs BEFORE the swap: it is for the residue the
+        # container does not name, and every tensor a swapped module holds
+        # comes out of the container at the RULE's dtype. Casting after would
+        # round a 128x128 F32 scale grid to bf16 and call it a repair.
+        if compute_dtype is not None:
+            built = built.to(compute_dtype)
+        quantization = _prepare_quantized(
+            built, config, component=component, directory=directory,
+            transformers_class=transformers_class,
+        )
+        # THE THIRD MEMBER OF THE FAMILY (pgw#1638's audit). Both
+        # `from_pretrained` implementations end with `model.eval()` —
+        # transformers says why in its own source: "Set model in evaluation
+        # mode to deactivate Dropout modules by default". A config-built
+        # module is in TRAIN mode, and nothing on this path ever changed it,
+        # so every one of the 44 weight-bearing components on the fleet has
+        # been serving with dropout ARMED. Five of them carry a live
+        # `Dropout(p=0.1)`: every T5/UMT5 conditioner on the fleet
+        # (flux.1-dev, flux.1-schnell, foundation-1, stable-audio-open,
+        # wan-2.2), i.e. randomized conditioning, nondeterministic output, no
+        # error anywhere. AFTER the swap, because a quantizer's replacement
+        # modules are constructed in train mode like any other.
+        built.eval()
+        return built, quantization
 
     raise SkeletonError(
         f"component {component!r} ({cls.__module__}.{cls.__name__}) exposes "
@@ -146,13 +275,26 @@ def _build_on_meta(cls: type, directory: Path, component: str) -> Any:
     )
 
 
-def build(
-    pipeline_cls: type,
-    checkpoint_dir: Path,
-    *,
-    extra_kwargs: Optional[Mapping[str, Any]] = None,
-) -> Skeleton:
-    """Build ``pipeline_cls`` from configs only. Reads no tensor bytes."""
+@dataclass(frozen=True, slots=True)
+class ComponentSpec:
+    """One ``model_index.json`` component declaration, already validated.
+
+    ``library`` and ``class_name`` are ``None`` for a declared-but-absent
+    optional component — the ``[null, null]`` spelling, which is the ONE way
+    an index says "this pipeline accepts None here".
+    """
+
+    name: str
+    library: Optional[str]
+    class_name: Optional[str]
+
+    @property
+    def absent(self) -> bool:
+        return self.library is None or self.class_name is None
+
+
+def read_index(checkpoint_dir: Path) -> Tuple[Path, Dict[str, Any]]:
+    """The tree's ``model_index.json``, parsed. Reads no tensor bytes."""
     index_path = Path(checkpoint_dir) / MODEL_INDEX
     if not index_path.is_file():
         raise SkeletonError(
@@ -164,39 +306,25 @@ def build(
         index = json.loads(index_path.read_text())
     except ValueError as exc:
         raise SkeletonError(f"{index_path} is not readable JSON: {exc}") from exc
+    return index_path, index
 
-    components: Dict[str, Any] = {}
-    modules: Dict[str, Any] = {}
-    passthrough: List[str] = []
 
+def component_specs(index_path: Path, index: Mapping[str, Any]) -> List[ComponentSpec]:
+    """Every component a parsed index declares, in name order.
+
+    This walk — and every refusal in it — is shared by :func:`build` and
+    :func:`build_modules`, so the two cannot disagree about what an index
+    says. That is the whole reason it is a function: the conformance suite
+    and the release-build fence read the index through the SAME reader the
+    production loader does, or they are proving something about a second
+    parser nobody serves with.
+    """
+    specs: List[ComponentSpec] = []
     for name, spec in sorted(index.items()):
         if name.startswith("_"):
             continue
-        # pgw#1618: A SCALAR ENTRY IS PIPELINE CONFIG, NOT A COMPONENT, and a
-        # CANONICAL diffusers index carries several. SDXL's ships
-        # `"force_zeros_for_empty_prompt": true` and `"add_watermarker": null`
-        # right beside its eight component pairs; neither starts with `_`, so
-        # the `_`-prefix skip above does not cover them. Diffusers itself
-        # treats exactly this shape as config — anything that is not a
-        # (library, class_name) pair is handed to the pipeline's `__init__`,
-        # never resolved as a module.
-        #
-        # MEASURED ON A RENTED POD, not reasoned about: sdxl 0.4.0 on an
-        # RTX 4090 (pod cwnu3dyz72c1wn, se#819) fetched its 6.7 GB checkpoint,
-        # then died `SkeletonError: … entry 'force_zeros_for_empty_prompt' is
-        # True, which is not [library, class_name]` — first as
-        # `boot_warmup_failed`, then as a FATAL request result that the blame
-        # ladder burned the worker on. Every diffusers-family endpoint on the
-        # streaming loader is exposed to this.
         if not isinstance(spec, (list, tuple)):
             continue
-        # pgw#1481 is UNCHANGED for the case it was actually about: an entry
-        # that IS list-shaped but that this walker cannot read is REFUSED BY
-        # NAME, never skipped. A bare `continue` over those collapsed nine
-        # specific failures into one "declares no nn.Module component" that
-        # named none of them — and that sentence is false when the index
-        # declares nine. A scalar is not that case; it is not a component at
-        # all, and refusing it made a correct index unloadable.
         if len(spec) < 2:
             raise SkeletonError(
                 f"{index_path} entry {name!r} is {spec!r}, which is not "
@@ -204,12 +332,6 @@ def build(
             )
         library, class_name = spec[0], spec[1]
         if len(spec) > 2:
-            # A MODULAR index entry: [library, class_name, {type_hint,
-            # pretrained_model_name_or_path, subfolder, variant, revision}].
-            # Its first two elements mean exactly what the classic ones mean,
-            # so it is loadable — but only while the metadata does not send us
-            # somewhere else. Anything that relocates the component is refused
-            # rather than silently read from `checkpoint_dir/<name>`.
             meta = spec[2] if len(spec) == 3 and isinstance(spec[2], dict) else None
             if meta is None:
                 raise SkeletonError(
@@ -232,9 +354,81 @@ def build(
                         f"{field}={meta[field]!r}. The projected tree carries one "
                         f"cut of this component and cannot honour that pin."
                     )
-        if library is None or class_name is None:
-            # A declared-but-absent optional component (safety checker and
-            # friends). The pipeline takes None and says so itself.
+        specs.append(
+            ComponentSpec(
+                name=name,
+                library=None if library is None else str(library),
+                class_name=None if class_name is None else str(class_name),
+            )
+        )
+    return specs
+
+
+def build_modules(
+    checkpoint_dir: Path, *, compute_dtype: Any = None,
+) -> Dict[str, Any]:
+    """Every WEIGHT-BEARING component of a tree, built on meta. No pipeline.
+
+    :func:`build` is the production path and stays the production path: it
+    also constructs the passthrough components and the pipeline object, which
+    is what serving needs. This is the half that answers "do the modules this
+    tree declares come up on meta, and does anything stay there" — and it is
+    separate because the passthrough half needs files a CONFIG-ONLY tree does
+    not carry (a tokenizer's `vocab.json` is megabytes of real bytes that
+    every checkpoint-config fixture on the fleet deliberately omits) and
+    optional third-party backends a pipeline's scheduler may import.
+
+    Neither of those is the question. A tokenizer has no parameters, so it
+    cannot leave one on meta; making the meta/tie check depend on a
+    sentencepiece model would mean the check simply does not run for half the
+    fleet, which is worse than any answer it could give.
+    """
+    index_path, index = read_index(checkpoint_dir)
+    modules: Dict[str, Any] = {}
+    for spec in component_specs(index_path, index):
+        if spec.absent:
+            continue
+        # The class is resolved BEFORE the directory is required — the reverse
+        # of `build`'s order, and deliberately. A component this function will
+        # not construct needs no files, so a tree missing a tokenizer's bytes
+        # must not stop the modules beside it from being answered for.
+        cls = _resolve(str(spec.library), str(spec.class_name))
+        if not _is_module(cls):
+            continue
+        directory = Path(checkpoint_dir) / spec.name
+        if not directory.is_dir():
+            raise SkeletonError(
+                f"{MODEL_INDEX} declares component {spec.name!r} but "
+                f"{directory} is not in the projected tree"
+            )
+        modules[spec.name], _ = _build_on_meta(
+            cls, directory, spec.name, compute_dtype)
+    if not modules:
+        raise SkeletonError(
+            f"{index_path} declares no nn.Module component; there would be "
+            f"no weights to stream"
+        )
+    return modules
+
+
+def build(
+    pipeline_cls: type,
+    checkpoint_dir: Path,
+    *,
+    extra_kwargs: Optional[Mapping[str, Any]] = None,
+    compute_dtype: Any = None,
+) -> Skeleton:
+    """Build ``pipeline_cls`` from configs only."""
+    index_path, index = read_index(checkpoint_dir)
+
+    components: Dict[str, Any] = {}
+    modules: Dict[str, Any] = {}
+    quantized: Dict[str, Quantization] = {}
+    passthrough: List[str] = []
+
+    for spec in component_specs(index_path, index):
+        name, library, class_name = spec.name, spec.library, spec.class_name
+        if spec.absent:
             components[name] = None
             continue
         directory = Path(checkpoint_dir) / name
@@ -245,21 +439,12 @@ def build(
             )
         cls = _resolve(str(library), str(class_name))
         if _is_module(cls):
-            components[name] = _build_on_meta(cls, directory, name)
+            components[name], quantization = _build_on_meta(
+                cls, directory, name, compute_dtype)
             modules[name] = components[name]
+            if quantization is not None:
+                quantized[name] = quantization
         else:
-            # PASSTHROUGH: a non-`nn.Module` component (tokenizer, scheduler,
-            # feature extractor). Its files are small REAL files, so the stock
-            # `from_pretrained` is correct — but ONLY while that stays true.
-            #
-            # pgw#1549: prove it instead of assuming it. A projected tree
-            # chunks TENSOR CONTAINERS into the CAS and leaves a ~128 B
-            # TFSSTUB1 stub at the path; if one ever lands under a passthrough
-            # component, `from_pretrained` reads the stub's first eight bytes
-            # as a header length and raises `SafetensorError: header too
-            # large` — a LIE ABOUT THE CHECKPOINT that cost two days once
-            # already (pgw#1513). One `stub_at_any` call converts that into a
-            # named refusal that says which component and what to do.
             from ...models import projection
 
             if projection.stub_at_any(directory):
@@ -294,20 +479,6 @@ def build(
             f"{sorted(kwargs)} named by {index_path}: {exc}"
         ) from exc
 
-    # pgw#1410: THE PIPELINE MUST ACTUALLY CARRY WHAT WE ARE ABOUT TO STREAM.
-    #
-    # `pipeline_cls(**kwargs)` is the classic `DiffusionPipeline.__init__`
-    # contract. `ModularPipeline.__init__` routes `**kwargs` to `load_config`
-    # and DROPS every component, then `register_components` sets each one to
-    # None. Nothing raised: the skeleton returned a pipeline whose components
-    # are all None while `modules` held the real objects, `StreamingLoader`
-    # streamed the entire checkpoint into those ORPHANS, `meta_survivors`
-    # passed (it is per-module, and the modules were fine — it was the PIPELINE
-    # that was empty), and the failure surfaced as `None` where a component
-    # belongs, on a rented pod, after a full weight load had been paid for.
-    #
-    # Identity, not truthiness: a pipeline that rebuilt or copied the component
-    # would stream into the copy we hold and serve the one it holds.
     orphans = [
         name for name, module in modules.items()
         if name and getattr(pipeline, name, None) is not module
@@ -327,22 +498,52 @@ def build(
 
     logger.info(
         "ctx.load: meta skeleton %s built from configs — %d module component(s), "
-        "%d passthrough, 0 tensor bytes read",
+        "%d passthrough, %d quantized, 0 tensor bytes read",
         pipeline_cls.__name__,
         len(modules),
         len(passthrough),
+        len(quantized),
     )
-    return Skeleton(pipeline=pipeline, modules=modules, passthrough=tuple(passthrough))
+    return Skeleton(
+        pipeline=pipeline, modules=modules, passthrough=tuple(passthrough),
+        quantized=quantized,
+    )
+
+
+def finish_quantized(module: "torch.nn.Module", quantization: Quantization) -> None:
+    """The trailing half of the quantizer mirror. Call AFTER streaming.
+
+    ``postprocess_model`` is what ``from_pretrained`` runs once bytes have
+    landed, and it is not cosmetic: for a ``scale_fmt="ue8m0"`` tree it
+    rewrites every F32 scale container into the exponent dtype the kernels
+    read. Running :func:`_prepare_quantized` without it would be half a
+    mirror — the same shape as the defect this whole seam exists to end.
+
+    AFTER the stream and after the lane cast, for the same reason
+    :func:`retie` is: it reads the tensors that are actually there.
+    """
+    quantization.quantizer.postprocess_model(module)
+
+
+def retie(module: "torch.nn.Module") -> bool:
+    """Re-establish this module's tied weights."""
+    tie = getattr(module, "tie_weights", None)
+    if not callable(tie):
+        return False
+    tie()
+    return True
+
+
+def tied_names(module: "torch.nn.Module") -> Tuple[str, ...]:
+    """The parameter names this class declares to be ALIASES of another name."""
+    declared = getattr(module, "_tied_weights_keys", None)
+    if not declared:
+        return ()
+    return tuple(sorted(str(name) for name in declared))
 
 
 def meta_survivors(module: "torch.nn.Module") -> Tuple[str, ...]:
-    """Every parameter or buffer still on ``meta``.
-
-    A survivor is never acceptable: it is a name the checkpoint did not carry,
-    silently serving garbage on the first request. ``remove_duplicate=False``
-    so a tied weight is reported under every name it answers to rather than
-    hiding behind whichever alias happened to be assigned.
-    """
+    """Every parameter or buffer still on ``meta``."""
     left: List[str] = []
     for name, parameter in module.named_parameters(remove_duplicate=False):
         if parameter.device.type == "meta":
@@ -353,4 +554,14 @@ def meta_survivors(module: "torch.nn.Module") -> Tuple[str, ...]:
     return tuple(sorted(left))
 
 
-__all__ = ["MODEL_INDEX", "Skeleton", "SkeletonError", "build", "meta_survivors"]
+__all__ = [
+    "MODEL_INDEX",
+    "Quantization",
+    "Skeleton",
+    "SkeletonError",
+    "build",
+    "finish_quantized",
+    "meta_survivors",
+    "retie",
+    "tied_names",
+]

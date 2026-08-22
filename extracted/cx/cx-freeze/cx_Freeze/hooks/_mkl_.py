@@ -1,14 +1,13 @@
-"""A collection of functions which are triggered automatically by finder when
-mkl package is included.
-"""
+"""Hooks triggered by finder when mkl package is included."""
 
 from __future__ import annotations
 
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
+from cx_Freeze._metadata import DistributionCache
 from cx_Freeze.exception import ModuleError
-from cx_Freeze.module import DistributionCache, Module, ModuleHook
+from cx_Freeze.module import Module, ModuleHook
 
 if TYPE_CHECKING:
     from cx_Freeze.finder import ModuleFinder
@@ -30,22 +29,21 @@ class Hook(ModuleHook):
     """The Hook class for mkl."""
 
     def mkl(self, finder: ModuleFinder, module: Module) -> None:
-        """The mkl package."""
         finder.exclude_module("mkl.tests")
 
         distribution = module.distribution
         if distribution and distribution.installer == "pip":
             target_dir = f"lib/{module.name}.libs"
             for file in distribution.binary_files:
-                source = file.locate().resolve()
+                source = distribution.locate_file(file)
                 target = f"{target_dir}/{source.name}"
                 finder.lib_files[source] = target
                 finder.include_files(source, target)
             for req_name in distribution.requires:
                 with suppress(ModuleError):
-                    req_dist = DistributionCache(finder.cache_path, req_name)
+                    req_dist = DistributionCache(req_name, finder)
                     for file in req_dist.binary_files:
-                        source = file.locate().resolve()
+                        source = distribution.locate_file(file)
                         target = f"{target_dir}/{source.name}"
                         finder.lib_files[source] = target
                         finder.include_files(source, target)

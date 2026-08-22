@@ -7,15 +7,21 @@ archiving in Seeq.
 """
 
 import base64
+import hashlib
 import io
 import json
+import os
+import re
+import warnings
 from abc import ABC
-from typing import List, Dict
-from urllib.parse import urljoin
+from functools import wraps
+from typing import Optional, Dict, List, Tuple
+from urllib.parse import urljoin, urlparse
 
 import onnx
 import pandas as pd
 import requests
+import time
 
 
 class PropertyNames:
@@ -199,11 +205,13 @@ class ONNXClient(ABC):
         prop = {"name": PropertyNames.Inputs, "value": value}
         return [prop]
 
-    def _base64encoded_model(self, model: onnx.ModelProto) -> str:
+    def _base64encoded_model(self, model: onnx.ModelProto) -> Tuple[str, int]:
         model_bytes = io.BytesIO()
         onnx.save(model, model_bytes)
         model_bytes.seek(0)
-        return base64.b64encode(model_bytes.read()).decode("utf-8")
+        raw_bytes = model_bytes.read()
+        encoded = base64.b64encode(raw_bytes).decode("utf-8")
+        return encoded, len(raw_bytes)
 
     def _list_formated(self, items) -> pd.DataFrame:
         records = []
@@ -305,7 +313,10 @@ def _custom_response_hook(response: requests.Response, *args, **kwargs) -> None:
 
 class SeeqONNXClient(ONNXClient):
     def __init__(self, host: str, auth_token: str):
-        self._host = host
+        parsed = urlparse(host)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError(f"Invalid host URL: {host!r}. Expected e.g. 'https://tenant.seeq.site'.")
+        self._host = f"{parsed.scheme}://{parsed.netloc}"
         self._auth_token = auth_token
         self._session = requests.Session()
         self._session.hooks = {'response': _custom_response_hook}
@@ -313,6 +324,7 @@ class SeeqONNXClient(ONNXClient):
             "Content-Type": "application/vnd.seeq.v1+json",
             "Accept": "application/vnd.seeq.v1+json",
             "x-sq-auth": self._auth_token})
+        self._telemetry = Telemetry(host=self._host, spy_session=self._session, timeout=5)
 
     def list(self, scope: str = None, include_archived: bool = False) -> pd.DataFrame:
         url = urljoin(self._host, "api/items")
@@ -333,15 +345,27 @@ class SeeqONNXClient(ONNXClient):
     def register(self, name: str, description: str, model: onnx.ModelProto, model_type: str, labels: List[str],
                  scope: str = None, **kwargs) -> str:
         url = urljoin(self._host, "api/formulas/items")
+        encoded_model, model_size = self._base64encoded_model(model)
         payload = {
             "name": name,
             "description": description,
             "formula": self._generate_formula(model_type, labels, kwargs),
             "additionalProperties": self._build_inputs(labels),
-            "binaryData": self._base64encoded_model(model),
+            "binaryData": encoded_model,
             "scopedTo": scope,
         }
         response = self._session.post(url, data=json.dumps(payload)).json()
+        props = {
+            EventConstants.EXTERNAL_ML_ID: response['id'],
+            EventConstants.EXTERNAL_ML_NAME: response['name'],
+            EventConstants.N_INPUTS: len(labels),
+            EventConstants.SCOPE: "global" if scope is None else scope,
+            EventConstants.SIZE: model_size,
+            EventConstants.MODEL_TYPE: model_type,
+            EventConstants.N_SINGLE_VALUE_OPTIONS: sum(1 for k in kwargs if k.startswith("singleValue")),
+            EventConstants.N_FEATURE_VALUE_OPTIONS: sum(1 for k in kwargs if k.startswith("featureValue")),
+        }
+        self._telemetry.track(EventConstants.EVENT_NAME_REGISTER, props)
         print(f"Successfully registered ONNX '{response['name']}' (ID: {response['id']}) (Scoped to: {scope})")
         return response['id']
 
@@ -352,12 +376,14 @@ class SeeqONNXClient(ONNXClient):
         if result_type not in self._RESULT_TYPE_TO_MODEL_TYPE.keys():
             raise ValueError(f"Item with id {id} is not a valid ONNX. Result Type: {result_type}")
         model_type = self._RESULT_TYPE_TO_MODEL_TYPE[result_type]
+        model_size = 0
         if model:
+            encoded_model, model_size = self._base64encoded_model(model)
             if not labels:
                 raise ValueError("Labels must be provided when updating the model.")
             set_formula_url = urljoin(self._host, f"api/items/{id}/formula")
             payload = {
-                "binaryData": self._base64encoded_model(model),
+                "binaryData": encoded_model,
                 "formula": self._generate_formula(model_type, labels, kwargs)
             }
             self._session.post(set_formula_url, data=json.dumps(payload))
@@ -375,6 +401,19 @@ class SeeqONNXClient(ONNXClient):
             set_scope_url = urljoin(self._host, f"api/items/{id}/scope")
             params = {"workbookId": scope}
             self._session.post(set_scope_url, params=params)
+        props = {
+            EventConstants.EXTERNAL_ML_ID: id,
+            EventConstants.EXTERNAL_ML_NAME: name,
+            EventConstants.N_INPUTS: len(labels) if labels else -1,
+            EventConstants.SIZE: model_size,
+            EventConstants.MODEL_TYPE: model_type,
+            EventConstants.N_SINGLE_VALUE_OPTIONS: sum(1 for k in kwargs if k.startswith("singleValue")),
+            EventConstants.N_FEATURE_VALUE_OPTIONS: sum(1 for k in kwargs if k.startswith("featureValue")),
+            EventConstants.MODEL_CHANGED: model is not None,
+            EventConstants.LABELS_CHANGED: bool(labels),
+            EventConstants.SCOPE_CHANGED: bool(scope),
+        }
+        self._telemetry.track(EventConstants.EVENT_NAME_UPDATE, props)
         print(f"Successfully updated ONNX (ID: {id})")
 
     def archive(self, id: str, delete: bool = False) -> None:
@@ -388,5 +427,186 @@ class SeeqONNXClient(ONNXClient):
             params["delete"] = True
             self._session.delete(url, params=params)
             print(f"Successfully deleted ONNX (ID: {id})")
+        else:
+            print(f"Successfully archived ONNX (ID: {id})")
+        props = {
+            EventConstants.EXTERNAL_ML_ID: id,
+            EventConstants.DELETE: delete,
+        }
+        self._telemetry.track(EventConstants.EVENT_NAME_ARCHIVE, props)
+
+
+APP_JS_PATTERN = r'/(assets|js)/track.service[^"]*\.js'
+TOKEN_PATTERN = r'\.init\("([^"]+)",\s*\{[^}]*api_host:"([^"]+)"'
+CONFIG_UPDATE_INTERVAL_SECONDS = 15 * 60  # 15 minutes
+
+
+class EventConstants:
+    EVENT_NAME_REGISTER = "Register External ML"
+    EVENT_NAME_UPDATE = "Update External ML"
+    EVENT_NAME_ARCHIVE = "Archive External ML"
+    EXTERNAL_ML_ID = "ID"
+    EXTERNAL_ML_NAME = "Name"
+    MODEL_TYPE = "Model Type"
+    N_INPUTS = "Number of Inputs"
+    SCOPE = "Scope"
+    HOSTNAME = "Hostname"
+    SIZE = "Model Size"
+    SOURCE = "Source"
+    EMITTER = "Emitter"
+    SEEQ_VERSION = "Seeq Version"
+    USER_ID = "User ID"
+    DELETE = "Delete"
+    N_SINGLE_VALUE_OPTIONS = "Number of Single Value"
+    N_FEATURE_VALUE_OPTIONS = "Number of Feature Value"
+    MODEL_CHANGED = "Model Changed"
+    LABELS_CHANGED = "Labels Changed"
+    SCOPE_CHANGED = "Scope Changed"
+
+
+ANONYMOUS_PROPS = [EventConstants.USER_ID]
+
+
+def _extract_token_from_host(host: str, timeout: int = 10) -> Tuple[Optional[str], Optional[str]]:
+    try:
+        with requests.Session() as session:
+            index_response = session.get(host, timeout=timeout)
+            index_response.raise_for_status()
+
+            app_js_paths = re.finditer(APP_JS_PATTERN, index_response.text)
+            token_match = None
+            for app_js in app_js_paths:
+                app_js_url = urljoin(host, app_js.group(0))
+                app_js_response = session.get(app_js_url, timeout=timeout)
+                app_js_response.raise_for_status()
+                token_match = re.search(TOKEN_PATTERN, app_js_response.text)
+                if token_match:
+                    break
+            if not token_match:
+                raise Exception("No match for token")
+            return token_match.group(1), token_match.group(2)
+
+    except requests.exceptions.RequestException as e:
+        warnings.warn(f"Request failed: {e}")
+    except Exception as e:
+        warnings.warn(f"Unexpected error: {e}")
+    return None, None
+
+
+def rate_limit(interval_seconds):
+    def decorator(func):
+        last_call_time = {}
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            now = time.time()
+            if self not in last_call_time or (now - last_call_time[self]) > interval_seconds:
+                last_call_time[self] = now
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+class Telemetry:
+    def __init__(self, host: str, spy_session: requests.Session, timeout=10) -> None:
+        self._host = host
+        self._spy_session = spy_session
+        self._telemetry_session = requests.Session()
+        self._timeout = timeout
+        self._is_telemetry_enabled = False
+        self._is_telemetry_anonymized = True
+        self._server_version = None
+        self._token = None
+        self._track_url = None
+        self._user = None
+        self._initialized = False
+
+    def _ensure_initialized(self) -> None:
+        if self._initialized:
             return
-        print(f"Successfully archived ONNX (ID: {id})")
+        token, telemetry_host = _extract_token_from_host(self._host, timeout=self._timeout)
+        if not token or not telemetry_host:
+            raise RuntimeError(f"Unable to determine telemetry endpoint for host: {self._host}")
+        user = self._get_username()
+        if not user:
+            raise RuntimeError(f"Unable to determine current username.")
+        self._token = token
+        self._track_url = telemetry_host.rstrip("/") + "/track"
+        self._user = user
+        self._initialized = True
+
+    def _get_username(self) -> Optional[str]:
+        try:
+            url = urljoin(self._host, "api/users/me")
+            response = self._spy_session.get(url).json()
+            return response.get("username") or response.get("email")
+        except Exception:
+            warnings.warn("Failed to get current username")
+
+    @rate_limit(interval_seconds=CONFIG_UPDATE_INTERVAL_SECONDS)
+    def _update_configuration_options(self) -> None:
+        try:
+            url = urljoin(self._host, "api/system/server-status")
+            response = self._spy_session.get(url).json()
+            configs = {c['path']: c['value'] for c in response.get("configurationOptions", [])}
+            self._is_telemetry_enabled = configs.get('Features/Telemetry/Enabled', False)
+            self._is_telemetry_anonymized = configs.get('Features/Telemetry/Anonymized', True)
+            self._server_version = response.get("version")
+        except Exception:
+            warnings.warn('Failed to update telemetry configuration options.')
+
+    def _anonymize(self, value: Optional[str]) -> str:
+        if value is None or value == '':
+            return ''
+        to_hash = f'string:{len(value)}:{value}'.encode()
+        return hashlib.sha1(to_hash).hexdigest()
+
+    def track(self, event_name, properties=None) -> None:
+        try:
+            self._track(event_name, properties)
+        except Exception as e:
+            warnings.warn(f'Failed to send telemetry event "{event_name}": {e}.')
+
+    def _track(self, event_name: str, properties=None) -> None:
+        if properties is None:
+            properties = {}
+        self._update_configuration_options()
+        if not self._is_telemetry_enabled:
+            return
+        self._ensure_initialized()
+
+        common_props = {
+            EventConstants.HOSTNAME: os.environ.get("SEEQ_SERVER_URL", self._host),
+            EventConstants.SOURCE: "DATALAB" if os.environ.get(
+                'SEEQ_SDL_CONTAINER_IS_DATALAB') == 'true' else "UNKNOWN",
+            EventConstants.EMITTER: "SeeqONNXClient",
+            EventConstants.SEEQ_VERSION: self._server_version,
+            EventConstants.USER_ID: self._user
+        }
+        properties = {**dict(properties or {}), **common_props}
+        distinct_id = self._user
+
+        if self._is_telemetry_anonymized:
+            distinct_id = self._anonymize(distinct_id)
+            for prop in ANONYMOUS_PROPS:
+                if prop in properties:
+                    properties[prop] = self._anonymize(properties[prop])
+
+        payload = {
+            "event": event_name,
+            "properties": {
+                "token": self._token,
+                "distinct_id": distinct_id,
+                **properties,
+            },
+        }
+
+        response = self._telemetry_session.post(
+            self._track_url,
+            json=[payload],
+            headers={"Accept": "text/plain"},
+            timeout=self._timeout,
+        )
+        response.raise_for_status()

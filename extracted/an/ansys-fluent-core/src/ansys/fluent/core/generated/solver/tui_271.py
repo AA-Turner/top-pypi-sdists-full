@@ -2207,9 +2207,14 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.auto_redistribute_particles = self.__class__.auto_redistribute_particles(service, version, mode, path + ["auto_redistribute_particles"])
                         self.use_cell_pressure_for_symmetry_boundary = self.__class__.use_cell_pressure_for_symmetry_boundary(service, version, mode, path + ["use_cell_pressure_for_symmetry_boundary"])
                         self.visualize_sampling_fields = self.__class__.visualize_sampling_fields(service, version, mode, path + ["visualize_sampling_fields"])
                         super().__init__(service, version, mode, path)
+                    class auto_redistribute_particles(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class use_cell_pressure_for_symmetry_boundary(TUIMethod):
                         """
                         No help available.
@@ -3247,6 +3252,7 @@ class main_menu(TUIMenu):
                     self.mechanisms = self.__class__.mechanisms(service, version, mode, path + ["mechanisms"])
                     self.model_options = self.__class__.model_options(service, version, mode, path + ["model_options"])
                     self.parameters = self.__class__.parameters(service, version, mode, path + ["parameters"])
+                    self.potential_budget = self.__class__.potential_budget(service, version, mode, path + ["potential_budget"])
                     self.reactions = self.__class__.reactions(service, version, mode, path + ["reactions"])
                     super().__init__(service, version, mode, path)
                 class customization(TUIMethod):
@@ -3268,6 +3274,10 @@ class main_menu(TUIMenu):
                 class parameters(TUIMethod):
                     """
                     Specify electrolysis model parameters.
+                    """
+                class potential_budget(TUIMethod):
+                    """
+                    Report the potential budget analysis: open circuit potential, ohmic loss, activation loss and mass transport loss.
                     """
                 class reactions(TUIMethod):
                     """
@@ -4214,7 +4224,7 @@ class main_menu(TUIMenu):
                             """
                         class zonal_phase_change(TUIMethod):
                             """
-                            Select cell zones where phase change process is active.
+                            No help available.
                             """
 
             class nox_parameters(TUIMenu):
@@ -5347,17 +5357,12 @@ class main_menu(TUIMenu):
                 def __init__(self, service, version, mode, path):
                     self.translational_vibrational_energy_relaxation = self.__class__.translational_vibrational_energy_relaxation(service, version, mode, path + ["translational_vibrational_energy_relaxation"])
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
-                    self.expose_radiative_eq_wall = self.__class__.expose_radiative_eq_wall(service, version, mode, path + ["expose_radiative_eq_wall"])
                     self.expose_system_coupling = self.__class__.expose_system_coupling(service, version, mode, path + ["expose_system_coupling"])
                     self.nasa9_enhancement = self.__class__.nasa9_enhancement(service, version, mode, path + ["nasa9_enhancement"])
                     self.robustness_enhancement = self.__class__.robustness_enhancement(service, version, mode, path + ["robustness_enhancement"])
                     self.set_verbosity = self.__class__.set_verbosity(service, version, mode, path + ["set_verbosity"])
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class expose_radiative_eq_wall(TUIMethod):
                     """
                     No help available.
                     """
@@ -28822,22 +28827,29 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.add_histogram_to_report = self.__class__.add_histogram_to_report(service, version, mode, path + ["add_histogram_to_report"])
+                    self.database_directory = self.__class__.database_directory(service, version, mode, path + ["database_directory"])
                     self.delete_simulation_report = self.__class__.delete_simulation_report(service, version, mode, path + ["delete_simulation_report"])
                     self.duplicate_simulation_report = self.__class__.duplicate_simulation_report(service, version, mode, path + ["duplicate_simulation_report"])
                     self.export_simulation_report_as_html = self.__class__.export_simulation_report_as_html(service, version, mode, path + ["export_simulation_report_as_html"])
                     self.export_simulation_report_as_pdf = self.__class__.export_simulation_report_as_pdf(service, version, mode, path + ["export_simulation_report_as_pdf"])
                     self.export_simulation_report_as_pptx = self.__class__.export_simulation_report_as_pptx(service, version, mode, path + ["export_simulation_report_as_pptx"])
                     self.generate_simulation_report = self.__class__.generate_simulation_report(service, version, mode, path + ["generate_simulation_report"])
+                    self.install_location = self.__class__.install_location(service, version, mode, path + ["install_location"])
                     self.list_simulation_reports = self.__class__.list_simulation_reports(service, version, mode, path + ["list_simulation_reports"])
                     self.read_simulation_report_template_file = self.__class__.read_simulation_report_template_file(service, version, mode, path + ["read_simulation_report_template_file"])
                     self.rename_simulation_report = self.__class__.rename_simulation_report(service, version, mode, path + ["rename_simulation_report"])
                     self.reset_report_to_defaults = self.__class__.reset_report_to_defaults(service, version, mode, path + ["reset_report_to_defaults"])
+                    self.static_directory = self.__class__.static_directory(service, version, mode, path + ["static_directory"])
                     self.view_simulation_report = self.__class__.view_simulation_report(service, version, mode, path + ["view_simulation_report"])
                     self.view_simulation_report_in_browser = self.__class__.view_simulation_report_in_browser(service, version, mode, path + ["view_simulation_report_in_browser"])
                     self.write_simulation_report_names_to_file = self.__class__.write_simulation_report_names_to_file(service, version, mode, path + ["write_simulation_report_names_to_file"])
                     self.write_simulation_report_template_file = self.__class__.write_simulation_report_template_file(service, version, mode, path + ["write_simulation_report_template_file"])
                     super().__init__(service, version, mode, path)
                 class add_histogram_to_report(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class database_directory(TUIMethod):
                     """
                     No help available.
                     """
@@ -28865,6 +28877,10 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
+                class install_location(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class list_simulation_reports(TUIMethod):
                     """
                     No help available.
@@ -28878,6 +28894,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class reset_report_to_defaults(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class static_directory(TUIMethod):
                     """
                     No help available.
                     """
@@ -32206,9 +32226,14 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.auto_redistribute_particles = self.__class__.auto_redistribute_particles(service, version, mode, path + ["auto_redistribute_particles"])
                         self.use_cell_pressure_for_symmetry_boundary = self.__class__.use_cell_pressure_for_symmetry_boundary(service, version, mode, path + ["use_cell_pressure_for_symmetry_boundary"])
                         self.visualize_sampling_fields = self.__class__.visualize_sampling_fields(service, version, mode, path + ["visualize_sampling_fields"])
                         super().__init__(service, version, mode, path)
+                    class auto_redistribute_particles(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class use_cell_pressure_for_symmetry_boundary(TUIMethod):
                         """
                         No help available.
@@ -32901,6 +32926,7 @@ class main_menu(TUIMenu):
                 self.fmg = self.__class__.fmg(service, version, mode, path + ["fmg"])
                 self.hybrid_init_options = self.__class__.hybrid_init_options(service, version, mode, path + ["hybrid_init_options"])
                 self.localized_turb_init = self.__class__.localized_turb_init(service, version, mode, path + ["localized_turb_init"])
+                self.lpfm = self.__class__.lpfm(service, version, mode, path + ["lpfm"])
                 self.open_channel_auto_init = self.__class__.open_channel_auto_init(service, version, mode, path + ["open_channel_auto_init"])
                 self.patch = self.__class__.patch(service, version, mode, path + ["patch"])
                 self.species_selection = self.__class__.species_selection(service, version, mode, path + ["species_selection"])
@@ -32917,6 +32943,7 @@ class main_menu(TUIMenu):
                 self.initialize = self.__class__.initialize(service, version, mode, path + ["initialize"])
                 self.levelset_auto_init = self.__class__.levelset_auto_init(service, version, mode, path + ["levelset_auto_init"])
                 self.list_defaults = self.__class__.list_defaults(service, version, mode, path + ["list_defaults"])
+                self.lpfm_initialize = self.__class__.lpfm_initialize(service, version, mode, path + ["lpfm_initialize"])
                 self.lwf_reset = self.__class__.lwf_reset(service, version, mode, path + ["lwf_reset"])
                 self.reference_frame = self.__class__.reference_frame(service, version, mode, path + ["reference_frame"])
                 self.reset_initialization = self.__class__.reset_initialization(service, version, mode, path + ["reset_initialization"])
@@ -32973,6 +33000,10 @@ class main_menu(TUIMenu):
                 No help available.
                 """
             class list_defaults(TUIMethod):
+                """
+                No help available.
+                """
+            class lpfm_initialize(TUIMethod):
                 """
                 No help available.
                 """
@@ -33282,6 +33313,33 @@ class main_menu(TUIMenu):
                     No help available.
                     """
 
+            class lpfm(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.flow_boundary = self.__class__.flow_boundary(service, version, mode, path + ["flow_boundary"])
+                    self.full_mesh = self.__class__.full_mesh(service, version, mode, path + ["full_mesh"])
+                    self.geometry_zones = self.__class__.geometry_zones(service, version, mode, path + ["geometry_zones"])
+                    self.vmag = self.__class__.vmag(service, version, mode, path + ["vmag"])
+                    super().__init__(service, version, mode, path)
+                class flow_boundary(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class full_mesh(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class geometry_zones(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class vmag(TUIMethod):
+                    """
+                    No help available.
+                    """
+
             class open_channel_auto_init(TUIMenu):
                 """
                 No help available.
@@ -33566,9 +33624,14 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.auto_redistribute_particles = self.__class__.auto_redistribute_particles(service, version, mode, path + ["auto_redistribute_particles"])
                         self.use_cell_pressure_for_symmetry_boundary = self.__class__.use_cell_pressure_for_symmetry_boundary(service, version, mode, path + ["use_cell_pressure_for_symmetry_boundary"])
                         self.visualize_sampling_fields = self.__class__.visualize_sampling_fields(service, version, mode, path + ["visualize_sampling_fields"])
                         super().__init__(service, version, mode, path)
+                    class auto_redistribute_particles(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class use_cell_pressure_for_symmetry_boundary(TUIMethod):
                         """
                         No help available.
@@ -34511,8 +34574,13 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.phase_species_clipping_in_postprocessing = self.__class__.phase_species_clipping_in_postprocessing(service, version, mode, path + ["phase_species_clipping_in_postprocessing"])
                         self.vanishing_phase_scalar_alternate_treatment = self.__class__.vanishing_phase_scalar_alternate_treatment(service, version, mode, path + ["vanishing_phase_scalar_alternate_treatment"])
                         super().__init__(service, version, mode, path)
+                    class phase_species_clipping_in_postprocessing(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class vanishing_phase_scalar_alternate_treatment(TUIMethod):
                         """
                         No help available.
@@ -35660,6 +35728,7 @@ class main_menu(TUIMenu):
             """
             def __init__(self, service, version, mode, path):
                 self.convergence_conditions = self.__class__.convergence_conditions(service, version, mode, path + ["convergence_conditions"])
+                self.imbalance = self.__class__.imbalance(service, version, mode, path + ["imbalance"])
                 self.report_files = self.__class__.report_files(service, version, mode, path + ["report_files"])
                 self.report_plots = self.__class__.report_plots(service, version, mode, path + ["report_plots"])
                 self.residual = self.__class__.residual(service, version, mode, path + ["residual"])
@@ -35726,6 +35795,84 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                     class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+            class imbalance(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.equations = self.__class__.equations(service, version, mode, path + ["equations"])
+                    self.options = self.__class__.options(service, version, mode, path + ["options"])
+                    super().__init__(service, version, mode, path)
+
+                class equations(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit equations object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class options(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.convergence_criterion = self.__class__.convergence_criterion(service, version, mode, path + ["convergence_criterion"])
+                        self.normalize_imbalance = self.__class__.normalize_imbalance(service, version, mode, path + ["normalize_imbalance"])
+                        self.plot = self.__class__.plot(service, version, mode, path + ["plot"])
+                        self.print_to_console = self.__class__.print_to_console(service, version, mode, path + ["print_to_console"])
+                        super().__init__(service, version, mode, path)
+                    class convergence_criterion(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class normalize_imbalance(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class plot(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class print_to_console(TUIMethod):
                         """
                         No help available.
                         """
@@ -37495,9 +37642,14 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.auto_redistribute_particles = self.__class__.auto_redistribute_particles(service, version, mode, path + ["auto_redistribute_particles"])
                         self.use_cell_pressure_for_symmetry_boundary = self.__class__.use_cell_pressure_for_symmetry_boundary(service, version, mode, path + ["use_cell_pressure_for_symmetry_boundary"])
                         self.visualize_sampling_fields = self.__class__.visualize_sampling_fields(service, version, mode, path + ["visualize_sampling_fields"])
                         super().__init__(service, version, mode, path)
+                    class auto_redistribute_particles(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class use_cell_pressure_for_symmetry_boundary(TUIMethod):
                         """
                         No help available.
@@ -39662,6 +39814,7 @@ class main_menu(TUIMenu):
             def __init__(self, service, version, mode, path):
                 self.convergence = self.__class__.convergence(service, version, mode, path + ["convergence"])
                 self.force = self.__class__.force(service, version, mode, path + ["force"])
+                self.global_imbalances = self.__class__.global_imbalances(service, version, mode, path + ["global_imbalances"])
                 self.residual = self.__class__.residual(service, version, mode, path + ["residual"])
                 self.statistic = self.__class__.statistic(service, version, mode, path + ["statistic"])
                 self.surface = self.__class__.surface(service, version, mode, path + ["surface"])
@@ -39791,6 +39944,89 @@ class main_menu(TUIMenu):
                     """
                     Specify whether unscaled values are desired.
                     """
+
+            class global_imbalances(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.equations = self.__class__.equations(service, version, mode, path + ["equations"])
+                    self.options = self.__class__.options(service, version, mode, path + ["options"])
+                    super().__init__(service, version, mode, path)
+
+                class equations(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.new = self.__class__.new(service, version, mode, path + ["new"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit equations object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class new(TUIMethod):
+                        """
+                        Create a new equations object.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class options(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.convergence_criterion = self.__class__.convergence_criterion(service, version, mode, path + ["convergence_criterion"])
+                        self.normalize_imbalance = self.__class__.normalize_imbalance(service, version, mode, path + ["normalize_imbalance"])
+                        self.plot = self.__class__.plot(service, version, mode, path + ["plot"])
+                        self.print_to_console = self.__class__.print_to_console(service, version, mode, path + ["print_to_console"])
+                        super().__init__(service, version, mode, path)
+                    class convergence_criterion(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class normalize_imbalance(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class plot(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class print_to_console(TUIMethod):
+                        """
+                        No help available.
+                        """
 
             class residual(TUIMenu):
                 """
@@ -42761,8 +42997,13 @@ class main_menu(TUIMenu):
                     Multiphase species options menu.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.phase_species_clipping_in_postprocessing = self.__class__.phase_species_clipping_in_postprocessing(service, version, mode, path + ["phase_species_clipping_in_postprocessing"])
                         self.vanishing_phase_scalar_alternate_treatment = self.__class__.vanishing_phase_scalar_alternate_treatment(service, version, mode, path + ["vanishing_phase_scalar_alternate_treatment"])
                         super().__init__(service, version, mode, path)
+                    class phase_species_clipping_in_postprocessing(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class vanishing_phase_scalar_alternate_treatment(TUIMethod):
                         """
                         No help available.

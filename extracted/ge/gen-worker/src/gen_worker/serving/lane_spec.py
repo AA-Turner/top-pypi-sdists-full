@@ -5,7 +5,7 @@ What the author writes, and nothing else::
 
     class SdxlModel(
         Model[SDXL],
-        lanes={contracts.SDXL_DIFFUSERS_BF16: lane(
+        lanes={("sdxl.diffusers@1", "plain.bf16@1"): lane(
             request=const(GiB(1.2)) + per_mp_batch(MiB(220)),
             resident=("vae",),
         )},
@@ -20,9 +20,17 @@ What the author writes, and nothing else::
 Paul's rule, stated once and enforced here: **the author declares only what
 only the author knows** — demand SCALING, fork AXES, "my VAE decode will
 thrash if streamed" — and the platform DERIVES everything derivable (weight
-bytes from the manifest, the capability floor from the contract dtype,
+bytes from the manifest, the capability floor from the QUANT RULE,
 launch-residency from the ``ctx.compile`` marks, coefficients from
 measurement). A VRAM STRING is none of those things, which is why it is gone.
+
+**pgw#1621 re-keyed what a lane is NAMED BY, and nothing else here.** The key
+was a tensorfs v1 ``Contract`` object (``contracts.SDXL_DIFFUSERS_BF16``); it
+is now the ``(topology, quant)`` stamp pair, which is what tensor-layout v2
+makes identity. The per-lane ``request=`` formula, the residency override, the
+fork axes and the refusals are untouched — se#816's surface SHAPE survives the
+cut intact. The old spellings survive as DISPLAY names on the catalog record
+and are never parsed.
 
 Three things live here and only here:
 
@@ -62,41 +70,16 @@ __all__ = [
 
 
 class LaneDeclarationError(TypeError):
-    """A lane / fork-axis declaration is not one the platform can read.
-
-    A subclass of ``TypeError`` for the same reason ``ModelDeclarationError``
-    is: a class header is code, and a header that does not state a valid
-    declaration is a definition-time defect, not a runtime one.
-    """
-
-
-# ── the lane declaration ────────────────────────────────────────────────────
+    """A lane / fork-axis declaration is not one the platform can read."""
 
 
 class LaneSpec(msgspec.Struct, frozen=True, kw_only=True):
-    """What ONE lane declares: its demand formula, and what must stay resident.
-
-    ``request`` is this lane's OWN formula. Per-lane and not per-model
-    deliberately (se#816): fp8 halves the weight bytes AND shrinks the
-    activation coefficients, so one formula for a bf16/fp8/nvfp4 class would
-    be wrong for two of its three lanes.
-
-    ``resident`` is an OPTIONAL, ADDITIVE override (pgw#1598 amendment 7).
-    Residency classes are INFERRED by default — compile-marked components are
-    launch-resident all-or-nothing, everything else is leaf-streamable — and
-    this names ONLY the judgment-call ADDITIONS: an uncompiled dense-burst
-    component (the VAE) whose streaming would thrash. Wrong in either
-    direction stays SAFE (too-streamed is slower, too-resident spends grant),
-    so it is a performance statement and never a correctness one. Most
-    endpoints omit it, and an empty tuple means "add nothing", never "nothing
-    is resident".
-    """
+    """What ONE lane declares: its demand formula, and what must stay resident."""
 
     request: Demand
     resident: tuple[str, ...] = ()
 
     def as_document(self) -> dict[str, Any]:
-        """The release-document shape (pgw#1600 serializes the evaluation)."""
 
         row: dict[str, Any] = {"request": self.request.as_document()}
         if self.resident:
@@ -111,15 +94,31 @@ class DeclaredLane(msgspec.Struct, frozen=True, kw_only=True):
     selection ladder, derive, placement) so that nothing re-parses a stamp
     and nothing re-derives a floor:
 
-    * ``contract`` — the tensorfs ``Contract`` object the author named.
-    * ``contract_id`` — its stable handle, e.g. ``sdxl.diffusers-bf16@1``.
-    * ``dtype`` — the contract's OWN load dtype, READ (a dtype-less lane is
-      refused at declaration, never discovered at load on a rented pod).
-    * ``min_sm`` — DERIVED via ``capability_floor_for_dtype``. An 8-bit lane
-      needs 8-bit kernels because of what it IS; a hand-written floor is a
-      second producer of one fact and is a declaration-time refusal. It is
+    * ``layout`` — the ``(topology, quant)`` STAMP PAIR the author named, as a
+      :class:`~gen_worker.models.tensor_layout_contract.LayoutId`. This is the
+      lane's IDENTITY, and it is compared FIELD-WISE: a whole-string compare
+      cannot express "topology differs, quant matches", which is the DERIVABLE
+      rung the hub's admission is built on.
+    * ``topology`` / ``quant`` — the two halves, spelled out, so a consumer
+      that wants one axis does not have to take the pair apart.
+    * ``contract_id`` — the WIRE rendering, ``"<topology>+<quant>"``. th#1809's
+      spelling, shared with the hub's ``tensorfs.LayoutID.String`` and with the
+      derived-artifact CAS address. A drift here is a fork, not a cosmetic bug.
+    * ``dtype`` — the QUANT RULE's declared dtype, READ from the ratified rule
+      document. Under v1 this was a top-level field on a per-lane document that
+      could simply be missing, which is why there was a declaration-time refusal
+      and a waiver set for it. A v2 rule cannot lack one: the corpus is
+      conformance-checked and `declared_dtype` is required, so the dtype-less
+      lane is now inexpressible rather than guarded.
+    * ``min_sm`` — the rule's ``capability_floor_sm``, read from the same
+      document. An 8-bit lane needs 8-bit kernels because of what it IS. It is
       per LANE, which is exactly why one hand-written number could never be
-      right for a bf16/fp8/nvfp4 class.
+      right for a bf16/fp8/nvfp4 class — and it is now per RULE, which is why
+      it cannot be lost by spelling the dtype differently.
+    * ``display_name`` — the v1 lane-handle spelling this pair used to be known
+      by (``"sdxl.diffusers-bf16@1"``), or ``""``. **NEVER PARSED, GATES
+      NOTHING.** It exists so a refusal message names the lane the way the
+      operator still thinks of it.
     * ``spec`` — this lane's demand formula and residency override.
 
     Selection among lanes is PLATFORM machinery (pgw#1606) and never appears
@@ -127,11 +126,18 @@ class DeclaredLane(msgspec.Struct, frozen=True, kw_only=True):
     and carries no priority.
     """
 
-    contract: Any
-    contract_id: str
-    dtype: Any
+    layout: Any
+    topology: str
+    quant: str
+    dtype: str
     min_sm: int
+    display_name: str = ""
     spec: LaneSpec
+
+    @property
+    def contract_id(self) -> str:
+        """The wire rendering of the pair — ``"<topology>+<quant>"``."""
+        return f"{self.topology}+{self.quant}"
 
     @property
     def request(self) -> Demand:
@@ -147,14 +153,7 @@ def lane(
     request: Demand,
     resident: Sequence[str] | None = None,
 ) -> LaneSpec:
-    """Declare one lane. The mapping VALUE of ``lanes={contract: lane(...)}``.
-
-    ``request=`` is REQUIRED and is the whole point of the surface: the old
-    value was a VRAM STRING (``"vram7g"``) that stated one number for every
-    request a lane would ever serve, and Paul's ruling is that there is no
-    such number — a 4 MP image and a 1 MP image do not demand the same bytes,
-    and an H3 video demands them quadratically in the frame count.
-    """
+    """Declare one lane."""
 
     if not isinstance(request, Demand):
         raise LaneDeclarationError(
@@ -194,32 +193,8 @@ def lane(
     return LaneSpec(request=request, resident=components)
 
 
-# ── structural fork axes ────────────────────────────────────────────────────
-
-
 class Structural(msgspec.Struct, frozen=True, kw_only=True):
-    """A STRUCTURAL fork axis — same contract, a DIFFERENT traced program.
-
-    The measured instance is the scheduler timestep dtype (pgw#1572): of the
-    schedulers sdxl serves, 5 feed the UNet an ``int64`` timestep and 3 feed
-    ``float32``, which is a different PROGRAM and therefore a different
-    graph — and because nothing declared it, 5 of sdxl's 8 served scheduler
-    configs fell to loud eager. Every one was a key-closure violation the
-    leak detector was reporting correctly and nobody could act on, because
-    there was no way to SAY the axis existed.
-
-    ``field`` names the entrypoint payload field whose values fork the
-    program. ``classes`` maps each variant's NAME to ONE representative
-    value — the derive traces the representatives, not the cross-product, so
-    an axis with 8 values and 2 variant classes costs 2 traces and covers
-    8/8. ``measured`` is the author's evidence and is MANDATORY: a declared
-    fork with no measurement behind it is the derived-dressed-as-measured
-    defect this whole design exists to end.
-
-    The axis is AUTHOR-OWNED, all the way down (Paul, 2026-08-20). The
-    platform's job is exactly four things — enumeration, closure-checking,
-    pricing, leak detection — and it never invents an axis.
-    """
+    """A STRUCTURAL fork axis — same contract, a DIFFERENT traced program."""
 
     field: str
     classes: dict[str, Any]
@@ -231,7 +206,6 @@ class Structural(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(self.classes.items())
 
     def as_document(self, axis: str) -> dict[str, Any]:
-        """The release-document row (pgw#1572's proposed shape)."""
 
         return {
             "axis": axis,
@@ -315,41 +289,20 @@ def parse_structural(
     return parsed
 
 
-# ── shape fork axes ─────────────────────────────────────────────────────────
-
-#: Baked buckets — one artifact per bucket, all sharing one traced program.
 STATIC = "static"
-#: One artifact over a symbolic dim.
 DYNAMIC = "dynamic"
 
 _SHAPE_CHOICES = (STATIC, DYNAMIC)
 
-#: Shape axes the author CHOOSES between static and dynamic, per model
-#: (pgw#1597: *"we need to see how much this costs us, in inference time.
-#: This will be a per-model decision, for whoever implements the model"*).
 DECLARABLE_SHAPE_AXES: tuple[str, ...] = ("aspect",)
 
-#: Shape axes with NO choice to declare. CFG/batch is a shape fork that is
-#: PERMANENTLY STATIC (Paul, 2026-08-20: *"CFG stays a fork axes
-#: permanently"*), on two measured grounds: batch-dynamic removed ZERO
-#: specializations on the real endpoint, and batch-dynamic records FAIL TO
-#: MINT (tcg#78, deterministic, n=3). The ruling stands even if tcg#78 is
-#: fixed — the zero-reduction result alone kills the axis.
 PERMANENTLY_STATIC_SHAPE_AXES: tuple[str, ...] = ("batch",)
 
 
 def parse_shapes(
     where: str, shapes: Mapping[str, str] | None, *, marks_compile: bool
 ) -> dict[str, str]:
-    """Validate a class-level ``shapes=`` map into ``{axis: static|dynamic}``.
-
-    REQUIRED of a class that marks a compile target, and refused on one that
-    does not: the choice only means something where a graph is minted, and
-    presuming a default is exactly what pgw#1599 acceptance (d) forbids —
-    the two declarations yield different CLOSED key sets (sdxl static: 9
-    aspect x 2 batch x 2 structural = 36; dynamic-aspect: ~4) and neither is
-    the platform's to assume.
-    """
+    """Validate a class-level ``shapes=`` map into ``{axis: static|dynamic}``."""
 
     if shapes is None:
         if marks_compile:
@@ -364,15 +317,6 @@ def parse_shapes(
                 f"Declarable axes: {list(DECLARABLE_SHAPE_AXES)!r}."
             )
         return {}
-    # DELIBERATELY NOT REFUSED on a class the AST reads as unmarked. The
-    # reader (`load_marks_compile`, se#809) sees a literal `ctx.compile(...)`
-    # in THIS class's `load` and nothing else, and a real fixture marks
-    # through a helper (`self.engine.compile_dit(ctx)`) — the mark is genuine,
-    # the graphs are genuine, and the AST cannot see it. Refusing there would
-    # have made a correct endpoint undeclarable to buy a tidiness check, so
-    # the asymmetry stands: REQUIRED where a mark is provable, PERMITTED
-    # where it is not. A shapes= on a model that truly compiles nothing is
-    # inert noise; a refusal on one that compiles is a wall.
     if not isinstance(shapes, Mapping):
         raise LaneDeclarationError(
             f"{where}: shapes= is a mapping of AXIS NAME -> STATIC|DYNAMIC, "

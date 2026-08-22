@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: patchy
-Version: 3.0.0
+Version: 3.1.0
 Summary: Patch the inner source of python functions at runtime.
 Keywords: patchy
 Author: Adam Johnson

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -92,18 +94,18 @@ class SeekableHttpFile:
         url: str,
         get_range: Callable[..., GeneralizedResponse] = get_range_urlopen,
         precache: int = 256_000,
-        check_etag: bool = True,
+        check_etag: bool = False,
     ) -> None:
         self.url = url
         self.get_range = get_range
-        self.stats = {
+        self.stats: dict[str, int] = {
             "num_requests": 0,
             "optimistic_bytes_read": 0,
             "lazy_bytes_read": 0,
             "satisfied_from_cache": 0,
         }
-        self.pos = 0
-        self.length = -1
+        self.pos: int = 0
+        self.length: int = -1
         self.precache = precache
         self.check_etag = check_etag
         self.etag: Optional[str] = None
@@ -119,10 +121,15 @@ class SeekableHttpFile:
                 self._optimistic_first_read()
                 return
             except HTTPError as e:
-                if e.code != 501:  # Unsupported range
+                # 501 (Not Implemented) means the server doesn't support Range
+                # requests at all; 416 (Range Not Satisfiable) is what some
+                # servers (e.g. fastly, in front of files.pythonhosted.org) send
+                # instead for the same suffix-range request.  Either way, fall
+                # back to a HEAD request.
+                if e.code not in (501, 416):
                     raise
             except requests.exceptions.HTTPError as e:
-                if e.response.status_code != 501:  # Unsupported range
+                if e.response is None or e.response.status_code not in (501, 416):
                     raise
 
         # Just read the length if not precaching or being optimistic didn't work
@@ -149,7 +156,7 @@ class SeekableHttpFile:
         assert resp.content_range is not None
         match = CONTENT_RANGE_RE.match(resp.content_range)
         assert match is not None, resp.content_range
-        start, end, length = match.groups()
+        start, _, length = match.groups()
         self.length = int(length)
         assert resp.content is not None
         self.end_cache = resp.content
@@ -193,7 +200,7 @@ class SeekableHttpFile:
             assert self.etag is None
             self.etag = resp.etag
 
-    def seek(self, pos: int, whence: int = 0) -> None:
+    def seek(self, pos: int, whence: int = 0) -> int:
         LOG.debug(f"seek {pos} {whence}")
         # TODO clamp/error
         if whence == os.SEEK_SET:
@@ -204,6 +211,7 @@ class SeekableHttpFile:
             self.pos = self.length + pos
         else:
             raise ValueError(f"Invalid value for whence: {whence!r}")
+        return self.pos
 
     def tell(self) -> int:
         LOG.debug("tell")

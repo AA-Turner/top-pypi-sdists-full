@@ -86,10 +86,10 @@ class Assistants(Authenticated):
         sort_by: str | None = None,
         sort_order: str | None = None,
         select: list[AssistantSelectField] | None = None,
+        graph_id_allowlist: list[str] | None = None,
         ctx: Any = None,
     ) -> tuple[AsyncIterator[Assistant], int | None]:
         """Search assistants via gRPC."""
-        # Handle auth filters
         auth_filters = await Assistants.handle_event(
             ctx,
             "search",
@@ -112,6 +112,7 @@ class Assistants(Authenticated):
             sort_order=_map_sort_order(sort_order),
             select=select,
             name=name,
+            graph_id_allowlist=graph_id_allowlist,
         )
 
         client = await get_shared_client()
@@ -411,6 +412,7 @@ class Assistants(Authenticated):
         graph_id: str | None = None,
         name: str | None = None,
         metadata: MetadataInput = None,
+        graph_id_allowlist: list[str] | None = None,
         ctx: Any = None,
     ) -> int:
         """Count assistants via gRPC."""
@@ -425,6 +427,7 @@ class Assistants(Authenticated):
             graph_id=graph_id,
             name=name,
             metadata_json=json_dumpb_optional(metadata),
+            graph_id_allowlist=graph_id_allowlist,
         )
 
         client = await get_shared_client()

@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-pydantic package is included.
-"""
+"""Hooks triggered by finder when pydantic package is included."""
 
 from __future__ import annotations
 
@@ -20,8 +18,10 @@ class Hook(ModuleHook):
     """The Hook class for pydantic."""
 
     def pydantic(self, finder: ModuleFinder, module: Module) -> None:
-        """The pydantic package is compiled by Cython
-        (the imports are hidden).
+        """Import the hidden modules.
+
+        pydantic 1.x is compiled by Cython.
+        pydantic-core 2.x is compiled by Rust.
         """
         module.global_names.update(
             [
@@ -32,7 +32,7 @@ class Hook(ModuleHook):
             ]
         )
         distribution = module.distribution
-        if distribution and distribution.version < (2,):
+        if distribution and int(distribution.version[0]) < 2:
             finder.include_module("colorsys")
             finder.include_module("datetime")
             finder.include_module("decimal")
@@ -45,6 +45,8 @@ class Hook(ModuleHook):
                 finder.include_module("dataclasses")  # support in v1.7+
             with suppress(ImportError):
                 finder.include_module("typing_extensions")  # support in v1.8+
+        else:
+            finder.include_package("pydantic._internal")
 
     def pydantic__internal__core_utils(
         self, _finder: ModuleFinder, module: Module
@@ -63,9 +65,7 @@ class Hook(ModuleHook):
         module.ignore_names.add("email_validator")
 
     def pydantic_v1(self, _finder: ModuleFinder, module: Module) -> None:
-        """The pydantic package is compiled by Cython
-        (the imports are hidden).
-        """
+        """Includes hidden module."""
         module.global_names.add("BaseModel")
 
     def pydantic_v1_env_settings(

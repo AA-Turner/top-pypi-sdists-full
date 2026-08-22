@@ -6,12 +6,18 @@ import os
 import shutil
 from importlib.machinery import EXTENSION_SUFFIXES
 from types import CodeType
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from cx_Freeze import ConstantsModule, Module
 from cx_Freeze._compat import IS_CONDA, IS_MINGW
 from cx_Freeze.exception import OptionError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .conftest import TempPackage
 
 SOURCE = """
 namespacepack/firstchildpack/__init__{extension}
@@ -23,7 +29,7 @@ namespacepack/firstchildpack/foo.py
 """
 
 
-def test_implicit_namespace_package(tmp_package) -> None:
+def test_implicit_namespace_package(tmp_package: TempPackage) -> None:
     """Test `Module.stub_code` with a namespace package.
 
     Implicit namespace packages do not contain an `__init__.py`. Thus
@@ -55,7 +61,7 @@ zip_packages = pytest.mark.parametrize(
 
 
 @zip_packages
-def test_build_constants(tmp_package, zip_packages: bool) -> None:
+def test_build_constants(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if build_constants is working correctly."""
     tmp_package.create_from_sample("build_constants")
     if zip_packages:
@@ -101,7 +107,10 @@ def test_build_constants(tmp_package, zip_packages: bool) -> None:
     ids=["invalid-constant-isidentifier", "invalid-constant-iskeyword"],
 )
 def test_invalid(
-    class_to_test, kwargs, expected_exception, expected_match
+    class_to_test: Callable,
+    kwargs: dict[str, Any],
+    expected_exception: type[BaseException],
+    expected_match: str,
 ) -> None:
     """Test invalid values to use in ConstantsModule class."""
     with pytest.raises(expected_exception, match=expected_match):
@@ -122,8 +131,8 @@ pyproject.toml
     executables = ["test_egg_info.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 extra/module1.py
     print("Hello module1")
@@ -145,13 +154,11 @@ extra/module2.egg-info/top_level.txt
 
 @pytest.mark.skipif(IS_MINGW, reason="Disabled in MinGW")
 @pytest.mark.skipif(IS_CONDA, reason="Disabled in conda-forge")
-def test_egg_info(tmp_package) -> None:
-    """Use fake packages to test conversion of egg_info to dist_info in
-    DistributionCache.
-    """
+def test_egg_info(tmp_package: TempPackage) -> None:
+    """Test conversion of egg_info to dist_info in DistributionCache."""
     tmp_package.create(SOURCE_TEST_EGG_INFO)
 
-    # patch the fake packages
+    # patch using fake packages
     tmp_package.prefix = tmp_package.path / ".tmp_prefix"
     tmp_site = tmp_package.prefix / tmp_package.relative_site
     shutil.copytree(tmp_package.path / "extra", tmp_site, dirs_exist_ok=True)

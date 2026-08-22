@@ -71,6 +71,41 @@ def normalize_symtable_scope_name(name):
     return name
 
 
+def split_qualified_name(qualified_name):
+    """Split a fully qualified dotted name into ``(namespace, name)``.
+
+    Not ``rsplit(".", 1)``. An anonymous scope is named in two dotted pieces —
+    ``lambda.0``, ``listcomp.1`` — so the naive split takes the index for the
+    name and leaves a namespace one component short. Nothing complains: the
+    result is still a valid dotted string, and `get_node` will create a Node
+    under it, which then holds edges no other lookup can find.
+
+    A top-level name splits to ``("", name)``.
+    """
+    parts = qualified_name.split(".")
+    if len(parts) >= 2 and parts[-1].isdigit() and parts[-2] in ANON_SCOPE_NAMES:
+        return ".".join(parts[:-2]), f"{parts[-2]}.{parts[-1]}"
+    return ".".join(parts[:-1]), parts[-1]
+
+
+def parent_namespace(qualified_name):
+    """Return the namespace containing *qualified_name*, or ``""`` at the top level."""
+    return split_qualified_name(qualified_name)[0]
+
+
+def enclosing_namespaces(qualified_name):
+    """Yield *qualified_name*, then each namespace enclosing it, outward.
+
+    ``"pkg.mod.f.lambda.0"`` yields that, then ``"pkg.mod.f"``, ``"pkg.mod"``,
+    ``"pkg"``. Ends before the empty namespace, so a top-level name yields only
+    itself.
+    """
+    ns = qualified_name
+    while ns:
+        yield ns
+        ns = parent_namespace(ns)
+
+
 __all__ = [
     "ANON_SCOPE_NAMES",
     "ExecuteInInnerScope",
@@ -78,14 +113,17 @@ __all__ = [
     "Scope",
     "UnresolvedSuperCallError",
     "canonize_exprs",
+    "enclosing_namespaces",
     "expand_sources",
     "format_alias",
     "get_ast_node_name",
     "get_module_name",
     "infer_root",
     "normalize_symtable_scope_name",
+    "parent_namespace",
     "resolve_import",
     "resolve_method_resolution_order",
+    "split_qualified_name",
 ]
 
 
@@ -548,8 +586,22 @@ class ExecuteInInnerScope:
         analyzer.name_stack.append(scopename)
         inner_ns = analyzer.get_node_of_current_namespace().get_name()
         if inner_ns not in analyzer.scopes:
-            analyzer.name_stack.pop()
-            raise ValueError(f"Unknown scope '{inner_ns}'")
+            # A scope nested inside an inlined comprehension is reported by
+            # symtable as a child of the *enclosing function*: PEP 709 did not
+            # remove the comprehension's scope, only symtable's table for it. So
+            # the nested scope never gets registered under the namespace we walk.
+            # Synthesize it: a lambda's locals are its parameters, and those are
+            # bound explicitly on entry anyway.
+            #
+            # Deliberately narrow. Any other miss is a disagreement between
+            # `analyze_scopes` and `_next_anon_scope_name` — a bug that should
+            # be loud, not papered over with an empty scope.
+            if analyzer.is_inside_inlined_comprehension(inner_ns):
+                analyzer.logger.debug(f"Synthesizing scope '{inner_ns}' nested in an inlined comprehension")
+                analyzer.scopes[inner_ns] = Scope.from_names(scopename, set())
+            else:
+                analyzer.name_stack.pop()
+                raise ValueError(f"Unknown scope '{inner_ns}'")
         analyzer.scope_stack.append(analyzer.scopes[inner_ns])
         analyzer.context_stack.append(scopename)
 

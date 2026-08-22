@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dagster-shared
-Version: 1.13.18
+Version: 1.13.19
 Summary: Shared code between dagster and dagster-dg-core.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-shared
 Author-email: Dagster Labs <hello@dagsterlabs.com>

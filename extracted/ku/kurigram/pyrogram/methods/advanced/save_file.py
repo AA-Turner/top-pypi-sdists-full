@@ -25,7 +25,7 @@ import math
 import os
 from hashlib import md5
 from pathlib import PurePath
-from typing import Union, BinaryIO, Callable
+from typing import Union, BinaryIO, Callable, Optional
 
 import pyrogram
 from pyrogram import StopTransmission
@@ -39,11 +39,11 @@ class SaveFile:
     async def save_file(
         self: "pyrogram.Client",
         path: Union[str, BinaryIO],
-        file_id: int = None,
+        file_id: Optional[int] = None,
         file_part: int = 0,
-        progress: Callable = None,
+        progress: Optional[Callable] = None,
         progress_args: tuple = ()
-    ):
+    ) -> Optional[Union["raw.types.InputFile", "raw.types.InputFileBig"]]:
         """Upload a file onto Telegram servers, without actually sending the message to anyone.
         Useful whenever an InputFile type is required.
 
@@ -89,7 +89,9 @@ class SaveFile:
                 You can either keep ``*args`` or add every single extra argument in your function signature.
 
         Returns:
-            ``InputFile``: On success, the uploaded file is returned in form of an InputFile object.
+            ``InputFile`` | ``None``: On success, the uploaded file is returned in form of an InputFile object. In case
+            *path* is None, in case *file_id* is given so that a single missing part is uploaded instead of the whole
+            file, and in case the upload fails, None is returned.
 
         Raises:
             RPCError: In case of a Telegram RPC error.
@@ -177,7 +179,7 @@ class SaveFile:
                     await queue.put(rpc)
 
                     if is_missing_part:
-                        return
+                        return None
 
                     if not is_big and not is_missing_part:
                         md5_sum.update(chunk)
@@ -223,3 +225,7 @@ class SaveFile:
 
                 if isinstance(path, (str, PurePath)):
                     fp.close()
+
+            # NOTE: The `except Exception` branch above swallows the failure, so the upload can end
+            #       without a file.
+            return None

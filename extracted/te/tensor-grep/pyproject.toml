@@ -1,0 +1,681 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "src"
+module-name = "tensor_grep.rust_core"
+manifest-path = "rust_core/Cargo.toml"
+# Bundle the license files referenced by the auto-emitted `License-File:` metadata. Without this,
+# maturin writes `License-File: LICENSE`/`NOTICE` into PKG-INFO but omits the actual files, and PyPI
+# rejects the upload: "400 License-File LICENSE does not exist in distribution file" (blocked v1.13.44).
+include = ["LICENSE", "NOTICE"]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "rust_core/Cargo.toml" },
+    { file = "rust_core/Cargo.lock" },
+    { file = "rust_core/src/**/*.rs" },
+]
+constraint-dependencies = [
+    "aiohttp>=3.14.3",
+    "cryptography>=50.0.0",
+    "pyjwt>=2.13.0",
+    "pygments>=2.20.0",
+    "python-multipart>=0.0.31",
+    "python-dotenv>=1.2.2",
+    "requests>=2.33.0",
+    "starlette>=1.3.1",
+    "pydantic-settings>=2.14.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "gpu: requires NVIDIA CUDA GPU",
+  "slow: takes >10 seconds",
+  "integration: requires real GPU + cuDF",
+  "acceptance: outer-loop E2E tests",
+  "property: hypothesis property-based tests",
+  "characterization: ripgrep parity tests",
+  "snapshot: output format regression tests",
+  "performance: performance benchmarks",
+  "eval: agent-accuracy / capsule-ranking golden-set gate (tests/eval/, opt-in via -m eval)",
+  "requires_grammar: needs a tree-sitter grammar from the OPTIONAL `ast` extra (see tests/conftest.py)",
+]
+addopts = [
+  "--import-mode=importlib",
+  "--strict-markers",
+  "-x",
+  "--tb=short",
+]
+filterwarnings = [
+  "ignore:.*asyncio\\.iscoroutinefunction.*:DeprecationWarning:pytest_asyncio",
+  "ignore:.*asyncio\\.iscoroutinefunction.*:DeprecationWarning:pygls",
+  "ignore:.*asyncio\\.get_event_loop_policy.*:DeprecationWarning:pytest_asyncio",
+]
+
+
+[tool.coverage.run]
+source = ["src/tensor_grep"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 60
+
+
+[tool.mutmut]
+paths_to_mutate = "src/tensor_grep/"
+tests_dir = "tests/unit/"
+runner = "python -m pytest tests/unit/ -x --no-header -q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "bench_data",
+    "bench_ast_data",
+    "gpu_bench_data",
+    "benchmarks/bench_data",
+    "benchmarks/bench_ast_data",
+    "benchmarks/gpu_bench_data",
+    "benchmarks/external_repos",
+    # Skill docs are prose, not code. `ruff format --preview` reformats python fenced code blocks
+    # inside their markdown, which false-alarms the CI format gate on skill examples (and the
+    # harness re-touches these files with CRLF). Exclude them from lint+format entirely.
+    ".claude/skills",
+]
+
+[tool.ruff.format]
+# Pin LF so Windows ruff never emits CRLF that the Linux CI ruff-format gate rejects.
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "RUF" # Ruff-specific rules
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # Do not perform function call in argument defaults (normal for Typer CLI commands)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tensor_grep"]
+
+
+[tool.mypy]
+warn_unused_ignores = false
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# numpy ships a py.typed stub that uses PEP 695 `type` statements (3.12+ syntax). The
+# type-check gate targets python_version = 3.11, so mypy rejects numpy's stub with a hard
+# syntax error ("Type statement is only supported in Python 3.12 and greater") and aborts
+# before checking our code. We do not type-check against numpy internals, so skip following
+# it (treated as Any). Remove once the gate's python_version moves to >= 3.12.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+[tool.semantic_release]
+version_toml = [
+    "pyproject.toml:project.version",
+    "rust_core/Cargo.toml:package.version",
+]
+branch = "main"
+build_command = "python scripts/stamp_release_assets.py && git add AGENTS.md README.md SKILL.md docs/SESSION_HANDOFF.md docs/CONTINUATION_PLAN.md docs/CONTRACTS.md docs/benchmarks.md docs/gpu_crossover.md docs/PAPER.md && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . $HOME/.cargo/env && rustup default 1.96.0 && cargo generate-lockfile --manifest-path rust_core/Cargo.toml && git add rust_core/Cargo.lock && pip install uv==0.11.25 && uv lock --upgrade-package tensor-grep && git add uv.lock && uv build"
+upload_to_pypi = false
+upload_to_release = true
+commit_message = "chore(release): v{version} [skip ci]"
+version_variables = [
+    "src/tensor_grep/cli/main.py:pkg_version",
+    "npm/package.json:version",
+    "scripts/tensor-grep.rb:TENSOR_GREP_VERSION",
+    "scripts/oimiragieo.tensor-grep.yaml:PackageVersion",
+    "scripts/oimiragieo.tensor-grep.yaml:InstallerUrl",
+    "AGENTS.md:release_docs_current_tag:tf",
+    "README.md:release_docs_current_tag:tf",
+    "SKILL.md:release_docs_current_tag:tf",
+    "docs/SESSION_HANDOFF.md:release_docs_current_tag:tf",
+    "docs/CONTINUATION_PLAN.md:release_docs_current_tag:tf",
+    "docs/CONTRACTS.md:release_docs_current_tag:tf",
+]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[project]
+name = "tensor-grep"
+version = "1.111.3"
+description = "High-performance grep-compatible CLI with Rust, GPU, and AST/NLP routing"
+readme = { file = "rust_core/README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+dependencies = [
+    # Upper bound: typer 0.26 dropped click.testing.CliRunner inheritance, removing
+    # CliRunner.isolated_filesystem() that the CLI test suite relies on (49 usages). typer 0.25
+    # KEEPS that API (verified: full CLI suite green on 0.25.1) AND — unlike the older <0.25 pin —
+    # resolves on Python 3.14; pinning <0.25 forced py3.14 `pip`/`uv tool` installs to silently
+    # resolve DOWN to the stale 1.13.35 (the typer<0.25 range has no py3.14-compatible click). Allow
+    # 0.25, still block 0.26 until the tests migrate off isolated_filesystem().
+    "typer>=0.12,<0.26",
+    "rich>=13.0",
+    # >=1.29.0: maintenance-policy floor bump (W2-b,
+    # docs/design/2026-08-20-mcp-2-0-exposure-decision.md). >=1.27.2 was the CVE-2026-52870 fix
+    # (mcp 1.26.0 advisory); no advisory is cited against 1.27.2 itself -- the `<2` cap below means
+    # this floor is the ONLY thing keeping a resolver from installing an old release off the v1.x
+    # branch that still receives security patches, so the floor tracks the maintained head
+    # (latest v1.x per PyPI as of 2026-08-20 is 1.29.0, uploaded 2026-07-28) rather than lag
+    # behind it. If an advisory is later cited against a version below this floor, it upgrades the
+    # justification; it is not the justification today.
+    #
+    # <2: mcp 2.0.0 REMOVED `mcp.server.fastmcp`, which `cli/mcp_server.py:20` imports at module
+    # scope. Because `tg run --rewrite` lazily imports `mcp_server` (ast_workflows.py:64 ->
+    # execute_rewrite_plan_json), a fresh `pip install tensor-grep` resolving 2.x makes the rewrite
+    # path die with `ModuleNotFoundError: No module named 'mcp.server.fastmcp'` -- a USER-FACING
+    # break, not just a CI one. It went unnoticed for two releases because every in-repo consumer
+    # installs from uv.lock (pinned 1.28.1); the ONLY component that resolves fresh is the PyPI
+    # smoke venv, which is exactly what caught it (release runs 30363114542, 30375308409 -- both
+    # blocked `publish-pypi`, so v1.101.10 and v1.101.11 tagged without publishing).
+    #
+    # A cap, not a port, deliberately: the cap restores publishing today, and migrating to the 2.x
+    # API is a real change that deserves its own PR and its own tests. Lifting this cap REQUIRES
+    # porting `cli/mcp_server.py` off `mcp.server.fastmcp` first -- see the guard in
+    # tests/unit/test_mcp_dependency_is_upper_bounded.py, which fails if the bound is dropped.
+    "mcp>=1.29.0,<2",
+    "pathspec>=1.0.4",
+    "pyyaml>=6.0",
+    # opentelemetry-api only: the 6 `trace.get_tracer` call sites (cudf_backend.py,
+    # cybert_backend.py, pipeline.py, cli/main.py) are all ImportError-guarded no-ops and no
+    # TracerProvider is ever configured, so tracing is inert even with the SDK present. The
+    # heavier opentelemetry-sdk/-exporter-otlp packages (and their grpcio+protobuf chain) live in
+    # no extra -- they were dead weight on every install; see test_pyproject_dependencies.py.
+    "opentelemetry-api>=1.27.0",
+    "importlib-metadata<8.5.0; python_version < '3.12'",
+    # Ed25519 EvidenceReceipt signing (`tg evidence emit --sign` / verify / keygen / pubkey,
+    # task #124). Already resolved transitively via mcp>=1.27.2 -> pyjwt[crypto] -> cryptography
+    # (uv.lock) and pinned >=50.0.0 in [tool.uv].constraint-dependencies above -- promoting it to a
+    # direct core dependency is a zero-additional-install-cost change.
+    "cryptography>=50.0.0",
+]
+
+[project.optional-dependencies]
+# NOTE: these `gpu`/`gpu-win` extras are UNPINNED convenience deps and may resolve to a CPU-only
+# or CUDA-mismatched torch. The SUPPORTED GPU runtime path is the managed installer
+# (scripts/install.sh / install.ps1), which deliberately installs pinned CUDA 12.8 wheels.
+# `pip install tensor-grep[gpu]` is best-effort experimental, not the supported managed GPU path.
+# pyarrow: only consumed by CuDFBackend's zero-copy ingestion path (cudf_backend.py, two lazy
+# `import pyarrow` calls gated behind `import cudf` succeeding first) -- belongs here, not the
+# core dependency list. NOT in gpu-win: that extra is torch-only (no cudf), so the pyarrow
+# zero-copy path never runs there.
+gpu = ["cudf-cu12", "kvikio-cu12", "torch>=2.0", "pyarrow>=23.0.1"]
+gpu-win = ["torch>=2.0"]
+# aiohttp is declared HERE, not only in `[tool.uv] constraint-dependencies`, on purpose.
+# `constraint-dependencies` governs LOCAL resolution (this repo's uv.lock) only -- it is NOT
+# published metadata, so a user running `pip install tensor-grep[nlp]` never sees it. This extra
+# pulls `tritonclient[http]`, whose own metadata permits `aiohttp>=3.8.1,<4`, so without this
+# direct floor the published extra can still resolve an advisory-affected aiohttp. Per AGENTS.md
+# A69, a fixable advisory is upgraded across BOTH the direct and the constraint floor.
+nlp = ["transformers>=5.3.0", "tritonclient[http]", "aiohttp>=3.14.3"]
+ast = ["tree-sitter>=0.22", "tree-sitter-python", "tree-sitter-javascript", "tree-sitter-typescript", "tree-sitter-rust", "tree-sitter-go", "tree-sitter-java", "tree-sitter-php", "tree-sitter-c-sharp", "tree-sitter-c", "tree-sitter-cpp", "pygls>=2.0"]
+# Local hybrid semantic search dense leg (`tg search --semantic`, roadmap #27, Path B Stage 1):
+# model2vec is a pure-numpy static-embedding runtime -- NO torch/GPU dependency, sub-ms CPU query
+# encode. Paired with the MIT-licensed minishlab/potion-code-16M model (fetched once, offline
+# after that). Absent -> visible BM25-only fallback (never a silent downgrade); see
+# core/retrieval_dense.py:dense_available().
+semantic = ["model2vec>=0.5", "numpy>=1.26"]
+# Late-interaction (MaxSim) rerank stage (`tg search --rerank`, roadmap
+# docs/plans/design-tensor-grep-late-rerank-2026-07-09.md): onnxruntime is CPU-only ONNX Runtime
+# (MIT) and tokenizers is the Rust-backed HF tokenizer (Apache-2.0) -- NO torch/transformers/PyLate
+# at runtime. Requires `semantic` because the rerank stage reorders the head of the RRF-fused
+# BM25+dense pool, never runs standalone. Absent -> visible degrade to the RRF order (never a
+# silent skip); see core/retrieval_late.py.
+rerank = ["tensor-grep[semantic]", "onnxruntime>=1.20", "tokenizers>=0.21"]
+dev = [
+  "pytest>=9.0.3", "pytest-cov>=5.0", "pytest-mock>=3.14",
+  "pytest-asyncio>=0.24", "pytest-snapshot>=0.9",
+  "hypothesis>=6.100", "mutmut>=3.0",
+  "ruff==0.15.20", "mypy==1.19.1",
+  "numpy>=1.26.0",
+  "stringzilla>=4.0",
+  "psutil",
+  "tree-sitter>=0.22",
+  "tree-sitter-python",
+  "tree-sitter-javascript",
+  "tree-sitter-typescript",
+  "tree-sitter-rust",
+  "tree-sitter-go",
+  "tree-sitter-java",
+  "tree-sitter-php",
+  "tree-sitter-c-sharp",
+  "tree-sitter-c",
+  "tree-sitter-cpp",
+  "types-PyYAML",
+]
+bench = [
+  "pytest>=9.0.3",
+  "stringzilla>=4.0",
+  "tree-sitter>=0.22",
+  "tree-sitter-python",
+  "tree-sitter-javascript",
+  "tree-sitter-typescript",
+  "tree-sitter-rust",
+  "tree-sitter-go",
+  "tree-sitter-java",
+  "tree-sitter-php",
+  "tree-sitter-c-sharp",
+  "tree-sitter-c",
+  "tree-sitter-cpp",
+  "torch>=2.0",
+  "nvtx>=0.2",
+]
+
+[project.scripts]
+tg = "tensor_grep.cli.bootstrap:main_entry"
+

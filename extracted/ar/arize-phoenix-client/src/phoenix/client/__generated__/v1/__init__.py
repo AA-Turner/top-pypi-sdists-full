@@ -15,6 +15,7 @@ class AgentSessionConflictError(TypedDict):
         "agent_session_model_stale",
         "agent_session_messages_stale",
         "agent_session_tool_outputs_conflict",
+        "agent_session_tool_approvals_conflict",
         "agent_session_already_compact",
         "agent_session_compaction_conflict",
     ]
@@ -110,10 +111,8 @@ class ChatCompletionTextPart(TypedDict):
     text: str
 
 
-class ChatCompletionUsage(TypedDict):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+class ChatCompletionUsagePromptTokensDetails(TypedDict):
+    cached_tokens: int
 
 
 class CodeEvaluatorContext(TypedDict):
@@ -905,6 +904,11 @@ class TextUIPart(TypedDict):
     providerMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 
+class ToolApproval(TypedDict):
+    toolCallId: str
+    approved: bool
+
+
 class ToolApprovalRequested(TypedDict):
     id: str
 
@@ -1359,6 +1363,13 @@ class ChatCompletionRequestMessage(TypedDict):
     content: Union[str, Sequence[ChatCompletionTextPart]]
 
 
+class ChatCompletionUsage(TypedDict):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    prompt_tokens_details: NotRequired[ChatCompletionUsagePromptTokensDetails]
+
+
 class ContinuousAnnotationConfigData(TypedDict):
     type: Literal["CONTINUOUS"]
     name: str
@@ -1795,6 +1806,11 @@ class SpansResponseBody(TypedDict):
     next_cursor: Optional[str]
 
 
+class SubmitAgentSessionToolApprovalsRequestBody(TypedDict):
+    toolApprovals: Sequence[ToolApproval]
+    lastMessageId: str
+
+
 class SubmitAgentSessionToolOutputsRequestBody(TypedDict):
     toolOutputs: Sequence[
         Union[
@@ -2090,6 +2106,10 @@ class PromptMessage(TypedDict):
     ]
 
 
+class SubmitAgentSessionToolApprovalsResponseBody(TypedDict):
+    data: PhoenixUIMessage
+
+
 class SubmitAgentSessionToolOutputsResponseBody(TypedDict):
     data: PhoenixUIMessage
 
@@ -2132,6 +2152,7 @@ class ChatRequestBody(TypedDict):
             ]
         ]
     ]
+    toolApprovals: NotRequired[Sequence[ToolApproval]]
     lastMessageId: NotRequired[str]
     recordLocalTraces: NotRequired[bool]
     exportRemoteTraces: NotRequired[bool]

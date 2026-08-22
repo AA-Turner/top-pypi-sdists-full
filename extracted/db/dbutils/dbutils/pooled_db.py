@@ -59,11 +59,18 @@ an instance of PooledDB, passing the following parameters:
         for which the connection failover mechanism shall be applied,
         if the default (OperationalError, InterfaceError, InternalError)
         is not adequate for the used database module
+    isfatal: an optional callable deciding whether a given exception is
+        really fatal for the connection and the failover mechanism shall
+        be applied (see the steady_db module for details)
     ping: an optional flag controlling when connections are checked
-        with the ping() method if such a method is available
         (0 = None = never, 1 = default = whenever fetched from the pool,
         2 = when a cursor is created, 4 = when a query is executed,
         7 = always, and all other bit combinations of these values)
+        By default, connections are checked with the ping() method if
+        such a method is available.  You can also pass an SQL statement
+        or a callable that shall be used for the check instead, which is
+        then made as with ping=1, or a tuple with the flag and one of the
+        latter (see the steady_db module for details).
 
     The creator function or the connect function of the DB-API 2 compliant
     database module specified as the creator will receive any additional
@@ -195,7 +202,7 @@ class PooledDB:
             self, creator, mincached=0, maxcached=0,
             maxshared=0, maxconnections=0, blocking=False,
             maxusage=None, setsession=None, reset=True,
-            failures=None, ping=1,
+            failures=None, ping=1, isfatal=None,
             *args, **kwargs):
         """Set up the DB-API 2 connection pool.
 
@@ -227,10 +234,29 @@ class PooledDB:
             for which the connection failover mechanism shall be applied,
             if the default (OperationalError, InterfaceError, InternalError)
             is not adequate for the used database module
-        ping: determines when the connection should be checked with ping()
+        isfatal: an optional callable that is passed an exception matching
+            the failures and shall return whether that error is really fatal
+            for the connection, i.e. whether the failover mechanism shall be
+            applied.  Use this to distinguish errors that merely report a
+            failed statement (such as a deliberate server side statement
+            timeout) from errors that report a broken connection, when the
+            database module maps both onto the same exception class.  The
+            callable must tolerate arbitrary exception instances, including
+            instances without args.
+        ping: determines when the connection should be checked
             (0 = None = never, 1 = default = whenever fetched from the pool,
             2 = when a cursor is created, 4 = when a query is executed,
             7 = always, and all other bit combinations of these values)
+            By default, the connection is checked with its ping() method.
+            Since ping() is not part of the DB-API 2 specification, you
+            can also pass an SQL statement such as "select 1" that shall
+            be executed instead, or a callable that is passed the
+            underlying DB-API 2 connection and shall return whether that
+            connection is still alive.  Such a check is made as with
+            ping=1, i.e. whenever a connection is fetched from the pool;
+            if you want it to be made at other times, pass a tuple with
+            one of the integer values above and the SQL statement or the
+            callable, e.g. ping=(4, "select 1").
         args, kwargs: the parameters that shall be passed to the creator
             function or the connection constructor of the DB-API 2 module
         """
@@ -256,6 +282,7 @@ class PooledDB:
         self._setsession = setsession
         self._reset = reset
         self._failures = failures
+        self._isfatal = isfatal
         self._ping = ping
         if mincached is None:
             mincached = 0
@@ -291,7 +318,8 @@ class PooledDB:
         """Get a steady, unpooled DB-API 2 connection."""
         return connect(
             self._creator, self._maxusage, self._setsession,
-            self._failures, self._ping, True, *self._args, **self._kwargs)
+            self._failures, self._ping, True, self._isfatal,
+            *self._args, **self._kwargs)
 
     def connection(self, shareable=True):
         """Get a steady, cached DB-API 2 connection from the pool.
@@ -301,30 +329,37 @@ class PooledDB:
         """
         if shareable and self._maxshared:
             with self._lock:
-                while (not self._shared_cache and self._maxconnections
-                        and self._connections >= self._maxconnections):
-                    self._wait_lock()
-                if len(self._shared_cache) < self._maxshared:
-                    # shared cache is not full, get a dedicated connection
-                    try:  # first try to get it from the idle cache
-                        con = self._idle_cache.pop(0)
-                    except IndexError:  # else get a fresh connection
-                        con = self.steady_connection()
-                    else:
-                        con._ping_check()  # check this connection
-                    con = SharedDBConnection(con)
-                    self._connections += 1
-                else:  # shared cache full or no more connections allowed
-                    self._shared_cache.sort()  # least shared connection first
-                    con = self._shared_cache.pop(0)  # get it
-                    while con.con._transaction:
-                        # do not share connections which are in a transaction
-                        self._shared_cache.insert(0, con)
+                while True:
+                    while (not self._shared_cache and self._maxconnections
+                            and self._connections >= self._maxconnections):
                         self._wait_lock()
-                        self._shared_cache.sort()
-                        con = self._shared_cache.pop(0)
+                    if len(self._shared_cache) < self._maxshared:
+                        # shared cache is not full, get a dedicated connection
+                        try:  # first try to get it from the idle cache
+                            con = self._idle_cache.pop(0)
+                        except IndexError:  # else get a fresh connection
+                            con = self.steady_connection()
+                        else:
+                            con._ping_check()  # check this connection
+                        con = SharedDBConnection(con)
+                        self._connections += 1
+                        break
+                    # shared cache full or no more connections allowed
+                    self._shared_cache.sort()  # least shared connection first
+                    # only look at it, but leave it in the shared cache
+                    # as long as we may still have to wait for it
+                    con = self._shared_cache[0]
+                    if con.con._transaction:
+                        # do not share connections which are in a transaction,
+                        # wait until the situation has changed and start over,
+                        # since by then the connection may have become idle
+                        # and been removed from the shared cache altogether
+                        self._wait_lock()
+                        continue
+                    del self._shared_cache[0]  # get it
                     con.con._ping_check()  # check the underlying connection
                     con.share()  # increase share of this connection
+                    break
                 # put the connection (back) into the shared cache
                 self._shared_cache.append(con)
                 self._lock.notify()
@@ -473,12 +508,17 @@ class SharedDBConnection:
 
     def __eq__(self, other):
         """Check whether this connection is the same as the other one."""
-        return (self.con._transaction == other.con._transaction
-                and self.shared == other.shared)
+        # The ordering above only serves to pick the least shared connection,
+        # it does not make different connections interchangeable.  Therefore
+        # equality is identity, so that the shared cache can be searched for
+        # one particular connection (see the unshare method of the pool).
+        return self is other
 
     def __hash__(self):
         """Get hash value of this connection."""
-        return hash((self.con, self.shared))
+        # must be based on identity as well, and must stay constant even
+        # though the number of shares of the connection can change
+        return id(self)
 
     def share(self):
         """Increase the share of this connection."""

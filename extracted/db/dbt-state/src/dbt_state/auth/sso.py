@@ -607,7 +607,7 @@ class SsoAuth:
                     f"User access to the requested organization (org_id: {disabled_org_ids[0]}) has been disabled."
                 )
             raise AuthenticationError(
-                "Cannot determine organization ID from token. Please specify which organization to use by setting 'state-org-id' in the 'dbt-cloud' config block in the project configuration."
+                "Cannot determine the account ID. Please make sure dbt State is enabled in your account."
             )
         if len(org_ids) == 1 and org_ids[0] != "*":
             return org_ids[0]

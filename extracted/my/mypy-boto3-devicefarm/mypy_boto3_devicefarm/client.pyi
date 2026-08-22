@@ -571,8 +571,8 @@ class DeviceFarmClient(BaseClient):
     ) -> GetTestGridSessionResultTypeDef:
         """
         A session is an instance of a browser created through a
-        <code>RemoteWebDriver</code> with the URL from
-        <a>CreateTestGridUrlResult$url</a>.
+        <code>RemoteWebDriver</code> with the URL from <code>
+        CreateTestGridUrlResult</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devicefarm/client/get_test_grid_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devicefarm/client/#get_test_grid_session)

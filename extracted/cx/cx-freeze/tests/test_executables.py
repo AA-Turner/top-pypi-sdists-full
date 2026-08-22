@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from setuptools import Distribution
@@ -20,6 +21,14 @@ from cx_Freeze._compat import (
 from cx_Freeze.common import resource_path
 from cx_Freeze.exception import OptionError, SetupError
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from cx_Freeze._typing import StrPath
+
+    from .conftest import TempPackage, TempPackageVenv
+
+
 SOURCE_SETUP_TOML = """
 test_1.py
     print("Hello from cx_Freeze")
@@ -34,11 +43,12 @@ pyproject.toml
 
     [[tool.cxfreeze.executables]]
     script = "test_1.py"
-    target_name = "test_2"
+    target-name = "test_2"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    build-exe = "build/test"
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 command
     cxfreeze build_exe
@@ -57,8 +67,9 @@ setup.py
     ]
     options = {
         "build_exe": {
+            "build_exe": "build/test",
             "include_msvcr": True,
-            "excludes": ["tkinter", "unittest"],
+            "excludes": ["tkinter"],
             "silent": True
         }
     }
@@ -83,8 +94,9 @@ setup.cfg
     description = Sample cx_Freeze script
 
     [build_exe]
+    build_exe = "build/test"
     include_msvcr = true
-    excludes = tkinter,unittest
+    excludes = tkinter
     silent = true
 command
     cxfreeze --script test_1.py
@@ -101,16 +113,25 @@ pyproject.toml
 
     [[tool.cxfreeze.executables]]
     script = "test_1.py"
-    target_name = "test_2"
+    target-name = "test_2"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 setup.py
     from cx_Freeze import setup
 
-    setup(executables=["test_1.py"])
+    options = {
+        "build_exe": {
+            "build_exe": "build/test",
+            "include_msvcr": True,
+        }
+    }
+    setup(
+        executables=["test_1.py"],
+        options=options,
+    )
 command
     python setup.py build
 """
@@ -151,8 +172,8 @@ pyproject.toml
     script = "test_3.py"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 command
     cxfreeze build
@@ -184,7 +205,7 @@ setup.py
     options = {
         "build_exe": {
             "include_msvcr": True,
-            "excludes": ["tkinter", "unittest"],
+            "excludes": ["tkinter"],
             "include_path": ["."],
             "silent": True
         }
@@ -203,14 +224,14 @@ command
 
 
 @pytest.mark.parametrize(
-    ("source", "number_of_executables"),
+    ("source", "target_dir", "number_of_executables"),
     [
-        (SOURCE_SETUP_TOML, 2),
-        (SOURCE_SETUP_PY, 3),
-        (SOURCE_SETUP_CFG, 1),
-        (SOURCE_SETUP_MIX, 2),
-        (SOURCE_ADV_SETUP_TOML, 3),
-        (SOURCE_ADV_SETUP_PY, 3),
+        (SOURCE_SETUP_TOML, "build/test", 2),
+        (SOURCE_SETUP_PY, "build/test", 3),
+        (SOURCE_SETUP_CFG, "build/test", 1),
+        (SOURCE_SETUP_MIX, "build/test", 2),
+        (SOURCE_ADV_SETUP_TOML, None, 3),
+        (SOURCE_ADV_SETUP_PY, None, 3),
     ],
     ids=[
         "setup_toml",
@@ -222,17 +243,22 @@ command
     ],
 )
 def test_executables(
-    tmp_package, source: str, number_of_executables: int
+    tmp_package: TempPackage,
+    source: str,
+    target_dir: str | None,
+    number_of_executables: int,
 ) -> None:
     """Test the executables option."""
     tmp_package.create(source)
     tmp_package.freeze()
 
     for i in range(1, number_of_executables):
-        file_created = tmp_package.executable(f"test_{i}")
-        assert file_created.is_file(), f"file not found: {file_created}"
+        executable = tmp_package.executable(f"test_{i}")
+        if target_dir is not None:
+            executable = tmp_package.path / target_dir / executable.name
+        assert executable.is_file(), f"file not found: {executable}"
 
-        result = tmp_package.run(file_created)
+        result = tmp_package.run(executable)
         result.stdout.fnmatch_lines("Hello from cx_Freeze*")
 
 
@@ -264,8 +290,8 @@ TEST_VALID_PARAMETERS = [
 
 # base=console valid parameters
 TEST_VALID_PARAMETERS += [
-    ("base", None, f"bases/console-{SOABI}{EXE_SUFFIX}"),
-    ("base", "console", f"bases/console-{SOABI}{EXE_SUFFIX}"),
+    pytest.param("base", None, f"bases/console-{SOABI}{EXE_SUFFIX}"),
+    pytest.param("base", "console", f"bases/console-{SOABI}{EXE_SUFFIX}"),
     pytest.param(
         "base",
         "absolutepath",
@@ -273,6 +299,7 @@ TEST_VALID_PARAMETERS += [
         id="base-absolutepath-console_test",
     ),
 ]
+
 # base=gui* and base=service are available on Windows
 if IS_WINDOWS or IS_MINGW:
     TEST_VALID_PARAMETERS += [
@@ -315,48 +342,76 @@ else:
 
 
 @pytest.mark.parametrize(("option", "value", "result"), TEST_VALID_PARAMETERS)
-def test_valid(tmp_package, option, value, result) -> None:
+def test_valid(
+    tmp_package: TempPackage,
+    option: str,
+    value: str,
+    result: str | tuple[str, ...] | type[BaseException],
+) -> None:
     """Test valid values to use in Executable class."""
     expected_app_type = None
+    options = {
+        "script": "test.py",
+        "init_script": None,
+        "base": None,
+        "target_name": None,
+        "icon": None,
+        "shortcut_name": None,
+        "shortcut_dir": None,
+        "copyright": None,
+        "trademarks": None,
+        "manifest": None,
+        "uac_admin": False,
+        "uac_uiaccess": False,
+    }
     if value == "absolutepath":
         if option == "base":
             expected_app_type = "console"
-            value = tmp_package.path / f"console_test{EXE_SUFFIX}"
-            shutil.copyfile(
-                resource_path(f"bases/console-{SOABI}{EXE_SUFFIX}"), value
-            )
+            resource = resource_path(f"bases/console-{SOABI}{EXE_SUFFIX}")
+            assert resource is not None
+            absolutepath = tmp_package.path / f"console_test{EXE_SUFFIX}"
+            shutil.copyfile(resource, absolutepath)
         elif option == "init_script":
-            value = tmp_package.path / "console_test.py"
-            shutil.copyfile(resource_path("initscripts/console.py"), value)
-
-    try:
-        if issubclass(result, OptionError):
-            with pytest.raises(result):
-                executable = Executable("test.py", **{option: value})
-            return
-    except TypeError:
-        executable = Executable("test.py", **{option: value})
+            resource = resource_path("initscripts/console.py")
+            assert resource is not None
+            absolutepath = tmp_package.path / "console_test.py"
+            shutil.copyfile(resource, absolutepath)
+        else:
+            absolutepath = None
+        assert absolutepath is not None
+        options[option] = str(absolutepath)
+    elif isinstance(result, type(BaseException)):
+        options[option] = value
+        with pytest.raises(result):
+            executable = Executable(**options)
+        return
+    else:
+        absolutepath = None
+        options[option] = value
+    executable = Executable(**options)
 
     if expected_app_type is None:
         base = value or "console" if option == "base" else executable.base.stem
         expected_app_type = (
-            base.lower()
+            str(base)
+            .lower()
             .removeprefix("win32")
             .removesuffix(f"-{SOABI}")
             .removesuffix("_dgpu")
         )
     assert executable.app_type == expected_app_type
 
-    returned = getattr(executable, option)
-    if isinstance(value, Path) and value.is_absolute():
-        assert returned == value
+    returned: StrPath = getattr(executable, option)
+    if absolutepath is not None:
+        assert returned == absolutepath
         return
     if isinstance(returned, Path):
         if option == "base":
             returned = returned.relative_to(returned.parent.parent).as_posix()
         else:
             returned = returned.name
-    if isinstance(result, tuple):  # valid icon names
+    if isinstance(result, tuple) and isinstance(returned, str):
+        # valid icon names
         assert returned.startswith(result), returned
         return
     assert returned == result, returned
@@ -405,7 +460,10 @@ def test_valid(tmp_package, option, value, result) -> None:
     ],
 )
 def test_invalid(
-    class_to_test, kwargs, expected_exception, expected_match
+    class_to_test: Callable,
+    kwargs: dict[str, Any],
+    expected_exception: type[BaseException],
+    expected_match: str,
 ) -> None:
     """Test invalid values to use in Distribution and Executable classes."""
     with pytest.raises(expected_exception, match=expected_match):
@@ -426,17 +484,18 @@ pyproject.toml
     icon = "icon"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = false
 """
 
 
-def test_valid_icon(tmp_package) -> None:
+def test_valid_icon(tmp_package: TempPackage) -> None:
     """Test with valid icon in any OS."""
     tmp_package.create(SOURCE_VALID_ICON)
     # copy valid icons: cp $SRC/freeze_core/icons/py.* $DST/icon.*
     src_dir = resource_path("icons")
+    assert src_dir is not None
     for src in src_dir.glob("py.*"):
         shutil.copyfile(
             src, tmp_package.path.joinpath("icon").with_suffix(src.suffix)
@@ -451,7 +510,7 @@ def test_valid_icon(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-def test_not_found_icon(tmp_package) -> None:
+def test_not_found_icon(tmp_package: TempPackage) -> None:
     """Test with not found icon in any OS."""
     # same test as before, without icons
     tmp_package.create(SOURCE_VALID_ICON)
@@ -473,18 +532,19 @@ pyproject.toml
     icon = "icon.png"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = false
 """
 
 
 @pytest.mark.skipif(not (IS_MINGW or IS_WINDOWS), reason="Windows tests")
-def test_invalid_icon(tmp_package) -> None:
+def test_invalid_icon(tmp_package: TempPackage) -> None:
     """Test with invalid icon in Windows."""
     tmp_package.create(SOURCE_INVALID_ICON)
     # use an invalid icon: cp $SRC/freeze_core/icons/py.png $DST/icon.png
     src_dir = resource_path("icons")
+    assert src_dir is not None
     shutil.copyfile(src_dir / "py.png", tmp_package.path / "icon.png")
     result = tmp_package.freeze()
     result.stdout.no_fnmatch_line("WARNING: Icon file not found")
@@ -492,6 +552,34 @@ def test_invalid_icon(tmp_package) -> None:
     result.stdout.fnmatch_lines(
         "WARNING: Icon filename 'icon.png' has invalid type."
     )
+
+
+SOURCE_INVALID_SYNTAX = r"""
+test_invalid_syntax.py
+    folder = "C:\Temp\New"
+    print("folder:", folder)
+pyproject.toml
+    [project]
+    name = "hello"
+    version = "0.1.2.3"
+    description = "Sample cx_Freeze script"
+
+    [[tool.cxfreeze.executables]]
+    script = "test_invalid_syntax.py"
+
+    [tool.cxfreeze.build_exe]
+    include-msvcr = true
+    excludes = ["tkinter"]
+    silent_level = 1
+"""
+
+
+def test_invalid_syntax(tmp_package: TempPackage) -> None:
+    """Test with invalid syntax."""
+    tmp_package.create(SOURCE_INVALID_SYNTAX)
+    result = tmp_package.freeze()
+    # it is expected the following error
+    result.stderr.fnmatch_lines("SyntaxError: *")
 
 
 SOURCE_RENAME = """
@@ -507,13 +595,13 @@ pyproject.toml
     script = "test_0.py"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
-def test_executable_rename(tmp_package) -> None:
+def test_executable_rename(tmp_package: TempPackage) -> None:
     """Test if the executable can be renamed."""
     tmp_package.create(SOURCE_RENAME)
     tmp_package.freeze()
@@ -592,12 +680,13 @@ command
     ],
 )
 def test_executable_namespace(
-    tmp_package,
     source: str,
     hello: int,
     namespace: int,
     package_or_module: int,
     zip_packages: bool,
+    *,
+    tmp_package: TempPackage,
 ) -> None:
     """Test executable with namespace package."""
     tmp_package.create(source)
@@ -655,8 +744,8 @@ pyproject.toml
     script = "test_sys_path.py"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = false
 """
 
@@ -664,7 +753,7 @@ pyproject.toml
 @pytest.mark.skipif(IS_CONDA, reason="Disabled on conda-forge")
 @pytest.mark.skipif(IS_MINGW, reason="Disabled on msys2")
 @pytest.mark.venv
-def test_valid_sys_path(tmp_package) -> None:
+def test_valid_sys_path(tmp_package: TempPackageVenv) -> None:
     """Test if sys.path has valid values."""
     tmp_package.create(SOURCE_VALID_SYS_PATH)
     tmp_package.freeze()

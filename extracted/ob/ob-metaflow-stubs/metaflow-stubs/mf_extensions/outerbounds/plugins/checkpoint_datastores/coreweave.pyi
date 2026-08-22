@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-17T19:44:19.520919                                                            #
+# Generated on 2026-08-21T18:12:41.257396                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.checkpoint_datastores.external_chckpt
-    import metaflow.user_decorators.mutable_flow
     import metaflow.user_decorators.user_flow_decorator
+    import metaflow.user_decorators.mutable_flow
+    import metaflow.mf_extensions.outerbounds.plugins.checkpoint_datastores.external_chckpt
 
 from .....user_decorators.user_flow_decorator import FlowMutator as FlowMutator
 from .....user_decorators.mutable_flow import MutableFlow as MutableFlow
@@ -32,12 +32,15 @@ class coreweave_checkpoints(metaflow.mf_extensions.outerbounds.plugins.checkpoin
     bucket_path: str
         The path to the bucket to store the checkpoints/models.
     
+    endpoint_url: str
+        The endpoint URL for the coreweave object store. Defaults to `https://cwobject.com`.
+    
     Usage
     -----
     ```python
     from metaflow import checkpoint, step, FlowSpec, coreweave_checkpoints
     
-    @coreweave_checkpoints(secrets=[], bucket_path=None)
+    @coreweave_checkpoints(secrets=[], bucket_path=None, endpoint_url="https://cwobject.com")
     class MyFlow(FlowSpec):
         @checkpoint
         @step

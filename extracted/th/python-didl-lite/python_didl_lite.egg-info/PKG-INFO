@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-didl-lite
-Version: 1.5.0
+Version: 1.5.1
 Summary: DIDL-Lite (Digital Item Declaration Language) tools for Python
 Author-email: Steven Looman <steven.looman@gmail.com>
 License-Expression: Apache-2.0
@@ -16,11 +16,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-License-File: LICENSE.md
 Requires-Dist: defusedxml>=0.6.0
 Provides-Extra: test
-Requires-Dist: pytest==9.0.2; extra == "test"
-Dynamic: license-file
+Requires-Dist: pytest==9.1.1; extra == "test"
 
 DIDL-Lite (Digital Item Declaration Language) tools for Python
 ==============================================================
@@ -51,7 +49,7 @@ Releasing
 
 Steps for releasing:
 
-- Switch to development: ``git checkout master``
+- Switch to master: ``git checkout master``
 - Do a pull: ``git pull``
 - Run towncrier: ``towncrier build --version <version>``
 - Commit towncrier results: ``git commit -m "Towncrier"``

@@ -13,8 +13,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from bernstein.core.models import Task
-    from bernstein.core.server import ArchiveRecord, TaskCreate
+    from bernstein.core.server import TaskCreate
+    from bernstein.core.tasks.models import Task
+    from bernstein.core.tasks.task_store import ArchiveRecord
 
 
 @dataclass
@@ -235,6 +236,8 @@ class BaseTaskStore(ABC):
         self,
         status: str | None = None,
         cell_id: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[Task]:
         """Return tasks, optionally filtered.
 
@@ -244,6 +247,33 @@ class BaseTaskStore(ABC):
         Args:
             status: If provided, only tasks with this status are returned.
             cell_id: If provided, only tasks in this cell are returned.
+            limit: If provided, return at most this many tasks after filtering.
+                Network-backed implementations (e.g. Postgres) must apply a
+                bound even when ``limit`` is ``None`` — an unbounded default
+                risks fetching the entire table on every call. An in-memory
+                implementation whose rows are already resident may return
+                every matching row when ``limit`` is ``None``, since doing so
+                costs nothing beyond what it already holds.
+            offset: If provided, skip this many tasks after filtering. Combine
+                with ``limit`` for paginated iteration.
+
+        Returns:
+            List of matching tasks.
+        """
+
+    @abstractmethod
+    async def count_tasks(
+        self,
+        status: str | None = None,
+        cell_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> int:
+        """Return task count, optionally filtered without constructing Task objects.
+
+        Args:
+            status: If provided, only count tasks with this status.
+            cell_id: If provided, only count tasks in this cell.
+            tenant_id: If provided, only count tasks for this tenant.
         """
 
     @abstractmethod

@@ -26,7 +26,10 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.todo',
               'sphinx.ext.coverage',
-              'sphinx.ext.mathjax', 'sphinx.ext.intersphinx']
+              'sphinx_copybutton',
+              'sphinx.ext.mathjax',
+              'sphinx.ext.intersphinx',
+              ]
 
 intersphinx_mapping = {'py': ('https://docs.python.org/3/', None)}
 
@@ -34,7 +37,7 @@ intersphinx_mapping = {'py': ('https://docs.python.org/3/', None)}
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 
 # The encoding of source files.
 #source_encoding = 'utf-8'
@@ -97,10 +100,17 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  Major themes that come with
 # Sphinx are currently 'default' and 'sphinxdoc'.
-html_theme = 'bizstyle'
+html_theme = 'breeze'
 
-# html_theme = 'nature'
-# html_theme = 'agogo'
+html_theme_options = { "external_links": [
+    { "name": "PDF", "icon": "download", "url": "https://lmfit.github.io/asteval/asteval.pdf"},
+    "https://github.com/lmfit/asteval",
+]
+
+                      }
+
+
+# html_theme = 'bizstyle'
 # html_theme_options = {'pagewidth':'85em', 'documentwidth':'60em', 'sidebarwidth': '25em',
 #                       # 'headercolor1': '#000080',
 #                       # 'headercolor2': '#0000A0',

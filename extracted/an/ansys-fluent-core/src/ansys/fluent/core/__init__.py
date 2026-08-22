@@ -51,9 +51,9 @@ from ansys.fluent.core.utils.context_managers import *
 from ansys.fluent.core.utils.fluent_version import *
 from ansys.fluent.core.utils.setup_for_fluent import *
 
-__version__ = "0.41.0"
+__version__ = "0.42.0"
 
-_VERSION_INFO = "Build date: August 06, 2026 11:31 UTC ShaID: d8fe6e0"
+_VERSION_INFO = "Build date: August 22, 2026 01:09 UTC ShaID: 6059171"
 """
 Global variable indicating the version info of the PyFluent package.
 Build timestamp and commit hash are added to this variable during packaging.

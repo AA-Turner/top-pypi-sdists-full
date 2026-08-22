@@ -1,5 +1,5 @@
 /*
- * Delete all threads and runs from the last benchmark run for consistent tests
+ * Delete all Store items, threads, and runs from the last benchmark run for consistent tests
  * The default benchmark server has a thread TTL of one hour that should clean things up too so this doesn't run too long.
  */
 
@@ -9,12 +9,65 @@ const DEFAULT_LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 
 export async function clean(baseUrl = DEFAULT_BASE_URL, langsmithApiKey = DEFAULT_LANGSMITH_API_KEY) {
     try {
+        await cleanStore(baseUrl, langsmithApiKey);
         await cleanAssistants(baseUrl, langsmithApiKey);
         await cleanThreads(baseUrl, langsmithApiKey);
     } catch (error) {
         console.error('Fatal error during cleanup:', error.message);
         throw error;
     }
+}
+
+async function cleanStore(baseUrl, langsmithApiKey) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (langsmithApiKey) {
+        headers['x-api-key'] = langsmithApiKey;
+    }
+
+    const searchUrl = `${baseUrl}/store/items/search`;
+    const deleteUrl = `${baseUrl}/store/items`;
+    let totalDeleted = 0;
+
+    console.log('Starting Store cleanup...');
+
+    while (true) {
+        const searchResponse = await fetch(searchUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ namespace_prefix: ['benchmark'], limit: 1000 })
+        });
+
+        if (!searchResponse.ok) {
+            throw new Error(`Store search request failed: ${searchResponse.status} ${searchResponse.statusText}`);
+        }
+
+        const result = await searchResponse.json();
+        if (!Array.isArray(result?.items)) {
+            throw new Error('Store search response did not contain an items array');
+        }
+        if (result.items.length === 0) {
+            break;
+        }
+
+        console.log(`Found ${result.items.length} Store items to delete`);
+
+        for (const item of result.items) {
+            const deleteResponse = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers,
+                body: JSON.stringify({ namespace: item.namespace, key: item.key })
+            });
+
+            if (!deleteResponse.ok) {
+                throw new Error(
+                    `Failed to delete Store item ${item.namespace.join('.')}/${item.key}: ${deleteResponse.status} ${deleteResponse.statusText}`
+                );
+            }
+            totalDeleted++;
+        }
+    }
+
+    console.log(`Store cleanup completed. Total items deleted: ${totalDeleted}`);
 }
 
 async function cleanAssistants(baseUrl, langsmithApiKey) {

@@ -247,14 +247,13 @@ class MASTER(_MASTER, nn.Module):
         for i in range(self.max_length - 1):
             source_mask, target_mask = self.make_source_and_target_mask(encoded, ys)
             output = self.decoder(ys, encoded, source_mask, target_mask)
-            logits = self.linear(output)
-            prob = torch.softmax(logits, dim=-1)
-            next_token = torch.max(prob, dim=-1).indices
             # update ys with the next token and ignore the first token (SOS)
-            ys[:, i + 1] = next_token[:, i]
+            ys[:, i + 1] = self.linear(output[:, i]).argmax(-1)
+            if (ys == self.vocab_size).any(dim=-1).all():  # every sequence has emitted EOS
+                break
 
         # Shape (N, max_length, vocab_size + 1)
-        return logits
+        return self.linear(output)
 
 
 class MASTERPostProcessor(_MASTERPostProcessor):
@@ -274,7 +273,7 @@ class MASTERPostProcessor(_MASTERPostProcessor):
         # Manual decoding
         word_values = [
             "".join(self._embedding[idx] for idx in encoded_seq).split("<eos>")[0]
-            for encoded_seq in out_idxs.cpu().numpy()
+            for encoded_seq in out_idxs.detach().cpu().numpy()
         ]
 
         return list(zip(word_values, probs.numpy().clip(0, 1).tolist()))
@@ -325,7 +324,7 @@ def master(pretrained: bool = False, **kwargs: Any) -> MASTER:
     >>> out = model(input_tensor)
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on our text recognition dataset
+        pretrained: If True, returns a model pre-trained on our text recognition dataset
         **kwargs: keywoard arguments passed to the MASTER architecture
 
     Returns:

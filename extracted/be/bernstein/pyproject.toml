@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "3.16.0"
+version = "3.17.0"
 description = "Deterministic orchestrator for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40+ more). No model in the coordination loop, so parallel runs in per-task git worktrees replay byte-identically. Signed lineage plus an opt-in HMAC audit chain a reviewer checks offline, without rerunning it. Cluster mode, air-gap deploy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -50,15 +50,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    # Capped below 0.137: from that release ``include_router`` keeps a
-    # ``fastapi.routing._IncludedRouter`` wrapper in ``app.router.routes``
-    # instead of flattening the sub-router's routes into it. That wrapper
-    # exposes no ``path``, so the route-table introspection in
-    # ``core/security/auth_middleware.py`` resolves to an empty matcher set
-    # and the agent task-scope gate stops recognising every per-task route
-    # registered through a sub-router. Lift the cap together with the
-    # migration tracked in #4023.
-    "fastapi>=0.115,<0.137",
+    # No ceiling: the route-table walk that the agent task-scope gate compiles
+    # its matchers from lives in ``core/routes/route_table.py`` and descends
+    # through the ``include_router`` wrappers FastAPI keeps from 0.137 onward,
+    # so it resolves the same templates on both sides of that change.
+    # ``tests/unit/test_route_table.py`` holds the floor.
+    "fastapi>=0.115",
     # Direct floor for the Starlette ASGI layer so the resolved lockfile stays
     # above PYSEC-2026-161 even when pulled through FastAPI or MCP.
     "starlette>=1.0.1",
@@ -206,6 +203,9 @@ dev = [
     # being skipped by importorskip. types-croniter below stubs the same
     # library for mypy.
     "croniter>=6.0",
+    # Rendering-fetcher tests (#3120) exercise the headless browser against
+    # a local fixture server. Runtime extra: bernstein[research-render].
+    "playwright>=1.62.0",
     # NOTE: semgrep is intentionally NOT a dev dep. Its transitive pins
     # (click<8.2, opentelemetry-sdk<1.38) collide with our production
     # floors (click>=8.3.3, opentelemetry-sdk>=1.41.1). Install via
@@ -327,6 +327,9 @@ otel = [
 #   pip install 'bernstein[observability]'
 observability = [
     "sentry-sdk[fastapi]>=2.20",
+]
+research-render = [
+    "playwright>=1.62.0",
 ]
 
 [project.scripts]
@@ -876,7 +879,7 @@ ignore_missing_imports = true
 # Translated README variants gated by `bernstein readme-l10n verify`
 # (issue #3425). Adding a language is a data change: append its IETF tag
 # here and add README.<tag>.md carrying l10n bindings.
-languages = ["zh-Hans", "zh-TW", "ja", "ko", "hi", "bn"]
+languages = ["zh-Hans", "zh-TW", "ja", "ko", "hi", "bn", "ru", "es", "pt", "de", "fr", "it", "nl", "pl", "sv", "fi", "uk", "tr", "ar", "he", "id", "vi", "th"]
 
 # Who keeps each translation current. `verify` names the owner when a
 # language drifts, so the report reaches someone who reads the language
@@ -891,6 +894,23 @@ languages = ["zh-Hans", "zh-TW", "ja", "ko", "hi", "bn"]
 "ko" = "@chernistry"
 "hi" = "@chernistry"
 "bn" = "@chernistry"
+"ru" = "@chernistry"
+"es" = "@chernistry"
+"pt" = "@chernistry"
+"de" = "@chernistry"
+"fr" = "@chernistry"
+"it" = "@chernistry"
+"nl" = "@chernistry"
+"pl" = "@chernistry"
+"sv" = "@chernistry"
+"fi" = "@chernistry"
+"uk" = "@chernistry"
+"tr" = "@chernistry"
+"ar" = "@chernistry"
+"he" = "@chernistry"
+"id" = "@chernistry"
+"vi" = "@chernistry"
+"th" = "@chernistry"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -1031,6 +1051,7 @@ dev = [
     "lxml-stubs>=0.5.1",  # lxml, via signxml (SAML assertion parsing)
     "boto3-stubs>=1.43.56",  # boto3 (s3 / r2 extras), published by the mypy_boto3 project
     "botocore-stubs>=1.43.14",  # botocore, same publisher
+    "playwright>=1.62.0",
 ]
 
 [tool.uv]
@@ -1041,7 +1062,16 @@ dev = [
 # environment. Declaring the conflict keeps the universal lock resolvable and
 # turns a former import-time VersionError into an install-time resolution
 # error, which is where a dependency conflict belongs.
-conflicts = [[{ extra = "grpc" }, { extra = "modal" }]]
+#
+# `otel` has the same shape as `grpc` here, not a different one:
+# opentelemetry-exporter-otlp-proto-grpc>=1.41.1 pins protobuf==7.35.1 (same
+# generated-code floor as the checked-in gRPC gencode above), which modal's
+# <7.0 cap rules out just as directly. Undeclared, this doesn't fail as a
+# known-incompatible pair - it fails as "your project's requirements are
+# unsatisfiable" from the *whole* lockfile, which is what aborted every `uv`
+# dependency-update run rather than just the two extras that actually clash
+# (#4088).
+conflicts = [[{ extra = "grpc" }, { extra = "modal" }], [{ extra = "otel" }, { extra = "modal" }]]
 
 [tool.mutmut]
 # Lineage v1 mutation testing - see scripts/mutmut_lineage.py for the

@@ -1,7 +1,4 @@
 import os
-from typing import (
-    Type,
-)
 
 from eth_keys.utils.module_loading import (
     import_string,
@@ -26,7 +23,7 @@ def get_default_backend_class() -> str:
         return "eth_keys.backends.NativeECCBackend"
 
 
-def get_backend_class(import_path: str = None) -> Type[BaseECCBackend]:
+def get_backend_class(import_path: str = None) -> type[BaseECCBackend]:
     if import_path is None:
         import_path = os.environ.get(
             "ECC_BACKEND_CLASS",

@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from sphinx.environment import BuildEnvironment
 
     _ObjectDescriptionTuple = tuple[str, str, str, str, str, int]
+    _ObjectDescriptionList = list[_ObjectDescriptionTuple]
 
 logger = logging.getLogger(__name__)
 
@@ -909,6 +910,43 @@ class ArgParseDomain(Domain):
 
     def get_objects(self) -> Iterable[_ObjectDescriptionTuple]:
         yield from self.data['commands']
+
+    def clear_doc(self, docname: str) -> None:
+        """Remove traces of a document in the domain-specific inventories.
+
+        :param docname: Name of the document for which we need to clear cache.
+        """
+
+        def keep_by_docname(entries_: _ObjectDescriptionList) -> _ObjectDescriptionList:
+            """Remove entries for this particular docname from an array."""
+            return [entry for entry in entries_ if entry[3] != docname]
+
+        self.data['commands'] = keep_by_docname(self.data['commands'])
+
+        commands_by_group: dict[str, _ObjectDescriptionList] = self.data['commands-by-group']
+        for group in list(commands_by_group):  # Iterate over keys list as we modify the dict
+            entries = keep_by_docname(commands_by_group[group])
+            if entries:
+                commands_by_group[group] = entries
+            else:
+                del commands_by_group[group]
+
+    def merge_domaindata(self, docnames: Iterable[str], otherdata: dict) -> None:
+        """Merge in data regarding *docnames* from a different domaindata inventory
+
+        This is coming from a subprocess in parallel builds.
+        """
+        docnames = set(docnames)
+        # No need to check for duplicates: each docname is only ever merged
+        # once, from the single worker process that read it.
+        for entry in otherdata['commands']:
+            if entry[3] in docnames:
+                self.data['commands'].append(entry)
+        for group, entries in otherdata['commands-by-group'].items():
+            merged = self.data['commands-by-group'].setdefault(group, [])
+            for entry in entries:
+                if entry[3] in docnames:
+                    merged.append(entry)
 
     def resolve_xref(
         self,

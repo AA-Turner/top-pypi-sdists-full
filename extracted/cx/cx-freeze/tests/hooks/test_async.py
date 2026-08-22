@@ -1,14 +1,19 @@
-"""Tests for hooks of anyio async package
-(implicitly test the asyncio and uvloop packages).
+"""Tests for hooks of anyio async package.
+
+Implicitly test the asyncio and uvloop packages.
 """
 
 from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cx_Freeze._compat import ABI_THREAD
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -19,11 +24,12 @@ zip_packages = pytest.mark.parametrize(
 SOURCE_ANYIO = """
 test_anyio.py
     import sys
-    import sysconfig
 
     from anyio import run
-
-    ABI_THREAD = sysconfig.get_config_var("abi_thread") or ""
+    try:
+        import uvloop
+    except ImportError:
+        uvloop = None
 
     async def main():
         print("Hello from cx_Freeze")
@@ -31,32 +37,32 @@ test_anyio.py
     run(
         main,
         backend_options={
-            "use_uvloop": (
-                sys.platform != "win32"
-                and sys.version_info[:2] <= (3, 13)
-                and ABI_THREAD == ""
-            )
+            "use_uvloop": uvloop is not None,
         },
     )
 pyproject.toml
     [project]
     name = "test_anyio"
     version = "0.1.2.3"
-    dependencies = ["anyio"]
+    dependencies = [
+        "anyio",
+    ]
 
     [tool.cxfreeze]
     executables = ["test_anyio.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.venv
 @zip_packages
-def test_anyio(tmp_package, zip_packages) -> None:
+def test_anyio(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
     """Test if anyio is working correctly."""
     tmp_package.create(SOURCE_ANYIO)
     if zip_packages:
@@ -64,12 +70,11 @@ def test_anyio(tmp_package, zip_packages) -> None:
         buf = pyproject.read_bytes().decode().splitlines()
         buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
         pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    if (
-        sys.platform != "win32"
-        and sys.version_info[:2] <= (3, 13)
-        and ABI_THREAD == ""
-    ):
-        tmp_package.install("uvloop")
+    if sys.platform != "win32":
+        if not (
+            sys.version_info == (3, 13) and ABI_THREAD == "t"
+        ) and sys.version_info < (3, 15):
+            tmp_package.install("uvloop")
     tmp_package.freeze()
     executable = tmp_package.executable("test_anyio")
     assert executable.is_file()

@@ -1,0 +1,43 @@
+[package]
+name = "dcc-mcp-skill-rest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Per-DCC RESTful skill API surface (issues #658, #660) — extracted from dcc-mcp-http"
+
+[dependencies]
+# Internal
+dcc-mcp-actions = { path = "../dcc-mcp-actions" }
+dcc-mcp-models = { path = "../dcc-mcp-models" }
+dcc-mcp-skills = { path = "../dcc-mcp-skills" }
+
+# Workspace shared
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+# HTTP server
+axum = { version = "0.8", features = ["http1", "tokio"] }
+
+# Async + SSE streaming (#818 phase 1b)
+futures = "0.3"
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+
+# OpenAPI generation
+utoipa = { version = "5.4", features = ["axum_extras"] }
+utoipa-scalar = "0.3"
+
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+axum-test = "20"
+dcc-mcp-test-utils = { path = "../dcc-mcp-test-utils" }

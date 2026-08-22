@@ -41,8 +41,10 @@ def test_cubist_branch_merges_overrides_over_defaults():
     assert re.search(r"cub\.update\(cubist_params or \{\}\)", src), (
         "cubist branch must merge cubist_params over the default dict"
     )
-    # model built from the merged dict, not a fixed literal
-    assert re.search(r"Cubist\(random_state=seed, \*\*cub\)", src), (
+    # model built from the merged dict, not a fixed literal. The estimator
+    # is the _CubistUnseenSafe wrapper (unseen-Region guard), which forwards
+    # **cub into Cubist(**kw).
+    assert re.search(r"_CubistUnseenSafe\(random_state=seed, \*\*cub\)", src), (
         "Cubist must be constructed from the merged **cub dict"
     )
 

@@ -29,7 +29,7 @@ and line number.
 
 from pygeodesy import internals as _internals, interns as _interns, \
                      _isfrozen  # DON'T _lazy_import2
-# from pygeodesy.errors import _error_init, _ImmutableError, _xkwds_item2  # _ALL_MODS
+# from pygeodesy.errors import _error_init, _ImmutableError, _xkwds_get, _xkwds_item2  # _ALL_MODS
 from pygeodesy.internals import _caller3, _envPYGEODESY, _headof, printf, _Property_RO, \
                                 _tailof, typename, _versions  # _getenv, _PYGEODESY_ENV, \
 #                               _MODS_Base, _MODS.sys_version_info2
@@ -315,10 +315,11 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                                    'EasNor2Tuple', 'EasNor3Tuple', 'Ellipse5Tuple',
                                    'Forward4Tuple', 'Intersection3Tuple',
                                    'LatLon2Tuple', 'LatLon3Tuple', 'LatLon4Tuple',
-                                   'LatLonDatum3Tuple', 'LatLonDatum5Tuple',
+                                   'LatLonDatum3Tuple', 'LatLonDatum5Tuple', 'LatLonHeight3Tuple', 'LatLonNgeoid3Tuple',
                                    'LatLonPrec3Tuple', 'LatLonPrec5Tuple',
                                    'NearestOn2Tuple', 'NearestOn3Tuple', 'NearestOn6Tuple', 'NearestOn8Tuple',
-                                   'PhiLam2Tuple', 'PhiLam3Tuple', 'PhiLam4Tuple', 'Point3Tuple', 'Points2Tuple',
+                                   'PhiLam2Tuple', 'PhiLam3Tuple', 'PhiLam4Tuple', 'PhiLamHeight3Tuple', 'PhiLamNgeoid3Tuple',
+                                   'Point3Tuple', 'Points2Tuple',
                                    'RD4Tuple', 'Reverse4Tuple', 'Triangle7Tuple', 'Triangle8Tuple', 'Trilaterate5Tuple',
                                    'UtmUps2Tuple', 'UtmUps5Tuple', 'UtmUps8Tuple', 'UtmUpsLatLon5Tuple',
                                    'Vector2Tuple', 'Vector3Tuple', 'Vector4Tuple'),
@@ -354,7 +355,7 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                 triaxials_bases=_a('LLK', 'TriaxialError'),
            triaxials_conformal3=_a('BetOmgGam5Tuple',
                                    'Conformal3', 'Conformal3B', 'Conformal3Sphere', 'Conformal5Tuple'),
-            triaxials_triaxial3=_a('BetOmgAlp5Tuple', 'Cartesian5Tuple', 'PhiLamZet5Tuple',
+            triaxials_triaxial3=_a('BetOmgAlp5Tuple', 'Cartesian5Tuple', 'LatLonAzi5Tuple', 'PhiLamZet5Tuple',
                                    'Triaxial3', 'Triaxial3B', 'Triaxial3s'),
             triaxials_triaxial5=_a('BetaOmega2Tuple', 'BetaOmega3Tuple',
                                    'Conformal', 'ConformalSphere', 'Conformal2Tuple',
@@ -540,6 +541,28 @@ def _ALL_OTHER(*objs):
         return getattr(_interns, i, n)
 
     return tuple(map(_interned, objs))  # map2
+
+
+def _ALL_STAR(pack, *mods, **abspath):  # PYCHOK no cover
+    '''(INTERNAL) Mimick "for m in mods: from m import *" inside pack.__init__
+       returning a tuple of __all__ names collected, sorted and extended with
+       "pack_abspath" for use in packs pyaxqg, pybelbg, pychlv and pyrdnap.
+    '''
+    p = import_module(pack)  # sys.modules[pack]
+    d = p.__dict__
+    t = []
+    for m in mods:
+        for n in m.__all__:
+            x = getattr(m, n)
+            if d.get(n, x) is x:
+                d[n] = x
+                t.append(n)
+            else:
+                t = '%r vs %r' % (d[n], x)
+                raise LazyAttributeError(duplicate=n, txt=t)
+    if abspath.get('abspath', True):
+        t.append(_UNDER_(pack, 'abspath'))
+    return tuple(sorted(t))
 
 
 if _FOR_DOCS:  # PYCHOK no cover
@@ -902,7 +925,7 @@ def _lazy_module(name):  # overwritten by _lazy_import2
 
 
 __all__ = _ALL_LAZY.lazily
-__version__ = '26.07.17'
+__version__ = '26.08.18'
 
 if __name__ == _DMAIN_:
 
@@ -925,6 +948,15 @@ if __name__ == _DMAIN_:
         printf('%.6f import vs %.6f %s: %.2fX, %s', t1, t2, A, (t1 / t2), v)
 
     _main()
+
+# % python3.15 -W ignore -m pygeodesy.lazily
+# 0.078365 import vs 0.052132 _ALL_MODS: 1.50X, pygeodesy 26.8.18 Python 3.15.0rc1 64bit arm64 macOS 26.5.2
+
+# n% python3.14 -W ignore -m pygeodesy.lazily
+# 0.064455 import vs 0.046083 _ALL_MODS: 1.40X, pygeodesy 26.8.18 Python 3.14.7 64bit arm64 macOS 26.5.2
+
+# % python2 -W ignore -m pygeodesy.lazily
+# 0.685969 import vs 0.321554 _ALL_MODS: 2.13X, pygeodesy 26.8.18 Python 2.7.18 64bit arm64_x86_64 macOS 26.5.2
 
 # % python3.14 -W ignore -m pygeodesy.lazily
 # 0.061219 import vs 0.047896 _ALL_MODS: 1.28X, pygeodesy 25.12.6 Python 3.14.0 64bit arm64 macOS 26.1

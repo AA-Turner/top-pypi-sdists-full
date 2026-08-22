@@ -1,8 +1,5 @@
 cimport cython
 
-import sys
-
-
 @cython.test_assert_path_exists(
     '//PythonCapiCallNode/PythonCapiFunctionNode[@cname="Py_TYPE"]')
 def get_type_of(a):
@@ -67,9 +64,6 @@ def test_exact_type_getitem(val):
     """
     return type[val]
 
-if sys.version_info < (3,9):
-    test_exact_type_getitem.__doc__ = None
-
 
 def test_exact_type_instance_getitem1(val):
     """
@@ -80,9 +74,6 @@ def test_exact_type_instance_getitem1(val):
     """
     return str[val]
 
-if sys.version_info < (3,9):
-    test_exact_type_instance_getitem1.__doc__ = None
-
 
 def test_exact_type_instance_getitem2(val):
     """
@@ -92,9 +83,6 @@ def test_exact_type_instance_getitem2(val):
     list[1]
     """
     return list[val]
-
-if sys.version_info < (3,9):
-    test_exact_type_instance_getitem2.__doc__ = None
 
 
 def test_maybe_type_getitem(tp, val):
@@ -114,9 +102,6 @@ def test_maybe_type_getitem(tp, val):
     """
     return tp[val]
 
-if sys.version_info < (3,9):
-    test_maybe_type_getitem.__doc__ = None
-
 
 def test_typed_type_getitem(tp: type, val):
     """
@@ -134,6 +119,3 @@ def test_typed_type_getitem(tp: type, val):
     TypeError: ... is not subscriptable
     """
     return tp[val]
-
-if sys.version_info < (3,9):
-    test_typed_type_getitem.__doc__ = None

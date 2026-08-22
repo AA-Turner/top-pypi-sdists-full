@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.930"
+version = "0.4.932"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -79,6 +79,8 @@ dependencies = [
     "mapie>=0.8",             # prediction intervals
     "merf>=1.0",              # mixed-effects random forests
     "ngboost>=0.5",           # probabilistic gradient boosting
+    "PyGRF>=0.0.12",          # Geographical Random Forest (pure-Python sdist;
+                              # deps pandas/sklearn/scipy/libpysal/esda all already core)
     "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ — stable line; 0.0.x was placeholder releases)
     # NOTE: ydf + treeple were removed — compiled backends with no aarch64 wheels
     # (ydf needs Bazel, unbuildable on ARM). Their model branches in
@@ -173,6 +175,17 @@ geospann = [
     # (The --no-build-isolation lets torch-scatter find the just-
     # installed torch at build time.)
     "geospaNN>=0.1",
+]
+george = [
+    # Used by ml/trainers.py only when [DEFAULT] models contains "george"
+    # (GP regression via dfm/george). Optional because PyPI ships wheels for
+    # linux x86_64 / win_amd64 / macOS arm64 only — NO linux-aarch64 wheel,
+    # so a core dep would force an sdist C++ build on ARM hosts (the same
+    # failure mode that got ydf/treeple removed). conda-forge has binaries
+    # for all our platforms:
+    #     pip install geocif[george]        # x86_64 / win
+    #     pixi add george                    # conda-forge, any platform
+    "george>=0.4.4",
 ]
 desreg = [
     # Used by ml/trainers.py only when [DEFAULT] models contains

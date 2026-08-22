@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-pythonnet package is included.
-"""
+"""Hooks triggered by finder when pythonnet (clr) package is included."""
 
 from __future__ import annotations
 
@@ -11,7 +9,6 @@ from cx_Freeze.module import Module, ModuleHook
 if TYPE_CHECKING:
     from cx_Freeze.finder import ModuleFinder
 
-
 __all__ = ["Hook"]
 
 
@@ -19,9 +16,12 @@ class Hook(ModuleHook):
     """The Hook class for pythonnet."""
 
     def clr(self, finder: ModuleFinder, module: Module) -> None:
-        """The pythonnet package (imported as 'clr') needs Python.Runtime.dll
-        in runtime.
+        """Include the runtime library (Python.Runtime.dll).
+
+        The pythonnet package is imported as 'clr'.
         """
+        if module.file is None:
+            return
         dll_name = "Python.Runtime.dll"
         dll_path = module.file.parent / dll_name
         if not dll_path.exists():

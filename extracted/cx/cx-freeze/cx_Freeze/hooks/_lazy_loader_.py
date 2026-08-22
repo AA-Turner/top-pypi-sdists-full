@@ -1,9 +1,8 @@
-"""A collection of functions which are triggered automatically by finder when
-lazy-loader package is included.
-"""
+"""Hooks triggered by finder when lazy-loader package is included."""
 
 from __future__ import annotations
 
+from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING
 
 from cx_Freeze.module import Module, ModuleHook
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 
 __all__ = ["Hook"]
 
-ATTACH_STUB = b"""
+ATTACH_STUB = """
 def attach_stub(package_name: str, filename: str):
     exc_reraise = None
     try:
@@ -43,20 +42,22 @@ class Hook(ModuleHook):
 
     def lazy_loader(self, finder: ModuleFinder, module: Module) -> None:
         """Use lazy-loader package 0.2+ to work with .pyc files."""
-        if module.distribution.version < (0, 2):
+        dist = module.distribution
+        if dist and (int(dist.version[0]), int(dist.version[1])) < (0, 2):
             msg = "To support cx_Freeze, upgrade 'lazy-loader>=0.2'."
             raise SystemExit(msg)
 
         # add support to work with zip files
-        code_bytes = module.file.read_bytes()
-        code_bytes = code_bytes.replace(
-            b"def attach_stub(", b"def _attach_stub("
-        )
-        code_bytes += ATTACH_STUB
-        module.code = compile(
-            code_bytes,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
-        )
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code:
+            source_code = source_code.replace(
+                "def attach_stub(", "def _attach_stub("
+            )
+            module.code = loader.source_to_code(
+                source_code + ATTACH_STUB,
+                loader.get_filename(module.name),
+                _optimize=finder.optimize,
+            )

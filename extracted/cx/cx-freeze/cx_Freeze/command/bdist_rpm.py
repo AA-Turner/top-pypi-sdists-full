@@ -17,12 +17,15 @@ import shutil
 import sys
 import tarfile
 from subprocess import CalledProcessError, check_output
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from setuptools import Command
 
 from cx_Freeze._compat import IS_CONDA, IS_LINUX, PYTHON_VERSION
 from cx_Freeze.exception import ExecError, FileError, PlatformError
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = ["bdist_rpm"]
 
@@ -43,14 +46,14 @@ class bdist_rpm(Command):
         (
             "rpm-base=",
             None,
-            "base directory for creating RPMs "
-            '[defaults to "rpm" under "--bdist-base"]',
+            "base directory for creating RPM "
+            '[default: "rpm" under "--bdist-base"]',
         ),
         (
             "dist-dir=",
             "d",
-            "directory to put final RPM files in "
-            "(and .spec files if --spec-only)",
+            "directory to put final RPM files in (and .spec file if "
+            '"--spec-only" is used) [default: "dist"]',
         ),
         ("spec-only", None, "only regenerate spec file"),
         # More meta-data: too RPM-specific to put in the setup script,
@@ -205,7 +208,7 @@ class bdist_rpm(Command):
 
     def finalize_options(self) -> None:
         if not IS_LINUX:
-            msg = "bdist_rpm is supported only on Linux"
+            msg = "bdist_rpm is only supported on Linux"
             raise PlatformError(msg)
 
         self._rpm = shutil.which("rpm")
@@ -220,7 +223,8 @@ class bdist_rpm(Command):
             ("dist_dir", "dist_dir"),
         )
         if self.rpm_base is None:
-            self.rpm_base = os.path.join(self.bdist_base, "rpm")
+            bdist_base = cast("str", self.bdist_base)
+            self.rpm_base = os.path.join(bdist_base, "rpm")
 
         self.finalize_package_data()
 
@@ -244,7 +248,9 @@ class bdist_rpm(Command):
 
         self.ensure_string("changelog")
         # Format changelog correctly
-        self.changelog = self._format_changelog(self.changelog)
+        self.changelog = self._format_changelog(
+            cast("str|None", self.changelog)
+        )
 
         self.ensure_filename("icon")
 
@@ -274,15 +280,17 @@ class bdist_rpm(Command):
             print("changelog =", self.changelog)
 
         # make directories
+        dist_dir = cast("str", self.dist_dir)
+        rpm_dir = {}
         if self.spec_only:
-            spec_dir = self.dist_dir
+            spec_dir = dist_dir
         else:
-            rpm_dir = {}
+            rpm_base = cast("str", self.rpm_base)
             for data in ("SOURCES", "SPECS", "BUILD", "RPMS", "SRPMS"):
-                rpm_dir[data] = os.path.join(self.rpm_base, data)
+                rpm_dir[data] = os.path.join(rpm_base, data)
                 self.mkpath(rpm_dir[data])
             spec_dir = rpm_dir["SPECS"]
-        self.mkpath(self.dist_dir)
+        self.mkpath(dist_dir)
 
         # Spec file goes into 'dist_dir' if '--spec-only specified',
         # build/rpm.<plat> otherwise.
@@ -323,60 +331,64 @@ class bdist_rpm(Command):
 
         # build package, binary only (-bb)
         logger.info("building RPMs")
-        rpm_cmd = [self._rpmbuild, "-bb"]
-        if not self.keep_temp:
-            rpm_cmd.append("--clean")
+        if self._rpmbuild and self._rpm:
+            rpm_cmd = [self._rpmbuild, "-bb"]
+            if not self.keep_temp:
+                rpm_cmd.append("--clean")
 
-        if self.quiet:
-            rpm_cmd.append("--quiet")
+            if self.quiet:
+                rpm_cmd.append("--quiet")
 
-        rpm_cmd.append(spec_path)
-        # Determine the binary rpm names that should be built out of this spec
-        # file
-        # Note that some of these may not be really built (if the file
-        # list is empty)
-        nvr_string = "%{name}-%{version}-%{release}"
-        src_rpm = nvr_string + ".src.rpm"
-        non_src_rpm = "%{arch}/" + nvr_string + ".%{arch}.rpm"
-        q_cmd = [
-            self._rpm,
-            "-q",
-            "--qf",
-            rf"{src_rpm} {non_src_rpm}\n",
-            "--specfile",
-            spec_path,
-        ]
-        try:
-            out = check_output(q_cmd, text=True)
-        except CalledProcessError as exc:
-            msg = f"Failed to execute: {' '.join(q_cmd)!r}"
-            raise ExecError(msg) from exc
+            rpm_cmd.append(spec_path)
+            # Determine the binary rpm names that should be built out of this
+            # spec file
+            # Note that some of these may not be really built (if the file
+            # list is empty)
+            nvr_string = "%{name}-%{version}-%{release}"
+            src_rpm = nvr_string + ".src.rpm"
+            non_src_rpm = "%{arch}/" + nvr_string + ".%{arch}.rpm"
+            q_cmd = [
+                self._rpm,
+                "-q",
+                "--qf",
+                rf"{src_rpm} {non_src_rpm}\n",
+                "--specfile",
+                spec_path,
+            ]
+            try:
+                out = check_output(q_cmd, text=True)
+            except CalledProcessError as exc:
+                msg = f"Failed to execute: {' '.join(q_cmd)!r}"
+                raise ExecError(msg) from exc
 
-        binary_rpms = []
-        for line in out.splitlines():
-            rows = line.split()
-            assert len(rows) == 2  # noqa: S101
-            binary_rpms.append(rows[1])
+            binary_rpms = []
+            for line in out.splitlines():
+                rows = line.split()
+                assert len(rows) == 2  # noqa: S101
+                binary_rpms.append(rows[1])
 
-        self.spawn(rpm_cmd)
+            self.spawn(rpm_cmd)
 
-        for binary_rpm in binary_rpms:
-            rpm = os.path.join(rpm_dir["RPMS"], binary_rpm)
-            if os.path.exists(rpm):
-                self.move_file(rpm, self.dist_dir)
-                filename = os.path.join(self.dist_dir, os.path.basename(rpm))
-                self.distribution.dist_files.append(
-                    ("bdist_rpm", PYTHON_VERSION, filename)
-                )
+            for binary_rpm in binary_rpms:
+                rpm = os.path.join(rpm_dir["RPMS"], binary_rpm)
+                if os.path.exists(rpm):
+                    self.move_file(rpm, dist_dir)
+                    filename = os.path.join(dist_dir, os.path.basename(rpm))
+                    self.distribution.dist_files.append(
+                        ("bdist_rpm", PYTHON_VERSION, filename)
+                    )
 
     def _make_spec_file(self) -> list[str]:
-        """Generate the text of an RPM spec file and return it as a
-        list of strings (one per line).
+        """Generate the text of an RPM spec file.
+
+        Return as a list of strings (one per line).
         """
         # definitions and headers
         dist = self.distribution
+        rpm_base = cast("str", self.rpm_base)
+        release = cast("str", self.release)
         spec_file = [
-            f"%define _topdir {os.path.abspath(self.rpm_base)}",
+            f"%define _topdir {os.path.abspath(rpm_base)}",
             # cx_Freeze specific
             "%define __prelink_undo_cmd %{nil}",
             "%define __strip /bin/true",
@@ -384,7 +396,7 @@ class bdist_rpm(Command):
             f"%define name {dist.get_name()}",
             f"%define version {dist.get_version().replace('-', '_')}",
             f"%define unmangled_version {dist.get_version()}",
-            f"%define release {self.release.replace('-', '_')}",
+            f"%define release {release.replace('-', '_')}",
             "",
             f"Summary: {dist.get_description() or 'UNKNOWN'}",
             "Name: %{name}",
@@ -403,25 +415,27 @@ class bdist_rpm(Command):
 
         # Workaround for #14443 which affects some RPM based systems such as
         # RHEL6 (and probably derivatives)
-        vendor_hook = check_output(
-            [self._rpm, "--eval", "%{__os_install_post}"], text=True
-        )
-        # Generate a potential replacement value for __os_install_post (whilst
-        # normalizing the whitespace to simplify the test for whether the
-        # invocation of brp-python-bytecompile passes in __python):
-        vendor_hook = "\n".join(
-            [f"  {line.strip()} \\" for line in vendor_hook.splitlines()]
-        )
-        problem = "brp-python-bytecompile \\\n"
-        fixed = "brp-python-bytecompile %{__python} \\\n"
-        fixed_hook = vendor_hook.replace(problem, fixed)
-        if fixed_hook != vendor_hook:
-            spec_file += [
-                "# Workaround for http://bugs.python.org/issue14443",
-                f"%define __python {sys.executable}",
-                f"%define __os_install_post {fixed_hook}",
-                "",
-            ]
+        if self._rpm:
+            vendor_hook = check_output(
+                [self._rpm, "--eval", "%{__os_install_post}"], text=True
+            )
+            # Generate a potential replacement value for __os_install_post
+            # (whilst normalizing the whitespace to simplify the test for
+            # whether the invocation of brp-python-bytecompile passes in
+            # __python):
+            vendor_hook = "\n".join(
+                [f"  {line.strip()} \\" for line in vendor_hook.splitlines()]
+            )
+            problem = "brp-python-bytecompile \\\n"
+            fixed = "brp-python-bytecompile %{__python} \\\n"
+            fixed_hook = vendor_hook.replace(problem, fixed)
+            if fixed_hook != vendor_hook:
+                spec_file += [
+                    "# Workaround for http://bugs.python.org/issue14443",
+                    f"%define __python {sys.executable}",
+                    f"%define __os_install_post {fixed_hook}",
+                    "",
+                ]
 
         # we create the spec file before running 'tar' in case of --spec-only.
         spec_file.append("Source0: %{name}-%{unmangled_version}.tar.gz")
@@ -502,7 +516,7 @@ class bdist_rpm(Command):
                 if val:
                     with open(val, encoding="utf_8") as file:
                         spec_file.extend(file.read().split("\n"))
-                else:
+                elif default:
                     spec_file.append(default)
 
         # files section
@@ -525,10 +539,10 @@ class bdist_rpm(Command):
         return spec_file
 
     @staticmethod
-    def _format_changelog(changelog) -> list[str]:
+    def _format_changelog(changelog: str | None) -> list[str]:
         """Format the changelog correctly and convert it to a string list."""
         if not changelog:
-            return changelog
+            return []
         new_changelog = []
         for raw_line in changelog.strip().split("\n"):
             line = raw_line.strip()
@@ -546,10 +560,11 @@ class bdist_rpm(Command):
         return new_changelog
 
 
-def write_file(filename, contents) -> None:
-    """Create a file with the specified name and write 'contents'
-    (a sequence of strings without line terminators) to it.
+def write_file(filename: str, contents: Sequence[str]) -> None:
+    """Create a file with the specified name and write 'contents' to it.
+
+    contents: a sequence of strings without line terminators.
     """
     with open(filename, "w", encoding="utf_8") as file:
         for line in contents:
-            file.write(line + "\n")
+            file.write(f"{line}\n")

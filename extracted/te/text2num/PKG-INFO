@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: text2num
-Version: 3.0.2
+Version: 3.1.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -14,9 +14,10 @@ Classifier: Natural Language :: Spanish
 Classifier: Natural Language :: Portuguese
 Classifier: Natural Language :: German
 Classifier: Natural Language :: Dutch
+Classifier: Natural Language :: Danish
 Classifier: Natural Language :: Italian
 License-File: LICENSE
-Summary: Parse and convert numbers written in French, Spanish, English, Portuguese, German, Dutch or Italian into their digit representation.
+Summary: Parse and convert numbers written in French, Spanish, English, Portuguese, German, Dutch, Danish, or Italian into their digit representation.
 Keywords: French,Spanish,English,Portuguese,German,Italian,Dutch,NLP,words-to-numbers
 Author-email: Allo-Media <contact@allo-media.fr>
 License-Expression: MIT
@@ -43,13 +44,15 @@ No IA involved: it is low on resources (and energy!) consumption and the latency
 
 Supported natural languages (in alphabetical order):
 
+* Danish;
 * Dutch;
 * English;
 * French;
 * German;
 * Italian;
 * Portuguese (Brazilian and European);
-* Spanish.
+* Spanish;
+* and more to come.
 
 ## Versions 3.X vs 2.X
 

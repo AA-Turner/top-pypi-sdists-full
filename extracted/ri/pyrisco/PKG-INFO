@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrisco
-Version: 0.8.0
+Version: 0.8.1
 Summary: A Python library to communicate with Risco Cloud.
 Author-email: On Freund <onfreund@gmail.com>
 License: MIT

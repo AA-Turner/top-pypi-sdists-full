@@ -40,14 +40,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
         if have.keys() != expect.keys():
             raise AssertionError(f'keys differ: {have} != {expect}')
 
-        for key in have.keys():
+        for key in have:
             self.assertEqual(str(have[key]), str(expect[key]))
 
     def assertEqualChoicesDict(self, have, expect):
         if have.keys() != expect.keys():
             raise AssertionError(f'keys differ: {have.keys()} != {expect.keys()}')
 
-        for key in have.keys():
+        for key in have:
             self.assertEqualChoicesDictHelper_(have[key], expect[key])
 
     def assert_dbc_dump(self, db, filename):
@@ -322,14 +322,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
             (
                 'CanFd',
                 {'Fie': 0x123456789abcdef, 'Fas': 0xdeadbeefdeadbeef},
-                b'\xef\xcd\xab\x89\x67\x45\x23\x01'
+                (b'\xef\xcd\xab\x89\x67\x45\x23\x01'
                 b'\xef\xbe\xad\xde\xef\xbe\xad\xde'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x00\x00\x00\x00\x00'
+                b'\x00\x00\x00\x00\x00\x00\x00\x00')
             )
         ]
 
@@ -362,14 +362,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
             (
                 0x12333,
                 {'Fie': 0x123456789abcdef, 'Fas': 0xdeadbeefdeadbeef},
-                b'\xef\xcd\xab\x89\x67\x45\x23\x01'
+                (b'\xef\xcd\xab\x89\x67\x45\x23\x01'
                 b'\xef\xbe\xad\xde\xef\xbe\xad\xde'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x00\x00\x00\x00\x00'
+                b'\x00\x00\x00\x00\x00\x00\x00\x00')
             )
         ]
 
@@ -790,38 +790,38 @@ class CanToolsDatabaseTest(unittest.TestCase):
             (
                 'Message1',
                 0,
-                'Expected signal "Signal1" value greater than or equal to 1 in '
-                'message "Message1", but got 0.'
+                ('Expected signal "Signal1" value greater than or equal to 1 in '
+                'message "Message1", but got 0.')
             ),
             (
                 'Message1',
                 3,
-                'Expected signal "Signal1" value smaller than or equal to 2 in '
-                'message "Message1", but got 3.'
+                ('Expected signal "Signal1" value smaller than or equal to 2 in '
+                'message "Message1", but got 3.')
             ),
             (
                 'Message2',
                 0,
-                'Expected signal "Signal1" value greater than or equal to 1 in '
-                'message "Message2", but got 0.'
+                ('Expected signal "Signal1" value greater than or equal to 1 in '
+                'message "Message2", but got 0.')
             ),
             (
                 'Message3',
                 3,
-                'Expected signal "Signal1" value smaller than or equal to 2 in '
-                'message "Message3", but got 3.'
+                ('Expected signal "Signal1" value smaller than or equal to 2 in '
+                'message "Message3", but got 3.')
             ),
             (
                 'Message4',
                 1.9,
-                'Expected signal "Signal1" value greater than or equal to 2 in '
-                'message "Message4", but got 1.9.'
+                ('Expected signal "Signal1" value greater than or equal to 2 in '
+                'message "Message4", but got 1.9.')
             ),
             (
                 'Message4',
                 8.1,
-                'Expected signal "Signal1" value smaller than or equal to 8 in '
-                'message "Message4", but got 8.1.'
+                ('Expected signal "Signal1" value smaller than or equal to 8 in '
+                'message "Message4", but got 8.1.')
             )
         ]
 
@@ -1728,6 +1728,12 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         self.assertEqual(db.version, None)
         self.assertEqual(db.nodes, [])
+
+    def test_auto_message_length_kcd(self):
+        db = cantools.database.load_file(
+            'tests/files/kcd/auto_message_length.kcd')
+
+        self.assertEqual(db.messages[0].length, 8)
 
     def test_invalid_kcd(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
@@ -5802,6 +5808,24 @@ class CanToolsDatabaseTest(unittest.TestCase):
         db = cantools.database.load_file(filename)
         self.assert_dbc_dump(db, filename_dumped)
 
+    def test_issue_784_ba_rel_uses_shortened_signal_name(self):
+        """Test that BA_REL_ entries use the shortened signal name."""
+
+        filename = 'tests/files/dbc/issue_784.dbc'
+        db = cantools.database.load_file(filename)
+        dumped = db.as_dbc_string()
+
+        self.assertIn(
+            'BA_REL_ "SigTimeoutTime" BU_SG_REL_ '
+            'ECU2_123456789012345678901234567 SG_ 82 '
+            'signal_1_123456789012345678_0000 6000;',
+            dumped)
+        self.assertNotIn(
+            'BA_REL_ "SigTimeoutTime" BU_SG_REL_ '
+            'ECU2_123456789012345678901234567 SG_ 82 '
+            'signal_1_12345678901234567890124 6000;',
+            dumped)
+
     def test_database_version(self):
         # default value if db created from scratch (map None to ''):
         db = cantools.database.Database()
@@ -6017,14 +6041,13 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assert_dbc_dump(db, expected)
 
     def test_relation_attributes(self):
-        filename = 'tests/files/dbc/attributes_relation.dbc'
+        filename = 'tests/files/dbc/relation_attributes.dbc'
         db = cantools.database.load_file(filename)
-        for _key, frame in db.dbc.attributes_rel.items():
-            signal = frame.get("signal")
-            if "signal_1" in signal.keys():
-                rel_attributes = signal["signal_1"]["node"]["ECU2"]
-                first_timeout_attr = rel_attributes["SigFirstTimeoutTime"]
-                timeout_attr = rel_attributes["SigTimeoutTime"]
+        for signal_map in db.dbc.relation_attributes.node_signal_relations.values():
+            if 'signal_1' in signal_map:
+                rel_attributes = signal_map['signal_1']['ECU2']
+                first_timeout_attr = rel_attributes['SigFirstTimeoutTime']
+                timeout_attr = rel_attributes['SigTimeoutTime']
                 self.assertEqual(first_timeout_attr.value, 24000)
                 self.assertEqual(timeout_attr.value, 6000)
                 break
@@ -6033,10 +6056,9 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_relation_message_attributes(self):
         filename = 'tests/files/dbc/BU_BO_REL_Message.dbc'
         db = cantools.database.load_file(filename)
-        for _key, frame in db.dbc.attributes_rel.items():
-            node = frame.get("node")
-            rel_attributes = node["ECU1"]
-            msg_attr = rel_attributes["MsgProject"]
+        for node_map in db.dbc.relation_attributes.node_message_relations.values():
+            rel_attributes = node_map['ECU1']
+            msg_attr = rel_attributes['MsgProject']
             self.assertEqual(msg_attr.value, 2)
             break
         self.assert_dbc_dump(db, filename)

@@ -6,7 +6,7 @@ import warnings
 from . import checkpointer_pb2 as checkpointer__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -26,7 +26,7 @@ if _version_not_supported:
     )
 
 
-class CheckpointerStub(object):
+class CheckpointerStub:
     """Checkpoint persistence.
     API mostly based on the Python specification:
     https://github.com/langchain-ai/langgraph/tree/df8becd5cfc74bb09ab2d7cbdf17c5559114b8d8/libs/checkpoint#interface
@@ -90,7 +90,7 @@ class CheckpointerStub(object):
                 _registered_method=True)
 
 
-class CheckpointerServicer(object):
+class CheckpointerServicer:
     """Checkpoint persistence.
     API mostly based on the Python specification:
     https://github.com/langchain-ai/langgraph/tree/df8becd5cfc74bb09ab2d7cbdf17c5559114b8d8/libs/checkpoint#interface
@@ -232,7 +232,7 @@ def add_CheckpointerServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Checkpointer(object):
+class Checkpointer:
     """Checkpoint persistence.
     API mostly based on the Python specification:
     https://github.com/langchain-ai/langgraph/tree/df8becd5cfc74bb09ab2d7cbdf17c5559114b8d8/libs/checkpoint#interface

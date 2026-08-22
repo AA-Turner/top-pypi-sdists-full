@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-pkg_resources package is included.
-"""
+"""Hooks triggered by finder when pkg_resources package is included."""
 
 from __future__ import annotations
 
@@ -23,18 +21,24 @@ class Hook(ModuleHook):
     """
 
     def pkg_resources(self, finder: ModuleFinder, module: Module) -> None:
-        """The pkg_resources must import modules from the setuptools."""
+        """Import modules from setuptools._vendor."""
         finder.exclude_module("pkg_resources.tests")
-
-        vendor = os.path.normpath(
-            module.file.parent.parent / "setuptools" / "_vendor"
-        )
         failed = [
             name
             for name in ("jaraco.text", "packaging", "platformdirs")
             if finder.include_module(name, module) is None
         ]
-        finder.path.append(vendor)
-        for name in failed:
-            finder.include_module(name, module)
-        finder.path.pop()
+        if not failed:
+            return
+        if module.file is None:  # to satisfy ty
+            return
+        vendor_dir = module.file.parent.parent / "setuptools" / "_vendor"
+        if vendor_dir.is_dir():
+            finder.path.append(os.path.normpath(vendor_dir))
+            for name in failed:
+                pos = name.rfind(".")
+                if pos > 0:
+                    parent_name = name[:pos]
+                    finder.include_module(parent_name)
+                finder.include_module(name, module)
+            finder.path.pop()

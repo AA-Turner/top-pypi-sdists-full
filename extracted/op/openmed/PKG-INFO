@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 2.1.0
+Version: 2.2.0
 Summary: Local-first SDK for clinical extraction and de-identification workflows on hardware you control.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -36,6 +36,8 @@ Requires-Dist: coremltools>=8.0; extra == 'coreml'
 Requires-Dist: huggingface-hub>=0.30; extra == 'coreml'
 Requires-Dist: torch>=2.0; extra == 'coreml'
 Requires-Dist: transformers>=4.50; extra == 'coreml'
+Provides-Extra: dagster
+Requires-Dist: dagster<2,>=1.8; extra == 'dagster'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
 Provides-Extra: dev
@@ -50,10 +52,15 @@ Requires-Dist: grpcio>=1.64; extra == 'dev'
 Requires-Dist: httpx>=0.27; extra == 'dev'
 Requires-Dist: huggingface-hub>=0.30; extra == 'dev'
 Requires-Dist: hypothesis>=6.100; extra == 'dev'
+Requires-Dist: ipykernel>=6.0; extra == 'dev'
 Requires-Dist: jsonschema>=4.0; extra == 'dev'
+Requires-Dist: mcp<2,>=1.27; extra == 'dev'
 Requires-Dist: mypy==2.3.0; extra == 'dev'
+Requires-Dist: nbclient>=0.8.0; extra == 'dev'
+Requires-Dist: nbformat>=5.9.0; extra == 'dev'
 Requires-Dist: numpy>=1.26; extra == 'dev'
 Requires-Dist: opencc<2,>=1.4.1; extra == 'dev'
+Requires-Dist: openpyxl<4,>=3.1; extra == 'dev'
 Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.26; extra == 'dev'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'dev'
@@ -68,6 +75,8 @@ Requires-Dist: pytest>=7.0; extra == 'dev'
 Requires-Dist: python-dateutil>=2.8; extra == 'dev'
 Requires-Dist: rich>=13.0; extra == 'dev'
 Requires-Dist: ruff==0.15.22; extra == 'dev'
+Requires-Dist: sqlalchemy<3,>=2.0; extra == 'dev'
+Requires-Dist: strawberry-graphql[fastapi]<1,>=0.316; extra == 'dev'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: typer>=0.12; extra == 'dev'
 Provides-Extra: docs
@@ -84,6 +93,8 @@ Requires-Dist: pymdown-extensions<12,>=11.0.1; extra == 'docs'
 Provides-Extra: duckdb
 Requires-Dist: duckdb<2,>=1.0; extra == 'duckdb'
 Requires-Dist: numpy>=1.26; extra == 'duckdb'
+Provides-Extra: fhir
+Requires-Dist: httpx>=0.27; extra == 'fhir'
 Provides-Extra: gliner
 Requires-Dist: gliner[tokenizers]>=0.2.0; extra == 'gliner'
 Requires-Dist: torch>=2.0; extra == 'gliner'
@@ -121,6 +132,7 @@ Provides-Extra: mlx
 Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
 Requires-Dist: mlx-lm>=0.31; extra == 'mlx'
 Requires-Dist: mlx>=0.22; extra == 'mlx'
+Requires-Dist: pillow>=10.0; extra == 'mlx'
 Requires-Dist: safetensors>=0.4; extra == 'mlx'
 Requires-Dist: tiktoken>=0.7; extra == 'mlx'
 Requires-Dist: tokenizers>=0.15; extra == 'mlx'
@@ -130,6 +142,7 @@ Requires-Dist: easyocr>=1.7; extra == 'multimodal'
 Requires-Dist: markdown-it-py<5,>=3.0; extra == 'multimodal'
 Requires-Dist: numpy>=1.26; extra == 'multimodal'
 Requires-Dist: onnx>=1.21; extra == 'multimodal'
+Requires-Dist: openpyxl<4,>=3.1; extra == 'multimodal'
 Requires-Dist: pdfplumber>=0.11; extra == 'multimodal'
 Requires-Dist: piexif>=1.1; extra == 'multimodal'
 Requires-Dist: pikepdf>=9.0; extra == 'multimodal'
@@ -138,6 +151,7 @@ Requires-Dist: pydicom>=3.0; extra == 'multimodal'
 Requires-Dist: pytesseract>=0.3.10; extra == 'multimodal'
 Requires-Dist: python-doctr>=1.0; extra == 'multimodal'
 Requires-Dist: python-docx>=1.1; extra == 'multimodal'
+Requires-Dist: python-pptx>=1.0; extra == 'multimodal'
 Provides-Extra: ocr-paddle
 Requires-Dist: paddleocr>=2.7; extra == 'ocr-paddle'
 Provides-Extra: onnx
@@ -179,6 +193,7 @@ Requires-Dist: scispacy<1,>=0.5.4; extra == 'scispacy'
 Provides-Extra: scrubadub
 Requires-Dist: scrubadub<3,>=2.0; extra == 'scrubadub'
 Provides-Extra: service
+Requires-Dist: cryptography<51,>=50; extra == 'service'
 Requires-Dist: fastapi>=0.110; extra == 'service'
 Requires-Dist: grpcio>=1.64; extra == 'service'
 Requires-Dist: httpx>=0.27; extra == 'service'
@@ -186,6 +201,7 @@ Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'service'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.26; extra == 'service'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'service'
 Requires-Dist: protobuf<7,>=5.26; extra == 'service'
+Requires-Dist: strawberry-graphql[fastapi]<1,>=0.316; extra == 'service'
 Requires-Dist: uvicorn[standard]>=0.29; extra == 'service'
 Provides-Extra: spacy
 Requires-Dist: click>=8.0; extra == 'spacy'
@@ -194,6 +210,8 @@ Provides-Extra: spark
 Requires-Dist: pandas>=2.0; extra == 'spark'
 Requires-Dist: pyarrow>=16; extra == 'spark'
 Requires-Dist: pyspark<4,>=3.5; extra == 'spark'
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy<3,>=2.0; extra == 'sqlalchemy'
 Provides-Extra: yasbd
 Requires-Dist: yasbd-lib<0.14,>=0.13.1; extra == 'yasbd'
 Provides-Extra: zh
@@ -332,7 +350,7 @@ On supported Apple hardware, OpenMed can use **MLX** and **[OpenMedKit](swift/Op
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.1.0"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.2.0"),
 ]
 ```
 
@@ -376,11 +394,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Then use the immutable OpenMed `v2.1.0` release:
+Then use the immutable OpenMed `v2.2.0` release:
 
 ```kotlin
 dependencies {
-    implementation("com.github.maziyarpanahi:openmed:v2.1.0")
+    implementation("com.github.maziyarpanahi:openmed:v2.2.0")
 }
 ```
 
@@ -864,7 +882,7 @@ MkDocs build.
 | [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
 | [Transformers.js Export](docs/export-transformersjs.md) | [FHIR Interop](docs/fhir-interop.md) | [HL7 v2 De-identification](docs/hl7v2-deidentification.md) |
-| [OpenMed 2.1.0 Release Notes](docs/release/v2.1.0.md) | [OpenMed 2.0.0 Release Notes](docs/release/v2.0.0.md) | [Examples](docs/examples.md) |
+| [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [OpenMed 2.1.0 Release Notes](docs/release/v2.1.0.md) | [Examples](docs/examples.md) |
 | [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
 | [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | [Extension Plugin SDK](docs/plugin-sdk.md) |
 | [v1 to v2 Migration](docs/migration.md) | [MCP Client Connections](docs/mcp-clients.md) | [African Developer Onboarding](docs/africa-onboarding.md) |

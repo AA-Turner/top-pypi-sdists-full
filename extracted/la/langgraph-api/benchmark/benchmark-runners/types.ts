@@ -37,6 +37,7 @@ export interface BenchmarkContext {
   expand: number;
   steps: number;
   checkpoint_size: number;
+  store_value_size?: number;
   llm_enabled: boolean;
   stream_size: number;
   chunk_size: number;

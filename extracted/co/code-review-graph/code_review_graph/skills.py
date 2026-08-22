@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._legacy_instructions import LEGACY_INSTRUCTION_SECTIONS
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +32,114 @@ def _zed_settings_path() -> Path:
     if platform.system() == "Darwin":
         return Path.home() / "Library" / "Application Support" / "Zed" / "settings.json"
     return Path.home() / ".config" / "zed" / "settings.json"
+
+
+def _copilot_vscode_detected() -> bool:
+    """Return whether a GitHub Copilot extension is installed for VS Code."""
+    home = Path.home()
+    extension_dirs = [
+        home / ".vscode" / "extensions",
+        home / ".vscode-insiders" / "extensions",
+    ]
+
+    system = platform.system()
+    if system == "Darwin":
+        for applications_dir in (Path("/Applications"), home / "Applications"):
+            for app_name in (
+                "Visual Studio Code.app",
+                "Visual Studio Code - Insiders.app",
+            ):
+                extension_dirs.append(
+                    applications_dir
+                    / app_name
+                    / "Contents"
+                    / "Resources"
+                    / "app"
+                    / "extensions"
+                )
+    elif system == "Windows":
+        for env_name in ("LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)"):
+            if install_root := os.environ.get(env_name):
+                for app_name in ("Microsoft VS Code", "Microsoft VS Code Insiders"):
+                    extension_dirs.append(
+                        Path(install_root)
+                        / app_name
+                        / "resources"
+                        / "app"
+                        / "extensions"
+                    )
+    elif system == "Linux":
+        extension_dirs.extend(
+            [
+                Path("/usr/share/code/resources/app/extensions"),
+                Path("/usr/share/code-insiders/resources/app/extensions"),
+                Path("/usr/lib/code/resources/app/extensions"),
+                Path("/opt/visual-studio-code/resources/app/extensions"),
+                Path("/snap/code/current/usr/share/code/resources/app/extensions"),
+            ]
+        )
+
+    for command in ("code", "code-insiders"):
+        if executable := shutil.which(command):
+            try:
+                parents = Path(executable).resolve().parents[:6]
+            except OSError:
+                continue
+            for parent in parents:
+                extension_dirs.extend(
+                    [
+                        parent / "extensions",
+                        parent / "resources" / "app" / "extensions",
+                        parent / "Resources" / "app" / "extensions",
+                    ]
+                )
+
+    for extensions_dir in dict.fromkeys(extension_dirs):
+        try:
+            extension_paths = list(extensions_dir.iterdir())
+        except OSError:
+            continue
+        for extension_path in extension_paths:
+            name = extension_path.name.lower()
+            if name.startswith("github.copilot-"):
+                return True
+            if "copilot" not in name:
+                continue
+            try:
+                manifest = json.loads(
+                    (extension_path / "package.json").read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                continue
+            if (
+                str(manifest.get("publisher", "")).lower() == "github"
+                and str(manifest.get("name", "")).lower()
+                in {"copilot", "copilot-chat"}
+            ):
+                return True
+    return False
+
+
+def _hermes_home() -> Path:
+    """Return the Hermes Agent home directory.
+
+    Mirrors Hermes' own resolution order: the ``HERMES_HOME`` environment
+    variable wins, otherwise the platform-native default (``%LOCALAPPDATA%\\hermes``
+    on Windows, ``~/.hermes`` elsewhere).
+    """
+    override = os.environ.get("HERMES_HOME", "").strip()
+    if override:
+        return Path(override).expanduser()
+    if platform.system() == "Windows":
+        local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+        base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
+        return base / "hermes"
+    return Path.home() / ".hermes"
+
+
+def _hermes_config_path() -> Path:
+    """Return the Hermes Agent config file (``config.yaml``)."""
+    return _hermes_home() / "config.yaml"
 
 
 def _opencode_config_path(repo_root: Path) -> Path:
@@ -142,17 +252,31 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "name": "GitHub Copilot",
         "config_path": lambda root: root / ".vscode" / "mcp.json",
         "key": "servers",
-        "detect": lambda: (Path.home() / ".vscode").exists(),
+        "detect": _copilot_vscode_detected,
         "format": "object",
         "needs_type": True,
     },
     "copilot-cli": {
         "name": "GitHub Copilot CLI",
         "config_path": lambda root: Path.home() / ".copilot" / "mcp-config.json",
-        "key": "servers",
+        # Copilot CLI reads "mcpServers"; releases before #616 wrote
+        # "servers", which the client silently ignores.
+        "key": "mcpServers",
+        "legacy_keys": ("servers",),
         "detect": lambda: (Path.home() / ".copilot").exists(),
         "format": "object",
         "needs_type": True,
+        # Validated with the released Copilot CLI in #658.
+        "server_type": "local",
+        "entry_fields": {"tools": ["*"]},
+    },
+    "hermes": {
+        "name": "Hermes Agent",
+        "config_path": lambda root: _hermes_config_path(),
+        "key": "mcp_servers",
+        "detect": lambda: _hermes_home().exists(),
+        "format": "yaml",
+        "needs_type": False,
     },
     "codebuddy": {
         "name": "CodeBuddy Code",
@@ -258,11 +382,20 @@ def _build_server_entry(
         return {"type": "local", "command": opencode_command}
 
     entry: dict[str, Any] = {"command": command, "args": args}
+    if key == "hermes":
+        # No repo is pinned here, deliberately. Hermes Agent is a long-lived
+        # assistant that moves between projects, and its stdio schema has no
+        # ``cwd``, so a baked-in ``--repo`` would silently answer every
+        # question about whichever repo happened to be installed from. Every
+        # tool takes an explicit ``repo_root``; without a default, omitting it
+        # fails loudly instead of returning another project's graph.
+        return entry
     # Include cwd so the MCP server can find the graph database
     if repo_root is not None:
         entry["cwd"] = str(repo_root)
     if plat["needs_type"]:
-        entry["type"] = "stdio"
+        entry["type"] = plat.get("server_type", "stdio")
+    entry.update(plat.get("entry_fields", {}))
     return entry
 
 
@@ -330,6 +463,154 @@ def _merge_toml_mcp_server(
             prefix += "\n"
     config_path.write_text(prefix + section, encoding="utf-8")
     return True
+
+
+def _yaml_section_bounds(lines: list[str], key: str) -> tuple[int, int] | None:
+    """Return ``(header_index, end_index)`` for a top-level block mapping ``key``.
+
+    ``end_index`` is the index just past the last line belonging to the block
+    (blank lines and comments trailing the block are excluded so an insertion
+    lands inside it). Returns ``None`` when the key is absent or is not a
+    block mapping (e.g. ``key: {}`` written in flow style).
+    """
+    header = None
+    for index, line in enumerate(lines):
+        if line.startswith((" ", "\t", "#")) or not line.strip():
+            continue
+        name, sep, value = line.partition(":")
+        if sep and name.strip() == key:
+            if value.strip() and not value.strip().startswith("#"):
+                return None  # inline/flow value — refuse to edit
+            header = index
+            break
+    if header is None:
+        return None
+    end = header + 1
+    last_content = header + 1
+    while end < len(lines):
+        line = lines[end]
+        if line.strip() and not line.startswith((" ", "\t")):
+            break
+        if line.strip() and not line.lstrip().startswith("#"):
+            last_content = end + 1
+        end += 1
+    return header, last_content
+
+
+def _yaml_block_indent(lines: list[str], start: int, end: int) -> int:
+    """Return the child indentation used inside a block, defaulting to 2."""
+    for line in lines[start:end]:
+        stripped = line.lstrip()
+        if stripped and not stripped.startswith("#"):
+            return len(line) - len(stripped)
+    return 2
+
+
+def _merge_yaml_mcp_server(
+    config_path: Path,
+    server_key: str,
+    server_name: str,
+    server_entry: dict[str, Any],
+    dry_run: bool = False,
+) -> bool | None:
+    """Add an MCP server to a YAML config without reformatting the rest.
+
+    The file is edited as text rather than round-tripped through a YAML
+    dumper: Hermes' ``config.yaml`` is hand-edited and full of comments,
+    anchors, and deliberate ordering that a dump would destroy. The parsed
+    document is only used to decide *whether* an edit is needed, and the
+    result is re-parsed before writing so a malformed edit is never saved.
+
+    Returns True when the file was (or would be) modified, False when the
+    entry is already present, and None when the edit was refused to avoid
+    data loss (the reason is printed).
+    """
+    import yaml  # type: ignore[import-untyped]
+
+    raw = ""
+    if config_path.exists():
+        raw = config_path.read_text(encoding="utf-8", errors="replace")
+        try:
+            parsed = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            print(
+                f"  {config_path} contains unparseable YAML ({exc.__class__.__name__})"
+                f" — skipping to avoid data loss. Please add the MCP config manually."
+            )
+            return None
+        if parsed is not None and not isinstance(parsed, dict):
+            print(
+                f"  {config_path} is valid YAML but not a top-level mapping "
+                f"({type(parsed).__name__}) — skipping to avoid data loss. "
+                f"Please add the MCP config manually."
+            )
+            return None
+        existing_servers = (parsed or {}).get(server_key)
+        if existing_servers is not None and not isinstance(existing_servers, dict):
+            print(
+                f"  {config_path} setting {server_key!r} is "
+                f"{type(existing_servers).__name__}; expected a mapping — "
+                f"skipping to avoid data loss."
+            )
+            return None
+        if isinstance(existing_servers, dict) and server_name in existing_servers:
+            return False
+
+    lines = raw.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+
+    bounds = _yaml_section_bounds(lines, server_key)
+    if bounds is None and raw and server_key in (yaml.safe_load(raw) or {}):
+        # The key exists but is not an editable block mapping (flow style).
+        print(
+            f"  {config_path} setting {server_key!r} is not a block mapping — "
+            f"skipping to avoid data loss. Please add the MCP config manually."
+        )
+        return None
+
+    body = yaml.safe_dump(
+        {server_name: server_entry},
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
+    )
+    if bounds is None:
+        indent = 2
+        prefix = "" if not lines or lines[-1].strip() == "" else "\n"
+        block = prefix + f"{server_key}:\n" + _indent_block(body, indent)
+        new_lines = lines + [block]
+    else:
+        header, insert_at = bounds
+        indent = _yaml_block_indent(lines, header + 1, insert_at)
+        new_lines = lines[:insert_at] + [_indent_block(body, indent)] + lines[insert_at:]
+
+    rewritten = "".join(new_lines)
+    try:
+        reparsed = yaml.safe_load(rewritten)
+    except yaml.YAMLError as exc:  # pragma: no cover - defensive validation
+        print(
+            f"  {config_path}: safe YAML edit failed "
+            f"({exc.__class__.__name__}) — left unchanged."
+        )
+        return None
+    if not isinstance(reparsed, dict) or server_name not in (reparsed.get(server_key) or {}):
+        print(f"  {config_path}: safe YAML edit did not take effect — left unchanged.")
+        return None
+
+    if not dry_run:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(rewritten, encoding="utf-8")
+    return True
+
+
+def _indent_block(text: str, indent: int) -> str:
+    """Indent every non-empty line of ``text`` by ``indent`` spaces."""
+    pad = " " * indent
+    return "".join(
+        f"{pad}{line}" if line.strip() else line
+        for line in text.splitlines(keepends=True)
+    )
 
 
 def _strip_jsonc(text: str) -> str:
@@ -467,13 +748,25 @@ def install_platform_configs(
         server_key = plat["key"]
         server_entry = _build_server_entry(plat, key=key, repo_root=repo_root)
 
-        if plat["format"] == "toml":
-            changed = _merge_toml_mcp_server(
-                config_path,
-                "code-review-graph",
-                server_entry,
-                dry_run=dry_run,
-            )
+        if plat["format"] in ("toml", "yaml"):
+            if plat["format"] == "toml":
+                changed = _merge_toml_mcp_server(
+                    config_path,
+                    "code-review-graph",
+                    server_entry,
+                    dry_run=dry_run,
+                )
+            else:
+                changed = _merge_yaml_mcp_server(
+                    config_path,
+                    server_key,
+                    "code-review-graph",
+                    server_entry,
+                    dry_run=dry_run,
+                )
+            if changed is None:
+                # Refused to avoid data loss; the reason was already printed.
+                continue
             if not changed:
                 print(f"  {plat['name']}: already configured in {config_path}")
                 _record_configured(key, plat)
@@ -542,8 +835,21 @@ def install_platform_configs(
             arr.append(arr_entry)
             existing[server_key] = arr
         else:
+            # Remove entries written under keys the client never read, then
+            # install the validated entry under the current key.
+            migrated = False
+            for legacy_key in plat.get("legacy_keys", ()):
+                legacy = existing.get(legacy_key)
+                if (
+                    isinstance(legacy, dict)
+                    and "code-review-graph" in legacy
+                ):
+                    del legacy["code-review-graph"]
+                    if not legacy:
+                        del existing[legacy_key]
+                    migrated = True
             servers = existing.get(server_key, {})
-            if "code-review-graph" in servers:
+            if "code-review-graph" in servers and not migrated:
                 print(f"  {plat['name']}: already configured in {config_path}")
                 _record_configured(key, plat)
                 continue
@@ -554,7 +860,9 @@ def install_platform_configs(
             print(f"  [dry-run] {plat['name']}: would write {config_path}")
         else:
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+            config_path.write_text(
+                json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
             print(f"  {plat['name']}: configured {config_path}")
 
         _record_configured(key, plat)
@@ -572,25 +880,27 @@ _SKILLS: dict[str, dict[str, str]] = {
             "## Explore Codebase\n\n"
             "Use the code-review-graph MCP tools to explore and understand the codebase.\n\n"
             "### Steps\n\n"
-            "1. Run `list_graph_stats` to see overall codebase metrics.\n"
+            "1. Run `list_graph_stats_tool` to see overall codebase metrics.\n"
             "2. Run `get_architecture_overview_tool` for high-level community structure.\n"
-            "3. Use `list_communities_tool` to find major modules, then `get_community` "
+            "3. Use `list_communities_tool` to find major modules, then `get_community_tool` "
             "for details.\n"
             "4. Use `semantic_search_nodes_tool` to find specific functions or classes.\n"
             "5. Use `query_graph_tool` with patterns like `callers_of`, `callees_of`, "
             "`imports_of` to trace relationships.\n"
-            "6. Use `list_flows` and `get_flow` to understand execution paths.\n\n"
+            "6. Use `list_flows_tool` and `get_flow_tool` to understand execution paths.\n\n"
             "### Tips\n\n"
             "- Start broad (stats, architecture) then narrow down to specific areas.\n"
             "- Use `children_of` on a file to see all its functions and classes.\n"
-            "- Use `find_large_functions` to identify complex code.\n\n"
+            "- Use `find_large_functions_tool` to identify complex code.\n\n"
             "## Token Efficiency Rules\n"
-            '- ALWAYS start with `get_minimal_context(task="<your task>")` '
-            "before any other graph tool.\n"
+            '- Start with `get_minimal_context_tool(task="<your task>")` '
+            "before other graph tools.\n"
             '- Use `detail_level="minimal"` on all calls. Only escalate to '
             '"standard" when minimal is insufficient.\n'
             "- Target: complete any review/debug/refactor task in ≤5 tool calls "
-            "and ≤800 total output tokens."
+            "and ≤800 total output tokens.\n"
+            "- Read the implementation and its tests before changing code. The graph "
+            "narrows scope; it does not replace the source."
         ),
     },
     "review-changes.md": {
@@ -613,12 +923,14 @@ _SKILLS: dict[str, dict[str, str]] = {
             "- Suggested improvements\n"
             "- Overall merge recommendation\n\n"
             "## Token Efficiency Rules\n"
-            '- ALWAYS start with `get_minimal_context(task="<your task>")` '
-            "before any other graph tool.\n"
+            '- Start with `get_minimal_context_tool(task="<your task>")` '
+            "before other graph tools.\n"
             '- Use `detail_level="minimal"` on all calls. Only escalate to '
             '"standard" when minimal is insufficient.\n'
             "- Target: complete any review/debug/refactor task in ≤5 tool calls "
-            "and ≤800 total output tokens."
+            "and ≤800 total output tokens.\n"
+            "- Read the implementation and its tests before changing code. The graph "
+            "narrows scope; it does not replace the source."
         ),
     },
     "debug-issue.md": {
@@ -631,7 +943,7 @@ _SKILLS: dict[str, dict[str, str]] = {
             "1. Use `semantic_search_nodes_tool` to find code related to the issue.\n"
             "2. Use `query_graph_tool` with `callers_of` and `callees_of` to trace "
             "call chains.\n"
-            "3. Use `get_flow` to see full execution paths through suspected areas.\n"
+            "3. Use `get_flow_tool` to see full execution paths through suspected areas.\n"
             "4. Run `detect_changes_tool` to check if recent changes caused the issue.\n"
             "5. Use `get_impact_radius_tool` on suspected files to see what else is affected.\n\n"
             "### Tips\n\n"
@@ -639,12 +951,14 @@ _SKILLS: dict[str, dict[str, str]] = {
             "- Look at affected flows to find the entry point that triggers the bug.\n"
             "- Recent changes are the most common source of new issues.\n\n"
             "## Token Efficiency Rules\n"
-            '- ALWAYS start with `get_minimal_context(task="<your task>")` '
-            "before any other graph tool.\n"
+            '- Start with `get_minimal_context_tool(task="<your task>")` '
+            "before other graph tools.\n"
             '- Use `detail_level="minimal"` on all calls. Only escalate to '
             '"standard" when minimal is insufficient.\n'
             "- Target: complete any review/debug/refactor task in ≤5 tool calls "
-            "and ≤800 total output tokens."
+            "and ≤800 total output tokens.\n"
+            "- Read the implementation and its tests before changing code. The graph "
+            "narrows scope; it does not replace the source."
         ),
     },
     "refactor-safely.md": {
@@ -665,14 +979,16 @@ _SKILLS: dict[str, dict[str, str]] = {
             "- Always preview before applying (rename mode gives you an edit list).\n"
             "- Check `get_impact_radius_tool` before major refactors.\n"
             "- Use `get_affected_flows_tool` to ensure no critical paths are broken.\n"
-            "- Run `find_large_functions` to identify decomposition targets.\n\n"
+            "- Run `find_large_functions_tool` to identify decomposition targets.\n\n"
             "## Token Efficiency Rules\n"
-            '- ALWAYS start with `get_minimal_context(task="<your task>")` '
-            "before any other graph tool.\n"
+            '- Start with `get_minimal_context_tool(task="<your task>")` '
+            "before other graph tools.\n"
             '- Use `detail_level="minimal"` on all calls. Only escalate to '
             '"standard" when minimal is insufficient.\n'
             "- Target: complete any review/debug/refactor task in ≤5 tool calls "
-            "and ≤800 total output tokens."
+            "and ≤800 total output tokens.\n"
+            "- Read the implementation and its tests before changing code. The graph "
+            "narrows scope; it does not replace the source."
         ),
     },
 }
@@ -922,7 +1238,9 @@ def _merge_hooks_into_settings(
 
     existing["hooks"] = merged_hooks
 
-    settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    settings_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     logger.info("Wrote hooks config: %s", settings_path)
     return settings_path
 
@@ -1015,21 +1333,39 @@ def install_codex_hooks(repo_root: Path) -> Path:
             merged_hooks[hook_name] = hook_entries
 
     existing["hooks"] = merged_hooks
-    hooks_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    hooks_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     logger.info("Wrote Codex hooks config: %s", hooks_path)
     return hooks_path
 
 
 _CLAUDE_MD_SECTION_MARKER = "<!-- code-review-graph MCP tools -->"
 
+# Closes the managed block so reinstall can replace it without guessing where it
+# ends. Releases before this shipped only the opening marker; those blocks are
+# matched by their full text instead, see _legacy_instructions.
+_CLAUDE_MD_SECTION_END_MARKER = "<!-- /code-review-graph MCP tools -->"
+
+# Shared across every platform instruction file so the wording stays identical.
+_INSTRUCTION_INTRO = """**This project has a knowledge graph. Start with the code-review-graph
+MCP tools to narrow scope, then read the source.** The graph is cheaper than scanning files and
+gives you structural context (callers, dependents, test coverage) that file search cannot."""
+
+_INSTRUCTION_GUARDRAILS = """### Verify in the source
+
+- Narrow scope with the graph, then read the source. Do not change code from graph output alone.
+- For any non-trivial change, read the implementation and the relevant tests before concluding.
+- Verify the exact source when touching behavior, database logic, migrations, retries, fallbacks,
+  recovery, or compatibility code.
+- When the graph and the source disagree, the source wins. The graph may be stale or may not
+  model that relationship.
+- An empty graph result can mean "not indexed" or "not statically visible", not "does not exist"."""
+
 _CLAUDE_MD_SECTION = f"""{_CLAUDE_MD_SECTION_MARKER}
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+{_INSTRUCTION_INTRO}
 
 ### When to use graph tools FIRST
 
@@ -1039,7 +1375,7 @@ scanning cannot.
 - **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
 - **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
 
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+{_INSTRUCTION_GUARDRAILS}
 
 ### Key Tools
 
@@ -1060,6 +1396,7 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern=\"tests_for\" to check coverage.
+{_CLAUDE_MD_SECTION_END_MARKER}
 """
 
 # Copilot-specific instruction file content: uses VS Code tool references and
@@ -1074,11 +1411,7 @@ description: >-
 {_CLAUDE_MD_SECTION_MARKER}
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using file/search tools to
-explore the codebase.** The graph is faster, cheaper (fewer
-tokens), and gives you structural context (callers, dependents,
-test coverage) that file scanning cannot.
+{_INSTRUCTION_INTRO}
 
 ### When to use graph tools FIRST
 
@@ -1088,8 +1421,7 @@ test coverage) that file scanning cannot.
 - **Finding relationships**: `query_graph_tool` callers_of/callees_of
 - **Architecture questions**: `get_architecture_overview_tool`
 
-Fall back to file/search tools **only** when the graph doesn't
-cover what you need.
+{_INSTRUCTION_GUARDRAILS}
 
 ### Key Tools
 
@@ -1110,42 +1442,111 @@ cover what you need.
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern=\"tests_for\" to check coverage.
+{_CLAUDE_MD_SECTION_END_MARKER}
 """
 
 # Maps instruction file path → (marker, section) for files that need content
-# different from the default _CLAUDE_MD_SECTION.
+# different from the default _CLAUDE_MD_SECTION. Legacy paths remain here so
+# uninstall can identify sections written by older releases.
 _PLATFORM_INSTRUCTION_CUSTOM_SECTIONS: dict[str, tuple[str, str]] = {
+    ".github/instructions/code-review-graph.instructions.md": (
+        _CLAUDE_MD_SECTION_MARKER,
+        _COPILOT_SECTION,
+    ),
     ".github/code-review-graph.instruction.md": (_CLAUDE_MD_SECTION_MARKER, _COPILOT_SECTION),
 }
 
 
-def _inject_instructions(file_path: Path, marker: str, section: str) -> bool:
-    """Append an instruction section to a file if not already present.
+def _known_instruction_sections() -> tuple[str, ...]:
+    """Every block text this project has ever generated, longest first.
 
-    Idempotent: checks if the marker is already present before appending.
-    Creates the file if it doesn't exist.
+    Longest first matters: a shorter variant that happens to be contained in a
+    longer one must never win the match and leave the tail behind.
+    """
+    current = (_CLAUDE_MD_SECTION, _COPILOT_SECTION)
+    return tuple(sorted({*current, *LEGACY_INSTRUCTION_SECTIONS}, key=len, reverse=True))
 
-    Returns True if the file was modified.
+
+def _upgrade_managed_block(existing: str, section: str) -> str | None:
+    """Replace a previously generated block with ``section``.
+
+    Only text that exactly equals a known generated block is ever rewritten, so
+    anything the user wrote around it survives byte for byte. Blocks predating
+    the end marker have no closing boundary, which is why nothing here searches
+    for one; guessing where such a block stops would eat user content.
+
+    Returns the new file content, or None when the marker is present but no
+    known block is, meaning someone edited the block by hand.
+    """
+    stale = [
+        block
+        for block in _known_instruction_sections()
+        if block != section and block in existing
+    ]
+    if not stale:
+        return None
+    # Anchor on the longest match, then drop any duplicate blocks an older
+    # release left behind. Splitting around the anchor keeps the cleanup away
+    # from the text being written in, which a plain str.replace would not.
+    head = stale[0]
+    index = existing.index(head)
+    before, after = existing[:index], existing[index + len(head) :]
+    for block in stale[1:]:
+        before = before.replace(block, "")
+        after = after.replace(block, "")
+    if section in before or section in after:
+        # The current block is already there; the stale ones were duplicates.
+        return before + after
+    return before + section + after
+
+
+def _inject_instructions(file_path: Path, marker: str, section: str) -> str:
+    """Create, or upgrade in place, the managed instruction block in a file.
+
+    Returns one of:
+
+    - ``"created"``: the block was written for the first time, creating the
+      file or appending to one that had no block.
+    - ``"updated"``: an older generated block was replaced with the current one.
+    - ``"unchanged"``: the file already holds the current block, byte for byte.
+      Nothing is written, so repeated installs do not touch the file.
+    - ``"conflict"``: the marker is present but the block matches nothing this
+      project generated, so it was hand-edited. The file is left alone and the
+      caller is expected to tell the user about it.
     """
     existing = ""
     if file_path.exists():
         existing = file_path.read_text(encoding="utf-8", errors="replace")
 
     if marker in existing:
-        logger.info("%s already contains instructions, skipping.", file_path.name)
-        return False
+        upgraded = _upgrade_managed_block(existing, section)
+        if upgraded is None:
+            if section in existing:
+                logger.info("%s already holds the current instructions.", file_path.name)
+                return "unchanged"
+            logger.warning(
+                "%s has a hand-edited code-review-graph section; leaving it alone.",
+                file_path,
+            )
+            return "conflict"
+        file_path.write_text(upgraded, encoding="utf-8")
+        logger.info("Updated the MCP tools section in %s", file_path)
+        return "updated"
 
     separator = "\n" if existing and not existing.endswith("\n") else ""
     extra_newline = "\n" if existing else ""
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(existing + separator + extra_newline + section, encoding="utf-8")
     logger.info("Appended MCP tools section to %s", file_path)
-    return True
+    return "created"
 
 
-def inject_claude_md(repo_root: Path) -> None:
-    """Append MCP tools section to CLAUDE.md."""
-    _inject_instructions(
+def inject_claude_md(repo_root: Path) -> str:
+    """Create or upgrade the MCP tools section in CLAUDE.md.
+
+    Returns the outcome string documented on ``_inject_instructions``.
+    """
+    return _inject_instructions(
         repo_root / "CLAUDE.md",
         _CLAUDE_MD_SECTION_MARKER,
         _CLAUDE_MD_SECTION,
@@ -1156,15 +1557,42 @@ def inject_claude_md(repo_root: Path) -> None:
 # Used to filter writes when the user passes --platform <X>: only files
 # whose owner set includes the target (or "all") are written.
 _PLATFORM_INSTRUCTION_FILES: dict[str, tuple[str, ...]] = {
-    "AGENTS.md": ("cursor", "opencode", "antigravity"),
+    "AGENTS.md": ("cursor", "opencode", "antigravity", "codex", "hermes"),
     "GEMINI.md": ("antigravity", "gemini-cli"),
     ".cursorrules": ("cursor",),
     ".windsurfrules": ("windsurf",),
     "QODER.md": ("qoder",),
     ".kiro/steering/code-review-graph.md": ("kiro",),
-    ".github/code-review-graph.instruction.md": ("copilot", "copilot-cli"),
+    ".github/instructions/code-review-graph.instructions.md": ("copilot", "copilot-cli"),
     "CODEBUDDY.md": ("codebuddy",),
 }
+
+# Superseded paths written by older releases. Reinstall removes only the exact
+# generated section and leaves any user-authored content intact.
+_LEGACY_PLATFORM_INSTRUCTION_FILES: dict[str, tuple[str, ...]] = {
+    ".github/code-review-graph.instruction.md": ("copilot", "copilot-cli"),
+}
+
+
+def _remove_legacy_instruction_file(path: Path) -> None:
+    """Strip an exact generated section from a superseded instruction file."""
+    if not path.exists():
+        return
+    content = path.read_text(encoding="utf-8", errors="replace")
+    if _CLAUDE_MD_SECTION_MARKER not in content:
+        return
+    # Longest first, so removing a long block cannot leave the tail of a shorter
+    # variant it contains. Anything not generated by this project is left alone.
+    for section in _known_instruction_sections():
+        content = content.replace(section, "")
+    if _CLAUDE_MD_SECTION_MARKER in content:
+        return
+    if content.strip():
+        path.write_text(content.rstrip() + "\n", encoding="utf-8")
+        logger.info("Removed legacy instruction section from %s", path)
+    else:
+        path.unlink()
+        logger.info("Removed legacy instruction file %s", path)
 
 
 # --- Gemini CLI hooks + skills (workspace-level: .gemini/) ---
@@ -1298,7 +1726,9 @@ exit 0
     )
 
     existing["hooks"] = hooks_obj
-    settings_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    settings_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     logger.info("Wrote Gemini CLI hooks config: %s", settings_path)
     return settings_path
 
@@ -1358,11 +1788,32 @@ def inject_platform_instructions(repo_root: Path, target: str = "all") -> list[s
     - ``"all"`` (default): writes every file — matches pre-filter behavior.
     - ``"claude"``: writes nothing (CLAUDE.md is handled by ``inject_claude_md``).
     - any other platform key (``cursor``, ``windsurf``, ``antigravity``,
-      ``opencode``): writes only the files associated with that platform.
+      ``opencode``, ``codex``): writes only the files associated with that platform.
 
-    Returns list of filenames that were created or updated.
+    Returns list of filenames that were created or updated. Use
+    ``inject_instruction_files`` when the caller also needs to know which files
+    were left alone because someone edited the block by hand.
     """
-    updated: list[str] = []
+    outcomes = inject_instruction_files(repo_root, target=target, include_claude_md=False)
+    return [name for name, outcome in outcomes.items() if outcome in ("created", "updated")]
+
+
+def inject_instruction_files(
+    repo_root: Path,
+    target: str = "all",
+    *,
+    include_claude_md: bool = True,
+) -> dict[str, str]:
+    """Write every instruction file for ``target`` and report what happened.
+
+    Maps each filename to ``"created"``, ``"updated"``, ``"unchanged"`` or
+    ``"conflict"``, as documented on ``_inject_instructions``. This is the entry
+    point the install command uses so it can tell the user which files it
+    upgraded and which ones need manual attention.
+    """
+    outcomes: dict[str, str] = {}
+    if include_claude_md and target in ("claude", "all"):
+        outcomes["CLAUDE.md"] = inject_claude_md(repo_root)
     for filename, owners in _PLATFORM_INSTRUCTION_FILES.items():
         if target != "all" and target not in owners:
             continue
@@ -1371,9 +1822,12 @@ def inject_platform_instructions(repo_root: Path, target: str = "all") -> list[s
             marker, section = _PLATFORM_INSTRUCTION_CUSTOM_SECTIONS[filename]
         else:
             marker, section = _CLAUDE_MD_SECTION_MARKER, _CLAUDE_MD_SECTION
-        if _inject_instructions(path, marker, section):
-            updated.append(filename)
-    return updated
+        outcomes[filename] = _inject_instructions(path, marker, section)
+    for filename, owners in _LEGACY_PLATFORM_INSTRUCTION_FILES.items():
+        if target != "all" and target not in owners:
+            continue
+        _remove_legacy_instruction_file(repo_root / filename)
+    return outcomes
 
 
 # --- Cursor hooks ---
@@ -1549,7 +2003,7 @@ def install_cursor_hooks() -> Path:
 
     cursor_dir.mkdir(parents=True, exist_ok=True)
     hooks_json_path.write_text(
-        json.dumps(existing, indent=2) + "\n",
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     logger.info("Wrote Cursor hooks config: %s", hooks_json_path)
@@ -1606,6 +2060,17 @@ def install_qoder_skills(repo_root: Path) -> Path | None:
         logger.info("Installed %d skill(s) to %s", installed_count, qoder_skills_dir)
         return qoder_skills_dir
     return None
+
+
+def install_hermes_skills(repo_root: Path) -> Path:
+    """Install skills into Hermes Agent's user-level skills directory.
+
+    Hermes discovers skills at ``<HERMES_HOME>/skills/<category>/<name>/SKILL.md``
+    and uses the same ``name``/``description`` frontmatter as Claude Code, so
+    :func:`generate_skills` writes them directly under a ``code-review-graph``
+    category.
+    """
+    return generate_skills(repo_root, skills_dir=_hermes_home() / "skills" / "code-review-graph")
 
 
 # --- OpenCode plugin ---

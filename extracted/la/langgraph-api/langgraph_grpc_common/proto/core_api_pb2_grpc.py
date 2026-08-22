@@ -6,7 +6,7 @@ import warnings
 from . import core_api_pb2 as core__api__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -26,7 +26,7 @@ if _version_not_supported:
     )
 
 
-class AssistantsStub(object):
+class AssistantsStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -77,7 +77,7 @@ class AssistantsStub(object):
                 _registered_method=True)
 
 
-class AssistantsServicer(object):
+class AssistantsServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Get(self, request, context):
@@ -179,7 +179,7 @@ def add_AssistantsServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Assistants(object):
+class Assistants:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -399,7 +399,7 @@ class Assistants(object):
             _registered_method=True)
 
 
-class AdminStub(object):
+class AdminStub:
     """Global database admin operations.
     """
 
@@ -416,7 +416,7 @@ class AdminStub(object):
                 _registered_method=True)
 
 
-class AdminServicer(object):
+class AdminServicer:
     """Global database admin operations.
     """
 
@@ -443,7 +443,7 @@ def add_AdminServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Admin(object):
+class Admin:
     """Global database admin operations.
     """
 
@@ -475,7 +475,7 @@ class Admin(object):
             _registered_method=True)
 
 
-class ThreadsStub(object):
+class ThreadsStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -541,7 +541,7 @@ class ThreadsStub(object):
                 _registered_method=True)
 
 
-class ThreadsServicer(object):
+class ThreadsServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Create(self, request, context):
@@ -679,7 +679,7 @@ def add_ThreadsServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Threads(object):
+class Threads:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -980,7 +980,7 @@ class Threads(object):
             _registered_method=True)
 
 
-class RunsStub(object):
+class RunsStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -1066,7 +1066,7 @@ class RunsStub(object):
                 _registered_method=True)
 
 
-class RunsServicer(object):
+class RunsServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Create(self, request, context):
@@ -1259,7 +1259,7 @@ def add_RunsServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Runs(object):
+class Runs:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -1668,7 +1668,7 @@ class Runs(object):
             _registered_method=True)
 
 
-class CronsStub(object):
+class CronsStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -1719,7 +1719,7 @@ class CronsStub(object):
                 _registered_method=True)
 
 
-class CronsServicer(object):
+class CronsServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Create(self, request, context):
@@ -1821,7 +1821,7 @@ def add_CronsServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Crons(object):
+class Crons:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -2041,7 +2041,7 @@ class Crons(object):
             _registered_method=True)
 
 
-class CacheStub(object):
+class CacheStub:
     """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
     Keys are arbitrary non-empty strings (Redis keys are binary-safe).
     Values must be valid serialized JSON.
@@ -2065,7 +2065,7 @@ class CacheStub(object):
                 _registered_method=True)
 
 
-class CacheServicer(object):
+class CacheServicer:
     """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
     Keys are arbitrary non-empty strings (Redis keys are binary-safe).
     Values must be valid serialized JSON.
@@ -2104,7 +2104,7 @@ def add_CacheServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Cache(object):
+class Cache:
     """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
     Keys are arbitrary non-empty strings (Redis keys are binary-safe).
     Values must be valid serialized JSON.

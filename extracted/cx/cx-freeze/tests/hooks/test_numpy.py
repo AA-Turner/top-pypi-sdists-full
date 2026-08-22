@@ -1,8 +1,13 @@
-"""Tests for hooks:
-numpy, matplotlib, pandas, raterio, scipy, shapely, and vtk.
+"""Tests for hooks of numpy and packages that depend on it.
+
+I.e. also tests matplotlib, pandas, scipy, shapely, and vtk.
 """
 
 from __future__ import annotations
+
+import os
+import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,6 +20,9 @@ from cx_Freeze._compat import (
     IS_MINGW,
     IS_WINDOWS,
 )
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 TIMEOUT_SLOW = 60 if IS_CONDA else 30
@@ -54,15 +62,21 @@ pyproject.toml
     executables = ["test_matplotlib.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest", "PySide6", "shiboken6"]
+    include-msvcr = true
+    excludes = ["tkinter", "PySide6", "shiboken6"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15),
+    raises=ModuleNotFoundError,
+    reason="matplotlib does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.venv
 @zip_packages
-def test_matplotlib(tmp_package, zip_packages: bool) -> None:
+def test_matplotlib(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if matplotlib hook is working correctly."""
     tmp_package.map_package_to_conda["matplotlib"] = "matplotlib-base"
     tmp_package.create(SOURCE_TEST_MATPLOTLIB)
@@ -82,9 +96,15 @@ def test_matplotlib(tmp_package, zip_packages: bool) -> None:
     assert tmp_package.path.joinpath("test.png").is_file()
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15),
+    raises=ModuleNotFoundError,
+    reason="pandas does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.venv
 @zip_packages
-def test_pandas(tmp_package, zip_packages: bool) -> None:
+def test_pandas(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test that the pandas/numpy is working correctly."""
     tmp_package.create_from_sample("pandas")
     if zip_packages:
@@ -110,63 +130,6 @@ def test_pandas(tmp_package, zip_packages: bool) -> None:
             "3*",
             "4*",
         ]
-    )
-
-
-SOURCE_TEST_RASTERIO = """
-test_rasterio.py
-    import numpy as np
-    import rasterio
-
-    print("Hello from cx_Freeze")
-    print("numpy version", np.__version__)
-    print("rasterio version", rasterio.__version__)
-pyproject.toml
-    [project]
-    name = "test_rasterio"
-    version = "0.1.2.3"
-    dependencies = [
-        "numpy<2;python_version < '3.11'",
-        "numpy>=2;python_version >= '3.11'",
-        "rasterio",
-    ]
-
-    [tool.cxfreeze]
-    executables = ["test_rasterio.py"]
-
-    [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest", "PySide6", "shiboken6"]
-    silent = true
-"""
-
-
-@pytest.mark.xfail(
-    IS_MINGW,
-    raises=ModuleNotFoundError,
-    reason="rasterio not supported in mingw",
-    strict=True,
-)
-@pytest.mark.venv
-@zip_packages
-def test_rasterio(tmp_package, zip_packages: bool) -> None:
-    """Test if rasterio hook is working correctly."""
-    tmp_package.create(SOURCE_TEST_RASTERIO)
-    if IS_MACOS and zip_packages:
-        pytest.xfail("rasterio 1.4.4 fails in macOS using zipfile")
-    if zip_packages:
-        pyproject = tmp_package.path / "pyproject.toml"
-        buf = pyproject.read_bytes().decode().splitlines()
-        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
-        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    tmp_package.freeze()
-
-    executable = tmp_package.executable("test_rasterio")
-    assert executable.is_file()
-    result = tmp_package.run(executable, timeout=TIMEOUT_SLOW)
-
-    result.stdout.fnmatch_lines(
-        ["Hello from cx_Freeze", "numpy version *", "rasterio version *"]
     )
 
 
@@ -201,21 +164,27 @@ pyproject.toml
     executables = ["test_shapely.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest", "PySide6", "shiboken6"]
+    include-msvcr = true
+    excludes = ["tkinter", "PySide6", "shiboken6"]
     silent = true
 """
 
 
 @pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15),
+    raises=ModuleNotFoundError,
+    reason="shapely does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
+@pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="shapely does not support Windows arm64",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv
 @zip_packages
-def test_shapely(tmp_package, zip_packages: bool) -> None:
+def test_shapely(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if shapely hook is working correctly."""
     # shapely 1.8.5 supports Python <= 3.11
     tmp_package.create(SOURCE_TEST_SHAPELY)
@@ -278,12 +247,18 @@ pyproject.toml
     executables = ["test_vtk.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest", "PySide6", "shiboken6"]
+    include-msvcr = true
+    excludes = ["tkinter", "PySide6", "shiboken6"]
     silent = true
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15),
+    raises=ModuleNotFoundError,
+    reason="vtkmodules (vtk) does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.skipif(
     IS_CONDA and (IS_LINUX or (IS_ARM_64 and IS_MACOS)),
     reason="vtkmodules (vtk) is too slow in conda-forge (Linux and OSX_ARM64)",
@@ -292,23 +267,23 @@ pyproject.toml
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="vtkmodules (vtk) does not support Windows arm64",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     IS_MINGW,
     raises=ModuleNotFoundError,
     reason="vtkmodules (vtk) not supported in mingw",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
     ABI_THREAD == "t" and not IS_LINUX,
     raises=ModuleNotFoundError,
     reason="vtkmodules (vtk) support Python 3.14t only in Linux",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv
 @zip_packages
-def test_vtk(tmp_package, zip_packages: bool) -> None:
+def test_vtk(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if vtkmodules hook is working correctly."""
     tmp_package.create(SOURCE_TEST_VTK)
     if zip_packages:

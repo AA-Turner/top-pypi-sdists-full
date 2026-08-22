@@ -20,6 +20,7 @@ from dbutils.persistent_pg import PersistentPg
 
 
 def test_version():
+    """Check that the module and class versions are in sync."""
     from dbutils import __version__, persistent_pg
     assert persistent_pg.__version__ == __version__
     assert PersistentPg.version == __version__
@@ -27,6 +28,7 @@ def test_version():
 
 @pytest.mark.parametrize("closeable", [False, True])
 def test_close(closeable):
+    """Check that closing is only allowed when the connection is closeable."""
     persist = PersistentPg(closeable=closeable)
     db = persist.connection()
     assert db._con.db
@@ -42,6 +44,7 @@ def test_close(closeable):
 
 
 def test_threads():
+    """Check that every thread keeps its own persistent connection."""
     num_threads = 3
     persist = PersistentPg()
     query_queue, result_queue = [], []
@@ -50,6 +53,12 @@ def test_threads():
         result_queue.append(Queue(1))
 
     def run_queries(idx):
+        """Answer the queries sent to this thread until it gets None.
+
+        Every answer is prefixed with the thread number and the usage
+        count of the connection, so that the main thread can check that
+        the thread kept using its own connection.
+        """
         this_db = persist.connection().db
         db = None
         while True:
@@ -79,17 +88,21 @@ def test_threads():
         thread = Thread(target=run_queries, args=(i,))
         threads.append(thread)
         thread.start()
+    # all threads are alive and have an unused connection of their own
     for i in range(num_threads):
         query_queue[i].put('ping', timeout=1)
     for i in range(num_threads):
         r = result_queue[i].get(timeout=1)
         assert r == f'{i}(0): ok - thread alive'
         assert threads[i].is_alive()
+    # let thread number i run i + 1 queries on its own connection
     for i in range(num_threads):
         for j in range(i + 1):
             query_queue[i].put(f'select test{j}', timeout=1)
             r = result_queue[i].get(timeout=1)
             assert r == f'{i}({j + 1}): test{j}'
+    # closing the connection of the second thread restarts its usage count,
+    # but does not affect the connections of the other threads
     query_queue[1].put('select test4', timeout=1)
     r = result_queue[1].get(timeout=1)
     assert r == '1(3): test4'
@@ -100,6 +113,7 @@ def test_threads():
         query_queue[1].put(f'select test{j}', timeout=1)
         r = result_queue[1].get(timeout=1)
         assert r == f'1({j + 1}): test{j}'
+    # every thread still has its own connection with its own usage count
     for i in range(num_threads):
         assert threads[i].is_alive()
         query_queue[i].put('ping', timeout=1)
@@ -107,11 +121,13 @@ def test_threads():
         r = result_queue[i].get(timeout=1)
         assert r == f'{i}({i + 1}): ok - thread alive'
         assert threads[i].is_alive()
+    # send the sentinel that makes the threads finish
     for i in range(num_threads):
         query_queue[i].put(None, timeout=1)
 
 
 def test_maxusage():
+    """Check that the connection is reset when used too often."""
     persist = PersistentPg(20)
     db = persist.connection()
     assert db._maxusage == 20
@@ -125,6 +141,7 @@ def test_maxusage():
 
 
 def test_setsession():
+    """Check that the session is prepared after every reopening."""
     persist = PersistentPg(3, ('set datestyle',))
     db = persist.connection()
     assert db._maxusage == 3
@@ -138,6 +155,7 @@ def test_setsession():
 
 
 def test_failed_transaction():
+    """Check that a failed transaction is reported and recovered from."""
     persist = PersistentPg()
     db = persist.connection()
     db._con.close()
@@ -155,6 +173,7 @@ def test_failed_transaction():
 
 
 def test_context_manager():
+    """Check that the connection can be used as a context manager."""
     persist = PersistentPg()
     with persist.connection() as db:
         db.query('select test')

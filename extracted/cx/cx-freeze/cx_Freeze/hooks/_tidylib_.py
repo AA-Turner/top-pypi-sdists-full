@@ -1,6 +1,4 @@
-"""A collection of functions which are triggered automatically by finder when
-tidylib package is included.
-"""
+"""Hooks triggered by finder when tidylib package is included."""
 
 from __future__ import annotations
 
@@ -26,11 +24,13 @@ class Hook(ModuleHook):
         finder: ModuleFinder,
         module: Module,  # noqa: ARG002
     ) -> None:
-        """The tidylib module implicitly loads a shared library."""
+        """Implicitly loads a shared library."""
         if not IS_LINUX:
             return
 
-        parser = ELFParser(finder.path, [sysconfig.get_config_var("LIBDIR")])
+        parser = ELFParser(
+            finder.path, [sysconfig.get_config_var("LIBDIR")], 0, {}
+        )
         library_path = parser.find_library("tidy")
         if library_path:
             finder.include_files(library_path, f"lib/{library_path.name}")

@@ -1,0 +1,88 @@
+# Copyright (c) 2015-2026 Phidgets Inc.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+from enum import IntEnum
+
+
+class ErrorCode(IntEnum):
+    EPHIDGET_OK = 0
+    EPHIDGET_PERM = 1
+    EPHIDGET_NOENT = 2
+    EPHIDGET_TIMEOUT = 3
+    EPHIDGET_KEEPALIVE = 58
+    EPHIDGET_INTERRUPTED = 4
+    EPHIDGET_IO = 5
+    EPHIDGET_NOMEMORY = 6
+    EPHIDGET_ACCESS = 7
+    EPHIDGET_FAULT = 8
+    EPHIDGET_BUSY = 9
+    EPHIDGET_EXIST = 10
+    EPHIDGET_NOTDIR = 11
+    EPHIDGET_ISDIR = 12
+    EPHIDGET_INVALID = 13
+    EPHIDGET_NFILE = 14
+    EPHIDGET_MFILE = 15
+    EPHIDGET_NOSPC = 16
+    EPHIDGET_FBIG = 17
+    EPHIDGET_ROFS = 18
+    EPHIDGET_RO = 19
+    EPHIDGET_UNSUPPORTED = 20
+    EPHIDGET_INVALIDARG = 21
+    EPHIDGET_AGAIN = 22
+    EPHIDGET_NOTEMPTY = 26
+    EPHIDGET_UNEXPECTED = 28
+    EPHIDGET_DUPLICATE = 27
+    EPHIDGET_BADPASSWORD = 37
+    EPHIDGET_NETUNAVAIL = 45
+    EPHIDGET_CONNREF = 35
+    EPHIDGET_CONNRESET = 46
+    EPHIDGET_HOSTUNREACH = 48
+    EPHIDGET_NODEV = 40
+    EPHIDGET_WRONGDEVICE = 50
+    EPHIDGET_PIPE = 41
+    EPHIDGET_RESOLV = 44
+    EPHIDGET_UNKNOWNVAL = 51
+    EPHIDGET_NOTATTACHED = 52
+    EPHIDGET_INVALIDPACKET = 53
+    EPHIDGET_2BIG = 54
+    EPHIDGET_BADVERSION = 55
+    EPHIDGET_CLOSED = 56
+    EPHIDGET_NOTCONFIGURED = 57
+    EPHIDGET_EOF = 31
+    EPHIDGET_FAILSAFE = 59
+    EPHIDGET_UNKNOWNVALHIGH = 60
+    EPHIDGET_UNKNOWNVALLOW = 61
+    EPHIDGET_BADPOWER = 62
+    EPHIDGET_POWERCYCLE = 63
+    EPHIDGET_HALLSENSOR = 64
+    EPHIDGET_BADCURRENT = 65
+    EPHIDGET_BADCONNECTION = 66
+    EPHIDGET_NACK = 67
+    EPHIDGET_REJECTED = 68
+
+    @classmethod
+    def getName(cls, val: int) -> str: ...

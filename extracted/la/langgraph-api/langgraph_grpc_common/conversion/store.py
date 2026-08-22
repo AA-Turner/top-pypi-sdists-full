@@ -204,7 +204,7 @@ def op_to_proto(
         if op.match_conditions:
             list_kwargs["match_conditions"] = [
                 store_pb2.MatchCondition(
-                    match_type=_match_type_to_proto(mc.match_type),
+                    match_type=cast("Any", _match_type_to_proto(mc.match_type)),
                     path=list(mc.path),
                 )
                 for mc in op.match_conditions
@@ -254,7 +254,7 @@ def op_from_proto(msg: store_pb2.Op) -> Op:
         return ListNamespacesOp(
             match_conditions=tuple(
                 MatchCondition(
-                    match_type=_MATCH_TYPE_TO_NAME[mc.match_type],
+                    match_type=cast("Any", _MATCH_TYPE_TO_NAME[mc.match_type]),
                     path=tuple(mc.path),
                 )
                 for mc in ln.match_conditions

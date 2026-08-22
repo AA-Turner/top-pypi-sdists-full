@@ -1,7 +1,11 @@
 Metadata-Version: 2.4
 Name: mail-parser
-Version: 4.6.3
+Version: 4.6.4
 Summary: A tool that parses emails by enhancing the Python standard library, extracting all details into a comprehensive object.
+Project-URL: Homepage, https://github.com/SpamScope/mail-parser
+Project-URL: Source, https://github.com/SpamScope/mail-parser
+Project-URL: Issues, https://github.com/SpamScope/mail-parser/issues
+Project-URL: Changelog, https://github.com/SpamScope/mail-parser/releases
 Author-email: Fedele Mantuano <mantuano.fedele@gmail.com>
 Maintainer-email: Fedele Mantuano <mantuano.fedele@gmail.com>
 License-Expression: Apache-2.0

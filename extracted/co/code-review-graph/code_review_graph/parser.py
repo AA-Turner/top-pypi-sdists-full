@@ -18,9 +18,10 @@ import re
 import subprocess
 import sys
 import threading
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, NamedTuple, Optional
 
 try:
@@ -51,9 +52,20 @@ class CellInfo(NamedTuple):
 
 
 _SQL_TABLE_RE = re.compile(
-    r"(?:FROM|JOIN|INTO|CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW)|INSERT\s+OVERWRITE)"
+    r"(?:FROM|JOIN|INTO|CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW)"
+    r"(?:\s+IF\s+NOT\s+EXISTS)?|INSERT\s+OVERWRITE)"
     r"\s+((?:`[^`]+`|\w+)(?:\.(?:`[^`]+`|\w+))*)",
     re.IGNORECASE,
+)
+
+# dbt model dependencies: {{ ref('model') }}, {{ ref('package', 'model') }}
+# and {{ source('source_name', 'table') }}. String-literal arguments only —
+# dynamic ref() calls cannot be resolved statically.
+_DBT_REF_RE = re.compile(
+    r"\{\{-?\s*(ref|source)\s*\(\s*"
+    r"['\"]([^'\"]+)['\"]"
+    r"(?:\s*,\s*['\"]([^'\"]+)['\"])?"
+    r"\s*\)",
 )
 
 _PYTHON_STAR_CACHE_MAX = 15_000
@@ -322,19 +334,125 @@ def _python_unreachable_call_positions(
     visitor.visit(tree)
     return frozenset(visitor.positions)
 
+
+# ---------------------------------------------------------------------------
+# Non-Python static dead-guard detection (tree-sitter ancestor walk).
+#
+# ``_python_unreachable_call_positions`` above uses the ``ast`` module and so
+# only covers Python.  The helpers below cover languages ``ast`` cannot parse,
+# walking the tree-sitter ancestor chain of a call node:
+#
+#   * Go / TypeScript / JavaScript:  ``if false { ... }`` / ``if (0) { ... }``
+#   * C / C++:                       ``#if 0`` / ``#elif 0`` preprocessor blocks
+#
+# Only the consequence (true branch) is dead; ``else`` / ``#else`` / ``#elif``
+# branches stay live.
+# ---------------------------------------------------------------------------
+
+
+def _node_is_in_child(node, child_node) -> bool:
+    """Return True if *node* is *child_node* or one of its descendants.
+
+    Compares byte ranges because the tree-sitter Python bindings create a
+    fresh ``Node`` object on every ``child_by_field_name`` call, so ``is``
+    identity fails even when both sides refer to the same tree node.
+    """
+    start_byte, end_byte = child_node.start_byte, child_node.end_byte
+    cursor = node
+    while cursor is not None:
+        if cursor.start_byte == start_byte and cursor.end_byte == end_byte:
+            return True
+        cursor = cursor.parent
+    return False
+
+
+def _is_statically_false_condition(cond) -> bool:
+    """Return True if *cond* is a statically-false literal (non-Python).
+
+    * ``parenthesized_expression`` (TS/JS wrap ``if (expr)``) is unwrapped.
+    * ``false`` -- Go and TS/JS boolean literal.
+    * ``number`` equal to ``0`` -- TS/JS ``if (0)``.
+    """
+    if cond.type == "parenthesized_expression":
+        inner = cond.named_children
+        return _is_statically_false_condition(inner[0]) if inner else False
+    if cond.type == "false":
+        return True
+    # Literal ``0`` only. ``0x0`` / ``0.0`` are equally falsy but are left
+    # undetected on purpose: missing one is a dropped suppression, never a
+    # wrongly-suppressed live call, and evaluating arbitrary numeric literals
+    # invites its own bugs. Python's ``if 0:`` is handled by the ast path.
+    if cond.type == "number" and cond.text == b"0":
+        return True
+    return False
+
+
+def _is_in_static_dead_guard(node) -> bool:
+    """Return True if *node* sits in a statically-dead branch (non-Python).
+
+    Two independent ancestor walks:
+
+    * A walk for Go / TS / JS ``if false`` / ``if (0)``.
+    * A walk for C/C++ ``#if 0`` / ``#elif 0``.
+
+    Neither walk stops at a function or class boundary. A declaration
+    nested inside a dead branch is never evaluated, so calls in its body
+    are dead too -- matching what the Python ``ast`` path above already
+    does for a ``def`` or ``class`` under ``if False:``. Unlike Python,
+    JS/TS class declarations are not hoisted, so there is no reachable
+    symbol to preserve either.
+    """
+    # Go / TS / JS: ``if`` with a statically-false condition.
+    cursor = node.parent
+    while cursor is not None:
+        node_type = cursor.type
+        if node_type == "if_statement":
+            condition = cursor.child_by_field_name("condition")
+            consequence = cursor.child_by_field_name("consequence")
+            if (
+                condition is not None
+                and consequence is not None
+                and _is_statically_false_condition(condition)
+                and _node_is_in_child(node, consequence)
+            ):
+                return True
+        cursor = cursor.parent
+
+    # C / C++: ``#if 0`` / ``#elif 0`` preprocessor block.
+    preproc = node.parent
+    while preproc is not None:
+        if preproc.type in ("preproc_if", "preproc_elif"):
+            condition = preproc.child_by_field_name("condition")
+            if (
+                condition is not None
+                and condition.type == "number_literal"
+                and condition.text == b"0"
+            ):
+                alternative = preproc.child_by_field_name("alternative")
+                if not (
+                    alternative is not None
+                    and _node_is_in_child(node, alternative)
+                ):
+                    return True
+        preproc = preproc.parent
+
+    return False
+
+
 # SQL keywords that can appear after FROM/JOIN but are NOT table names.
 _SQL_KEYWORDS: frozenset[str] = frozenset({
     "SELECT", "WHERE", "GROUP", "ORDER", "HAVING", "LIMIT", "OFFSET",
     "UNION", "INTERSECT", "EXCEPT", "AS", "ON", "USING", "SET",
     "VALUES", "DEFAULT", "NULL", "TRUE", "FALSE",
     "INNER", "OUTER", "LEFT", "RIGHT", "FULL", "CROSS", "NATURAL",
-    "LATERAL", "RECURSIVE", "ONLY", "WITH",
+    "LATERAL", "RECURSIVE", "ONLY", "WITH", "IF", "NOT", "EXISTS",
 })
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PARSER_LOAD_TIMEOUT_SECONDS = 5.0
 _PARSER_PROBE_RESULTS: dict[str, bool] = {}
+_PARSER_PROBE_FAILURE_DETAILS: dict[str, str] = {}
 _PARSER_PROBE_LOCK = threading.Lock()
 _EXPECTED_PARSER_LOAD_ERRORS = (ImportError, LookupError, OSError, ValueError)
 
@@ -363,17 +481,32 @@ def _run_parser_load_probe(grammar: str, timeout_seconds: float) -> bool:
     )
     try:
         completed = subprocess.run(
-            [sys.executable, "-I", "-c", code, grammar],
+            [sys.executable, "-c", code, grammar],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             timeout=timeout_seconds,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
+        _PARSER_PROBE_FAILURE_DETAILS[grammar] = str(exc)
         logger.debug("tree-sitter parser probe failed for %s: %s", grammar, exc)
         return False
-    return completed.returncode == 0
+    if completed.returncode == 0:
+        _PARSER_PROBE_FAILURE_DETAILS.pop(grammar, None)
+        return True
+
+    raw_stderr = getattr(completed, "stderr", b"")
+    if isinstance(raw_stderr, bytes):
+        stderr = raw_stderr.decode("utf-8", errors="replace")
+    else:
+        stderr = str(raw_stderr)
+    detail = next(
+        (line.strip() for line in reversed(stderr.splitlines()) if line.strip()),
+        f"probe exited with status {completed.returncode}",
+    )
+    _PARSER_PROBE_FAILURE_DETAILS[grammar] = detail[:500]
+    return False
 
 
 def _parser_load_probe_succeeds(
@@ -398,10 +531,18 @@ def _parser_load_probe_succeeds(
         result = _run_parser_load_probe(grammar, timeout)
         _PARSER_PROBE_RESULTS[grammar] = result
         if not result:
-            logger.warning(
-                "Skipping unavailable tree-sitter parser for %s",
-                grammar,
-            )
+            detail = _PARSER_PROBE_FAILURE_DETAILS.get(grammar)
+            if detail:
+                logger.warning(
+                    "Skipping unavailable tree-sitter parser for %s: %s",
+                    grammar,
+                    detail,
+                )
+            else:
+                logger.warning(
+                    "Skipping unavailable tree-sitter parser for %s",
+                    grammar,
+                )
         return result
 
 
@@ -415,6 +556,7 @@ def _clear_parser_probe_cache() -> None:
     """Clear process-level probe state (used by focused tests)."""
     with _PARSER_PROBE_LOCK:
         _PARSER_PROBE_RESULTS.clear()
+        _PARSER_PROBE_FAILURE_DETAILS.clear()
 
 
 def _load_tree_sitter_parser(grammar: str):
@@ -507,6 +649,23 @@ def _read_php_composer_psr4(
 # ---------------------------------------------------------------------------
 
 
+def normalize_file_path(path: "str | PurePath") -> str:
+    """Return *path* as a forward-slash (POSIX) string for graph identity.
+
+    ``file_path`` values and the path component of qualified names are graph
+    identity: they must be separator-stable across operating systems so a
+    graph built on Windows produces the same identifiers as one built on
+    Linux/macOS, and so consumers that reconstruct identifiers from ``Path``
+    objects always agree with the parser. See issue #774.
+
+    Only apply this to file *paths* — never to symbol names: PHP namespace
+    identifiers (``App\\Domain\\Job``) legitimately contain backslashes.
+    """
+    if isinstance(path, PurePath):
+        return path.as_posix()
+    return str(path).replace("\\", "/")
+
+
 @dataclass
 class NodeInfo:
     kind: str  # File, Class, Function, Type, Test
@@ -521,6 +680,14 @@ class NodeInfo:
     modifiers: Optional[str] = None
     is_test: bool = False
     extra: dict = field(default_factory=dict)
+    identity_name: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Identity invariant (#774): file paths always use POSIX separators.
+        # File nodes carry their path in ``name`` as well.
+        self.file_path = normalize_file_path(self.file_path)
+        if self.kind == "File":
+            self.name = normalize_file_path(self.name)
 
 
 @dataclass
@@ -533,6 +700,12 @@ class EdgeInfo:
     file_path: str
     line: int = 0
     extra: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Identity invariant (#774): file paths always use POSIX separators.
+        # ``source``/``target`` are left alone — they may contain qualified
+        # names whose symbol part legitimately embeds backslashes (PHP FQNs).
+        self.file_path = normalize_file_path(self.file_path)
 
 
 # ---------------------------------------------------------------------------
@@ -609,6 +782,35 @@ EXTENSION_TO_LANGUAGE: dict[str, str] = {
     ".properties": "properties",
     ".yml": "yaml",
     ".yaml": "yaml",
+}
+
+# ``.h`` is shared by C and C++. Keep C as the extension default, then promote
+# a header only when the C++ grammar finds syntax that C cannot express. Weak
+# compatibility markers such as ``__cplusplus`` and ``extern "C"`` are
+# deliberately excluded because they are common in otherwise-C headers.
+_CPP_HEADER_EVIDENCE_TYPES = frozenset({
+    "access_specifier",
+    "alias_declaration",
+    "base_class_clause",
+    "class_specifier",
+    "concept_definition",
+    "lambda_expression",
+    "namespace_definition",
+    "noexcept",
+    "template_declaration",
+    "trailing_return_type",
+    "using_declaration",
+})
+
+_CPP_HEADER_EVIDENCE_QUALIFIERS = frozenset({b"consteval", b"constinit"})
+
+_CPP_QT_STRUCTURAL_MACRO_REPLACEMENTS = {
+    b"QT_BEGIN_NAMESPACE": b" " * len(b"QT_BEGIN_NAMESPACE"),
+    b"QT_END_NAMESPACE": b" " * len(b"QT_END_NAMESPACE"),
+    b"Q_OBJECT": b" " * len(b"Q_OBJECT"),
+    b"Q_SIGNALS": b"public" + b" " * (len(b"Q_SIGNALS") - len(b"public")),
+    b"Q_SLOTS": b" " * len(b"Q_SLOTS"),
+    b"Q_EMIT": b" " * len(b"Q_EMIT"),
 }
 
 # Shebang interpreter → language mapping for extension-less Unix scripts.
@@ -698,8 +900,19 @@ _TASK_META_KEYS: frozenset[str] = frozenset({
 _CLASS_TYPES: dict[str, list[str]] = {
     "python": ["class_definition"],
     "javascript": ["class_declaration", "class"],
-    "typescript": ["class_declaration", "class"],
-    "tsx": ["class_declaration", "class"],
+    # TS types are declarations, not just runtime classes: an interface or type
+    # alias is the thing callers depend on, so it needs a node of its own the way
+    # Java/C#/PHP interfaces do. Without them a types-only module (types.ts,
+    # *.d.ts) contributes zero symbol nodes and its blast radius collapses to
+    # whole-file IMPORTS_FROM fan-out. See: #737
+    "typescript": [
+        "class_declaration", "class",
+        "interface_declaration", "type_alias_declaration", "enum_declaration",
+    ],
+    "tsx": [
+        "class_declaration", "class",
+        "interface_declaration", "type_alias_declaration", "enum_declaration",
+    ],
     "go": ["type_declaration"],
     # impl_item is a scope for methods, not a second type definition. It is
     # dispatched separately so repeated impl blocks cannot overwrite structs.
@@ -768,6 +981,20 @@ _CLASS_TYPES: dict[str, list[str]] = {
     "hcl": [],
 }
 
+# TS/TSX heritage clauses. Classes wrap theirs in class_heritage; interfaces use
+# extends_type_clause. A type_identifier inside one is already covered by an
+# INHERITS edge, so it must not also emit REFERENCES.
+_TS_HERITAGE_CLAUSES = frozenset({
+    "extends_clause", "implements_clause", "extends_type_clause",
+})
+
+# TS/TSX declarations whose ``name`` field is a type_identifier. That occurrence
+# is the definition site, not a use of the type.
+_TS_TYPE_DECLARATIONS = frozenset({
+    "class_declaration", "abstract_class_declaration", "interface_declaration",
+    "type_alias_declaration", "enum_declaration",
+})
+
 _FUNCTION_TYPES: dict[str, list[str]] = {
     "python": ["function_definition"],
     "javascript": ["function_declaration", "method_definition", "arrow_function"],
@@ -777,13 +1004,22 @@ _FUNCTION_TYPES: dict[str, list[str]] = {
     "rust": ["function_item", "function_signature_item"],
     "java": ["method_declaration", "constructor_declaration"],
     "c": ["function_definition"],
-    "cpp": ["function_definition"],
+    "cpp": ["function_definition", "declaration", "field_declaration"],
     "csharp": ["method_declaration", "constructor_declaration"],
     "ruby": ["method", "singleton_method"],
     "r": ["function_definition"],
     "perl": ["subroutine_declaration_statement", "method_declaration_statement"],
     "kotlin": ["function_declaration"],
-    "swift": ["function_declaration"],
+    # Swift: initializers, deinitializers and subscripts are separate node
+    # types, not `function_declaration`s, so they need listing alongside it —
+    # the same way java/csharp list `constructor_declaration`. Their names come
+    # from the `_get_name` Swift branch (the grammar has no usable name field).
+    "swift": [
+        "function_declaration",
+        "init_declaration",
+        "deinit_declaration",
+        "subscript_declaration",
+    ],
     "php": ["function_definition", "method_declaration"],
     "scala": ["function_definition", "function_declaration"],
     # Solidity: events and modifiers use kind="Function" because the graph
@@ -1072,6 +1308,7 @@ _SPRING_EVENT_LISTENER_ANNOTATIONS = frozenset({"EventListener"})
 _SPRING_EVENT_PUBLISH_METHODS = frozenset({"publishEvent"})
 _JAVA_PACKAGE_KEY = "__crg_java_package__"
 _SPRING_REQUEST_PREFIX_KEY = "__crg_spring_request_prefix__:"
+_JS_IMPORT_ORIGINAL_PREFIX_KEY = "__crg_js_import_original__:"
 _SPRING_REQUEST_MAPPINGS = {
     "DeleteMapping": ("DELETE",),
     "GetMapping": ("GET",),
@@ -1732,6 +1969,117 @@ def _csharp_attribute_names(node) -> list[str]:
     return names
 
 
+_PHPUNIT_TEST_ATTRIBUTE = "phpunit\\framework\\attributes\\test"
+
+
+def _php_attribute_aliases(node) -> dict[str, str]:
+    """Return aliases that resolve specifically to PHPUnit's Test attribute."""
+    root = node
+    while root.parent is not None:
+        root = root.parent
+
+    aliases: dict[str, str] = {}
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        if current.type == "namespace_use_clause":
+            alias = current.child_by_field_name("alias")
+            if alias is not None:
+                target = next(
+                    (
+                        child
+                        for child in current.children
+                        if child.type in ("name", "qualified_name")
+                        and child != alias
+                    ),
+                    None,
+                )
+                if target is not None:
+                    alias_text = alias.text.decode(
+                        "utf-8", errors="replace",
+                    ).strip()
+                    target_text = target.text.decode(
+                        "utf-8", errors="replace",
+                    ).strip()
+                    if current.parent.type == "namespace_use_group":
+                        declaration = current.parent.parent
+                        prefix = next(
+                            (
+                                child
+                                for child in declaration.children
+                                if child.type == "namespace_name"
+                            ),
+                            None,
+                        )
+                        if prefix is not None:
+                            prefix_text = prefix.text.decode(
+                                "utf-8", errors="replace",
+                            ).strip()
+                            target_text = f"{prefix_text}\\{target_text}"
+                    normalized_target = target_text.lstrip("\\").casefold()
+                    if normalized_target == _PHPUNIT_TEST_ATTRIBUTE:
+                        aliases[alias_text.casefold()] = "Test"
+        stack.extend(reversed(current.children))
+    return aliases
+
+
+def _php_attribute_names(node) -> list[str]:
+    """Return PHP attribute names from ``attribute_list`` children of *node*.
+
+    PHP 8 attributes (``#[Test]``, ``#[DataProvider('x')]``) are
+    ``attribute_list`` nodes wrapping one or more ``attribute_group`` nodes,
+    each wrapping one or more ``attribute`` nodes whose ``name`` child is the
+    attribute name -- one level deeper than C#'s ``attribute_list >
+    attribute``. See: #693
+    """
+    names: list[str] = []
+    for sub in node.children:
+        if sub.type != "attribute_list":
+            continue
+        for group in sub.children:
+            if group.type != "attribute_group":
+                continue
+            for attr in group.children:
+                if attr.type != "attribute":
+                    continue
+                for ident in attr.children:
+                    if ident.type in ("name", "qualified_name"):
+                        raw_name = ident.text.decode(
+                            "utf-8", errors="replace",
+                        ).strip()
+                        normalized = raw_name.lstrip("\\")
+                        if normalized.casefold() == _PHPUNIT_TEST_ATTRIBUTE:
+                            names.append("Test")
+                        else:
+                            names.append(normalized)
+                        break
+    if not names:
+        return []
+    aliases = _php_attribute_aliases(node)
+    return [aliases.get(name.casefold(), name) for name in names]
+
+
+_PHP_TEST_DOC_TAG_RE = re.compile(r"(?<![\w-])@test(?![\w-])")
+
+
+def _php_docblock_marks_test(node) -> bool:
+    """Return True if a PHPUnit ``/** @test */`` docblock precedes *node*.
+
+    PHPUnit's legacy convention marks a test method with an ``@test`` tag in
+    the doc comment immediately above it, instead of a ``test_`` name prefix
+    or a ``#[Test]`` attribute. Tree-sitter represents that comment as a
+    preceding sibling of the ``method_declaration``, not a child, so it needs
+    its own check rather than reuse of the attribute-based extraction above.
+    See: #693
+    """
+    sib = node.prev_sibling
+    return bool(
+        sib is not None
+        and sib.type == "comment"
+        and _PHP_TEST_DOC_TAG_RE.search(sib.text.decode("utf-8", errors="replace"))
+    )
+
+
 def _csharp_namespaces(root_node) -> list[str]:
     """Return all namespaces declared in a C# compilation unit.
 
@@ -2076,8 +2424,14 @@ class CodeParser:
 
     def __init__(self, repo_root: Optional[Path] = None) -> None:
         self._repo_root = Path(repo_root).resolve() if repo_root is not None else None
+        self._dbt_model_paths_cache: dict[Path, tuple[Path, ...]] = {}
         self._parsers: dict[str, object] = {}
         self._module_file_cache: dict[str, Optional[str]] = {}
+        # Absolute file paths to treat as absent during import resolution.
+        # ``forget`` sets this (via :meth:`exclude_files`) so a re-parsed
+        # referrer resolves exactly as it would in a build where the forgotten
+        # files never existed on disk. See ``forget.forget_files``.
+        self._excluded_files: set[str] = set()
         self._export_symbol_cache: dict[str, Optional[str]] = {}
         self._tsconfig_resolver = TsconfigResolver()
         # Per-parse cache of Dart pubspec root lookups; see #87
@@ -2128,7 +2482,7 @@ class CodeParser:
             self._parsers[language] = parser
         return self._parsers[language]
 
-    def detect_language(self, path: Path) -> Optional[str]:
+    def detect_language(self, path: Path, source: Optional[bytes] = None) -> Optional[str]:
         """Map a file path to its language name.
 
         Extension-based lookup is tried first.  For extension-less files
@@ -2137,6 +2491,12 @@ class CodeParser:
         already have a known extension are never re-read — shebang probing
         only runs when the extension lookup returns ``None`` **and** the path
         has no suffix at all.  See issue #237.
+
+        When *source* is provided, the shebang is sniffed from those bytes
+        instead of re-reading the file.  Callers that hash-and-parse one byte
+        snapshot MUST pass it: a separate disk read can race a concurrent
+        save, mis-detect the language, and store a wrong parse under the
+        snapshot's hash (issue #746).
         """
         if path.name.lower().endswith(".blade.php"):
             return "blade"
@@ -2154,12 +2514,20 @@ class CodeParser:
         # and other extension-less text files also fall here, but the probe is a
         # cheap 256-byte read that returns None when no shebang is found.
         if suffix == "":
-            return self._detect_language_from_shebang(path)
+            head = source[:_SHEBANG_PROBE_BYTES] if source is not None else None
+            return self._detect_language_from_shebang(path, head)
         return None
 
     @staticmethod
-    def _detect_language_from_shebang(path: Path) -> Optional[str]:
+    def _detect_language_from_shebang(
+        path: Path,
+        head: Optional[bytes] = None,
+    ) -> Optional[str]:
         """Inspect the first line of ``path`` for a shebang interpreter.
+
+        When *head* is given it is used as the first bytes of the file and
+        the file is not read from disk (TOCTOU-safe for callers that already
+        hold the byte snapshot being parsed, see issue #746).
 
         Returns the mapped language name or ``None`` if the file has no
         shebang, is unreadable, or names an interpreter we don't map.
@@ -2176,11 +2544,12 @@ class CodeParser:
         endings are handled.  Binary files read as garbage bytes simply
         fail the ``#!`` prefix check and return ``None``.
         """
-        try:
-            with path.open("rb") as fh:
-                head = fh.read(_SHEBANG_PROBE_BYTES)
-        except (OSError, PermissionError):
-            return None
+        if head is None:
+            try:
+                with path.open("rb") as fh:
+                    head = fh.read(_SHEBANG_PROBE_BYTES)
+            except (OSError, PermissionError):
+                return None
         if not head.startswith(b"#!"):
             return None
 
@@ -2232,11 +2601,30 @@ class CodeParser:
         """Parse pre-read bytes and return extracted nodes and edges.
 
         This avoids re-reading the file from disk, eliminating TOCTOU gaps
-        when the caller has already read the bytes (e.g. for hashing).
+        when the caller has already read the bytes (e.g. for hashing): every
+        parse decision, including shebang language detection, derives from
+        *source* so the stored file hash always describes the bytes that were
+        actually parsed (issue #746).
         """
-        language = self.detect_language(path)
+        language = self.detect_language(path, source)
         if not language:
             return [], []
+
+        parser = None
+        tree = None
+        parse_source = source
+        if language == "c" and path.suffix.lower() == ".h":
+            cpp_parser = self._get_parser("cpp")
+            if cpp_parser is not None:
+                cpp_source = self._mask_cpp_qt_macros(source)
+                cpp_tree = cpp_parser.parse(cpp_source)
+                if self._has_cpp_header_evidence(cpp_tree.root_node):
+                    language = "cpp"
+                    parser = cpp_parser
+                    tree = cpp_tree
+                    parse_source = cpp_source
+        elif language == "cpp":
+            parse_source = self._mask_cpp_qt_macros(source)
 
         if language == "blade":
             return self._parse_blade(path, source)
@@ -2308,14 +2696,16 @@ class CodeParser:
         if language == "yaml":
             return [], []
 
-        parser = self._get_parser(language)
+        if parser is None:
+            parser = self._get_parser(language)
         if not parser:
             return [], []
 
-        tree = parser.parse(source)
+        if tree is None:
+            tree = parser.parse(parse_source)
         nodes: list[NodeInfo] = []
         edges: list[EdgeInfo] = []
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
 
         # File node
         test_file = _is_test_file(file_path_str)
@@ -2374,7 +2764,7 @@ class CodeParser:
                 file_path_str,
             )
 
-        edges = self._apply_typed_call_targets(edges, typed_call_targets)
+        edges = self._apply_typed_call_targets(edges, typed_call_targets, language)
 
         # Resolve bare call targets to qualified names using same-file definitions
         edges = self._resolve_call_targets(nodes, edges, file_path_str)
@@ -2384,7 +2774,7 @@ class CodeParser:
         test_qnames = set()
         for n in nodes:
             if n.is_test:
-                qn = self._qualify(n.name, n.file_path, n.parent_name)
+                qn = self._node_qualified(n)
                 test_qnames.add(qn)
         if test_qnames:
             for edge in list(edges):
@@ -2395,9 +2785,144 @@ class CodeParser:
                         target=edge.source,
                         file_path=edge.file_path,
                         line=edge.line,
+                        extra=edge.extra.copy(),
                     ))
 
         return nodes, edges
+
+    @staticmethod
+    def _has_cpp_header_evidence(root) -> bool:
+        """Return whether a parsed ``.h`` tree contains C++-only syntax."""
+        pending = [root]
+        while pending:
+            node = pending.pop()
+            if node.type == "ERROR" or _is_in_static_dead_guard(node):
+                continue
+
+            previous = node.prev_named_sibling
+            recovered_after_error = (
+                previous is not None
+                and previous.type == "ERROR"
+                and previous.end_byte == node.start_byte
+            )
+            if recovered_after_error:
+                continue
+
+            if node.type in _CPP_HEADER_EVIDENCE_TYPES:
+                return True
+            if (
+                node.type == "enum_specifier"
+                and any(child.type in ("class", "struct") for child in node.children)
+            ):
+                return True
+            if (
+                node.type == "type_qualifier"
+                and node.text in _CPP_HEADER_EVIDENCE_QUALIFIERS
+            ):
+                return True
+            pending.extend(node.named_children)
+        return False
+
+    @staticmethod
+    def _mask_cpp_qt_macros(source: bytes) -> bytes:
+        """Shield structural Qt macros without changing byte or line offsets."""
+        masked = bytearray(source)
+        length = len(source)
+        index = 0
+        line_has_code = False
+
+        def skip_quoted(start: int, quote: int) -> int:
+            cursor = start + 1
+            while cursor < length:
+                if source[cursor] == ord("\\"):
+                    cursor += 2
+                elif source[cursor] == quote:
+                    return cursor + 1
+                else:
+                    cursor += 1
+            return length
+
+        def raw_string_end(start: int) -> Optional[int]:
+            for prefix in (b'u8R"', b'LR"', b'UR"', b'uR"', b'R"'):
+                if not source.startswith(prefix, start):
+                    continue
+                delimiter_start = start + len(prefix)
+                opening = source.find(b"(", delimiter_start, delimiter_start + 17)
+                if opening == -1:
+                    return None
+                delimiter = source[delimiter_start:opening]
+                if any(byte in b" ()\\\t\r\n" for byte in delimiter):
+                    return None
+                closing = source.find(b")" + delimiter + b'"', opening + 1)
+                return length if closing == -1 else closing + len(delimiter) + 2
+            return None
+
+        while index < length:
+            byte = source[index]
+            if byte == ord("\n"):
+                line_has_code = False
+                index += 1
+                continue
+
+            if source.startswith(b"//", index):
+                newline = source.find(b"\n", index + 2)
+                index = length if newline == -1 else newline
+                continue
+            if source.startswith(b"/*", index):
+                closing = source.find(b"*/", index + 2)
+                comment_end = length if closing == -1 else closing + 2
+                if b"\n" in source[index:comment_end]:
+                    line_has_code = False
+                index = comment_end
+                continue
+
+            if byte == ord("#") and not line_has_code:
+                cursor = index
+                while cursor < length:
+                    newline = source.find(b"\n", cursor)
+                    if newline == -1:
+                        cursor = length
+                        break
+                    previous = newline - 1
+                    if previous >= cursor and source[previous] == ord("\r"):
+                        previous -= 1
+                    if previous < cursor or source[previous] != ord("\\"):
+                        cursor = newline
+                        break
+                    cursor = newline + 1
+                index = cursor
+                continue
+
+            raw_end = raw_string_end(index)
+            if raw_end is not None:
+                line_has_code = True
+                index = raw_end
+                continue
+            if byte in (ord('"'), ord("'")):
+                line_has_code = True
+                index = skip_quoted(index, byte)
+                continue
+
+            if byte == ord("_") or chr(byte).isalpha():
+                end = index + 1
+                while end < length:
+                    candidate = source[end]
+                    if candidate != ord("_") and not chr(candidate).isalnum():
+                        break
+                    end += 1
+                token = source[index:end]
+                replacement = _CPP_QT_STRUCTURAL_MACRO_REPLACEMENTS.get(token)
+                if replacement is not None:
+                    masked[index:end] = replacement
+                line_has_code = True
+                index = end
+                continue
+
+            if byte not in b" \t\v\f\r":
+                line_has_code = True
+            index += 1
+
+        return bytes(masked)
 
     @classmethod
     def _mask_blade_comments(cls, text: str) -> str:
@@ -2418,7 +2943,7 @@ class CodeParser:
         """Parse static Blade template references without a Tree-sitter grammar."""
         text = source.decode("utf-8", errors="replace")
         masked = self._mask_blade_comments(text)
-        file_path = str(path)
+        file_path = normalize_file_path(path)
         nodes = [
             NodeInfo(
                 kind="File",
@@ -2453,7 +2978,7 @@ class CodeParser:
             return [], []
 
         tree = vue_parser.parse(source)
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         test_file = _is_test_file(file_path_str)
 
         all_nodes: list[NodeInfo] = [NodeInfo(
@@ -2575,7 +3100,7 @@ class CodeParser:
             return [], []
 
         tree = svelte_parser.parse(source)
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         test_file = _is_test_file(file_path_str)
 
         all_nodes: list[NodeInfo] = [NodeInfo(
@@ -2756,7 +3281,7 @@ class CodeParser:
             cells.append(CellInfo(cell_index=cell_idx, language=cell_lang, source=cell_source))
 
         if not cells:
-            file_path_str = str(path)
+            file_path_str = normalize_file_path(path)
             return [NodeInfo(
                 kind="File",
                 name=file_path_str,
@@ -2782,7 +3307,7 @@ class CodeParser:
             cells: List of CellInfo with index, language, and source.
             default_language: Default language for the File node.
         """
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         test_file = _is_test_file(file_path_str)
 
         # Group cells by language
@@ -2979,7 +3504,7 @@ class CodeParser:
             ))
 
         if not cells:
-            file_path_str = str(path)
+            file_path_str = normalize_file_path(path)
             file_node = NodeInfo(
                 kind="File",
                 name=file_path_str,
@@ -3018,7 +3543,7 @@ class CodeParser:
         text = source.decode("utf-8", errors="replace")
         cleaned = _strip_vbnet_noise(text)
         statements = _vbnet_logical_lines(cleaned)
-        file_path = str(path)
+        file_path = normalize_file_path(path)
         line_count = text.count("\n") + 1
         test_file = _is_test_file(file_path)
 
@@ -3440,7 +3965,7 @@ class CodeParser:
         extraction since signatures have no call sites.
         """
         text = source.decode("utf-8", errors="replace")
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         test_file = _is_test_file(file_path_str)
         is_interface = path.suffix.lower() == ".resi"
 
@@ -3839,9 +4364,15 @@ class CodeParser:
 
         Data dependencies (FROM/JOIN table references) are recorded as
         IMPORTS_FROM edges so the impact-radius query can follow them.
+
+        dbt models use a dedicated extraction instead: one Class node per
+        model, named after the file stem, with IMPORTS_FROM edges from the
+        Jinja dependency calls. Within a dbt project, model membership comes
+        from ``model-paths`` in ``dbt_project.yml``; without project context,
+        a ``ref()`` / ``source()`` call remains a best-effort content signal.
         """
         text = source.decode("utf-8", errors="replace")
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         test_file = _is_test_file(file_path_str)
 
         nodes: list[NodeInfo] = []
@@ -3856,6 +4387,19 @@ class CodeParser:
             language="sql",
             is_test=test_file,
         ))
+
+        # --- dbt model pass ---
+        # A dbt model has no DDL (dbt wraps the SELECT at build time), its
+        # dependencies live in Jinja calls the FROM/JOIN regex cannot see,
+        # and the plain-SQL passes below would only pick up CTE names as
+        # phantom IMPORTS_FROM targets. Handle it separately and skip them.
+        dbt_refs = list(_DBT_REF_RE.finditer(text))
+        dbt_model_path = self._is_dbt_model_path(path)
+        if dbt_model_path is True or (dbt_model_path is None and dbt_refs):
+            self._extract_dbt_model(
+                path, text, dbt_refs, file_path_str, test_file, nodes, edges,
+            )
+            return nodes, edges
 
         # --- tree-sitter pass ---
         parser = self._get_parser("sql")
@@ -3905,6 +4449,126 @@ class CodeParser:
                 ))
 
         return nodes, edges
+
+    def _is_dbt_model_path(self, path: Path) -> Optional[bool]:
+        """Return whether *path* belongs to a configured dbt model directory.
+
+        ``None`` means there is no enclosing dbt project in this parser's
+        repository context, so callers may use content sniffing as a fallback.
+        """
+        if self._repo_root is None:
+            return None
+
+        resolved_path = path.resolve()
+        try:
+            resolved_path.relative_to(self._repo_root)
+        except ValueError:
+            return None
+
+        directory = resolved_path.parent
+        while True:
+            project_file = directory / "dbt_project.yml"
+            if project_file.is_file():
+                return any(
+                    resolved_path.is_relative_to(model_path)
+                    for model_path in self._dbt_model_paths(project_file)
+                )
+            if directory == self._repo_root:
+                return None
+            parent = directory.parent
+            if parent == directory or not parent.is_relative_to(self._repo_root):
+                return None
+            directory = parent
+
+    def _dbt_model_paths(self, project_file: Path) -> tuple[Path, ...]:
+        """Read and cache the model directories for one dbt project."""
+        cached = self._dbt_model_paths_cache.get(project_file)
+        if cached is not None:
+            return cached
+
+        configured_paths: object = ["models"]
+        if _yaml is not None:
+            try:
+                config = _yaml.safe_load(project_file.read_text(encoding="utf-8"))
+                if isinstance(config, dict):
+                    configured_paths = config.get("model-paths", ["models"])
+            except (OSError, _yaml.YAMLError):
+                configured_paths = ["models"]
+
+        if isinstance(configured_paths, str):
+            configured_paths = [configured_paths]
+        if not isinstance(configured_paths, list):
+            configured_paths = ["models"]
+
+        model_paths = tuple(
+            (project_file.parent / configured_path).resolve()
+            for configured_path in configured_paths
+            if isinstance(configured_path, str) and configured_path
+        )
+        self._dbt_model_paths_cache[project_file] = model_paths
+        return model_paths
+
+    def _extract_dbt_model(
+        self,
+        path: Path,
+        text: str,
+        dbt_refs: list[re.Match],
+        file_path_str: str,
+        test_file: bool,
+        nodes: list[NodeInfo],
+        edges: list[EdgeInfo],
+    ) -> None:
+        """Extract a dbt model file: one Class node plus its Jinja deps.
+
+        dbt materializes each model file as a table or view named after the
+        file stem, so the stem is the node name.
+
+        - `{{ ref('m') }}` → IMPORTS_FROM target `m`
+        - `{{ ref('pkg', 'm') }}` → IMPORTS_FROM target `pkg.m`
+        - `{{ source('src', 'tbl') }}` → IMPORTS_FROM target `src.tbl`
+          (kept qualified: sources are external tables, not project models,
+          so the target must not collide with a model node of the same name)
+        """
+        model_name = path.stem
+        qualified = f"{file_path_str}::{model_name}"
+        nodes.append(NodeInfo(
+            kind="Class",
+            name=model_name,
+            file_path=file_path_str,
+            line_start=1,
+            line_end=text.count("\n") + 1,
+            language="sql",
+            is_test=test_file,
+            extra={"sql_kind": "dbt_model"},
+        ))
+        edges.append(EdgeInfo(
+            kind="CONTAINS",
+            source=file_path_str,
+            target=qualified,
+            file_path=file_path_str,
+            line=1,
+        ))
+
+        seen_targets: set[str] = set()
+        for m in dbt_refs:
+            func, first_arg, second_arg = m.group(1), m.group(2), m.group(3)
+            if func == "source":
+                if second_arg is None:
+                    continue  # source() requires two args; malformed call
+                target = f"{first_arg}.{second_arg}"
+            elif second_arg is not None:
+                target = f"{first_arg}.{second_arg}"
+            else:
+                target = first_arg
+            if target and target != model_name and target not in seen_targets:
+                seen_targets.add(target)
+                edges.append(EdgeInfo(
+                    kind="IMPORTS_FROM",
+                    source=file_path_str,
+                    target=target,
+                    file_path=file_path_str,
+                    line=text[: m.start()].count("\n") + 1,
+                ))
 
     def _walk_sql_tree(
         self,
@@ -4005,14 +4669,56 @@ class CodeParser:
                 nodes, edges, file_path,
             )
 
-        # Build symbol table: bare_name -> qualified_name
-        symbols: dict[str, str] = {}
+        is_cpp = any(node.language == "cpp" for node in nodes)
+        is_go = any(node.language == "go" for node in nodes)
+
+        def cpp_resolution_extra(
+            extra: dict,
+            resolution: str,
+            candidates: list[str],
+        ) -> dict:
+            limit = 20
+            return {
+                **extra,
+                f"{resolution}_targets": candidates[:limit],
+                f"{resolution}_target_count": len(candidates),
+                f"{resolution}_targets_truncated": len(candidates) > limit,
+            }
+
+        # Build symbol table: bare_name -> qualified names. Most languages
+        # retain their established first-definition behavior; C++ needs all
+        # candidates so an overloaded call is never silently bound to one.
+        symbols: dict[str, list[tuple[str, Optional[str]]]] = {}
+        callable_symbols: dict[str, list[tuple[str, Optional[str]]]] = {}
+        source_scopes: dict[str, Optional[str]] = {}
         for node in nodes:
             if node.kind in ("Function", "Class", "Type", "Test"):
                 bare = node.name
-                qualified = self._qualify(bare, file_path, node.parent_name)
-                if bare not in symbols:
-                    symbols[bare] = qualified
+                qualified = self._node_qualified(node)
+                entry = (qualified, node.parent_name)
+                if entry not in symbols.setdefault(bare, []):
+                    symbols[bare].append(entry)
+                if (
+                    node.kind in ("Function", "Test")
+                    and entry not in callable_symbols.setdefault(bare, [])
+                ):
+                    callable_symbols[bare].append(entry)
+                source_scopes[qualified] = node.parent_name
+
+        go_receivers = {
+            self._node_qualified(node): node.extra["go_receiver"]
+            for node in nodes
+            if node.language == "go" and "go_receiver" in node.extra
+        }
+
+        def candidate_entries(
+            target: str,
+            edge_kind: str,
+        ) -> list[tuple[str, Optional[str]]]:
+            entries = symbols.get(target, [])
+            if is_cpp and edge_kind == "CALLS":
+                return callable_symbols.get(target) or entries
+            return entries
 
         resolved: list[EdgeInfo] = []
         for edge in edges:
@@ -4022,17 +4728,207 @@ class CodeParser:
             ):
                 resolved.append(edge)
                 continue
-            has_receiver = bool(edge.extra.get("receiver"))
+            receiver = edge.extra.get("receiver")
+            has_receiver = bool(receiver)
             if (
-                edge.kind in ("CALLS", "REFERENCES")
-                and "::" not in edge.target
-                and not has_receiver
+                is_go
+                and edge.kind == "CALLS"
+                and edge.extra.get("go_method_receiver")
+                and receiver == go_receivers.get(edge.source)
             ):
-                if edge.target in symbols:
+                candidates = [
+                    qualified
+                    for qualified, parent_scope in candidate_entries(
+                        edge.target, edge.kind,
+                    )
+                    if parent_scope == source_scopes.get(edge.source)
+                ]
+                if len(candidates) == 1:
                     edge = EdgeInfo(
                         kind=edge.kind,
                         source=edge.source,
-                        target=symbols[edge.target],
+                        target=candidates[0],
+                        file_path=edge.file_path,
+                        line=edge.line,
+                        extra=edge.extra,
+                    )
+                    resolved.append(edge)
+                    continue
+            if edge.kind in ("CALLS", "REFERENCES") and "::" not in edge.target:
+                # JS/TS calls retain their full member expression as evidence
+                # (``app.handle``) while keeping the method name (``handle``)
+                # as the fallback target for external calls. Prefer the full
+                # expression when it identifies a same-file member-assigned
+                # function; otherwise preserve the existing bare-name
+                # resolution behavior.
+                member_call = edge.extra.get("member_call")
+                member_candidates = symbols.get(member_call, [])
+                if member_candidates:
+                    edge = EdgeInfo(
+                        kind=edge.kind,
+                        source=edge.source,
+                        target=member_candidates[0][0],
+                        file_path=edge.file_path,
+                        line=edge.line,
+                        extra=edge.extra,
+                    )
+                    resolved.append(edge)
+                    continue
+            cpp_lexical_receiver = is_cpp and receiver == "this"
+            if (
+                is_cpp
+                and has_receiver
+                and not cpp_lexical_receiver
+                and edge.kind in ("CALLS", "REFERENCES")
+                and "::" not in edge.target
+            ):
+                receiver_candidates = [
+                    qualified
+                    for qualified, _ in candidate_entries(edge.target, edge.kind)
+                ]
+                edge = EdgeInfo(
+                    kind=edge.kind,
+                    source=edge.source,
+                    target=edge.target,
+                    file_path=edge.file_path,
+                    line=edge.line,
+                    extra=cpp_resolution_extra(
+                        edge.extra,
+                        "unresolved",
+                        receiver_candidates,
+                    ),
+                )
+                resolved.append(edge)
+                continue
+            if (
+                is_cpp
+                and edge.kind in ("CALLS", "REFERENCES")
+                and "::" in edge.target
+                and not edge.target.startswith(f"{file_path}::")
+            ):
+                explicit_scope, bare_target = edge.target.rsplit("::", 1)
+                global_scope = edge.target.startswith("::")
+                explicit_scope = explicit_scope.lstrip(":").replace("::", ".")
+                scoped_entries = candidate_entries(bare_target, edge.kind)
+                if explicit_scope:
+                    explicit_preferred_scopes: list[str] = []
+                    source_scope = source_scopes.get(edge.source)
+                    if not global_scope:
+                        while source_scope:
+                            explicit_preferred_scopes.append(
+                                f"{source_scope}.{explicit_scope}",
+                            )
+                            source_scope = (
+                                source_scope.rsplit(".", 1)[0]
+                                if "." in source_scope
+                                else None
+                            )
+                    explicit_preferred_scopes.append(explicit_scope)
+                    matching_entries = []
+                    for preferred_scope in explicit_preferred_scopes:
+                        matching_entries = [
+                            (qualified, parent_scope)
+                            for qualified, parent_scope in scoped_entries
+                            if parent_scope == preferred_scope
+                        ]
+                        if matching_entries:
+                            break
+                else:
+                    matching_entries = [
+                        (qualified, parent_scope)
+                        for qualified, parent_scope in scoped_entries
+                        if parent_scope is None
+                    ]
+                scoped_candidates = [
+                    qualified for qualified, _ in matching_entries
+                ]
+                if scoped_candidates:
+                    if len(scoped_candidates) > 1:
+                        edge = EdgeInfo(
+                            kind=edge.kind,
+                            source=edge.source,
+                            target=edge.target,
+                            file_path=edge.file_path,
+                            line=edge.line,
+                            extra=cpp_resolution_extra(
+                                edge.extra,
+                                "ambiguous",
+                                scoped_candidates,
+                            ),
+                        )
+                    else:
+                        edge = EdgeInfo(
+                            kind=edge.kind,
+                            source=edge.source,
+                            target=scoped_candidates[0],
+                            file_path=edge.file_path,
+                            line=edge.line,
+                            extra=edge.extra,
+                        )
+                    resolved.append(edge)
+                    continue
+            if (
+                edge.kind in ("CALLS", "REFERENCES")
+                and "::" not in edge.target
+                and (not has_receiver or cpp_lexical_receiver)
+            ):
+                entries = candidate_entries(edge.target, edge.kind)
+                candidates = [qualified for qualified, _ in entries]
+                if is_cpp and entries:
+                    source_scope = source_scopes.get(edge.source)
+                    preferred_scopes: list[Optional[str]] = []
+                    while source_scope:
+                        preferred_scopes.append(source_scope)
+                        source_scope = (
+                            source_scope.rsplit(".", 1)[0]
+                            if "." in source_scope
+                            else None
+                        )
+                    preferred_scopes.append(None)
+                    candidates = []
+                    for preferred_scope in preferred_scopes:
+                        candidates = [
+                            qualified
+                            for qualified, parent_scope in entries
+                            if parent_scope == preferred_scope
+                        ]
+                        if candidates:
+                            break
+                    if not candidates:
+                        edge = EdgeInfo(
+                            kind=edge.kind,
+                            source=edge.source,
+                            target=edge.target,
+                            file_path=edge.file_path,
+                            line=edge.line,
+                            extra=cpp_resolution_extra(
+                                edge.extra,
+                                "unresolved",
+                                [qualified for qualified, _ in entries],
+                            ),
+                        )
+                        resolved.append(edge)
+                        continue
+                if candidates:
+                    if is_cpp and len(candidates) > 1:
+                        edge = EdgeInfo(
+                            kind=edge.kind,
+                            source=edge.source,
+                            target=edge.target,
+                            file_path=edge.file_path,
+                            line=edge.line,
+                            extra=cpp_resolution_extra(
+                                edge.extra,
+                                "ambiguous",
+                                candidates,
+                            ),
+                        )
+                        resolved.append(edge)
+                        continue
+                    edge = EdgeInfo(
+                        kind=edge.kind,
+                        source=edge.source,
+                        target=candidates[0],
                         file_path=edge.file_path,
                         line=edge.line,
                         extra=edge.extra,
@@ -4150,7 +5046,8 @@ class CodeParser:
         return resolved
 
     _TYPED_CALL_LANGUAGES = frozenset({
-        "python", "kotlin", "java", "javascript", "typescript", "tsx",
+        "python", "kotlin", "java", "javascript", "typescript", "tsx", "php",
+        "csharp",
     })
     _TRANSPARENT_TYPE_WRAPPERS = frozenset({"Annotated", "Optional", "Type"})
     _NON_RECEIVER_TYPE_NAMES = frozenset({
@@ -4171,9 +5068,11 @@ class CodeParser:
         """Collect evidence-backed targets for calls on typed receivers.
 
         The result is keyed by source line, receiver, and method so the normal
-        call extractor remains the single producer of CALLS edges. Only
-        repository-local imported types and same-file classes are qualified;
-        unknown or ambiguous types keep their existing bare targets.
+        call extractor remains the single producer of CALLS edges. Statically
+        typed receivers resolve directly when their class is repository-local.
+        PHP variables assigned from ``new Type`` retain a bare parse-time target
+        plus the constructed class scope for conservative graph-wide resolution.
+        Unknown or ambiguous types keep their existing bare targets.
         """
         if language not in self._TYPED_CALL_LANGUAGES:
             return {}
@@ -4187,6 +5086,8 @@ class CodeParser:
             "javascript": {"statement_block"},
             "typescript": {"statement_block"},
             "tsx": {"statement_block"},
+            "php": {"compound_statement"},
+            "csharp": {"block"},
         }.get(language, set())
         targets: dict[tuple[int, str, str], tuple[str, str, str]] = {}
 
@@ -4223,11 +5124,18 @@ class CodeParser:
                 return
 
             new_bindings = self._typed_bindings_from_node(node, language)
-            if new_bindings:
+            assigned_names = (
+                self._php_assigned_variables(node)
+                if language == "php"
+                else set()
+            )
+            if new_bindings or assigned_names:
                 # Initializers are evaluated before their declaration becomes
                 # visible, so visit children with the previous environment.
                 for child in node.children:
                     walk(child, bindings, class_fields, depth + 1)
+                for name in assigned_names:
+                    bindings.pop(name, None)
                 bindings.update(new_bindings)
                 return
 
@@ -4237,9 +5145,21 @@ class CodeParser:
                 )
                 if receiver and method:
                     type_name = bindings.get(receiver)
-                    evidence = "typed_receiver"
+                    evidence = (
+                        "constructed_receiver"
+                        if language == "php"
+                        else "typed_receiver"
+                    )
                     if type_name is None and receiver[:1].isupper():
-                        if receiver in import_map or receiver in defined_names:
+                        # C# receivers keep their class-name evidence even
+                        # when the class is not visible in this file: the
+                        # graph-wide scoped resolver validates it against
+                        # actual Class nodes plus namespace evidence (#612).
+                        if (
+                            receiver in import_map
+                            or receiver in defined_names
+                            or language == "csharp"
+                        ):
                             type_name = receiver
                             evidence = "class_receiver"
                     if type_name:
@@ -4303,6 +5223,7 @@ class CodeParser:
             "javascript": {"required_parameter", "optional_parameter"},
             "typescript": {"required_parameter", "optional_parameter"},
             "tsx": {"required_parameter", "optional_parameter"},
+            "csharp": {"parameter"},
         }.get(language, set())
 
         def visit(node, depth: int = 0) -> None:
@@ -4432,7 +5353,77 @@ class CodeParser:
                 node.child_by_field_name("type"),
             )
 
+        elif language == "csharp" and node.type == "variable_declaration":
+            type_node = node.child_by_field_name("type")
+            if type_node is not None and type_node.type == "implicit_type":
+                type_node = None
+            for child in node.children:
+                if child.type != "variable_declarator":
+                    continue
+                declared_type = type_node
+                if declared_type is None:
+                    # ``var x = new Service();`` — use the constructed type.
+                    creation = next(
+                        (
+                            sub for sub in child.children
+                            if sub.type == "object_creation_expression"
+                        ),
+                        None,
+                    )
+                    if creation is not None:
+                        declared_type = creation.child_by_field_name("type")
+                self._store_typed_binding(
+                    result,
+                    child.child_by_field_name("name"),
+                    declared_type,
+                )
+
+        elif language == "csharp" and node.type == "parameter":
+            self._store_typed_binding(
+                result,
+                node.child_by_field_name("name"),
+                node.child_by_field_name("type"),
+            )
+
+        elif language == "php" and node.type == "assignment_expression":
+            name_node = node.child_by_field_name("left")
+            value_node = node.child_by_field_name("right")
+            if (
+                name_node is not None
+                and name_node.type == "variable_name"
+                and value_node is not None
+                and value_node.type == "object_creation_expression"
+            ):
+                type_node = next(
+                    (
+                        child
+                        for child in value_node.children
+                        if child.type in ("name", "qualified_name")
+                    ),
+                    None,
+                )
+                if type_node is not None:
+                    name = name_node.text.decode(
+                        "utf-8", errors="replace",
+                    )
+                    type_name = type_node.text.decode(
+                        "utf-8", errors="replace",
+                    ).strip("\\")
+                    if name and type_name:
+                        result[name] = type_name
+
         return result
+
+    @staticmethod
+    def _php_assigned_variables(node) -> set[str]:
+        """Return simple PHP variables invalidated by one assignment."""
+        if node.type != "assignment_expression":
+            return set()
+        name_node = node.child_by_field_name("left")
+        if name_node is None or name_node.type != "variable_name":
+            return set()
+        name = name_node.text.decode("utf-8", errors="replace")
+        return {name} if name else set()
 
     @classmethod
     def _store_typed_binding(cls, result: dict[str, str], name_node, type_node) -> None:
@@ -4485,12 +5476,31 @@ class CodeParser:
         import_map: dict[str, str],
         defined_names: set[str],
     ) -> Optional[str]:
+        if language == "php":
+            normalized = type_name.strip("\\")
+            if not normalized:
+                return None
+            local_name = normalized.rsplit("\\", 1)[-1]
+            imported = import_map.get(local_name.casefold())
+            scope = imported or normalized
+            return f"{scope}::{method}"
+
+        if language == "csharp":
+            # C# ``using`` directives import namespaces, not files, so a
+            # class receiver cannot be resolved to its defining file during
+            # a single-file parse. Emit the receiver class as a scope target
+            # for the graph-wide scoped resolver (#612).
+            base_type = self._base_type_name(type_name)
+            if not base_type:
+                return None
+            return f"{base_type}::{method}"
+
         base_type = self._base_type_name(type_name)
         if not base_type:
             return None
         if base_type in import_map:
             resolved = self._resolve_imported_symbol(
-                base_type,
+                self._js_imported_symbol_name(base_type, import_map),
                 import_map[base_type],
                 file_path,
                 language,
@@ -4505,6 +5515,7 @@ class CodeParser:
     def _apply_typed_call_targets(
         edges: list[EdgeInfo],
         targets: dict[tuple[int, str, str], tuple[str, str, str]],
+        language: str,
     ) -> list[EdgeInfo]:
         if not targets:
             return edges
@@ -4520,10 +5531,19 @@ class CodeParser:
                     "receiver_type": type_name,
                     "receiver_resolution": evidence_kind,
                 })
+                resolved_target = target
+                if evidence_kind == "constructed_receiver" or language == "csharp":
+                    # Keep PHP/C# parse-only CALLS output backward-compatible
+                    # (bare method target) while preserving the receiver
+                    # class scope for the graph-wide resolver.
+                    scope, separator, _ = target.rpartition("::")
+                    if separator and scope:
+                        extra["receiver_scope"] = scope
+                    resolved_target = edge.target
                 edge = EdgeInfo(
                     kind=edge.kind,
                     source=edge.source,
-                    target=target,
+                    target=resolved_target,
                     file_path=edge.file_path,
                     line=edge.line,
                     extra=extra,
@@ -4554,7 +5574,7 @@ class CodeParser:
 
     @staticmethod
     def _spring_config_file_node(path: Path, source: bytes, language: str) -> NodeInfo:
-        file_path = str(path)
+        file_path = normalize_file_path(path)
         return NodeInfo(
             kind="File",
             name=file_path,
@@ -4590,7 +5610,7 @@ class CodeParser:
         if self._is_non_spring_yaml(documents):
             return [], []
 
-        file_path = str(path)
+        file_path = normalize_file_path(path)
         nodes = [self._spring_config_file_node(path, source, "yaml")]
         emitted: set[str] = set()
 
@@ -4724,7 +5744,7 @@ class CodeParser:
     ) -> tuple[list[NodeInfo], list[EdgeInfo]]:
         """Index Spring .properties keys without retaining their values."""
         text = source.decode("utf-8", errors="replace")
-        file_path = str(path)
+        file_path = normalize_file_path(path)
         nodes = [self._spring_config_file_node(path, source, "properties")]
         emitted: set[str] = set()
         for line_number, line in self._spring_property_logical_lines(text):
@@ -4770,7 +5790,7 @@ class CodeParser:
         if root is None:
             return [], []
 
-        file_path_str = str(path)
+        file_path_str = normalize_file_path(path)
         line_count = source.count(b"\n") + 1
         nodes: list[NodeInfo] = [NodeInfo(
             kind="File",
@@ -5238,6 +6258,9 @@ class CodeParser:
         import_map: Optional[dict[str, str]] = None,
         defined_names: Optional[set[str]] = None,
         _depth: int = 0,
+        _go_receiver_bindings: Optional[
+            tuple[str, tuple[int, ...], tuple[int, ...]]
+        ] = None,
     ) -> None:
         """Recursively walk the AST and extract nodes/edges."""
         if _depth > self._MAX_AST_DEPTH:
@@ -5422,6 +6445,18 @@ class CodeParser:
             ):
                 continue
 
+            # --- JS/TS member-assigned functions (app.handle = function () {}) ---
+            if (
+                language in ("javascript", "typescript", "tsx")
+                and node_type == "expression_statement"
+                and self._extract_js_member_functions(
+                    child, source, language, file_path, nodes, edges,
+                    enclosing_class, enclosing_func,
+                    import_map, defined_names, _depth,
+                )
+            ):
+                continue
+
             # --- Functions ---
             if node_type in func_types and self._extract_functions(
                 child, source, language, file_path, nodes, edges,
@@ -5432,17 +6467,21 @@ class CodeParser:
 
             # --- Imports ---
             if node_type in import_types:
-                self._extract_imports(
+                if self._extract_imports(
                     child, language, source, file_path, edges,
-                )
-                continue
+                ):
+                    continue
+                # Node type is shared between imports and calls (e.g. Ruby
+                # `call` covers both `require` and method invocation). If it
+                # was not an import, fall through to call extraction below
+                # rather than dropping it.
 
             # --- Calls ---
             if node_type in call_types:
                 if self._extract_calls(
                     child, source, language, file_path, nodes, edges,
                     enclosing_class, enclosing_func,
-                    import_map, defined_names, _depth,
+                    import_map, defined_names, _depth, _go_receiver_bindings,
                 ):
                     continue
 
@@ -5452,6 +6491,14 @@ class CodeParser:
                 and node_type in ("jsx_opening_element", "jsx_self_closing_element")
             ):
                 self._extract_jsx_component_call(
+                    child, language, file_path, edges,
+                    enclosing_class, enclosing_func,
+                    import_map, defined_names,
+                )
+
+            # --- TS type-position references ---
+            if language in ("typescript", "tsx") and node_type == "type_identifier":
+                self._extract_ts_type_reference(
                     child, language, file_path, edges,
                     enclosing_class, enclosing_func,
                     import_map, defined_names,
@@ -5478,6 +6525,7 @@ class CodeParser:
                 enclosing_func=enclosing_func,
                 import_map=import_map, defined_names=defined_names,
                 _depth=_depth + 1,
+                _go_receiver_bindings=_go_receiver_bindings,
             )
 
     def _elixir_call_identifier(self, node) -> Optional[str]:
@@ -7725,6 +8773,148 @@ class CodeParser:
         )
         return True
 
+    def _extract_js_member_functions(
+        self,
+        child,
+        source: bytes,
+        language: str,
+        file_path: str,
+        nodes: list[NodeInfo],
+        edges: list[EdgeInfo],
+        enclosing_class: Optional[str],
+        enclosing_func: Optional[str],
+        import_map: Optional[dict[str, str]],
+        defined_names: Optional[set[str]],
+        _depth: int,
+    ) -> bool:
+        """Handle JS/TS member-assigned functions.
+
+        Patterns handled (LHS is a ``member_expression``, RHS is a function):
+          app.handle = function handle(req, res) {}
+          Router.prototype.dispatch = (req) => {}
+          exports.render = function () {}
+
+        These prototype- and module-augmentation patterns carry the entire
+        public API of Express, Koa and many older JS modules, but were
+        previously invisible to the graph: only ``const x = fn``
+        (:func:`_extract_js_var_functions`) and class fields
+        (:func:`_extract_js_field_function`) produced Function nodes. The node
+        is qualified by its full member path (``file::app.handle``), matching
+        the ``file::Class.method`` shape used elsewhere.
+
+        Returns True if a function was extracted, so the caller can skip
+        generic recursion.
+        """
+        # ``child`` is the expression_statement wrapping the assignment.
+        assign = None
+        if child.type == "assignment_expression":
+            assign = child
+        else:
+            for sub in child.children:
+                if sub.type == "assignment_expression":
+                    assign = sub
+                    break
+        if assign is None:
+            return False
+
+        left = assign.child_by_field_name("left")
+        right = assign.child_by_field_name("right")
+        if left is None or right is None:
+            return False
+        if left.type != "member_expression":
+            return False
+        if right.type not in self._JS_FUNC_VALUE_TYPES:
+            return False
+
+        # An assignment nested in a function belongs to that function's
+        # runtime scope, not to the module-level object namespace.  Without
+        # lexical scope in the member name, identical assignments in sibling
+        # functions would both become ``file::obj.method`` and produce
+        # duplicate CONTAINS targets. Top-level lexical blocks have the same
+        # problem, so only direct program statements have a stable identity.
+        if (
+            enclosing_func
+            or child.parent is None
+            or child.parent.type != "program"
+        ):
+            return False
+
+        member_name = self._get_js_static_member_path(left)
+        if member_name is None:
+            return False
+
+        is_test = _is_test_function(member_name, file_path)
+        kind = "Test" if is_test else "Function"
+        qualified = self._qualify(member_name, file_path, enclosing_class)
+        params = self._get_params(right, language, source)
+        ret_type = self._get_return_type(right, language, source)
+
+        nodes.append(NodeInfo(
+            kind=kind,
+            name=member_name,
+            file_path=file_path,
+            line_start=child.start_point[0] + 1,
+            line_end=child.end_point[0] + 1,
+            language=language,
+            parent_name=enclosing_class,
+            params=params,
+            return_type=ret_type,
+            is_test=is_test,
+        ))
+        container = (
+            self._qualify(enclosing_class, file_path, None)
+            if enclosing_class else file_path
+        )
+        edges.append(EdgeInfo(
+            kind="CONTAINS",
+            source=container,
+            target=qualified,
+            file_path=file_path,
+            line=child.start_point[0] + 1,
+        ))
+
+        # Recurse into the function body for calls, attributing them to the
+        # member function.
+        self._extract_from_tree(
+            right, source, language, file_path, nodes, edges,
+            enclosing_class=enclosing_class,
+            enclosing_func=member_name,
+            import_map=import_map,
+            defined_names=defined_names,
+            _depth=_depth + 1,
+        )
+        return True
+
+    @staticmethod
+    def _get_js_static_member_path(node) -> Optional[str]:
+        """Return a stable identifier-only JS/TS member path."""
+        if node.type != "member_expression":
+            return None
+        text = node.text.decode("utf-8", errors="replace")
+        if not text or "[" in text or "\n" in text:
+            return None
+
+        parts: list[str] = []
+        current = node
+        while current.type == "member_expression":
+            object_node = current.child_by_field_name("object")
+            property_node = current.child_by_field_name("property")
+            if (
+                object_node is None
+                or property_node is None
+                or property_node.type not in ("identifier", "property_identifier")
+            ):
+                return None
+            parts.append(
+                property_node.text.decode("utf-8", errors="replace"),
+            )
+            current = object_node
+
+        if current.type not in ("identifier", "this"):
+            return None
+        parts.append(current.text.decode("utf-8", errors="replace"))
+        return ".".join(reversed(parts))
+
     @staticmethod
     def _get_java_annotations(class_node) -> list[str]:
         """Return annotation names from the modifiers child of a Java class/method node."""
@@ -8980,6 +10170,8 @@ class CodeParser:
         if not name:
             return False
 
+        class_parent = enclosing_class
+
         # Swift: detect the actual type keyword (class/struct/enum/actor/extension)
         # and store it in extra["swift_kind"] for richer downstream analysis.
         # Tree-sitter maps struct/enum/actor/extension all to class_declaration;
@@ -9056,7 +10248,7 @@ class CodeParser:
             line_start=child.start_point[0] + 1,
             line_end=child.end_point[0] + 1,
             language=language,
-            parent_name=enclosing_class,
+            parent_name=class_parent,
             modifiers=class_modifiers,
             extra=extra,
         )
@@ -9071,7 +10263,7 @@ class CodeParser:
         edges.append(EdgeInfo(
             kind="CONTAINS",
             source=class_container,
-            target=self._qualify(name, file_path, enclosing_class),
+            target=self._qualify(name, file_path, class_parent),
             file_path=file_path,
             line=child.start_point[0] + 1,
         ))
@@ -9082,7 +10274,7 @@ class CodeParser:
             edges.append(EdgeInfo(
                 kind="INHERITS",
                 source=self._qualify(
-                    name, file_path, enclosing_class,
+                    name, file_path, class_parent,
                 ),
                 target=base,
                 file_path=file_path,
@@ -9103,11 +10295,10 @@ class CodeParser:
             self._emit_kafka_edges_from_class(child, name, file_path, edges)
 
         # Recurse into class body
-        recursive_class = (
-            self._julia_scope_join(enclosing_class, name)
-            if language == "julia"
-            else name
-        )
+        if language == "julia":
+            recursive_class = self._julia_scope_join(enclosing_class, name)
+        else:
+            recursive_class = name
         self._extract_from_tree(
             child, source, language, file_path, nodes, edges,
             enclosing_class=recursive_class, enclosing_func=None,
@@ -9185,10 +10376,27 @@ class CodeParser:
         # See: #295
         if language == "csharp":
             deco_list.extend(_csharp_attribute_names(child))
+        # PHP: `#[Test]` attributes wrap `attribute_list > attribute_group >
+        # attribute > name`. PHPUnit's legacy `/** @test */` docblock tag is
+        # a preceding-sibling `comment` node instead, so it needs a separate
+        # check; when present it's folded into `deco_list` as `"Test"` since
+        # that's already in `_TEST_ANNOTATIONS`. See: #693
+        if language == "php":
+            deco_list.extend(_php_attribute_names(child))
+            if _php_docblock_marks_test(child):
+                deco_list.append("Test")
         if deco_list:
             decorators = tuple(deco_list)
 
         is_test = _is_test_function(name, file_path, decorators)
+        # PHPUnit's name convention is ``test*`` (not only ``test_*``).
+        if (
+            language == "php"
+            and child.type == "method_declaration"
+            and _is_test_file(file_path)
+            and name.startswith("test")
+        ):
+            is_test = True
         kind = "Test" if is_test else "Function"
 
         parent_name = enclosing_class
@@ -9204,12 +10412,39 @@ class CodeParser:
             )
             container_scope = lexical_parent
 
-        qualified = self._qualify(name, file_path, parent_name)
+        identity_name = name
         params = self._get_params(child, language, source)
+        if language == "cpp":
+            explicit_scope, identity_name, cpp_params = self._cpp_function_identity(
+                child, name, source,
+            )
+            lexical_namespace = self._cpp_lexical_namespace(child)
+            lexical_classes = self._cpp_lexical_class_names(child)
+            lexical_class_scope = ".".join(lexical_classes) or None
+            parent_name = self._cpp_scope_join(
+                lexical_namespace,
+                explicit_scope or lexical_class_scope or enclosing_class,
+            )
+            if lexical_classes:
+                container_scope = ".".join(lexical_classes[-2:])
+            elif enclosing_class:
+                container_scope = enclosing_class
+            if cpp_params is not None:
+                params = cpp_params
+
+        qualified = self._qualify(identity_name, file_path, parent_name)
         ret_type = self._get_return_type(child, language, source)
 
         # Java: detect Temporal method-level annotations and Kafka listeners
         method_extra: dict = {}
+        go_receiver_bindings = None
+        if language == "go" and child.type == "method_declaration":
+            receiver_name = self._get_go_receiver_name(child)
+            if receiver_name:
+                method_extra["go_receiver"] = receiver_name
+                go_receiver_bindings = self._go_receiver_binding_index(
+                    child, receiver_name,
+                )
         if julia_qualifier:
             method_extra["julia_module_qualifier"] = julia_qualifier
         if language == "java" and deco_list:
@@ -9312,6 +10547,7 @@ class CodeParser:
             modifiers=modifiers_str,
             is_test=is_test,
             extra=method_extra,
+            identity_name=identity_name,
         )
         nodes.append(node)
 
@@ -9360,13 +10596,14 @@ class CodeParser:
 
         # Recurse to find calls inside the function
         recursive_class = (
-            parent_name if language == "julia" else enclosing_class
+            parent_name if language in ("julia", "cpp") else enclosing_class
         )
         self._extract_from_tree(
             child, source, language, file_path, nodes, edges,
-            enclosing_class=recursive_class, enclosing_func=name,
+            enclosing_class=recursive_class, enclosing_func=identity_name,
             import_map=import_map, defined_names=defined_names,
             _depth=_depth + 1,
+            _go_receiver_bindings=go_receiver_bindings,
         )
         return True
 
@@ -9377,8 +10614,15 @@ class CodeParser:
         source: bytes,
         file_path: str,
         edges: list[EdgeInfo],
-    ) -> None:
-        """Extract import edges from an import statement node."""
+    ) -> bool:
+        """Extract import edges from an import statement node.
+
+        Returns True if at least one import edge was emitted. Some grammars
+        reuse a single node type for both imports and ordinary calls (e.g.
+        Ruby's ``call`` covers both ``require``/``require_relative`` and method
+        invocation). Returning False lets the dispatcher fall through to call
+        extraction instead of silently dropping the call. See: Ruby call graph.
+        """
         imports = self._extract_import(child, language, source)
         for imp_target in imports:
             resolved = self._resolve_module_to_file(
@@ -9391,6 +10635,7 @@ class CodeParser:
                 file_path=file_path,
                 line=child.start_point[0] + 1,
             ))
+        return bool(imports)
 
     def _extract_calls(
         self,
@@ -9405,6 +10650,9 @@ class CodeParser:
         import_map: Optional[dict[str, str]],
         defined_names: Optional[set[str]],
         _depth: int,
+        _go_receiver_bindings: Optional[
+            tuple[str, tuple[int, ...], tuple[int, ...]]
+        ] = None,
     ) -> bool:
         """Extract call expressions, including test runner special cases.
 
@@ -9418,6 +10666,11 @@ class CodeParser:
             and (child.start_point[0] + 1, child.start_point[1])
             in _python_unreachable_call_positions(source)
         ):
+            return True
+
+        # Non-Python languages: tree-sitter dead-guard walk (Go/TS/JS
+        # ``if false``, C/C++ ``#if 0``).  ``ast`` above cannot reach them.
+        if language != "python" and _is_in_static_dead_guard(child):
             return True
 
         call_name = self._get_call_name(child, language, source)
@@ -9516,7 +10769,14 @@ class CodeParser:
             # uses this evidence during parsing, and the Spring DI resolver
             # consumes the same metadata for Java injected fields.
             call_extra: dict = {}
-            if language in self._TYPED_CALL_LANGUAGES or language == "rust":
+            if language in ("javascript", "typescript", "tsx"):
+                member_call = self._get_js_member_call_name(child)
+                if member_call:
+                    call_extra["member_call"] = member_call
+            if (
+                language in self._TYPED_CALL_LANGUAGES
+                or language in ("cpp", "go", "rust")
+            ):
                 receiver, method_name = self._get_member_call_receiver_method(
                     child, language,
                 )
@@ -9524,6 +10784,15 @@ class CodeParser:
                     call_name = method_name
                 if receiver:
                     call_extra["receiver"] = receiver
+                    if (
+                        language == "go"
+                        and _go_receiver_bindings is not None
+                        and receiver == _go_receiver_bindings[0]
+                        and not self._go_receiver_is_shadowed(
+                            child, _go_receiver_bindings,
+                        )
+                    ):
+                        call_extra["go_method_receiver"] = True
                 if language == "java" and child.type == "method_reference":
                     call_extra["call_syntax"] = "method_reference"
 
@@ -9575,7 +10844,11 @@ class CodeParser:
             # The spring_resolver post-pass will do the correct cross-type lookup.
             receiver_name = call_extra.get("receiver")
             if receiver_name in ("self", "cls", "this") and enclosing_class:
-                target = self._qualify(call_name, file_path, enclosing_class)
+                target = (
+                    call_name
+                    if language == "cpp"
+                    else self._qualify(call_name, file_path, enclosing_class)
+                )
             elif (
                 language == "rust"
                 and call_name.startswith("Self::")
@@ -9602,6 +10875,23 @@ class CodeParser:
 
         return False
 
+    @staticmethod
+    def _get_js_member_call_name(node) -> Optional[str]:
+        """Return a static JS/TS member-call expression, if present.
+
+        ``_get_call_name`` intentionally reduces ``app.handle()`` to
+        ``handle`` for general method-call handling. Retain ``app.handle`` as
+        supplemental evidence so the same-file resolver can link it to a
+        member-assigned definition without changing unresolved external calls.
+        Computed and multiline expressions are intentionally excluded.
+        """
+        callee = node.child_by_field_name("function")
+        if callee is None and node.children:
+            callee = node.children[0]
+        if callee is None or callee.type != "member_expression":
+            return None
+        return CodeParser._get_js_static_member_path(callee)
+
     def _get_member_call_receiver_method(
         self,
         node,
@@ -9613,6 +10903,22 @@ class CodeParser:
         receiver so class-field annotations can resolve them. More complex
         receiver expressions are deliberately left unresolved.
         """
+        if language == "php" and node.type in (
+            "member_call_expression",
+            "nullsafe_member_call_expression",
+        ):
+            receiver = node.child_by_field_name("object")
+            method = node.child_by_field_name("name")
+            if method is None:
+                return None, None
+            method_name = method.text.decode("utf-8", errors="replace")
+            if receiver is None or receiver.type != "variable_name":
+                return None, method_name
+            return (
+                receiver.text.decode("utf-8", errors="replace"),
+                method_name,
+            )
+
         if language == "rust" and node.type == "call_expression":
             callee = node.child_by_field_name("function")
             while callee is not None and callee.type == "generic_function":
@@ -9620,6 +10926,42 @@ class CodeParser:
             if callee is None or callee.type != "field_expression":
                 return None, None
             receiver = callee.child_by_field_name("value")
+            method = callee.child_by_field_name("field")
+            if receiver is None or method is None:
+                return None, None
+            return (
+                receiver.text.decode("utf-8", errors="replace"),
+                method.text.decode("utf-8", errors="replace"),
+            )
+
+        if language == "go" and node.type == "call_expression":
+            callee = node.child_by_field_name("function")
+            if callee is None or callee.type != "selector_expression":
+                return None, None
+            receiver = callee.child_by_field_name("operand")
+            method = callee.child_by_field_name("field")
+            if receiver is None or method is None:
+                return None, None
+            while receiver.type == "parenthesized_expression":
+                if len(receiver.named_children) != 1:
+                    break
+                receiver = receiver.named_children[0]
+            if (
+                receiver.type == "unary_expression"
+                and receiver.children
+                and receiver.children[0].type == "*"
+            ):
+                receiver = receiver.child_by_field_name("operand") or receiver
+            return (
+                receiver.text.decode("utf-8", errors="replace"),
+                method.text.decode("utf-8", errors="replace"),
+            )
+
+        if language == "cpp" and node.type == "call_expression":
+            callee = node.child_by_field_name("function")
+            if callee is None or callee.type != "field_expression":
+                return None, None
+            receiver = callee.child_by_field_name("argument")
             method = callee.child_by_field_name("field")
             if receiver is None or method is None:
                 return None, None
@@ -9643,6 +10985,11 @@ class CodeParser:
             receiver = receiver_node.text.decode("utf-8", errors="replace")
             method = method_node.text.decode("utf-8", errors="replace")
             return receiver, method
+
+        if language == "csharp":
+            if node.type != "invocation_expression":
+                return None, None
+            return self._get_csharp_receiver_method(node)
 
         callee = node.child_by_field_name("function")
         if callee is None and node.children:
@@ -9708,6 +11055,77 @@ class CodeParser:
                 )
 
         return None, method
+
+    @staticmethod
+    def _get_csharp_receiver_method(node) -> tuple[Optional[str], Optional[str]]:
+        """Return ``(receiver, method)`` for a C# invocation expression.
+
+        Handles ``obj.Method()`` / ``Class.Method()`` (member access),
+        ``this.field.Method()`` (class-field receiver), and
+        ``obj?.Method()`` (conditional access via a member binding).
+        Chained or computed receivers keep the method name but no receiver.
+        """
+        callee = node.child_by_field_name("function")
+        if callee is None and node.children:
+            callee = node.children[0]
+        if callee is None:
+            return None, None
+
+        if callee.type == "member_access_expression":
+            name_node = callee.child_by_field_name("name")
+            if name_node is None:
+                return None, None
+            method = name_node.text.decode("utf-8", errors="replace")
+            receiver_node = callee.child_by_field_name("expression")
+            if receiver_node is None:
+                return None, method
+            if receiver_node.type in ("identifier", "this", "this_expression"):
+                return (
+                    receiver_node.text.decode("utf-8", errors="replace"),
+                    method,
+                )
+            # ``this.field.Save()``: the class field is the receiver.
+            if receiver_node.type == "member_access_expression":
+                root = receiver_node.child_by_field_name("expression")
+                field_node = receiver_node.child_by_field_name("name")
+                if (
+                    root is not None
+                    and field_node is not None
+                    and root.type in ("this", "this_expression")
+                ):
+                    return (
+                        field_node.text.decode("utf-8", errors="replace"),
+                        method,
+                    )
+            return None, method
+
+        if callee.type == "conditional_access_expression":
+            bindings = [
+                child for child in callee.children
+                if child.type == "member_binding_expression"
+            ]
+            if not bindings:
+                return None, None
+            name_node = bindings[-1].child_by_field_name("name")
+            if name_node is None:
+                return None, None
+            method = name_node.text.decode("utf-8", errors="replace")
+            receiver_node = callee.child_by_field_name("condition")
+            named_children = [
+                child for child in callee.children if child.is_named
+            ]
+            if (
+                receiver_node is not None
+                and receiver_node.type == "identifier"
+                and len(named_children) == 2
+            ):
+                return (
+                    receiver_node.text.decode("utf-8", errors="replace"),
+                    method,
+                )
+            return None, method
+
+        return None, None
 
     # ------------------------------------------------------------------
     # PHP / Laravel semantic constructs
@@ -10585,6 +12003,75 @@ class CodeParser:
         "self", "this", "cls", "super",
     })
 
+    def _extract_ts_type_reference(
+        self,
+        child,
+        language: str,
+        file_path: str,
+        edges: list[EdgeInfo],
+        enclosing_class: Optional[str],
+        enclosing_func: Optional[str],
+        import_map: Optional[dict[str, str]],
+        defined_names: Optional[set[str]],
+    ) -> None:
+        """Emit a ``REFERENCES`` edge for a type used in a TS type position.
+
+        ``function summarize(items: Finding[])`` is a real dependency on
+        ``Finding``, but a type annotation is not call syntax, so neither
+        _extract_calls nor _extract_value_references sees it and callers_of on
+        an interface stays empty.
+
+        ``REFERENCES`` (0.6 in IMPACT_EDGE_WEIGHTS) rather than ``CALLS`` (1.0):
+        a type use is a weaker signal than an invocation, and folding the two
+        together would let type churn outrank call churn in impact ranking.
+        """
+        parent = child.parent
+        if parent is not None:
+            # The declaration's own name is a definition, not a use. Compare by
+            # byte span: child_by_field_name returns a fresh wrapper object, so
+            # identity/equality checks against *child* are unreliable.
+            if parent.type in _TS_TYPE_DECLARATIONS:
+                name_node = parent.child_by_field_name("name")
+                if (
+                    name_node is not None
+                    and name_node.start_byte == child.start_byte
+                    and name_node.end_byte == child.end_byte
+                ):
+                    return
+            # extends/implements are already covered by INHERITS edges. Generic
+            # bases add a ``generic_type`` wrapper, so walk up to the clause.
+            # Do not suppress a separate imported type used as a type argument:
+            # ``extends Base<Dependency>`` inherits Base but references Dependency.
+            ancestor = parent
+            inside_type_arguments = False
+            while ancestor is not None:
+                if ancestor.type == "type_arguments":
+                    inside_type_arguments = True
+                if ancestor.type in _TS_HERITAGE_CLAUSES:
+                    if not inside_type_arguments:
+                        return
+                    break
+                if ancestor.type in _TS_TYPE_DECLARATIONS:
+                    break
+                ancestor = ancestor.parent
+
+        # Attribute to the enclosing function, else the enclosing type, else the
+        # file — so `interface Wrapper { nested: Verdict }` names Wrapper as the
+        # dependent rather than collapsing to the whole module.
+        if enclosing_func:
+            caller = self._qualify(enclosing_func, file_path, enclosing_class)
+        elif enclosing_class:
+            caller = self._qualify(enclosing_class, file_path, None)
+        else:
+            caller = file_path
+
+        self._emit_reference_if_known(
+            child.text.decode("utf-8", errors="replace"),
+            language, file_path, caller, edges,
+            import_map or {}, defined_names or set(),
+            line=child.start_point[0] + 1,
+        )
+
     def _extract_value_references(
         self,
         child,
@@ -10787,13 +12274,17 @@ class CodeParser:
     ) -> None:
         """Extract REFERENCES from identifier arguments (callbacks)."""
         for ch in args_node.children:
-            if ch.type == "identifier":
-                name = ch.text.decode("utf-8", errors="replace")
-                self._emit_reference_if_known(
-                    name, language, file_path, caller, edges,
-                    import_map, defined_names,
-                    line=ch.start_point[0] + 1,
-                )
+            reference_node = ch
+            if ch.type == "keyword_argument" and language == "python":
+                reference_node = ch.child_by_field_name("value")
+            if reference_node is None or reference_node.type != "identifier":
+                continue
+            name = reference_node.text.decode("utf-8", errors="replace")
+            self._emit_reference_if_known(
+                name, language, file_path, caller, edges,
+                import_map, defined_names,
+                line=reference_node.start_point[0] + 1,
+            )
 
     def _extract_solidity_constructs(
         self,
@@ -11631,7 +13122,7 @@ class CodeParser:
             file_stat = module_path.stat()
         except (OSError, ValueError):
             return {}
-        resolved_module = str(module_path)
+        resolved_module = normalize_file_path(module_path)
         if resolved_module in resolving:
             return {}
 
@@ -11663,7 +13154,7 @@ class CodeParser:
         resolving: frozenset[str],
     ) -> dict[str, str]:
         """Read and parse one Python module for star-export discovery."""
-        resolved_module = str(module_path)
+        resolved_module = normalize_file_path(module_path)
         try:
             source = module_path.read_bytes()
         except (OSError, PermissionError):
@@ -11788,7 +13279,7 @@ class CodeParser:
                 if not self._path_is_within(resolved, boundary):
                     continue
                 if resolved.is_file():
-                    return str(resolved)
+                    return normalize_file_path(resolved)
         return None
 
     def _collect_js_exported_local_names(
@@ -12009,6 +13500,9 @@ class CodeParser:
             if local_name:
                 import_map[local_name] = original.strip()
 
+        elif language == "php":
+            import_map.update(self._php_import_bindings(node))
+
     def _collect_js_import_names(
         self, clause_node, module: str, import_map: dict[str, str],
     ) -> None:
@@ -12026,6 +13520,8 @@ class CodeParser:
                 for spec in child.children:
                     if spec.type == "import_specifier":
                         # Could be: name or name as alias
+                        imported_node = spec.child_by_field_name("name")
+                        alias_node = spec.child_by_field_name("alias")
                         names = [
                             s.text.decode("utf-8", errors="replace")
                             for s in spec.children
@@ -12033,7 +13529,43 @@ class CodeParser:
                         ]
                         # Last identifier is the local name
                         if names:
-                            import_map[names[-1]] = module
+                            local_name = names[-1]
+                            import_map[local_name] = module
+                            imported_name = (
+                                imported_node.text.decode(
+                                    "utf-8", errors="replace",
+                                )
+                                if imported_node is not None
+                                else names[0]
+                            )
+                            if alias_node is not None and imported_name != local_name:
+                                import_map[
+                                    f"{_JS_IMPORT_ORIGINAL_PREFIX_KEY}{local_name}"
+                                ] = imported_name
+
+    @staticmethod
+    def _js_imported_symbol_name(
+        local_name: str,
+        import_map: dict[str, str],
+    ) -> str:
+        """Return the exported name behind a local JS/TS import alias."""
+        return import_map.get(
+            f"{_JS_IMPORT_ORIGINAL_PREFIX_KEY}{local_name}",
+            local_name,
+        )
+
+    def exclude_files(self, paths: set[str]) -> None:
+        """Treat these files as absent when resolving imports.
+
+        ``forget`` calls this before re-parsing the surviving referrers of a
+        forgotten file so their imports resolve exactly as they would in a
+        build where the forgotten files never existed: an import that would
+        point at a forgotten file falls back to a bare module, and the calls
+        it feeds stay bare too.
+        """
+        self._excluded_files = {normalize_file_path(Path(p).resolve()) for p in paths}
+        # Drop resolutions cached before the exclusions were applied.
+        self._module_file_cache.clear()
 
     def _resolve_module_to_file(
         self, module: str, file_path: str, language: str,
@@ -12041,16 +13573,24 @@ class CodeParser:
         """Resolve a module/import path to an absolute file path.
 
         Uses self._module_file_cache to avoid repeated filesystem lookups.
+        Files marked via :meth:`exclude_files` resolve to ``None`` so callers
+        fall back to the bare module string, matching a build without them.
         """
         caller_dir = str(Path(file_path).parent)
         cache_key = f"{language}:{caller_dir}:{module}"
         if cache_key in self._module_file_cache:
-            return self._module_file_cache[cache_key]
-
-        resolved = self._do_resolve_module(module, file_path, language)
-        if len(self._module_file_cache) >= self._MODULE_CACHE_MAX:
-            self._module_file_cache.clear()
-        self._module_file_cache[cache_key] = resolved
+            resolved = self._module_file_cache[cache_key]
+        else:
+            resolved = self._do_resolve_module(module, file_path, language)
+            if resolved is not None:
+                # Resolution walks the real filesystem, so on Windows the
+                # raw result uses backslashes; identity must not (#774).
+                resolved = normalize_file_path(resolved)
+            if len(self._module_file_cache) >= self._MODULE_CACHE_MAX:
+                self._module_file_cache.clear()
+            self._module_file_cache[cache_key] = resolved
+        if resolved is not None and resolved in self._excluded_files:
+            return None
         return resolved
 
     def _do_resolve_module(
@@ -12118,11 +13658,25 @@ class CodeParser:
                 # Try exact path first (might already have extension)
                 if base.is_file():
                     return str(base.resolve())
-                # Try with extensions
+                # APPEND the extension — never `with_suffix`, which REPLACES the
+                # final suffix and so resolves `./outlet.entity` to `outlet.ts`
+                # instead of `outlet.entity.ts`. Dotted stems are the dominant
+                # NestJS convention (*.entity.ts, *.service.ts, *.controller.ts,
+                # *.guard.ts, *.module.ts), so the replace form silently dropped
+                # every relative import between them — a confident, wrong `0`
+                # from importers_of. Mirrors `_probe_path` in tsconfig_resolver.py,
+                # which already had this right for alias imports.
                 for ext in extensions:
-                    target = base.with_suffix(ext)
+                    target = Path(str(base) + ext)
                     if target.is_file():
                         return str(target.resolve())
+                # ESM/NodeNext writes `./foo.js` for a file that is `foo.ts` on
+                # disk; only here does replacing the suffix become correct.
+                if base.suffix in (".js", ".jsx", ".mjs", ".cjs"):
+                    for ext in (".ts", ".tsx"):
+                        target = base.with_suffix(ext)
+                        if target.is_file():
+                            return str(target.resolve())
                 # Try index file in directory
                 if base.is_dir():
                     for ext in extensions:
@@ -12141,8 +13695,13 @@ class CodeParser:
                 base = caller_dir / module
                 if base.is_file():
                     return str(base.resolve())
-                # Fallback: try appending .dart
-                target = base.with_suffix(".dart")
+                # Fallback: try appending .dart. APPEND, never `with_suffix`,
+                # which REPLACES the final suffix — same bug class as the
+                # JS/TS resolver above. Imports normally already carry the
+                # `.dart` extension (caught by `base.is_file()` above), so
+                # this only bites an omitted extension on a dotted stem
+                # (e.g. `./thing.model` where `thing.model.dart` exists).
+                target = Path(str(base) + ".dart")
                 if target.is_file():
                     return str(target.resolve())
             elif module.startswith("package:"):
@@ -12495,7 +14054,7 @@ class CodeParser:
             return None
         if not _path_is_within(resolved, boundary):
             return None
-        return str(resolved)
+        return normalize_file_path(resolved)
 
     def _resolve_php_composer_module(
         self,
@@ -12667,12 +14226,17 @@ class CodeParser:
             if resolved_rust:
                 return resolved_rust
         if call_name in defined_names:
+            if language == "cpp":
+                return call_name
             return self._qualify(call_name, file_path, None)
         if call_name in import_map:
             if language == "julia":
                 return import_map[call_name]
             resolved = self._resolve_imported_symbol(
-                call_name, import_map[call_name], file_path, language,
+                self._js_imported_symbol_name(call_name, import_map),
+                import_map[call_name],
+                file_path,
+                language,
             )
             if resolved:
                 return resolved
@@ -12695,7 +14259,7 @@ class CodeParser:
             boundary = self._python_repo_boundary(file_path)
             if not self._path_is_within(candidate, boundary) or not candidate.is_file():
                 return None
-            resolved = str(candidate)
+            resolved = normalize_file_path(candidate)
         else:
             resolved = self._resolve_module_to_file(module, file_path, language)
         if not resolved:
@@ -12812,10 +14376,117 @@ class CodeParser:
         return None
 
     def _qualify(self, name: str, file_path: str, enclosing_class: Optional[str]) -> str:
-        """Create a qualified name: file_path::ClassName.name or file_path::name."""
+        """Create a qualified name: file_path::ClassName.name or file_path::name.
+
+        The path component is normalized to POSIX separators so identities
+        are stable across operating systems (#774). ``name`` and
+        ``enclosing_class`` are never touched — PHP namespace identifiers
+        legitimately contain backslashes.
+        """
+        file_path = normalize_file_path(file_path)
         if enclosing_class:
             return f"{file_path}::{enclosing_class}.{name}"
         return f"{file_path}::{name}"
+
+    def _node_qualified(self, node: NodeInfo) -> str:
+        """Return the parser identity for a node without changing display name."""
+        return self._qualify(
+            node.identity_name or node.name,
+            node.file_path,
+            node.parent_name,
+        )
+
+    # Leaf node types that typically carry a definition's name across grammars.
+    # Used when descending from a configured ``name_field`` target to a clean
+    # text leaf (config-driven custom languages only).
+    _CUSTOM_NAME_LEAF_TYPES = (
+        "word", "identifier", "name", "simple_identifier",
+        "command_name", "key_brace", "type_identifier",
+        "property_identifier", "constant",
+    )
+    #: Depth guard for custom name-field descent / descendant search.
+    _MAX_CUSTOM_NAME_DEPTH = 4
+    #: Cap on a resolved custom name before it is rejected as junk.
+    _MAX_CUSTOM_NAME_LEN = 256
+
+    def _custom_name_leaf(self, node, depth: int):
+        """Return the first text-bearing leaf of a known name type within
+        ``depth`` levels of ``node`` (preorder), or None."""
+        if node.type in self._CUSTOM_NAME_LEAF_TYPES and node.child_count == 0:
+            return node
+        if depth <= 0:
+            return None
+        for child in node.children:
+            found = self._custom_name_leaf(child, depth - 1)
+            if found is not None:
+                return found
+        return None
+
+    def _find_custom_descendant(self, node, type_name: str, depth: int):
+        """Return the first descendant of ``node`` whose type == ``type_name``
+        within ``depth`` levels (preorder), or None."""
+        if depth <= 0:
+            return None
+        for child in node.children:
+            if child.type == type_name:
+                return child
+            found = self._find_custom_descendant(child, type_name, depth - 1)
+            if found is not None:
+                return found
+        return None
+
+    def _clean_custom_name(self, text: str) -> Optional[str]:
+        """Strip wrapping braces/quotes/whitespace; reject empty, multi-line,
+        or oversized text so a bad target never becomes a garbage name."""
+        cleaned = text.strip().strip("{}\"'").strip()
+        if not cleaned or "\n" in cleaned or len(cleaned) > self._MAX_CUSTOM_NAME_LEN:
+            return None
+        return cleaned
+
+    def _custom_leaf_name(self, node) -> Optional[str]:
+        """Resolve a configured ``name_field`` target node to a clean name.
+
+        Prefers a text-bearing leaf of a known name type; falls back to the
+        target's own text (covers fieldless wrappers like Markdown ``inline``).
+        """
+        leaf = self._custom_name_leaf(node, self._MAX_CUSTOM_NAME_DEPTH)
+        target = leaf if leaf is not None else node
+        return self._clean_custom_name(
+            target.text.decode("utf-8", errors="replace")
+        )
+
+    def _resolve_custom_name(self, node, language: str) -> Optional[str]:
+        """Resolve a definition name for a config-driven custom language using
+        the language's ordered ``name_field`` candidates.
+
+        Two passes so grammar *fields* are always preferred over a broader
+        *type* search: this avoids matching an unrelated same-typed node in a
+        different field (e.g. LaTeX ``\\newcommand`` whose ``implementation``
+        body contains a ``text`` node — the ``declaration`` field must win).
+        Returns None when no candidate resolves (caller then applies the legacy
+        ``name`` field fallback).
+        """
+        custom = self._custom_languages.get(language)
+        candidates = custom.name_field if custom is not None else ()
+        if not candidates:
+            return None
+        # Pass 1: field lookups (authoritative).
+        for cand in candidates:
+            target = node.child_by_field_name(cand)
+            if target is not None:
+                resolved = self._custom_leaf_name(target)
+                if resolved:
+                    return resolved
+        # Pass 2: typed-descendant search (for fieldless shapes).
+        for cand in candidates:
+            target = self._find_custom_descendant(
+                node, cand, self._MAX_CUSTOM_NAME_DEPTH
+            )
+            if target is not None:
+                resolved = self._custom_leaf_name(target)
+                if resolved:
+                    return resolved
+        return None
 
     def _get_name(self, node, language: str, kind: str) -> Optional[str]:
         """Extract the name from a class/function definition node."""
@@ -12853,16 +14524,31 @@ class CodeParser:
                     return child.text.decode("utf-8", errors="replace")
                 if child.type == "package" and child.text != b"package":
                     return child.text.decode("utf-8", errors="replace")
-        # Java: method_declaration has return type_identifier before the method
-        # identifier — skip straight to the first plain identifier child to
-        # avoid returning the return type as the function name.
-        if language == "java" and kind == "function" and node.type in (
+        # Java / C#: read the grammar ``name`` field for methods and
+        # constructors. Java return types are usually ``type_identifier``, but
+        # walking for the first ``identifier`` is the same fragile pattern that
+        # misnamed C# methods when a non-generic return type is itself an
+        # ``identifier`` (e.g. ``Task``). Prefer the name field; unusual shapes
+        # still fall through.
+        if language in ("java", "csharp") and kind == "function" and node.type in (
             "method_declaration", "constructor_declaration",
         ):
-            for child in node.children:
-                if child.type == "identifier":
-                    return child.text.decode("utf-8", errors="replace")
-            return None
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                return name_node.text.decode("utf-8", errors="replace")
+
+        if language == "cpp" and kind == "function":
+            declarator = node.child_by_field_name("declarator")
+            if node.type in ("declaration", "field_declaration"):
+                if (
+                    not self._cpp_declaration_has_callable_scope(node)
+                    or not self._cpp_is_callable_declaration(declarator)
+                ):
+                    return None
+                return self._cpp_callable_name(declarator)
+            cpp_name = self._cpp_callable_name(declarator)
+            if cpp_name:
+                return cpp_name
 
         # For C/C++/Objective-C: function names are inside
         # function_declarator / pointer_declarator. Check these first to
@@ -12943,16 +14629,18 @@ class CodeParser:
             for child in node.children:
                 if child.type == "field_identifier":
                     return child.text.decode("utf-8", errors="replace")
-        # Java methods: tree-sitter-java puts type_identifier or generic_type
-        # (return type) before identifier (method name).  Must run before
-        # the generic loop, which would match the return type's
-        # type_identifier (e.g. "String", "ConfigBean").
-        # Constructors are fine — they have no return type node.
-        # Kotlin is unaffected: its syntax places the name before the type.
-        if language == "java" and node.type == "method_declaration":
-            for child in node.children:
-                if child.type == "identifier":
-                    return child.text.decode("utf-8", errors="replace")
+        # Swift init/deinit/subscript: the grammar gives none of them a usable
+        # name. `init_declaration`'s name field is the `init` keyword itself,
+        # `deinit_declaration` has no name field at all (so the generic loop
+        # returns None and the node is dropped), and `subscript_declaration`'s
+        # name field is the *return type* (`subscript(i: Int) -> String` would
+        # be named "String"). Name each after its Swift declaration keyword.
+        if language == "swift" and node.type in (
+            "init_declaration",
+            "deinit_declaration",
+            "subscript_declaration",
+        ):
+            return node.type.removesuffix("_declaration")
         # Swift extensions: name is inside user_type > type_identifier
         # (e.g. `extension MyClass: Protocol { ... }`)
         if language == "swift" and node.type == "class_declaration":
@@ -13064,7 +14752,18 @@ class CodeParser:
                                 return None
                 return None
 
-        # Most languages use a 'name' child.
+        # Config-driven custom languages make ``name_field`` authoritative.
+        # Resolve it before the generic direct-child heuristic so an unrelated
+        # identifier (for example a Java return type) cannot win.
+        if language in self._custom_languages:
+            resolved = self._resolve_custom_name(node, language)
+            if resolved:
+                return resolved
+            name_child = node.child_by_field_name("name")
+            if name_child is not None:
+                return name_child.text.decode("utf-8", errors="replace")
+
+        # Most built-in languages use a 'name' child.
         # field_identifier covers C++ class member function names inside
         # function_declarator (e.g. virtual std::string get_name() = 0).
         for child in node.children:
@@ -13078,44 +14777,474 @@ class CodeParser:
             for child in node.children:
                 if child.type == "type_spec":
                     return self._get_name(child, language, kind)
-        # Custom languages (languages.toml): grammars often expose the
-        # definition name through a ``name`` field whose child type is
-        # grammar-specific (Erlang ``atom``, Haskell ``variable``) and thus
-        # not in the generic child-type list above.
-        if language in self._custom_languages:
-            name_child = node.child_by_field_name("name")
-            if name_child is not None:
-                return name_child.text.decode("utf-8", errors="replace")
         return None
 
     def _get_go_receiver_type(self, node) -> Optional[str]:
         """Extract the receiver type from a Go method_declaration.
 
         For ``func (s *T) Foo() {...}`` returns ``"T"``. For ``func (T) Foo()``
-        also returns ``"T"``. Returns None if no receiver is present.
-
-        The receiver is always the first ``parameter_list`` child of a
-        Go ``method_declaration`` and contains a single ``parameter_declaration``
-        whose type is either a ``type_identifier`` or a ``pointer_type``
-        wrapping one. See: #190
+        also returns ``"T"``. Generic receivers ``T[P]`` and ``*T[P]`` return
+        ``"T"``. Returns None if no receiver is present. See: #190, #832
         """
-        for child in node.children:
-            if child.type != "parameter_list":
-                continue
-            for param in child.children:
-                if param.type != "parameter_declaration":
-                    continue
-                for sub in param.children:
-                    if sub.type == "type_identifier":
-                        return sub.text.decode("utf-8", errors="replace")
-                    if sub.type == "pointer_type":
-                        for ptr_child in sub.children:
-                            if ptr_child.type == "type_identifier":
-                                return ptr_child.text.decode(
-                                    "utf-8", errors="replace"
-                                )
-            # First parameter_list is always the receiver; stop searching.
+        receiver = node.child_by_field_name("receiver")
+        if receiver is None:
             return None
+        parameter = next(
+            (child for child in receiver.named_children
+             if child.type == "parameter_declaration"),
+            None,
+        )
+        receiver_type = parameter.child_by_field_name("type") if parameter else None
+        while receiver_type is not None and receiver_type.type in {
+            "generic_type", "pointer_type",
+        }:
+            receiver_type = next(iter(receiver_type.named_children), None)
+        if receiver_type is None or receiver_type.type != "type_identifier":
+            return None
+        return receiver_type.text.decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _get_go_receiver_name(node) -> Optional[str]:
+        """Return the variable name from a Go method receiver."""
+        receiver = node.child_by_field_name("receiver")
+        if receiver is None:
+            return None
+        parameter = next(
+            (child for child in receiver.children if child.type == "parameter_declaration"),
+            None,
+        )
+        if parameter is None:
+            return None
+        name = next(
+            (child for child in parameter.children if child.type == "identifier"),
+            None,
+        )
+        return name.text.decode("utf-8", errors="replace") if name else None
+
+    _GO_LEXICAL_SCOPE_TYPES = frozenset({
+        "block", "communication_case", "default_case", "expression_case", "type_case",
+    })
+    _GO_DECLARATION_NAME_FIELDS = {
+        "const_spec": "name",
+        "type_alias": "name",
+        "type_spec": "name",
+        "var_spec": "name",
+    }
+    _GO_INIT_SCOPE_PARENTS = frozenset({
+        "expression_switch_statement", "if_statement", "type_switch_statement",
+    })
+    _GO_PARAMETER_TYPES = frozenset({
+        "parameter_declaration", "variadic_parameter_declaration",
+    })
+
+    @staticmethod
+    def _go_field_binds_name(node, field: str, name: str) -> bool:
+        """Return whether a grammar field declares ``name``."""
+        for field_node in node.children_by_field_name(field):
+            candidates = (
+                field_node.named_children
+                if field_node.type == "expression_list"
+                else (field_node,)
+            )
+            if any(
+                candidate.type in {"identifier", "type_identifier"}
+                and candidate.text.decode("utf-8", errors="replace") == name
+                for candidate in candidates
+            ):
+                return True
+        return False
+
+    @classmethod
+    def _go_function_parameters_bind_name(cls, node, name: str) -> bool:
+        """Return whether a function's parameters or named results bind ``name``."""
+        for field_name in ("parameters", "result"):
+            for parameter_list in node.children_by_field_name(field_name):
+                if any(
+                    parameter.type in cls._GO_PARAMETER_TYPES
+                    and cls._go_field_binds_name(parameter, "name", name)
+                    for parameter in parameter_list.named_children
+                ):
+                    return True
+        return False
+
+    def _go_receiver_binding_index(
+        self, method, receiver_name: str,
+    ) -> tuple[str, tuple[int, ...], tuple[int, ...]]:
+        """Build merged lexical-shadow intervals for one Go method."""
+        body = method.child_by_field_name("body")
+        if body is None:
+            return receiver_name, (), ()
+
+        def scope_key(scope) -> tuple[str, int, int]:
+            return scope.type, scope.start_byte, scope.end_byte
+
+        intervals: list[tuple[int, int]] = []
+        receiver_scopes = {scope_key(body)}
+        stack = [(body, body)]
+        while stack:
+            node, scope = stack.pop()
+            if node.type in self._GO_LEXICAL_SCOPE_TYPES:
+                scope = node
+
+            if node.type == "func_literal":
+                function_body = node.child_by_field_name("body")
+                if (
+                    function_body is not None
+                    and self._go_function_parameters_bind_name(node, receiver_name)
+                ):
+                    intervals.append((function_body.start_byte, function_body.end_byte))
+                    receiver_scopes.add(scope_key(function_body))
+
+            if (
+                node.type == "type_switch_statement"
+                and self._go_field_binds_name(node, "alias", receiver_name)
+            ):
+                for case in node.named_children:
+                    if case.type not in {"default_case", "type_case"}:
+                        continue
+                    statements = next(
+                        (
+                            child for child in case.named_children
+                            if child.type == "statement_list"
+                        ),
+                        None,
+                    )
+                    if statements is not None:
+                        intervals.append((statements.start_byte, case.end_byte))
+                    receiver_scopes.add(scope_key(case))
+
+            declaration_field = self._GO_DECLARATION_NAME_FIELDS.get(node.type)
+            if (
+                declaration_field is not None
+                and self._go_field_binds_name(node, declaration_field, receiver_name)
+            ):
+                intervals.append((node.end_byte, scope.end_byte))
+                receiver_scopes.add(scope_key(scope))
+
+            if (
+                node.type == "short_var_declaration"
+                and self._go_field_binds_name(node, "left", receiver_name)
+            ):
+                parent = node.parent
+                if parent is not None and parent.type == "for_clause":
+                    binding_scope = parent.parent
+                elif parent is not None and parent.type in self._GO_INIT_SCOPE_PARENTS:
+                    binding_scope = parent
+                else:
+                    binding_scope = scope
+                if (
+                    binding_scope is not None
+                    and scope_key(binding_scope) not in receiver_scopes
+                ):
+                    intervals.append((node.end_byte, binding_scope.end_byte))
+                    receiver_scopes.add(scope_key(binding_scope))
+
+            if (
+                node.type == "range_clause"
+                and any(child.type == ":=" for child in node.children)
+                and self._go_field_binds_name(node, "left", receiver_name)
+            ):
+                loop = node.parent
+                loop_body = loop.child_by_field_name("body") if loop is not None else None
+                if loop_body is not None:
+                    intervals.append((loop_body.start_byte, loop_body.end_byte))
+                    receiver_scopes.add(scope_key(loop_body))
+
+            if (
+                node.type == "receive_statement"
+                and any(child.type == ":=" for child in node.children)
+                and self._go_field_binds_name(node, "left", receiver_name)
+                and node.parent is not None
+            ):
+                intervals.append((node.end_byte, node.parent.end_byte))
+                receiver_scopes.add(scope_key(node.parent))
+
+            stack.extend((child, scope) for child in reversed(node.named_children))
+
+        merged: list[tuple[int, int]] = []
+        for start, end in sorted(intervals):
+            if start >= end:
+                continue
+            if merged and start <= merged[-1][1]:
+                merged[-1] = merged[-1][0], max(merged[-1][1], end)
+            else:
+                merged.append((start, end))
+        return (
+            receiver_name,
+            tuple(start for start, _ in merged),
+            tuple(end for _, end in merged),
+        )
+
+    @staticmethod
+    def _go_receiver_is_shadowed(
+        node,
+        bindings: tuple[str, tuple[int, ...], tuple[int, ...]],
+    ) -> bool:
+        """Return whether a pre-indexed Go binding shadows the receiver."""
+        index = bisect_right(bindings[1], node.start_byte) - 1
+        return index >= 0 and node.start_byte < bindings[2][index]
+
+    @staticmethod
+    def _cpp_scope_join(
+        outer: Optional[str],
+        inner: Optional[str],
+    ) -> Optional[str]:
+        if outer and inner:
+            return f"{outer}.{inner}"
+        return outer or inner
+
+    def _cpp_lexical_namespace(self, node) -> Optional[str]:
+        """Return the dotted namespace path containing a C++ AST node."""
+        namespaces: list[str] = []
+        ancestor = node.parent
+        while ancestor is not None:
+            if ancestor.type == "namespace_definition":
+                name_node = ancestor.child_by_field_name("name")
+                namespace = (
+                    name_node.text.decode("utf-8", errors="replace")
+                    if name_node is not None
+                    else "(anonymous)"
+                )
+                namespaces.append(re.sub(r"\s*::\s*", ".", namespace))
+            ancestor = ancestor.parent
+        namespaces.reverse()
+        return ".".join(namespaces) or None
+
+    def _cpp_lexical_class_names(self, node) -> list[str]:
+        """Return containing C++ class names from outermost to innermost."""
+        classes: list[str] = []
+        ancestor = node.parent
+        class_types = self._class_types.get("cpp", [])
+        while ancestor is not None:
+            if ancestor.type in class_types:
+                name = self._get_name(ancestor, "cpp", "class")
+                if name:
+                    classes.append(name)
+            ancestor = ancestor.parent
+        classes.reverse()
+        return classes
+
+    def _cpp_function_identity(
+        self,
+        node,
+        name: str,
+        source: bytes,
+    ) -> tuple[Optional[str], str, Optional[str]]:
+        """Return explicit scope, signature identity, and raw C++ parameters."""
+        declarator_root = node.child_by_field_name("declarator")
+        declarator = self._cpp_find_function_declarator(declarator_root)
+        if declarator is None:
+            return None, name, None
+
+        callable_name = self._cpp_callable_name(declarator_root) or name
+        callable_node = declarator.child_by_field_name("declarator")
+        if declarator_root is not None and declarator_root.type == "qualified_identifier":
+            callable_node = declarator_root
+        elif callable_node is not None and callable_node.type != "qualified_identifier":
+            callable_node = self._cpp_find_qualified_identifier(callable_node)
+        explicit_scope: Optional[str] = None
+        if callable_node is not None and callable_node.type == "qualified_identifier":
+            callable_text = callable_node.text.decode(
+                "utf-8", errors="replace",
+            )
+            if "::" in callable_text:
+                scope_text = callable_text.rsplit("::", 1)[0].lstrip(":").strip()
+                explicit_scope = re.sub(
+                    r"\s*::\s*", ".", scope_text,
+                )
+
+        parameters = declarator.child_by_field_name("parameters")
+        if parameters is None:
+            return explicit_scope, name, None
+
+        parameter_types = [
+            self._cpp_parameter_type(parameter, source)
+            for parameter in parameters.named_children
+            if parameter.type != "comment"
+        ]
+        parameter_types = [value for value in parameter_types if value]
+        if any(child.type == "..." for child in parameters.children):
+            parameter_types.append("...")
+        if parameter_types == ["void"]:
+            parameter_types = []
+        qualifiers = [
+            child.text.decode("utf-8", errors="replace").strip()
+            for child in declarator.children
+            if child.type in ("type_qualifier", "ref_qualifier")
+        ]
+        qualifier_suffix = f" {' '.join(qualifiers)}" if qualifiers else ""
+        raw_params = parameters.text.decode("utf-8", errors="replace")
+        return (
+            explicit_scope,
+            f"{callable_name}({','.join(parameter_types)}){qualifier_suffix}",
+            raw_params,
+        )
+
+    def _cpp_find_function_declarator(self, declarator):
+        """Find the callable declarator through reference/pointer wrappers."""
+        if declarator is None:
+            return None
+        if declarator.type in ("function_declarator", "abstract_function_declarator"):
+            nested = self._cpp_find_function_declarator(
+                declarator.child_by_field_name("declarator"),
+            )
+            if nested is not None:
+                return nested
+            return declarator
+        for child in declarator.named_children:
+            if child.type in ("parameter_list", "template_argument_list"):
+                continue
+            found = self._cpp_find_function_declarator(child)
+            if found is not None:
+                return found
+        return None
+
+    def _cpp_is_callable_declaration(self, declarator) -> bool:
+        """Return whether a declaration names a function, not a function pointer."""
+        function_declarator = self._cpp_find_function_declarator(declarator)
+        if function_declarator is None:
+            return False
+
+        callable_declarator = function_declarator.child_by_field_name("declarator")
+        if (
+            callable_declarator is None
+            or callable_declarator.type != "parenthesized_declarator"
+        ):
+            return True
+
+        # ``void (*callback)(int)`` has no nested function declarator inside
+        # the parentheses.  A real function returning a function pointer,
+        # such as ``void (*factory())(int)``, does.
+        return self._cpp_find_function_declarator(callable_declarator) is not None
+
+    @staticmethod
+    def _cpp_declaration_has_callable_scope(declaration) -> bool:
+        """Limit callable declarations to file, namespace, and class scopes."""
+        scope = declaration.parent
+        while scope is not None:
+            if scope.type in (
+                "translation_unit",
+                "namespace_definition",
+                "field_declaration_list",
+            ):
+                return not _is_in_static_dead_guard(declaration)
+            if scope.type in (
+                "compound_statement",
+                "function_definition",
+                "lambda_expression",
+            ):
+                return False
+            scope = scope.parent
+        return False
+
+    def _cpp_find_qualified_identifier(self, declarator):
+        """Find the callable's qualified identifier outside its parameters."""
+        if declarator is None:
+            return None
+        if declarator.type == "qualified_identifier":
+            return declarator
+        for child in declarator.named_children:
+            if child.type in ("parameter_list", "template_argument_list"):
+                continue
+            found = self._cpp_find_qualified_identifier(child)
+            if found is not None:
+                return found
+        return None
+
+    def _cpp_callable_name(self, declarator) -> Optional[str]:
+        """Return a C++ callable name without confusing it with its return type."""
+        if declarator is None:
+            return None
+
+        operator_cast = self._cpp_find_declarator_kind(declarator, "operator_cast")
+        if operator_cast is not None:
+            function_declarator = self._cpp_find_function_declarator(operator_cast)
+            if function_declarator is not None:
+                prefix_end = function_declarator.start_byte - operator_cast.start_byte
+                name = operator_cast.text[:prefix_end].decode(
+                    "utf-8", errors="replace",
+                )
+                name = re.sub(r"\s+", " ", name).strip()
+                return re.sub(r"\s*([*&])\s*", r"\1", name)
+
+        def leaf_name(current):
+            for child in reversed(current.named_children):
+                if child.type in ("parameter_list", "template_argument_list"):
+                    continue
+                if child.type in (
+                    "identifier",
+                    "field_identifier",
+                    "destructor_name",
+                    "operator_name",
+                ):
+                    return child.text.decode("utf-8", errors="replace")
+                found = leaf_name(child)
+                if found:
+                    return found
+            return None
+
+        return leaf_name(declarator)
+
+    def _cpp_find_declarator_kind(self, declarator, kind: str):
+        """Find one declarator node kind while ignoring parameter declarations."""
+        if declarator is None:
+            return None
+        if declarator.type == kind:
+            return declarator
+        for child in declarator.named_children:
+            if child.type in ("parameter_list", "template_argument_list"):
+                continue
+            found = self._cpp_find_declarator_kind(child, kind)
+            if found is not None:
+                return found
+        return None
+
+    def _cpp_parameter_type(self, parameter, source: bytes) -> str:
+        """Normalize one C++ parameter to its type-only identity fragment."""
+        end_byte = parameter.end_byte
+        for child in parameter.children:
+            if child.type == "=":
+                end_byte = child.start_byte
+                break
+
+        declarator = parameter.child_by_field_name("declarator")
+        name_node = self._cpp_declarator_name(declarator)
+        if name_node is not None and name_node.start_byte < end_byte:
+            raw = (
+                source[parameter.start_byte:name_node.start_byte]
+                + source[name_node.end_byte:end_byte]
+            ).decode("utf-8", errors="replace")
+        else:
+            raw = source[parameter.start_byte:end_byte].decode(
+                "utf-8", errors="replace",
+            )
+
+        raw = re.sub(r"/\*.*?\*/|//[^\r\n]*", " ", raw, flags=re.DOTALL)
+        raw = re.sub(r"\[\[.*?\]\]", " ", raw, flags=re.DOTALL)
+        normalized = re.sub(r"\s+", " ", raw).strip()
+        normalized = re.sub(r"\s*::\s*", "::", normalized)
+        normalized = re.sub(r"\s*([<>,*&()\[\]])\s*", r"\1", normalized)
+        return normalized
+
+    def _cpp_declarator_name(self, declarator):
+        """Find the declared identifier while avoiding nested parameter types."""
+        if declarator is None:
+            return None
+        if declarator.type in ("identifier", "field_identifier"):
+            return declarator
+
+        nested = declarator.child_by_field_name("declarator")
+        if nested is not None and nested != declarator:
+            found = self._cpp_declarator_name(nested)
+            if found is not None:
+                return found
+
+        for child in declarator.named_children:
+            if child.type in ("parameter_list", "template_argument_list"):
+                continue
+            found = self._cpp_declarator_name(child)
+            if found is not None:
+                return found
         return None
 
     def _get_params(self, node, language: str, source: bytes) -> Optional[str]:
@@ -13235,12 +15364,28 @@ class CodeParser:
                         if sub.type == "type_identifier":
                             bases.append(sub.text.decode("utf-8", errors="replace"))
         elif language in ("typescript", "javascript", "tsx"):
-            # extends clause
+            # Classes nest their heritage one level down, under class_heritage
+            # (`class C extends B implements I`); interfaces carry
+            # extends_type_clause as a direct child. Scanning only direct
+            # children therefore missed every class base.
+            clauses: list = []
             for child in node.children:
-                if child.type in ("extends_clause", "implements_clause"):
-                    for sub in child.children:
-                        if sub.type in ("identifier", "type_identifier", "nested_identifier"):
-                            bases.append(sub.text.decode("utf-8", errors="replace"))
+                if child.type == "class_heritage":
+                    clauses.extend(child.children)
+                else:
+                    clauses.append(child)
+            for clause in clauses:
+                if clause.type not in _TS_HERITAGE_CLAUSES:
+                    continue
+                for sub in clause.children:
+                    if sub.type in ("identifier", "type_identifier", "nested_identifier"):
+                        bases.append(sub.text.decode("utf-8", errors="replace"))
+                    elif sub.type == "generic_type":
+                        # `extends Base<T>` — the base is the generic's head.
+                        for ident in sub.children:
+                            if ident.type in ("type_identifier", "nested_type_identifier"):
+                                bases.append(ident.text.decode("utf-8", errors="replace"))
+                                break
         elif language == "solidity":
             # contract Foo is Bar, Baz { ... }
             for child in node.children:
@@ -13392,6 +15537,20 @@ class CodeParser:
             parts = text.split()
             if len(parts) >= 2:
                 imports.append(parts[-1].rstrip(";"))
+        elif language == "kotlin":
+            # tree-sitter-kotlin folds any comment that follows the LAST import
+            # into that import_header node, so the node text is not a module
+            # name (it can be a whole KDoc block). Read the identifier child
+            # instead; re-append ".*" when a wildcard_import sibling is present.
+            base = ""
+            wildcard = False
+            for child in node.children:
+                if child.type == "identifier":
+                    base = child.text.decode("utf-8", errors="replace")
+                elif child.type == "wildcard_import":
+                    wildcard = True
+            if base:
+                imports.append(f"{base}.*" if wildcard else base)
         elif language == "solidity":
             # import "path/to/file.sol" or import {Symbol} from "path"
             for child in node.children:
@@ -13714,6 +15873,16 @@ class CodeParser:
                     return child.text.decode("utf-8", errors="replace")
             return None
 
+        # Ruby: `call` nodes expose a `method` field for both receiver calls
+        # (`Bar.new.run` -> `run`) and paren calls (`helper_method(1)` ->
+        # `helper_method`). `require`/`require_relative` are handled earlier as
+        # imports, so they never reach here. Bare implicit-self calls with no
+        # parens parse as plain `identifier` (not `call`) and are not captured.
+        if language == "ruby" and node.type in ("call", "method_call"):
+            method_node = node.child_by_field_name("method")
+            if method_node is not None:
+                return method_node.text.decode("utf-8", errors="replace")
+
         # Bash: `command` node's first child is the command name.
         if language == "bash" and node.type == "command":
             for child in node.children:
@@ -13789,7 +15958,11 @@ class CodeParser:
             return first.text.decode("utf-8", errors="replace")
 
         # Scoped call (e.g., Rust path::func())
-        if first.type in ("scoped_identifier", "qualified_name"):
+        if first.type in (
+            "scoped_identifier",
+            "qualified_identifier",
+            "qualified_name",
+        ):
             return first.text.decode("utf-8", errors="replace")
 
         # R namespace-qualified call: dplyr::filter()

@@ -619,8 +619,8 @@ class Category(BaseModel):
       website/domain filter and it returns ordinary web page results for those
       domains — **not** paper records.
     - "pdf": Filter results to PDF files (adds filetype:pdf to search)
-    - "developer": Add developer results (issues, pull requests, READMEs and
-      documentation) under `.developer`
+    - "developer": Developer-index results (issues, pull requests, READMEs and
+      documentation) served in `web`; cannot be combined with other categories
 
     .. warning::
        ``categories=["research"]`` is **not** Firecrawl's research paper index.
@@ -1671,6 +1671,11 @@ class PDFParser(BaseModel):
     max_pages: Optional[int] = None
     pages: Optional[bool] = None
     blocks: Optional[bool] = None
+    # Join PDF pages in document markdown with `\n\n---\n\n<!-- page N -->\n\n`
+    # (N = 1-based physical page of the content that follows). Markers appear
+    # between pages only, and numbering may skip pages merged by cross-page
+    # stitching — use `pages=True` when every physical page is needed.
+    page_markers: Optional[bool] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1693,6 +1698,75 @@ class Location(BaseModel):
 
     country: Optional[str] = None
     languages: Optional[List[str]] = None
+
+
+DeveloperSearchType = Literal["doc", "issue", "pull_request", "readme"]
+
+
+class DeveloperSearchRequest(BaseModel):
+    """Request for the dedicated developer-search endpoint."""
+
+    query: str
+    k: Optional[int] = Field(default=None, ge=1, le=100)
+    passages: Optional[int] = Field(default=None, ge=1, le=5)
+    types: Optional[List[DeveloperSearchType]] = Field(default=None, max_length=4)
+    repos: Optional[List[str]] = Field(default=None, max_length=20)
+    sources: Optional[List[str]] = Field(default=None, max_length=20)
+    language: Optional[str] = None
+    topic: Optional[List[str]] = Field(default=None, max_length=8)
+    license: Optional[str] = None
+    min_stars: Optional[int] = Field(default=None, ge=0)
+    max_stars: Optional[int] = Field(default=None, ge=0)
+    archived: Optional[bool] = None
+    fork: Optional[bool] = None
+    skills: Optional[Literal["only"]] = None
+
+
+class DeveloperSearchLicenseDisclosure(BaseModel):
+    """Repository license disclosure returned by developer search."""
+
+    state: Literal["licensed", "known_absent", "unknown"]
+    spdx_id: Optional[str] = None
+
+
+class DeveloperSearchPassage(BaseModel):
+    text: str
+    citation_url: Optional[str] = None
+
+
+class DeveloperSearchResult(BaseModel):
+    id: str
+    url: str
+    title: Optional[str] = None
+    passages: List[DeveloperSearchPassage]
+    # Accept both shapes while the API flattens license objects to SPDX strings.
+    license: Optional[Union[DeveloperSearchLicenseDisclosure, str]] = None
+
+
+class DeveloperSearchRepoTypes(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    issue: bool
+    pull_request: bool = Field(alias="pullRequest")
+    readme: bool
+
+
+class DeveloperSearchRepoStatus(BaseModel):
+    repo: str
+    indexed: bool
+    types: DeveloperSearchRepoTypes
+
+
+class DeveloperSearchSourceStatus(BaseModel):
+    source: str
+    indexed: bool
+
+
+class DeveloperSearchResponse(BaseModel):
+    success: bool
+    results: List[DeveloperSearchResult]
+    repos: Optional[List[DeveloperSearchRepoStatus]] = None
+    sources: Optional[List[DeveloperSearchSourceStatus]] = None
 
 
 class SearchRequest(BaseModel):
@@ -1786,7 +1860,6 @@ class SearchData(BaseModel):
     web: Optional[List[Union[SearchResultWeb, Document]]] = None
     news: Optional[List[Union[SearchResultNews, Document]]] = None
     images: Optional[List[Union[SearchResultImages, Document]]] = None
-    developer: Optional[List[Union[SearchResultWeb, Document]]] = None
 
     @property
     def data(self):
@@ -1797,8 +1870,6 @@ class SearchData(BaseModel):
             parts.append(f".news ({len(self.news)} results)")
         if self.images:
             parts.append(f".images ({len(self.images)} results)")
-        if self.developer:
-            parts.append(f".developer ({len(self.developer)} results)")
         available = ", ".join(parts) if parts else ".web, .news, or .images"
         raise AttributeError(
             f"SearchData has no '.data'. Results are grouped by source: {available}"

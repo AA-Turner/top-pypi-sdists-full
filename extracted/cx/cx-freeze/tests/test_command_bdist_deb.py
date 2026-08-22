@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from setuptools import Distribution
 
 from cx_Freeze._compat import IS_LINUX
 from cx_Freeze.command.bdist_deb import bdist_deb
-from cx_Freeze.exception import PlatformError
+from cx_Freeze.exception import FileError, PlatformError
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 DIST_ATTRS = {
     "name": "foo",
@@ -21,9 +26,9 @@ DIST_ATTRS = {
 }
 
 
-@pytest.mark.skipif(IS_LINUX, reason="Test not on Linux platform")
-def test_bdist_deb_not_posix() -> None:
-    """Test the bdist_deb fail if not on Linux."""
+@pytest.mark.skipif(IS_LINUX, reason="Test for non-Linux platform")
+def test_bdist_deb_in_non_linux() -> None:
+    """Test the bdist_deb fail in non-Linux."""
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_deb(dist)
     msg = "bdist_deb is supported only on Linux"
@@ -32,7 +37,7 @@ def test_bdist_deb_not_posix() -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_deb_not_alien(monkeypatch) -> None:
+def test_bdist_deb_not_alien(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the bdist_deb uses alien."""
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_deb(dist)
@@ -42,18 +47,34 @@ def test_bdist_deb_not_alien(monkeypatch) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_deb_not_fakeroot(monkeypatch) -> None:
+def test_bdist_deb_not_fakeroot(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the bdist_deb uses fakeroot."""
+    monkeypatch.setattr("os.getuid", lambda: 1000)
+    monkeypatch.setattr("shutil.which", lambda cmd: cmd == "alien")
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_deb(dist)
-    monkeypatch.setattr("os.getuid", lambda: 1000)
-    monkeypatch.setattr("shutil.which", lambda cmd: cmd != "fakeroot")
     with pytest.raises(PlatformError, match="failed to find 'fakeroot'"):
         cmd.finalize_options()
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_deb_simple(tmp_package) -> None:
+def test_bdist_deb_not_rpm_filename(
+    tmp_package: TempPackage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test bdist_deb uses bdist_rpm that uses rpmbuild."""
+    tmp_package.create_from_sample("simple_pyproject")
+    dist = Distribution(DIST_ATTRS)
+    cmd = bdist_deb(dist)
+    monkeypatch.setattr(
+        "shutil.which", lambda cmd: cmd in ("alien", "fakeroot", "rpmbuild")
+    )
+    cmd.finalize_options()
+    with pytest.raises(FileError, match="could not create rpm filename"):
+        cmd.run()
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Linux test")
+def test_bdist_deb_simple(tmp_package: TempPackage) -> None:
     """Test the simple sample with bdist_deb."""
     name = "hello"
     version = "0.1.2.3"
@@ -77,7 +98,7 @@ def test_bdist_deb_simple(tmp_package) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_deb_simple_pyproject(tmp_package) -> None:
+def test_bdist_deb_simple_pyproject(tmp_package: TempPackage) -> None:
     """Test the simple_pyproject sample with bdist_deb."""
     name = "hello"
     version = "0.1.2.3"
@@ -101,7 +122,7 @@ def test_bdist_deb_simple_pyproject(tmp_package) -> None:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_deb(tmp_package) -> None:
+def test_bdist_deb(tmp_package: TempPackage) -> None:
     """Test the sqlite sample with bdist_deb."""
     name = "test_sqlite3"
     version = "0.5"

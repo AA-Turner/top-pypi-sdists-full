@@ -63,20 +63,24 @@ class CallbackQuery(Object, Update):
         matches (List of regex Matches, *optional*):
             A list containing all `Match Objects <https://docs.python.org/3/library/re.html#match-objects>`_ that match
             the data of this callback query. Only applicable when using :obj:`Filters.regex <pyrogram.Filters.regex>`.
+
+        chat (:obj:`~pyrogram.types.Chat`, *property*):
+            The chat *message* was sent in. None for a button attached to an inline message, which carries
+            *inline_message_id* instead.
     """
 
     def __init__(
         self,
         *,
-        client: "pyrogram.Client" = None,
+        client: Optional["pyrogram.Client"] = None,
         id: str,
         from_user: "types.User",
-        chat_instance: str,
-        message: "types.Message" = None,
-        inline_message_id: str = None,
-        data: Union[str, bytes] = None,
-        game_short_name: str = None,
-        matches: List[Match] = None
+        chat_instance: Optional[str] = None,
+        message: Optional["types.Message"] = None,
+        inline_message_id: Optional[str] = None,
+        data: Optional[Union[str, bytes]] = None,
+        game_short_name: Optional[str] = None,
+        matches: Optional[List[Match]] = None
     ):
         super().__init__(client)
 
@@ -88,6 +92,10 @@ class CallbackQuery(Object, Update):
         self.data = data
         self.game_short_name = game_short_name
         self.matches = matches
+
+    @property
+    def chat(self) -> Optional["types.Chat"]:
+        return self.message.chat if self.message else None
 
     @staticmethod
     async def _parse(client: "pyrogram.Client", callback_query, users, chats) -> "CallbackQuery":
@@ -111,7 +119,7 @@ class CallbackQuery(Object, Update):
                     if channel:
                         message = types.Message(
                             id=message_id,
-                            chat=types.Chat._parse_chat(
+                            chat=await types.Chat._parse_chat(
                                 client,
                                 channel
                             )
@@ -129,6 +137,15 @@ class CallbackQuery(Object, Update):
                 business_connection_id=callback_query.connection_id,
                 raw_reply_to_message=getattr(callback_query, "reply_to_message", None)
             )
+        elif isinstance(callback_query, raw.types.UpdateEphemeralBotCallbackQuery):
+            message = await types.Message._parse(
+                client,
+                callback_query.message,
+                users,
+                chats,
+                replies=0
+            )
+
         # Try to decode callback query data into string. If that fails, fallback to bytes instead of decoding by
         # ignoring/replacing errors, this way, button clicks will still work.
         data = getattr(callback_query, "data", None)
@@ -141,16 +158,16 @@ class CallbackQuery(Object, Update):
 
         return CallbackQuery(
             id=str(callback_query.query_id),
-            from_user=types.User._parse(client, users[callback_query.user_id]),
+            from_user=await types.User._parse(client, users[callback_query.user_id]),
             message=message,
             inline_message_id=inline_message_id,
-            chat_instance=str(callback_query.chat_instance),
+            chat_instance=str(callback_query.chat_instance) if hasattr(callback_query, "chat_instance") else None,
             data=data,
             game_short_name=getattr(callback_query, "game_short_name", None),
             client=client
         )
 
-    async def answer(self, text: str = None, show_alert: bool = None, url: str = None, cache_time: int = 0):
+    async def answer(self, text: Optional[str] = None, show_alert: Optional[bool] = None, url: Optional[str] = None, cache_time: int = 0):
         """Bound method *answer* of :obj:`~pyrogram.types.CallbackQuery`.
 
         Use this method as a shortcut for:
@@ -196,19 +213,21 @@ class CallbackQuery(Object, Update):
 
     async def edit_message_text(
         self,
-        text: str,
+        text: Optional[str] = None,
         parse_mode: Optional["enums.ParseMode"] = None,
-        link_preview_options: "types.LinkPreviewOptions" = None,
-        reply_markup: "types.InlineKeyboardMarkup" = None,
-        disable_web_page_preview: bool = None,
+        link_preview_options: Optional["types.LinkPreviewOptions"] = None,
+        rich_message: Optional["types.InputRichMessage"] = None,
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        disable_web_page_preview: Optional[bool] = None,
     ) -> Union["types.Message", bool]:
         """Edit the text of messages attached to callback queries.
 
         Bound method *edit_message_text* of :obj:`~pyrogram.types.CallbackQuery`.
 
         Parameters:
-            text (``str``):
+            text (``str``, *optional*):
                 New text of the message.
+                Required if rich_message isn't specified.
 
             parse_mode (:obj:`~pyrogram.enums.ParseMode`, *optional*):
                 By default, texts are parsed using both Markdown and HTML styles.
@@ -216,6 +235,10 @@ class CallbackQuery(Object, Update):
 
             link_preview_options (:obj:`~pyrogram.types.LinkPreviewOptions`, *optional*):
                 Options used for link preview generation for the message.
+
+            rich_message (:obj:`~pyrogram.types.InputRichMessage`, *optional*):
+                New rich content of the message.
+                Required if text isn't specified.
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
@@ -240,6 +263,7 @@ class CallbackQuery(Object, Update):
                 text=text,
                 parse_mode=parse_mode,
                 link_preview_options=link_preview_options,
+                rich_message=rich_message,
                 reply_markup=reply_markup
             )
         else:
@@ -248,6 +272,7 @@ class CallbackQuery(Object, Update):
                 text=text,
                 parse_mode=parse_mode,
                 link_preview_options=link_preview_options,
+                rich_message=rich_message,
                 reply_markup=reply_markup
             )
 
@@ -255,7 +280,7 @@ class CallbackQuery(Object, Update):
         self,
         caption: str,
         parse_mode: Optional["enums.ParseMode"] = None,
-        reply_markup: "types.InlineKeyboardMarkup" = None
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None
     ) -> Union["types.Message", bool]:
         """Edit the caption of media messages attached to callback queries.
 
@@ -284,7 +309,7 @@ class CallbackQuery(Object, Update):
     async def edit_message_media(
         self,
         media: "types.InputMedia",
-        reply_markup: "types.InlineKeyboardMarkup" = None
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None
     ) -> Union["types.Message", bool]:
         """Edit animation, audio, document, photo or video messages attached to callback queries.
 
@@ -320,7 +345,7 @@ class CallbackQuery(Object, Update):
 
     async def edit_message_reply_markup(
         self,
-        reply_markup: "types.InlineKeyboardMarkup" = None
+        reply_markup: Optional["types.InlineKeyboardMarkup"] = None
     ) -> Union["types.Message", bool]:
         """Edit only the reply markup of messages attached to callback queries.
 

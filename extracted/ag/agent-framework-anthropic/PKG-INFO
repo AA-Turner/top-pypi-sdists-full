@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-anthropic
-Version: 1.0.0b260730
+Version: 1.0.0b260821
 Summary: Anthropic integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.13.0,<2
+Requires-Dist: agent-framework-core>=1.15.0,<2
 Requires-Dist: anthropic>=0.80.0,<0.117.0
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -65,4 +65,8 @@ system_blocks: list[BetaTextBlockParam] = [
 
 response = await client.get_response("Hello", options={"instructions": system_blocks})
 ```
+
+Instructions contributed later in a run — by a context provider such as `SkillsProvider`, or by per-run
+`options` — are appended as an additional text block after the configured blocks. The blocks you supply keep
+their structure and their position, so a `cache_control` breakpoint stays valid.
 

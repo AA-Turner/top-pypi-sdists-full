@@ -1,0 +1,26 @@
+[graph]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+all-features = true
+
+[advisories]
+# No advisory ignores: pyo3 was bumped to 0.29 (with pyo3-arrow 0.19 + arrow 59 + numpy 0.29),
+# which clears RUSTSEC-2026-0176 and RUSTSEC-2026-0177. Keep this gate strict for all findings.
+
+[licenses]
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "Unicode-3.0",
+    "Unlicense",
+]

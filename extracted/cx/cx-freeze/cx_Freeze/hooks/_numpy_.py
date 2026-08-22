@@ -1,12 +1,10 @@
-"""A collection of functions which are triggered automatically by finder when
-numpy package is included.
-"""
+"""Hooks triggered by finder when numpy package is included."""
 
 from __future__ import annotations
 
 import json
 import sys
-from importlib.machinery import EXTENSION_SUFFIXES
+from importlib.machinery import EXTENSION_SUFFIXES, SourceFileLoader
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -47,36 +45,41 @@ class Hook(ModuleHook):
     """The Hook class for numpy."""
 
     def numpy(self, finder: ModuleFinder, module: Module) -> None:
-        """The numpy package.
+        """Patch numpy package.
 
-        Supported pypi and conda-forge versions (tested from 1.21.2 to 2.4.0).
+        Supported pypi and conda-forge versions.
+        Tested numpy versions of pypi from 1.21.2 to 2.5.1.
         """
+        dist = module.distribution
+        version = tuple(map(int, dist.version[:2])) if dist else (1, 21)
+
         # Exclude unnecessary modules
         finder.exclude_module("numpy._configtool")
         finder.exclude_module("numpy.conftest")
-        finder.exclude_module("numpy.distutils")
         finder.exclude_module("numpy.f2py")
         finder.exclude_module("numpy._pyinstaller")
         finder.exclude_module("numpy.random._examples")
         finder.exclude_module("numpy.testing")
         finder.exclude_module("numpy.typing.mypy_plugin")
-        module.ignore_names.add("numpy.distutils")
+        if version < (2, 5):
+            finder.exclude_module("numpy.distutils")
+            module.ignore_names.add("numpy.distutils")
 
-        # Exclude/Include modules based on distribution and/or version
-        distribution = module.distribution
-        if distribution:
-            # Exclude tests
+        # Exclude tests
+        dist = finder.import_distributions.get(module.name)
+        if dist and dist.files:
             excludes = set()
-            files = distribution.original.files or []
-            for file in files:
+            for file in dist.files:
                 if file.parent.match("**/tests"):
                     excludes.add(file.parent.as_posix().replace("/", "."))
             excludes.discard("numpy._core.tests")
             for exclude in excludes:
                 finder.exclude_module(exclude)
 
-            # Include dynamically loaded module / exclude unnecessary modules
-            if distribution.version >= (2, 0):
+        # Exclude/Include modules based on distribution and/or version
+        dist = module.distribution
+        if dist:
+            if version >= (2, 0):
                 finder.exclude_module("numpy._core.include")
                 finder.exclude_module("numpy._core.lib")
                 finder.exclude_module("numpy.compat")
@@ -100,23 +103,26 @@ class Hook(ModuleHook):
         finder.include_module("numpy.polynomial")
         finder.include_module("secrets")
 
-        code_bytes = module.file.read_bytes()
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
         if module.in_file_system == 0:
-            code_bytes = code_bytes.replace(
-                b"__file__", b"__file__.replace('library.zip', '.')"
+            source_code = source_code.replace(
+                "__file__", "__file__.replace('library.zip', '.')"
             )
-        code_bytes = code_bytes.replace(
-            b"import numpy.f2py as f2py", b"f2py = None"
+        source_code = source_code.replace(
+            "import numpy.f2py as f2py", "f2py = None"
         )
-        code_bytes = code_bytes.replace(
-            b"import numpy.testing as testing", b"testing = None"
+        source_code = source_code.replace(
+            "import numpy.testing as testing", "testing = None"
         )
-        module.code = compile(
-            code_bytes,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     def numpy_compat(self, _finder: ModuleFinder, module: Module) -> None:
@@ -169,9 +175,10 @@ class Hook(ModuleHook):
     def numpy__core_numerictypes(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """The numpy._core.numerictypes module adds a number of items to itself
-        dynamically; define these to avoid spurious errors about missing
-        modules.
+        """Add a number of items to the numpy._core.numerictypes module.
+
+        These items are added dynamically; define them to avoid spurious errors
+        about missing modules.
         """
         module.global_names.update(NUMPY__CORE_NUMERICTYPES_GLOBAL_NAMES)
 
@@ -180,21 +187,25 @@ class Hook(ModuleHook):
     def numpy__core_overrides(
         self, finder: ModuleFinder, module: Module
     ) -> None:
-        """Recompile the numpy._core.overrides module to workaround an
-        optimization that removes docstrings, which are required for this
-        module.
+        """Recompile the numpy._core.overrides module.
+
+        This is requires to workaround an optimization that removes docstrings,
+        which are required in this module.
         """
-        code_bytes = module.file.read_bytes()
-        search = b"add_docstring(implementation, dispatcher.__doc__)"
-        if search not in code_bytes:
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
             return
-        replace = b"add_docstring(implementation, dispatcher.__doc__ or '')"
-        module.code = compile(
-            code_bytes.replace(search, replace),
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
+        search = "add_docstring(implementation, dispatcher.__doc__)"
+        if search not in source_code:
+            return
+        replace = "add_docstring(implementation, dispatcher.__doc__ or '')"
+        module.code = loader.source_to_code(
+            source_code.replace(search, replace),
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     numpy_core_overrides = numpy__core_overrides  # numpy < 2.0
@@ -207,18 +218,24 @@ class Hook(ModuleHook):
         # check versions that are handled correctly
         if IS_MINGW:
             return
-        distribution = module.parent.distribution
-        if distribution is None or (
-            IS_LINUX and distribution.installer == "pip"
-        ):
+        parent = module.parent or module.root
+        dist = parent.distribution
+        if dist is None or (IS_LINUX and dist.installer == "pip"):
             return
 
-        # patch the code when necessary
-        code_bytes = module.file.read_bytes()
+        # patch the source code when necessary
+        loader = module.loader
+        if not isinstance(loader, SourceFileLoader):
+            return
+        source_code = loader.get_source(module.name)
+        if source_code is None:
+            return
 
+        if module.file is None:  # to make ty happy
+            return
         module_dir = module.file.parent
         exclude_dependent_files = False
-        if distribution.installer == "pip":
+        if dist.installer == "pip":
             # cgohlke/numpy-mkl.whl, numpy 1.23.5+mkl (Windows)
             libs_dir = module_dir / "DLLs"
             if libs_dir.is_dir():
@@ -229,9 +246,9 @@ class Hook(ModuleHook):
                 exclude_dependent_files = True
 
             # cgohlke/numpy-mkl-wheels, numpy 1.26.3 and mkl
-            if b"def init_numpy_mkl():" in code_bytes:
-                code_bytes = code_bytes.replace(
-                    b"path = ", b"path = f'{sys.prefix}\\lib\\mkl'  # "
+            if "def init_numpy_mkl():" in source_code:
+                source_code = source_code.replace(
+                    "path = ", "path = f'{sys.prefix}\\lib\\mkl'  # "
                 )
                 # create a fake module to activate mkl hook
                 mkl_path = finder.cache_path.joinpath("mkl")
@@ -239,7 +256,7 @@ class Hook(ModuleHook):
                 finder.include_file_as_module(mkl_path)
                 exclude_dependent_files = True
 
-        elif distribution.installer == "conda":
+        elif dist.installer == "conda":
             prefix = Path(sys.prefix)
             conda_meta = prefix / "conda-meta"
             packages = [
@@ -292,37 +309,37 @@ class Hook(ModuleHook):
                 finder.exclude_dependent_files(file)
 
         if module.in_file_system == 0:
-            code_bytes = code_bytes.replace(
-                b"__file__", b"__file__.replace('library.zip', '.')"
+            source_code = source_code.replace(
+                "__file__", "__file__.replace('library.zip', '.')"
             )
-        module.code = compile(
-            code_bytes,
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+        module.code = loader.source_to_code(
+            source_code,
+            loader.get_filename(module.name),
+            _optimize=finder.optimize,
         )
 
     def numpy_lib_utils(
         self, _finder: ModuleFinder, module: Module
     ) -> None:  # numpy<2
-        """The module numpy.lib.utils optionally imports the threadpoolctl
-        module; ignore the error if the module cannot be found.
+        """Optionally imports the threadpoolctl module.
+
+        The module numpy.lib.utils tries to imports it.
+        Ignore the error if the module cannot be found.
         """
         module.ignore_names.add("threadpoolctl")
 
     def numpy_lib__utils_impl(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """The module numpy.lib._utils_impl optionally imports the
-        threadpoolctl module; ignore the error if the module cannot be found.
+        """Optionally imports the threadpoolctl module.
+
+        The module numpy.lib._utils_impl tries to imports it.
+        Ignore the error if the module cannot be found.
         """
         module.ignore_names.add("threadpoolctl")
 
     def numpy_linalg(self, finder: ModuleFinder, module: Module) -> None:
-        """The numpy.linalg module implicitly loads the lapack_lite module;
-        make sure this happens.
-        """
+        """Implicitly loads some modules required by numpy.linalg module."""
         module.global_names.update(NUMPY_LINALG_GLOBAL_NAMES)
         finder.include_module("numpy.linalg.lapack_lite")
         finder.include_module("numpy.linalg._umath_linalg")
@@ -335,9 +352,6 @@ class Hook(ModuleHook):
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Remove optional modules in the numpy._pytesttester module."""
-        module.exclude_names.update(
-            ["numpy.distutils", "numpy.testing", "pytest"]
-        )
         module.ignore_names.update(
             ["numpy.distutils", "numpy.testing", "pytest"]
         )
@@ -349,7 +363,9 @@ class Hook(ModuleHook):
     def numpy_random_mtrand(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """The numpy.random.mtrand module is an extension module and the numpy
+        """Include global names.
+
+        The numpy.random.mtrand module is an extension module and the numpy
         module imports * from this module; define the list of global names
         available to this module in order to avoid spurious errors about
         missing modules.

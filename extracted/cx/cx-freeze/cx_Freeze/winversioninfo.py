@@ -8,9 +8,14 @@ import os
 from importlib import import_module
 from pathlib import Path
 from struct import calcsize, pack
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from packaging.version import Version
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from cx_Freeze._typing import StrPath
 
 __all__ = ["VersionInfo"]
 
@@ -46,12 +51,13 @@ else:
 
 
 class Structure:
-    """Abstract base class for structures in native byte order. Concrete
-    structure and union types must be created by subclassing one of these
-    types, and at least define a _fields class variable.
+    """Abstract base class for structures in native byte order.
+
+    Concrete structure and union types must be created by subclassing one of
+    these types, and at least define a _fields class variable.
     """
 
-    def __init__(self, *args) -> None:
+    def __init__(self, *args: Any) -> None:
         if not hasattr(self, "_fields"):
             self._fields: list[tuple[str, str]] = []
         for i, (field, _) in enumerate(self._fields):
@@ -139,14 +145,14 @@ class String(Structure):
             value_size = calcsize(WCHAR)
             fields.append(("Value", WCHAR * value_len))
         elif hasattr(value, "wLength"):  # instance of String
-            value_len = value.wLength
-            fields.append(("Value", type(value)))
+            value_len = cast("int", value.wLength)
+            fields.append(("Value", str(type(value))))
         elif isinstance(value, Structure):
             value_len = 0
             for field in value._fields:
                 value_len += calcsize(field[1])
             value_type = 0
-            fields.append(("Value", type(value)))
+            fields.append(("Value", str(type(value))))
 
         self._fields = fields
         self.wValueLength = value_len
@@ -160,7 +166,7 @@ class String(Structure):
         self._children = 0
 
     def children(self, value: String) -> None:
-        """Represents the child String object."""
+        """Represent the child String object."""
         pad_len = 4 - (self.wLength & 3)
         if 0 < pad_len < 4:
             field = f"Padding{self._children}"
@@ -168,7 +174,7 @@ class String(Structure):
             setattr(self, field, b"\0" * pad_len)
             self.wLength += calcsize(CHAR) * pad_len
         field = f"Children{self._children}"
-        self._fields.append((field, type(value)))
+        self._fields.append((field, str(type(value))))
         setattr(self, field, value)
         self._children += 1
         self.wLength += value.wLength
@@ -182,6 +188,7 @@ class VersionInfo:
         version: str,
         internal_name: str | None = None,
         original_filename: str | None = None,
+        *,
         comments: str | None = None,
         company: str | None = None,
         description: str | None = None,
@@ -201,17 +208,17 @@ class VersionInfo:
         self.internal_name: str | None = internal_name
         self.original_filename: str | None = original_filename
         # comments length must be limited to 31kb
-        self.comments: str = comments[:COMMENTS_MAX_LEN] if comments else None
-        self.company: str | None = company
-        self.description: str | None = description
-        self.copyright: str | None = copyright
-        self.trademarks: str | None = trademarks
-        self.product: str | None = product
+        self.comments: str = comments[:COMMENTS_MAX_LEN] if comments else ""
+        self.company: str = company or ""
+        self.description: str = description or ""
+        self.copyright: str = copyright or ""
+        self.trademarks: str = trademarks or ""
+        self.product: str = product or ""
         self.dll: bool | None = dll
         self.debug: bool | None = debug
         self.verbose: bool = verbose
 
-    def stamp(self, path: str | Path) -> None:
+    def stamp(self, path: StrPath) -> None:
         """Stamp a Win32 binary with version information."""
         path = Path(path)
         if not path.is_file():
@@ -224,7 +231,7 @@ class VersionInfo:
                 msg = "install pywin32 extension first"
                 raise RuntimeError(msg) from exc
             # comments length must be limited to 15kb (uses WORD='h')
-            self.comments = (self.comments or "")[: COMMENTS_MAX_LEN // 2]
+            self.comments = self.comments[: COMMENTS_MAX_LEN // 2]
             version_stamp(os.fspath(path), self)
             return
 
@@ -236,48 +243,50 @@ class VersionInfo:
             except ImportError as exc:
                 msg = "freeze_core.util extension not found"
                 raise RuntimeError(msg) from exc
-            handle = util.BeginUpdateResource(path, 0)
+            handle = util.BeginUpdateResource(path, False)
             util.UpdateResource(
                 handle, RT_VERSION, ID_VERSION, string_version_info.to_buffer()
             )
-            util.EndUpdateResource(handle, 0)
+            util.EndUpdateResource(handle, False)
 
         if self.verbose:
             print("Stamped:", path)
 
-    def version_info(self, path: Path) -> String:
-        """Returns the String version info used to stamp the version."""
+    def version_info(self, path: StrPath) -> String:
+        """Return the String version info used to stamp the version."""
         major = self.valid_version.major
         minor = self.valid_version.minor
         micro = self.valid_version.micro
         build = 0
         file_flags = 0
+        path = Path(path)
         if self.debug is None or path.stem.lower().endswith("_d"):
             file_flags += 1
         if self.valid_version.is_devrelease:
             file_flags += 8
-            build = self.valid_version.dev
+            build = self.valid_version.dev or 0
         elif self.valid_version.is_prerelease:
             file_flags += 2
-            build = self.valid_version.pre[1]
+            if self.valid_version.pre and len(self.valid_version.pre) == 2:
+                build = self.valid_version.pre[1]
         elif self.valid_version.is_postrelease:
             file_flags += 0x20
-            build = self.valid_version.post
+            build = self.valid_version.post or 0
         elif len(self.valid_version.release) >= 4:
             build = self.valid_version.release[3]
 
         # use the data in the order shown in 'pepper'
         data = {
-            "FileDescription": self.description or "",
+            "FileDescription": self.description,
             "FileVersion": self.version,
             "InternalName": self.internal_name or path.name,
-            "CompanyName": self.company or "",
-            "LegalCopyright": self.copyright or "",
-            "LegalTrademarks": self.trademarks or "",
+            "CompanyName": self.company,
+            "LegalCopyright": self.copyright,
+            "LegalTrademarks": self.trademarks,
             "OriginalFilename": self.original_filename or path.name,
-            "ProductName": self.product or "",
+            "ProductName": self.product,
             "ProductVersion": str(self.valid_version),
-            "Comments": self.comments or "",
+            "Comments": self.comments,
         }
         is_dll = self.dll
         if is_dll is None:
@@ -319,7 +328,7 @@ class VersionInfo:
         return string_version_info
 
 
-def main_test(args=None) -> None:
+def main_test(args: Sequence[str] | None = None) -> None:
     """Command line test."""
     parser = argparse.ArgumentParser()
     parser.add_argument(

@@ -490,5 +490,6 @@ NEVER_ENCRYPT_PATHS: frozenset[str] = frozenset(
         "checkpoint_metadata.step",
         "checkpoint_metadata.parents",
         "checkpoint_metadata.run_attempt",
+        "checkpoint_metadata.counters_since_delta_snapshot",
     }
 )

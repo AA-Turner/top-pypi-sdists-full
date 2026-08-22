@@ -20,14 +20,17 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
-    python_requires=">=3.9",
+    # sqlparse 0.6.0 dropped 3.8/3.9, so the floor moves with it.
+    python_requires=">=3.10",
     install_requires=[
-        "sqlparse==0.5.4",
+        # 0.6.0 fixes CVE-2026-54284, CVE-2026-59893, CVE-2026-59894 and
+        # CVE-2026-71491 (parser DoS). No earlier release carries the fixes.
+        "sqlparse==0.6.0",
         "networkx>=2.4",
         "collate-sqlfluff==3.5.3",
         "sqlglot==29.0.1",

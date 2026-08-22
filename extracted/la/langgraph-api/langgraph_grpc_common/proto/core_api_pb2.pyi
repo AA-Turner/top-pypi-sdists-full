@@ -808,6 +808,7 @@ class SearchAssistantsRequest(_message.Message):
     SORT_ORDER_FIELD_NUMBER: _builtins.int
     SELECT_FIELD_NUMBER: _builtins.int
     NAME_FIELD_NUMBER: _builtins.int
+    GRAPH_ID_ALLOWLIST_FIELD_NUMBER: _builtins.int
     graph_id: _builtins.str
     metadata_json: _builtins.bytes
     limit: _builtins.int
@@ -819,6 +820,8 @@ class SearchAssistantsRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def select(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    @_builtins.property
+    def graph_id_allowlist(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     def __init__(
         self,
         *,
@@ -831,10 +834,11 @@ class SearchAssistantsRequest(_message.Message):
         sort_order: Global___SortOrder.ValueType | None = ...,
         select: _abc.Iterable[_builtins.str] | None = ...,
         name: _builtins.str | None = ...,
+        graph_id_allowlist: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_name", b"_name", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "graph_id", b"graph_id", "limit", b"limit", "metadata_json", b"metadata_json", "name", b"name", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_name", b"_name", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "filters", b"filters", "graph_id", b"graph_id", "limit", b"limit", "metadata_json", b"metadata_json", "name", b"name", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_name", b"_name", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "filters", b"filters", "graph_id", b"graph_id", "graph_id_allowlist", b"graph_id_allowlist", "limit", b"limit", "metadata_json", b"metadata_json", "name", b"name", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__graph_id: _TypeAlias = _typing.Literal["graph_id"]  # noqa: Y015
     _WhichOneofArgType__graph_id: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id"]  # noqa: Y015
@@ -958,12 +962,15 @@ class CountAssistantsRequest(_message.Message):
     GRAPH_ID_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     NAME_FIELD_NUMBER: _builtins.int
+    GRAPH_ID_ALLOWLIST_FIELD_NUMBER: _builtins.int
     graph_id: _builtins.str
     """Optional additional filters."""
     metadata_json: _builtins.bytes
     name: _builtins.str
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def graph_id_allowlist(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     def __init__(
         self,
         *,
@@ -971,10 +978,11 @@ class CountAssistantsRequest(_message.Message):
         graph_id: _builtins.str | None = ...,
         metadata_json: _builtins.bytes | None = ...,
         name: _builtins.str | None = ...,
+        graph_id_allowlist: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "filters", b"filters", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "filters", b"filters", "graph_id", b"graph_id", "graph_id_allowlist", b"graph_id_allowlist", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__graph_id: _TypeAlias = _typing.Literal["graph_id"]  # noqa: Y015
     _WhichOneofArgType__graph_id: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id"]  # noqa: Y015

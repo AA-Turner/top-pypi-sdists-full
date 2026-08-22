@@ -1,4 +1,5 @@
 """Creates an executable using PyQt5 QtWebEngineWidgets.
+
 This also demonstrates how to use excludes to get minimal package size.
 
 Run the build process by running the command 'python setup.py build'
@@ -14,7 +15,7 @@ from cx_Freeze import Executable, setup
 options = {
     "build_exe": {
         # exclude packages that are not really needed
-        "excludes": ["tkinter", "unittest", "email", "http", "xml", "pydoc"]
+        "excludes": ["tkinter", "email", "http", "xml"]
     },
     "bdist_mac": {"bundle_name": "PyQt5 Webengine Test"},
 }

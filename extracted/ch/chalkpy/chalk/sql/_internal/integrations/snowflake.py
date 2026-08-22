@@ -29,6 +29,7 @@ from chalk.sql._internal.query_execution_parameters import QueryExecutionParamet
 from chalk.sql._internal.query_registry import QUERY_REGISTRY, CancellableQuery
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind, validate_dtypes_for_efficient_execution
 from chalk.sql.finalized_query import FinalizedChalkQuery
+from chalk.utils.collections import FrozenOrderedSet
 from chalk.utils.df_utils import is_list_like, pa_array_to_pl_series
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
@@ -38,8 +39,9 @@ from chalk.utils.tracing import safe_incr, safe_set_gauge
 
 if TYPE_CHECKING:
     from snowflake.connector.connection import SnowflakeConnection
+    from snowflake.connector.cursor import SnowflakeCursor
     from snowflake.connector.result_batch import ResultBatch
-    from sqlalchemy.engine import Connection
+    from sqlalchemy.engine import Connection, Dialect
     from sqlalchemy.engine.url import URL
     from sqlalchemy.sql.ddl import CreateTable, DropTable
     from sqlalchemy.sql.schema import Table
@@ -121,6 +123,63 @@ def _rewrite_query_for_unload(
     COPY INTO {quoted_prefix} FROM ({rewritten_sql}) {storage_integration_clause}file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
     """
     return new_query
+
+
+_UNLOAD_UNSUPPORTED_TIMESTAMP_TYPE_NAMES = FrozenOrderedSet(("TIMESTAMP_LTZ", "TIMESTAMP_TZ"))
+
+
+def _rewrite_tz_timestamps_to_ntz_for_unload(
+    cursor: SnowflakeCursor,
+    sql: str,
+    named_params: Mapping[str, Any],
+    dialect: Dialect,
+) -> str:
+    """Snowflake refuses to unload TIMESTAMP_LTZ/TZ columns to Parquet (error 100171).
+
+    Wraps ``sql`` in a projection that normalizes any TZ-typed result column to its UTC
+    instant as TIMESTAMP_NTZ, leaving every other column (name, order, and type) as-is.
+    Column types come from a describe-only round trip, so this also covers text queries
+    with no SQLAlchemy type information. Returns ``sql`` unchanged when no TZ column
+    exists or when the result shape cannot be projected safely (duplicate column names,
+    describe failure) — in those cases the COPY INTO keeps its current behavior.
+    """
+    if env_var_bool("CHALK_SNOWFLAKE_UNLOAD_DISABLE_TZ_TIMESTAMP_REWRITE"):
+        return sql
+    try:
+        import sqlalchemy as sa
+        from snowflake.connector.constants import FIELD_ID_TO_NAME
+        from sqlalchemy.sql.elements import quoted_name
+
+        from chalk.sql._internal.integrations.snowflake_compiler_overrides import snowflake_timestamp_to_utc_ntz
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[snowflake]")
+    try:
+        described = cursor.describe(sql, named_params)
+    except Exception:
+        chalk_logger.warning("Failed to describe the Snowflake unload query; unloading it unmodified.", exc_info=True)
+        return sql
+    column_names = [c.name for c in described]
+    tz_column_names = {
+        c.name for c in described if FIELD_ID_TO_NAME.get(c.type_code) in _UNLOAD_UNSUPPORTED_TIMESTAMP_TYPE_NAMES
+    }
+    if not tz_column_names:
+        return sql
+    if len(set(column_names)) != len(column_names):
+        chalk_logger.warning(
+            "The Snowflake unload query returns TIMESTAMP_LTZ/TZ columns, which Snowflake cannot unload"
+            + " to Parquet, but its duplicate column names prevent rewriting them to TIMESTAMP_NTZ;"
+            + " unloading it unmodified."
+        )
+        return sql
+    projections: list[Any] = []
+    for name in column_names:
+        column = sa.column(quoted_name(name, quote=True))
+        if name in tz_column_names:
+            projections.append(snowflake_timestamp_to_utc_ntz(column).label(quoted_name(name, quote=True)))
+        else:
+            projections.append(column)
+    select_clause = str(sa.select(*projections).compile(dialect=dialect))
+    return f"{select_clause} FROM ({sql.rstrip('; ' + chr(10))})"
 
 
 class ResultHandle(typing.Protocol):
@@ -670,6 +729,12 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     unload_stage = self.resolve_unload_stage(query_execution_parameters)
                     unload_storage_integration = self.resolve_unload_storage_integration(query_execution_parameters)
                     if unload_stage is not None:
+                        sql = _rewrite_tz_timestamps_to_ntz_for_unload(
+                            cursor=cursor,
+                            sql=sql,
+                            named_params=named_params,
+                            dialect=self.get_sqlalchemy_dialect(),
+                        )
                         original_sql = sql
                         chalk_logger.info(
                             f"Executing query to unload data to Snowflake stage for unload {job_id=} {unload_stage}"
@@ -864,6 +929,12 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     unload_stage = self.resolve_unload_stage(query_execution_parameters)
                     unload_storage_integration = self.resolve_unload_storage_integration(query_execution_parameters)
                     if unload_stage is not None:
+                        sql = _rewrite_tz_timestamps_to_ntz_for_unload(
+                            cursor=cursor,
+                            sql=sql,
+                            named_params=named_params,
+                            dialect=self.get_sqlalchemy_dialect(),
+                        )
                         sql = _rewrite_query_for_unload(
                             sql=sql,
                             unload_job_identifier=job_id,

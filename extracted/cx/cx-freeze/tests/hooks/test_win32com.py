@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cx_Freeze._compat import ABI_THREAD
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -22,14 +27,14 @@ zip_packages = pytest.mark.parametrize(
     ABI_THREAD == "t",
     raises=ModuleNotFoundError,
     reason="pywin32 does not support Python 3.14t",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv(scope="module")
 @zip_packages
-def test_win32com(tmp_package, zip_packages: bool) -> None:
+def test_win32com(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if win32com hook is working correctly."""
     tmp_package.create_from_sample("win32com")
-    command = "cxfreeze --script test_win32com.py --excludes=tkinter,unittest"
+    command = "cxfreeze --script test_win32com.py --excludes=tkinter"
     if zip_packages:
         command += " --zip-include-packages=* --zip-exclude-packages="
     command += " --include-msvcr --silent"
@@ -70,8 +75,8 @@ pyproject.toml
     executables = ["test.py"]
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
@@ -80,11 +85,11 @@ pyproject.toml
     ABI_THREAD == "t",
     raises=ModuleNotFoundError,
     reason="pywin32 does not support Python 3.14t",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.venv(scope="module")
 @zip_packages
-def test_win32com_shell(tmp_package, zip_packages: bool) -> None:
+def test_win32com_shell(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if win32com hook is working correctly."""
     tmp_package.create(SOURCE_WIN32COM_SHELL)
     if zip_packages:

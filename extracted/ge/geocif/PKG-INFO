@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.930
+Version: 0.4.932
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -62,6 +62,7 @@ Requires-Dist: cubist>=1.0
 Requires-Dist: mapie>=0.8
 Requires-Dist: merf>=1.0
 Requires-Dist: ngboost>=0.5
+Requires-Dist: PyGRF>=0.0.12
 Requires-Dist: tabpfn-extensions>=0.4
 Requires-Dist: BorutaShap>=1.0
 Requires-Dist: arfs>=2.0
@@ -100,6 +101,8 @@ Provides-Extra: powershap
 Requires-Dist: powershap>=0.0.10; extra == "powershap"
 Provides-Extra: geospann
 Requires-Dist: geospaNN>=0.1; extra == "geospann"
+Provides-Extra: george
+Requires-Dist: george>=0.4.4; extra == "george"
 Provides-Extra: desreg
 Requires-Dist: desReg>=0.1; extra == "desreg"
 Dynamic: license-file
@@ -286,8 +289,23 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 | Linear | `linear` | LassoCV / LogisticRegressionCV |
 | GAM | `gam` | Generalized additive model |
 | GeoSpaNN | `geospaNN` | Geospatial neural network |
+| PyGRF | `pygrf` | Geographical random forest (global + per-sample local RFs, Moran's-I blend) |
+| TabPFN-GSA | `tabpfn_gsa` | TabPFN with geospatial sparse attention (local in-context sampling; git-only dep) |
+| george | `george` | Exact GP regression (dfm/george, fitted kernel + noise; `geocif[george]` extra) |
+| GPR | `gpr` | sklearn Gaussian process regression |
 | Median | `median` | Median baseline |
 | Analog | `analog` | Analogous year baseline |
+
+The three spatial models (`pygrf`, `tabpfn_gsa`, and `geospaNN`) read region
+centroids from the `lat`/`lon` feature columns and therefore require
+`[ML] include_lat_lon_as_feature = True`. Each new model needs its own
+`[<model>]` config section with `ML_model = True`. Hyperparameter overrides
+live in `[ML]`: `pygrf_band_width` / `pygrf_local_weight` /
+`pygrf_n_estimators` / `pygrf_max_features` / `pygrf_kernel` /
+`pygrf_resampled` (defaults: adaptive 15%-of-n bandwidth, floor 20; local
+weight = global Moran's I of y), `tabpfn_gsa_K` / `tabpfn_gsa_s` (grid cells —
+rounded to a perfect square — and distant-sampling rate), `george_kernel`
+(`expsquared` | `matern32` | `matern52`) / `george_jitter`.
 
 ### Feature selection methods
 

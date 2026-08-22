@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from typing import TYPE_CHECKING
+
 import pytest
 
 from cx_Freeze._compat import ABI_THREAD, IS_MINGW
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
 
 TIMEOUT = 15
 
@@ -22,24 +29,30 @@ pyproject.toml
     [project]
     name = "test_streamlit"
     version = "0.1.2.3"
-    dependencies = ["streamlit"]
+    dependencies = ["streamlit>=1.51"]
 
     [[tool.cxfreeze.executables]]
     script = "test_streamlit.py"
     init_script = "streamlit"
 
     [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
+    include-msvcr = true
+    excludes = ["tkinter"]
     silent = true
 """
 
 
 @pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 15),
+    raises=ModuleNotFoundError,
+    reason="streamlit does not support Python 3.15 yet",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
+@pytest.mark.xfail(
     IS_MINGW,
     raises=ModuleNotFoundError,
     reason="streamlit not supported in mingw",
-    strict=True,
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.skipif(
     ABI_THREAD == "t",
@@ -47,7 +60,7 @@ pyproject.toml
 )
 @pytest.mark.venv
 @zip_packages
-def test_streamlit(tmp_package, zip_packages: bool) -> None:
+def test_streamlit(tmp_package: TempPackage, zip_packages: bool) -> None:
     """Test if streamlit hook is working correctly."""
     tmp_package.create(SOURCE_TEST)
     if zip_packages:

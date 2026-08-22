@@ -3,9 +3,10 @@
 Usage:
     code-review-graph install
     code-review-graph init
-    code-review-graph uninstall [--dry-run] [--yes] [--repo PATH]
+    code-review-graph uninstall [--platform NAME] [--dry-run] [--yes] [--repo PATH]
     code-review-graph build [--base BASE]
     code-review-graph update [--base BASE]
+    code-review-graph forget PATH [PATH ...] [--dry-run]
     code-review-graph watch
     code-review-graph status
     code-review-graph serve [--auto-watch] [--http] [--host ADDR] [--port PORT]
@@ -38,6 +39,7 @@ if sys.version_info < (3, 10):
     sys.exit(1)
 
 import argparse
+import fnmatch
 import json
 import logging
 import os
@@ -45,7 +47,7 @@ from functools import partial
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import TypedDict
+from typing import Iterable, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ logger = logging.getLogger(__name__)
 _PLATFORM_CHOICES = [
     "codex", "claude", "claude-code", "cursor", "windsurf", "zed",
     "continue", "opencode", "antigravity", "gemini-cli", "qwen", "kiro", "qoder",
-    "copilot", "copilot-cli", "codebuddy", "all",
+    "copilot", "copilot-cli", "codebuddy", "hermes", "all",
 ]
 
 
@@ -94,6 +96,21 @@ def _supports_color() -> bool:
     if not hasattr(sys.stdout, "isatty"):
         return False
     return sys.stdout.isatty()
+
+
+def _configure_utf8_stdio() -> None:
+    """Allow Unicode CLI decoration on streams using a legacy encoding."""
+    for stream in (sys.stdout, sys.stderr):
+        encoding = getattr(stream, "encoding", None)
+        if not encoding or encoding.lower().replace("-", "") == "utf8":
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except (OSError, ValueError):
+            pass
 
 
 def _print_banner() -> None:
@@ -145,30 +162,43 @@ def _instruction_files_to_modify(
     """Return the list of instruction files that ``install`` would write
     or modify, given the current state of the repo and the selected
     platform target. Used for the dry-run / confirm preview (#173).
+
+    A file holding a section from an older release is listed as ``(update)``:
+    install replaces that block in place rather than leaving it stale (#314).
     """
-    from .skills import _CLAUDE_MD_SECTION_MARKER, _PLATFORM_INSTRUCTION_FILES
+    from .skills import (
+        _CLAUDE_MD_SECTION,
+        _CLAUDE_MD_SECTION_MARKER,
+        _COPILOT_SECTION,
+        _PLATFORM_INSTRUCTION_CUSTOM_SECTIONS,
+        _PLATFORM_INSTRUCTION_FILES,
+        _upgrade_managed_block,
+    )
 
     targets: list[str] = []
 
+    def _describe(filename: str, path: Path, section: str) -> None:
+        if not path.exists():
+            targets.append(f"{filename} (new)")
+            return
+        content = path.read_text(encoding="utf-8", errors="replace")
+        if _CLAUDE_MD_SECTION_MARKER not in content:
+            targets.append(f"{filename} (append)")
+        elif _upgrade_managed_block(content, section) is not None:
+            targets.append(f"{filename} (update)")
+
     if target in ("claude", "all"):
-        claude_md = repo_root / "CLAUDE.md"
-        if claude_md.exists():
-            content = claude_md.read_text(encoding="utf-8")
-            if _CLAUDE_MD_SECTION_MARKER not in content:
-                targets.append("CLAUDE.md (append)")
-        else:
-            targets.append("CLAUDE.md (new)")
+        _describe("CLAUDE.md", repo_root / "CLAUDE.md", _CLAUDE_MD_SECTION)
 
     for filename, owners in _PLATFORM_INSTRUCTION_FILES.items():
         if target != "all" and target not in owners:
             continue
-        path = repo_root / filename
-        if path.exists():
-            content = path.read_text(encoding="utf-8")
-            if _CLAUDE_MD_SECTION_MARKER not in content:
-                targets.append(f"{filename} (append)")
-        else:
-            targets.append(f"{filename} (new)")
+        section = (
+            _COPILOT_SECTION
+            if filename in _PLATFORM_INSTRUCTION_CUSTOM_SECTIONS
+            else _CLAUDE_MD_SECTION
+        )
+        _describe(filename, repo_root / filename, section)
 
     return targets
 
@@ -192,6 +222,61 @@ def _confirm_yes_no(prompt: str, default_yes: bool = True) -> bool:
     if not answer:
         return default_yes
     return answer in ("y", "yes")
+
+
+def _match_files_to_forget(
+    stored_files: Iterable[str],
+    patterns: Iterable[str],
+    repo_root: Path,
+) -> list[str]:
+    """Resolve user-supplied paths/globs to stored graph file paths.
+
+    The graph keys every parsed file by its absolute path. A user may name a
+    file with an absolute path, a path relative to the repository root, a
+    directory whose contents should all be dropped, or a glob pattern. Each
+    stored file is compared against every pattern in all of those forms and the
+    sorted set of matching stored paths is returned.
+    """
+    root = repo_root.resolve()
+    stored = list(stored_files)
+    matched: set[str] = set()
+
+    for raw in patterns:
+        pattern = str(raw).strip()
+        if not pattern:
+            continue
+        expanded = Path(pattern).expanduser()
+        absolute = expanded if expanded.is_absolute() else root / expanded
+        absolute_str = os.path.normpath(str(absolute))
+        dir_prefix = absolute_str.rstrip(os.sep) + os.sep
+
+        for stored_path in stored:
+            normalised = os.path.normpath(stored_path)
+            try:
+                relative = os.path.relpath(normalised, str(root))
+            except ValueError:
+                relative = None
+
+            # Exact match against the absolute or the repo-relative form.
+            if normalised == absolute_str:
+                matched.add(stored_path)
+                continue
+            if relative is not None and os.path.normpath(relative) == os.path.normpath(
+                pattern
+            ):
+                matched.add(stored_path)
+                continue
+            # Every file underneath a named directory.
+            if normalised.startswith(dir_prefix):
+                matched.add(stored_path)
+                continue
+            # Glob patterns, matched against both the absolute and relative form.
+            if fnmatch.fnmatch(normalised, absolute_str) or (
+                relative is not None and fnmatch.fnmatch(relative, pattern)
+            ):
+                matched.add(stored_path)
+
+    return sorted(matched)
 
 
 def _handle_init(args: argparse.Namespace) -> None:
@@ -249,8 +334,7 @@ def _handle_init(args: argparse.Namespace) -> None:
     from .skills import (
         PLATFORMS,
         generate_skills,
-        inject_claude_md,
-        inject_platform_instructions,
+        inject_instruction_files,
         install_codebuddy_hooks,
         install_codebuddy_skills,
         install_codex_hooks,
@@ -258,6 +342,7 @@ def _handle_init(args: argparse.Namespace) -> None:
         install_gemini_cli_hooks,
         install_gemini_cli_skills,
         install_git_hook,
+        install_hermes_skills,
         install_hooks,
         install_opencode_plugin,
         install_qoder_skills,
@@ -279,6 +364,11 @@ def _handle_init(args: argparse.Namespace) -> None:
             codebuddy_skills_dir = install_codebuddy_skills(repo_root)
             print(f"Installed CodeBuddy skills in {codebuddy_skills_dir}")
 
+        # Hermes Agent discovers skills under <HERMES_HOME>/skills/.
+        if target == "hermes" or (target == "all" and PLATFORMS["hermes"]["detect"]()):
+            hermes_skills_dir = install_hermes_skills(repo_root)
+            print(f"Installed Hermes Agent skills in {hermes_skills_dir}")
+
     # Confirm before writing instruction files (#173). --yes skips the
     # prompt; --no-instructions skips the whole block.
     if not skip_instructions and instr_targets:
@@ -286,14 +376,24 @@ def _handle_init(args: argparse.Namespace) -> None:
             "Inject graph instructions into the files above?",
             default_yes=True,
         ):
-            if target in ("claude", "all"):
-                inject_claude_md(repo_root)
-            inject_platform_instructions(repo_root, target=target)
-            # Use the precomputed instr_targets list for the confirmation
-            # message; we don't need the fresh return value from
-            # inject_platform_instructions here.
-            names = [t.split(" ")[0] for t in instr_targets]
-            print(f"Injected graph instructions into: {', '.join(names)}")
+            outcomes = inject_instruction_files(repo_root, target=target)
+            for label, wording in (
+                ("created", "Injected graph instructions into"),
+                ("updated", "Updated graph instructions in"),
+            ):
+                names = [f for f, o in outcomes.items() if o == label]
+                if names:
+                    print(f"{wording}: {', '.join(names)}")
+            # A hand-edited block is never overwritten, so say which file it is
+            # rather than reporting success the user did not get (#314).
+            stale = [f for f, o in outcomes.items() if o == "conflict"]
+            if stale:
+                print(
+                    "Left edited graph instructions alone in: "
+                    f"{', '.join(stale)}. Delete the section between "
+                    "<!-- code-review-graph MCP tools --> and its closing marker "
+                    "and reinstall to pick up the current text."
+                )
         else:
             print("Skipped instruction injection (user declined).")
     elif skip_instructions:
@@ -373,7 +473,7 @@ def _add_embedding_refresh_args(command) -> None:
     """Add explicit, provider-scoped refresh options to a CLI command."""
     command.add_argument(
         "--embedding-provider",
-        choices=["local", "openai", "google", "minimax"],
+        choices=["local", "openai", "google", "minimax", "voyage"],
         default=None,
         help=(
             "Explicitly refresh an existing embedding index with this provider; "
@@ -439,6 +539,64 @@ _GRAPH_TOOL_COMMANDS = {
     "large-functions",
     "refactor",
 }
+
+
+_PATH_REPO_COMMANDS = frozenset({
+    "install",
+    "init",
+    "uninstall",
+    "build",
+    "update",
+    "postprocess",
+    "embed",
+    "watch",
+    "status",
+    "forget",
+    "visualize",
+    "wiki",
+    "detect-changes",
+    "dead-code",
+    "serve",
+    "mcp",
+    *_GRAPH_TOOL_COMMANDS,
+})
+
+
+def _canonicalize_repo_argument(args: argparse.Namespace) -> None:
+    """Canonicalize path-valued ``--repo`` arguments in place.
+
+    Commands whose ``--repo`` value is a repository *name* rather than a path
+    (eval configs and daemon log aliases) are deliberately excluded. Every
+    path consumer receives the same absolute, symlink-resolved spelling before
+    it opens a database or compares stored paths.
+    """
+    repo = getattr(args, "repo", None)
+    if args.command in _PATH_REPO_COMMANDS and repo:
+        args.repo = str(Path(repo).expanduser().resolve())
+
+
+def _find_explicit_repo_root(start: Path) -> "Path | None":
+    """Resolve an explicit --repo for graph-tool commands.
+
+    Walks upward from ``start``, stopping at the nearest directory that
+    contains a ``.code-review-graph``, ``.git``, or ``.svn`` marker. Unlike
+    ``find_repo_root``, a registered subproject (``.code-review-graph``)
+    counts as a boundary, so a monorepo subdirectory built with
+    ``build --repo mono/module`` resolves to the module — not to the
+    monorepo's top-level ``.git`` (#697).
+    """
+    current = start.resolve()
+    if not current.is_dir():
+        return None
+    while True:
+        if any(
+            (current / marker).exists()
+            for marker in (".code-review-graph", ".git", ".svn")
+        ):
+            return current
+        if current == current.parent:
+            return None
+        current = current.parent
 
 
 def _run_graph_tool_command(args, repo_root: Path) -> None:
@@ -521,6 +679,7 @@ def _run_graph_tool_command(args, repo_root: Path) -> None:
 
 def main() -> None:
     """Main CLI entry point."""
+    _configure_utf8_stdio()
     ap = argparse.ArgumentParser(
         prog="code-review-graph",
         description="Persistent incremental knowledge graph for code reviews",
@@ -633,6 +792,13 @@ def main() -> None:
         help="Clean repositories only; do not edit files under the user home",
     )
     uninstall_cmd.add_argument(
+        "--platform",
+        choices=_PLATFORM_CHOICES,
+        default="all",
+        help="Unbind only this platform's MCP registration and keep the graph "
+             "data and every other integration. Default: all (full uninstall).",
+    )
+    uninstall_cmd.add_argument(
         "--dry-run",
         action="store_true",
         help="Print every planned action without writing or deleting anything",
@@ -667,7 +833,11 @@ def main() -> None:
 
     # update
     update_cmd = sub.add_parser("update", help="Incremental update (only changed files)")
-    update_cmd.add_argument("--base", default="HEAD~1", help="Git diff base (default: HEAD~1)")
+    update_cmd.add_argument(
+        "--base",
+        default=None,
+        help="Git diff base (default: the commit the graph was last built at)",
+    )
     update_cmd.add_argument("--repo", default=None, help="Repository root (auto-detected)")
     update_cmd.add_argument("-q", "--quiet", action="store_true", help="Suppress output")
     update_cmd.add_argument(
@@ -729,7 +899,7 @@ def main() -> None:
     embed_cmd.add_argument("--repo", default=None, help="Repository root (auto-detected)")
     embed_cmd.add_argument(
         "--provider",
-        choices=["local", "openai", "google", "minimax"],
+        choices=["local", "openai", "google", "minimax", "voyage"],
         default=None,
         help="Embedding provider (default: local, needs code-review-graph[embeddings])",
     )
@@ -737,7 +907,7 @@ def main() -> None:
         "--model",
         default=None,
         help="Embedding model. For local: HuggingFace ID (default all-MiniLM-L6-v2); "
-             "for openai/google/minimax: provider-specific model ID.",
+             "for openai/google/minimax/voyage: provider-specific model ID.",
     )
     embed_cmd.add_argument(
         "--data-dir",
@@ -766,6 +936,30 @@ def main() -> None:
         help="Output one machine-readable JSON object",
     )
     status_cmd.add_argument(
+        "--data-dir",
+        default=None,
+        help="External directory to store graph database (useful for network shares)"
+    )
+
+    # forget
+    forget_cmd = sub.add_parser(
+        "forget",
+        help="Remove already-parsed files from the graph without a full rebuild",
+    )
+    forget_cmd.add_argument(
+        "paths",
+        nargs="+",
+        metavar="PATH",
+        help="Files, directories, or glob patterns to drop from the graph. "
+             "Paths may be absolute or relative to the repository root.",
+    )
+    forget_cmd.add_argument("--repo", default=None, help="Repository root (auto-detected)")
+    forget_cmd.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List the files that would be forgotten without modifying the graph",
+    )
+    forget_cmd.add_argument(
         "--data-dir",
         default=None,
         help="External directory to store graph database (useful for network shares)"
@@ -840,6 +1034,28 @@ def main() -> None:
     eval_cmd.add_argument("--all", action="store_true", dest="run_all", help="Run all benchmarks")
     eval_cmd.add_argument("--report", action="store_true", help="Generate report from results")
     eval_cmd.add_argument("--output-dir", default=None, help="Output directory for results")
+    eval_cmd.add_argument(
+        "--embed",
+        action="store_true",
+        help=(
+            "Build the vector index after each graph build. Required by the "
+            "agent_baseline, search_quality and multi_hop_retrieval "
+            "benchmarks: without it their natural-language questions hit "
+            "FTS5 only and return zero results (default: disabled)"
+        ),
+    )
+    eval_cmd.add_argument(
+        "--embed-provider",
+        choices=["local", "openai", "google", "minimax", "voyage"],
+        default=None,
+        help="Provider for --embed (default: local, needs "
+             "code-review-graph[embeddings])",
+    )
+    eval_cmd.add_argument(
+        "--embed-model",
+        default=None,
+        help="Model for --embed (default: the provider's own default)",
+    )
 
     # detect-changes
     detect_cmd = sub.add_parser(
@@ -1145,6 +1361,8 @@ def main() -> None:
         _print_banner()
         return
 
+    _canonicalize_repo_argument(args)
+
     if (
         args.command == "refactor"
         and args.mode == "rename"
@@ -1161,8 +1379,22 @@ def main() -> None:
     if args.command in _GRAPH_TOOL_COMMANDS:
         from .incremental import find_project_root, get_db_path
 
-        requested_root = Path(args.repo).expanduser() if args.repo else None
-        repo_root = find_project_root(requested_root)
+        if args.repo:
+            # For an explicit --repo the walk must treat .code-review-graph
+            # as a project boundary too: the plain .git/.svn walk resolves a
+            # registered monorepo subdirectory to the monorepo root and the
+            # graph built at the --repo path is never found (#697). Nearest
+            # marker wins, so pointing inside a repo still works.
+            repo_root = _find_explicit_repo_root(Path(args.repo).expanduser())
+            if repo_root is None:
+                print(
+                    f"--repo does not look like a project root (no .git, .svn, "
+                    f"or .code-review-graph found at or above): {args.repo}",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+        else:
+            repo_root = find_project_root()
         db_path = get_db_path(repo_root)
         if not db_path.exists():
             print(
@@ -1262,6 +1494,9 @@ def main() -> None:
                 repos=repos,
                 benchmarks=benchmarks,
                 output_dir=getattr(args, "output_dir", None),
+                embed=getattr(args, "embed", False),
+                embedding_provider=getattr(args, "embed_provider", None),
+                embedding_model=getattr(args, "embed_model", None),
             )
             print(f"\nCompleted {len(results)} benchmark(s).")
             print("Run 'code-review-graph eval --report' to generate tables.")
@@ -1272,11 +1507,14 @@ def main() -> None:
         from .uninstall import run as run_uninstall
 
         target_repo = Path(args.repo).expanduser() if args.repo else None
+        platform_target = getattr(args, "platform", "all") or "all"
+        scoped_platforms = None if platform_target == "all" else [platform_target]
         options = {
             "repo": target_repo,
             "all_repos": args.all_repos,
             "keep_data": args.keep_data,
             "keep_user_configs": args.keep_user_configs,
+            "platforms": scoped_platforms,
         }
 
         def _print_report(report: UninstallReport) -> None:
@@ -1290,19 +1528,31 @@ def main() -> None:
                 print(f"  error   {error}")
 
         preview = run_uninstall(**options, dry_run=True)
-        print("code-review-graph uninstall — planned actions:")
+        if scoped_platforms:
+            print(f"code-review-graph unbind ({platform_target}) — planned actions:")
+        else:
+            print("code-review-graph uninstall — planned actions:")
         _print_report(preview)
         if preview.total_actions == 0:
             if preview.errors:
                 raise SystemExit(1)
-            print("  (nothing to do — no code-review-graph artifacts found)")
+            if scoped_platforms:
+                print(
+                    f"  (nothing to do — {platform_target} has no "
+                    "code-review-graph MCP registration)"
+                )
+            else:
+                print("  (nothing to do — no code-review-graph artifacts found)")
             return
         if args.dry_run:
             print("\n[dry-run] No changes made.")
             if preview.errors:
                 raise SystemExit(1)
             return
-        if not args.yes and not _confirm_yes_no("\nProceed with uninstall?", default_yes=False):
+        action_word = "unbind" if scoped_platforms else "uninstall"
+        if not args.yes and not _confirm_yes_no(
+            f"\nProceed with {action_word}?", default_yes=False
+        ):
             print("Aborted.")
             return
 
@@ -1427,16 +1677,50 @@ def main() -> None:
         "update",
         "detect-changes",
         "status",
+        "forget",
         "watch",
         "visualize",
         "wiki",
         "dead-code",
     )
-    if args.command in _data_dir_cmds:
+    # Read-only consumers must not create graph.db / data dirs / registry
+    # entries when the graph is missing (follow-up to #777 / #782; see #803).
+    _read_only_db_cmds = frozenset({
+        "status",
+        "detect-changes",
+        "visualize",
+        "wiki",
+        "watch",
+    })
+    explicit_data_dir = bool(getattr(args, "data_dir", None))
+    read_only_explicit_data_dir = (
+        args.command in _read_only_db_cmds and explicit_data_dir
+    )
+    if args.command in _data_dir_cmds and not read_only_explicit_data_dir:
         _handle_data_dir_option(args, repo_root)
 
-    db_path = get_db_path(repo_root)
-    if args.command == "dead-code" and not db_path.exists():
+    if args.command in _read_only_db_cmds:
+        if read_only_explicit_data_dir:
+            db_path = Path(args.data_dir).expanduser().resolve() / "graph.db"
+        else:
+            db_path = get_db_path(repo_root, read_only=True)
+        legacy_db = repo_root / ".code-review-graph.db"
+        default_db = repo_root / ".code-review-graph" / "graph.db"
+        if (
+            not read_only_explicit_data_dir
+            and not db_path.exists()
+            and db_path.resolve() == default_db.resolve()
+            and legacy_db.exists()
+        ):
+            # Preserve the established one-time legacy migration, but do not
+            # materialize graph state when neither database exists.
+            db_path = get_db_path(repo_root)
+    else:
+        db_path = get_db_path(repo_root)
+    if (
+        args.command in ("dead-code", "forget", *_read_only_db_cmds)
+        and not db_path.exists()
+    ):
         print(
             f"No graph found at {db_path}. Run `code-review-graph build` first.",
             file=sys.stderr,
@@ -1517,17 +1801,31 @@ def main() -> None:
                     postprocess=pp,
                     **embedding_refresh_kwargs,
                 )
+            except RuntimeError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                sys.exit(1)
             finally:
                 logging.disable(previous_disable)
-            updated = result.get("files_updated", 0)
             nodes = result.get("total_nodes", 0)
             edges = result.get("total_edges", 0)
             if not args.quiet:
-                print(
-                    f"Incremental: {updated} files updated, "
-                    f"{nodes} nodes, {edges} edges"
-                    f" (postprocess={pp})"
-                )
+                if result.get("build_type") == "full":
+                    # No usable incremental base (fresh/legacy graph, or the
+                    # last-synced commit was lost to a rewrite/shallow clone),
+                    # so the update fell back to a full rebuild.
+                    parsed = result.get("files_parsed", 0)
+                    print(
+                        f"Full rebuild (no usable incremental base): "
+                        f"{parsed} files, {nodes} nodes, {edges} edges"
+                        f" (postprocess={pp})"
+                    )
+                else:
+                    updated = result.get("files_updated", 0)
+                    print(
+                        f"Incremental: {updated} files updated, "
+                        f"{nodes} nodes, {edges} edges"
+                        f" (postprocess={pp})"
+                    )
 
             # --brief: append a one-line change-impact summary with the same
             # estimated context-savings approximation that detect-changes uses.
@@ -1545,7 +1843,10 @@ def main() -> None:
                     get_staged_and_unstaged,
                 )
 
-                changed = get_changed_files(repo_root, args.base)
+                # Reuse the base the update actually resolved to (args.base is
+                # None by default now, which get_changed_files cannot accept).
+                brief_base = result.get("base_resolved") or "HEAD~1"
+                changed = get_changed_files(repo_root, brief_base)
                 if not changed:
                     changed = get_staged_and_unstaged(repo_root)
                 if changed:
@@ -1553,7 +1854,7 @@ def main() -> None:
                         store,
                         changed,
                         repo_root=str(repo_root),
-                        base=args.base,
+                        base=brief_base,
                     )
                     original_tokens = estimate_file_tokens(repo_root, changed)
                     attach_context_savings(
@@ -1634,6 +1935,46 @@ def main() -> None:
                     if stored_rev:
                         print(f"SVN revision at build: {stored_rev}")
 
+        elif args.command == "forget":
+            stored_files = store.get_all_files()
+            targets = _match_files_to_forget(stored_files, args.paths, repo_root)
+            if not targets:
+                print("No parsed files matched the given path(s).")
+                print(f"The graph currently tracks {len(stored_files)} file(s).")
+            else:
+                header = (
+                    "[dry-run] Would forget these files:"
+                    if args.dry_run
+                    else "Forgetting these files:"
+                )
+                print(header)
+                for file_path in targets:
+                    try:
+                        display = os.path.relpath(file_path, str(repo_root))
+                    except ValueError:
+                        display = file_path
+                    print(f"  {display}")
+                if args.dry_run:
+                    print(
+                        f"\n[dry-run] {len(targets)} file(s) would be removed "
+                        "from the graph. No changes made."
+                    )
+                else:
+                    from .forget import forget_files
+
+                    summary = forget_files(store, repo_root, targets)
+                    reparsed = summary.get("reparsed", [])
+                    if reparsed:
+                        print(
+                            f"  re-resolved {len(reparsed)} referring file(s) "
+                            "so no edges dangle"
+                        )
+                    remaining = len(stored_files) - len(targets)
+                    print(
+                        f"\nForgot {len(targets)} file(s); "
+                        f"{remaining} file(s) remain in the graph."
+                    )
+
         elif args.command == "watch":
             from .postprocessing import run_post_processing
 
@@ -1651,7 +1992,13 @@ def main() -> None:
         elif args.command == "visualize":
             from .incremental import get_data_dir
 
-            data_dir = get_data_dir(repo_root)
+            # Prefer an explicit --data-dir so read-only resolution still
+            # writes exports next to the graph without registry side-effects.
+            if getattr(args, "data_dir", None):
+                data_dir = Path(args.data_dir).expanduser().resolve()
+                data_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                data_dir = get_data_dir(repo_root)
             fmt = getattr(args, "format", "html") or "html"
 
             if fmt == "json":
@@ -1715,7 +2062,12 @@ def main() -> None:
             from .incremental import get_data_dir
             from .wiki import generate_wiki
 
-            wiki_dir = get_data_dir(repo_root) / "wiki"
+            if getattr(args, "data_dir", None):
+                data_dir = Path(args.data_dir).expanduser().resolve()
+                data_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                data_dir = get_data_dir(repo_root)
+            wiki_dir = data_dir / "wiki"
             result = generate_wiki(store, wiki_dir, force=args.force)
             total = result["pages_generated"] + result["pages_updated"] + result["pages_unchanged"]
             print(

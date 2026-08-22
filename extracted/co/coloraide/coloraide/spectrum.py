@@ -46,10 +46,10 @@ def xy_to_angle(xy: VectorLike, white: VectorLike, offset: float = 0.0, invert: 
         norm = alg.multiply(norm, -1, dims=alg.D1_SC)
     if offset:
         angle = (alg.rect_to_polar(*norm)[1] - offset) % 360.0
-        if angle < 1e-12:
-            angle = 360.0
     else:
         angle = alg.rect_to_polar(*norm)[1]
+    if angle <= alg.ATOL:
+        angle = 360.0
     return angle
 
 
@@ -102,15 +102,8 @@ def closest_wavelength(
     dominant = [math.nan, math.nan]
     complementary = [math.nan, math.nan]
 
-    # The detection of precise segments is very sensitive in high wavelength areas.
-    # Cycle the white chromaticity coordinates so that we are comparing against a
-    # white with the usual error that is already present in all other colors.
-    # The xy coordinates we are comparing against in the CMFs are so squished that
-    # this actually makes a difference.
-    white = util.xyz_to_xyY(util.xy_to_xyz(white))[:-1]
-
     # Achromatic, no wavelength
-    if all(abs(a - b) < 1e-12 for a, b in zip(xy, white)):
+    if all(abs(a - b) < alg.ATOL for a, b in zip(xy, white)):
         return w1, dominant, complementary
 
     # Look for first intersection of the line drawn through the white point
@@ -132,22 +125,27 @@ def closest_wavelength(
 
         # Check if our angle is greater than the current locus point's angle
         for j in range(0, 2):
-
-            # If has already been found or we are not aligned with segment, skip
+            # Skip if:
+            # 1. We already found a solution.
+            # 2. Target is not between the two wavelengths.
+            # 3. An exception to (2) is if the range overlaps due to floating point noise.
+            #    Then we test if the target is larger than the previous when this overlap occurs.
             target = invert if j else current
-            if found[j] or not (a_prev >= target >= a_next):
+            if found[j] or not (a_prev >= target and (target > a_next or (a_next > target and a_next > a_prev))):
                 continue
 
             # Linear interpolation of a non-linear curve will yield some offset from our current angle.
             # While the angle is likely to be "good enough", we can do better.
             # Go with the best approximation we can find.
-            f, _ = alg.solve_bisect(
+            f, converged = alg.solve_bisect(
                 0,
                 1,
                 f=compare_angle,
                 args=(cmfs_, locus_start + i0, locus_start + i, target, white, offset),
-                start=alg.ilerp(a_prev, a_next, target)
             )
+            if not converged:  # pragma: no cover
+                continue
+
             w = alg.lerp(locus_start + i0, locus_start + i, f)
             intersect = cmfs_.xy(w)
 

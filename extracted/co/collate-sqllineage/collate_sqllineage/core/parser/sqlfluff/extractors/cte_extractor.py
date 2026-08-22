@@ -59,7 +59,10 @@ class DmlCteExtractor(LineageHolderExtractor):
                     ),
                 )
 
-            if segment.type == "insert_statement":
+            if segment.type in DmlInsertExtractor.SUPPORTED_STMT_TYPES:
+                # Every DML statement the insert extractor handles can follow a WITH
+                # clause, not only INSERT. Dispatching on insert_statement alone drops
+                # the write target of, say, `WITH c AS (...) UPDATE t SET ... FROM c`.
                 holder |= DmlInsertExtractor(self.dialect).extract(
                     segment,
                     AnalyzerContext(prev_cte=holder.cte),

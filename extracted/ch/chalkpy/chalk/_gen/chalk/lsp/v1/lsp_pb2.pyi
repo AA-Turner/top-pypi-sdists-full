@@ -1,3 +1,4 @@
+from chalk._gen.chalk.lsp.v1 import range_pb2 as _range_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -9,6 +10,8 @@ from typing import (
     Optional as _Optional,
     Union as _Union,
 )
+from chalk._gen.chalk.lsp.v1.range_pb2 import Range as Range
+from chalk._gen.chalk.lsp.v1.range_pb2 import Position as Position
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -87,7 +90,7 @@ class Diagnostic(_message.Message):
     CODE_FIELD_NUMBER: _ClassVar[int]
     CODE_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     RELATED_INFORMATION_FIELD_NUMBER: _ClassVar[int]
-    range: Range
+    range: _range_pb2.Range
     message: str
     severity: DiagnosticSeverity
     code: str
@@ -95,31 +98,13 @@ class Diagnostic(_message.Message):
     related_information: _containers.RepeatedCompositeFieldContainer[DiagnosticRelatedInformation]
     def __init__(
         self,
-        range: _Optional[_Union[Range, _Mapping]] = ...,
+        range: _Optional[_Union[_range_pb2.Range, _Mapping]] = ...,
         message: _Optional[str] = ...,
         severity: _Optional[_Union[DiagnosticSeverity, str]] = ...,
         code: _Optional[str] = ...,
         code_description: _Optional[_Union[CodeDescription, _Mapping]] = ...,
         related_information: _Optional[_Iterable[_Union[DiagnosticRelatedInformation, _Mapping]]] = ...,
     ) -> None: ...
-
-class Range(_message.Message):
-    __slots__ = ("start", "end")
-    START_FIELD_NUMBER: _ClassVar[int]
-    END_FIELD_NUMBER: _ClassVar[int]
-    start: Position
-    end: Position
-    def __init__(
-        self, start: _Optional[_Union[Position, _Mapping]] = ..., end: _Optional[_Union[Position, _Mapping]] = ...
-    ) -> None: ...
-
-class Position(_message.Message):
-    __slots__ = ("line", "character")
-    LINE_FIELD_NUMBER: _ClassVar[int]
-    CHARACTER_FIELD_NUMBER: _ClassVar[int]
-    line: int
-    character: int
-    def __init__(self, line: _Optional[int] = ..., character: _Optional[int] = ...) -> None: ...
 
 class CodeAction(_message.Message):
     __slots__ = ("title", "diagnostics", "edit")
@@ -164,9 +149,11 @@ class TextEdit(_message.Message):
     __slots__ = ("range", "new_text")
     RANGE_FIELD_NUMBER: _ClassVar[int]
     NEW_TEXT_FIELD_NUMBER: _ClassVar[int]
-    range: Range
+    range: _range_pb2.Range
     new_text: str
-    def __init__(self, range: _Optional[_Union[Range, _Mapping]] = ..., new_text: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self, range: _Optional[_Union[_range_pb2.Range, _Mapping]] = ..., new_text: _Optional[str] = ...
+    ) -> None: ...
 
 class CodeDescription(_message.Message):
     __slots__ = ("href",)
@@ -189,5 +176,7 @@ class Location(_message.Message):
     URI_FIELD_NUMBER: _ClassVar[int]
     RANGE_FIELD_NUMBER: _ClassVar[int]
     uri: str
-    range: Range
-    def __init__(self, uri: _Optional[str] = ..., range: _Optional[_Union[Range, _Mapping]] = ...) -> None: ...
+    range: _range_pb2.Range
+    def __init__(
+        self, uri: _Optional[str] = ..., range: _Optional[_Union[_range_pb2.Range, _Mapping]] = ...
+    ) -> None: ...

@@ -1,12 +1,10 @@
-"""A collection of functions which are triggered automatically by finder when
-setuptools package is included.
-"""
+"""Hooks triggered by finder when setuptools package is included."""
 
 from __future__ import annotations
 
-import importlib.metadata
 import os
 import sys
+from importlib import metadata
 from typing import TYPE_CHECKING
 
 from packaging.requirements import Requirement
@@ -28,18 +26,21 @@ class Hook(ModuleHook):
     """
 
     def setuptools(self, finder: ModuleFinder, module: Module) -> None:
-        """The setuptools must load the _distutils and _vendor subpackage."""
+        """Include _distutils and _vendor subpackage of setuptools."""
         finder.exclude_module("setuptools.tests")
         finder.exclude_module("setuptools._distutils.tests")
+        finder.exclude_module("setuptools._distutils.compilers.C.tests")
         finder.exclude_module("setuptools._vendor")
-        finder.include_package("setuptools._distutils")
+        finder.add_alias("distutils", "setuptools._distutils")
+        if module.in_file_system == 1:
+            module.in_file_system = 2
 
         try:
-            requires = importlib.metadata.requires(module.name)
-        except importlib.metadata.PackageNotFoundError:
+            requires = metadata.requires(module.name)
+        except metadata.PackageNotFoundError:
             requires = None
         if requires:
-            core_names = set()
+            core_names: set[str] = set()
             for requirement_string in requires:
                 require = Requirement(requirement_string)
                 if require.marker is None:
@@ -47,22 +48,26 @@ class Hook(ModuleHook):
                 if require.marker.evaluate({"extra": "core"}):
                     core_names.add(require.name)
         else:
-            core_names = (
+            core_names = {
                 "jaraco.functools",
                 "jaraco.text",
                 "more_itertools",
                 "packaging",
                 "platformdirs",
                 "wheel",
-            )
+            }
         failed = [
             name
             for name in core_names
             if finder.include_module(name, module) is None
         ]
-        vendor = module.file.parent / "_vendor"
-        if vendor.is_dir():
-            finder.path.append(os.path.normpath(vendor))
+        if not failed:
+            return
+        if module.file is None:  # to satisfy ty
+            return
+        vendor_dir = module.file.parent / "_vendor"
+        if vendor_dir.is_dir():
+            finder.path.append(os.path.normpath(vendor_dir))
             for name in failed:
                 finder.include_module(name, module)
             finder.path.pop()
@@ -84,10 +89,14 @@ class Hook(ModuleHook):
         else:
             module.ignore_names.add("tomllib")
             if finder.include_module("tomli", module) is None:
-                vendor = os.path.normpath(module.root.file.parent / "_vendor")
-                finder.path.append(vendor)
-                finder.include_module("tomli")
-                finder.path.pop()
+                if module.root.file is None:  # to make ty happy
+                    return
+                root_dir = module.root.file.parent
+                vendor_dir = root_dir / "_vendor"
+                if vendor_dir.is_dir():
+                    finder.path.append(os.path.normpath(vendor_dir))
+                    finder.include_module("tomli")
+                    finder.path.pop()
 
     def setuptools_config__validate_pyproject_formats(
         self, _finder: ModuleFinder, module: Module
@@ -100,7 +109,9 @@ class Hook(ModuleHook):
     def setuptools_extension(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
-        """The setuptools.extension module optionally loads
+        """Ignore optional modules.
+
+        The setuptools.extension module optionally loads
         Pyrex.Distutils.build_ext but its absence is not considered an error.
         """
         module.ignore_names.update(

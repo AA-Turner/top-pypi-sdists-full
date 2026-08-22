@@ -302,7 +302,10 @@ NB_MODULE(test_classes_ext, m) {
     nb::class_<PairStruct>(m, "PairStruct")
         .def(nb::init<>())
         .def_rw("s1", &PairStruct::s1, "A documented property")
-        .def_rw("s2", &PairStruct::s2);
+        .def_rw("s2", &PairStruct::s2)
+        // An explicit policy must override the implicit 'reference_internal'
+        .def_prop_ro("s1_copy", [](PairStruct &p) -> Struct & { return p.s1; },
+                     nb::rv_policy::copy);
 
     // Test case for issue #1074
     nb::class_<InitListTest>(m, "InitListTest")
@@ -411,7 +414,7 @@ NB_MODULE(test_classes_ext, m) {
     // test10_trampoline_failures
 
     struct PyAnimal : Animal {
-        NB_TRAMPOLINE(Animal, 3);
+        NB_TRAMPOLINE(Animal);
 
         PyAnimal() {
             default_constructed++;
@@ -442,7 +445,7 @@ NB_MODULE(test_classes_ext, m) {
     };
 
     struct PyDog : Dog {
-        NB_TRAMPOLINE(Dog, 2);
+        NB_TRAMPOLINE(Dog);
 
         PyDog(const std::string &s) : Dog(s) { }
 
@@ -537,6 +540,9 @@ NB_MODULE(test_classes_ext, m) {
         .def(nb::init_implicit<const B *>())
         .def(nb::init_implicit<int>())
         .def(nb::init_implicit<float>())
+        // Unannotated copy constructor: must dispatch via the simple fast
+        // path without recursing into the implicit conversion constructors
+        .def(nb::init<const D &>())
         .def_rw("value", &D::value);
 
     m.def("get_d", [](const D &d) { return d.value; });
@@ -980,7 +986,20 @@ NB_MODULE(test_classes_ext, m) {
     };
 
     struct PyConstexprClass : ConstexprClass {
+        // Deliberate use of the obsolete two-argument form to keep it compiling
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#else
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
         NB_TRAMPOLINE(ConstexprClass, 1);
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#else
+#  pragma GCC diagnostic pop
+#endif
 
         int getInt() const override {
             NB_OVERRIDE(getInt);
@@ -999,4 +1018,58 @@ NB_MODULE(test_classes_ext, m) {
         .def_static("make_ref", &NeverDestruct::make, nb::rv_policy::reference)
         .def("var", &NeverDestruct::var)
         .def("set_var", &NeverDestruct::set_var);
+
+    // test62_type_namespace
+    m.def("type_dict", [](nb::handle t) -> nb::object {
+        nb::dict d = nb::type_dict(t);
+        if (!d.is_valid())
+            return nb::none();
+        return d;
+    });
+
+    m.def("type_dict_insert", [](nb::handle t, const char *name, nb::handle value) {
+        nb::type_dict(t)[name] = value;
+        PyType_Modified((PyTypeObject *) t.ptr());
+    });
+
+    m.def("type_lookup", [](nb::handle t, const char *name) -> nb::object {
+        nb::object o = nb::type_lookup(t, name);
+        if (!o.is_valid())
+            return nb::none();
+        return o;
+    });
+
+    m.def("type_lookup_key", [](nb::handle t, nb::handle name) -> nb::object {
+        nb::object o = nb::type_lookup(t, name);
+        if (!o.is_valid())
+            return nb::none();
+        return o;
+    });
+
+    // test63_freeze
+    struct Frozen { int value = 3; };
+    nb::class_<Frozen>(m, "Frozen")
+        .def(nb::init<>())
+        .def_rw("value", &Frozen::value)
+        .freeze();
+
+    // The same via the low-level interface, which also reports whether the
+    // current build and interpreter can freeze types at all
+    struct Frozen2 { };
+    auto frozen2 = nb::class_<Frozen2>(m, "Frozen2").def(nb::init<>());
+    bool frozen2_ok = nb::type_freeze(frozen2);
+    m.def("freeze_supported", [frozen2_ok] { return frozen2_ok; });
+    m.def("freeze_type", [](nb::handle t) { return nb::type_freeze(t); });
+
+    // test64_inst_dict
+    m.def("inst_dict", [](nb::handle h) -> nb::object {
+        nb::dict d = nb::inst_dict(h);
+        if (!d.is_valid())
+            return nb::none();
+        return d;
+    });
+
+    m.def("inst_dict_insert", [](nb::handle h, const char *name, nb::handle value) {
+        nb::inst_dict(h)[name] = value;
+    });
 }

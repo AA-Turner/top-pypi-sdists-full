@@ -35,6 +35,7 @@ from langgraph_grpc_common.proto import checkpointer_pb2
 
 if TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
+    from langgraph.checkpoint.base import DeltaChannelHistory
     from langgraph.checkpoint.serde.base import SerializerProtocol
 
     from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
@@ -86,8 +87,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
             self._loop = None
 
     def _scoped(self) -> AbstractContextManager[None]:
-        """Bind ``self._serializer`` for the duration of a conversion call.
-        """
+        """Bind ``self._serializer`` for the duration of a conversion call."""
         if self._serializer is None:
             return nullcontext()
         return _grpc_serde.use_serializer(self._serializer)
@@ -346,7 +346,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         *,
         config: RunnableConfig,
         channels: Sequence[str],
-    ) -> Mapping[str, dict[str, Any]]:
+    ) -> Mapping[str, DeltaChannelHistory]:
         """Synchronous wrapper for ``aget_delta_channel_history``.
 
         langgraph >= 1.2 calls the async variant from the loop, but the
@@ -361,7 +361,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         *,
         config: RunnableConfig,
         channels: Sequence[str],
-    ) -> Mapping[str, dict[str, Any]]:
+    ) -> Mapping[str, DeltaChannelHistory]:
         if not channels:
             return {}
         configurable = config.get("configurable", {}) if config else {}
@@ -391,4 +391,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 )
             raise
         with self._scoped():
-            return ckpt_conv.delta_channel_history_from_proto(response.entries)
+            return cast(
+                "Mapping[str, DeltaChannelHistory]",
+                ckpt_conv.delta_channel_history_from_proto(response.entries),
+            )

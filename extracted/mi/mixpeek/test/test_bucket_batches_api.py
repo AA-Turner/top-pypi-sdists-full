@@ -163,7 +163,7 @@ class TestBucketBatchesApi(unittest.TestCase):
     def test_retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector(self) -> None:
         """Test case for retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector
 
-        Retry Vector Write from S3
+        Retry Vector Write from Object Storage
         """
         pass
 

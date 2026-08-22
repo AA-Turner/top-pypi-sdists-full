@@ -84,7 +84,7 @@ from chalk.parsed._proto.utils import (
 from chalk.parsed.expressions import is_valid_operation
 from chalk.queries.materialized_feature_view import MaterializedFeatureView
 from chalk.queries.named_query import NamedQuery
-from chalk.sql._internal.sql_settings import SQLResolverSettings
+from chalk.sql._internal.sql_settings import SQLResolverRetryPolicy, SQLResolverSettings
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.sql.finalized_query import Finalizer, IncrementalSettings
 from chalk.stores.online_store_config import OnlineStoreConfig
@@ -1929,7 +1929,33 @@ class ToProtoConverter:
         )
         if source.use_native_sql is not None:
             settings.use_native_sql = source.use_native_sql
+        # `retry_policy` was added to `SQLResolverSettings` after this converter, so read it
+        # reflectively: chalkpy is also imported by hosts pinned to an older dataclass.
+        retry_policy = getattr(source, "retry_policy", None)
+        if retry_policy is not None:
+            settings.retry_policy.CopyFrom(cls.convert_sql_retry_policy(retry_policy))
         return settings
+
+    @classmethod
+    def convert_sql_retry_policy(cls, source: SQLResolverRetryPolicy) -> pb.SQLResolverRetryPolicy:
+        policy = pb.SQLResolverRetryPolicy()
+        if source.if_not_found is not None:
+            policy.if_not_found.exp.CopyFrom(
+                pb.SQLResolverExponentialBackoff(
+                    factor=source.if_not_found.factor,
+                    n_retries=source.if_not_found.n_retries,
+                    base_ns=source.if_not_found.base_ns,
+                )
+            )
+        if source.if_timeout is not None:
+            policy.if_timeout.exp.CopyFrom(
+                pb.SQLResolverExponentialBackoff(
+                    factor=source.if_timeout.factor,
+                    n_retries=source.if_timeout.n_retries,
+                    base_ns=source.if_timeout.base_ns,
+                )
+            )
+        return policy
 
     @classmethod
     def convert_finalizer(cls, source: Finalizer) -> pb.Finalizer:

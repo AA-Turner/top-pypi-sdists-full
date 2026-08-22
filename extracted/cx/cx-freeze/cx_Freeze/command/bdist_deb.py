@@ -9,13 +9,13 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from setuptools import Command
 
 from cx_Freeze._compat import IS_LINUX
 from cx_Freeze.command.bdist_rpm import bdist_rpm
-from cx_Freeze.exception import ExecError, PlatformError
+from cx_Freeze.exception import ExecError, FileError, PlatformError
 
 __all__ = ["bdist_deb"]
 
@@ -45,6 +45,10 @@ class bdist_deb(Command):
         self.bdist_base = None
         self.build_dir = None
         self.dist_dir = None
+        if hasattr(os, "getuid"):
+            self._uid = os.getuid()
+        else:
+            self._uid = 0
 
     def finalize_options(self) -> None:
         if not IS_LINUX:
@@ -53,7 +57,7 @@ class bdist_deb(Command):
         if not shutil.which("alien"):
             msg = "failed to find 'alien' for this platform."
             raise PlatformError(msg)
-        if os.getuid() != 0 and not shutil.which("fakeroot"):
+        if self._uid != 0 and not shutil.which("fakeroot"):
             msg = "failed to find 'fakeroot' for this platform."
             raise PlatformError(msg)
 
@@ -66,10 +70,11 @@ class bdist_deb(Command):
 
     def run(self) -> None:
         # make a binary RPM to convert
+        dist_dir = cast("str", self.dist_dir)
         cmd_rpm = bdist_rpm(
             self.distribution,
             bdist_base=self.bdist_base,
-            dist_dir=self.dist_dir,
+            dist_dir=dist_dir,
         )
         cmd_rpm.ensure_finalized()
         cmd_rpm.run()
@@ -79,13 +84,13 @@ class bdist_deb(Command):
                 rpm_filename = os.path.basename(filename)
                 break
         if rpm_filename is None:
-            msg = "could not build rpm"
-            raise ExecError(msg)
+            msg = "could not create rpm filename"
+            raise FileError(msg)
 
         # convert rpm to deb (by default in dist directory)
         logger.info("building DEB")
         cmd = ["alien", "--to-deb", rpm_filename]
-        if os.getuid() != 0:
+        if self._uid != 0:
             cmd.insert(0, "fakeroot")
         logger.info(subprocess.list2cmdline(cmd))
         process = subprocess.run(
@@ -93,7 +98,7 @@ class bdist_deb(Command):
             text=True,
             capture_output=True,
             check=False,
-            cwd=self.dist_dir,
+            cwd=dist_dir,
         )
         if process.returncode != 0:
             msg = process.stderr.splitlines()[0]
@@ -109,7 +114,7 @@ class bdist_deb(Command):
         output = process.stdout
         logger.info(output)
         filename = output.splitlines()[0].split()[0]
-        filename = os.path.join(self.dist_dir, filename)
+        filename = os.path.join(dist_dir, filename)
         if not os.path.exists(filename):
             msg = "could not build deb"
             raise ExecError(msg)
