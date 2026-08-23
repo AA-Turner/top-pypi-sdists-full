@@ -41,6 +41,7 @@ class ExecutionDetail(BaseModel):
     budget: Optional[Dict[str, Any]] = Field(default=None, description="REQUIRED. Budget usage snapshot for this execution. Contains: credits_used (credits consumed), credits_remaining (remaining budget), time_used_ms (execution time), and budget limits. Use this to track resource consumption and enforce budget limits.")
     cached_at: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Unix timestamp (seconds) when this result was cached. Present only when the full response was served from the retriever-level cache. Compute freshness as: time.time() - cached_at.")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. Execution warnings that did not prevent results but indicate potential issues — e.g. filtering on unindexed fields. Empty when there are no warnings.")
+    interpretation: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. What the platform UNDERSTOOD from your request, so a correction or relaxation is visible instead of silent. Keys: provided_input_keys (the inputs you sent), inferred_inputs (schema defaults applied because you omitted the field — name: value), ignored_input_keys (inputs nothing in the pipeline consumes; they had no effect), and relaxations (filter conditions removed because the input they reference was not provided — each names the field, the template, and where it sat; the result set is BROADER than the literal filter when this is non-empty). The literal query text is used AS PROVIDED — no spell-correction step exists; semantic search is typo-tolerant by embedding, which this block does not alter. Stage-level rewrites (e.g. query_expand) report their expansions in stage_statistics.stages.<stage>.metadata.")
     error: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Retriever-level error message if execution failed. Only present when status='failed'. Contains human-readable error description to help diagnose the failure. Check stage_statistics for stage-specific errors.")
     optimization_applied: Optional[StrictBool] = Field(default=False, description="OPTIONAL. Whether automatic pipeline optimizations were applied before execution. Mixpeek automatically optimizes retrieval pipelines for performance by reordering stages, merging operations, and pushing work to the database layer. Optimizations preserve logical equivalence - you get the same results, just faster. When true, see optimization_summary for details about what changed.")
     optimization_summary: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Summary of pipeline optimizations applied before execution. Only present when optimization_applied=true. Contains: - original_stage_count: Number of stages in your original pipeline - optimized_stage_count: Number of stages after optimization - optimization_time_ms: Time spent optimizing (typically <100ms) - rules_applied: List of optimization rules that fired - stage_reduction_pct: Percentage reduction in stage count Use this to understand how the optimizer improved your pipeline. See OptimizationRuleType enum for detailed rule descriptions.")
@@ -50,7 +51,7 @@ class ExecutionDetail(BaseModel):
     current_stage: Optional[StrictStr] = Field(default=None, description="Stage currently running when execution in-flight")
     stages_completed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of stages finished so far")
     total_stages: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Total stages configured")
-    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages"]
+    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "interpretation", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,6 +118,7 @@ class ExecutionDetail(BaseModel):
             "budget": obj.get("budget"),
             "cached_at": obj.get("cached_at"),
             "warnings": obj.get("warnings"),
+            "interpretation": obj.get("interpretation"),
             "error": obj.get("error"),
             "optimization_applied": obj.get("optimization_applied") if obj.get("optimization_applied") is not None else False,
             "optimization_summary": obj.get("optimization_summary"),

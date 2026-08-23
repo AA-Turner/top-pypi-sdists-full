@@ -67,7 +67,14 @@ class TestEvaluationListResponse(unittest.TestCase):
                         total_queries = 56, 
                         evaluated_queries = 56, 
                         skipped_queries = 56, 
-                        error_message = '', )
+                        error_message = '', 
+                        query_results = [
+                            mixpeek.models.query_outcome.QueryOutcome(
+                                query_id = '', 
+                                status = '', 
+                                error = '', 
+                                retrieved_count = 56, )
+                            ], )
                     ],
                 total = 56,
                 page = 56,
@@ -106,7 +113,14 @@ class TestEvaluationListResponse(unittest.TestCase):
                         total_queries = 56, 
                         evaluated_queries = 56, 
                         skipped_queries = 56, 
-                        error_message = '', )
+                        error_message = '', 
+                        query_results = [
+                            mixpeek.models.query_outcome.QueryOutcome(
+                                query_id = '', 
+                                status = '', 
+                                error = '', 
+                                retrieved_count = 56, )
+                            ], )
                     ],
                 total = 56,
                 page = 56,

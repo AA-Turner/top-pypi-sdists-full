@@ -40,6 +40,7 @@ class WebhookEventType(str, Enum):
     COLLECTION_DOT_UPDATED = 'collection.updated'
     COLLECTION_DOT_DELETED = 'collection.deleted'
     COLLECTION_DOT_DOCUMENTS_DOT_WRITTEN = 'collection.documents.written'
+    COLLECTION_DOT_DOCUMENTS_DOT_BATCH_COMPLETED = 'collection.documents.batch_completed'
     CLUSTER_DOT_CREATED = 'cluster.created'
     CLUSTER_DOT_UPDATED = 'cluster.updated'
     CLUSTER_DOT_DELETED = 'cluster.deleted'

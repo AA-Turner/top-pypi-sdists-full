@@ -146,14 +146,15 @@ DelayCf64Obj_ptr (DelayCf64Object *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  /* Hand-patched: jm's generic implicit-count default is a static 1;
-   * doppler's n defaults to the full window (num_taps), computed from
-   * instance state at call time -- jm's manifest has no way to express
-   * that, so the default is restored here after each regeneration. Also
-   * renamed jm's default "count" kwarg to "n" to match this method's
-   * long-standing docstring/test naming. */
-  static char *_kwlist[] = { "n", "out", NULL };
-  Py_ssize_t   n         = (Py_ssize_t)self->handle->num_taps;
+  /* The kwarg is `count` and the default is the whole window. Both are
+   * jm's now, not hand-patches: the manifest's `count_default` (jm
+   * gh-1051) is a C expression evaluated here, which is what lets an
+   * instance-derived default be DECLARED rather than restored after every
+   * regeneration. The name was hand-renamed to `n` for years while every
+   * published face -- the stub, the runtime docstring -- said `count`, so
+   * a caller following either got a TypeError (gh-619). */
+  static char *_kwlist[] = { "count", "out", NULL };
+  Py_ssize_t   n         = (Py_ssize_t)(self->handle->num_taps);
   PyObject    *out_obj   = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "|nO", _kwlist, &n, &out_obj))
     return NULL;
@@ -607,7 +608,7 @@ static PyMethodDef DelayCf64Obj_methods[] = {
     "construction), so read it from the instance rather than assuming a\n"
     "constant.\n"
     "\n"
-    "Raises ``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "Raises ``RuntimeError`` if the DelayCf64 has already been destroyed.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -624,7 +625,7 @@ static PyMethodDef DelayCf64Obj_methods[] = {
     "implementation detail of the C core and is not a stable format across\n"
     "builds.\n"
     "\n"
-    "Raises ``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "Raises ``RuntimeError`` if the DelayCf64 has already been destroyed.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -634,13 +635,13 @@ static PyMethodDef DelayCf64Obj_methods[] = {
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
     "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()` "
-    "before\n"
-    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "was constructed with. Length is validated against `state_bytes()`\n"
+    "before the blob is handed to the C core, and the core may reject it as\n"
+    "well.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"
-    "``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "``RuntimeError`` if the DelayCf64 has already been destroyed.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -661,20 +662,19 @@ static PyMethodDef DelayCf64Obj_methods[] = {
   { "__enter__", (PyCFunction)DelayCf64Obj_enter, METH_NOARGS,
     "Enter a context manager, returning this object.\n"
     "\n"
-    "Lets a Delay be used in a `with` statement so its C resources are\n"
+    "Lets a DelayCf64 be used in a `with` statement so its C resources are\n"
     "released deterministically on exit rather than at collection time.\n"
     "\n"
     "Returns\n"
     "-------\n"
-    "Delay\n"
+    "DelayCf64\n"
     "    This same object, not a copy.\n" },
   { "__exit__", (PyCFunction)DelayCf64Obj_exit, METH_VARARGS,
-    "Exit a context manager, releasing the Delay.\n"
+    "Exit a context manager, releasing the DelayCf64.\n"
     "\n"
     "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
-    "raised inside the `with` body propagates normally; this never "
-    "suppresses\n"
-    "one.\n"
+    "raised inside the `with` body propagates normally; this never\n"
+    "suppresses one.\n"
     "\n"
     "Parameters\n"
     "----------\n"

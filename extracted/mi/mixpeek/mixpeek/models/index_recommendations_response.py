@@ -19,8 +19,9 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.index_recommendation import IndexRecommendation
+from mixpeek.models.recommendation_coverage import RecommendationCoverage
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,7 +33,8 @@ class IndexRecommendationsResponse(BaseModel):
     time_range_days: StrictInt = Field(description="Number of days analyzed")
     recommendations: List[IndexRecommendation] = Field(description="Index recommendations")
     summary: Dict[str, StrictInt] = Field(description="Summary statistics (high_priority, medium_priority, low_priority counts)")
-    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "recommendations", "summary"]
+    coverage: Optional[RecommendationCoverage] = Field(default=None, description="Scope of the recommendations above. An empty list next to a large `slow_queries` count means the slow traffic is not filter-driven, not that the namespace is healthy. Null when the analytics backend could not be read.")
+    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "recommendations", "summary", "coverage"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,9 @@ class IndexRecommendationsResponse(BaseModel):
                 if _item_recommendations:
                     _items.append(_item_recommendations.to_dict())
             _dict['recommendations'] = _items
+        # override the default output from pydantic by calling `to_dict()` of coverage
+        if self.coverage:
+            _dict['coverage'] = self.coverage.to_dict()
         return _dict
 
     @classmethod
@@ -95,7 +100,8 @@ class IndexRecommendationsResponse(BaseModel):
             "namespace_id": obj.get("namespace_id"),
             "time_range_days": obj.get("time_range_days"),
             "recommendations": [IndexRecommendation.from_dict(_item) for _item in obj["recommendations"]] if obj.get("recommendations") is not None else None,
-            "summary": obj.get("summary")
+            "summary": obj.get("summary"),
+            "coverage": RecommendationCoverage.from_dict(obj["coverage"]) if obj.get("coverage") is not None else None
         })
         return _obj
 

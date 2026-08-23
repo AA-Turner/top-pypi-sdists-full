@@ -155,6 +155,8 @@ type _RVC1 = Literal[
     "wrapcauchy",
 ]
 type _AnsariMethod = Literal["auto", "asymptotic", "exact"] | PermutationMethod
+type _WilcoxonMethod = Literal["auto", "exact", "asymptotic", "approx"] | PermutationMethod
+type _ZeroMethod = Literal["wilcox", "pratt", "zsplit"]
 
 type _ObjFun1D = Callable[[float], float | npc.floating]
 type _MinFun1D = Callable[[_ObjFun1D], _HasX] | Callable[[_ObjFun1D], OptimizeResult]
@@ -244,7 +246,7 @@ class Anderson_ksampResult(BaseBunch[np.float64, _Float1D, np.float64]):
     @override
     def __init__(self, /, statistic: np.float64, critical_values: _Float1D, pvalue: np.float64) -> None: ...  # pyrefly:ignore[bad-override]
 
-class WilcoxonResult(BaseBunch[_NDT_co, _NDT_co], Generic[_NDT_co]):  # pyright: ignore[reportInvalidTypeArguments]  # pyrefly: ignore[invalid-variance]  # zuban: ignore[type-var]
+class WilcoxonResult(BaseBunch[_NDT_co, _NDT_co], Generic[_NDT_co]):  # pyright: ignore[reportInvalidTypeArguments]  # zuban: ignore[type-var]
     zstatistic: _NDT_co  # might not be set (depends on `method`)
 
     @property
@@ -694,10 +696,20 @@ def boxcox(
 ) -> tuple[_Float1D, np.float64, _Tuple2[float]]: ...
 
 #
-@overload
-def yeojohnson(x: onp.ToFloat1D, lmbda: None = None, *, nan_policy: NanPolicy = "propagate") -> tuple[_Float1D, np.float64]: ...
-@overload
-def yeojohnson(x: onp.ToFloat1D, lmbda: onp.ToFloat, *, nan_policy: NanPolicy = "propagate") -> _Float1D: ...
+@overload  # +f64, lmbda=None
+def yeojohnson(
+    x: onp.ToFloat64_1D, lmbda: None = None, *, nan_policy: NanPolicy = "propagate"
+) -> tuple[_Float1D, np.float64]: ...
+@overload  # ~f80, lmbda=None
+def yeojohnson(
+    x: onp.ToJustLongDouble1D, lmbda: None = None, *, nan_policy: NanPolicy = "propagate"
+) -> tuple[onp.Array1D[np.longdouble], np.longdouble]: ...
+@overload  # ~floating, lmbda=<given>
+def yeojohnson[FloatingT: npc.floating](
+    x: onp.ToArray1D[FloatingT, FloatingT], lmbda: onp.ToFloat, *, nan_policy: NanPolicy = "propagate"
+) -> onp.Array1D[FloatingT]: ...
+@overload  # +f64, lmbda=<given>
+def yeojohnson(x: onp.ToArray1D[float, npc.integer], lmbda: onp.ToFloat, *, nan_policy: NanPolicy = "propagate") -> _Float1D: ...
 
 #
 @overload
@@ -732,25 +744,44 @@ def boxcox_normmax(
 ) -> onp.Array1D[np.float64]: ...
 
 #
-@overload
+@overload  # ?d +f64 (workaround)
 def yeojohnson_normmax(
-    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    x: onp.ArrayND[npc.floating64 | npc.floating32 | npc.floating16 | npc.integer, _JustAnyShape],
     brack: _Tuple2[onp.ToFloat] | None = None,
     *,
     nan_policy: NanPolicy = "propagate",
 ) -> onp.Array1D[np.float64] | np.float64: ...
-@overload
+@overload  # ?d ~f80 (workaround)
 def yeojohnson_normmax(
-    x: onp.ToFloatStrict1D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+    x: onp.ArrayND[npc.floating80, _JustAnyShape],
+    brack: _Tuple2[onp.ToFloat] | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.longdouble] | np.longdouble: ...
+@overload  # +f64, 1d
+def yeojohnson_normmax(
+    x: onp.ToFloat64Strict1D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
 ) -> np.float64: ...
-@overload
+@overload  # ~f80, 1d
 def yeojohnson_normmax(
-    x: onp.ToFloatStrict2D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+    x: onp.ToJustLongDoubleStrict1D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+) -> np.longdouble: ...
+@overload  # +f64, 2d
+def yeojohnson_normmax(
+    x: onp.ToFloat64Strict2D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
 ) -> onp.Array1D[np.float64]: ...
-@overload
+@overload  # ~f80, 2d
 def yeojohnson_normmax(
-    x: onp.ToFloatND, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+    x: onp.ToJustLongDoubleStrict2D, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+) -> onp.Array1D[np.longdouble]: ...
+@overload  # +f64, ?d
+def yeojohnson_normmax(
+    x: onp.ToFloat64_ND, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
 ) -> onp.Array1D[np.float64] | np.float64: ...
+@overload  # ~f80, ?d
+def yeojohnson_normmax(
+    x: onp.ToJustLongDoubleND, brack: _Tuple2[onp.ToFloat] | None = None, *, nan_policy: NanPolicy = "propagate"
+) -> onp.Array1D[np.longdouble] | np.longdouble: ...
 
 #
 def boxcox_normplot(
@@ -770,7 +801,7 @@ def yeojohnson_normplot(
     "`MonteCarloMethod` to approximate the p-value via Monte Carlo simulation. "
     "When `method` is specified, the result object will include a `pvalue` attribute and not attributes `critical_value`, "
     "`significance_level`, or `fit_result`. "
-    "Beginning in 1.19.0, these other attributes will no longer be available, "
+    "Beginning in 2.0.0, these other attributes will no longer be available, "
     "and a p-value will always be computed according to one of the available `method` options.",
     category=FutureWarning,
 )
@@ -784,7 +815,7 @@ def anderson(
 @overload
 @deprecated(
     "Parameter `variant` has been introduced to replace `midrank`; "
-    "`midrank` will be removed in SciPy 1.19.0. Specify `variant` to silence this warning. "
+    "`midrank` will be removed in SciPy 2.0.0. Specify `variant` to silence this warning. "
     "Note that the returned object will no longer be unpackable as a tuple, and `critical_values` will be omitted."
 )
 def anderson_ksamp(
@@ -961,40 +992,79 @@ def mood(
 ) -> SignificanceResult[np.float64 | onp.ArrayND[np.float64]]: ...
 
 #
-@overload
+@overload  # ?d, axis=None
 def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
-    zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
+    zero_method: _ZeroMethod = "wilcox",
     correction: bool = False,
     alternative: Alternative = "two-sided",
-    method: Literal["auto", "exact", "approx"] | PermutationMethod = "auto",
+    method: _WilcoxonMethod = "auto",
     *,
     axis: None,
     nan_policy: NanPolicy = "propagate",
     keepdims: Literal[False] = False,
 ) -> WilcoxonResult[np.float64]: ...
-@overload
+@overload  # ?d, keepdims=True
 def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
-    zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
+    zero_method: _ZeroMethod = "wilcox",
     correction: bool = False,
     alternative: Alternative = "two-sided",
-    method: Literal["auto", "exact", "approx", "asymptotic"] | PermutationMethod = "auto",
+    method: _WilcoxonMethod = "auto",
     *,
     axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: Literal[True],
 ) -> WilcoxonResult[onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # ?d
+def wilcoxon(
+    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    y: onp.ToFloat | onp.ToFloatND | None = None,
+    zero_method: _ZeroMethod = "wilcox",
+    correction: bool = False,
+    alternative: Alternative = "two-sided",
+    method: _WilcoxonMethod = "auto",
+    *,
+    axis: SupportsIndex | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: Literal[False] = False,
+) -> WilcoxonResult: ...
+@overload  # 1d
+def wilcoxon(
+    x: onp.ToFloatStrict1D,
+    y: onp.ToFloatStrict1D | None = None,
+    zero_method: _ZeroMethod = "wilcox",
+    correction: bool = False,
+    alternative: Alternative = "two-sided",
+    method: _WilcoxonMethod = "auto",
+    *,
+    axis: SupportsIndex | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: Literal[False] = False,
+) -> WilcoxonResult[np.float64]: ...
+@overload  # 2d
+def wilcoxon(
+    x: onp.ToFloatStrict2D,
+    y: onp.ToFloatStrict2D | None = None,
+    zero_method: _ZeroMethod = "wilcox",
+    correction: bool = False,
+    alternative: Alternative = "two-sided",
+    method: _WilcoxonMethod = "auto",
+    *,
+    axis: SupportsIndex = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: Literal[False] = False,
+) -> WilcoxonResult[onp.Array1D[np.float64]]: ...
+@overload  # fallback
 def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
-    zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
+    zero_method: _ZeroMethod = "wilcox",
     correction: bool = False,
     alternative: Alternative = "two-sided",
-    method: Literal["auto", "exact", "approx"] | PermutationMethod = "auto",
+    method: _WilcoxonMethod = "auto",
     *,
     axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",

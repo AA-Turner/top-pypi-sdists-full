@@ -1,11 +1,10 @@
+from collections.abc import (
+    Sequence,
+)
 import enum
 from typing import (
     Any,
-    Dict,
-    Sequence,
-    Tuple,
     TypedDict,
-    Union,
 )
 
 from eth_keys.datatypes import (
@@ -19,12 +18,18 @@ from hexbytes import (
     HexBytes,
 )
 
-Blobs = Sequence[Union[bytes, HexBytes]]
+Blobs = Sequence[bytes | HexBytes]
 Bytes32 = bytes
-PrivateKeyType = Union[Bytes32, int, HexStr, PrivateKey]
+PrivateKeyType = Bytes32 | int | HexStr | PrivateKey
 
-AccessList = Sequence[Dict[str, Union[HexStr, Sequence[HexStr]]]]
-RLPStructuredAccessList = Sequence[Sequence[Union[HexStr, Sequence[HexStr]]]]
+
+class AccessListEntry(TypedDict):
+    address: HexStr
+    storageKeys: Sequence[HexStr]
+
+
+AccessList = Sequence[AccessListEntry]
+RLPStructuredAccessList = Sequence[tuple[HexStr, Sequence[HexStr]]]
 
 
 class AuthorizationDict(TypedDict):
@@ -41,10 +46,10 @@ class SignedAuthorizationDict(AuthorizationDict):
 
 AuthorizationList = Sequence[SignedAuthorizationDict]
 RLPStructuredAuthorizationList = Sequence[
-    Tuple[int, HexAddress, int, int, HexStr, HexStr]
+    tuple[int, HexAddress, int, int, HexStr, HexStr]
 ]
 
-TransactionDictType = Dict[str, Union[AccessList, bytes, HexStr, int]]
+TransactionDictType = dict[str, AccessList | bytes | HexStr | int]
 
 
 class Language(enum.Enum):

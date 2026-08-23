@@ -58,6 +58,7 @@ import time
 import threading
 import select
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 from flask import (
     Flask,
     render_template_string,
@@ -326,7 +327,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.750"
+__version__ = "0.12.759"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -378,7 +379,11 @@ SESSIONS_DIR = None
 USER_NAME = None
 GATEWAY_URL = None  # e.g. http://localhost:18789
 GATEWAY_TOKEN = None  # Bearer token for /tools/invoke
-CET = timezone(timedelta(hours=1))
+# Removed: a fixed UTC+1 with no DST handling. It was wrong for Europe half
+# the year and for everyone else all year, and it made this file's cost
+# windows disagree with every other cost surface. Use
+# clawmetry.cost_windows.now_local() for windows and .astimezone() for
+# display. Guarded by tests/test_cost_windows_one_definition.py.
 # SSE_MAX_SECONDS moved to helpers/streams.py (re-exported above)
 # Stream-slot caps + state moved to helpers/streams.py (re-exported above)
 # _active_brain_stream_clients moved to helpers/streams.py
@@ -895,7 +900,7 @@ def _otel_cost_is_fresh(since_ts: float) -> bool:
     return False
 
 
-def _duckdb_cost_since(since_iso: str) -> float:
+def _duckdb_cost_since(since_iso: str) -> Optional[float]:
     """Sum billable-turn USD over the ``events`` table since ``since_iso``.
 
     Reuses the v3-aware helpers from ``clawmetry.local_store`` so every
@@ -932,7 +937,13 @@ def _duckdb_cost_since(since_iso: str) -> float:
             store = local_store.get_store(read_only=True)
             rows = store.query_aggregates(since=since_iso)
         except Exception:
-            return 0.0
+            # A read that FAILED is not a window that cost $0.00. Returning
+            # 0.0 here made a transient daemon-proxy timeout or writer-lock
+            # contention indistinguishable from a genuinely idle window, and
+            # the caller then published that zero as fact. Signal absence.
+            return None
+    if rows is None:
+        return None
     total = 0.0
     for r in rows or []:
         try:
@@ -956,19 +967,11 @@ def _get_budget_status():
     global _budget_paused, _budget_paused_at, _budget_paused_reason
     config = _get_budget_config()
     now = time.time()
-    today_start = (
-        datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-    )
-    week_start = (
-        (datetime.now() - timedelta(days=datetime.now().weekday()))
-        .replace(hour=0, minute=0, second=0, microsecond=0)
-        .timestamp()
-    )
-    month_start = (
-        datetime.now()
-        .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        .timestamp()
-    )
+    # Same calendar-local windows every other cost surface uses. Sampling
+    # datetime.now() three separate times could also straddle midnight.
+    from clawmetry.cost_windows import window_start_epochs
+
+    today_start, week_start, month_start = window_start_epochs()
 
     daily_spent = 0.0
     weekly_spent = 0.0
@@ -1000,10 +1003,18 @@ def _get_budget_status():
             duck_daily   = _duckdb_cost_since(daily_iso)
             duck_weekly  = _duckdb_cost_since(weekly_iso)
             duck_monthly = _duckdb_cost_since(monthly_iso)
+            # These are three INDEPENDENT reads. Pre-fix each one degraded to
+            # 0.0 on failure, so a transient timeout on the daily call while
+            # the monthly call succeeded published daily=$0.00 next to a real
+            # month -- a triple mixing fact and failure, flipping back on the
+            # next poll. That is the "numbers change every few seconds" a
+            # customer reported on 2026-08-22. Promote all three or none.
+            _duck = (duck_daily, duck_weekly, duck_monthly)
+            _duck_ok = all(v is not None for v in _duck)
             # Only switch sources when DuckDB has *something* to report.
             # An empty store on a brand-new install should look the same as
             # an empty OTLP buffer (daily_spent=0), not crash the evaluator.
-            if duck_monthly > 0 or duck_weekly > 0 or duck_daily > 0:
+            if _duck_ok and any(v > 0 for v in _duck):
                 daily_spent   = duck_daily
                 weekly_spent  = duck_weekly
                 monthly_spent = duck_monthly
@@ -3754,7 +3765,14 @@ def _detect_disk_mounts():
 
 
 def get_public_ip():
-    """Get the machine's public IP address (useful for cloud/VPS users)."""
+    """Get the machine's public IP address (useful for cloud/VPS users).
+
+    Shadowed by the second definition further down this file, which is the one
+    that actually runs. Gated identically so the dead copy cannot reintroduce
+    an ungated third-party call if the definitions are ever reordered.
+    """
+    if _egress_suppressed():
+        return None
     try:
         import urllib.request
 
@@ -3796,8 +3814,11 @@ DASHBOARD_HTML = r"""
 <title>ClawMetry</title>
 <link rel="icon" href="/favicon.ico" type="image/x-icon">
 <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;700&family=Noto+Sans+Hebrew:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Self-hosted webfonts. A page load must never contact a third party: an
+     air-gapped install has no route to Google, and in the EU an embedded
+     Google Fonts request discloses the viewer's IP to a US processor with
+     no legal basis. Regenerate with scripts/vendor_fonts.py. -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css', v=version) }}">
 <style>
   :root {
     /* Light theme (default) */
@@ -4812,8 +4833,8 @@ document.addEventListener('click', function(e) {
 
 <script src="{{ url_for('static', filename='vendor/marked.min.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='vendor/purify.min.js', v=version) }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-adapter-date-fns.bundle.min.js', v=version) }}"></script>
 </head>
 <body data-theme="dark" class="booting">
 <!-- Login overlay -->
@@ -8917,7 +8938,11 @@ SESSIONS_DIR = None
 USER_NAME = None
 GATEWAY_URL = None  # e.g. http://localhost:18789
 GATEWAY_TOKEN = None  # Bearer token for /tools/invoke
-CET = timezone(timedelta(hours=1))
+# Removed: a fixed UTC+1 with no DST handling. It was wrong for Europe half
+# the year and for everyone else all year, and it made this file's cost
+# windows disagree with every other cost surface. Use
+# clawmetry.cost_windows.now_local() for windows and .astimezone() for
+# display. Guarded by tests/test_cost_windows_one_definition.py.
 # SSE_MAX_SECONDS moved to helpers/streams.py (re-exported above)
 # Stream-slot caps + state moved to helpers/streams.py (re-exported above)
 EXTRA_SERVICES = []  # List of {'name': str, 'port': int} from --monitor-service flags
@@ -12830,8 +12855,33 @@ def _detect_disk_mounts():
     return mounts
 
 
+def _egress_suppressed():
+    """Whether discretionary outbound calls are disabled for this install.
+
+    Thin wrapper so a missing/older clawmetry package can never break startup.
+    Fails CLOSED: if the check itself errors we suppress the call, because the
+    cost of a missing banner line is nothing and the cost of an unexpected
+    third-party request in a customer network is a failed security review.
+    """
+    try:
+        from clawmetry.endpoints import egress_suppressed
+        return egress_suppressed()
+    except Exception:
+        return True
+
+
 def get_public_ip():
-    """Get the machine's public IP address (useful for cloud/VPS users)."""
+    """The machine's public IP, for the "reachable at" startup banner line.
+
+    Returns None instead of calling out when this deployment is not supposed
+    to talk to the internet. api.ipify.org is a third party nobody in an
+    enterprise deployment agreed to, and the request itself discloses that
+    this network runs ClawMetry -- a poor trade for one cosmetic banner line.
+    Suppressed for self-hosted, offline/air-gapped, and repointed-endpoint
+    installs; see docs/EGRESS.md, which documents this as opt-out.
+    """
+    if _egress_suppressed():
+        return None
     try:
         import urllib.request
         return urllib.request.urlopen("https://api.ipify.org", timeout=2).read().decode().strip()
@@ -12867,19 +12917,26 @@ DASHBOARD_HTML = r"""
 <title>ClawMetry</title>
 <link rel="icon" href="/favicon.ico" type="image/x-icon">
 <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;700&family=Noto+Sans+Hebrew:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Self-hosted webfonts. A page load must never contact a third party: an
+     air-gapped install has no route to Google, and in the EU an embedded
+     Google Fonts request discloses the viewer's IP to a US processor with
+     no legal basis. Regenerate with scripts/vendor_fonts.py. -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css', v=version) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=version) }}">
 <script src="{{ url_for('static', filename='js/nav-dropdown.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/alerts.js', v=version) }}" defer></script>
 <script src="{{ url_for('static', filename='js/dives.js', v=version) }}" defer></script>
 <!-- Vendored + pinned (no external CDN, no supply-chain risk): marked renders
      transcript markdown, DOMPurify sanitizes it before it touches innerHTML.
-     See cmSafeMarkdown() in app.js — never call marked.parse() into the DOM directly. -->
+     See cmSafeMarkdown() in app.js — never call marked.parse() into the DOM directly.
+     chart.js + its date adapter are vendored on the same rule. Every file here is
+     byte-compared against its npm registry tarball by scripts/verify_vendor.py,
+     and scripts/verify_no_external_assets.py fails CI on any absolute http(s)
+     asset reference. The dashboard must render fully with zero egress. -->
 <script src="{{ url_for('static', filename='vendor/marked.min.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='vendor/purify.min.js', v=version) }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-adapter-date-fns.bundle.min.js', v=version) }}"></script>
 </head>
 <body data-theme="dark" class="booting has-profile-menu">
 {% include 'partials/overlays.html' %}
@@ -13902,7 +13959,7 @@ FLEET_HTML = r"""
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ClawMetry Fleet</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;700&family=Noto+Sans+Hebrew:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/fonts.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Manrope', sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; }
@@ -17688,18 +17745,29 @@ def _generate_savings_opportunities():
 
 
 def _get_cost_summary():
-    """Calculate cost summary from metrics store."""
-    now = datetime.now(CET)
-    today = now.strftime("%Y-%m-%d")
-    week_start = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-    month_start = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    """Calculate cost summary from metrics store.
+
+    Windows come from ``clawmetry.cost_windows`` so this panel agrees with
+    the budget panel, the cost-optimization route and the cloud snapshot.
+    It used to compute its own: a fixed ``UTC+1`` "today" (no DST, wrong for
+    every non-European user) plus ROLLING 7/30-day weeks and months, while
+    every other cost surface used calendar windows. On a Saturday that alone
+    made this panel's "week" span 8 calendar days against the cloud's 6.
+    """
+    from clawmetry.cost_windows import now_local, window_start_days
+
+    now = now_local()
+    today, week_start, month_start = window_start_days(now)
 
     costs = {"today": 0, "week": 0, "month": 0, "projected": 0}
 
     with _metrics_lock:
         for entry in metrics_store.get("cost", []):
+            # Same timezone as the window boundaries above, or entries near
+            # midnight land in a different day than the window they are being
+            # compared against.
             entry_date = datetime.fromtimestamp(
-                entry.get("timestamp", 0) / 1000, CET
+                entry.get("timestamp", 0) / 1000, now.tzinfo
             ).strftime("%Y-%m-%d")
             entry_cost = entry.get("usd", 0)
 
@@ -17712,13 +17780,15 @@ def _get_cost_summary():
 
     # Project monthly cost based on current daily average
     if costs["month"] > 0:
-        days_in_period = min(
-            30,
-            (now - datetime.strptime(month_start, "%Y-%m-%d").replace(tzinfo=CET)).days
-            + 1,
-        )
+        # Project from month-to-date over the days actually elapsed in THIS
+        # calendar month, then scale to the month's real length. The old form
+        # divided by a rolling-30 window and multiplied by a flat 30.
+        from calendar import monthrange
+        from clawmetry.cost_windows import days_elapsed_in_month
+
+        days_in_period = days_elapsed_in_month(now)
         daily_avg = costs["month"] / days_in_period
-        costs["projected"] = daily_avg * 30
+        costs["projected"] = daily_avg * monthrange(now.year, now.month)[1]
 
     return costs
 
@@ -17887,7 +17957,7 @@ def _get_expensive_operations():
                             break
 
                 tokens = token_entry.get("total", 0) if token_entry else 0
-                time_ago = datetime.fromtimestamp(timestamp / 1000, CET).strftime(
+                time_ago = datetime.fromtimestamp(timestamp / 1000).astimezone().strftime(
                     "%H:%M"
                 )
 
@@ -18350,7 +18420,7 @@ ARCHITECTURE_OVERVIEW = """\
   ┌─────────────────────┐              ┌─────────────────────┐              ┌─────────────────────┐
   │  🤖                 │  READS FILES │  🦞                 │  SHOWS YOU  │  📊                 │
   │  Your AI agents     │ ──────────->  │                     │ ──────────->  │                     │
-  │  Any of 22 runtimes │              │  ClawMetry          │              │  Your browser       │
+  │  Any of 26 runtimes │              │  ClawMetry          │              │  Your browser       │
   │                     │              │  Parses logs +      │              │  localhost:{port}   │
   │  Running normally.  │              │  sessions.          │              │  Live dashboard     │
   │  Nothing changes.   │              │  Serves dashboard.  │              │                     │

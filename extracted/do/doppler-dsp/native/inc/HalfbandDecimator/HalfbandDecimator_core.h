@@ -10,7 +10,7 @@
  * @code
  *   float h[] = { ... };  // num_taps FIR branch coefficients
  *   HalfbandDecimator_state_t *r =
- *       HalfbandDecimator_create(num_taps, h);
+ *       HalfbandDecimator_create(h, num_taps);
  *   float complex out[512];
  *   size_t n = HalfbandDecimator_execute(r, in, 1024, out, 1024);
  *   HalfbandDecimator_destroy(r);
@@ -43,10 +43,10 @@ extern "C"
    * and scipy or the built-in bank helper to design the prototype.
    * Output length is approximately x_len / 2 per execute() call.
    *
-   * @param num_taps  Number of FIR branch coefficients in h.
-   * @param h         Float32 FIR branch coefficients, length num_taps.
-   *                  Must be a symmetric halfband prototype (antisymmetric
-   *                  even-indexed taps zeroed).
+   * @param h      Float32 FIR branch coefficients. Must be a symmetric
+   *               halfband prototype (antisymmetric even-indexed taps
+   *               zeroed).
+   * @param h_len  Number of coefficients in h.
    * @return Non-NULL on success, NULL on invalid args or OOM.
    *
    * @code
@@ -59,8 +59,8 @@ extern "C"
    * (5, 0.5)
    * @endcode
    */
-  HalfbandDecimator_state_t *HalfbandDecimator_create (size_t num_taps,
-                                                       const float *h);
+  HalfbandDecimator_state_t *HalfbandDecimator_create (const float *h,
+                                                       size_t h_len);
 
   /** Free all resources.  NULL is a no-op. */
   void HalfbandDecimator_destroy (HalfbandDecimator_state_t *state);

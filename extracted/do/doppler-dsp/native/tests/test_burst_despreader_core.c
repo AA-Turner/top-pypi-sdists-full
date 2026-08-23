@@ -1,5 +1,7 @@
 #include "burst_despreader/burst_despreader_core.h"
+#include "dp_rng_test.h"
 #include "dp_state_test.h"
+#include "dp_test.h"
 #include <complex.h>
 #include <math.h>
 #include <stdio.h>
@@ -8,17 +10,6 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-
-#define CHECK(cond)                                                           \
-  do                                                                          \
-    {                                                                         \
-      if (!(cond))                                                            \
-        {                                                                     \
-          fprintf (stderr, "FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);    \
-          _fails++;                                                           \
-        }                                                                     \
-    }                                                                         \
-  while (0)
 
 /* Spread `nsym` BPSK bits by `code` (length sf), oversample by sps
  * (rectangular hold), and optionally rotate by a per-sample carrier `f0`
@@ -63,25 +54,13 @@ amb_ber (const uint8_t *rx, const uint8_t *tx, size_t start, size_t nsym)
   return b < 1.0 - b ? b : 1.0 - b;
 }
 
-/* xorshift + Box-Muller unit-variance Gaussian (per component). */
-static float
-gauss2 (uint32_t *st)
-{
-  uint32_t a  = (*st ^= *st << 13, *st ^= *st >> 17, *st ^= *st << 5, *st);
-  uint32_t b  = (*st ^= *st << 13, *st ^= *st >> 17, *st ^= *st << 5, *st);
-  double   r1 = ((double)a + 1.0) / 4294967297.0;
-  double   r2 = ((double)b + 1.0) / 4294967297.0;
-  return (float)(sqrt (-2.0 * log (r1)) * cos (2.0 * M_PI * r2));
-}
-
 int
 main (void)
 {
-  int _fails = 0;
 
   /* Invalid args -> NULL (not a silent zero state). */
-  CHECK (burst_despreader_create (NULL, 0, 1, 2, 0.0, 0.0, 0.05, 0.01)
-         == NULL);
+  DP_CHECK (burst_despreader_create (NULL, 0, 1, 2, 0.0, 0.0, 0.05, 0.01)
+            == NULL);
 
   size_t  sf = 31, sps = 4, nsym = 120;
   uint8_t code[31];
@@ -95,10 +74,10 @@ main (void)
   float complex *burst = make_burst (code, sf, sps, nsym, 0.0, tx, &blen);
   burst_despreader_state_t *d
       = burst_despreader_create (code, sf, sf, sps, 0.0, 0.0, 0.05, 0.01);
-  CHECK (d != NULL);
+  DP_CHECK (d != NULL);
   size_t n_out = burst_despreader_bits (d, burst, blen, rx, nsym);
-  CHECK (n_out == nsym);
-  CHECK (amb_ber (rx, tx, 0, n_out) == 0.0);
+  DP_CHECK (n_out == nsym);
+  DP_CHECK (amb_ber (rx, tx, 0, n_out) == 0.0);
   burst_despreader_destroy (d);
   free (burst);
 
@@ -108,24 +87,24 @@ main (void)
   burst     = make_burst (code, sf, sps, nsym, f0, tx, &blen);
   d         = burst_despreader_create (code, sf, sf, sps, f0, 0.0, 0.05, 0.01);
   n_out     = burst_despreader_bits (d, burst, blen, rx, nsym);
-  CHECK (amb_ber (rx, tx, n_out / 4, n_out) == 0.0);
-  CHECK (fabs (burst_despreader_get_norm_freq (d) - f0) < 1e-4);
-  CHECK (burst_despreader_get_lock_metric (d) > 0.9);
+  DP_CHECK (amb_ber (rx, tx, n_out / 4, n_out) == 0.0);
+  DP_CHECK (fabs (burst_despreader_get_norm_freq (d) - f0) < 1e-4);
+  DP_CHECK (burst_despreader_get_lock_metric (d) > 0.9);
 
   /* (3) reset re-seeds; a second identical run reproduces the first. */
   burst_despreader_reset (d);
   uint8_t *rx2 = malloc (nsym);
   size_t   n2  = burst_despreader_bits (d, burst, blen, rx2, nsym);
-  CHECK (n2 == n_out);
-  CHECK (amb_ber (rx2, tx, n2 / 4, n2) == 0.0);
+  DP_CHECK (n2 == n_out);
+  DP_CHECK (amb_ber (rx2, tx, n2 / 4, n2) == 0.0);
 
   /* (4) property accessors round-trip. */
   burst_despreader_set_bn_carrier (d, 0.06);
-  CHECK (burst_despreader_get_bn_carrier (d) == 0.06);
+  DP_CHECK (burst_despreader_get_bn_carrier (d) == 0.06);
   burst_despreader_set_bn_code (d, 0.02);
-  CHECK (burst_despreader_get_bn_code (d) == 0.02);
+  DP_CHECK (burst_despreader_get_bn_code (d) == 0.02);
   burst_despreader_set_norm_freq (d, 0.001);
-  CHECK (fabs (burst_despreader_get_norm_freq (d) - 0.001) < 1e-9);
+  DP_CHECK (fabs (burst_despreader_get_norm_freq (d) - 0.001) < 1e-9);
   (void)burst_despreader_get_code_phase (d);
   (void)burst_despreader_get_lock_metric (d);
   (void)burst_despreader_get_snr_est (d);
@@ -149,7 +128,15 @@ main (void)
     float    sigma = 1.0f; /* per-component input noise std (A = 1) */
     burst          = make_burst (code, sf, sps, nsym, 0.0, tx, &blen);
     for (size_t i = 0; i < blen; i++)
-      burst[i] += CMPLXF (sigma * gauss2 (&st), sigma * gauss2 (&st));
+      {
+        /* Sequenced: CMPLXF's two arguments are
+           indeterminately sequenced too. gcc and clang happen to
+           agree here (real takes the first draw); pinned anyway,
+           because "they agree today" is not a guarantee. */
+        float n_re = sigma * (float)dp_gauss (&st);
+        float n_im = sigma * (float)dp_gauss (&st);
+        burst[i] += CMPLXF (n_re, n_im);
+      }
     /* Narrow loops: snr_est measures the EFFECTIVE post-loop SNR — the
      * tracking loops' residual phase jitter rotates signal energy into
      * Im, so the estimate sits below the AWGN-only value by the jitter
@@ -157,33 +144,28 @@ main (void)
      * the gap is ~6 dB; at 0.005, ~2 dB). That is the BER-relevant
      * quantity a consumer wants; the window below brackets it. */
     d = burst_despreader_create (code, sf, sf, sps, 0.0, 0.0, 0.005, 0.005);
-    CHECK (burst_despreader_get_stat_n (d) == 0);
-    CHECK (burst_despreader_get_lock_stat (d) == 0.0);
+    DP_CHECK (burst_despreader_get_stat_n (d) == 0);
+    DP_CHECK (burst_despreader_get_lock_stat (d) == 0.0);
     (void)burst_despreader_bits (d, burst, blen, rx, nsym);
-    CHECK (burst_despreader_get_stat_n (d) == nsym);
-    CHECK (burst_despreader_get_lock_metric (d) > 0.85);
+    DP_CHECK (burst_despreader_get_stat_n (d) == nsym);
+    DP_CHECK (burst_despreader_get_lock_metric (d) > 0.85);
     /* AWGN-only post-despread per-component SNR = tsamps = sf*sps at
      * A = sigma = 1; the effective estimate lands under it by the
      * seed-dependent jitter term (bounds sized off a 200-seed sweep). */
     double snr_true = (double)(sf * sps);
     double snr_hat  = burst_despreader_get_snr_est (d);
-    CHECK (snr_hat > 0.3 * snr_true && snr_hat < 1.3 * snr_true);
-    CHECK (burst_despreader_get_lock_stat (d) > 30.0);
+    DP_CHECK (snr_hat > 0.3 * snr_true && snr_hat < 1.3 * snr_true);
+    DP_CHECK (burst_despreader_get_lock_stat (d) > 30.0);
     burst_despreader_reset (d);
-    CHECK (burst_despreader_get_stat_n (d) == 0);
-    CHECK (burst_despreader_get_lock_stat (d) == 0.0);
-    CHECK (burst_despreader_get_snr_est (d) == 0.0);
+    DP_CHECK (burst_despreader_get_stat_n (d) == 0);
+    DP_CHECK (burst_despreader_get_lock_stat (d) == 0.0);
+    DP_CHECK (burst_despreader_get_snr_est (d) == 0.0);
     burst_despreader_destroy (d);
     free (burst);
   }
 
   free (tx);
   free (rx);
-  if (_fails)
-    {
-      fprintf (stderr, "test_burst_despreader_core FAILED (%d)\n", _fails);
-      return 1;
-    }
   /* serializable state — whole-struct (loop_filter children embedded); the
    * owned code pointers are preserved across set_state. */
   {
@@ -197,15 +179,14 @@ main (void)
         = burst_despreader_create (code, 31, 31, 4, 0.0, 0.0, 0.05, 0.01);
     burst_despreader_state_t *b
         = burst_despreader_create (code, 31, 31, 4, 0.0, 0.0, 0.05, 0.01);
-    CHECK (a != NULL && b != NULL);
+    DP_CHECK (a != NULL && b != NULL);
     (void)burst_despreader_steps (a, rx, 256, sym, 8);
     DP_STATE_ROUNDTRIP_TEST (burst_despreader, a, b);
-    CHECK (b->car_phase == a->car_phase && b->acc_p == a->acc_p);
-    CHECK (b->code != NULL && b->code != a->code);
+    DP_CHECK (b->car_phase == a->car_phase && b->acc_p == a->acc_p);
+    DP_CHECK (b->code != NULL && b->code != a->code);
     burst_despreader_destroy (a);
     burst_despreader_destroy (b);
   }
 
-  printf ("test_burst_despreader_core PASSED\n");
-  return 0;
+  DP_TEST_END ("test_burst_despreader_core");
 }

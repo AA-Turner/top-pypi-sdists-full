@@ -19,7 +19,7 @@ nco_create (double norm_freq, uint32_t nmax)
   if (!state)
     return NULL;
   state->phase     = 0;
-  state->phase_inc = nco_norm_to_inc (norm_freq);
+  state->phase_inc = nco_norm_freq_to_inc (norm_freq);
   state->norm_freq = norm_freq;
   state->nmax      = nmax;
   return state;
@@ -81,7 +81,7 @@ nco_get_norm_freq (const nco_state_t *state)
 void
 nco_set_norm_freq (nco_state_t *state, double norm_freq)
 {
-  state->phase_inc = nco_norm_to_inc (norm_freq);
+  state->phase_inc = nco_norm_freq_to_inc (norm_freq);
   state->norm_freq = norm_freq;
 }
 
@@ -108,9 +108,12 @@ nco_get_phase_inc (const nco_state_t *state)
 /* ================================================================== */
 
 /*
- * Pre-allocated buffer size for all generator methods.  The Python
- * extension allocates output buffers of this size at create time; calling
- * with n > 65536 overflows the buffer and is undefined behaviour.
+ * Pre-allocated buffer size for all generator methods: what the Python
+ * binding allocates at create time, NOT a ceiling on the call.  Since
+ * pass_capacity (jm gh-138) every generator here is told the caller's
+ * capacity and clamps to it, and the binding grows its buffer on demand,
+ * so a larger request is served rather than overrunning anything.  This
+ * comment claimed the opposite until it was measured.
  */
 #define NCO_MAX_OUT 65536u
 
@@ -183,14 +186,14 @@ nco_steps_u32_ctrl_max_out (nco_state_t *state)
 }
 
 size_t
-nco_steps_u32_ctrl (nco_state_t *state, const float *ctrl, size_t ctrl_len,
+nco_steps_u32_ctrl (nco_state_t *state, const double *ctrl, size_t ctrl_len,
                     uint32_t *out, size_t max_out)
 {
   /* Emission stops at the caller's capacity (jm gh-138). */
   if (ctrl_len > max_out)
     ctrl_len = max_out;
   for (size_t i = 0; i < ctrl_len; i++)
-    out[i] = nco_step_u32_ctrl (state, (double)ctrl[i]);
+    out[i] = nco_step_u32_ctrl (state, ctrl[i]);
   return ctrl_len;
 }
 
@@ -202,14 +205,14 @@ nco_steps_u32_scaled_ctrl_max_out (nco_state_t *state)
 }
 
 size_t
-nco_steps_u32_scaled_ctrl (nco_state_t *state, const float *ctrl,
+nco_steps_u32_scaled_ctrl (nco_state_t *state, const double *ctrl,
                            size_t ctrl_len, uint32_t *out, size_t max_out)
 {
   /* Emission stops at the caller's capacity (jm gh-138). */
   if (ctrl_len > max_out)
     ctrl_len = max_out;
   for (size_t i = 0; i < ctrl_len; i++)
-    out[i] = nco_step_u32_scaled_ctrl (state, (double)ctrl[i]);
+    out[i] = nco_step_u32_scaled_ctrl (state, ctrl[i]);
   return ctrl_len;
 }
 
@@ -221,13 +224,14 @@ nco_steps_u32_ovf_ctrl_max_out (nco_state_t *state)
 }
 
 size_t
-nco_steps_u32_ovf_ctrl (nco_state_t *state, const float *ctrl, size_t ctrl_len,
-                        uint32_t *out, uint8_t *out1, size_t max_out)
+nco_steps_u32_ovf_ctrl (nco_state_t *state, const double *ctrl,
+                        size_t ctrl_len, uint32_t *out, uint8_t *out1,
+                        size_t max_out)
 {
   /* Emission stops at the caller's capacity (jm gh-138). */
   if (ctrl_len > max_out)
     ctrl_len = max_out;
   for (size_t i = 0; i < ctrl_len; i++)
-    out[i] = nco_step_u32_ovf_ctrl (state, (double)ctrl[i], &out1[i]);
+    out[i] = nco_step_u32_ovf_ctrl (state, ctrl[i], &out1[i]);
   return ctrl_len;
 }

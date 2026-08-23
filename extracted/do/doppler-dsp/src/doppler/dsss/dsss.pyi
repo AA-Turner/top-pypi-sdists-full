@@ -175,6 +175,12 @@ class Despreader:
         decim : int
             Emit every decim-th code period; >= 1.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> import numpy as np
@@ -269,6 +275,13 @@ class Despreader:
         ref_snr_db : float
             Noise-reference estimator SNR in dB (> 0), or 0 to derive from
             n_looks (see dll_configure_lock()).
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_code_lock failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------
@@ -858,6 +871,13 @@ class Acquisition:
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
         CFAR mode index: 0=mean, 1=median, 2=min, 3=max.
 
+    Warns
+    -----
+    UserWarning
+        Emitted after construction when ``underpowered`` holds: ``Acquisition
+        is under-powered: pd_predicted < pd at this cn0_dbhz. Raise cn0_dbhz or
+        narrow doppler_uncertainty.``.
+
     Examples
     --------
     >>> import numpy as np
@@ -986,6 +1006,13 @@ class Acquisition:
         n_noncoh : int
             Non-coherent look count to pin, in `[1,
             ACQ_N_NONCOH_SAFETY_CEILING]`.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_search_raw failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------
@@ -1371,6 +1398,13 @@ class BurstAcquisition:
         n_noncoh : int
             Non-coherent look count to pin, in `[1,
             ACQ_N_NONCOH_SAFETY_CEILING]`.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_search_raw failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------
@@ -2064,6 +2098,15 @@ class DsssReceiver:
         MpskReceiver's differential (rotation- invariant) demap; default 0
         (coherent).
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``DsssReceiver: invalid
+        parameter (need a non-empty code, chip_rate > 0, symbol_rate > 0, spc
+        >= 1, m in {2,4,8}, segments >= 1, sps >= 2 -- sps = 1 cannot carry an
+        m_out, whose smallest legal value is 2 and which MpskReceiver requires
+        sps to reach)``.
+
     Examples
     --------
     >>> import numpy as np
@@ -2148,6 +2191,8 @@ class DsssReceiver:
         ----------
         x : NDArray[np.complex64]
             Input cf32 samples.
+        out : NDArray[np.complex64] | None
+            Output symbols; caller provides max_out capacity.
 
         Returns
         -------
@@ -2224,6 +2269,13 @@ class DsssReceiver:
             buys sensitivity at the cost of dwell, replacing the auto-sized
             count.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_search_raw failed``, with the return code appended
+            (gh-869).
+
         Examples
         --------
         >>> import numpy as np
@@ -2298,7 +2350,7 @@ class DsssReceiver:
         `RateConverter` — never coupled to each other (see the module
         docstring). Rebuilds `dll`/`rc`/`rx` with every replacement allocated
         first, only freeing and adopting the old ones once every allocation has
-        succeeded (mirrors `Acquisition`'s own `_regrid()` discipline) — a
+        succeeded (mirrors `Acquisition`'s own `acq_regrid()` discipline) — a
         failed pin leaves the receiver tracking on its prior grid, not
         half-destroyed. Only meaningful once tracking (the grid defaults still
         apply to create-time auto-sizing for the next hit while searching; call
@@ -2313,6 +2365,13 @@ class DsssReceiver:
             MpskReceiver samples per symbol (the resample target).
         n : int
             MpskReceiver's carrier-arm count; must divide sps.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_chain_raw failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------
@@ -2655,6 +2714,8 @@ class AsyncDsssReceiver:
         ----------
         x : NDArray[np.complex64]
             Input cf32 samples.
+        out : NDArray[np.complex64] | None
+            Output symbols; caller provides max_out capacity.
 
         Returns
         -------
@@ -2736,6 +2797,13 @@ class AsyncDsssReceiver:
             buys sensitivity at the cost of dwell, replacing the auto-sized
             count.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_search_raw failed``, with the return code appended
+            (gh-869).
+
         Examples
         --------
         >>> import numpy as np
@@ -2811,6 +2879,13 @@ class AsyncDsssReceiver:
             MpskReceiver samples per symbol (the resample target).
         n : int
             MpskReceiver's carrier-arm count; must divide sps.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_chain_raw failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------

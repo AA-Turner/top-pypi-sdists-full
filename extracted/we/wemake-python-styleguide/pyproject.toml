@@ -4,7 +4,7 @@ requires = [ "poetry-core>=2.2" ]
 
 [tool.poetry]
 name = "wemake-python-styleguide"
-version = "1.7.1"
+version = "1.8.0"
 description = "The strictest and most opinionated python linter ever"
 license = "MIT"
 requires-poetry = ">=2.4"
@@ -54,6 +54,10 @@ python = "^3.10"
 flake8 = "^7.3"
 attrs = "*"
 pygments = "^2.19"
+mcp = { version = "^2.0", extras = ["cli"], optional = true }
+
+[tool.poetry.extras]
+mcp = ["mcp"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1"
@@ -228,7 +232,8 @@ addopts = [
 omit = [
   # All version specific tests:
   "tests/**/*312.py",
-  "tests/**/*313.py"
+  "tests/**/*313.py",
+  "tests/**/*315.py",
 ]
 
 # Here we specify plugins for coverage to be used:

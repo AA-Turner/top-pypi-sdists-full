@@ -16,7 +16,12 @@ import httpx
 import mcp.types as types
 from mcp.types import ToolAnnotations
 
-from .list_papers import is_valid_arxiv_id
+from .arxiv_ids import (
+    arxiv_version_number,
+    bare_arxiv_id,
+    is_valid_arxiv_id,
+    normalize_arxiv_id,
+)
 from .search import ARXIV_API_URL, _parse_arxiv_atom_response, _rate_limited_get
 
 logger = logging.getLogger("arxiv-mcp-server")
@@ -61,7 +66,7 @@ def _ascii_token(value: str) -> str:
 
 def _base_id(paper_id: str) -> str:
     """Strip a trailing version suffix, keeping the bare arXiv identifier."""
-    return _VERSION_SUFFIX.sub("", paper_id)
+    return bare_arxiv_id(paper_id)
 
 
 def _year_of(published: str) -> str:
@@ -137,13 +142,33 @@ def _render_entry(key: str, paper: Dict[str, Any], requested_id: str) -> str:
 async def _fetch_metadata(ids: List[str]) -> Dict[str, Dict[str, Any]]:
     """Fetch authoritative metadata for *ids* in one arXiv API request.
 
-    Returns a mapping of bare arXiv ID -> parsed metadata dict.
+    Returns a mapping keyed by ``versioned_id`` (e.g. ``1706.03762v7``) so
+    multiple versions of the same paper in one batch do not collide. Also maps
+    each bare id to the latest version among the returned entries, so bare
+    requests still resolve to latest.
     """
     url = f"{ARXIV_API_URL}?id_list={','.join(ids)}&max_results={len(ids)}"
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await _rate_limited_get(client, url)
     papers = _parse_arxiv_atom_response(response.text)
-    return {paper["id"]: paper for paper in papers if paper.get("id")}
+
+    by_key: Dict[str, Dict[str, Any]] = {}
+    latest_by_bare: Dict[str, Dict[str, Any]] = {}
+    for paper in papers:
+        bare = paper.get("id")
+        versioned = paper.get("versioned_id") or bare
+        if not versioned:
+            continue
+        by_key[versioned] = paper
+        if not bare:
+            continue
+        existing = latest_by_bare.get(bare)
+        if existing is None or arxiv_version_number(
+            paper.get("versioned_id") or ""
+        ) > arxiv_version_number(existing.get("versioned_id") or ""):
+            latest_by_bare[bare] = paper
+    by_key.update(latest_by_bare)
+    return by_key
 
 
 def _error(message: str) -> List[types.TextContent]:
@@ -195,17 +220,19 @@ async def handle_export_citations(arguments: Dict[str, Any]) -> List[types.TextC
         if len(raw_ids) > MAX_IDS:
             return _error(f"too many IDs: {len(raw_ids)} (max {MAX_IDS})")
 
-        valid_ids = [
-            pid.strip()
-            for pid in raw_ids
-            if isinstance(pid, str) and is_valid_arxiv_id(pid.strip())
-        ]
+        valid_ids = []
+        for pid in raw_ids:
+            if not isinstance(pid, str):
+                continue
+            candidate = normalize_arxiv_id(pid)
+            if is_valid_arxiv_id(candidate):
+                valid_ids.append(candidate)
         metadata = await _fetch_metadata(valid_ids) if valid_ids else {}
 
         results: List[Dict[str, Any]] = []
         used_keys: set = set()
         for pid in raw_ids:
-            candidate = pid.strip() if isinstance(pid, str) else ""
+            candidate = normalize_arxiv_id(pid) if isinstance(pid, str) else ""
             if not candidate or not is_valid_arxiv_id(candidate):
                 results.append(
                     {
@@ -215,7 +242,19 @@ async def handle_export_citations(arguments: Dict[str, Any]) -> List[types.TextC
                     }
                 )
                 continue
-            paper = metadata.get(_base_id(candidate))
+            # Prefer the exact versioned key so batching multiple versions of
+            # one paper does not collapse to a single bare-id entry (#212).
+            # Bare ids fall through to the latest-version mapping.
+            paper = metadata.get(candidate)
+            if paper is None and not _VERSION_SUFFIX.search(candidate):
+                paper = metadata.get(_base_id(candidate))
+            # Versioned requests must match the Atom entry version (get_abstract
+            # rejects unknown versions; do not succeed with a bare abs URL for
+            # e.g. 2307.09288v999 when only another version exists).
+            if paper and _VERSION_SUFFIX.search(candidate):
+                resolved = paper.get("versioned_id") or ""
+                if resolved and resolved != candidate:
+                    paper = None
             if not paper:
                 results.append(
                     {

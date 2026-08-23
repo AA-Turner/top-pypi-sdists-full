@@ -20,6 +20,9 @@ static const char *const LFSR_NAMES[]   = { "galois", "fibonacci" };
 static const char *const BITMOD_NAMES[] = { "none", "bpsk", "qpsk" };
 static const char *const PULSE_NAMES[]  = { "rect", "rrc" };
 static const char *const CRC_NAMES[]    = { "none", "crc16" };
+/* Index order IS wfm_source_t.randomise: 0 off, 1 the 131.0-B-6 default,
+   2 the legacy 255-bit sequence. Same table as wfmgen's RANDS. */
+static const char *const RAND_NAMES[] = { "off", "ccsds", "legacy" };
 /* Continuous-dsss data source: index 0 = code-only, 1 = prbs (the default). */
 static const char *const DATA_NAMES[] = { "none", "prbs" };
 /* Ordered to match wfm_seed_advance_t (NONE=0, NOISE=1, ALL=2). */
@@ -101,6 +104,23 @@ add_bits_fields (cJSON *o, const wfm_source_t *src)
     return;
   int bm = (src->modulation >= 0 && src->modulation < 3) ? src->modulation : 1;
   cJSON_AddStringToObject (o, "modulation", BITMOD_NAMES[bm]);
+  /* The coding stages, and only when one is on: a record is what makes a
+     capture reproducible, so a stage the record does not carry is a capture
+     nobody can rebuild -- and the omission would look exactly like a plain
+     uncoded waveform. Written conditionally so an uncoded record is
+     byte-identical to what it was before coding existed. */
+  if (src->rs_depth)
+    cJSON_AddNumberToObject (o, "rs_depth", (double)src->rs_depth);
+  /* WHICH generator, not merely that one ran: 131.0-B-6 specifies two and
+     only the matching receiver derandomises a given waveform, so a record
+     carrying a bare `true` could not rebuild the capture it describes. */
+  if (src->randomise)
+    cJSON_AddStringToObject (o, "randomise",
+                             RAND_NAMES[src->randomise == 2 ? 2 : 1]);
+  if (src->attach_asm)
+    cJSON_AddBoolToObject (o, "asm", 1);
+  if (src->convolutional)
+    cJSON_AddBoolToObject (o, "conv", 1);
   if (src->bits && src->n_bits)
     {
       char *bs = bits_to_string (src->bits, src->n_bits);
@@ -126,13 +146,37 @@ add_bit_string (cJSON *o, const char *key, const uint8_t *bits, size_t n)
     }
 }
 
+/* Emit the FRAME a source carries — the preamble, its repetitions, the sync
+ * word and the CRC choice. Deliberately NOT type-gated: an unspread `bits`
+ * source can be framed too, and gating this on dsss is how a framed bits
+ * --record came to omit the frame entirely, so --from-file silently rebuilt an
+ * unframed waveform. `wfm_source_has_frame()` is the same predicate the
+ * generator uses, so what is recorded is exactly what was applied.
+ *
+ * The payload is NOT here: a bits source already emits it as "pattern" via
+ * add_bits_fields(), and dsss emits it as "payload" below. */
+static void
+add_frame_fields (cJSON *o, const wfm_source_t *src)
+{
+  if (!wfm_source_has_frame (src))
+    return;
+  add_bit_string (o, "acq_code", src->acq_code, src->n_acq_code);
+  cJSON_AddNumberToObject (o, "acq_reps", (double)src->acq_reps);
+  add_bit_string (o, "sync", src->sync, src->n_sync);
+  cJSON_AddStringToObject (o, "crc", CRC_NAMES[src->crc ? 1 : 0]);
+}
+
 /* Emit a dsss source's burst geometry: the two codes, preamble repetitions,
  * sync word, payload bits, and CRC choice (no-op for other types). */
 static void
 add_dsss_fields (cJSON *o, const wfm_source_t *src)
 {
   if (src->type != WFM_SYNTH_DSSS)
-    return;
+    {
+      /* Not spread, but possibly framed. */
+      add_frame_fields (o, src);
+      return;
+    }
   /* CONTINUOUS (symbol_rate > 0): only the spreading code, the payload (when
      one drives the data), and symbol_rate — no preamble/sync/CRC frame. Emit
      just those so a continuous record round-trips clean, without the spurious
@@ -255,6 +299,67 @@ add_source_obj (cJSON *so, const wfm_source_t *src)
   add_pulse_fields (so, src);
 }
 
+/* Read the frame back: preamble, repetitions, sync word, CRC choice. The
+ * inverse of add_frame_fields(), and called for every waveform type for the
+ * same reason it is written for every waveform type. `crc` defaults to crc16
+ * (the burst_demod frame contract carries a trailer) and is inert unless a
+ * preamble or a sync word is present. Returns 0, or -1 on OOM (partials
+ * released). */
+static int
+read_frame_fields (const cJSON *so, wfm_source_t *out)
+{
+  const struct
+  {
+    const char *key;
+    uint8_t   **arr;
+    size_t     *len;
+  } bitkeys[] = {
+    { "acq_code", &out->acq_code, &out->n_acq_code },
+    { "sync", &out->sync, &out->n_sync },
+  };
+  for (size_t i = 0; i < sizeof bitkeys / sizeof bitkeys[0]; i++)
+    {
+      const char *v = cJSON_GetStringValue (
+          cJSON_GetObjectItemCaseSensitive (so, bitkeys[i].key));
+      if (v)
+        {
+          *bitkeys[i].arr = string_to_bits (v, bitkeys[i].len);
+          if (!*bitkeys[i].arr)
+            {
+              free_src_bits (out, 1); /* drop this source's partials */
+              return -1;
+            }
+        }
+    }
+  out->acq_reps = (size_t)num (so, "acq_reps", 1);
+  int c         = name_index (
+      cJSON_GetStringValue (cJSON_GetObjectItemCaseSensitive (so, "crc")),
+      CRC_NAMES, 2);
+  out->crc = (c < 0) ? 1 : c;
+
+  /* The coding stages. Absent means off, which is what a record written
+     before these existed says -- and what an uncoded one still says. */
+  out->rs_depth = (unsigned)num (so, "rs_depth", 0);
+  {
+    /* A string names the generator; a bare `true` is read as the default,
+       so a record written before the choice existed still loads. */
+    const cJSON *rnd = cJSON_GetObjectItemCaseSensitive (so, "randomise");
+    const char  *rn  = cJSON_GetStringValue (rnd);
+    if (rn != NULL)
+      {
+        const int idx  = name_index (rn, RAND_NAMES, 3);
+        out->randomise = (idx < 0) ? 0 : idx;
+      }
+    else
+      out->randomise = cJSON_IsTrue (rnd) ? 1 : 0;
+  }
+  out->attach_asm
+      = cJSON_IsTrue (cJSON_GetObjectItemCaseSensitive (so, "asm"));
+  out->convolutional
+      = cJSON_IsTrue (cJSON_GetObjectItemCaseSensitive (so, "conv"));
+  return 0;
+}
+
 /* Parse a source object (the inline segment, or a "sum" entry) into *out.
  * Returns 0, or -1 on a missing/unknown waveform type. */
 static int
@@ -317,33 +422,26 @@ parse_source_obj (const cJSON *so, wfm_source_t *out)
             return -1;
         }
     }
+  /* The FRAME, whatever the waveform carrying it. Read for every type, the
+   * mirror of add_frame_fields() on the way out — a framed `bits` source that
+   * wrote its preamble and sync must get them back, or --record → --from-file
+   * quietly rebuilds a different waveform. */
+  if (read_frame_fields (so, out) != 0)
+    return -1;
   if (t == WFM_SYNTH_DSSS)
     {
-      /* Burst geometry: codes/sync as "0/1" strings, payload under "payload"
-       * (or the bits type's "pattern" — same field), crc none|crc16
-       * (default crc16: the burst_demod frame contract carries a trailer). */
-      const struct
-      {
-        const char *key;
-        uint8_t   **arr;
-        size_t     *len;
-      } bitkeys[] = {
-        { "acq_code", &out->acq_code, &out->n_acq_code },
-        { "data_code", &out->data_code, &out->n_data_code },
-        { "sync", &out->sync, &out->n_sync },
-      };
-      for (size_t i = 0; i < 3; i++)
+      /* The spread half: the payload's own code, the payload under "payload"
+       * (or the bits type's "pattern" — same field), and the continuous-mode
+       * discriminator. The preamble/sync/crc came from read_frame_fields. */
+      const char *dc = cJSON_GetStringValue (
+          cJSON_GetObjectItemCaseSensitive (so, "data_code"));
+      if (dc)
         {
-          const char *v = cJSON_GetStringValue (
-              cJSON_GetObjectItemCaseSensitive (so, bitkeys[i].key));
-          if (v)
+          out->data_code = string_to_bits (dc, &out->n_data_code);
+          if (!out->data_code)
             {
-              *bitkeys[i].arr = string_to_bits (v, bitkeys[i].len);
-              if (!*bitkeys[i].arr)
-                {
-                  free_src_bits (out, 1); /* drop this source's partials */
-                  return -1;
-                }
+              free_src_bits (out, 1); /* drop this source's partials */
+              return -1;
             }
         }
       const char *pay = cJSON_GetStringValue (
@@ -360,11 +458,6 @@ parse_source_obj (const cJSON *so, wfm_source_t *out)
               return -1;
             }
         }
-      out->acq_reps = (size_t)num (so, "acq_reps", 1);
-      int c         = name_index (
-          cJSON_GetStringValue (cJSON_GetObjectItemCaseSensitive (so, "crc")),
-          CRC_NAMES, 2);
-      out->crc = (c < 0) ? 1 : c;
       /* symbol_rate > 0 selects the continuous async mode (data clock
          independent of the code); absent/0 = burst. */
       out->symbol_rate = num (so, "symbol_rate", 0.0);
@@ -663,9 +756,17 @@ wfm_compose_from_json (const char *json)
     const char *gn     = cJSON_GetStringValue (
         cJSON_GetObjectItemCaseSensitive (s, "gap_noise"));
     segs[i] = (wfm_segment_t){
-      .sources          = srcs,
-      .n_sources        = ns,
-      .fs               = num (s, "fs", 1000000.0),
+      .sources   = srcs,
+      .n_sources = ns,
+      /* 1.0, NOT 1e6, and the difference is a silently wrong waveform.
+         `--fs` is documented as "default 1.0; freq treated as normalised",
+         so a scene written to that contract -- `{"type":"tone","freq":0.08}`
+         -- rendered at 0.08 Hz against an unstated 1 MHz rate, i.e. at DC,
+         with no error anywhere. The flag parser and this reader are two
+         faces of one generator and may not disagree about a default. Found
+         by rate_converter_demo failing its own frequency check with the tone
+         1245 bins off. */
+      .fs               = num (s, "fs", 1.0),
       .num_samples      = (size_t)n_samp,
       .off_samples      = (size_t)o_samp,
       .ranged           = (unsigned)((rn ? WFM_RANGE_NUM_SAMPLES : 0)

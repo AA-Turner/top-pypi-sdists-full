@@ -1,6 +1,5 @@
 import argparse
 import importlib
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -27,7 +26,7 @@ class StubGen(StubGenBase):
         if (name and fn_module
                 and fn_module != self.module.__name__
                 and parent is not None):
-            self.import_object(fn_module, name=None)
+            self.bind(fn_module, name=None)
             rhs = f"{fn_module}.{fn.__qualname__}"
             if type(fn) is staticmethod:
                 rhs = f"staticmethod({rhs})"
@@ -61,12 +60,11 @@ def main():
 
     sys.path.extend(cast("list[str]", args.python_path or []))
 
-    os.environ["ISLPY_NO_DOWNCAST_DEPRECATION"] = "1"
     mod = importlib.import_module(cast("str", args.module))
     for fname in cast("list[str]", args.exec or []):
         execdict = {"__name__": "islpy._monkeypatch"}
         with open(fname) as inf:
-            exec(compile(inf.read(), fname, "exec"), execdict)
+            exec(compile(inf.read(), fname, "exec"), execdict)  # ruff:ignore[exec-builtin]
 
     sg = StubGen(
         module=mod,
@@ -75,10 +73,9 @@ def main():
         include_docstrings=False,
     )
     sg.put(mod)
-    prefix_lines = "\n".join([
-        "from typing_extensions import Self",
-        "from collections.abc import Callable",
-    ])
+    prefix_lines = (
+        "from typing_extensions import Self\n"
+        "from collections.abc import Callable")
     with open(output_path / "_isl.pyi", "w") as outf:
         outf.write(f"{prefix_lines}\n{sg.get()}")
 

@@ -109,50 +109,42 @@ CaptureObj_init (CaptureObject *self, PyObject *args, PyObject *kwds)
   Py_XSETREF (self->_tlm_owner, tlm_obj);
   size_t                   block_samples = (size_t)block_samples_raw;
   const dp_sample_clock_t *clock         = NULL;
-  if (clock_obj == Py_None || clock_obj == NULL)
+  if (clock_obj != Py_None)
     {
-      PyErr_SetString (
-          PyExc_TypeError,
-          "clock is required and cannot be None;"
-          " pass the doppler.wfm.dp_sample_clock capsule or an object"
-          " exposing it as ._capsule");
-      {
-        Py_XDECREF (path);
-        return -1;
-      }
-    }
-  PyObject *clock_cap = clock_obj;
-  Py_INCREF (clock_cap);
-  if (!PyCapsule_CheckExact (clock_cap))
-    {
-      Py_DECREF (clock_cap);
-      clock_cap = PyObject_GetAttrString (clock_obj, "_capsule");
-      if (!clock_cap)
+      PyObject *clock_cap = clock_obj;
+      Py_INCREF (clock_cap);
+      if (!PyCapsule_CheckExact (clock_cap))
         {
-          if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+          Py_DECREF (clock_cap);
+          clock_cap = PyObject_GetAttrString (clock_obj, "_capsule");
+          if (!clock_cap)
             {
-              Py_XDECREF (path);
-              return -1;
+              if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+                {
+                  Py_XDECREF (path);
+                  return -1;
+                }
+              PyErr_Clear ();
+              PyErr_Format (
+                  PyExc_TypeError,
+                  "clock must be the doppler.wfm.dp_sample_clock capsule"
+                  " or an object exposing it as ._capsule,"
+                  " not %s",
+                  Py_TYPE (clock_obj)->tp_name);
+              {
+                Py_XDECREF (path);
+                return -1;
+              }
             }
-          PyErr_Clear ();
-          PyErr_Format (PyExc_TypeError,
-                        "clock must be the doppler.wfm.dp_sample_clock capsule"
-                        " or an object exposing it as ._capsule,"
-                        " not %s",
-                        Py_TYPE (clock_obj)->tp_name);
-          {
-            Py_XDECREF (path);
-            return -1;
-          }
         }
-    }
-  clock = (const dp_sample_clock_t *)PyCapsule_GetPointer (
-      clock_cap, "doppler.wfm.dp_sample_clock");
-  Py_DECREF (clock_cap);
-  if (!clock)
-    {
-      Py_XDECREF (path);
-      return -1;
+      clock = (const dp_sample_clock_t *)PyCapsule_GetPointer (
+          clock_cap, "doppler.wfm.dp_sample_clock");
+      Py_DECREF (clock_cap);
+      if (!clock)
+        {
+          Py_XDECREF (path);
+          return -1;
+        }
     }
   Py_INCREF (clock_obj);
   Py_XSETREF (self->_clock_owner, clock_obj);
@@ -278,23 +270,21 @@ static PyObject *
 CaptureObj_exit (CaptureObject *self, PyObject *args)
 {
   (void)args;
-  if (self->handle)
+  if (!self->handle)
+    Py_RETURN_NONE;
+  /* gh-805 §H: the handle deliberately SURVIVES this call —
+     finalize is not free, and the captured results only become
+     valid once it has run. The free stays in tp_dealloc. */
+  int _rc = dp_tlm_capture_close (self->handle);
+  if (_rc != 0)
     {
-      int rc = dp_tlm_capture_destroy (self->handle);
-      /* gh-541: clear the handle before reporting, so a second
-         call is a no-op rather than a double free — the state is
-         released whatever the status says. */
-      self->handle = NULL;
-      if (rc != 0)
-        {
-          PyErr_SetString (PyExc_ValueError,
-                           "the capture has a hole: records were dropped, "
-                           "which the block bound makes impossible unless a "
-                           "step ran longer than block_samples or no "
-                           "boundary was reached at all — see "
-                           "Capture.dropped");
-          return NULL;
-        }
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "the capture has a hole: records were dropped, which the "
+                    "block bound makes impossible unless a step ran longer "
+                    "than block_samples or no boundary was reached at all — "
+                    "see Capture.dropped",
+                    (long long)_rc);
+      return NULL;
     }
   Py_RETURN_NONE;
 }
@@ -333,7 +323,7 @@ static PyMethodDef CaptureObj_methods[] = {
     ">>> cap.count\n"
     "1\n" },
   { "close", (PyCFunction)CaptureObj_close, METH_NOARGS,
-    "close() -> int\n"
+    "close() -> None\n"
     "\n"
     "Final boundary, then flush, join, and write the sidecar.\n"
     "\n"
@@ -341,6 +331,15 @@ static PyMethodDef CaptureObj_methods[] = {
     "joins the writer thread, closes the file and writes `<path>-meta`.\n"
     "Idempotent: a second call is a no-op returning the first call's\n"
     "verdict.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``the capture has a hole: records were dropped, which the block\n"
+    "    bound makes impossible unless a step ran longer than block_samples\n"
+    "    or no boundary was reached at all — see Capture.dropped``, with the\n"
+    "    return code appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -387,19 +386,23 @@ static PyMethodDef CaptureObj_methods[] = {
   { "__enter__", (PyCFunction)CaptureObj_enter, METH_NOARGS,
     "Enter a context manager, returning this object.\n"
     "\n"
-    "Lets a DpTlmCapture be used in a `with` statement so its C resources\n"
-    "are released deterministically on exit rather than at collection time.\n"
+    "Lets a MemoryCapture be used in a `with` statement so its C resources\n"
+    "are finalized deterministically on exit rather than at collection time.\n"
     "\n"
     "Returns\n"
     "-------\n"
-    "DpTlmCapture\n"
+    "MemoryCapture\n"
     "    This same object, not a copy.\n" },
   { "__exit__", (PyCFunction)CaptureObj_exit, METH_VARARGS,
-    "Exit a context manager, releasing the DpTlmCapture.\n"
+    "Exit a context manager, finalizing the MemoryCapture.\n"
     "\n"
-    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
-    "raised inside the `with` body propagates normally; this never\n"
-    "suppresses one.\n"
+    "Equivalent to calling `close()`. The MemoryCapture is **not** released\n"
+    "here: it stays usable, which is what makes results gathered during the\n"
+    "`with` body readable after it. The memory is freed when the object is\n"
+    "collected.\n"
+    "\n"
+    "Returns ``None``, so an exception raised inside the `with` body\n"
+    "propagates normally; this never suppresses one.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -408,7 +411,14 @@ static PyMethodDef CaptureObj_methods[] = {
     "exc : object | None\n"
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
-    "    Traceback object, or None. Ignored.\n" },
+    "    Traceback object, or None. Ignored.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If ``close()`` reports failure. ``__exit__`` calls it and raises\n"
+    "    what it raises, so a failed finalize propagates out of the ``with``\n"
+    "    block (gh-805 §H).\n" },
   { NULL }
 };
 

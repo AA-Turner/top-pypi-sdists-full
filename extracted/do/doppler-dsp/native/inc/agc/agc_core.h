@@ -28,14 +28,34 @@
  * @endcode
  *
  * which converges to @c gain_db = ref_db - px_db with a time constant of
- * roughly @c 1/(4*loop_bw) samples — independent of the absolute signal
- * level.  A 60 dB-loud signal and a 0 dB-quiet signal settle in the same
- * number of samples; only a level-dependent loop would not.
+ * roughly @c 1/(4*loop_bw) samples, independent of the absolute signal
+ * level.
+ *
+ * @par ...but that is the FILTER, and the object is not the filter
+ * The reduction above treats @c px_db as given.  It is not: the detector is
+ * inside this loop and it measures in POWER, so a quiet input's dB reading
+ * approaches from the wrong side of a concave log and crawls.  The
+ * level-independence therefore belongs to the loop filter alone, and the
+ * OBJECT's settling is level-dependent.  Measured, 1/e settling at
+ * @c loop_bw 0.005 against a predicted 50 samples:
+ *
+ *   +40 dB in: 41    +20 dB: 45    -20 dB: 84    -40 dB: 109
+ *
+ * The asymmetry scales with the detector's own bandwidth — the spread
+ * between a +40 dB and a -40 dB input is 0.21 at @c alpha 0.2, 1.01 at
+ * 0.05, and 2.98 at 0.01.  A composing receiver sizing a warm-up budget
+ * from @c 1/(4*loop_bw) alone will be optimistic by up to 3x on a weak
+ * signal.  See docs/design/agc.md section 6.
  *
  * @par Power detector
  * @c p_avg is an exponential moving average (1-pole leaky integrator) of
  * the instantaneous output power @c |y|^2.  @c alpha in (0, 1] sets the
  * detector bandwidth: small @c alpha smooths hard but reacts slowly.
+ *
+ * Its input is this object's ONE safety boundary — see @ref AGC_POWER_CEIL.
+ * The EMA is where an input sample first becomes persistent state, so it is
+ * the only place a malformed input can do lasting damage, and the only
+ * place guarded.
  *
  * @par Topology
  * Feedback — power is measured AFTER the gain.  The gain applied to
@@ -51,10 +71,42 @@
  * staircase — while the gain-apply and the power sum vectorise.  This is
  * sound because the detector average already band-limits the envelope,
  * but it makes agc_steps() not bit-identical to a per-sample agc_step()
- * loop, only equivalent at convergence.  The per-block detector and loop
- * coefficients are rescaled from @c alpha / @c loop_bw internally, so
- * those keep their per-sample meaning; keep @c loop_bw well below
- * @c 1/(4*decim) for loop stability.
+ * loop, only equivalent at convergence.  Both per-block coefficients are
+ * COMPOUNDED from @c alpha / @c loop_bw internally — @c 1-(1-a)^decim, not
+ * @c decim*a — so both keep their per-sample meaning exactly, including at
+ * @c decim==1.
+ *
+ * @par Choosing decim — one number
+ * @parblock
+ * @c 4*decim*loop_bw is how far the loop moves within one chunk, and it is
+ * the only quantity that decides whether @c decim is free:
+ *
+ * | @c 4*decim*loop_bw | gain falling | gain rising | worst |
+ * | ------------------ | ------------ | ----------- | ------- |
+ * | 0.008              | 0.015 dB     | 0.054 dB    | 0.05 dB |
+ * | 0.032              | 0.059 dB     | 0.197 dB    | 0.20 dB |
+ * | 0.128              | 0.281 dB     | 0.592 dB    | 0.59 dB |
+ * | 0.320              | 1.08 dB      | 0.91 dB     | 1.08 dB |
+ * | 0.640              | 3.73 dB      | 0.97 dB     | 3.73 dB |
+ *
+ * **Keep @c 4*decim*loop_bw at or below 0.05 and @c decim costs under
+ * 0.3 dB of transient** — pick it for throughput and forget it.  Below
+ * that the worst case scales roughly as 6x the number, so halving the
+ * group halves the error; above it @c decim becomes a tuning parameter
+ * you have to account for.
+ *
+ * Both directions are quoted because this loop is not symmetric: the
+ * detector is inside it and measures POWER, so a rising gain (weak input)
+ * costs about 4x a falling one at the same group, and is the direction the
+ * rule is set by.  It is the same asymmetry the @c loop_bw parameter note
+ * describes for settling time.
+ *
+ * The steady state is unaffected either way; this is about the shape of
+ * the acquisition.  What sets the bound is the first-order hold, not the
+ * coefficients: a longer chunk ramps the gain over a longer span, so the
+ * detector sees a different signal.  That is also why it cannot be
+ * compounded away.
+ * @endparblock
  *
  * @par Output clipping
  * Each output sample is square-clipped: the real and imaginary parts
@@ -93,21 +145,63 @@ extern "C"
 /**
  * @brief Power floor for the detector, in linear units.
  *
- * Substituted for @c p_avg inside @c log10() so that a long run of
- * silence yields a large-but-finite measured level (about -300 dB)
- * instead of @c -INF / @c NaN.  Also keeps the log10() argument a normal
- * (non-denormal) double.  Never reached in normal operation — @c p_avg
- * is seeded with the reference power at create/reset.
+ * The low end of @ref agc_log10_'s saturation range, so a long run of
+ * silence yields a large-but-finite measured level — exactly -300 dB —
+ * instead of @c -INF / @c NaN, and the @c log10() argument stays a normal
+ * (non-denormal) double.  The floor lives inside the primitive rather than
+ * at each call site, so that promise is structural and not something a
+ * caller has to remember to add.
+ *
+ * @par It IS reached, and used to be fatal
+ * This said "never reached in normal operation — @c p_avg is seeded with
+ * the reference power at create/reset", which is true of the seed and says
+ * nothing about the steady state.  Any gap in the signal reaches it: a
+ * muted source, a stream discontinuity, a receiver started on a zero-filled
+ * buffer.  Measured on the unguarded object, ~800 silent samples — 100
+ * symbols at 8 samples per symbol — left the loop permanently dead, because
+ * reaching the floor gave the filter a constant +300 dB error to integrate.
+ * @ref AGC_POWER_CEIL is the guard that makes reaching it survivable.
  */
 #define AGC_POWER_FLOOR 1e-30
+
+/**
+ * @brief Power ceiling for the detector, in linear units.
+ *
+ * The largest @c |y|^2 a pair of finite @c float components can produce:
+ * @c 2*FLT_MAX^2.  Any measured power above this came from a non-finite
+ * output, which in turn came from a non-finite input or an overflowed gain
+ * — never from a signal.
+ *
+ * @par The detector's input is the AGC's one safety boundary
+ * Every power reaching the EMA is put through @ref saturate into
+ * `[0, AGC_POWER_CEIL]`, with NaN sent to the **ceiling** — an unknown
+ * level must drive the gain DOWN, since too little gain loses a signal
+ * while too much rails everything downstream.
+ *
+ * That boundary, and not the stages around it, because the EMA is the
+ * first place an input sample becomes *persistent* state.  The gain
+ * multiply ahead of it is transient: a bad sample makes one bad output
+ * sample and is gone.  Once it folds into @c p_avg it is remembered, and
+ * the measured level, the loop integrator and the applied gain are all
+ * functions of @c p_avg.  One guard here makes the whole chain total,
+ * where a clamp at each stage would be several chances to miss one.
+ *
+ * It is sufficient because a guarded @c p_avg is a convex combination of a
+ * finite @c p_avg and a saturated @c p, so it cannot leave the interval
+ * once it starts inside — which @c agc_create() and @c agc_reset()
+ * guarantee by seeding it with the reference power.  Measured on the
+ * unguarded loop, a *single* non-finite input sample drove @c p_avg to NaN
+ * permanently, and a following normal sample did not recover it.
+ */
+#define AGC_POWER_CEIL 2.3158417847463238e77
 
 /**
  * @brief Default envelope decimation factor (agc_state_t::decim).
  *
  * agc_steps() runs the detector + loop filter once per chunk of
- * @c decim samples.  @c decim must stay small relative to the loop time
- * constant ~1/(4*loop_bw); useful values are 8, 16 and 32.  8 keeps the
- * gain trajectory well inside the default loop bandwidth and is one
+ * @c decim samples; useful values are 8, 16 and 32.  The rule is
+ * @c 4*decim*loop_bw <= 0.05 (see "Choosing decim" above), which 8
+ * satisfies at every loop bandwidth this object is used at; it is also one
  * AVX-width vector for the in-chunk gain-apply.
  */
 #define AGC_DECIM_DEFAULT 8
@@ -128,11 +222,29 @@ extern "C"
    * integer part becomes a raw IEEE-754 exponent and the fractional part
    * a 4th-order Taylor series.  Far cheaper than libm pow(); the AGC loop
    * tolerates orders of magnitude more error than this.
+   *
+   * @par Total, because the exponent assembly is not
+   * @c z is saturated into the range the exponent field can hold before it
+   * is used.  Without that, assembling @c ((int64_t)zi + 1023) << 52
+   * overflows into the SIGN bit for @c |v| past ~308, and the function
+   * returns a **negative** result where the true answer is @c +inf or 0 —
+   * measured, @c agc_exp10_(309) gave @c -3.09e-308 and
+   * @c agc_exp10_(-320) gave @c -3.23e+296.  A gain function that returns a
+   * negative gain does not merely lose precision, it inverts the signal.
+   * Past the rails this now saturates at @c 2^±1023 instead.
+   *
+   * NaN takes the LOW rail, and the direction is the same one
+   * @ref AGC_POWER_CEIL uses: when the input is unknown, attenuate.  A gain
+   * saturated low is silence; a gain saturated high rails everything
+   * downstream of it.
    */
   JM_FORCEINLINE double
   agc_exp10_ (double v)
   {
-    double z = v * 3.321928094887362; /* z = v * log2(10)        */
+    /* Bound BEFORE floor(): (int64_t) of a huge double is itself undefined,
+       so the saturation cannot wait until the cast. */
+    double z = saturate (v * 3.321928094887362, /* z = v * log2(10) */
+                         -1023.0, 1023.0, -1023.0);
     double zi = floor (z);
     double u = (z - zi) * 0.6931471805599453; /* frac(z) * ln2, [0, ln2) */
     /* 2^frac = e^u via 4th-order Taylor: 1 + u + u^2/2 + u^3/6 + u^4/24. */
@@ -158,10 +270,29 @@ extern "C"
    * atanh series with t = (m-1)/(m+1) in &#91;0, 1/3&#93; (two terms), and scales
    * log2 by log10(2).  Used only on the decimated control path, so even
    * the divide is amortised across a decimation chunk.
+   *
+   * @par Total, and it must be — it reads the exponent field directly
+   * @p p is saturated into `[AGC_POWER_FLOOR, AGC_POWER_CEIL]` first.  The
+   * bit-field split has no notion of a special value: handed a NaN it reads
+   * the exponent as an ordinary 1024 and returns a perfectly plausible
+   * @c +308, where libm's @c log10 returns NaN.  Measured on the unguarded
+   * version, that fabricated level was what turned a stalled AGC into a
+   * runaway one — the loop believed it was seeing @c +3084 dB and drove the
+   * gain the other way, forever.  A wrong answer that looks like a right
+   * one is worse than an infinity.
+   *
+   * The floor is why silence reads as about @c -300 dB rather than
+   * @c -INF, so that promise is now structural rather than something each
+   * caller has to remember to add.
    */
   JM_FORCEINLINE double
   agc_log10_ (double p)
   {
+    /* NaN to the CEILING: for a measured LEVEL, unknown must read loud, so
+       the loop it feeds turns the gain down.  Same rule as AGC_POWER_CEIL,
+       stated the other way round from agc_exp10_'s because this is a level
+       and that is a gain. */
+    p = saturate (p, AGC_POWER_FLOOR, AGC_POWER_CEIL, AGC_POWER_CEIL);
     uint64_t bits;
     memcpy (&bits, &p, sizeof bits);
     int e = (int)((bits >> 52) & 0x7FF) - 1023; /* p = m * 2^e       */
@@ -198,9 +329,9 @@ extern "C"
    */
   typedef struct
   {
-    dp_tlm_t *ctx;     /* NULL = detached                   */
-    int32_t   id_gain; /* probe id from a successful attach */
-    int32_t   _pad;
+    dp_tlm_t *ctx;      /* NULL = detached                    */
+    int32_t   id_gain;  /* probe ids from a successful attach  */
+    int32_t   id_level; /* (fills what used to be _pad)        */
   } agc_tlm_t;
 
   /**
@@ -223,10 +354,21 @@ extern "C"
      * refreshes once per this many samples — a zero-order hold on the
      * gain that amortises the transcendentals on a sample-rate hot loop.
      * 1 (default) is the exact per-sample loop; >1 trades gain-update
-     * latency for speed (keep well below 1/(4*loop_bw), like decim). */
+     * latency for speed (keep well below 1/(4*loop_bw)).  The same shape
+     * as decim's `4*decim*loop_bw <= 0.05`, but only decim's is measured —
+     * this one is a zero-order hold on a different quantity. */
     size_t gain_update_period;
     double gain_db; /* loop-filter integrator: current gain, dB        */
-    double p_avg;   /* power-detector EMA: averaged output power, lin  */
+    /* Power-detector EMA of OUTPUT power, linear. Anything setting this by
+       hand must use the REFERENCE power, not a measured input power: the loop
+       filter's error is (ref_db - 10log10(p_avg)), so seeding it with an
+       input measurement hands the loop an error equal to the whole gain and
+       it integrates it. Measured on this object at loop_bw 0.002 / alpha
+       0.01, a 4x-hot input drove the gain a further 13.4 dB past its correct
+       value before recovering (+2.4 dB at 0.25x). agc_create()/agc_reset()
+       already do the right thing; this note is for anyone tempted to
+       shortcut them. */
+    double p_avg;
     double g_last;  /* current linear gain held across the period      */
     size_t gain_phase; /* agc_step() position in the update period     */
     float  clip_lin;   /* cached 10^(clip_db/20), refreshed per period */
@@ -241,10 +383,16 @@ extern "C"
    * closed-loop behaviour: @p ref_db sets the target, @p loop_bw sets the
    * convergence speed, and @p alpha sets the detector smoothing.
    * @param ref_db   Target output power in dB (e.g. @c 0.0 for unity power).
-   * @param loop_bw  Loop noise bandwidth in cycles/sample; the loop settles
-   *                 in roughly @c 1/(4*loop_bw) samples.  Smaller values
-   *                 are slower and smoother; keep well below
-   *                 @c 1/(4*decim) when using agc_steps().
+   * @param loop_bw  Loop noise bandwidth in cycles/sample.  The FILTER's
+   *                 time constant is @c 1/(4*loop_bw) samples; the object
+   *                 settles more slowly than that on a quiet input, because
+   *                 the detector is inside the loop and measures in power
+   *                 (see the Linear-in-dB note above — measured 1.7x to
+   *                 2.2x at -40 dB in, worse at small @p alpha).  Treat
+   *                 @c 1/(4*loop_bw) as a floor on settling, not an
+   *                 estimate of it.  Smaller values are slower and
+   *                 smoother.  With agc_steps(), the pairing rule is
+   *                 @c 4*decim*loop_bw <= 0.05 — see "Choosing decim".
    * @param alpha    Power-detector EMA coefficient in (0, 1]; smaller values
    *                 smooth harder but react slower to envelope changes.
    * @return Heap-allocated @c agc_state_t, or @c NULL on allocation failure.
@@ -356,8 +504,10 @@ void agc_reset(agc_state_t *state);
      * Instantaneous output power folded into the EMA p_avg += alpha*(p-p_avg)
      * exactly as the per-sample loop, so the detector trajectory is unchanged
      * by the period; only the loop-filter command below is decimated. */
-    double p = agc_power_ (y);
-    state->p_avg += state->alpha * (p - state->p_avg);
+    double p     = agc_power_ (y);
+    state->p_avg = ema_step (
+        state->p_avg, saturate (p, 0.0, AGC_POWER_CEIL, AGC_POWER_CEIL),
+        state->alpha);
 
     /* Stage 3: 1st-order loop filter — once per period.  Integrate the dB
      * error with step size period*4*loop_bw, so the integrator advances at
@@ -373,8 +523,11 @@ void agc_reset(agc_state_t *state);
         state->clip_lin = (float)agc_exp10_ (state->clip_db * 0.05);
         state->gain_phase = 0;
         /* Telemetry tap — per gain-update event (already amortised by the
-         * period), one branch when detached. */
+         * period), one branch when detached.  `meas_db` is the level the
+         * detector believes it has BEFORE this update's correction, so the
+         * pair reads as (command, what it was answering). */
         DP_TLM (state->tlm.ctx, state->tlm.id_gain, state->gain_db);
+        DP_TLM (state->tlm.ctx, state->tlm.id_level, meas_db);
       }
 
     /* Output clip — square clip (I and Q independent) to the cached level,
@@ -440,11 +593,78 @@ void agc_reset(agc_state_t *state);
 double agc_get_applied_gain_db(const agc_state_t *state);
 
   /**
+   * @brief How many samples this loop needs to settle — the design query.
+   *
+   * Answers "how long must I wait before the output level can be trusted",
+   * which a caller sizing a warm-up budget, a burst preamble or an
+   * acquisition guard has to answer and could not.
+   *
+   * @par Why the header's time constant is not the answer
+   * @c 1/(4*loop_bw) is the loop FILTER's time constant, and the object is
+   * not the filter — the detector sits inside the loop and measures in
+   * power, so a quiet input settles more slowly (see the Linear-in-dB note
+   * above).  The real settling is @c M/(4*loop_bw) where @c M depends on
+   * the starting error and on how fast the detector is relative to the
+   * filter, @c alpha/(4*loop_bw).  Measured, @c M runs from about 0.8 on a
+   * loud start to nearly 5 on a quiet one with a slow detector.
+   *
+   * @par It measures rather than approximates
+   * This runs the real @ref agc_step loop against a constant input and
+   * counts, so there is no fitted curve to go stale: the answer is
+   * whatever the shipped loop does, and it cannot disagree with the object
+   * it describes.  Design-time only — it allocates and iterates, so call
+   * it while planning a pipeline, never inside one.
+   *
+   * @param loop_bw      Loop noise bandwidth, as passed to agc_create().
+   * @param alpha        Detector EMA coefficient, as passed to
+   *                     agc_create().
+   * @param gain_err_db  How far from settled the loop starts, in dB of
+   *                     gain it must apply.  POSITIVE for a quiet input
+   *                     (the loop must add gain) — the slow direction, and
+   *                     the one to budget for.  For a cold receiver this
+   *                     is the whole input dynamic range it must cover,
+   *                     not the steady-state variation.
+   * @param tol_db       Settled means within this many dB of the target.
+   * @return Samples to settle (>= 1), or 0 if the arguments are invalid or
+   *         the loop does not settle within a bounded search.
+   * @code
+   * >>> from doppler.agc import settling_samples
+   * >>> settling_samples(0.0025, 0.05, 40.0, 0.5)   # cold, 40 dB quiet
+   * 430
+   * >>> settling_samples(0.0025, 0.05, 40.0, 3.0)   # a looser bar is cheaper
+   * 294
+   * >>> settling_samples(0.0025, 0.05, -40.0, 0.5)  # loud: the fast direction
+   * 175
+   * >>> settling_samples(0.01, 0.05, 40.0, 0.5)     # 4x the bandwidth, ~1/4
+   * 112
+   * >>> settling_samples(0.0025, 0.05, 0.1, 0.5)    # already inside tol_db
+   * 1
+   * >>> settling_samples(0.0, 0.05, 40.0, 0.5)      # refused, not guessed
+   * 0
+   * @endcode
+   */
+  size_t agc_settling_samples (double loop_bw, double alpha,
+                               double gain_err_db, double tol_db);
+
+  /**
    * @brief Attach (or detach) a telemetry context and register the AGC's
    * probes on it.
-   * Registers one probe, "<prefix>.gain_db" — the loop-filter integrator
-   * (the commanded gain in dB), recorded once per gain-update event and
-   * further thinned by decim.  Passing NULL detaches (probe sites revert
+   * Registers two probes, both recorded once per gain-update event and
+   * further thinned by decim:
+   *
+   *   - "<prefix>.gain_db" — the loop-filter integrator, i.e. the gain the
+   *     loop is commanding, in dB.
+   *   - "<prefix>.level_db" — the level the power detector measures,
+   *     `10*log10(p_avg)`, in dB.  This is the loop's *input*: the
+   *     integrator drives `ref_db - level_db` to zero, so level_db is the
+   *     zero-referenced settling indicator.  Reading it says whether the
+   *     loop has converged without knowing the true input level, which
+   *     gain_db alone cannot — gain_db settles to an offset that depends
+   *     on how loud the signal happens to be.
+   *
+   * The pair is emitted from one update, with level_db being the belief
+   * that update was answering (measured before the correction is applied).
+   * Passing NULL detaches (probe sites revert
    * to their single-branch disabled cost); re-attaching after a reset is
    * idempotent (same name -> same probe id).  Setup path, never hot: call
    * before the producer thread starts stepping, and keep every object
@@ -455,9 +675,9 @@ double agc_get_applied_gain_db(const agc_state_t *state);
    * @param tlm    Telemetry context to attach, or NULL to detach.
    * @param prefix Probe-name prefix, e.g. "agc" or "rx.agc".
    * @param decim  Emit every decim-th gain update; >= 1.
-   * @return DP_OK, or DP_ERR_INVALID when the probe table is full or the
-   *         prefixed name is invalid (the attach fails whole; the object
-   *         stays detached).
+   * @return DP_OK, or DP_ERR_INVALID when the probe table cannot take both
+   *         probes or a prefixed name is invalid (the attach fails whole;
+   *         the object stays detached).
    * @code
    * >>> import numpy as np
    * >>> from doppler.agc import AGC
@@ -465,15 +685,19 @@ double agc_get_applied_gain_db(const agc_state_t *state);
    * >>> tlm = Telemetry(1 << 12)
    * >>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)
    * >>> agc.set_telemetry(tlm, "agc")
-   * >>> tlm.probe_names
-   * {'agc.gain_db': 0}
-   * >>> x = (0.5 + 0j) * np.ones(256, dtype=np.complex64)
+   * >>> sorted(tlm.probe_names)
+   * ['agc.gain_db', 'agc.level_db']
+   * >>> x = (0.5 + 0j) * np.ones(4096, dtype=np.complex64)
    * >>> _ = agc.steps(x)
-   * >>> recs = tlm.read()          # one record per decim-chunk update
-   * >>> len(recs) == 256 // agc.decim
+   * >>> recs = tlm.read()      # both probes, per decim-chunk update
+   * >>> gain = recs[recs["probe"] == tlm.probe_id("agc.gain_db")]["value"]
+   * >>> lvl = recs[recs["probe"] == tlm.probe_id("agc.level_db")]["value"]
+   * >>> len(gain) == len(lvl) == 4096 // agc.decim
    * True
-   * >>> bool(recs["value"][-1] > recs["value"][0])  # gain rises to ref
-   * True
+   * >>> round(float(gain[-1]), 1)   # -6 dB input, 0 dB ref -> +6 dB gain
+   * 6.0
+   * >>> round(float(lvl[-1]), 1)    # settled: measured level == ref
+   * 0.0
    *
    * @endcode
    */
@@ -489,6 +713,7 @@ int agc_set_telemetry(agc_state_t *state, dp_tlm_t * tlm, const char * prefix, u
   void    agc_get_state (const agc_state_t *state, void *blob);
   int     agc_set_state (agc_state_t *state, const void *blob);
 
+size_t settling_samples(double loop_bw, double alpha, double gain_err_db, double tol_db);
 #ifdef __cplusplus
 }
 #endif

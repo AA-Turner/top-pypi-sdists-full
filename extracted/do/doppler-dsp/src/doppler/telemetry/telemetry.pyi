@@ -49,6 +49,13 @@ class Telemetry:
         requests are rounded up to the page minimum (buffer.h semantics) — read
         the authoritative value back with dp_tlm_capacity().
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``ring_records must be
+        a power of two (and at least the page minimum); read the granted size
+        back from Telemetry.capacity``.
+
     Examples
     --------
     Create with defaults:
@@ -114,6 +121,13 @@ class Telemetry:
             Probe id (>= 0), or DP_ERR_INVALID on NULL/overlong name, decim ==
             0, or a full table.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a negative value. The exception message is
+            ``probe: name is NULL or too long, decim is 0, or the table is
+            full``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> from doppler.telemetry import Telemetry
@@ -139,6 +153,12 @@ class Telemetry:
         -------
         int
             Probe id (>= 0), or ::DP_ERR_INVALID if no such probe.
+
+        Raises
+        ------
+        KeyError
+            If the C call returns a negative value. The exception message is
+            ``no probe by that name``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -167,6 +187,12 @@ class Telemetry:
         decim : int
             Emit every decim-th event; >= 1.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_decim failed``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> from doppler.telemetry import Telemetry
@@ -180,39 +206,31 @@ class Telemetry:
         """
 
     def emit(self, id: int, v: float) -> None:
-        """Records one scalar for probe id. The hot-path primitive.
+        """Validating dp_tlm_emit(): refuses an id the registry never issued.
 
-        Detached (t NULL) this is one branch — the entire disabled cost.
-        Attached: bump the probe's decimation phase, and on the decim-th event
-        write one 16-byte record (value narrowed to float, stamped with the
-        context's current now). Never blocks, never allocates; on ring overrun
-        the record is dropped and counted.
+        The out-of-line twin of the inline hot-path emit, for callers whose id
+        did not come from dp_tlm_probe() on this context — in practice, a
+        language binding, where the id is whatever the caller passed.
+        dp_tlm_emit() checks only the ARRAY bound (see its docs: checking
+        n_probes there costs ~16% of the decimated path), so an in-range but
+        unregistered id reaches it and emits a record against a probe nobody
+        registered. Here that is an error.
 
-        id must come from a successful dp_tlm_probe() on this context — an
-        object's set_telemetry fails the whole attach otherwise.
-
-        The bound checked here is the ARRAY's, not the registry's. probes is a
-        fixed DP_TLM_MAX_PROBES array, so the unguarded indexing this used to
-        do turned any out-of-range id into an out-of-bounds write — reachable
-        from a language binding, where the id is whatever the caller passed,
-        and `Telemetry.emit(1000000, 1.0)` segfaulted the interpreter.
-        Comparing against the compile-time constant (unsigned, so a negative id
-        fails it too) needs no memory and measures free. Comparing against
-        n_probes instead would also reject an in-range-but-unregistered id, but
-        it loads a field on the early-return path and cost ~16% of the
-        decimated case (bench_telemetry_core, ABBA-interleaved) — so *that*
-        check belongs at the binding boundary, where the id is untrusted, not
-        in the hot loop, where the caller holds an id dp_tlm_probe() gave it.
+        C hot loops keep calling dp_tlm_emit() directly and pay nothing for
+        this.
 
         Parameters
         ----------
         id : int
             Probe id from dp_tlm_probe() on THIS context.
         v : float
-            The scalar, narrowed to float by the ring record. The Python face
-            binds dp_tlm_emit_checked() instead, which additionally refuses an
-            id the registry never issued — see its docs for why the hot path
-            does not.
+            The scalar, narrowed to float by the ring record.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``emit failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -403,6 +421,59 @@ class Telemetry:
             Traceback object, or None. Ignored.
         """
 
+    # jm:hand
+    def read_dict(
+        self, n: int = 0, index: bool = False
+    ) -> dict[
+        str,
+        NDArray[np.float32] | tuple[NDArray[np.uint64], NDArray[np.float32]],
+    ]:
+        """Drains like read(), but grouped by probe name.
+
+        The same records read() returns, split per probe so a consumer never
+        writes the ``recs[recs["probe"] == tlm.probe_id(name)]["value"]``
+        filter or the id-to-name inversion by hand. Every REGISTERED probe
+        gets a key, including one that emitted nothing this drain, so the key
+        set is stable across calls.
+
+        Consuming: this DRAINS the ring, exactly as read() does. Calling both
+        in one loop splits the records between them.
+
+        Parameters
+        ----------
+        n : int, optional
+            Records wanted; 0 (the default) means everything available.
+        index : bool, optional
+            When True each value is ``(n, values)`` — the sample indices
+            alongside the values, so a real time axis is ``n / fs``. When
+            False (the default) each value is just the values array.
+
+        Returns
+        -------
+        dict
+            ``{probe_name: values}``, or ``{probe_name: (n, values)}`` when
+            `index` is True.
+
+        Examples
+        --------
+        >>> from doppler.telemetry import Telemetry
+        >>> tlm = Telemetry(1 << 12)
+        >>> eid = tlm.probe("sync.e")
+        >>> lid = tlm.probe("sync.lock")
+        >>> tlm.set_now(7)
+        >>> tlm.emit(eid, 0.5)
+        >>> tlm.emit(lid, 1.0)
+        >>> d = tlm.read_dict()
+        >>> sorted(d)
+        ['sync.e', 'sync.lock']
+        >>> d["sync.e"]
+        array([0.5], dtype=float32)
+        >>> n, v = tlm.read_dict(index=True)["sync.e"]
+        >>> n.size          # drained by the call above
+        0
+
+        """
+
 @final
 class MemoryCapture:
     """Opens a capture that accumulates in memory instead of a file.
@@ -419,10 +490,19 @@ class MemoryCapture:
     clock : Any
         The pipeline's sample clock, borrowed for the sidecar's time base. Read
         at close(), so later track() corrections are picked up. Must outlive
-        the capture. Required: the C API takes NULL here to mean `no time base
-        stated` and then omits the sidecar keys rather than fabricating a rate,
-        but a capsule constructor argument cannot yet accept None
-        (just-makeit#823), so there is currently no way to say it from Python.
+        the capture. Pass None to state that there is no time base: the sidecar
+        then omits the rate and epoch keys rather than fabricating them into a
+        file that outlives the process. The argument itself is not omittable —
+        say None deliberately.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``capture could not be
+        opened: attach every probe BEFORE opening (the ring is sized from the
+        probe table, so no probes means no bound), pass a non-zero
+        block_samples, use a context with no capture already open, and — for
+        the file flavour — a writable path``.
 
     Examples
     --------
@@ -443,36 +523,32 @@ class MemoryCapture:
     """
     def __init__(
         self,
-        tlm: Any,
+        tlm: object,
         block_samples: int,
-        clock: Any = ...,
+        clock: object | None,
     ) -> None: ...
 
     def records(self, n: int = 0) -> NDArray[Any]:
-        """The accumulated records, contiguous and in emission order.
+        """Copies accumulated records out. Memory mode only.
 
-        Memory mode only (path was NULL) — in file mode the file *is* the
-        capture and this returns NULL. Owned by the capture and invalidated by
-        dp_tlm_capture_destroy(); NULL when nothing was captured, so use
-        dp_tlm_capture_count() to tell empty from absent.
+        The copying twin of dp_tlm_capture_records(): same records, same order,
+        but into caller memory rather than a borrowed pointer. Both exist
+        because they serve opposite callers — a C consumer wants the zero-copy
+        view, and a binding must not hand out a pointer the capture can free
+        underneath it.
 
-        The Python face binds the COPYING twin, dp_tlm_capture_read(), because
-        a borrowed pointer the capture can free is not something a binding may
-        hand out. This example is duplicated there deliberately: jm derives a
-        method's docstring from the `<component>_<method>` symbol while `fn`
-        chooses the one it calls, so the two must carry the same text or the
-        .pyi and the runtime `__doc__` disagree (checked by
-        scripts/check_doc_face_parity.py).
+        Deliberately the same shape as dp_tlm_read(), so the two drains bind
+        identically and neither needs a second convention invented for it.
 
         Parameters
         ----------
         n : int
-            Input.
+            Records wanted; 0 means "everything accumulated".
 
         Returns
         -------
         NDArray[Any]
-            Output.
+            Number of records copied out.
 
         Examples
         --------
@@ -508,6 +584,12 @@ class MemoryCapture:
 
         Usually reached through dp_tlm_set_now() rather than called directly.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``block failed``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> from doppler.telemetry import Telemetry, MemoryCapture
@@ -532,6 +614,15 @@ class MemoryCapture:
         joins the writer thread, closes the file and writes `<path>-meta`.
         Idempotent: a second call is a no-op returning the first call's
         verdict.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``the capture has a hole: records were dropped, which the block
+            bound makes impossible unless a step ran longer than block_samples
+            or no boundary was reached at all — see Capture.dropped``, with the
+            return code appended (gh-869).
 
         Examples
         --------
@@ -594,7 +685,7 @@ class MemoryCapture:
         """Enter a context manager, returning this object.
 
         Lets a MemoryCapture be used in a `with` statement so its C resources
-        are released deterministically on exit rather than at collection time.
+        are finalized deterministically on exit rather than at collection time.
 
         Returns
         -------
@@ -608,11 +699,15 @@ class MemoryCapture:
         exc: object | None = ...,
         tb: object | None = ...,
     ) -> None:
-        """Exit a context manager, releasing the MemoryCapture.
+        """Exit a context manager, finalizing the MemoryCapture.
 
-        Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never
-        suppresses one.
+        Equivalent to calling `close()`. The MemoryCapture is **not** released
+        here: it stays usable, which is what makes results gathered during the
+        `with` body readable after it. The memory is freed when the object is
+        collected.
+
+        Returns ``None``, so an exception raised inside the `with` body
+        propagates normally; this never suppresses one.
 
         Parameters
         ----------
@@ -622,6 +717,61 @@ class MemoryCapture:
             Exception instance, or None. Ignored.
         tb : object | None
             Traceback object, or None. Ignored.
+
+        Raises
+        ------
+        ValueError
+            If ``close()`` reports failure. ``__exit__`` calls it and raises
+            what it raises, so a failed finalize propagates out of the ``with``
+            block (gh-805 §H).
+        """
+
+    # jm:hand
+    def read_dict(
+        self, n: int = 0, index: bool = False
+    ) -> dict[
+        str,
+        NDArray[np.float32] | tuple[NDArray[np.uint64], NDArray[np.float32]],
+    ]:
+        """The captured records, grouped by probe name.
+
+        records() hands back one structured array carrying every probe
+        interleaved; this splits it, so a consumer never writes the
+        ``recs[recs["probe"] == id]["value"]`` filter or the id-to-name
+        inversion by hand. Every REGISTERED probe gets a key, including one
+        that captured nothing, so the key set is stable.
+
+        Like records(), this does NOT consume — call it as often as you like.
+
+        Parameters
+        ----------
+        n : int, optional
+            Records to take from the front; 0 (the default) means all.
+        index : bool, optional
+            When True each value is ``(n, values)`` — the sample indices
+            alongside the values, so a real time axis is ``n / fs``.
+
+        Returns
+        -------
+        dict
+            ``{probe_name: values}``, or ``{probe_name: (n, values)}`` when
+            `index` is True.
+
+        Examples
+        --------
+        >>> from doppler.telemetry import MemoryCapture, Telemetry
+        >>> tlm = Telemetry(1 << 12)
+        >>> eid = tlm.probe("sync.e")
+        >>> with MemoryCapture(tlm, 64, None) as cap:
+        ...     tlm.set_now(0)
+        ...     tlm.emit(eid, 0.25)
+        ...     tlm.set_now(64)
+        >>> n, v = cap.read_dict(index=True)["sync.e"]
+        >>> v
+        array([0.25], dtype=float32)
+        >>> n
+        array([0], dtype=uint64)
+
         """
 
 @final
@@ -640,9 +790,18 @@ class Capture:
         file, so np.fromfile reads it directly; a <path>-meta JSON sidecar
         carries the probe table, the counters and the time base.
     clock : Any
-        The pipeline's sample clock, borrowed for the sidecar's time base.
-        Required — see MemoryCapture; None is not accepted yet
-        (just-makeit#823).
+        The pipeline's sample clock, borrowed for the sidecar's time base — see
+        MemoryCapture. Pass None to state that there is no time base; the
+        argument itself is not omittable.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``capture could not be
+        opened: attach every probe BEFORE opening (the ring is sized from the
+        probe table, so no probes means no bound), pass a non-zero
+        block_samples, use a context with no capture already open, and — for
+        the file flavour — a writable path``.
 
     Examples
     --------
@@ -663,10 +822,10 @@ class Capture:
     """
     def __init__(
         self,
-        tlm: Any,
+        tlm: object,
         block_samples: int,
         path: str | os.PathLike,
-        clock: Any = ...,
+        clock: object | None,
     ) -> None: ...
 
     def block(self) -> None:
@@ -683,6 +842,12 @@ class Capture:
         happens at the boundary, never inside the DSP loop.
 
         Usually reached through dp_tlm_set_now() rather than called directly.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``block failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -708,6 +873,15 @@ class Capture:
         joins the writer thread, closes the file and writes `<path>-meta`.
         Idempotent: a second call is a no-op returning the first call's
         verdict.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``the capture has a hole: records were dropped, which the block
+            bound makes impossible unless a step ran longer than block_samples
+            or no boundary was reached at all — see Capture.dropped``, with the
+            return code appended (gh-869).
 
         Examples
         --------
@@ -770,7 +944,7 @@ class Capture:
         """Enter a context manager, returning this object.
 
         Lets a Capture be used in a `with` statement so its C resources are
-        released deterministically on exit rather than at collection time.
+        finalized deterministically on exit rather than at collection time.
 
         Returns
         -------
@@ -784,11 +958,15 @@ class Capture:
         exc: object | None = ...,
         tb: object | None = ...,
     ) -> None:
-        """Exit a context manager, releasing the Capture.
+        """Exit a context manager, finalizing the Capture.
 
-        Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never
-        suppresses one.
+        Equivalent to calling `close()`. The Capture is **not** released here:
+        it stays usable, which is what makes results gathered during the `with`
+        body readable after it. The memory is freed when the object is
+        collected.
+
+        Returns ``None``, so an exception raised inside the `with` body
+        propagates normally; this never suppresses one.
 
         Parameters
         ----------
@@ -798,4 +976,11 @@ class Capture:
             Exception instance, or None. Ignored.
         tb : object | None
             Traceback object, or None. Ignored.
+
+        Raises
+        ------
+        ValueError
+            If ``close()`` reports failure. ``__exit__`` calls it and raises
+            what it raises, so a failed finalize propagates out of the ``with``
+            block (gh-805 §H).
         """

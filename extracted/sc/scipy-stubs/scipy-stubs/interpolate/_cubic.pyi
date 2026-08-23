@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
+from collections.abc import Iterable
 from types import ModuleType
-from typing import Any, ClassVar, Generic, Literal, Never, overload, override
+from typing import Any, Generic, Literal, Never, overload, override
 from typing_extensions import TypeVar
 
 import numpy as np
@@ -131,9 +132,6 @@ class CubicHermiteSpline(PPoly[_CT_co, _ShapeT_co], Generic[_CT_co, _ShapeT_co])
     ) -> None: ...
 
 class PchipInterpolator(CubicHermiteSpline[np.float64, _ShapeT_co], Generic[_ShapeT_co]):
-    # pyrefly: ignore [bad-override]
-    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
-
     @overload  # ?d
     def __init__(
         self,
@@ -172,9 +170,6 @@ class PchipInterpolator(CubicHermiteSpline[np.float64, _ShapeT_co], Generic[_Sha
     ) -> None: ...
 
 class Akima1DInterpolator(CubicHermiteSpline[np.float64, _ShapeT_co], Generic[_ShapeT_co]):
-    # pyrefly: ignore [bad-override]
-    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
-
     @overload  # ?d
     def __init__(
         self,
@@ -325,14 +320,14 @@ class CubicSpline(CubicHermiteSpline[_CT_co, _ShapeT_co], Generic[_CT_co, _Shape
         extrapolate: _Extrapolate | None = None,
     ) -> None: ...
 
-@overload
+@overload  # der: int
 def pchip_interpolate(
-    xi: onp.ToFloat1D, yi: onp.ToFloat1D, x: onp.ToFloat, der: onp.ToInt = 0, axis: _ToAxis = 0
-) -> np.float64: ...
-@overload
-def pchip_interpolate(
-    xi: onp.ToFloat1D, yi: onp.ToFloat1D, x: onp.ToFloat1D, der: onp.ToInt | onp.ToInt1D = 0, axis: _ToAxis = 0
+    xi: onp.ToFloat1D, yi: onp.ToFloatND, x: onp.ToFloat | onp.ToFloat1D, der: int | npc.integer = 0, axis: _ToAxis = 0
 ) -> onp.ArrayND[np.float64]: ...
+@overload  # der: Iterable[int]
+def pchip_interpolate(
+    xi: onp.ToFloat1D, yi: onp.ToFloatND, x: onp.ToFloat | onp.ToFloat1D, der: Iterable[int | npc.integer], axis: _ToAxis = 0
+) -> list[onp.ArrayND[np.float64]]: ...
 
 # undocumented
 @overload

@@ -6,14 +6,13 @@ no_state = "true"
 no_step = "true"
 class_name = "CarrierNda"
 serializable = "true"
-# agc gained link=true with the telemetry attach: agc_set_telemetry is the
-# first EXTERN agc symbol this core references (agc_step is header-inline),
-# so the standalone C test/bench and the .so now need agc_core linked.
+# `agc` was here for one extern symbol, agc_set_telemetry, forwarded to the
+# embedded arm AGC (agc_step being header-inline). gh-657 retired that AGC, so
+# this core references no agc symbol at all and the dep goes with it.
 depends_on = [
   { name = "lo", link = true },
   { name = "loop_filter", link = true },
   { name = "boxcar", link = true },
-  { name = "agc", link = true },
   { name = "lockdet", link = true },
   { name = "dp_tlm", link = true },
 ]
@@ -60,10 +59,10 @@ params = [{ name = "x", type = "float _Complex[]" }]
 
 # Telemetry attach (jm gh-432; mirrors objects/symsync.toml): registers
 # "<prefix>.lock" / "<prefix>.e" / "<prefix>.freq" / "<prefix>.locked"
-# (the last is the verify-counted lockdet decision, 0/1) plus the embedded
-# arm AGC's "<prefix>.agc.gain_db". This is a sample-rate loop — the probes
-# emit once per input sample; decim is the throttle. None detaches
-# everything; the int status binds -> None with ValueError on failure.
+# (the last is the verify-counted lockdet decision, 0/1). This is a
+# sample-rate loop — the probes emit once per input sample; decim is the
+# throttle. None detaches; the int status binds -> None with ValueError on
+# failure.
 [[carrier_nda.methods]]
 name = "set_telemetry"
 arg_type = "void"
@@ -77,7 +76,7 @@ params = [
 
 [[carrier_nda.methods]]
 name = "configure_lock"
-doc = "Re-tune the carrier lock detector: locked flips up after n_up consecutive samples with the lock-signal EMA above up_thresh, and drops after n_down consecutive samples below down_thresh (level + time hysteresis; see detection.LockDet). Defaults (0.5/0.4, 8 up / 32 down) mirror MpskReceiver's own pre-existing acquisition<->tracking handover, which already steps a lockdet on this exact statistic and is validated by that receiver's BER regression gate. A live lock survives the re-tune; the in-flight verify run restarts."
+doc = "Re-tune the carrier lock detector: locked flips up after n_up consecutive samples with the lock-signal EMA above up_thresh, and drops after n_down consecutive samples below down_thresh (level + time hysteresis; see detection.LockDet). Defaults are 0.5/0.4 with 64 up / 32 down. The THRESHOLDS are Pfa-derived: 0.5 is 4.416 sigma on the statistic's H0 spread, a per-look false-alarm rate of 5e-6, and it means that at every M because the limited statistic's H0 variance is 1/2 for all of them. The VERIFY COUNT is not derived that way and must not be. Compounding a per-look Pfa over n_up assumes successive looks are independent; this detector steps once per sample and its lock EMA stays correlated for roughly 39 samples, so a shorter count is counting one look several times. Measured against noise-only input, n_up=8 -- the value MpskReceiver uses on this same statistic -- false-locked 4 trials in 30, while 64 was the smallest count clean over 300. Raise n_up rather than lower it unless you have re-measured. A live lock survives the re-tune; the in-flight verify run restarts."
 arg_type = "void"
 return_type = "void"
 params = [

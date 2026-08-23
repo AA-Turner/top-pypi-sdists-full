@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +28,7 @@ jobs:
         run: uv sync --python ${{ matrix.python-version }} --frozen
 
       - name: Run linters
+        if: matrix.python-version == '3.14'
         run: scripts/check
 
       - name: Run tests

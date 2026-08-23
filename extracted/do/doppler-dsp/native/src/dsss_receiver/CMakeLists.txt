@@ -23,15 +23,16 @@ target_link_libraries(dsss_receiver_core PUBLIC
     cic_core
     fir_core
     resample_core
+    agc_core
     mpsk_receiver_core
     ddc_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     symsync_core
     nco_core
     farrow_core
-    agc_core
-    boxcar_core
+    pn_core
     snr_core)
 
 add_executable(test_dsss_receiver_core
@@ -56,15 +57,16 @@ target_link_libraries(test_dsss_receiver_core
     cic_core
     fir_core
     resample_core
+    agc_core
     mpsk_receiver_core
     ddc_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     symsync_core
     nco_core
     farrow_core
-    agc_core
-    boxcar_core
+    pn_core
     snr_core
     m)
 target_include_directories(test_dsss_receiver_core
@@ -94,15 +96,16 @@ target_link_libraries(bench_dsss_receiver_core
     cic_core
     fir_core
     resample_core
+    agc_core
     mpsk_receiver_core
     ddc_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     symsync_core
     nco_core
     farrow_core
-    agc_core
-    boxcar_core
+    pn_core
     snr_core
     m)
 target_include_directories(

@@ -20,18 +20,11 @@ from markdown.inlinepatterns import InlineProcessor
 from markdown import util as md_util
 import xml.etree.ElementTree as etree
 import functools
+import re
 
+BACKTICK_CODE_RE = r'(?:(?<!\\)((?:\\{2})+)(?=`+)|(?<!\\)`)'
 ESCAPED_BSLASH = '{}{}{}'.format(md_util.STX, ord('\\'), md_util.ETX)
 DOUBLE_BSLASH = '\\\\'
-BACKTICK_CODE_RE = r'''(?x)
-(?:
-(?<!\\)(?P<escapes>(?:\\{2})+)(?=`+) |  # Process code escapes before code
-(?<!\\)(?P<tic>`+)
-((?:\:{3,}|\#!)(?P<lang>[\w#.+-]*)\s+)? # Optional language
-(?P<code>.+?)                           # Code
-(?<!`)(?P=tic)(?!`)                     # Closing
-)
-'''
 
 
 class InlineHiliteException(Exception):
@@ -61,6 +54,8 @@ def _formatter(src="", language="", md=None, class_name="", fmt=None):
 
 class InlineHilitePattern(InlineProcessor):
     """Handle the inline code patterns."""
+
+    RE_LANG = re.compile(r'^((?:\:{3,}|\#!)(?P<lang>[\w#.+-]*)\s+)')
 
     def __init__(self, pattern, config, md):
         """Initialize."""
@@ -170,21 +165,77 @@ class InlineHilitePattern(InlineProcessor):
                     value = self.md.htmlStash.store(value)
                 return value
 
+    def find_code_spans(self, start: int, text: str) -> tuple[int, int] | None:
+        """Find code spans."""
+
+        last = len(text)
+
+        # Get the maximum starting ticks
+        max_ticks = 0
+        while start < last and text[start] == '`':
+            max_ticks += 1
+            start += 1
+
+        if not max_ticks:  # pragma: no cover
+            # This is not ever expected to happen.
+            return None
+
+        longest_span = 0
+        end = 0
+
+        # Find an ending span of backticks that matches our opening
+        i = start
+        while i < last:
+            span_length = 0
+            while i < last and text[i] == '`':
+                span_length += 1
+                i += 1
+                continue
+            if not span_length:
+                i += 1
+                continue
+
+            # Did we find the end?
+            if max_ticks == span_length:
+                return start, i - span_length
+
+            # Track the longest span of backticks we find as a fallback.
+            if span_length > longest_span:
+                longest_span = span_length
+                end = i
+
+        # Since we didn't find an exact matching start and end,
+        # adjust start to match the largest end we could calculate.
+        if longest_span:
+            return start - (max_ticks - longest_span), end - longest_span
+
+        # We could not find a suitable pairing
+        return None
+
     def handleMatch(self, m, data):
         """Handle the pattern match."""
 
-        if m.group('escapes'):
-            return m.group('escapes').replace(DOUBLE_BSLASH, ESCAPED_BSLASH), m.start(0), m.end(0)
-        else:
-            lang = m.group('lang') if m.group('lang') else ''
-            src = m.group('code').strip()
+        if m.group(1):
+            return m.group(1).replace(DOUBLE_BSLASH, ESCAPED_BSLASH), m.start(0), m.end(0)
+
+        begin = m.start(0)
+        result = self.find_code_spans(begin, data)
+        if result is not None:
+            start, end = result
+            src = data[start:end]
+            m2 = self.RE_LANG.match(src)
+            lang = ''
+            if m2:
+                lang = m2.group('lang')
+                src = src[m2.end('lang'):]
             self.get_settings()
             try:
-                return self.handle_code(lang, src), m.start(0), m.end(0)
+                return self.handle_code(lang, src.strip()), begin, result[1] + (start - begin)
             except InlineHiliteException:
                 raise
             except Exception:
                 return m.group(0), None, None
+        return None, None, None
 
 
 class InlineHiliteExtension(Extension):

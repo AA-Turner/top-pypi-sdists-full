@@ -520,6 +520,21 @@ class TabPFNGSARegressor:
             self._coord_mean = np.zeros(2)
         X = self._fill_nan_coords(X, self._coord_mean)
         x_cols = [c for c in X.columns if c not in ("lat", "lon")]
+        # Declare categoricals to the backend TabPFN, exactly like the plain
+        # `tabpfn` branch does. Without this, tabpfn ordinal-encodes string
+        # columns as *suspected free text* and warns they "usually add noise
+        # rather than signal" -- harmless-ish for admin_1 Region (~39 states)
+        # but material at admin_2, where Region is ~919 county names. Leaving
+        # it unset also made the tabpfn_gsa-vs-tabpfn comparison unfair, since
+        # only plain tabpfn got the declaration.
+        #
+        # Index space: GSAModel builds model_columns_ = [*x_cols, *spa_cols]
+        # and fits on X[model_columns_], so positions are relative to x_cols
+        # (lat/lon are appended last and are numeric).
+        cat_idx = [
+            i for i, c in enumerate(x_cols)
+            if hasattr(X[c], "cat") or pd.api.types.is_string_dtype(X[c])
+        ]
         side = max(2, int(round(np.sqrt(self.K))))
         self._m = GSAModel(
             spa_cols=["lat", "lon"],
@@ -528,7 +543,10 @@ class TabPFNGSARegressor:
             s=float(np.clip(self.s, 0.0, 1.0)),
             random_state=int(self.seed),
             device=self.device,
-            model_kwargs={"ignore_pretraining_limits": True},
+            model_kwargs={
+                "ignore_pretraining_limits": True,
+                "categorical_features_indices": cat_idx,
+            },
         )
         self._m.fit(X, np.asarray(y, dtype=float).ravel())
         return self

@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Any, Concatenate, Final, Generic, Literal, overload
+from typing import Any, Concatenate, Final, Generic, Literal, SupportsIndex, overload
 from typing_extensions import TypeVar
 
 import numpy as np
@@ -11,6 +11,11 @@ from .qmc import QMCEngine
 from scipy._typing import AnyShape
 
 __all__ = ["FastGeneratorInversion", "RatioUniforms"]
+
+###
+
+# workaround for a strange bug in pyright's overlapping overload detection with `numpy<2.1`
+type _WorkaroundForPyright = tuple[int] | tuple[Any, ...]
 
 _RT_co = TypeVar("_RT_co", bound=onp.ToFloat, default=float, covariant=True)
 
@@ -26,7 +31,7 @@ class RatioUniforms:
     def __init__(
         self,
         /,
-        pdf: Callable[Concatenate[onp.ToFloat, ...], onp.ToFloat],
+        pdf: Callable[[onp.Array1D[np.float64]], onp.ToFloat1D],
         *,
         umax: onp.ToFloat,
         vmin: onp.ToFloat,
@@ -34,7 +39,14 @@ class RatioUniforms:
         c: onp.ToFloat = 0,
         random_state: onp.random.ToRNG | None = None,
     ) -> None: ...
-    def rvs(self, /, size: AnyShape = 1) -> onp.ArrayND[np.float64]: ...
+
+    #
+    @overload  # 1d
+    def rvs(self, /, size: SupportsIndex = 1) -> onp.Array1D[np.float64]: ...
+    @overload  # Nd
+    def rvs[ShapeT: tuple[int, *tuple[int, ...]]](self, /, size: ShapeT) -> onp.ArrayND[np.float64, ShapeT]: ...
+    @overload  # ?d
+    def rvs(self, /, size: AnyShape) -> onp.ArrayND[np.float64, _WorkaroundForPyright]: ...
 
 class FastGeneratorInversion:
     def __init__(
@@ -46,39 +58,57 @@ class FastGeneratorInversion:
         ignore_shape_range: bool = False,
         random_state: onp.random.ToRNG | None = None,
     ) -> None: ...
+
+    #
     @property
     def random_state(self, /) -> np.random.Generator: ...
     @random_state.setter
     def random_state(self, random_state: onp.random.ToRNG | None, /) -> None: ...
+
+    #
     @property
     def loc(self, /) -> float | np.float64: ...
     @loc.setter
     def loc(self, loc: onp.ToFloat, /) -> None: ...
+
+    #
     @property
     def scale(self, /) -> float | np.float64: ...
     @scale.setter
     def scale(self, scale: onp.ToFloat, /) -> None: ...
+
+    #
     @overload
     def rvs(self, /, size: None = None) -> np.float64: ...
     @overload
     def rvs(self, /, size: AnyShape) -> onp.ArrayND[np.float64]: ...
+
+    #
     @overload
-    def qrvs(
-        self, /, size: tuple[Literal[1]] | None = None, d: int | None = None, qmc_engine: QMCEngine | None = None
-    ) -> np.float64: ...
+    def qrvs(self, /, size: None = None, d: int | None = None, qmc_engine: QMCEngine | None = None) -> np.float64: ...
     @overload
-    def qrvs(
-        self, /, size: AnyShape, d: int | None = None, qmc_engine: QMCEngine | None = None
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    def qrvs(self, /, size: AnyShape, d: int | None = None, qmc_engine: QMCEngine | None = None) -> onp.ArrayND[np.float64]: ...
+
+    #
     @overload
     def ppf(self, /, q: onp.ToFloat) -> np.float64: ...
     @overload
     def ppf(self, /, q: onp.ToFloatND) -> onp.ArrayND[np.float64]: ...
+
+    #
+    @overload  # x_error=False (default)
     def evaluate_error(
-        self, /, size: int = 100_000, random_state: onp.random.ToRNG | None = None, x_error: bool = False
+        self, /, size: int = 100_000, random_state: onp.random.ToRNG | None = None, x_error: onp.ToFalse = False
+    ) -> tuple[np.float64, float]: ...
+    @overload  # x_error=True
+    def evaluate_error(
+        self, /, size: int = 100_000, random_state: onp.random.ToRNG | None = None, *, x_error: onp.ToTrue
     ) -> tuple[np.float64, np.float64]: ...
+
+    #
     def support(self, /) -> tuple[float, float] | tuple[np.float64, np.float64]: ...
 
+#
 def argus_pdf(x: onp.ToFloat, chi: onp.ToFloat) -> float: ...  # undocumented
 def argus_gamma_trf(x: onp.ToFloat, chi: onp.ToFloat) -> np.float64: ...  # undocumented
 def argus_gamma_inv_trf(x: onp.ToFloat, chi: onp.ToFloat) -> onp.ToFloat: ...  # undocumented

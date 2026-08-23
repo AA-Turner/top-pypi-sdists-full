@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vale
-Version: 3.17.1.0
+Version: 3.18.0.0
 Summary: Install and use Vale (grammar & style check tool) in python environments.
 Author: Dani Perez
 License: MIT
@@ -35,7 +35,7 @@ You can add `vale` package as a dependency in your `setup.py`,
 dependencies. For example, in `requirements.txt`:
 
 ```shell
-vale==3.17.1
+vale==3.18.0
 ```
 
 The version of this Python package corresponds exactly to Vale's version.  That

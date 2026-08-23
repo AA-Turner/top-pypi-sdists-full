@@ -36,6 +36,7 @@ __all__ = [
 
 ###
 
+type _Float64_0D = onp.Array0D[np.float64]
 type _Float64_1D = onp.Array1D[np.float64]
 type _Float64_2D = onp.Array2D[np.float64]
 
@@ -43,8 +44,13 @@ type _DeviceNP = Literal["cpu"]
 type _Norm = Literal[2, "approximate", "subsample"]
 
 type _ToWindow = (
-    float | str | tuple[str] | tuple[str, float | onp.ToFloat1D] | tuple[str, float, float | int] | tuple[str, int, int, bool]
-)
+    float
+    | str
+    | tuple[str]
+    | tuple[str, float | onp.ToFloat1D]
+    | tuple[str, float, float]
+    | tuple[str, int, int, bool]
+)  # fmt: skip
 
 ###
 
@@ -256,7 +262,7 @@ def dpss(
     *,
     xp: None = None,
     device: _DeviceNP | None = None,
-) -> tuple[_Float64_1D, np.float64]: ...
+) -> tuple[_Float64_1D, _Float64_0D]: ...
 @overload  # Kmax=None, *, return_ratios=True
 def dpss(
     M: int,
@@ -268,7 +274,7 @@ def dpss(
     return_ratios: Literal[True],
     xp: None = None,
     device: _DeviceNP | None = None,
-) -> tuple[_Float64_1D, np.float64]: ...
+) -> tuple[_Float64_1D, _Float64_0D]: ...
 @overload  # Kmax, return_ratios=False
 def dpss(
     M: int,
@@ -305,6 +311,18 @@ def dpss(
     xp: None = None,
     device: _DeviceNP | None = None,
 ) -> tuple[_Float64_2D, _Float64_1D]: ...
+@overload  # xp: ModuleType, return_ratios=True
+def dpss(
+    M: int,
+    NW: float,
+    Kmax: int | None = None,
+    sym: bool = True,
+    norm: _Norm | None = None,
+    *,
+    return_ratios: Literal[True],
+    xp: ModuleType,
+    device: Incomplete | None = None,
+) -> tuple[Incomplete, Incomplete]: ...
 @overload  # xp: ModuleType
 def dpss(
     M: int,
@@ -312,8 +330,8 @@ def dpss(
     Kmax: int | None = None,
     sym: bool = True,
     norm: _Norm | None = None,
-    return_ratios: bool = False,
+    return_ratios: Literal[False] = False,
     *,
     xp: ModuleType,
     device: Incomplete | None = None,
-) -> tuple[Incomplete, Incomplete]: ...
+) -> Incomplete: ...

@@ -5,16 +5,23 @@ from numpy.typing import NDArray
 
 @final
 class LoopFilter:
-    """LoopFilter component.
+    """Create a loop_filter instance, validating its arguments.
 
     Parameters
     ----------
     bn : float, default 0.01
-        bn constructor parameter.
+        Loop noise bandwidth, normalized cycles/sample; >= 0 and finite
+        (default 0.01).
     zeta : float, default 0.707
-        zeta constructor parameter.
+        Damping factor; > 0 and finite (default 0.707).
     t : float, default 1.0
-        t constructor parameter.
+        Update period in samples; > 0 and finite (default 1.0).
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``bn must be >= 0, zeta
+        > 0 and t > 0, and all three finite``.
 
     Examples
     --------
@@ -37,10 +44,15 @@ class LoopFilter:
 
         The PI recurrence is `integ += ki*x; control = integ + kp*x`: the
         integrator accumulates the running frequency/rate estimate while the
-        proportional term kp*x is the instantaneous phase nudge. Fed a constant
-        error the integrator ramps linearly and the control converges to the
-        steady-state estimate — the behaviour that pulls a Costas/DLL/timing
-        loop into lock.
+        proportional term kp*x is the instantaneous phase nudge.
+
+        Fed a constant error with nothing closing the loop, the integrator —
+        and therefore the control — **ramps without bound**; measured at 1.84x
+        between updates 200 and 400 at `bn = 0.02`. That is the accumulation
+        working, not a defect, and it is what pulls a Costas/DLL/timing loop
+        into lock once the loop IS closed, because a converging loop is one
+        whose error is being driven to zero by the correction. Convergence is a
+        property of the closed loop; this function is one term in it.
 
         Parameters
         ----------
@@ -73,9 +85,10 @@ class LoopFilter:
 
         Equivalent to calling loop_filter_step() once per element of x in
         order, carrying the integrator across the block, so the loop's memory
-        and lock state persist from one call to the next. This is the
-        vectorized path used to run a captured error sequence through the
-        filter in one shot.
+        and lock state persist from one call to the next. This is the block
+        path used to run a captured error sequence through the filter in one
+        shot — a plain per-element loop, not a vectorized one: the recurrence
+        is sequential, so each update depends on the one before it.
 
         Parameters
         ----------
@@ -95,7 +108,7 @@ class LoopFilter:
         >>> ctl = lf.steps(np.full(50, 0.1))   # constant error into the loop
         >>> round(float(ctl[0]), 4)            # first control nudge
         0.0133
-        >>> round(float(ctl[-1]), 4)           # converging toward the estimate
+        >>> round(float(ctl[-1]), 4)           # open loop: ramping
         0.0541
 
         """
@@ -343,6 +356,8 @@ class Costas:
         ----------
         x : NDArray[np.complex64]
             Input samples, one complex baseband sample each.
+        out : NDArray[np.complex64] | None
+            Prompt-symbol output buffer.
 
         Returns
         -------
@@ -410,6 +425,12 @@ class Costas:
             Probe-name prefix, e.g. "car" or "ch0.car".
         decim : int
             Emit every decim-th symbol; >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -766,6 +787,8 @@ class Dll:
         ----------
         x : NDArray[np.complex64]
             Carrier-wiped input samples (one contiguous block).
+        out : NDArray[np.complex64] | None
+            Output buffer for the emitted prompt symbols.
 
         Returns
         -------
@@ -833,6 +856,12 @@ class Dll:
             Probe-name prefix, e.g. "code" or "ch0.code".
         decim : int
             Emit every decim-th epoch; >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -1007,6 +1036,12 @@ class Dll:
         ref_snr_db : float
             Noise-reference estimator SNR in dB (> 0), or 0 to derive from
             n_looks as above.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_lock failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -1328,6 +1363,8 @@ class SymbolSync:
         ----------
         x : NDArray[np.complex64]
             Oversampled input samples (~sps samples per symbol).
+        out : NDArray[np.complex64] | None
+            Recovered symbol-rate samples.
 
         Returns
         -------
@@ -1390,6 +1427,12 @@ class SymbolSync:
             Probe-name prefix, e.g. "sync" or "rx.sync".
         decim : int
             Emit every decim-th symbol; >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -1496,6 +1539,12 @@ class SymbolSync:
         pd : float
             Target detection probability per decision, in (0, 1); must exceed
             pfa.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure_lock failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -1739,8 +1788,11 @@ class RateSync:
         must be even and at least 2. The oversampled stream is a by-product of
         the same dot products, not an extra cost. Use m >= 4 with
         pulse="iandd": the rectangle is one symbol wide, so at m=2 its matched
-        filter is a 2-tap sum and the eye statistic barely opens (measured
-        lock_stat -0.34 at m=2 against +0.95 at m=4 on the same NRZ stream).
+        filter is a 2-tap sum and the eye statistic barely opens. Measured on
+        an NRZ stream, m=2 does not clear the lock detector's own declare
+        threshold while m=4 clears it comfortably, with tens of dB of EVM
+        between them. The rule rests on that separation, not on a particular
+        pair of lock_stat values -- those move with sps and with the stream.
         The RRC spans many symbols and is unaffected.
     num_phases : int, default 1024
         Matched-filter arms; a power of two. Sets the fractional-timing
@@ -1754,6 +1806,13 @@ class RateSync:
         or "dttl" (decision-directed sign-sign Data Transition Tracking Loop;
         lower self-noise near lock but degrades faster at low SNR. BPSK/QPSK
         only -- invalid for 8PSK/QAM).
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``RateSync: invalid
+        parameter (need sps >= m, 0 <= beta <= 1, span >= 1, m even in [2, 8],
+        num_phases a power of two >= 2, bn >= 0, zeta > 0)``.
 
     Examples
     --------
@@ -1809,6 +1868,8 @@ class RateSync:
         ----------
         x : NDArray[np.complex64]
             Input samples.
+        out : NDArray[np.complex64] | None
+            Recovered symbols.
 
         Returns
         -------
@@ -1872,6 +1933,12 @@ class RateSync:
             Probe-name prefix, e.g. "sync".
         decim : int
             Emit every decim-th symbol; >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -2229,6 +2296,8 @@ class CarrierMpsk:
         ----------
         x : NDArray[np.complex64]
             Input block, one complex baseband sample per element.
+        out : NDArray[np.complex64] | None
+            Prompt output buffer written by the binding.
 
         Returns
         -------
@@ -2543,6 +2612,8 @@ class CarrierNda:
         ----------
         x : NDArray[np.complex64]
             Input samples (average power at or below unity).
+        out : NDArray[np.complex64] | None
+            De-rotated samples, one per input.
 
         Returns
         -------
@@ -2591,18 +2662,15 @@ class CarrierNda:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the carrier
-        loop's probes on it — including the embedded arm AGC's. Registers four
-        probes of its own, emitted once per input sample (this is a sample-rate
-        loop — use decim to thin the stream) plus the embedded AGC's
-        "<prefix>.agc.gain_db" (emitted at the AGC's own amortized gain-update
-        rate): "<prefix>.lock" (the lock-signal EMA, ~1 when phase-locked),
+        loop's probes on it. Registers four probes, emitted once per input
+        sample (this is a sample-rate loop — use decim to thin the stream):
+        "<prefix>.lock" (the lock-signal EMA, ~1 when phase-locked),
         "<prefix>.e" (the M-th-power phase discriminator — the loop stress),
         "<prefix>.freq" (the tracked carrier frequency, cycles/sample) and
         "<prefix>.locked" (the verify-counted lockdet decision, 0/1). Passing
-        NULL detaches the loop and the embedded AGC. Setup path, never hot:
-        call before the producer thread starts stepping; the context is
-        borrowed and must outlive the attachment (SPSC rules in
-        dp_tlm/dp_tlm_core.h).
+        NULL detaches. Setup path, never hot: call before the producer thread
+        starts stepping; the context is borrowed and must outlive the
+        attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
 
         Parameters
         ----------
@@ -2613,6 +2681,12 @@ class CarrierNda:
         decim : int
             Emit every decim-th sample; >= 1.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> import numpy as np
@@ -2622,7 +2696,7 @@ class CarrierNda:
         >>> c = CarrierNda(bn=0.01, sps=8, n=4, m=4)
         >>> c.set_telemetry(tlm, "car", decim=8)
         >>> sorted(tlm.probe_names)
-        ['car.agc.gain_db', 'car.e', 'car.freq', 'car.lock', 'car.locked']
+        ['car.e', 'car.freq', 'car.lock', 'car.locked']
         >>> x = np.exp(2j * np.pi * 0.005 * np.arange(4096)).astype(
         ...     np.complex64)
         >>> _ = c.steps(x)
@@ -2642,11 +2716,19 @@ class CarrierNda:
         """Re-tune the carrier lock detector: locked flips up after n_up
         consecutive samples with the lock-signal EMA above up_thresh, and drops
         after n_down consecutive samples below down_thresh (level + time
-        hysteresis; see detection.LockDet). Defaults (0.5/0.4, 8 up / 32 down)
-        mirror MpskReceiver's own pre-existing acquisition<->tracking handover,
-        which already steps a lockdet on this exact statistic and is validated
-        by that receiver's BER regression gate. A live lock survives the
-        re-tune; the in-flight verify run restarts.
+        hysteresis; see detection.LockDet). Defaults are 0.5/0.4 with 64 up /
+        32 down. The THRESHOLDS are Pfa-derived: 0.5 is 4.416 sigma on the
+        statistic's H0 spread, a per-look false-alarm rate of 5e-6, and it
+        means that at every M because the limited statistic's H0 variance is
+        1/2 for all of them. The VERIFY COUNT is not derived that way and must
+        not be. Compounding a per-look Pfa over n_up assumes successive looks
+        are independent; this detector steps once per sample and its lock EMA
+        stays correlated for roughly 39 samples, so a shorter count is counting
+        one look several times. Measured against noise-only input, n_up=8 --
+        the value MpskReceiver uses on this same statistic -- false-locked 4
+        trials in 30, while 64 was the smallest count clean over 300. Raise
+        n_up rather than lower it unless you have re-measured. A live lock
+        survives the re-tune; the in-flight verify run restarts.
 
         Full lockdet control, mirroring costas_configure_lock(): a split
         declare/drop threshold pair on the lock-signal EMA (level hysteresis)
@@ -2689,7 +2771,7 @@ class CarrierNda:
 
         Restores the object to its post-create state: the carrier NCO is reset
         to the seed frequency it was constructed with (init_norm_freq) with
-        zero phase, the moving-average arm, AGC, loop-filter integrator and
+        zero phase, the moving-average arm, the loop-filter integrator and the
         lock EMA are cleared, and the lock detector is dropped. The configured
         (bn, zeta), the arm geometry (sps, n) and the constellation order m are
         preserved, so the same object can re-acquire a fresh capture.
@@ -2866,24 +2948,28 @@ class MpskReceiver:
         because the front end plans its own cascade and the terminal stage's
         accumulator is a double. That is the real-world case whenever the ADC
         clock is free-running against the symbol clock.
-    m_out : int, default 8
-        Terminal outputs per symbol: even, 2..8. The Gardner detector takes
-        every m_out-th output as the on-time strobe and the one m_out/2 back as
-        the transition gate, so the oversampled matched-filtered stream falls
-        out for free. **The default is 8 because that is where the I&D matched
-        filter reaches the coherent bound.** The rectangle is one symbol wide,
-        so its matched filter is an m_out-tap sum spanning it, and a smaller
-        m_out samples that same integral more coarsely. Measured on QPSK at the
-        default sps=8 against the coherent bound EVM_dB = -(Es/N0)_dB: at 18 dB
-        Es/N0, m_out=8 lands 0.41 dB off the bound where m_out=4 loses 3.11 dB;
-        at 14 dB it is 0.25 dB against 1.71 dB -- the gap widens as noise stops
-        hiding it. **Never pair 2 with pulse="iandd"**: the matched filter
-        degenerates to a two-tap sum, the eye barely opens (measured lock
-        statistic -0.34 at 2 against +0.95 at 4 on the same NRZ stream) and
-        acquisition itself fails about half the time (4/8 seeds locked at 14 dB
-        Es/N0, against 8/8 at both 4 and 8). Replaces the old `n` (NDA arm
-        dumps per symbol): the cascade's own outputs now feed the carrier
-        discriminator, so there is no separate arm to size.
+    m_out : int, default 0
+        **0 (the default) derives it** -- see docs/design/mpsk.md §8.1; pass a
+        value only to pin one. The rule is the largest even count in 2..8 the
+        rate allows, so a caller cannot pair an `sps` and an `m_out` that will
+        not work together. Terminal outputs per symbol: even, 2..8. The Gardner
+        detector takes every m_out-th output as the on-time strobe and the one
+        m_out/2 back as the transition gate, so the oversampled
+        matched-filtered stream falls out for free. **The default is 8 because
+        that is where the I&D matched filter reaches the coherent bound.** The
+        rectangle is one symbol wide, so its matched filter is an m_out-tap sum
+        spanning it, and a smaller m_out samples that same integral more
+        coarsely. Measured on QPSK at the default sps=8 against the coherent
+        bound EVM_dB = -(Es/N0)_dB: at 18 dB Es/N0, m_out=8 lands 0.41 dB off
+        the bound where m_out=4 loses 3.11 dB; at 14 dB it is 0.25 dB against
+        1.71 dB -- the gap widens as noise stops hiding it. **Never pair 2 with
+        pulse="iandd"**: the matched filter degenerates to a two-tap sum, the
+        eye barely opens (measured lock statistic -0.34 at 2 against +0.95 at 4
+        on the same NRZ stream) and acquisition itself fails about half the
+        time (4/8 seeds locked at 14 dB Es/N0, against 8/8 at both 4 and 8).
+        Replaces the old `n` (NDA arm dumps per symbol): the cascade's own
+        outputs now feed the carrier discriminator, so there is no separate arm
+        to size.
     pulse : Literal["iandd", "rrc"], default "iandd"
         Matched-filter shape (default MPSK_RX_PULSE_IANDD).
     rrc_beta : float, default 0.35
@@ -2895,52 +2981,72 @@ class MpskReceiver:
         (default 0.01). A carrier loop here closes around the matched filter,
         so its dead time is that filter's group delay — keep it a small
         fraction of the symbol rate, as a real receiver does.
-    zeta : float, default 0.707
-        Damping factor for both loops (default 0.707).
+    zeta : float, default 0.0
+        Damping factor for both loops. **0 (the default) derives it** as
+        `1/sqrt(2)`, critically damped -- a constant, not a computation, and a
+        parameter only because it was once thought to be one
+        (docs/design/mpsk.md §8.1).
     bn_timing : float, default 0.01
         Symbol-timing loop noise bandwidth, normalised to the symbol rate
         (default 0.01).
-    acq_to_track : int, default 0
-        Enable the two-way NDA<->decision-directed handover (default 0).
-    lock_thresh : float, default 0.5
-        Handover declare threshold on the carrier lock metric (default 0.5);
-        the drop threshold sits at 0.8x for level hysteresis, and both
-        directions are verify-counted (8 symbols up / 32 down). The metric is
-        `Re((z/|z|)^M)` smoothed by an EMA, whose noise-only sd is 0.1132 for
-        **every** M, so the threshold is `0.5 / 0.1132` = 4.42 noise sigmas — a
-        per-look false-alarm probability of 5e-6. Pick a value by dividing your
-        Pfa's z-score into 0.1132 rather than by feel; see carrier_nda_core.h
-        for the derivation and the measured verification.
+    lock_thresh : float, default 0.0
+        Declare threshold for the carrier lock indicator, on the carrier lock
+        EMA. **0 (the default) derives it** as `sigma_H0 * eta(Pfa)` = 0.4999
+        at `Pfa = 5e-6`; the limited statistic reads ~1.0 at lock for every M,
+        so no per-M correction is carried (docs/design/mpsk.md §8.1).
     init_norm_freq : float, default 0.0
         Seed carrier frequency, cycles/sample at the input rate (default 0.0).
         This is the centre the LO is tuned to; the loop tracks the residual
         around it.
-    warmup_syms : int, default 100
-        Symbols before the acq-to-track switch is allowed (default 100).
     differential : int, default 0
         bits(): differential (rotation-invariant) demap (default 0 = coherent).
-    num_phases : int, default 1024
-        Matched-filter bank arms; a power of two. Sets the fractional-timing
-        resolution to 1/num_phases of an output period. The bank is sized by
-        the POST-decimation rate, so this costs the same at sps=8 and sps=256.
-    nda_tap : Literal["strobe", "mf_all", "lo_arm"], default "strobe"
-        Where the NDA carrier discriminator reads from, which sets its pull-in
-        range and whether it needs symbol timing at all. An M-th-power detector
-        updating at rate F can only see |df| < F/(2M), so the tap point IS the
-        range. `strobe` (default) reads the on-time strobe at the symbol rate
-        Rs: the cleanest input, the narrowest range (Rs/(2M)), and the only tap
-        whose input quality depends on the timing loop -- it steers from its
-        first strobe whether or not timing has declared, so when the carrier
-        must acquire before timing does, that is a reason to pick another tap
-        rather than something the receiver resolves for you. `mf_all` reads
-        every terminal output at m_out*Rs -- m_out times the range and no
-        timing dependence, paid for with the ISI the between-symbol outputs
-        carry, which hurts most where the decision margin is smallest (8PSK).
-        `lo_arm` reads ahead of the cascade through a free-running half-symbol
-        boxcar at the LO rate -- the widest range and fully timing-independent,
-        but unmatched, so it pays squaring loss. Fixed at construction: nothing
-        switches underneath you. If you need more range than any tap gives, put
-        a coarse frequency estimate in front and pass it as init_norm_freq.
+    num_phases : int, default 0
+        Matched-filter bank arms, a power of two; sets the fractional-timing
+        resolution to 1/num_phases of an output period. **0 (the default)
+        derives it** as 64, the measured saturation point -- against the 1024
+        that shipped, a 16x bank for no measurable gain (docs/design/mpsk.md
+        §8.1). Matched-filter bank arms; a power of two. Sets the
+        fractional-timing resolution to 1/num_phases of an output period. The
+        bank is sized by the POST-decimation rate, so this costs the same at
+        sps=8 and sps=256.
+    agc : int, default 1
+        Level the front-end cascade so the timing detector's construct-time
+        slope means what it says. The TED normalises by its OWN slope and
+        nothing else, and that slope is computed for a UNIT-amplitude symbol
+        stream -- amplitude enters the raw error as A^2 (Gardner) or A^1
+        (DTTL), so a 4x level error is a 16x loop-gain error. With this on, an
+        AGC sits inside the cascade just before the matched filter and drives
+        the average power to the level a unit-amplitude symbol stream would
+        have there, derived from the matched filter's own pulse energy rather
+        than configured. On by default because the alternative is a receiver
+        whose loop gain depends on how loud the input happened to be. Set 0 to
+        reproduce the un-levelled behaviour exactly, which is the handle for
+        attributing any measurement that moves. This is the receiver's ONLY AGC
+        -- the carrier discriminator normalises by its own |z|^M and needs
+        none. Read the applied gain back with `agc_gain_db`.
+    bn_agc_ratio : float, default 0.0
+        **0 (the default) derives it** -- see docs/design/mpsk.md §8.1; pass a
+        value only to pin one. The one AGC's noise bandwidth as a fraction of
+        the SLOWEST loop it feeds -- min(bn_carrier, bn_timing), not the
+        carrier's alone, since the AGC feeds the timing loop directly. Must be
+        in (0, 1) and construction refuses otherwise, because an AGC at or
+        above the bandwidth of a loop it feeds corrects the excursions that
+        loop is itself producing and the two integrate against each other; the
+        signal LEVEL is a slow property of the channel, not a disturbance to
+        reject at loop speed. Exposed rather than fixed because the right
+        separation depends on how fast the channel's level moves against how
+        fast its phase and timing do, which is a property of the link. The cold
+        start is not the loop's job either way -- the AGC seeds its gain from a
+        direct measurement -- so slow is cheap here.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``MpskReceiver: invalid
+        parameter (need m in {2,4,8}, sps >= m_out -- sps > 2*m_out on the
+        real-input MpskReceiverR, whose cascade runs behind a 2:1 halfband,
+        m_out even in [2, 8], 0 <= rrc_beta <= 1, rrc_span >= 1, num_phases a
+        power of two >= 2, bn >= 0, zeta > 0, 0 < bn_agc_ratio < 1)``.
 
     Examples
     --------
@@ -2950,20 +3056,19 @@ class MpskReceiver:
     >>> obj = MpskReceiver(
     ...     m=4,
     ...     sps=8.0,
-    ...     m_out=8,
+    ...     m_out=0,
     ...     pulse="iandd",
     ...     rrc_beta=0.35,
     ...     rrc_span=8,
     ...     bn_carrier=0.01,
-    ...     zeta=0.707,
+    ...     zeta=0.0,
     ...     bn_timing=0.01,
-    ...     acq_to_track=0,
-    ...     lock_thresh=0.5,
+    ...     lock_thresh=0.0,
     ...     init_norm_freq=0.0,
-    ...     warmup_syms=100,
     ...     differential=0,
-    ...     num_phases=1024,
-    ...     nda_tap="strobe",
+    ...     num_phases=0,
+    ...     agc=1,
+    ...     bn_agc_ratio=0.0,
     ... )
 
     """
@@ -2978,13 +3083,12 @@ class MpskReceiver:
         bn_carrier: float = ...,
         zeta: float = ...,
         bn_timing: float = ...,
-        acq_to_track: int = ...,
         lock_thresh: float = ...,
         init_norm_freq: float = ...,
-        warmup_syms: int = ...,
         differential: int = ...,
         num_phases: int = ...,
-        nda_tap: Literal["strobe", "mf_all", "lo_arm"] = "strobe",
+        agc: int = ...,
+        bn_agc_ratio: float = ...,
     ) -> None: ...
 
     def set_telemetry(
@@ -2995,13 +3099,32 @@ class MpskReceiver:
     ) -> None:
         """Attach (or detach) a telemetry context across the receiver.
         Registers the receiver's own "<prefix>.lock" probe (the carrier lock
-        EMA) and "<prefix>.tracking" (the two-way handover decision, 0/1 — so a
-        consumer sees exactly when the carrier was handed to the
-        decision-directed discriminator or dropped back to NDA), then the
-        carrier loop's "<prefix>.car.e" / ".freq" / ".locked" and the
-        symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" / ".lock" /
-        ".locked" / ".mu" -- eleven probes total, all thinned by decim and all
-        emitted once per recovered symbol. Passing NULL detaches everything.
+        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
+        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
+        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
+        symbol -- then the front end's AGC under "<prefix>.agc"
+        ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
+        agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        Passing NULL detaches everything.
+
+        Instrumenting it matters because it is FIRST in the chain, and a level
+        error is the one kind no downstream loop can correct for itself: a TED
+        normalises by its own construct-time slope, so it reads a level error
+        as a loop-gain error (A^2 Gardner, A DTTL) with no other reference to
+        catch it. This receiver also makes the AGC the slowest of its three
+        loops by construction -- mpsk_rx_agc_bn() derives its bandwidth as a
+        fraction of the slowest loop it feeds, and bn_agc_ratio is validated to
+        (0, 1) -- but that is a choice of THIS composition, and slowest does
+        not by itself mean longest: settling is set by the bandwidth AND by how
+        far the level starts from the reference, which is unknown at
+        construction. Which is exactly why it has to be measured rather than
+        inferred; the zero-referenced "<prefix>.agc.level_db" is what makes
+        that possible.
+
+        With agc = 0 at construction there is no AGC to attach and the two
+        probes are simply absent (fourteen, not sixteen); this still returns
+        DP_OK.
+
         Setup path, never hot; the context is borrowed and must outlive the
         attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
 
@@ -3012,18 +3135,38 @@ class MpskReceiver:
         prefix : str
             Probe-name prefix, e.g. "rx".
         decim : int
-            Emit every decim-th symbol; >= 1.
+            Emit every decim-th symbol (every decim-th gain update for the two
+            AGC probes); >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
+        Warnings
+        --------
+        The two AGC probes are NOT at the symbol rate the other ten are. That
+        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
+        stage the timing loop steers) and emits once per gain-update event,
+        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
+        reports on a grid that depends on the planned cascade, not on recovered
+        symbols, and a run yields a different number of AGC records than
+        carrier records. Compare the two by TIME, never by record index. This
+        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        stream's units precisely so it is not coupled to the loop that is
+        stretching the symbol grid (see RateConverter_enable_agc()).
 
         Examples
         --------
         >>> import numpy as np
         >>> from doppler.track import MpskReceiver
         >>> from doppler.telemetry import Telemetry
-        >>> tlm = Telemetry(1 << 14)   # 11 probes x ~512 syms + headroom
+        >>> tlm = Telemetry(1 << 14)   # 15 probes x ~512 syms + headroom
         >>> rx = MpskReceiver(m=4, sps=4, m_out=2)
         >>> rx.set_telemetry(tlm, "rx")
         >>> len(tlm.probe_names)
-        11
+        15
         >>> rng = np.random.default_rng(7)
         >>> syms = (1 - 2 * rng.integers(0, 2, 512)).astype(np.complex64)
         >>> x = np.repeat(syms, 4)
@@ -3034,6 +3177,9 @@ class MpskReceiver:
         >>> n_sync = len(recs[recs["probe"] == tlm.probe_id("rx.sync.e")])
         >>> n_car = len(recs[recs["probe"] == tlm.probe_id("rx.car.e")])
         >>> n_sync > 0 and n_sync == n_car
+        True
+        >>> n_agc = len(recs[recs["probe"] == tlm.probe_id("rx.agc.gain_db")])
+        >>> n_agc > 0 and n_agc != n_sync   # cascade grid, not symbol grid
         True
 
         """
@@ -3053,15 +3199,10 @@ class MpskReceiver:
         loop steering the LO's freq_ctrl port. The carrier discriminator runs
         on the on-time strobe only -- a non-strobe output straddles two
         symbols, so its M-th power is intersymbol interference rather than
-        carrier phase -- and while acquiring it is the non-data-aided
-        M-th-power error, needing no data and no symbol timing. With
-        acq_to_track enabled a verify-counted two-way handover steps on the
-        carrier lock metric each symbol: it switches to a lower-jitter
-        decision-directed carrier loop after 8 consecutive above-lock_thresh
-        symbols, and on a sustained lock loss (32 consecutive symbols below
-        0.8*lock_thresh) drops back to the NDA acquisition steer, the shared
-        loop filter carrying the frequency estimate both ways. The loop locks
-        to one of m phases (M-fold ambiguity); resolve it with
+        carrier phase -- and it is the non-data-aided M-th-power error
+        throughout, needing no data and no symbol timing: there is one
+        discriminator, running from the first symbol to the last. The loop
+        locks to one of m phases (M-fold ambiguity); resolve it with
         bits(differential) or a sync word. Read norm_freq for the tracked
         carrier and lock for the carrier lock metric.
 
@@ -3074,6 +3215,8 @@ class MpskReceiver:
         ----------
         x : NDArray[np.complex64]
             Input cf32 samples.
+        out : NDArray[np.complex64] | None
+            Output symbols; caller provides max_out capacity.
 
         Returns
         -------
@@ -3091,9 +3234,9 @@ class MpskReceiver:
         >>> rx = MpskReceiver(m=4, sps=8, m_out=4, bn_carrier=0.02)
         >>> sym = rx.steps(tx)                              # blind NDA acquire
         >>> sym.size                                        # ~ x_len / sps
-        2997
-        >>> round(rx.lock, 2)                               # carrier locked
-        0.91
+        2998
+        >>> rx.lock > 0.8                                   # carrier locked
+        True
 
         """
 
@@ -3134,6 +3277,8 @@ class MpskReceiver:
         ----------
         x : NDArray[np.complex64]
             Input cf32 samples.
+        out : NDArray[np.uint8] | None
+            Output bytes (0/1); caller provides max_out capacity.
 
         Returns
         -------
@@ -3150,10 +3295,10 @@ class MpskReceiver:
         >>> rx = MpskReceiver(m=2, sps=8, m_out=4, bn_carrier=0.005)
         >>> b = rx.bits(tx)                                 # 1 hard bit/symbol
         >>> b.size
-        2997
+        2998
         >>> # settled tail matches the payload, up to the BPSK
-        >>> # inversion ambiguity
-        >>> tail = np.mean(b[1000:2000] != idx[1000:2000])
+        >>> # inversion ambiguity and the pipeline's one-symbol lead
+        >>> tail = np.mean(b[1001:2001] != idx[1000:2000])
         >>> round(float(min(tail, 1 - tail)), 3)
         0.0
 
@@ -3171,52 +3316,6 @@ class MpskReceiver:
         -------
         int
             Upper bound on the output length; the actual call may return fewer.
-        """
-
-    def configure_lock(
-        self,
-        up_thresh: float,
-        down_thresh: float,
-        n_up: int,
-        n_down: int,
-    ) -> None:
-        """Re-tune the acquisition<->tracking handover detector: hands the
-        carrier to the decision-directed discriminator after n_up consecutive
-        symbols with the carrier lock EMA above up_thresh, and falls back to
-        NDA acquisition after n_down consecutive symbols below down_thresh
-        (level + time hysteresis; see detection.LockDet). Previously only
-        settable at construction (lock_thresh, with fixed 0.8x drop / 8-up /
-        32-down constants) -- this is the post-construction re-tune Dll and
-        Costas both already have. A live handover survives the re-tune; the
-        in-flight verify run restarts.
-
-        Full lockdet control over the handover, mirroring
-        costas_configure_lock(): a split declare/drop threshold pair on the
-        carrier lock EMA (level hysteresis) and both verify counts (time
-        hysteresis). A live handover survives the re-tune; the in-flight verify
-        run restarts.
-
-        Parameters
-        ----------
-        up_thresh : float
-            Declare threshold on the carrier lock EMA.
-        down_thresh : float
-            Drop threshold; choose <= up_thresh for level hysteresis.
-        n_up : int
-            Consecutive above-threshold symbols to hand over to the
-            decision-directed discriminator; clamped >= 1.
-        n_down : int
-            Consecutive below-threshold symbols to fall back to NDA
-            acquisition; clamped >= 1.
-
-        Examples
-        --------
-        >>> from doppler.track import MpskReceiver
-        >>> rx = MpskReceiver(m=4, sps=4, m_out=2, acq_to_track=1)
-        >>> rx.tracking
-        0
-        >>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, fast drop
-
         """
 
     def reset(self) -> None:
@@ -3299,6 +3398,19 @@ class MpskReceiver:
         """
 
     @property
+    def agc_gain_db(self) -> float:
+        """Gain the front-end AGC is applying, in dB; 0.0 when `agc=0`. The
+        diagnostic for a level problem: a receiver that will not lock with a
+        healthy `lock` statistic, or one whose timing loop behaves differently
+        at two input levels, is asking about this number. It settles at
+        -10*log10(P_in / P_ref), where P_ref is the power a unit-amplitude
+        symbol stream has where the AGC sits, so a reading far from 0 dB says
+        the input is far from the level the cascade was built for -- which is
+        fine, and is what the AGC is for, but is worth knowing. Distinct from
+        the cascade's filter response, which stays unity; the two multiply.
+        """
+
+    @property
     def norm_freq(self) -> float:
         """Carrier frequency the receiver is tracking, cycles/sample at the
         input rate: the create-time centre plus the loop's own estimate.
@@ -3311,14 +3423,99 @@ class MpskReceiver:
         """EMA of the carrier lock signal."""
 
     @property
+    def zeta(self) -> float:
+        """Loop damping actually in use. Reads back the DERIVED `1/sqrt(2)`
+        when the constructor was given 0, or whatever was pinned instead.
+        Everything derived is reported (docs/design/mpsk.md §8.1), on the same
+        argument as `RateConverter.stages`: without the readback, passing 0 is
+        an instruction whose result nobody can see.
+        """
+
+    @property
+    def num_phases(self) -> int:
+        """Matched-filter bank arms actually in use. Reads back the DERIVED 64
+        -- the measured saturation point, against the 1024 that shipped -- when
+        the constructor was given 0. See `zeta` for why every derived value is
+        reported.
+        """
+
+    @property
+    def lock_thresh(self) -> float:
+        """Handover declare threshold actually in use. Reads back the DERIVED
+        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
+        given 0. See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def lock_drop_thresh(self) -> float:
+        """Carrier DROP threshold actually in use -- 0.8x `lock_thresh`, the
+        level hysteresis the declare/drop pair is stated with. Exposed for the
+        same reason as the declare side: anything reading `lock` against its
+        decision needs BOTH edges, and computing `0.8 *` at the call site is a
+        second copy of a rule this object owns. Both carrier detectors are
+        initialised from this pair, so one number describes them both.
+        """
+
+    @property
+    def sync_lock_thresh(self) -> float:
+        """Timing DECLARE threshold on the `sync.lock` statistic. Not the
+        carrier's number and not derived the same way: symsync sizes its block
+        length and threshold together from (rolloff, esno_min, pfa, pd), so
+        this reads back that geometry's answer. A caller plotting `sync.lock`
+        needs this rather than `lock_thresh`, which belongs to a different
+        statistic on a different clock.
+        """
+
+    @property
+    def sync_lock_drop_thresh(self) -> float:
+        """Timing DROP threshold on `sync.lock`. Equal to `sync_lock_thresh`
+        when the timing loop carries no level hysteresis (up = down =
+        threshold, the symsync default), so the two reading the same is
+        information, not a bug -- the timing decision's hysteresis is in its
+        verify COUNTS rather than its levels.
+        """
+
+    @property
+    def bn_agc_ratio(self) -> float:
+        """AGC bandwidth as a fraction of the slowest loop it feeds, actually
+        in use. Reads back the DERIVED 0.05 when the constructor was given 0.
+        See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def locked(self) -> int:
+        """Binary carrier-lock flag from the hysteretic (verify-counted)
+        detector on `lock` -- de-chattered, unlike the raw metric. It declares
+        after 8 consecutive symbols above `lock_thresh` and withdraws after 32
+        below `lock_drop_thresh`, so it answers 'is this receiver locked'
+        rather than 'was the statistic above the line on this symbol'. **It is
+        an INDICATOR and nothing else**: it steers no loop, gates no output,
+        and the M-th-power NDA discriminator runs from the first strobe whether
+        or not this has declared. So a caller uses it to size a measurement
+        window, and a wrong reading costs them that window and costs the
+        demodulator nothing. `lock_time` dates its first declaration.
+        """
+
+    @property
+    def lock_time(self) -> int:
+        """Symbols from reset to the FIRST carrier-lock declaration, or -1 if
+        the receiver has not locked yet -- the acquisition time as a number,
+        rather than something a caller has to infer by polling `locked` in a
+        loop. Dated by the same hysteretic detector `locked` reports, so the
+        two cannot disagree. In SYMBOLS, not seconds: `bn_carrier` and
+        `bn_timing` are both normalised to the symbol rate, so a settling
+        budget quoted in symbols is comparable across every input rate, and a
+        caller holding Rs divides once. Only the FIRST declaration is dated --
+        a drop and re-acquire does not restamp it, because the question this
+        answers is 'how long did this receiver take to lock', not 'when did it
+        last hold'. `reset()` clears it to -1.
+        """
+
+    @property
     def timing_rate(self) -> float:
         """Smoothed tracked samples per symbol — departs from the nominal `sps`
         by exactly the sample-clock offset the timing loop is tracking.
         """
-
-    @property
-    def tracking(self) -> int:
-        """0 = NDA acquire, 1 = decision."""
 
     @property
     def m(self) -> int:
@@ -3389,8 +3586,580 @@ class MpskReceiver:
         """
 
 @final
+class BpskReceiver:
+    """Create an M-PSK receiver.
+
+    Parameters
+    ----------
+    sample_rate_hz : float
+        ADC sample rate, Hz. One of the two facts a caller reading a capture
+        actually holds -- `sps` is `sample_rate_hz / symbol_rate_hz`, a ratio
+        this library computes for its own use in selecting a cascade, and
+        asking for it would make the caller derive an internal quantity.
+    symbol_rate_hz : float
+        Symbol rate, Hz. Must leave `sample_rate_hz / symbol_rate_hz` at or
+        above the derived `m_out`; a rate that cannot be strobed is refused at
+        construction rather than approximated.
+    carrier_freq_hz : float, default 0.0
+        Carrier centre, Hz. 0 is complex baseband. Stated in Hz like everything
+        else here: `MpskReceiver`'s `init_norm_freq` is cycles per SAMPLE,
+        which is a unit a caller can only produce by holding `sps` and `fs`
+        together, and that coupling is what this face removes.
+    pulse : Literal["iandd", "rrc"], default "iandd"
+        Matched-filter shape. Same default as `MpskReceiver` deliberately: one
+        default across both faces beats a face-specific guess at a link
+        property.
+    rrc_beta : float, default 0.35
+        RRC roll-off in `[0, 1]`. RRC only.
+    rrc_span : int, default 8
+        RRC one-sided span in symbols. RRC only.
+    bn_carrier : float, default 0.01
+        Carrier loop noise bandwidth, normalised to the SYMBOL rate. A design
+        axis, and the one the acquisition bound `bn_carrier / m` is stated
+        against.
+    bn_timing : float, default 0.01
+        Symbol-timing loop noise bandwidth, normalised to the symbol rate. A
+        design axis.
+    differential : int, default 0
+        bits(): differential (rotation-invariant) demap. Left optional and
+        coherent by default, matching `MpskReceiver` -- it changes what the
+        output bits MEAN and is not derivable from the signal, so it is a link
+        property a caller states rather than one this object guesses.
+    agc : int, default 1
+        Front-end AGC. On by default: it levels the cascade so the timing
+        detector's construct-time slope means what it says.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``MpskReceiver: invalid
+        parameter (need m in {2,4,8}, sps >= m_out -- sps > 2*m_out on the
+        real-input MpskReceiverR, whose cascade runs behind a 2:1 halfband,
+        m_out even in [2, 8], 0 <= rrc_beta <= 1, rrc_span >= 1, num_phases a
+        power of two >= 2, bn >= 0, zeta > 0, 0 < bn_agc_ratio < 1)``.
+
+    """
+    def __init__(
+        self,
+        sample_rate_hz: float,
+        symbol_rate_hz: float,
+        carrier_freq_hz: float = ...,
+        pulse: Literal["iandd", "rrc"] = "iandd",
+        rrc_beta: float = ...,
+        rrc_span: int = ...,
+        bn_carrier: float = ...,
+        bn_timing: float = ...,
+        differential: int = ...,
+        agc: int = ...,
+    ) -> None: ...
+
+    def set_telemetry(
+        self,
+        tlm: object | None,
+        prefix: str,
+        decim: int = 1,
+    ) -> None:
+        """Attach (or detach) a telemetry context across the receiver.
+        Registers the receiver's own "<prefix>.lock" probe (the carrier lock
+        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
+        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
+        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
+        symbol -- then the front end's AGC under "<prefix>.agc"
+        ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
+        agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        Passing NULL detaches everything.
+
+        Instrumenting it matters because it is FIRST in the chain, and a level
+        error is the one kind no downstream loop can correct for itself: a TED
+        normalises by its own construct-time slope, so it reads a level error
+        as a loop-gain error (A^2 Gardner, A DTTL) with no other reference to
+        catch it. This receiver also makes the AGC the slowest of its three
+        loops by construction -- mpsk_rx_agc_bn() derives its bandwidth as a
+        fraction of the slowest loop it feeds, and bn_agc_ratio is validated to
+        (0, 1) -- but that is a choice of THIS composition, and slowest does
+        not by itself mean longest: settling is set by the bandwidth AND by how
+        far the level starts from the reference, which is unknown at
+        construction. Which is exactly why it has to be measured rather than
+        inferred; the zero-referenced "<prefix>.agc.level_db" is what makes
+        that possible.
+
+        With agc = 0 at construction there is no AGC to attach and the two
+        probes are simply absent (fourteen, not sixteen); this still returns
+        DP_OK.
+
+        Setup path, never hot; the context is borrowed and must outlive the
+        attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
+
+        Parameters
+        ----------
+        tlm : object | None
+            Telemetry context to attach, or NULL to detach.
+        prefix : str
+            Probe-name prefix, e.g. "rx".
+        decim : int
+            Emit every decim-th symbol (every decim-th gain update for the two
+            AGC probes); >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
+        Warnings
+        --------
+        The two AGC probes are NOT at the symbol rate the other ten are. That
+        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
+        stage the timing loop steers) and emits once per gain-update event,
+        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
+        reports on a grid that depends on the planned cascade, not on recovered
+        symbols, and a run yields a different number of AGC records than
+        carrier records. Compare the two by TIME, never by record index. This
+        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        stream's units precisely so it is not coupled to the loop that is
+        stretching the symbol grid (see RateConverter_enable_agc()).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> from doppler.telemetry import Telemetry
+        >>> tlm = Telemetry(1 << 14)   # 15 probes x ~512 syms + headroom
+        >>> rx = MpskReceiver(m=4, sps=4, m_out=2)
+        >>> rx.set_telemetry(tlm, "rx")
+        >>> len(tlm.probe_names)
+        15
+        >>> rng = np.random.default_rng(7)
+        >>> syms = (1 - 2 * rng.integers(0, 2, 512)).astype(np.complex64)
+        >>> x = np.repeat(syms, 4)
+        >>> _ = rx.steps(x)
+        >>> recs = tlm.read()
+        >>> tlm.dropped        # size the ring, or the counts below diverge
+        0
+        >>> n_sync = len(recs[recs["probe"] == tlm.probe_id("rx.sync.e")])
+        >>> n_car = len(recs[recs["probe"] == tlm.probe_id("rx.car.e")])
+        >>> n_sync > 0 and n_sync == n_car
+        True
+        >>> n_agc = len(recs[recs["probe"] == tlm.probe_id("rx.agc.gain_db")])
+        >>> n_agc > 0 and n_agc != n_sync   # cascade grid, not symbol grid
+        True
+
+        """
+
+    def steps(
+        self,
+        x: NDArray[np.complex64],
+        out: NDArray[np.complex64] | None = None,
+    ) -> NDArray[np.complex64]:
+        """Demodulate a cf32 block and return the recovered M-PSK symbols (one
+        cf32 per recovered symbol period, ~ len(x)/sps outputs). Per sample the
+        receiver pushes x through the matched DDC -- LO mix, decimating
+        cascade, and a terminal polyphase stage whose bank IS the matched
+        filter and whose selected arm IS the fractional symbol-timing delay --
+        then folds every output that stage produced into two loops: a Gardner
+        symbol-timing loop steering the cascade's rate_ctrl port, and a carrier
+        loop steering the LO's freq_ctrl port. The carrier discriminator runs
+        on the on-time strobe only -- a non-strobe output straddles two
+        symbols, so its M-th power is intersymbol interference rather than
+        carrier phase -- and it is the non-data-aided M-th-power error
+        throughout, needing no data and no symbol timing: there is one
+        discriminator, running from the first symbol to the last. The loop
+        locks to one of m phases (M-fold ambiguity); resolve it with
+        bits(differential) or a sync word. Read norm_freq for the tracked
+        carrier and lock for the carrier lock metric.
+
+        Runs the per-sample loop (mix + cascade + matched filter, then the
+        carrier and timing loops) over x and writes one cf32 symbol per
+        recovered symbol period — roughly `x_len / sps` outputs. Read norm_freq
+        for the tracked carrier and lock for the carrier lock metric.
+
+        Parameters
+        ----------
+        x : NDArray[np.complex64]
+            Input cf32 samples.
+        out : NDArray[np.complex64] | None
+            Output symbols; caller provides max_out capacity.
+
+        Returns
+        -------
+        NDArray[np.complex64]
+            Number of symbols written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 3000)                  # QPSK symbols
+        >>> tx = np.repeat(np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)), 8)
+        >>> tx = tx.astype(np.complex64)                    # 8 samples/symbol
+        >>> rx = MpskReceiver(m=4, sps=8, m_out=4, bn_carrier=0.02)
+        >>> sym = rx.steps(tx)                              # blind NDA acquire
+        >>> sym.size                                        # ~ x_len / sps
+        2998
+        >>> rx.lock > 0.8                                   # carrier locked
+        True
+
+        """
+
+    def steps_max_out(self) -> int:
+        """Largest number of samples steps() can return in the current state.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
+
+    def bits(
+        self,
+        x: NDArray[np.complex64],
+        out: NDArray[np.uint8] | None = None,
+    ) -> NDArray[np.uint8]:
+        """Demodulate a cf32 block and return hard Gray-coded bits (log2(m)
+        bytes of 0/1 per recovered symbol, LSB-first). Coherent by default; if
+        the receiver was created with differential=1, each symbol's bits come
+        from the phase DIFFERENCE between consecutive symbols
+        (rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the
+        symbol-error rate). Same per-sample carrier/timing recovery as steps().
+
+        Like mpsk_receiver_steps(), but each recovered symbol is sliced to its
+        nearest M-PSK point and unpacked to log2(M) hard bits (LSB-first). With
+        the differential option set at create time, the Gray label is taken
+        from the phase *difference* between consecutive symbols
+        (rotation-invariant — it resolves the M-fold carrier ambiguity), else
+        from the absolute (coherent) decision.
+
+        Parameters
+        ----------
+        x : NDArray[np.complex64]
+            Input cf32 samples.
+        out : NDArray[np.uint8] | None
+            Output bytes (0/1); caller provides max_out capacity.
+
+        Returns
+        -------
+        NDArray[np.uint8]
+            Number of bits written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(3)
+        >>> idx = rng.integers(0, 2, 3000)                  # BPSK payload bits
+        >>> tx = np.repeat(np.exp(1j * np.pi * idx), 8).astype(np.complex64)
+        >>> rx = MpskReceiver(m=2, sps=8, m_out=4, bn_carrier=0.005)
+        >>> b = rx.bits(tx)                                 # 1 hard bit/symbol
+        >>> b.size
+        2998
+        >>> # settled tail matches the payload, up to the BPSK
+        >>> # inversion ambiguity and the pipeline's one-symbol lead
+        >>> tail = np.mean(b[1001:2001] != idx[1000:2000])
+        >>> round(float(min(tail, 1 - tail)), 3)
+        0.0
+
+        """
+
+    def bits_max_out(self) -> int:
+        """Largest number of samples bits() can return in the current state.
+
+        Size an `out=` buffer with this before calling bits(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on bits_max_out()
+        replaces this text.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
+
+    def reset(self) -> None:
+        """Re-seed the carrier and symbol-timing loops to their create-time
+        state; preserve configuration.
+
+        Clears the cascade's filter memory, the carrier and timing NCOs, the
+        loop-filter integrators and the lock detectors, and returns the carrier
+        estimate to init_norm_freq. The configuration (order, rate, pulse,
+        bandwidths) is untouched, so the same input fed twice around a reset
+        reproduces the same output bit-for-bit.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 300)
+        >>> tx = np.repeat(np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)), 8)
+        >>> tx = tx.astype(np.complex64)
+        >>> rx = MpskReceiver(m=4, sps=8, m_out=4)
+        >>> first = rx.steps(tx)
+        >>> rx.reset()                                # back to the cold state
+        >>> np.array_equal(first, rx.steps(tx))       # same input, same output
+        True
+
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the BpskReceiver has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the BpskReceiver has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the BpskReceiver has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def agc_gain_db(self) -> float:
+        """Gain the front-end AGC is applying, in dB; 0.0 when `agc=0`. The
+        diagnostic for a level problem: a receiver that will not lock with a
+        healthy `lock` statistic, or one whose timing loop behaves differently
+        at two input levels, is asking about this number. It settles at
+        -10*log10(P_in / P_ref), where P_ref is the power a unit-amplitude
+        symbol stream has where the AGC sits, so a reading far from 0 dB says
+        the input is far from the level the cascade was built for -- which is
+        fine, and is what the AGC is for, but is worth knowing. Distinct from
+        the cascade's filter response, which stays unity; the two multiply.
+        """
+
+    @property
+    def norm_freq(self) -> float:
+        """Carrier frequency the receiver is tracking, cycles/sample at the
+        input rate: the create-time centre plus the loop's own estimate.
+        """
+    @norm_freq.setter
+    def norm_freq(self, value: float) -> None: ...
+
+    @property
+    def lock(self) -> float:
+        """EMA of the carrier lock signal."""
+
+    @property
+    def zeta(self) -> float:
+        """Loop damping actually in use. Reads back the DERIVED `1/sqrt(2)`
+        when the constructor was given 0, or whatever was pinned instead.
+        Everything derived is reported (docs/design/mpsk.md §8.1), on the same
+        argument as `RateConverter.stages`: without the readback, passing 0 is
+        an instruction whose result nobody can see.
+        """
+
+    @property
+    def num_phases(self) -> int:
+        """Matched-filter bank arms actually in use. Reads back the DERIVED 64
+        -- the measured saturation point, against the 1024 that shipped -- when
+        the constructor was given 0. See `zeta` for why every derived value is
+        reported.
+        """
+
+    @property
+    def lock_thresh(self) -> float:
+        """Handover declare threshold actually in use. Reads back the DERIVED
+        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
+        given 0. See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def lock_drop_thresh(self) -> float:
+        """Carrier DROP threshold actually in use -- 0.8x `lock_thresh`, the
+        level hysteresis the declare/drop pair is stated with. Exposed for the
+        same reason as the declare side: anything reading `lock` against its
+        decision needs BOTH edges, and computing `0.8 *` at the call site is a
+        second copy of a rule this object owns. Both carrier detectors are
+        initialised from this pair, so one number describes them both.
+        """
+
+    @property
+    def sync_lock_thresh(self) -> float:
+        """Timing DECLARE threshold on the `sync.lock` statistic. Not the
+        carrier's number and not derived the same way: symsync sizes its block
+        length and threshold together from (rolloff, esno_min, pfa, pd), so
+        this reads back that geometry's answer. A caller plotting `sync.lock`
+        needs this rather than `lock_thresh`, which belongs to a different
+        statistic on a different clock.
+        """
+
+    @property
+    def sync_lock_drop_thresh(self) -> float:
+        """Timing DROP threshold on `sync.lock`. Equal to `sync_lock_thresh`
+        when the timing loop carries no level hysteresis (up = down =
+        threshold, the symsync default), so the two reading the same is
+        information, not a bug -- the timing decision's hysteresis is in its
+        verify COUNTS rather than its levels.
+        """
+
+    @property
+    def bn_agc_ratio(self) -> float:
+        """AGC bandwidth as a fraction of the slowest loop it feeds, actually
+        in use. Reads back the DERIVED 0.05 when the constructor was given 0.
+        See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def locked(self) -> int:
+        """Binary carrier-lock flag from the hysteretic (verify-counted)
+        detector on `lock` -- de-chattered, unlike the raw metric. It declares
+        after 8 consecutive symbols above `lock_thresh` and withdraws after 32
+        below `lock_drop_thresh`, so it answers 'is this receiver locked'
+        rather than 'was the statistic above the line on this symbol'. **It is
+        an INDICATOR and nothing else**: it steers no loop, gates no output,
+        and the M-th-power NDA discriminator runs from the first strobe whether
+        or not this has declared. So a caller uses it to size a measurement
+        window, and a wrong reading costs them that window and costs the
+        demodulator nothing. `lock_time` dates its first declaration.
+        """
+
+    @property
+    def lock_time(self) -> int:
+        """Symbols from reset to the FIRST carrier-lock declaration, or -1 if
+        the receiver has not locked yet -- the acquisition time as a number,
+        rather than something a caller has to infer by polling `locked` in a
+        loop. Dated by the same hysteretic detector `locked` reports, so the
+        two cannot disagree. In SYMBOLS, not seconds: `bn_carrier` and
+        `bn_timing` are both normalised to the symbol rate, so a settling
+        budget quoted in symbols is comparable across every input rate, and a
+        caller holding Rs divides once. Only the FIRST declaration is dated --
+        a drop and re-acquire does not restamp it, because the question this
+        answers is 'how long did this receiver take to lock', not 'when did it
+        last hold'. `reset()` clears it to -1.
+        """
+
+    @property
+    def timing_rate(self) -> float:
+        """Smoothed tracked samples per symbol — departs from the nominal `sps`
+        by exactly the sample-clock offset the timing loop is tracking.
+        """
+
+    @property
+    def m(self) -> int:
+        """constellation order M (2, 4, 8)."""
+
+    @property
+    def sps(self) -> float:
+        """samples per symbol at the receiver's input."""
+
+    @property
+    def m_out(self) -> int:
+        """Terminal outputs per symbol (the old `n`, now the cascade's)."""
+
+    @property
+    def clipped(self) -> int:
+        """Has the cascade's CIC stage clipped its input since the last reset?
+        A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past
+        that -- the output stays finite and plausible, merely distorted, at a
+        cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan
+        with no CIC stage.
+        """
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "BpskReceiver":
+        """Enter a context manager, returning this object.
+
+        Lets a BpskReceiver be used in a `with` statement so its C resources
+        are released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        BpskReceiver
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
+        """Exit a context manager, releasing the BpskReceiver.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
+@final
 class MpskReceiverR:
-    """Create a real-input M-PSK receiver.
+    """Create the M-PSK receiver behind an R2C halfband: a real IF in. The same
+    object as MpskReceiver -- same loops, same demapper, same state -- reached
+    through a matched DDCR instead of a matched DDC, so `steps()` and `bits()`
+    take float32 and everything else is shared verbatim. A real-valued IF is
+    the usual output of a single-ended ADC, so this is the face that takes a
+    digitiser's samples directly. Three things follow from the halfband and
+    nothing else differs: the LO runs at HALF the input rate (handled
+    internally -- every frequency on this class stays in cycles/sample at the
+    real input rate), `sps` must exceed `2 * m_out` strictly rather than merely
+    reaching `m_out`, and `init_norm_freq` is the real IF CENTRE rather than a
+    baseband residual.
 
     Parameters
     ----------
@@ -3403,27 +4172,28 @@ class MpskReceiverR:
         the front end plans its own cascade and the terminal stage's
         accumulator is a double. That is the real-world case whenever the ADC
         clock is free-running against the symbol clock. The default is 32
-        rather than the complex twin's 8 purely to clear that bound: `m_out`
-        defaults to 8, so anything at or below 16 cannot construct.
-    m_out : int, default 8
-        Terminal outputs per symbol: even, 2..8. The Gardner detector takes
-        every m_out-th output as the on-time strobe and the one m_out/2 back as
-        the transition gate, so the oversampled matched-filtered stream falls
-        out for free. **The default is 8 because that is where the I&D matched
-        filter reaches the coherent bound.** The rectangle is one symbol wide,
-        so its matched filter is an m_out-tap sum spanning it, and a smaller
-        m_out samples that same integral more coarsely. Measured on the complex
-        twin at its default sps=8 against the coherent bound EVM_dB =
-        -(Es/N0)_dB: at 18 dB Es/N0, m_out=8 lands 0.41 dB off the bound where
-        m_out=4 loses 3.11 dB; at 14 dB it is 0.25 dB against 1.71 dB -- the
-        gap widens as noise stops hiding it. Because `sps` must clear `2 *
-        m_out` here, this default is also what puts the `sps` default at 32.
-        **Never pair 2 with pulse="iandd"**: the matched filter degenerates to
-        a two-tap sum, the eye barely opens (measured lock statistic -0.34 at 2
-        against +0.95 at 4 on the same NRZ stream) and acquisition itself fails
-        about half the time. Replaces the old `n` (NDA arm dumps per symbol):
-        the cascade's own outputs now feed the carrier discriminator, so there
-        is no separate arm to size.
+        rather than the complex face's 8 purely to clear that bound: `m_out`
+        derives to 8 here, so anything at or below 16 cannot construct.
+    m_out : int, default 0
+        **0 (the default) derives it** -- see docs/design/mpsk.md 8.1; pass a
+        value only to pin one. Terminal outputs per symbol: even, 2..8. The
+        Gardner detector takes every m_out-th output as the on-time strobe and
+        the one m_out/2 back as the transition gate, so the oversampled
+        matched-filtered stream falls out for free. **The default is 8 because
+        that is where the I&D matched filter reaches the coherent bound.** The
+        rectangle is one symbol wide, so its matched filter is an m_out-tap sum
+        spanning it, and a smaller m_out samples that same integral more
+        coarsely. Measured on the complex face at its default sps=8 against the
+        coherent bound EVM_dB = -(Es/N0)_dB: at 18 dB Es/N0, m_out=8 lands 0.41
+        dB off the bound where m_out=4 loses 3.11 dB; at 14 dB it is 0.25 dB
+        against 1.71 dB -- the gap widens as noise stops hiding it. Because
+        `sps` must clear `2 * m_out` here, this default is also what puts the
+        `sps` default at 32. **Never pair 2 with pulse="iandd"**: the matched
+        filter degenerates to a two-tap sum, the eye barely opens (measured
+        lock statistic -0.34 at 2 against +0.95 at 4 on the same NRZ stream)
+        and acquisition itself fails about half the time. Replaces the old `n`
+        (NDA arm dumps per symbol): the cascade's own outputs now feed the
+        carrier discriminator, so there is no separate arm to size.
     pulse : Literal["iandd", "rrc"], default "iandd"
         Matched-filter shape (default MPSK_RX_PULSE_IANDD).
     rrc_beta : float, default 0.35
@@ -3431,46 +4201,81 @@ class MpskReceiverR:
     rrc_span : int, default 8
         RRC one-sided span in symbols (default 8; RRC only).
     bn_carrier : float, default 0.01
-        Carrier loop noise bandwidth, normalised to the symbol rate (default
-        0.005).
-    zeta : float, default 0.707
-        Damping factor for both loops (default 0.707).
+        Carrier loop noise bandwidth, **normalised to the symbol rate**
+        (default 0.01). A carrier loop here closes around the matched filter,
+        so its dead time is that filter's group delay — keep it a small
+        fraction of the symbol rate, as a real receiver does.
+    zeta : float, default 0.0
+        Damping factor for both loops. **0 (the default) derives it** as
+        `1/sqrt(2)` (MPSK_RX_ZETA_DEFAULT) — a constant rather than a
+        computation, since nothing in this receiver moves the optimal damping
+        and both loops already share one value. Read it back with
+        mpsk_receiver_get_zeta().
     bn_timing : float, default 0.01
-        Timing loop noise bandwidth, per symbol (0.01).
-    acq_to_track : int, default 0
-        Enable the two-way handover (default 0).
-    lock_thresh : float, default 0.5
-        Handover declare threshold (default 0.5).
+        Symbol-timing loop noise bandwidth, normalised to the symbol rate
+        (default 0.01).
+    lock_thresh : float, default 0.0
+        Declare threshold for the carrier lock indicator, on the carrier lock
+        EMA. **0 (the default) derives it** as `sigma_H0 * eta(Pfa)` = 0.4999
+        at Pfa = 5e-6; pass a value only to pin one. The metric is
+        `Re((z/|z|)^M)` smoothed by an EMA, whose noise-only sd is 0.1132 for
+        EVERY M, so 0.4999 is 4.42 noise sigmas; to pin your own, divide your
+        Pfa's z-score into 0.1132 rather than picking by feel. The drop
+        threshold sits at 0.8x for level hysteresis and both directions are
+        verify-counted (8 symbols up / 32 down). Read it back with
+        `lock_thresh`.
     init_norm_freq : float, default 0.0
-        Carrier frequency to tune to, cycles/sample **at the real input rate**
-        (default 0.0). A real IF at `0.2 * fs` is `0.2`; the halved value the
-        LO actually uses is this object's business, not the caller's.
-    warmup_syms : int, default 100
-        Symbols before the handover is allowed (100).
+        The real IF **centre**, cycles/sample at the real input rate -- an IF
+        at 0.2*fs is 0.2, and the halved value the LO actually uses is this
+        object's business, not yours. Unlike the complex face, this one does
+        not acquire from a cold zero: a real IF must be tuned near, so this is
+        the centre a tap buys pull-in *around* rather than from nothing.
     differential : int, default 0
-        bits(): differential demap (default 0).
-    num_phases : int, default 1024
+        bits(): differential (rotation-invariant) demap (default 0 = coherent).
+    num_phases : int, default 0
         Matched-filter bank arms; a power of two. Sets the fractional-timing
-        resolution to 1/num_phases of an output period. The bank is sized by
+        resolution to 1/num_phases of an output period. **0 (the default)
+        derives it** as 64, the measured saturation point. The bank is sized by
         the POST-decimation rate, so this costs the same at sps=8 and sps=256.
-    nda_tap : Literal["strobe", "mf_all", "lo_arm"], default "strobe"
-        Where the NDA carrier discriminator reads from, which sets its pull-in
-        range and whether it needs symbol timing at all. An M-th-power detector
-        updating at rate F can only see |df| < F/(2M), so the tap point IS the
-        range. `strobe` (default) reads the on-time strobe at the symbol rate
-        Rs: the cleanest input, the narrowest range (Rs/(2M)), and the only tap
-        whose input quality depends on the timing loop -- it steers from its
-        first strobe whether or not timing has declared, so when the carrier
-        must acquire before timing does, that is a reason to pick another tap
-        rather than something the receiver resolves for you. `mf_all` reads
-        every terminal output at m_out*Rs -- m_out times the range and no
-        timing dependence, paid for with the ISI the between-symbol outputs
-        carry, which hurts most where the decision margin is smallest (8PSK).
-        `lo_arm` reads ahead of the cascade through a free-running half-symbol
-        boxcar at the LO rate -- the widest range and fully timing-independent,
-        but unmatched, so it pays squaring loss. Fixed at construction: nothing
-        switches underneath you. If you need more range than any tap gives, put
-        a coarse frequency estimate in front and pass it as init_norm_freq.
+    agc : int, default 1
+        Level the front-end cascade so the timing detector's construct-time
+        slope means what it says. The TED normalises by its OWN slope and
+        nothing else, and that slope is computed for a UNIT-amplitude symbol
+        stream -- amplitude enters the raw error as A^2 (Gardner) or A^1
+        (DTTL), so a 4x level error is a 16x loop-gain error. With this on, an
+        AGC sits inside the cascade just before the matched filter and drives
+        the average power to the level a unit-amplitude symbol stream would
+        have there, derived from the matched filter's own pulse energy rather
+        than configured. On by default because the alternative is a receiver
+        whose loop gain depends on how loud the input happened to be. Set 0 to
+        reproduce the un-levelled behaviour exactly, which is the handle for
+        attributing any measurement that moves. This is the receiver's ONLY AGC
+        -- the carrier discriminator normalises by its own |z|^M and needs
+        none. Read the applied gain back with `agc_gain_db`. On this face the
+        AGC sits behind the R2C halfband, so it levels the analytic signal at
+        the intermediate rate rather than the real input.
+    bn_agc_ratio : float, default 0.0
+        **0 (the default) derives it** as 0.05. The one AGC's noise bandwidth
+        as a fraction of the SLOWEST loop it feeds -- min(bn_carrier,
+        bn_timing), not the carrier's alone, since the AGC feeds the timing
+        loop directly. Must be in (0, 1) and construction refuses otherwise,
+        because an AGC at or above the bandwidth of a loop it feeds corrects
+        the excursions that loop is itself producing and the two integrate
+        against each other; the signal LEVEL is a slow property of the channel,
+        not a disturbance to reject at loop speed. Exposed rather than fixed
+        because the right separation depends on how fast the channel's level
+        moves against how fast its phase and timing do, which is a property of
+        the link. The cold start is not the loop's job either way -- the AGC
+        seeds its gain from a direct measurement -- so slow is cheap here.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``MpskReceiver: invalid
+        parameter (need m in {2,4,8}, sps >= m_out -- sps > 2*m_out on the
+        real-input MpskReceiverR, whose cascade runs behind a 2:1 halfband,
+        m_out even in [2, 8], 0 <= rrc_beta <= 1, rrc_span >= 1, num_phases a
+        power of two >= 2, bn >= 0, zeta > 0, 0 < bn_agc_ratio < 1)``.
 
     Examples
     --------
@@ -3480,20 +4285,19 @@ class MpskReceiverR:
     >>> obj = MpskReceiverR(
     ...     m=4,
     ...     sps=32.0,
-    ...     m_out=8,
+    ...     m_out=0,
     ...     pulse="iandd",
     ...     rrc_beta=0.35,
     ...     rrc_span=8,
     ...     bn_carrier=0.01,
-    ...     zeta=0.707,
+    ...     zeta=0.0,
     ...     bn_timing=0.01,
-    ...     acq_to_track=0,
-    ...     lock_thresh=0.5,
+    ...     lock_thresh=0.0,
     ...     init_norm_freq=0.0,
-    ...     warmup_syms=100,
     ...     differential=0,
-    ...     num_phases=1024,
-    ...     nda_tap="strobe",
+    ...     num_phases=0,
+    ...     agc=1,
+    ...     bn_agc_ratio=0.0,
     ... )
 
     """
@@ -3508,13 +4312,12 @@ class MpskReceiverR:
         bn_carrier: float = ...,
         zeta: float = ...,
         bn_timing: float = ...,
-        acq_to_track: int = ...,
         lock_thresh: float = ...,
         init_norm_freq: float = ...,
-        warmup_syms: int = ...,
         differential: int = ...,
         num_phases: int = ...,
-        nda_tap: Literal["strobe", "mf_all", "lo_arm"] = "strobe",
+        agc: int = ...,
+        bn_agc_ratio: float = ...,
     ) -> None: ...
 
     def set_telemetry(
@@ -3524,15 +4327,35 @@ class MpskReceiverR:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context across the receiver.
+        Registers the receiver's own "<prefix>.lock" probe (the carrier lock
+        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
+        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
+        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
+        symbol -- then the front end's AGC under "<prefix>.agc"
+        ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
+        agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        Passing NULL detaches everything.
 
-        Registers the same eleven probes as mpsk_receiver_set_telemetry(),
-        whose contract it shares: the receiver's own "<prefix>.lock" and
-        "<prefix>.tracking", the carrier loop's "<prefix>.car.e" / ".freq" /
-        ".locked", and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" /
-        ".rate" / ".lock" / ".locked" / ".mu" — all thinned by decim and
-        emitted once per recovered symbol. Passing NULL detaches everything.
+        Instrumenting it matters because it is FIRST in the chain, and a level
+        error is the one kind no downstream loop can correct for itself: a TED
+        normalises by its own construct-time slope, so it reads a level error
+        as a loop-gain error (A^2 Gardner, A DTTL) with no other reference to
+        catch it. This receiver also makes the AGC the slowest of its three
+        loops by construction -- mpsk_rx_agc_bn() derives its bandwidth as a
+        fraction of the slowest loop it feeds, and bn_agc_ratio is validated to
+        (0, 1) -- but that is a choice of THIS composition, and slowest does
+        not by itself mean longest: settling is set by the bandwidth AND by how
+        far the level starts from the reference, which is unknown at
+        construction. Which is exactly why it has to be measured rather than
+        inferred; the zero-referenced "<prefix>.agc.level_db" is what makes
+        that possible.
+
+        With agc = 0 at construction there is no AGC to attach and the two
+        probes are simply absent (fourteen, not sixteen); this still returns
+        DP_OK.
+
         Setup path, never hot; the context is borrowed and must outlive the
-        attachment.
+        attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
 
         Parameters
         ----------
@@ -3541,31 +4364,77 @@ class MpskReceiverR:
         prefix : str
             Probe-name prefix, e.g. "rx".
         decim : int
-            Emit every decim-th symbol; >= 1.
+            Emit every decim-th symbol (every decim-th gain update for the two
+            AGC probes); >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
+        Warnings
+        --------
+        The two AGC probes are NOT at the symbol rate the other ten are. That
+        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
+        stage the timing loop steers) and emits once per gain-update event,
+        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
+        reports on a grid that depends on the planned cascade, not on recovered
+        symbols, and a run yields a different number of AGC records than
+        carrier records. Compare the two by TIME, never by record index. This
+        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        stream's units precisely so it is not coupled to the loop that is
+        stretching the symbol grid (see RateConverter_enable_agc()).
 
         Examples
         --------
         >>> import numpy as np
-        >>> from doppler.track import MpskReceiverR
+        >>> from doppler.track import MpskReceiver
         >>> from doppler.telemetry import Telemetry
-        >>> tlm = Telemetry(1 << 14)
-        >>> rx = MpskReceiverR(m=4, sps=10, m_out=2, init_norm_freq=0.25)
+        >>> tlm = Telemetry(1 << 14)   # 15 probes x ~512 syms + headroom
+        >>> rx = MpskReceiver(m=4, sps=4, m_out=2)
         >>> rx.set_telemetry(tlm, "rx")
         >>> len(tlm.probe_names)
-        11
+        15
         >>> rng = np.random.default_rng(7)
-        >>> idx = rng.integers(0, 4, 512)
-        >>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 10)
-        >>> n = np.arange(bb.size)
-        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real
-        >>> x = np.ascontiguousarray(x.astype(np.float32))
+        >>> syms = (1 - 2 * rng.integers(0, 2, 512)).astype(np.complex64)
+        >>> x = np.repeat(syms, 4)
         >>> _ = rx.steps(x)
         >>> recs = tlm.read()
-        >>> tlm.dropped            # size the ring, or the counts below diverge
+        >>> tlm.dropped        # size the ring, or the counts below diverge
         0
         >>> n_sync = len(recs[recs["probe"] == tlm.probe_id("rx.sync.e")])
         >>> n_car = len(recs[recs["probe"] == tlm.probe_id("rx.car.e")])
         >>> n_sync > 0 and n_sync == n_car
+        True
+        >>> n_agc = len(recs[recs["probe"] == tlm.probe_id("rx.agc.gain_db")])
+        >>> n_agc > 0 and n_agc != n_sync   # cascade grid, not symbol grid
+        True
+
+        """
+
+    def reset(self) -> None:
+        """Re-seed the carrier and symbol-timing loops to their create-time
+        state; preserve configuration.
+
+        Clears the cascade's filter memory, the carrier and timing NCOs, the
+        loop-filter integrators and the lock detectors, and returns the carrier
+        estimate to init_norm_freq. The configuration (order, rate, pulse,
+        bandwidths) is untouched, so the same input fed twice around a reset
+        reproduces the same output bit-for-bit.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 300)
+        >>> tx = np.repeat(np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)), 8)
+        >>> tx = tx.astype(np.complex64)
+        >>> rx = MpskReceiver(m=4, sps=8, m_out=4)
+        >>> first = rx.steps(tx)
+        >>> rx.reset()                                # back to the cold state
+        >>> np.array_equal(first, rx.steps(tx))       # same input, same output
         True
 
         """
@@ -3577,33 +4446,33 @@ class MpskReceiverR:
     ) -> NDArray[np.complex64]:
         """Demodulate a real f32 block and return the recovered M-PSK symbols
         (one cf32 per recovered symbol period, ~ len(x)/sps outputs). Per
-        sample the receiver pushes x through the matched DDCR -- LO mix,
-        decimating cascade, and a terminal polyphase stage whose bank IS the
-        matched filter and whose selected arm IS the fractional symbol-timing
-        delay -- then folds every output that stage produced into two loops: a
-        Gardner symbol-timing loop steering the cascade's rate_ctrl port, and a
-        carrier loop steering the LO's freq_ctrl port. The carrier
+        sample the receiver pushes x through the matched DDCR -- an R2C
+        halfband that decimates 2:1, then LO mix, decimating cascade, and a
+        terminal polyphase stage whose bank IS the matched filter and whose
+        selected arm IS the fractional symbol-timing delay -- then folds every
+        output that stage produced into two loops: a Gardner symbol-timing loop
+        steering the cascade's rate_ctrl port, and a carrier loop steering the
+        LO's freq_ctrl port. That fold is one shared implementation with the
+        complex face; only the front end above it differs. The carrier
         discriminator runs on the on-time strobe only -- a non-strobe output
         straddles two symbols, so its M-th power is intersymbol interference
-        rather than carrier phase -- and while acquiring it is the
-        non-data-aided M-th-power error, needing no data and no symbol timing.
-        With acq_to_track enabled a verify-counted two-way handover steps on
-        the carrier lock metric each symbol: it switches to a lower-jitter
-        decision-directed carrier loop after 8 consecutive above-lock_thresh
-        symbols, and on a sustained lock loss (32 consecutive symbols below
-        0.8*lock_thresh) drops back to the NDA acquisition steer, the shared
-        loop filter carrying the frequency estimate both ways. The loop locks
-        to one of m phases (M-fold ambiguity); resolve it with
+        rather than carrier phase -- and it is the non-data-aided M-th-power
+        error throughout, needing no data and no symbol timing: there is one
+        discriminator, running from the first symbol to the last. The loop
+        locks to one of m phases (M-fold ambiguity); resolve it with
         bits(differential) or a sync word. Read norm_freq for the tracked
         carrier and lock for the carrier lock metric.
 
-        As mpsk_receiver_steps(), taking real samples: the R2C halfband makes
-        them complex before anything else touches them.
+        mpsk_receiver_steps() taking real samples: the R2C halfband makes them
+        complex before anything else touches them, and the per-sample body is
+        the same one. Requires a state built by mpsk_receiver_create_real().
 
         Parameters
         ----------
         x : NDArray[np.float32]
             Real f32 input samples.
+        out : NDArray[np.complex64] | None
+            Output symbols; caller provides max_out capacity.
 
         Returns
         -------
@@ -3624,8 +4493,8 @@ class MpskReceiverR:
         >>> sym = rx.steps(x)
         >>> sym.size                                        # ~ x_len / sps
         2398
-        >>> round(rx.lock, 2)                               # carrier locked
-        0.99
+        >>> rx.lock > 0.8                                   # carrier locked
+        True
 
         """
 
@@ -3655,12 +4524,15 @@ class MpskReceiverR:
         (rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the
         symbol-error rate). Same per-sample carrier/timing recovery as steps().
 
-        As mpsk_receiver_bits(), taking real samples.
+        mpsk_receiver_bits() taking real samples. Requires a state built by
+        mpsk_receiver_create_real().
 
         Parameters
         ----------
         x : NDArray[np.float32]
             Real f32 input samples.
+        out : NDArray[np.uint8] | None
+            Output bytes (0/1); caller provides max_out capacity.
 
         Returns
         -------
@@ -3702,80 +4574,6 @@ class MpskReceiverR:
         -------
         int
             Upper bound on the output length; the actual call may return fewer.
-        """
-
-    def configure_lock(
-        self,
-        up_thresh: float,
-        down_thresh: float,
-        n_up: int,
-        n_down: int,
-    ) -> None:
-        """Re-tune the acquisition<->tracking handover detector: hands the
-        carrier to the decision-directed discriminator after n_up consecutive
-        symbols with the carrier lock EMA above up_thresh, and falls back to
-        NDA acquisition after n_down consecutive symbols below down_thresh
-        (level + time hysteresis; see detection.LockDet). Previously only
-        settable at construction (lock_thresh, with fixed 0.8x drop / 8-up /
-        32-down constants) -- this is the post-construction re-tune Dll and
-        Costas both already have. A live handover survives the re-tune; the
-        in-flight verify run restarts.
-
-        The real-input twin of mpsk_receiver_configure_lock(), whose contract
-        it shares exactly: a split declare/drop threshold pair on the carrier
-        lock EMA (level hysteresis) plus both verify counts (time hysteresis).
-        A live handover survives the re-tune; the in-flight verify run
-        restarts.
-
-        Parameters
-        ----------
-        up_thresh : float
-            Declare threshold on the carrier lock EMA.
-        down_thresh : float
-            Drop threshold; choose <= up_thresh for level hysteresis.
-        n_up : int
-            Consecutive above-threshold symbols to hand over to the
-            decision-directed discriminator; clamped >= 1.
-        n_down : int
-            Consecutive below-threshold symbols to fall back to NDA
-            acquisition; clamped >= 1.
-
-        Examples
-        --------
-        >>> from doppler.track import MpskReceiverR
-        >>> rx = MpskReceiverR(m=4, sps=10, m_out=2, acq_to_track=1)
-        >>> rx.tracking
-        0
-        >>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, fast drop
-
-        """
-
-    def reset(self) -> None:
-        """Re-seed the carrier and symbol-timing loops to their create-time
-        state; preserve configuration.
-
-        Identical in effect to mpsk_receiver_reset() — clears the R2C halfband
-        and cascade memory, the carrier and timing NCOs, the loop integrators
-        and the lock detectors, and returns the carrier estimate to
-        init_norm_freq. Configuration is untouched, so a burst fed twice around
-        a reset reproduces bit-for-bit.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from doppler.track import MpskReceiverR
-        >>> rng = np.random.default_rng(0)
-        >>> idx = rng.integers(0, 4, 300)
-        >>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 32)
-        >>> n = np.arange(bb.size)
-        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real  # IF at fs/4
-        >>> x = np.ascontiguousarray(x.astype(np.float32))
-        >>> rx = MpskReceiverR(m=4, sps=32, m_out=8, init_norm_freq=0.25)
-        >>> first = rx.steps(x)
-        >>> rx.reset()                                # back to the cold state
-        >>> np.array_equal(first, rx.steps(x))        # same input, same output
-        True
-
         """
 
     def state_bytes(self) -> int:
@@ -3834,8 +4632,23 @@ class MpskReceiverR:
         """
 
     @property
+    def agc_gain_db(self) -> float:
+        """Gain the front-end AGC is applying, in dB; 0.0 when `agc=0`. The
+        diagnostic for a level problem: a receiver that will not lock with a
+        healthy `lock` statistic, or one whose timing loop behaves differently
+        at two input levels, is asking about this number. It settles at
+        -10*log10(P_in / P_ref), where P_ref is the power a unit-amplitude
+        symbol stream has where the AGC sits, so a reading far from 0 dB says
+        the input is far from the level the cascade was built for -- which is
+        fine, and is what the AGC is for, but is worth knowing. Distinct from
+        the cascade's filter response, which stays unity; the two multiply.
+        """
+
+    @property
     def norm_freq(self) -> float:
-        """Tracked carrier, cycles/sample at the REAL input rate."""
+        """Carrier frequency the receiver is tracking, cycles/sample at the
+        input rate: the create-time centre plus the loop's own estimate.
+        """
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
 
@@ -3844,12 +4657,99 @@ class MpskReceiverR:
         """EMA of the carrier lock signal."""
 
     @property
-    def timing_rate(self) -> float:
-        """Timing rate."""
+    def zeta(self) -> float:
+        """Loop damping actually in use. Reads back the DERIVED `1/sqrt(2)`
+        when the constructor was given 0, or whatever was pinned instead.
+        Everything derived is reported (docs/design/mpsk.md §8.1), on the same
+        argument as `RateConverter.stages`: without the readback, passing 0 is
+        an instruction whose result nobody can see.
+        """
 
     @property
-    def tracking(self) -> int:
-        """0 = NDA acquire, 1 = decision."""
+    def num_phases(self) -> int:
+        """Matched-filter bank arms actually in use. Reads back the DERIVED 64
+        -- the measured saturation point, against the 1024 that shipped -- when
+        the constructor was given 0. See `zeta` for why every derived value is
+        reported.
+        """
+
+    @property
+    def lock_thresh(self) -> float:
+        """Handover declare threshold actually in use. Reads back the DERIVED
+        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
+        given 0. See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def lock_drop_thresh(self) -> float:
+        """Carrier DROP threshold actually in use -- 0.8x `lock_thresh`, the
+        level hysteresis the declare/drop pair is stated with. Exposed for the
+        same reason as the declare side: anything reading `lock` against its
+        decision needs BOTH edges, and computing `0.8 *` at the call site is a
+        second copy of a rule this object owns. Both carrier detectors are
+        initialised from this pair, so one number describes them both.
+        """
+
+    @property
+    def sync_lock_thresh(self) -> float:
+        """Timing DECLARE threshold on the `sync.lock` statistic. Not the
+        carrier's number and not derived the same way: symsync sizes its block
+        length and threshold together from (rolloff, esno_min, pfa, pd), so
+        this reads back that geometry's answer. A caller plotting `sync.lock`
+        needs this rather than `lock_thresh`, which belongs to a different
+        statistic on a different clock.
+        """
+
+    @property
+    def sync_lock_drop_thresh(self) -> float:
+        """Timing DROP threshold on `sync.lock`. Equal to `sync_lock_thresh`
+        when the timing loop carries no level hysteresis (up = down =
+        threshold, the symsync default), so the two reading the same is
+        information, not a bug -- the timing decision's hysteresis is in its
+        verify COUNTS rather than its levels.
+        """
+
+    @property
+    def bn_agc_ratio(self) -> float:
+        """AGC bandwidth as a fraction of the slowest loop it feeds, actually
+        in use. Reads back the DERIVED 0.05 when the constructor was given 0.
+        See `zeta` for why every derived value is reported.
+        """
+
+    @property
+    def locked(self) -> int:
+        """Binary carrier-lock flag from the hysteretic (verify-counted)
+        detector on `lock` -- de-chattered, unlike the raw metric. It declares
+        after 8 consecutive symbols above `lock_thresh` and withdraws after 32
+        below `lock_drop_thresh`, so it answers 'is this receiver locked'
+        rather than 'was the statistic above the line on this symbol'. **It is
+        an INDICATOR and nothing else**: it steers no loop, gates no output,
+        and the M-th-power NDA discriminator runs from the first strobe whether
+        or not this has declared. So a caller uses it to size a measurement
+        window, and a wrong reading costs them that window and costs the
+        demodulator nothing. `lock_time` dates its first declaration.
+        """
+
+    @property
+    def lock_time(self) -> int:
+        """Symbols from reset to the FIRST carrier-lock declaration, or -1 if
+        the receiver has not locked yet -- the acquisition time as a number,
+        rather than something a caller has to infer by polling `locked` in a
+        loop. Dated by the same hysteretic detector `locked` reports, so the
+        two cannot disagree. In SYMBOLS, not seconds: `bn_carrier` and
+        `bn_timing` are both normalised to the symbol rate, so a settling
+        budget quoted in symbols is comparable across every input rate, and a
+        caller holding Rs divides once. Only the FIRST declaration is dated --
+        a drop and re-acquire does not restamp it, because the question this
+        answers is 'how long did this receiver take to lock', not 'when did it
+        last hold'. `reset()` clears it to -1.
+        """
+
+    @property
+    def timing_rate(self) -> float:
+        """Smoothed tracked samples per symbol — departs from the nominal `sps`
+        by exactly the sample-clock offset the timing loop is tracking.
+        """
 
     @property
     def m(self) -> int:
@@ -3861,7 +4761,7 @@ class MpskReceiverR:
 
     @property
     def m_out(self) -> int:
-        """terminal outputs per symbol."""
+        """Terminal outputs per symbol (the old `n`, now the cascade's)."""
 
     @property
     def clipped(self) -> int:

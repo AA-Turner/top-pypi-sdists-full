@@ -4,6 +4,45 @@ import numpy as np
 from numpy.typing import NDArray
 
 @final
+class SyncHit(tuple[int, int, int, int]):
+    """Where a marker was found, and in which polarity. `found` is the verdict:
+    the other three fields mean nothing without it, which is why the record
+    carries it rather than spelling a miss as a sentinel offset.
+
+    Attributes
+    ----------
+    found : int
+        A marker was found: 1 yes, 0 no.
+    offset : int
+        Bit index where the marker starts.
+    inverted : int
+        The stream is complemented — a BPSK carrier recovered through a 180-degree ambiguity delivers every bit inverted, and a marker no randomiser covers is the only thing in a frame that can report it.
+    errors : int
+        Hamming distance to the marker at that offset, in the polarity reported.
+    """
+
+    @property
+    def found(self) -> int:
+        """A marker was found: 1 yes, 0 no."""
+
+    @property
+    def offset(self) -> int:
+        """Bit index where the marker starts."""
+
+    @property
+    def inverted(self) -> int:
+        """The stream is complemented — a BPSK carrier recovered through a
+        180-degree ambiguity delivers every bit inverted, and a marker no
+        randomiser covers is the only thing in a frame that can report it.
+        """
+
+    @property
+    def errors(self) -> int:
+        """Hamming distance to the marker at that offset, in the polarity
+        reported.
+        """
+
+@final
 class LockDet:
     """LockDet component.
 
@@ -44,10 +83,16 @@ class LockDet:
         it. A metric inside the `[down_thresh, up_thresh]` band is sticky — it
         neither advances a declare nor a drop.
 
+        A **non-finite look is a miss in both states**: it never advances a
+        declare, and while locked it advances the drop run like any other miss.
+        An unknown lock is not a lock, which is the rule util_core.h states for
+        lock statistics generally. So a metric that goes NaN drops the lock
+        after n_down looks rather than holding it lit indefinitely.
+
         Parameters
         ----------
         x : float
-            Lock metric for this look.
+            Lock metric for this look. Non-finite counts as a miss.
 
         Returns
         -------
@@ -280,6 +325,200 @@ class LockDet:
             Traceback object, or None. Ignored.
         """
 
+@final
+class SyncFinder:
+    """Create a searcher for marker.
+
+    Parameters
+    ----------
+    marker : NDArray[np.uint8]
+        Unpacked bits, one per byte; only the LSB is used.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``SyncFinder: the
+        marker must be a non-empty array of 0/1 bits, one per element``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.detection import SyncFinder
+    >>> from doppler.wfm import ccsds_asm_bits
+    >>> asm = ccsds_asm_bits()   # 0x1ACFFC1D, no transcription
+    >>> f = SyncFinder(asm)
+    >>> f.nbits
+    32
+    >>> rx = np.concatenate([np.zeros(96, np.uint8), asm])
+    >>> hit = f.find(rx, max_errors=f.max_errors_for(96, pfa=1e-3))
+    >>> hit.found, hit.offset, hit.inverted
+    (1, 96, 0)
+
+    """
+    def __init__(self, marker: NDArray[np.uint8]) -> None: ...
+
+    def find(self, bits: NDArray[np.uint8], max_errors: int = 0) -> SyncHit:
+        """Find the first marker in bits, either polarity.
+
+        The FIRST offset whose Hamming distance to the marker, or to its
+        complement, is at most max_errors. First rather than best, because a
+        best-match search has to see the whole stream before it can answer and
+        a synchroniser reading a live capture cannot wait for that.
+
+        Choose max_errors with `max_errors_for`, against the window this caller
+        actually searches — the marker length is the wrong thing to halve.
+
+        Parameters
+        ----------
+        bits : NDArray[np.uint8]
+            Unpacked bits, one per byte.
+        max_errors : int
+            Largest tolerated Hamming distance, in bits.
+
+        Returns
+        -------
+        SyncHit
+            A record whose found says whether the rest of it means anything; a
+            miss returns it zeroed.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.detection import SyncFinder
+        >>> m = np.array([1, 0, 1, 1, 0, 0, 1, 0], dtype=np.uint8)
+        >>> rx = np.concatenate([np.zeros(20, np.uint8), 1 - m])
+        >>> hit = SyncFinder(m).find(rx, max_errors=1)
+        >>> hit.found, hit.offset, hit.inverted
+        (1, 20, 1)
+
+        """
+
+    def pfa(self, max_errors: int) -> float:
+        """Probability that ONE random offset false-hits this marker at a
+        tolerance of max_errors.
+
+        `2 * sum_{i <= max_errors} C(n, i) / 2^n`, the factor of two because
+        `find` searches the complement too. Measured against the 32-bit CCSDS
+        marker, this tracks the observed false-alarm rate to within 20 % at
+        every threshold where the count supports a rate
+        (`src/doppler/tests/validation/ccsds_tm/results.md` §2.2).
+
+        This is the PER-OFFSET number. What a synchroniser cares about is its
+        whole window; `max_errors_for` is this inverted through it.
+
+        Parameters
+        ----------
+        max_errors : int
+            Tolerance in bits.
+
+        Returns
+        -------
+        float
+            Probability in &#91;0, 1&#93;.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.detection import SyncFinder
+        >>> from doppler.wfm import ccsds_asm_bits
+        >>> f = SyncFinder(ccsds_asm_bits())
+        >>> # the marker and its complement, out of 2**32 windows
+        >>> round(f.pfa(0) * 2**32)
+        2
+        >>> # ...plus each one's 32 one-bit neighbours
+        >>> round(f.pfa(1) * 2**32)
+        66
+
+        """
+
+    def max_errors_for(self, window_bits: int, pfa: float) -> int:
+        """The largest tolerance whose false-frame rate over a search window
+        still meets pfa.
+
+        The question `find`'s signature cannot ask. Every offset ahead of the
+        true marker is an independent chance to win the race, so the
+        probability the window produces a false frame is `1 - (1 -
+        pfa(t))^window_bits`, which rises with `t`. The largest `t` that still
+        holds is the most tolerant threshold a caller can afford — and it falls
+        as they search further, which is the whole of doppler#897.
+
+        Parameters
+        ----------
+        window_bits : int
+            Offsets tried AHEAD of the marker: the length of stream searched,
+            not the length of the frame.
+        pfa : float
+            Tolerated probability of a false frame over that window.
+
+        Returns
+        -------
+        int
+            Tolerance in bits, or -1 when even an exact match exceeds pfa over
+            that window.
+
+        Examples
+        --------
+        >>> from doppler.detection import SyncFinder
+        >>> from doppler.wfm import ccsds_asm_bits
+        >>> f = SyncFinder(ccsds_asm_bits())
+        >>> f.max_errors_for(window_bits=96, pfa=1e-3)
+        3
+        >>> f.max_errors_for(window_bits=100000, pfa=1e-3)   # search further
+        0
+
+        """
+
+    @property
+    def nbits(self) -> int:
+        """Marker length in bits."""
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "SyncFinder":
+        """Enter a context manager, returning this object.
+
+        Lets a SyncFinder be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        SyncFinder
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
+        """Exit a context manager, releasing the SyncFinder.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
 def marcum_q(m: int, a: float, b: float) -> float:
     """Marcum Q function Q_M(a, b) for integer M >= 1.
 
@@ -490,6 +729,119 @@ def det_threshold_noncoherent(pfa: float, n_noncoh: int) -> float:
 
     """
 
+def det_q_inv(p: float) -> float:
+    """Upper-tail quantile of the standard normal: the eta with Q(eta) = p.
+
+    `Q(eta) = 0.5*erfc(eta/sqrt(2))`, so this is `sqrt(2)*erfcinv(2p)`.
+    Everything below is expressed in it, and a caller thresholding its own
+    zero-mean Gaussian statistic wants `det_q_inv(pfa) * sd_H0`.
+
+    **Signed, and that matters.** Above the median the quantile is
+    negative, which is exactly why det_dwell_gauss()'s `Q_inv(pfa) -
+    Q_inv(pd)` is a sum of two tails rather than a difference: every
+    caller's `pd` is above 0.5. Clamping it to zero there halves the dwell
+    without failing anything.
+
+    Parameters
+    ----------
+    p : float
+        Tail probability in (0, 1).
+
+    Returns
+    -------
+    float
+        Quantile in H0 sigmas -- positive below the median, exactly 0 at
+        it, negative above. Fails closed (0.0) for p outside (0, 1).
+
+    Examples
+    --------
+    >>> from doppler.detection import det_q_inv, det_threshold
+    >>> round(det_q_inv(p=5e-6), 4)     # the carrier lock metric's 4.42 sigma
+    4.4172
+    >>> round(det_q_inv(p=0.5), 4)      # the median
+    0.0
+    >>> round(det_q_inv(p=0.99), 4)     # above it: NEGATIVE, by design
+    -2.3263
+    >>> round(det_threshold(pfa=5e-6), 4)   # the OTHER law -- not this one
+    4.9409
+
+    """
+
+def det_dwell_gauss(mean: float, var: float, pd: float, pfa: float) -> int:
+    """Looks a Gaussian statistic must average to separate H1 from H0.
+
+    The classic sizing: with a per-look H0 variance var and an H1 mean mean
+    (H0 mean zero), block-averaging `n` looks shrinks the H0 spread as
+    `1/n`, and the smallest `n` whose H0 and H1 tails clear both budgets is
+
+    `n = var * ((Q_inv(pfa) - Q_inv(pd)) / mean)^2`
+
+    `Q_inv(pd)` is negative for `pd > 0.5`, so the difference is the total
+    separation both tails must fit inside.
+
+    Parameters
+    ----------
+    mean : float
+        H1 mean of one look, > 0 (H0 mean is taken as zero).
+    var : float
+        H0 variance of one look, > 0.
+    pd : float
+        Required detection probability, in (0, 1).
+    pfa : float
+        Allowed false-alarm probability, in (0, 1) and below pd.
+
+    Returns
+    -------
+    int
+        Looks needed, rounded up and clamped to >= 1; -1 on invalid input.
+
+    Examples
+    --------
+    >>> from doppler.detection import det_dwell_gauss
+    >>> det_dwell_gauss(mean=0.4, var=0.5, pd=0.99, pfa=1e-5)
+    136
+    >>> det_dwell_gauss(mean=0.8, var=0.5, pd=0.99, pfa=1e-5)   # 2x mean
+    34
+    >>> det_dwell_gauss(mean=0.0, var=0.5, pd=0.99, pfa=1e-5)   # no signal
+    -1
+
+    """
+
+def det_threshold_gauss(mean: float, pd: float, pfa: float) -> float:
+    """Declare threshold for a Gaussian statistic sized by det_dwell_gauss.
+
+    The crossover point that meets both budgets at once, in the statistic's
+    own units:
+
+    `thresh = Q_inv(pfa) * mean / (Q_inv(pfa) - Q_inv(pd))`
+
+    Independent of the variance and of the look count -- those set how many
+    looks are needed to reach this point, not where it is.
+
+    Parameters
+    ----------
+    mean : float
+        H1 mean of one look, > 0.
+    pd : float
+        Required detection probability, in (0, 1).
+    pfa : float
+        Allowed false-alarm probability, in (0, 1) and below pd.
+
+    Returns
+    -------
+    float
+        Threshold in the statistic's units; 0.0 on invalid input.
+
+    Examples
+    --------
+    >>> from doppler.detection import det_threshold_gauss
+    >>> round(det_threshold_gauss(mean=0.4, pd=0.99, pfa=1e-5), 4)
+    0.2588
+    >>> round(det_threshold_gauss(mean=0.8, pd=0.99, pfa=1e-5), 4)  # scales
+    0.5176
+
+    """
+
 def det_ema_alpha(snr_in_db: float, snr_out_db: float) -> float:
     """EMA coefficient for a target estimator SNR (DC level in noise).
 
@@ -536,13 +888,22 @@ def det_verify_count(p_look: float, p_target: float) -> int:
     """Verify count: consecutive looks needed to compound to a budget.
 
     n consecutive independent looks at per-look probability p compound to
-    p^n, so the smallest n with `p_look^n <= p_target` is `ceil(ln p_target
-    / ln p_look)` (clamped to >= 1). One function serves both sides of a
-    lock detector (lockdet_core.h): the declare count from (per-look pfa,
-    false-declare budget) and the drop count from (per-look miss rate 1 -
-    pd, false-drop budget). Degenerate inputs resolve naturally: a target
-    already met by one look returns 1; p_look >= 1 can never compound below
-    a smaller target and returns INT_MAX.
+    ~p^n, so the smallest n with `p_look^n <= p_target` is `ceil(ln
+    p_target / ln p_look)` (clamped to >= 1).
+
+    That `~` is a BUDGET, and deliberately the conservative side of one: a
+    consecutive-run detector's exact declare rate is `p^n (1-p)/(1-p^n)`
+    (lockdet_core.h), which is lower, so sizing on p^n over-provisions n
+    rather than under. The gap is ~p -- negligible where a detector is
+    really sized, 10% at p = 0.1 -- so pick n here and predict what a
+    caller will observe with det_verify_delay().
+
+    One function serves both sides of a lock detector (lockdet_core.h): the
+    declare count from (per-look pfa, false-declare budget) and the drop
+    count from (per-look miss rate 1 - pd, false-drop budget). Degenerate
+    inputs resolve naturally: a target already met by one look returns 1;
+    p_look >= 1 can never compound below a smaller target and returns
+    INT_MAX.
 
     Parameters
     ----------

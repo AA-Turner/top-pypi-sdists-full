@@ -17,8 +17,8 @@ extend-select = [
 ]
 extend-ignore = [
     "C90",  # McCabe complexity
-    "E402", # module level import not at the top of file
-    "E226", # missing whitespace around operator
+    "module-import-not-at-top-of-file",
+    "missing-whitespace-around-arithmetic-operator",
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -45,5 +45,9 @@ reportUnreachable = "hint"
 # we care about at this moment.
 # https://github.com/microsoft/pyright/issues/746
 reportImportCycles = "none"
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 pythonPlatform = "All"
+
+exclude = [
+    ".venv",
+]

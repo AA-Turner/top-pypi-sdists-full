@@ -1,4 +1,4 @@
-from moyopy._base import (  # noqa: F401
+from moyopy._base import (
     Cell,
     CollinearMagneticCell,
     MagneticOperations,
@@ -22,20 +22,31 @@ from moyopy._data import (
     magnetic_operations_from_uni_number,
     operations_from_layer_number,
     operations_from_number,
-)  # noqa: F401
+)
 from moyopy._dataset import (
     MoyoCollinearMagneticDataset,
     MoyoDataset,
     MoyoLayerDataset,
     MoyoNonCollinearMagneticDataset,
     NormalizerWyckoffPositions,
-)  # noqa: F401
-from moyopy._identify import (  # noqa: F401
+)
+from moyopy._identify import (
     LayerGroup,
     MagneticSpaceGroup,
     PointGroup,
     SpaceGroup,
     integral_normalizer,
+)
+from moyopy._subgroup import (
+    KlassengleicheSubgroup,
+    KlassengleicheSubgroupConjugacyClass,
+    KlassengleicheSubgroupConjugate,
+    TranslationengleicheSubgroup,
+    TranslationengleicheSubgroupConjugacyClass,
+    TranslationengleicheSubgroupConjugate,
+    enumerate_klassengleiche_subgroups,
+    enumerate_klassengleiche_subgroups_by_index,
+    enumerate_translationengleiche_subgroups,
 )
 
 __version__: str
@@ -76,6 +87,16 @@ __all__ = [
     "LayerGroup",
     "MagneticSpaceGroup",
     "integral_normalizer",
+    # subgroup
+    "KlassengleicheSubgroup",
+    "KlassengleicheSubgroupConjugacyClass",
+    "KlassengleicheSubgroupConjugate",
+    "TranslationengleicheSubgroup",
+    "TranslationengleicheSubgroupConjugacyClass",
+    "TranslationengleicheSubgroupConjugate",
+    "enumerate_klassengleiche_subgroups",
+    "enumerate_klassengleiche_subgroups_by_index",
+    "enumerate_translationengleiche_subgroups",
     # lib
     "__version__",
 ]

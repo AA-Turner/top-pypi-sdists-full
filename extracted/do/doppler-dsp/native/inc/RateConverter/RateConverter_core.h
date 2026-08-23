@@ -11,19 +11,28 @@
  *   rate >= 1.0 or D < 2           `[Resampler(rate)]`
  *   D ~= 2^1                        `[HalfbandDecimator]`
  *   D ~= 2^2                        `[HalfbandDecimator, HalfbandDecimator]`
- *   D ~= 2^n, n>=3, D<=4096         `[CIC(D)]`
+ *   D ~= 2^n, n>=3, D<=CIC_R_MAX    `[CIC(D)]`
+ *   D ~= 2^n, D > CIC_R_MAX         `[CIC(CIC_R_MAX), Resampler(R/D)]`
  *   D >= 8, non-power-of-2          `[CIC(R*), Resampler correction]`
- *                                    R* = nearest power-of-2 to D
+ *                                    R* = nearest power-of-2 to D, capped
  *   otherwise (2 <= D < 8, non-int) `[Resampler(rate)]`
  *
+ * A single CIC stage is capped at `CIC_R_MAX` (2048) — see cic_core.h for the
+ * accumulator budget that sets it.  **The cap costs no rate**: whatever the
+ * capped CIC leaves is handed to a Resampler stage, so the cascade still
+ * delivers the D it was asked for.  That was not always true — gating the
+ * residual on the matched-terminal flag alone meant a capped plan silently
+ * decimated by R and claimed D (see the CHANGELOG for the measurement).
+ *
  * **INPUT AMPLITUDE IS BOUNDED whenever the plan contains a CIC stage** —
- * that is, any decimation by 8 or more: |Re| and |Im| <= 1.0, clipped beyond
- * that, before any filtering.  `stages` is how you tell: a plan naming
- * `CIC(...)` is not scale-free, every other plan is.  This is the one
- * property of this object a caller cannot infer from an output that is finite
- * and looks plausible — an overdriven RRC-BPSK waveform (peak 1.29)
- * matched-filters to -25 dB EVM where the same waveform scaled to peak 0.32
- * reaches -50 dB.
+ * that is, any decimation by 8 or more: |Re| and |Im| <= 2.0, clipped beyond
+ * that, before any filtering.  The bound is `CIC_PAPR_HEADROOM` (6 dB above
+ * unity), which is there so a pulse-shaped waveform's PEAKS have somewhere to
+ * sit above its unit average; see cic_core.h.  `stages` is how you tell: a
+ * plan naming `CIC(...)` is not scale-free, every other plan is.  This is the
+ * one property of this object a caller cannot infer from an output that is
+ * finite and looks plausible — an overdriven RRC-BPSK waveform matched-filters
+ * to -25 dB EVM where the same waveform well inside the bound reaches -50 dB.
  *
  * Lifecycle:
  * @code
@@ -45,6 +54,8 @@
 #include <stddef.h>
 #include "resamp/resamp_core.h"
 #include "fir/fir_core.h"
+#include "agc/agc_core.h"
+#include "dp_tlm/dp_tlm_core.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -105,6 +116,27 @@ typedef struct
       samples per symbol, where its matched filter degenerates to a 2-3 tap
       sum.  Read by the binding, which turns it into a UserWarning. */
   bool narrow_pulse;
+  /* ── Pre-terminal AGC (NULL = off, which is the default and what every
+     constructor builds).  See RateConverter_enable_agc(). ─────────────── */
+  agc_state_t *agc;          /**< NULL when off — one branch per sample  */
+  double       bank_sps;     /**< symbol period on the terminal's grid   */
+  double       bank_e0;      /**< sum h(t)^2 on that grid; the bank's
+                                  own normaliser, and the AGC's reference */
+  double       agc_ref_db;   /**< derived: 10*log10(bank_e0 / bank_sps)  */
+  double       agc_bn_sym;   /**< requested bandwidth, cycles/SYMBOL     */
+  double       agc_alpha;    /**< detector EMA coefficient               */
+  /** The telemetry attachment as REQUESTED, not as currently applied.
+      Held here rather than only on the AGC because the AGC is destroyed and
+      rebuilt whenever the plan changes (rc_agc_build), and may not exist yet
+      when the attach arrives; keeping the request lets every rebuild re-apply
+      it. Never packed into a state blob — telemetry is observation.
+      See RateConverter_set_telemetry(). */
+  struct
+  {
+    dp_tlm_t *ctx;                   /**< NULL = detached              */
+    char      prefix[DP_TLM_NAME_MAX]; /**< as passed by the caller    */
+    uint32_t  decim;                 /**< as passed by the caller      */
+  } agc_tlm_req;
 } RateConverter_state_t;
 
 /**
@@ -223,6 +255,36 @@ bool RateConverter_get_narrow_pulse (const RateConverter_state_t *s);
 
 /** @brief Number of planned cascade stages (backs the `stages` property). */
 size_t RateConverter_num_stages (const RateConverter_state_t *s);
+
+/**
+ * @brief The cascade's response to a constant input, from its stages' own
+ *        coefficients — computed, never measured.
+ *
+ * Each stage answers for itself (hbdecim_dc_gain(), cic_dc_gain() times
+ * fir_dc_gain() for a compensated CIC, resamp_dc_gain()) and this is their
+ * product. So the number tracks whatever the stages actually hold: if a
+ * filter's normalisation drifts, this moves with it, and a gate comparing it
+ * against a measured DC probe catches the drift from either side.
+ *
+ * **A plain cascade is unity** — a rate conversion that adds gain of its own
+ * is a defect, and `RateConverter_create()` returns 1.0 here at every rate.
+ *
+ * **A matched cascade is not, and should not be.** Its terminal stage is a
+ * matched filter, which is deliberately not flat; the invariant that holds
+ * there is at the SYMBOL level (a symbol of amplitude A in, amplitude A out),
+ * not at DC. This function still reports that cascade's true DC gain, which
+ * is the pulse's `sum(h)/sum(h^2)`.
+ *
+ * @param s State. Must be non-NULL.
+ * @return The DC gain of the whole cascade.
+ *
+ * @code
+ * RateConverter_state_t *rc = RateConverter_create (1.0 / 12.0, 1);
+ * printf ("%.4f\n", RateConverter_gain (rc));   // 1.0000
+ * RateConverter_destroy (rc);
+ * @endcode
+ */
+double RateConverter_gain (const RateConverter_state_t *s);
 /**
  * @brief Label of stage @p i, e.g. "CIC(8)+FIR" or "Resampler(0.923,rrc)".
  *
@@ -241,6 +303,158 @@ size_t RateConverter_num_bank_shape (const RateConverter_state_t *s);
 /** @brief Element @p i of the bank shape: 0 -> num_phases, 1 -> num_taps. */
 size_t RateConverter_bank_shape_value (const RateConverter_state_t *s,
                                        size_t i);
+
+/**
+ * @brief Level the stream feeding the terminal (matched) stage.
+ *
+ * Wedges an AGC into the cascade immediately BEFORE the terminal polyphase
+ * stage — after every integer decimation, ahead of the matched filter and the
+ * timing element. Off until this is called, and off is what both constructors
+ * build, so a plain cascade is untouched and RateConverter_gain() still reads
+ * exactly 1.0.
+ *
+ * @par Why here and not somewhere else
+ * The consumer is a timing-error detector. A TED's raw output is the timing
+ * error multiplied by three things it did not choose — the signal amplitude,
+ * the transition density, and the detector's own slope — and only the last is
+ * the detector's to divide out (symsync_ted_slope(), which is computed at
+ * construct FOR A UNIT-AMPLITUDE SYMBOL STREAM). Amplitude enters as `A^2`
+ * for Gardner and `A^1` for DTTL, so a 4x level error is a 16x loop-gain
+ * error. Levelling it is this object's job because this object owns the bank
+ * that sets what "unit amplitude" means.
+ *
+ * The tap is pre-terminal rather than post because the terminal stage's
+ * OUTPUT rate is the one a timing loop is actively steering, and an AGC whose
+ * bandwidth is quoted in cycles per sample of a stream another loop is
+ * stretching is coupled to that loop. The pre-terminal rate is fixed.
+ *
+ * @par The reference level is derived, not chosen
+ * The AGC sets average POWER; the TED wants unit symbol AMPLITUDE. The bridge
+ * is the pulse's own energy on its own tap grid — `bank_e0 = sum h(t)^2`, the
+ * quantity the bank is already normalised by — so for i.i.d. unit-power
+ * symbols at `bank_sps` samples per symbol the pre-terminal average power is
+ * `bank_e0 / bank_sps` and that is the reference. No caller supplies a level;
+ * read it back with RateConverter_agc_ref_db().
+ *
+ * @note This levels signal PLUS noise, so at finite Es/N0 the symbols land
+ * slightly low — about 0.95x amplitude at 10 dB Es/N0, i.e. 0.91x Gardner
+ * loop gain. That is a fact of the measurement, not an error to estimate
+ * away: an AGC that tried to exclude noise would be estimating the very
+ * quantity the receiver is trying to measure.
+ *
+ * @par Bandwidth
+ * @p bn_sym is in cycles per SYMBOL, matching every other loop bandwidth in
+ * this family, and is converted to the AGC's own per-sample units with the
+ * one number that describes its position (`bn_sym / bank_sps`). It must stay
+ * well below the bandwidth of every loop downstream — an AGC divides out the
+ * amplitude those loops' discriminators are built around, so one running near
+ * a loop's bandwidth corrects the excursions that loop is itself producing.
+ * See mpsk_rx_agc_bn() for the ratio a composing receiver uses.
+ *
+ * The loop starts at unity gain and walks to the level; there is no seed and
+ * no sample is treated specially at the start. A seed is a STEP in gain, and
+ * one taken off a signal that has not arrived is a shock the loops downstream
+ * cannot absorb -- see rc_agc_tap() for the measurement that settled this. So
+ * @p bn_sym also sets how fast a level error is corrected, and a very slow
+ * AGC leaves the early symbols under- or over-driven for a loop time
+ * constant.
+ *
+ * @param s        Must be non-NULL, and must be a MATCHED cascade
+ *                 (RateConverter_create_matched()) — a plain one has no pulse
+ *                 and therefore no reference to derive.
+ * @param bn_sym   AGC loop noise bandwidth in cycles/symbol; > 0.
+ * @param alpha    Power-detector EMA coefficient, in (0, 1].
+ * @return DP_OK, or DP_ERR_INVALID for a plain cascade or a bad parameter
+ *         (the converter is left exactly as it was, AGC still off).
+ *
+ * @code
+ * RateConverter_state_t *rc =
+ *     RateConverter_create_matched (2.0 / 8.0, 1, RC_PULSE_RRC, 0.35, 8,
+ *                                   2.0, 1024);
+ * RateConverter_enable_agc (rc, 1e-4, 0.01);
+ * printf ("%.2f dB\n", RateConverter_agc_ref_db (rc));
+ * RateConverter_destroy (rc);
+ * @endcode
+ */
+int RateConverter_enable_agc (RateConverter_state_t *s, double bn_sym,
+                              double alpha);
+
+/**
+ * @brief The pre-terminal AGC's reference level, in dB.
+ *
+ * `10*log10(bank_e0 / bank_sps)` — the average power a unit-amplitude symbol
+ * stream has where the AGC sits, derived from the terminal bank's own pulse
+ * energy. Defined for any MATCHED cascade whether or not the AGC is enabled,
+ * because it describes the bank rather than the loop; 0.0 for a plain one.
+ */
+double RateConverter_agc_ref_db (const RateConverter_state_t *s);
+
+/**
+ * @brief Gain the pre-terminal AGC last applied, in dB; 0.0 when off.
+ *
+ * The cascade's time-varying gain, kept deliberately separate from
+ * RateConverter_gain(): that function reports the response computed from the
+ * stages' own COEFFICIENTS, and an AGC has none. A caller asking "what did
+ * this cascade do to my amplitude" with the AGC on wants both, and they
+ * multiply.
+ */
+double RateConverter_agc_gain_db (const RateConverter_state_t *s);
+
+/**
+ * @brief Attach (or detach) a telemetry context on the pre-terminal AGC.
+ *
+ * The cascade has no loop of its own to report — the stages are fixed
+ * filters — so this forwards to the one child that does: the pre-terminal
+ * AGC, under @p prefix verbatim. It registers that child's probes
+ * ("<prefix>.gain_db" and "<prefix>.level_db"; see agc_set_telemetry()) and
+ * nothing else, which is why the prefix is not extended with a component
+ * name — there is no second thing here to disambiguate it from.
+ *
+ * A composing object forwards its own prefix down: an `mpsk_receiver`
+ * attached as "rx" passes "rx.agc", and the receiver's gain trajectory joins
+ * its carrier and timing probes on one context.
+ *
+ * With the AGC off (a plain cascade, or a matched one where
+ * RateConverter_enable_agc() was never called) there is nothing to instrument
+ * and this is a successful no-op — DP_OK with no probes registered. That is
+ * deliberate: whether the AGC exists is the composing receiver's
+ * construction-time choice (`agc = 0`), and a caller attaching telemetry
+ * should not have to know which way that went to avoid an error.
+ *
+ * The attachment is remembered as a REQUEST, so it survives the AGC being
+ * rebuilt by a rate change and is applied to an AGC enabled after the fact.
+ * One consequence of that: an attach made before the AGC exists reports DP_OK
+ * here, and if the probe table has filled by the time the AGC is built the
+ * probes are dropped without failing the build — signal processing does not
+ * fail because observation could not be set up. Attach after construction
+ * (which is what every composing object here does) and the return value
+ * covers it; otherwise check the context's probe names.
+ *
+ * Setup path, never hot: call before the producer thread starts; the context
+ * is borrowed and must outlive the attachment (SPSC rules in
+ * dp_tlm/dp_tlm_core.h). Passing NULL detaches.
+ *
+ * @param s      Must be non-NULL.
+ * @param tlm    Telemetry context to attach, or NULL to detach.
+ * @param prefix Probe-name prefix, e.g. "agc" or "rx.agc".
+ * @param decim  Emit every decim-th gain update; >= 1.
+ * @return DP_OK — including when no AGC is enabled — or DP_ERR_INVALID when
+ *         the probe table cannot take the AGC's probes (the attach fails
+ *         whole; the AGC stays detached).
+ *
+ * @code
+ * RateConverter_state_t *rc =
+ *     RateConverter_create_matched (2.0 / 8.0, 1, RC_PULSE_RRC, 0.35, 8,
+ *                                   2.0, 1024);
+ * RateConverter_enable_agc (rc, 1e-4, 0.01);
+ * dp_tlm_t *tlm = dp_tlm_create (1 << 12);
+ * RateConverter_set_telemetry (rc, tlm, "agc", 1);
+ * RateConverter_destroy (rc);
+ * dp_tlm_destroy (tlm);
+ * @endcode
+ */
+int RateConverter_set_telemetry (RateConverter_state_t *s, dp_tlm_t *tlm,
+                                 const char *prefix, uint32_t decim);
 
 /** @brief Free all resources.  NULL is a no-op. */
 void RateConverter_destroy (RateConverter_state_t *s);
@@ -266,9 +480,13 @@ void RateConverter_reset (RateConverter_state_t *s);
  * envelope followed by the concatenated mutable state of the active cascade
  * stages (HB / CIC[+comp FIR] / Resampler), in cascade order — each a
  * self-contained sub-blob with its own leaf envelope.  The stage plan is config
- * (rebuilt from rate), so a same-rate RateConverter round-trips exactly. */
+ * (rebuilt from rate), so a same-rate RateConverter round-trips exactly.
+ * v2: an enabled pre-terminal AGC appends its seed scalars and its own
+ * sub-blob after the stages. A converter with the AGC off writes exactly the
+ * bytes v1 did — but the version still moves, because nothing in the blob
+ * distinguishes an AGC-off v2 from a v1, and the size check alone cannot. */
 #define RC_STATE_MAGIC DP_FOURCC ('R', 'C', 'V', 'T')
-#define RC_STATE_VERSION 1u
+#define RC_STATE_VERSION 2u
 
 /** @brief Bytes RateConverter_get_state() writes for @p s (envelope + stages). */
 size_t RateConverter_state_bytes (const RateConverter_state_t *s);
@@ -353,7 +571,7 @@ size_t RateConverter_execute_ctrl_push_max_out (RateConverter_state_t *s);
  * 800
  * >>> rc2 = RateConverter(rate=0.8, compensate=0)
  * >>> rc2.execute_ctrl(x, 0.05).shape[0]  # +ctrl speeds the tail up
- * 850
+ * 851
  *
  * @endcode
  */
@@ -393,13 +611,59 @@ size_t RateConverter_execute_ctrl (RateConverter_state_t *s,
  * >>> x = (np.arange(10, dtype=np.float32) + 1).astype(np.complex64)
  * >>> # a decimator emits 0 between strobes, 1 on a strobe:
  * >>> [rc.execute_ctrl_push(complex(v), 0.0).shape[0] for v in x]
- * [0, 1, 1, 1, 1, 0, 1, 1, 1, 1]
+ * [1, 1, 1, 1, 0, 1, 1, 1, 1, 0]
  *
  * @endcode
  */
 size_t RateConverter_execute_ctrl_push (RateConverter_state_t *s,
                                         float _Complex x, double ctrl,
                                         float _Complex *out, size_t max_out);
+
+/**
+ * @brief RateConverter_execute_ctrl_push(), also emitting the PRE-TERMINAL
+ *        sample — the cascade's output after every integer stage and after
+ *        the AGC, but before the terminal matched filter.
+ *
+ * This is the tap a non-data-aided carrier discriminator wants, and it is the
+ * reason this variant exists (see docs/design/mpsk.md §3.3). It is already
+ * band-limited by the cascade's own decimation filters and already levelled
+ * by the AGC that sits on this exact node, yet it is ahead of the matched
+ * filter — so reading it needs no symbol timing, and it carries none of the
+ * matched filter's group delay or its between-symbol ISI.
+ *
+ * The rate is `bank_sps` samples per symbol, a planner outcome: read it with
+ * RateConverter_get_bank_sps() rather than assuming it. A consumer wanting a
+ * fixed clock decimates this stream itself.
+ *
+ * A non-terminal stage swallows inputs between its decimation strobes, so
+ * @p n_pre is 0 on those calls — exactly as the return value is.
+ *
+ * @param s        Must be non-NULL.
+ * @param x        One input sample.
+ * @param ctrl     Fractional-rate control for the terminal stage.
+ * @param out      Terminal outputs.
+ * @param max_out  Capacity of @p out.
+ * @param pre_out  Receives the pre-terminal sample; may be NULL.
+ * @param n_pre    Receives 1 if @p pre_out was written, else 0; may be NULL.
+ * @return Number of terminal outputs written, as the non-tap form.
+ */
+size_t RateConverter_execute_ctrl_push_tap (RateConverter_state_t *s,
+                                            float _Complex x, double ctrl,
+                                            float _Complex *out,
+                                            size_t max_out,
+                                            float _Complex *pre_out,
+                                            int *n_pre);
+
+/**
+ * @brief Samples per symbol on the terminal stage's grid — the rate the
+ *        pre-terminal tap runs at.
+ *
+ * A planner outcome, not a constant: `bank_sps = pulse_sps / resamp_rate` for
+ * whatever integer decimation the plan chose, so it depends on the caller's
+ * rate ratio. Reported for the same reason RateConverter::stages is — a
+ * caller who can read back what was planned can check it.
+ */
+double RateConverter_get_bank_sps (const RateConverter_state_t *s);
 
 /**
  * @brief Get / set the output-to-input sample rate ratio.

@@ -2,6 +2,7 @@ from collections import (
     OrderedDict,
     namedtuple,
 )
+from dataclasses import dataclass
 
 import pytest
 
@@ -21,7 +22,7 @@ def test_reflection(snapshot):
 
 
 def test_empty_snapshot(snapshot):
-    assert snapshot == None  # noqa: E711
+    assert snapshot == None
     assert snapshot == ""
 
 
@@ -48,12 +49,12 @@ def test_newline_control_characters(snapshot):
 
 
 def test_multiline_string_in_dict(snapshot):
-    lines = "\n".join(["line 1", "line 2"])
+    lines = "line 1\nline 2"
     assert {"value": lines} == snapshot
 
 
 def test_deeply_nested_multiline_string_in_dict(snapshot):
-    lines = "\n".join(["line 1", "line 2", "line 3"])
+    lines = "line 1\nline 2\nline 3"
     d = {"value_a": {"value_b": lines}}
     assert d == snapshot
 
@@ -111,6 +112,40 @@ def test_tuple(snapshot):
 )
 def test_set(snapshot, actual):
     assert snapshot == actual
+
+
+@dataclass
+class DataclassPoint:
+    x: int
+    y: int
+
+
+@dataclass
+class DataclassWithStrSet:
+    my_str_set: set[str]
+
+
+def test_dataclass(snapshot):
+    assert DataclassPoint(x=1, y=2) == snapshot
+
+
+def test_dataclass_nested_str_set(snapshot):
+    """Nested sets inside dataclasses must serialize with sorted members (#1048)."""
+    assert DataclassWithStrSet({"1", " 2", "3", "4", "5", "6", "7"}) == snapshot
+
+
+def test_sort_partial_order_is_deterministic():
+    # frozensets order by the subset relation, which is only a partial order:
+    # these three are pairwise incomparable (neither is a subset of another),
+    # so a plain sorted() leaves them in input order. sort() must normalize to
+    # a stable order regardless of input order, otherwise a set/dict of
+    # frozensets serializes differently across runs (hash-seeded iteration).
+    a = frozenset({"a", "b"})
+    b = frozenset({"a", "c"})
+    c = frozenset({"a", "d"})
+    assert list(AmberDataSerializer.sort([a, b, c])) == list(
+        AmberDataSerializer.sort([c, b, a])
+    )
 
 
 @pytest.mark.parametrize(

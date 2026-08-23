@@ -624,7 +624,7 @@ class TestExtendedLang(util.MdCase):
             `#!php-inline $a = array("foo" => 0, "bar" => 1);`
             ''',
             '''
-            <p><code class="highlight"><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span></code></p>
+            <p><code class="highlight"><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">"foo"</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"bar"</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span></code></p>
             ''',  # noqa: E501
             True
         )
@@ -639,7 +639,7 @@ class TestExtendedLang(util.MdCase):
             ```
             ''',
             '''
-            <div class="highlight"><pre><span></span><code><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span>
+            <div class="highlight"><pre><span></span><code><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">"foo"</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"bar"</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span>
             </code></pre></div>
             ''',  # noqa: E501
             True
@@ -655,7 +655,7 @@ class TestExtendedLang(util.MdCase):
             ```
             ''',
             '''
-            <div class="highlight"><pre><span></span><code><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span>
+            <div class="highlight"><pre><span></span><code><span class="nv">$a</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">"foo"</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"bar"</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">);</span>
             </code></pre></div>
             ''',  # noqa: E501
             True

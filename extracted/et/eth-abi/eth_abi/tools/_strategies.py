@@ -1,7 +1,5 @@
-from typing import (
+from collections.abc import (
     Callable,
-    Optional,
-    Union,
 )
 
 from eth_typing.abi import (
@@ -34,7 +32,7 @@ from eth_abi.utils.numeric import (
 )
 
 StrategyFactory = Callable[[ABIType, "StrategyRegistry"], st.SearchStrategy]
-StrategyRegistration = Union[st.SearchStrategy, StrategyFactory]
+StrategyRegistration = st.SearchStrategy | StrategyFactory
 
 
 class StrategyRegistry(BaseRegistry):
@@ -45,7 +43,7 @@ class StrategyRegistry(BaseRegistry):
         self,
         lookup: Lookup,
         registration: StrategyRegistration,
-        label: Optional[str] = None,
+        label: str | None = None,
     ) -> None:
         self._register(self._strategies, lookup, registration, label=label)
 

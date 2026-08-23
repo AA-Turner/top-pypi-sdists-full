@@ -164,9 +164,11 @@ from pyopencl.compyte.dtypes import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 
+    import mako
     import pytest
-    from mako.template import Template
     from numpy.typing import DTypeLike, NDArray
+else:
+    import pyopencl._mymako as mako
 
 # Do not add a pyopencl import here: This will add an import cycle.
 
@@ -560,13 +562,9 @@ def first_arg_dependent_memoize_nested(
     frame = currentframe()
     cache_context = None
     if frame:
-        try:
-            caller_frame = frame.f_back
-            if caller_frame:
-                cache_context = caller_frame.f_globals[caller_frame.f_code.co_name]
-        finally:
-            # del caller_frame
-            pass
+        caller_frame = frame.f_back
+        if caller_frame:
+            cache_context = caller_frame.f_globals[caller_frame.f_code.co_name]
 
     cache_dict: dict[Hashable, dict[Hashable, RetT]]
     try:
@@ -653,7 +651,7 @@ def _find_cl_obj(
         ) -> DeviceOrPlatformT:
     try:
         num = int(identifier)
-    except Exception:
+    except Exception:  # ruff:ignore[try-except-pass]
         pass
     else:
         return objs[num]
@@ -1324,12 +1322,11 @@ class _PrintfTextTemplate(_TextTemplate):
 @dataclass(frozen=True)
 class _MakoTextTemplate(_TextTemplate):
     txt: str
-    template: Template = field(init=False)
+    template: mako.template.Template = field(init=False)
 
     def __post_init__(self) -> None:
-        from mako.template import Template
-
-        object.__setattr__(self, "template", Template(self.txt, strict_undefined=True))
+        object.__setattr__(self, "template",
+                           mako.template.Template(self.txt, strict_undefined=True))
 
     @override
     def render(self, context: dict[str, Any]) -> str:
@@ -1635,7 +1632,7 @@ def is_spirv(s: str | bytes) -> TypeIs[bytes]:
 # {{{ numpy key types builder
 
 class _NumpyTypesKeyBuilder(KeyBuilderBase):  # pyright: ignore[reportUnusedClass]
-    def update_for_VectorArg(self, key_hash: Hash, key: VectorArg) -> None:  # noqa: N802
+    def update_for_VectorArg(self, key_hash: Hash, key: VectorArg) -> None:  # ruff:ignore[invalid-function-name]
         self.rec(key_hash, key.dtype)
         self.update_for_str(key_hash, key.name)
         self.rec(key_hash, key.with_offset)
@@ -1652,7 +1649,6 @@ class _NumpyTypesKeyBuilder(KeyBuilderBase):  # pyright: ignore[reportUnusedClas
 
 
 __all__ = [
-    "AllocatorBase",
     "AllocatorBase",
     "Argument",
     "DeferredAllocator",

@@ -83,6 +83,8 @@
 #include "cic/cic_core.h"
 #include "fir/fir_core.h"
 #include "resample/resample_core.h"
+#include "agc/agc_core.h"
+#include "dp_tlm/dp_tlm_core.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -409,6 +411,57 @@ size_t ddc_execute(ddc_state_t *state, const float complex *x, size_t x_len, flo
                                     float complex *lo_out, int *n_lo);
 
   /**
+   * @brief ddc_execute_ctrl_push_tap(), plus the PRE-TERMINAL tap.
+   *
+   * Two taps, at the two points a carrier discriminator can read without
+   * symbol timing, and they are not equivalent:
+   *
+   * | tap       | where                          | cost                     |
+   * | --------- | ------------------------------ | ------------------------ |
+   * | @p lo_out | post-LO, pre-cascade           | full input noise BW      |
+   * | @p pre_out| post-cascade, post-AGC, pre-MF | none of the above        |
+   *
+   * @p pre_out is the better-conditioned of the two for the reasons
+   * docs/design/mpsk.md §3.3 gives: the cascade's own filters have already
+   * band-limited it and the AGC has already levelled it, so a half-symbol arm
+   * filter bolted onto @p lo_out is a hand-rolled approximation of what this
+   * node gives for free. Its rate is ddc_get_bank_sps() samples per symbol.
+   *
+   * @note "Better conditioned" is not "more accurate", and the distinction is
+   * measured rather than assumed. The retired tap sweep found no
+   * residual-frequency-error advantage for this node over the symbol-rate
+   * strobe — three taps carrying one loop bandwidth over one signal settle to
+   * the same jitter. What it buys is a usable discriminator with no symbol
+   * timing and no arm filter; see doppler#766 for the pull-in-range question
+   * that would actually separate them.
+   *
+   * @param state     Must be non-NULL.
+   * @param x         One CF32 input sample.
+   * @param rate_ctrl Rate deviation for this input (terminal-stage rate).
+   * @param freq_ctrl Frequency deviation for this input, cycles/sample at the
+   *                  input rate.
+   * @param out       Output buffer for any emitted outputs.
+   * @param max_out   Capacity of @p out (emission stops at this bound).
+   * @param lo_out    Receives the post-LO, pre-cascade sample when @p n_lo
+   *                  comes back 1. May be NULL.
+   * @param n_lo      Receives 1 (this front end mixes every input, so always
+   *                  1 here). May be NULL.
+   * @param pre_out   Receives the pre-terminal sample; may be NULL.
+   * @param n_pre     Receives 1 if @p pre_out was written, else 0; may be
+   *                  NULL. A non-terminal stage swallows inputs between its
+   *                  decimation strobes, so this is 0 on those calls.
+   * @return Number of terminal outputs written (0, 1, or more).
+   */
+  size_t ddc_execute_ctrl_push_tap2 (ddc_state_t *state, float complex x,
+                                     double rate_ctrl, double freq_ctrl,
+                                     float complex *out, size_t max_out,
+                                     float complex *lo_out, int *n_lo,
+                                     float complex *pre_out, int *n_pre);
+
+  /** @brief Samples per symbol of the pre-terminal tap; a planner outcome. */
+  double ddc_get_bank_sps (const ddc_state_t *state);
+
+  /**
    * @brief Is this object's rectangular matched filter degenerately narrow?
    *
    * True only for the matched flavor built with `pulse = RC_PULSE_IANDD` and
@@ -425,13 +478,33 @@ size_t ddc_execute(ddc_state_t *state, const float complex *x, size_t x_len, flo
    * @brief Has the cascade's CIC clipped its input since the last reset?
    *
    * Forwarded from RateConverter_get_clipped(): a CIC bounds its input to
-   * `|Re|, |Im| <= 1.0` and clips silently past it — the output stays finite
+   * `|Re|, |Im| <= 2.0` (`CIC_PAPR_HEADROOM`, 6 dB above unity — see
+   * cic_core.h) and clips silently past it — the output stays finite
    * and plausible, merely distorted, at a cost of ~25 dB of EVM that no
    * downstream metric attributes to the front end. Sticky until ddc_reset();
    * always false for a plan with no CIC stage, which is the honest answer since
    * those plans are scale-free.
    */
 bool ddc_get_clipped(const ddc_state_t *state);
+
+  /**
+   * @brief Attach (or detach) a telemetry context on the cascade's AGC.
+   *
+   * Forwarded verbatim to RateConverter_set_telemetry(): the mixer and the
+   * fixed stages have no loop to report, so the one instrumented child is the
+   * cascade's pre-terminal AGC ("<prefix>.gain_db" and "<prefix>.level_db").
+   * DP_OK with no probes when the cascade has no AGC enabled. Setup path,
+   * never hot; the context is borrowed and must outlive the attachment.
+   *
+   * @param state  Must be non-NULL.
+   * @param tlm    Telemetry context to attach, or NULL to detach.
+   * @param prefix Probe-name prefix, e.g. "rx.agc".
+   * @param decim  Emit every decim-th gain update; >= 1.
+   * @return DP_OK, or DP_ERR_INVALID when the probe table cannot take the
+   *         AGC's probes (the attach fails whole).
+   */
+  int ddc_set_telemetry (ddc_state_t *state, dp_tlm_t *tlm, const char *prefix,
+                         uint32_t decim);
 
   /**
    * @brief Maximum output samples one execute() of x_len inputs can produce.

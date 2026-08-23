@@ -11,34 +11,34 @@ WS = r'(?:[ \t])'
 CSS_ESCAPES = fr'(?:\\(?:[a-f0-9]{{1,6}}{WS}?|[^\r\n\f]|$))'
 # CSS Identifier
 IDENTIFIER = r'''
-(?:(?:-?(?:[^\x00-\x2f\x30-\x40\x5B-\x5E\x60\x7B-\x9f])+|--)
-(?:[^\x00-\x2c\x2e\x2f\x3A-\x40\x5B-\x5E\x60\x7B-\x9f])*)
+(?:(?:--|-?[^\x00-\x2f\x30-\x40\x5B-\x5E\x60\x7B-\x9f])
+[^\x00-\x2c\x2e\x2f\x3A-\x40\x5B-\x5E\x60\x7B-\x9f]*)
 '''
 # Value: quoted string or identifier
-VALUE = r'''
-(?:"(?:\\(?:.)|[^\\"\r\n\f]+)*?"|'(?:\\(?:.)|[^\\'\r\n\f]+)*?'|{ident}+)
-'''.format(ident=IDENTIFIER)
+VALUE = fr'''
+(?:"(?:\\.|[^\\"\r\n\f])*?"|'(?:\\.|[^\\'\r\n\f])*?'|{IDENTIFIER}+)
+'''
 # Attribute value comparison.
-ATTR = r'''
-(?:{ws}*(?P<cmp>=){ws}*(?P<value>{value}))?
-'''.format(ws=WS, value=VALUE)
+ATTR = fr'''
+(?:{WS}*(?P<cmp>=){WS}*(?P<value>{VALUE}))?
+'''
 # Selector patterns
 # IDs (`#id`)
 PAT_ID = fr'\#{IDENTIFIER}'
 # Classes (`.class`)
 PAT_CLASS = fr'\.{IDENTIFIER}'
 # Attributes (`[attr]`, `[attr=value]`, etc.)
-PAT_ATTR = r'''
-\[(?:{ws}*(?P<attr_name>{ident}){attr})+{ws}*\]
-'''.format(ws=WS, ident=IDENTIFIER, attr=ATTR)
+PAT_ATTR_OPEN = fr'\[{WS}*'
+PAT_ATTR_CLOSE = fr'{WS}*\]'
 
 RE_IDENT = re.compile(IDENTIFIER, flags=re.I | re.X)
 RE_ID = re.compile(PAT_ID, flags=re.I | re.X)
 RE_CLASS = re.compile(PAT_CLASS, flags=re.I | re.X)
-RE_ATTRS = re.compile(PAT_ATTR, flags=re.I | re.X)
-RE_ATTR = re.compile(fr'(?P<attr_name>{IDENTIFIER}){ATTR}', flags=re.I | re.X)
+RE_ATTR_OPEN = re.compile(PAT_ATTR_OPEN)
+RE_ATTR_CLOSE = re.compile(PAT_ATTR_CLOSE)
+RE_ATTR = re.compile(fr'{WS}*(?P<attr_name>{IDENTIFIER}){ATTR}', flags=re.I | re.X)
 
-ATTRIBUTES = {'id': RE_ID, 'class': RE_CLASS, 'attr': RE_ATTRS}
+ATTRIBUTES = {'id': RE_ID, 'class': RE_CLASS, 'attr': RE_ATTR_OPEN}
 VALID_MODES = {'auto', 'inline', 'block', 'raw', 'html'}
 
 
@@ -77,10 +77,9 @@ def parse_selectors(selector, require_tag=True):
                         attrs[atype].append(m.group(0)[1:])
                     end = m.end()
                 else:
-                    results = m.group(0)
-                    m2 = RE_ATTR.search(results)
-                    while m2 is not None:
-                        pos = m2.end()
+                    start = m.end()
+                    m2 = RE_ATTR.match(selector, start)
+                    while m2:
                         name = m2.group('attr_name').lower()
                         value = m2.group('value')
                         if value is None:
@@ -98,8 +97,13 @@ def parse_selectors(selector, require_tag=True):
                         else:
                             value = value
                             attrs[name] = value
-                        m2 = RE_ATTR.search(results, pos)
+                        start = m2.end()
+                        m2 = RE_ATTR.match(selector, start)
+                    m = RE_ATTR_CLOSE.match(selector, start)
+                    if not m:
+                        raise ValueError('Invalid selector')
                     end = m.end()
+
                 break
 
         if m is None:

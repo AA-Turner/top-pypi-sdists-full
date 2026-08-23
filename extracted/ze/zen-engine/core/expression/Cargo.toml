@@ -3,9 +3,11 @@ authors = ["GoRules Team <bot@gorules.io>"]
 description = "Zen Expression Language"
 name = "zen-expression"
 license = "MIT"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 repository = "https://github.com/gorules/zen.git"
+homepage = "https://gorules.io"
+readme = "README.md"
 
 [dependencies]
 smallvec = { version = "1", features = ["union"] }
@@ -30,8 +32,8 @@ nohash-hasher = { workspace = true }
 strsim = "0.11"
 iana-time-zone = "0.1"
 
-zen-macros = { path = "../macros", version = "2.0.0" }
-zen-types = { path = "../types", version = "2.0.0" }
+zen-macros = { path = "../macros", version = "2.0.1" }
+zen-types = { path = "../types", version = "2.0.1" }
 
 [dev-dependencies]
 criterion = { workspace = true }

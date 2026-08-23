@@ -19,6 +19,13 @@ class DDC:
         Output rate / input rate. Must be > 0. Values >= 1 are up-sampling;
         typical use is decimation (0 < rate < 1).
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``DDC: invalid
+        parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps > 0,
+        num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.ddc import DDC
@@ -42,6 +49,8 @@ class DDC:
         ----------
         x : NDArray[np.complex64]
             CF32 input block; accepted as float32 (auto-cast).
+        out : NDArray[np.complex64] | None
+            CF32 output buffer (C-only, hidden from Python).
 
         Returns
         -------
@@ -351,6 +360,13 @@ class MatchedDDC:
     num_phases : int, default 1024
         num_phases constructor parameter.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``DDC: invalid
+        parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps > 0,
+        num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.ddc import DDC
@@ -383,6 +399,8 @@ class MatchedDDC:
         ----------
         x : NDArray[np.complex64]
             CF32 input block; accepted as float32 (auto-cast).
+        out : NDArray[np.complex64] | None
+            CF32 output buffer (C-only, hidden from Python).
 
         Returns
         -------
@@ -687,6 +705,13 @@ class Ddcr:
         Total output/input rate. Must be in (0, 0.5) because the halfband
         pre-decimates by 2.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Ddcr: invalid
+        parameter (need 0 < rate < 0.5, 0 <= beta <= 1, span >= 1, pulse_sps >
+        0, num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.ddc import Ddcr
@@ -710,6 +735,8 @@ class Ddcr:
         ----------
         x : NDArray[np.float32]
             Input.
+        out : NDArray[np.complex64] | None
+            CF32 output buffer (C-only, hidden from Python).
 
         Returns
         -------
@@ -729,8 +756,8 @@ class Ddcr:
         (1024,)
         >>> y.dtype
         dtype('complex64')
-        >>> round(float(abs(y[500])), 2)   # one-sided cosine amplitude ≈ 0.5
-        0.5
+        >>> round(float(abs(y[500])), 2)   # analytic signal of a unit cosine
+        1.0
 
         """
 
@@ -783,8 +810,8 @@ class Ddcr:
         >>> y = ddcr.execute_ctrl(x, 0.0, -0.2)     # ctrl completes the tune
         >>> y.shape
         (1024,)
-        >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 0.5
-        0.5
+        >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 1.0
+        1.0
 
         """
 
@@ -1014,6 +1041,13 @@ class MatchedDdcr:
     num_phases : int, default 1024
         num_phases constructor parameter.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Ddcr: invalid
+        parameter (need 0 < rate < 0.5, 0 <= beta <= 1, span >= 1, pulse_sps >
+        0, num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.ddc import Ddcr
@@ -1046,6 +1080,8 @@ class MatchedDdcr:
         ----------
         x : NDArray[np.float32]
             Input.
+        out : NDArray[np.complex64] | None
+            CF32 output buffer (C-only, hidden from Python).
 
         Returns
         -------
@@ -1065,8 +1101,8 @@ class MatchedDdcr:
         (1024,)
         >>> y.dtype
         dtype('complex64')
-        >>> round(float(abs(y[500])), 2)   # one-sided cosine amplitude ≈ 0.5
-        0.5
+        >>> round(float(abs(y[500])), 2)   # analytic signal of a unit cosine
+        1.0
 
         """
 
@@ -1119,8 +1155,8 @@ class MatchedDdcr:
         >>> y = ddcr.execute_ctrl(x, 0.0, -0.2)     # ctrl completes the tune
         >>> y.shape
         (1024,)
-        >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 0.5
-        0.5
+        >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 1.0
+        1.0
 
         """
 

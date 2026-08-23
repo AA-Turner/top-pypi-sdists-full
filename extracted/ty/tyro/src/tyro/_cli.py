@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import pathlib
 import shutil
 import sys
@@ -35,11 +36,16 @@ from .constructors._primitive_spec import UnsupportedTypeAnnotationError
 OutT = TypeVar("OutT")
 
 
-# Two parallel sets of `f` overloads. `Type[OutT]` exists for pyright/pylance
+# Three parallel sets of `f` overloads. `Type[OutT]` exists for pyright/pylance
 # (see microsoft/pyright#4298 and the comment in `_resolver.py`); `TypeForm`
 # exists for ty and any checker implementing PEP 747, and additionally covers
 # patterns the `Type[T]` hack misses (e.g. `Annotated[A] | Annotated[B]`).
 # Each checker picks the first overload it can match.
+#
+# The `Callable` overloads must come before the `TypeForm` ones: checkers that
+# implement PEP 747 interpret arguments to `TypeForm` parameters as type
+# expressions, and (as of ty 0.0.60) report functions passed to them as
+# invalid type forms even when a later overload would match.
 
 
 @overload
@@ -65,46 +71,6 @@ def cli(
 @overload
 def cli(
     f: Type[OutT],
-    *,
-    prog: None | str = None,
-    description: None | str = None,
-    args: None | Sequence[str] = None,
-    default: OutT
-    | NonpropagatingMissingType
-    | PropagatingMissingType = MISSING_NONPROP,
-    return_unknown_args: Literal[True],
-    use_underscores: bool = False,
-    console_outputs: bool = True,
-    add_help: bool = True,
-    compact_help: bool = False,
-    config: None | Sequence[conf._markers.Marker] = None,
-    registry: None | ConstructorRegistry = None,
-) -> tuple[OutT, list[str]]: ...
-
-
-@overload
-def cli(
-    f: TypeForm[OutT],
-    *,
-    prog: None | str = None,
-    description: None | str = None,
-    args: None | Sequence[str] = None,
-    default: OutT
-    | NonpropagatingMissingType
-    | PropagatingMissingType = MISSING_NONPROP,
-    return_unknown_args: Literal[False] = False,
-    use_underscores: bool = False,
-    console_outputs: bool = True,
-    add_help: bool = True,
-    compact_help: bool = False,
-    config: None | Sequence[conf._markers.Marker] = None,
-    registry: None | ConstructorRegistry = None,
-) -> OutT: ...
-
-
-@overload
-def cli(
-    f: TypeForm[OutT],
     *,
     prog: None | str = None,
     description: None | str = None,
@@ -154,6 +120,46 @@ def cli(
     # supported for general callables. These can, however, be specified in the
     # signature of the callable itself.
     default: NonpropagatingMissingType | PropagatingMissingType = MISSING_NONPROP,
+    return_unknown_args: Literal[True],
+    use_underscores: bool = False,
+    console_outputs: bool = True,
+    add_help: bool = True,
+    compact_help: bool = False,
+    config: None | Sequence[conf._markers.Marker] = None,
+    registry: None | ConstructorRegistry = None,
+) -> tuple[OutT, list[str]]: ...
+
+
+@overload
+def cli(
+    f: TypeForm[OutT],
+    *,
+    prog: None | str = None,
+    description: None | str = None,
+    args: None | Sequence[str] = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
+    return_unknown_args: Literal[False] = False,
+    use_underscores: bool = False,
+    console_outputs: bool = True,
+    add_help: bool = True,
+    compact_help: bool = False,
+    config: None | Sequence[conf._markers.Marker] = None,
+    registry: None | ConstructorRegistry = None,
+) -> OutT: ...
+
+
+@overload
+def cli(
+    f: TypeForm[OutT],
+    *,
+    prog: None | str = None,
+    description: None | str = None,
+    args: None | Sequence[str] = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: Literal[True],
     use_underscores: bool = False,
     console_outputs: bool = True,
@@ -682,6 +688,37 @@ def _cli_impl(
             f"Parsed {value_from_prefixed_field_name.keys()}, but only consumed"
             f" {consumed_keywords}"
         )
+
+        # `get_out` runs after this function returns (see `cli()`), so root
+        # instantiation errors aren't caught by the handler above. When the
+        # input to `tyro.cli()` is a class, a `ValueError` raised while
+        # constructing it -- for example, from validation logic in a
+        # dataclass's `__post_init__` -- is just another way the CLI input was
+        # rejected, so we render it like other instantiation errors. When the
+        # input is a *function*, errors it raises are application errors and
+        # are intentionally left uncaught. Nested fields are handled
+        # separately, in `_calling.callable_with_args()`.
+        # https://github.com/brentyi/tyro/issues/482
+        f_root = _resolver.unwrap_origin_strip_extras(f)
+        if inspect.isclass(f_root):
+            get_out_unwrapped = get_out
+
+            def get_out_with_value_error_handling():
+                try:
+                    return get_out_unwrapped()
+                except ValueError as e:
+                    _errors.fire_and_exit_instantiation_failure(
+                        _errors.InstantiationFailure(
+                            prog=prog,
+                            message=e.args[0] if e.args else str(e),
+                            argument=None,
+                        ),
+                        arg_fallback=f_root.__name__,
+                        add_help=add_help,
+                    )
+
+            get_out = get_out_with_value_error_handling
+
         if return_unknown_args:
             assert unknown_args is not None, (
                 "Should have parsed with `parse_known_args()`"

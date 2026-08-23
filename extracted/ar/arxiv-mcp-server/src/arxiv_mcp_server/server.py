@@ -17,7 +17,8 @@ from mcp.server.stdio import stdio_server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
-from starlette.routing import Mount
+from starlette.responses import PlainTextResponse
+from starlette.routing import Mount, Route
 from .config import Settings, close_arxiv_client
 from .tools import (
     handle_search,
@@ -40,12 +41,22 @@ from .tools import (
     watch_topic_tool,
     handle_check_alerts,
     check_alerts_tool,
+    handle_list_watches,
+    list_watches_tool,
+    handle_unwatch_topic,
+    unwatch_topic_tool,
     get_paper_latex_tool,
     handle_get_paper_latex,
     list_paper_latex_sections_tool,
     handle_list_paper_latex_sections,
     get_paper_latex_section_tool,
     handle_get_paper_latex_section,
+    outline_tool,
+    handle_get_paper_outline,
+    read_section_tool,
+    handle_read_paper_section,
+    search_text_tool,
+    handle_search_paper_text,
 )
 from .prompts.handlers import list_prompts as handler_list_prompts
 from .prompts.handlers import get_prompt as handler_get_prompt
@@ -86,9 +97,14 @@ async def list_tools() -> List[types.Tool]:
         export_citations_tool,
         watch_topic_tool,
         check_alerts_tool,
+        list_watches_tool,
+        unwatch_topic_tool,
         get_paper_latex_tool,
         list_paper_latex_sections_tool,
         get_paper_latex_section_tool,
+        outline_tool,
+        read_section_tool,
+        search_text_tool,
     ]
 
 
@@ -135,12 +151,22 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextCont
             result = await handle_watch_topic(arguments)
         elif name == "check_alerts":
             result = await handle_check_alerts(arguments)
+        elif name == "list_watches":
+            result = await handle_list_watches(arguments)
+        elif name == "unwatch_topic":
+            result = await handle_unwatch_topic(arguments)
         elif name == "get_paper_latex":
             result = await handle_get_paper_latex(arguments)
         elif name == "list_paper_latex_sections":
             result = await handle_list_paper_latex_sections(arguments)
         elif name == "get_paper_latex_section":
             result = await handle_get_paper_latex_section(arguments)
+        elif name == "get_paper_outline":
+            result = await handle_get_paper_outline(arguments)
+        elif name == "read_paper_section":
+            result = await handle_read_paper_section(arguments)
+        elif name == "search_paper_text":
+            result = await handle_search_paper_text(arguments)
         else:
             result = [
                 types.TextContent(type="text", text=f"Error: Unknown tool {name}")
@@ -208,6 +234,21 @@ async def _run_stdio() -> None:
         await server.run(streams[0], streams[1], _initialization_options())
 
 
+async def _healthz(_request):
+    """Liveness probe for HTTP deploys. Process up means ready."""
+    return PlainTextResponse("ok")
+
+
+def _build_http_app(session_manager) -> Starlette:
+    """HTTP app: MCP mount plus a deploy probe. stdio does not use this."""
+    return Starlette(
+        routes=[
+            Route("/healthz", _healthz, methods=["GET"]),
+            Mount("/mcp", app=session_manager.handle_request),
+        ]
+    )
+
+
 async def _run_streamable_http() -> None:
     """Run the MCP server over Streamable HTTP."""
     session_manager = StreamableHTTPSessionManager(
@@ -216,9 +257,7 @@ async def _run_streamable_http() -> None:
         json_response=False,
         security_settings=_transport_security_settings(),
     )
-    starlette_app = Starlette(
-        routes=[Mount("/mcp", app=session_manager.handle_request)]
-    )
+    starlette_app = _build_http_app(session_manager)
     config = uvicorn.Config(
         starlette_app,
         host=settings.HOST,

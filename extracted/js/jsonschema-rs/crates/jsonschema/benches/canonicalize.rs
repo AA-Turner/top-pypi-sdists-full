@@ -124,6 +124,58 @@ mod bench {
             }))
             .collect::<Vec<_>>()});
 
+        // `not` over an object turns each property into its own branch, and the union then reads
+        // every branch against every other.
+        let negated_wide_object = {
+            let mut props = Map::with_capacity(128);
+            for i in 0..128_usize {
+                props.insert(
+                    format!("p{i}"),
+                    json!({"type": "string", "minLength": i % 3}),
+                );
+            }
+            json!({"not": {"type": "object", "properties": props}})
+        };
+
+        // A closed map under `not`: every branch it turns into is read against every other.
+        let negated_closed_object = {
+            let mut props = Map::with_capacity(64);
+            for i in 0..64_usize {
+                props.insert(format!("p{i}"), json!({"type": "string"}));
+            }
+            json!({"not": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": props,
+            }})
+        };
+
+        // A closed map whose entries are unions, the shape a linter configuration takes: `not`
+        // over it crosses two wide unions before the pool is minimized.
+        let negated_closed_object_of_unions = {
+            let mut rules = Map::with_capacity(50);
+            for i in 0..50_usize {
+                rules.insert(
+                    format!("R{i}"),
+                    json!({"anyOf": [
+                        {"enum": ["off", "warning"]},
+                        {"type": "object", "additionalProperties": false, "properties": {
+                            "severity": {"type": "string"},
+                        }},
+                    ]}),
+                );
+            }
+            json!({"not": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {"rules": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": rules,
+                }},
+            }})
+        };
+
         let open_api = read_json(OPEN_API);
         let swagger = read_json(SWAGGER);
         let geojson = read_json(GEOJSON);
@@ -139,6 +191,12 @@ mod bench {
                 &many_small_allofs_inside_object,
             ),
             ("negated_branches_in_allof", &negated_branches_in_allof),
+            ("negated_wide_object", &negated_wide_object),
+            ("negated_closed_object", &negated_closed_object),
+            (
+                "negated_closed_object_of_unions",
+                &negated_closed_object_of_unions,
+            ),
             ("wide_numeric_grid", &wide_numeric_grid),
             ("object_with_properties", &object_with_properties),
             ("chained_refs", &chained_refs),

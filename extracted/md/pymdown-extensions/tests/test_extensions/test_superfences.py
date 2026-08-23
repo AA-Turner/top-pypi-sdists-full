@@ -1613,7 +1613,7 @@ class TestSuperFencesCustomValidatorBroken(util.MdCase):
             ```
             ''',
             '''
-            <div class="highlight"><pre><span></span><code>doesn&#39;t matter
+            <div class="highlight"><pre><span></span><code>doesn't matter
             </code></pre></div>
             ''',
             True
@@ -1629,7 +1629,7 @@ class TestSuperFencesCustomValidatorBroken(util.MdCase):
             ```
             ''',
             '''
-            <div class="highlight"><pre><span></span><code>doesn&#39;t matter
+            <div class="highlight"><pre><span></span><code>doesn't matter
             </code></pre></div>
             ''',
             True

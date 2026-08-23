@@ -79,10 +79,19 @@ class SnapshotReport:
         return bool(self.options.warn_unused_snapshots)
 
     @property
+    def disable_unused_snapshots(self) -> bool:
+        return bool(getattr(self.options, "disable_unused_snapshots", False))
+
+    @property
     def should_delete_unused_snapshots(self) -> bool:
         # Unused snapshots are only removed while updating, unless the user
-        # opted out of cleanup with --snapshot-no-cleanup.
-        return self.update_snapshots and not bool(self.options.no_cleanup)
+        # opted out of cleanup with --snapshot-no-cleanup or disabled unused
+        # detection entirely.
+        return (
+            self.update_snapshots
+            and not bool(self.options.no_cleanup)
+            and not self.disable_unused_snapshots
+        )
 
     @property
     def include_snapshot_details(self) -> bool:
@@ -91,6 +100,23 @@ class SnapshotReport:
     @cached_property
     def _collected_items_by_nodeid(self) -> dict[str, "pytest.Item"]:
         return {item.nodeid: item for item in self.collected_items}
+
+    def _invalidate_selection_caches(self) -> None:
+        """
+        Clear cached properties derived from collected/selected items and snapshot
+        collections.
+
+        pytest-xdist merges worker reports into the controller report after
+        construction, mutating those inputs; callers must invalidate before reuse.
+        """
+        for name in (
+            "_collected_items_by_nodeid",
+            "_ran_locations",
+            "_skipped_locations",
+            "unused",
+            "num_unused",
+        ):
+            self.__dict__.pop(name, None)
 
     def _has_xfail(self, item: "pytest.Item") -> bool:
         # xfailed_key is 'private'. I'm open to a better way to do this:
@@ -104,11 +130,15 @@ class SnapshotReport:
         self.__parse_invocation_args()
 
         # We only need to discover snapshots once per test file, not once per assertion.
+        # Discovery exists to find unused snapshots; skip it when unused detection is off.
         locations_discovered: defaultdict[str, set[Any]] = defaultdict(set)
         for assertion in self.assertions:
             test_location = assertion.test_location.filepath
             extension_class = assertion.extension.__class__
-            if extension_class not in locations_discovered[test_location]:
+            if (
+                not self.disable_unused_snapshots
+                and extension_class not in locations_discovered[test_location]
+            ):
                 locations_discovered[test_location].add(extension_class)
                 self.discovered.merge(
                     assertion.extension.discover_snapshots(
@@ -189,7 +219,7 @@ class SnapshotReport:
     def num_updated(self) -> int:
         return self._count_snapshots(self.updated)
 
-    @property
+    @cached_property
     def num_unused(self) -> int:
         return self._count_snapshots(self.unused)
 
@@ -213,7 +243,7 @@ class SnapshotReport:
             if self.selected_items[nodeid]
         )
 
-    @property
+    @cached_property
     def unused(self) -> "SnapshotCollections":
         """
         Iterate over each snapshot that was discovered but never used and compute
@@ -246,7 +276,14 @@ class SnapshotReport:
                         snapshot_location=snapshot_location, snapshot_name=snapshot.name
                     )
                 }
-                mark_for_removal = snapshot_location not in self.used
+                mark_for_removal = (
+                    snapshot_location not in self.used
+                    and not unused_snapshot_collection.has_snapshots
+                    and not self._skipped_items_match_name(
+                        snapshot_location=snapshot_location,
+                        snapshot_name=Path(snapshot_location).stem,
+                    )
+                )
             else:
                 unused_snapshots = {
                     snapshot
@@ -288,6 +325,14 @@ class SnapshotReport:
         Re-run pytest with --snapshot-update to delete unused snapshots.
         ```
         """
+        if self.disable_unused_snapshots:
+            yield warning_style(
+                gettext(
+                    "Unused snapshot detection is disabled "
+                    "(--snapshot-disable-unused). This is not recommended."
+                )
+            )
+
         summary_lines: list[str] = []
         if self.num_failed and self._num_xfails < self.num_failed:
             summary_lines.append(
@@ -329,7 +374,7 @@ class SnapshotReport:
                     self.num_updated,
                 ).format(green(self.num_updated))
             )
-        if self.num_unused:
+        if not self.disable_unused_snapshots and self.num_unused:
             if self.should_delete_unused_snapshots:
                 text_singular = "{} unused snapshot deleted."
                 text_plural = "{} unused snapshots deleted."
@@ -345,7 +390,7 @@ class SnapshotReport:
             )
         yield " ".join(summary_lines)
 
-        if self.num_unused:
+        if not self.disable_unused_snapshots and self.num_unused:
             yield ""
             if self.update_snapshots or self.include_snapshot_details:
                 base_message = (
@@ -490,12 +535,47 @@ class SnapshotReport:
             for expr in self._keyword_expressions
         )
 
+    @staticmethod
+    def _index_by_basename(
+        items: Iterator["pytest.Item"],
+    ) -> dict[str, list["PyTestLocation"]]:
+        """
+        Group test locations by the basename of the file they live in.
+
+        A snapshot can only be claimed by a test whose file basename is either the
+        snapshot's own stem or the name of its parent directory (see
+        ``PyTestLocation._matches_snapshot_basename``).
+        """
+        index: defaultdict[str, list[PyTestLocation]] = defaultdict(list)
+        for item in items:
+            location = PyTestLocation(item)
+            index[location.basename].append(location)
+        return index
+
+    @cached_property
+    def _ran_locations(self) -> dict[str, list["PyTestLocation"]]:
+        return self._index_by_basename(self.ran_items)
+
+    @cached_property
+    def _skipped_locations(self) -> dict[str, list["PyTestLocation"]]:
+        return self._index_by_basename(self.skipped_items)
+
+    @staticmethod
+    def _candidates(
+        index: dict[str, list["PyTestLocation"]], snapshot_location: str
+    ) -> list["PyTestLocation"]:
+        """The only test locations that could possibly claim this snapshot."""
+        path = Path(snapshot_location)
+        candidates = [*index.get(path.stem, ())]
+        if path.parent.name != path.stem:
+            candidates += index.get(path.parent.name, ())
+        return candidates
+
     def _ran_items_match_name(self, snapshot_location: str, snapshot_name: str) -> bool:
         """
         Check that a snapshot name would match a test node using the Pytest location
         """
-        for item in self.ran_items:
-            location = PyTestLocation(item)
+        for location in self._candidates(self._ran_locations, snapshot_location):
             if location.matches_snapshot_location(
                 snapshot_location
             ) and location.matches_snapshot_name(snapshot_name):
@@ -509,8 +589,7 @@ class SnapshotReport:
         Check that a snapshot name should be treated as skipped by the current session
         This being true means that it will not be deleted even if the it is unused
         """
-        for item in self.skipped_items:
-            location = PyTestLocation(item)
+        for location in self._candidates(self._skipped_locations, snapshot_location):
             if location.matches_snapshot_location(
                 snapshot_location
             ) and location.matches_snapshot_name(snapshot_name):
@@ -537,8 +616,8 @@ class SnapshotReport:
         should be discarded as obsolete
         """
         return any(
-            PyTestLocation(item).matches_snapshot_location(snapshot_location)
-            for item in self.ran_items
+            location.matches_snapshot_location(snapshot_location)
+            for location in self._candidates(self._ran_locations, snapshot_location)
         )
 
 

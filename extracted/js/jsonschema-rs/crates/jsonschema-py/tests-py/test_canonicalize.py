@@ -788,6 +788,12 @@ def test_label_members_carry_their_label(member, label):
 
 
 @pytest.mark.parametrize(("member", "label"), LABEL_MEMBERS)
+def test_label_members_read_as_their_label(member, label):
+    assert str(member) == label
+    assert f"{member}" == label
+
+
+@pytest.mark.parametrize(("member", "label"), LABEL_MEMBERS)
 def test_label_members_are_hashable(member, label):
     assert {member: "kept"}[member] == "kept"
 
@@ -888,7 +894,8 @@ def test_one_document_canonicalized_twice_combines():
         (False, Satisfiability.NO),
         ({"type": "string"}, Satisfiability.YES),
         ({"type": "string", "minLength": 2}, Satisfiability.YES),
-        ({"type": "string", "pattern": "^a"}, Satisfiability.UNKNOWN),
+        ({"type": "string", "pattern": "^a"}, Satisfiability.YES),
+        ({"type": "string", "pattern": "a{100}"}, Satisfiability.UNKNOWN),
     ],
 )
 def test_satisfiability_answers(schema, expected):

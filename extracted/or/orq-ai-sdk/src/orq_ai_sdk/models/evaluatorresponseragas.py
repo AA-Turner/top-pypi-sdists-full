@@ -61,9 +61,9 @@ class EvaluatorResponseRagas(BaseModel):
 
     model: str
 
-    created: Optional[str] = "2026-08-21T22:38:06.167Z"
+    created: Optional[str] = "2026-08-22T22:47:54.508Z"
 
-    updated: Optional[str] = "2026-08-21T22:38:06.167Z"
+    updated: Optional[str] = "2026-08-22T22:47:54.508Z"
 
     updated_by_id: OptionalNullable[str] = UNSET
 

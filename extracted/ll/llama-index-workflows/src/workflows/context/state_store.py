@@ -8,8 +8,9 @@ import functools
 import json
 import uuid
 import warnings
+from collections import deque
 from contextlib import asynccontextmanager
-from copy import deepcopy
+from copy import copy, deepcopy
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
     from workflows.workflow import Workflow
 
 MAX_DEPTH = 1000
+
+_MODEL_DEEPCOPY = BaseModel.__deepcopy__
 
 # Keys set by pre-built workflows that are known to be unserializable in some cases.
 KNOWN_UNSERIALIZABLE_KEYS: tuple[str, ...] = ("memory",)
@@ -443,6 +446,17 @@ def get_by_path(state: Any, path: str, default: Any = Ellipsis) -> Any:
     return value
 
 
+def _split_write_path(path: str) -> list[str]:
+    """Validate and split a write path."""
+    if not path:
+        raise ValueError("Path cannot be empty")
+
+    segments = path.split(".")
+    if len(segments) > MAX_DEPTH:
+        raise ValueError(f"Path length exceeds {MAX_DEPTH} segments")
+    return segments
+
+
 def set_by_path(state: Any, path: str, value: Any) -> None:
     """Set a nested value on state using a dot-separated path.
 
@@ -456,12 +470,7 @@ def set_by_path(state: Any, path: str, value: Any) -> None:
     Raises:
         ValueError: If the path is empty or exceeds MAX_DEPTH.
     """
-    if not path:
-        raise ValueError("Path cannot be empty")
-
-    segments = path.split(".")
-    if len(segments) > MAX_DEPTH:
-        raise ValueError(f"Path length exceeds {MAX_DEPTH} segments")
+    segments = _split_write_path(path)
 
     current = state
     for segment in segments[:-1]:
@@ -473,6 +482,69 @@ def set_by_path(state: Any, path: str, value: Any) -> None:
             current = intermediate
 
     assign_path_step(current, segments[-1], value)
+
+
+class _CannotRebuild(Exception):
+    """A container on the write path cannot be copied or reassigned."""
+
+
+def _shallow_copy_container(obj: Any) -> Any:
+    """Shallow-copy a supported path container."""
+    if isinstance(obj, BaseModel):
+        copied = obj.model_copy()
+    elif isinstance(obj, (dict, list)):
+        copied = copy(obj)
+    else:
+        raise _CannotRebuild
+
+    if copied is obj:
+        raise _CannotRebuild
+    if isinstance(copied, DictLikeModel):
+        # model_copy rebuilds the private-attr mapping but keeps its values,
+        # so the clone would otherwise write dynamic keys straight into the
+        # committed _data.
+        copied._data = dict(copied._data)
+    return copied
+
+
+def _rebuild_child(parent: Any, segment: str) -> Any:
+    """Replace one child with a shallow copy and return it."""
+    try:
+        child = traverse_path_step(parent, segment)
+    except (KeyError, AttributeError, IndexError, TypeError):
+        child = {}
+    else:
+        child = _shallow_copy_container(child)
+
+    try:
+        assign_path_step(parent, segment, child)
+    except Exception as exc:
+        raise _CannotRebuild from exc
+    return child
+
+
+def set_by_path_copy(state: MODEL_T, path: str, value: Any) -> MODEL_T:
+    """Set a path by copying its containers and sharing unrelated values.
+
+    A container the rebuild cannot handle falls back to copying all of state,
+    because writing through to ``state`` would mutate what readers are reading.
+    The fallback copies through ``copy_state_for_edit`` so it keeps the exclude
+    rule; a value that cannot be copied at all is shared, and a write through
+    one is still visible immediately.
+    """
+    segments = _split_write_path(path)
+    try:
+        root = _shallow_copy_container(state)
+        current = root
+        for segment in segments[:-1]:
+            current = _rebuild_child(current, segment)
+    except _CannotRebuild:
+        copied = copy_state_for_edit(state)
+        set_by_path(copied, path, value)
+        return copied
+
+    assign_path_step(current, segments[-1], value)
+    return cast(MODEL_T, root)
 
 
 def merge_state(current_state: MODEL_T, incoming: BaseModel) -> MODEL_T:
@@ -563,38 +635,120 @@ class DictState(DictLikeModel):
 MODEL_T = TypeVar("MODEL_T", bound=BaseModel, default=DictState)  # type: ignore[reportGeneralTypeIssues]
 
 
-def _copy_value_for_edit(value: Any) -> Any:
-    """Deep-copy a single state value, or keep the live reference if it can't be.
+def _deepcopy_or_share(value: Any, memo: dict[int, Any]) -> Any:
+    """Deep-copy a value, or share the live reference when it cannot be copied.
 
-    State can hold live workflow objects (memory, LLM clients) that wrap thread
-    locks, modules, or sockets and raise on ``deepcopy``. Those are shared live
-    handles, so there is nothing to isolate by copying — preserve the reference
-    instead of failing the edit.
+    State can hold live handles that raise on ``deepcopy``. Sharing those keeps
+    the edit from crashing.
     """
     try:
-        return deepcopy(value)
+        return deepcopy(value, memo)
     except Exception:
+        # A copier that raised part-way may have left a broken entry behind.
+        memo[id(value)] = value
         return value
+
+
+def _copy_value_for_edit(value: Any, memo: dict[int, Any]) -> Any:
+    """Copy one state value for an ``edit_state`` block.
+
+    ``memo`` is the standard ``deepcopy`` memo, shared across the whole walk so
+    cycles terminate and an object referenced twice stays one object.
+
+    Built-in containers are walked here rather than handed to ``deepcopy``, so
+    a model nested in one still gets the exclude rule. Everything else,
+    including container subclasses, goes to ``deepcopy``.
+    """
+    if id(value) in memo:
+        return memo[id(value)]
+
+    if isinstance(value, BaseModel):
+        # A model with its own __deepcopy__ has already declared how it copies.
+        if type(value).__deepcopy__ is not _MODEL_DEEPCOPY:
+            return _deepcopy_or_share(value, memo)
+        try:
+            return _copy_model_for_edit(value, memo)
+        except Exception:
+            memo[id(value)] = value
+            return value
+
+    kind = type(value)
+    if kind is list:
+        list_items: list[Any] = []
+        memo[id(value)] = list_items
+        list_items.extend(_copy_value_for_edit(item, memo) for item in value)
+        return list_items
+    if kind is dict:
+        entries: dict[Any, Any] = {}
+        memo[id(value)] = entries
+        for key, item in value.items():
+            entries[_copy_value_for_edit(key, memo)] = _copy_value_for_edit(item, memo)
+        return entries
+    if kind is tuple:
+        # A tuple cannot be filled in after the fact, so it is memoized last —
+        # a cycle through its elements may have already copied it.
+        tuple_items = [_copy_value_for_edit(item, memo) for item in value]
+        return memo.setdefault(id(value), tuple(tuple_items))
+    if kind is set:
+        set_items: set[Any] = set()
+        memo[id(value)] = set_items
+        set_items.update(_copy_value_for_edit(item, memo) for item in value)
+        return set_items
+    if kind is frozenset:
+        frozen_items = frozenset(_copy_value_for_edit(item, memo) for item in value)
+        return memo.setdefault(id(value), frozen_items)
+    if kind is deque:
+        deque_items: deque[Any] = deque(maxlen=value.maxlen)
+        memo[id(value)] = deque_items
+        deque_items.extend(_copy_value_for_edit(item, memo) for item in value)
+        return deque_items
+
+    return _deepcopy_or_share(value, memo)
+
+
+def _copy_model_for_edit(value: BaseModel, memo: dict[int, Any]) -> BaseModel:
+    """Copy a model, sharing ``Field(exclude=True)`` values by reference.
+
+    ``exclude=True`` marks a field as not part of the model's data, which is how
+    a live handle hung off a model is already declared — a tokenizer, a chat
+    store, a client. Copying one is wasted at best and ruinous at worst:
+    deep-copying a tiktoken tokenizer detaches it from tiktoken's registry, and
+    every copy after that rebuilds a 100k-entry BPE. Sharing them keeps the edit
+    isolated on the data a reader could otherwise catch mid-edit.
+
+    ``model_copy()`` lays out the new instance (fields, extras, private attrs,
+    fields-set); this fills in the copies field by field.
+    """
+    copied = value.model_copy()
+    # Registered before recursing so a cycle back to this model resolves here.
+    memo[id(value)] = copied
+
+    fields = type(value).model_fields
+    contents = vars(copied)
+    for name, child in value.__dict__.items():
+        field = fields.get(name)
+        if field is None or field.exclude is not True:
+            contents[name] = _copy_value_for_edit(child, memo)
+
+    # Extras and private attrs carry data too: ``DictLikeModel._data`` is where
+    # every dynamic entry of a ``DictState`` lives.
+    for store in (copied.__pydantic_extra__, copied.__pydantic_private__):
+        if not store:
+            continue
+        for name, child in list(store.items()):
+            store[name] = _copy_value_for_edit(child, memo)
+    return copied
 
 
 def copy_state_for_edit(state: MODEL_T) -> MODEL_T:
     """Return an isolated copy of state for an ``edit_state`` block.
 
     ``edit_state`` mutates a copy so lockless readers keep seeing committed
-    state until the block commits. Ordinary data entries are deep-copied for
-    that isolation; entries holding non-deepcopyable live objects are kept by
-    reference (see ``_copy_value_for_edit``) so the edit cannot crash on them.
-
-    Typed (non-``DictState``) state copies whole-model; if that model holds a
-    non-deepcopyable field, fall back to a shallow copy rather than crash.
+    state until the block commits. Data is copied for that isolation; live
+    handles are shared instead — declared ones via ``Field(exclude=True)``,
+    undeclared ones via the ``deepcopy`` failure fallback.
     """
-    if isinstance(state, DictState):
-        copied = {key: _copy_value_for_edit(value) for key, value in state.items()}
-        return cast(MODEL_T, DictState(**copied))
-    try:
-        return state.model_copy(deep=True)
-    except Exception:
-        return state.model_copy()
+    return cast(MODEL_T, _copy_value_for_edit(state, {}))
 
 
 @runtime_checkable
@@ -701,7 +855,8 @@ class StateStoreFacade(Generic[MODEL_T]):
     the backend's committed row, in-memory reads see the committed record.
     An in-flight `edit_state` block works on an isolated copy, so reads
     (including reads inside the block) return the pre-edit state until the
-    block commits on exit. Nested writers raise.
+    block commits on exit. `set` swaps in a rebuilt path atomically. Nested
+    writers raise.
 
     Workflow stores memoize one facade per run so in-process writers share
     that lock. Writers in other processes or replicas are not serialized;
@@ -878,9 +1033,15 @@ class StateStoreFacade(Generic[MODEL_T]):
         return get_by_path(await self._load_state(), path, default)
 
     async def set(self, path: str, value: Any) -> None:
-        """Set a nested value using dot-separated paths."""
-        async with self.edit_state() as state:
-            set_by_path(state, path, value)
+        """Set a nested value using dot-separated paths.
+
+        Only containers along `path` are copied. Durable backends still
+        re-encode the full state row.
+        """
+        async with self._lock.acquire_write():
+            async with self._storage.session() as storage:
+                state = await self._load_state(storage)
+                await self._save_state(set_by_path_copy(state, path, value), storage)
 
     async def clear(self) -> None:
         """Reset the state to its type defaults.

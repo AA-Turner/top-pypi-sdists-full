@@ -53,7 +53,13 @@ class TestIndexRecommendationsResponse(unittest.TestCase):
                     ],
                 summary = {
                     'key' : 56
-                    }
+                    },
+                coverage = mixpeek.models.recommendation_coverage.RecommendationCoverage(
+                    total_queries = 56, 
+                    filtered_queries = 56, 
+                    slow_queries = 56, 
+                    slow_filtered_queries = 56, 
+                    threshold_ms = 1.337, )
             )
         else:
             return IndexRecommendationsResponse(

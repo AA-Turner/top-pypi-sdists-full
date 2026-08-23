@@ -70,8 +70,13 @@ def mpsk_diff_map(sym: NDArray[np.uint8], m: int = 4) -> NDArray[np.complex64]:
     index accumulates `gray_decode(label)` each symbol (starting from an
     implicit zero-phase reference), so an unknown constant carrier phase
     cancels at the receiver (mpsk_diff_demap) — resolving the M-fold
-    ambiguity, at ~2x the symbol-error rate of coherent map(). Sequential
-    over the array.
+    ambiguity. Sequential over the array.
+
+    The cost is up to **2x the symbol-error rate** of coherent map(). That
+    factor is a high-SNR asymptote, not a constant: measured, BPSK and QPSK
+    reach it by ~8 dB Es/N0 while 8PSK pays only 1.44x at 4 dB and 2.03x by
+    14 dB. A caller sizing a link at low Es/N0 is charged less than the
+    round number suggests (native/validation/mpsk_diff_penalty.c).
 
     Parameters
     ----------
@@ -125,6 +130,74 @@ def mpsk_diff_demap(x: NDArray[np.complex64], m: int = 4) -> NDArray[np.uint8]:
     >>> from doppler.mpsk import mpsk_diff_demap, mpsk_diff_map
     >>> sym = np.array([2, 2, 1, 0], dtype=np.uint8)
     >>> np.array_equal(mpsk_diff_demap(mpsk_diff_map(sym, 8), 8), sym)
+    True
+
+    """
+
+def mpsk_soft_demap(
+    x: NDArray[np.complex64],
+    llr: NDArray[np.float32],
+    m: int = 4,
+    n0: float = 1.0,
+) -> None:
+    """Soft-demap M-PSK symbols to per-bit log-likelihood ratios.
+
+    The soft counterpart of mpsk_demap(): instead of one label byte per
+    symbol it writes `log2(M)` LLRs, one per bit, which is what a
+    soft-input decoder (a Viterbi, for the CCSDS inner code) needs. A hard
+    decision throws away roughly 2 dB of the coding gain such a decoder
+    exists to deliver.
+
+    The convention, which every consumer has to agree with:
+
+    L_i = log( P(bit i = 0 | y) / P(bit i = 1 | y) )
+
+    so **positive means bit 0** and the hard decision is `L < 0`. That is
+    not a separate rule: `mpsk_demap()` is what this reproduces, and the
+    sign agreeing with it at every M and every SNR is asserted in
+    test_mpsk_core.c rather than assumed. The repository has ONE decision
+    rule; this is a second view of it, not a second copy.
+
+    Bits are LSB-first within a symbol, matching how the Gray label packs
+    them, and symbols run in order: `llr[i * log2(M) + b]` is bit b of
+    symbol i.
+
+    Computed by the max-log rule over the constellation `L_i = (min_{b_i=1}
+    |y-a|^2 - min_{b_i=0} |y-a|^2) / n0`. For BPSK and QPSK this is EXACT —
+    QPSK's `phi0 = pi/4` grid is axis-separable, so its two bits are
+    independent BPSK decisions and each subset holds one point. Only 8PSK
+    is an approximation; what that costs in dB is not measured yet and is
+    therefore not claimed here (docs/design/mpsk.md §9.7).
+
+    n0 is the noise power `E[|n|^2]` for unit-amplitude symbols, and it
+    scales the output exactly: `L(n0) = L(1) / n0`. A **Viterbi is
+    invariant to it**, since scaling every branch metric by a positive
+    constant cannot move the maximum-likelihood path — so a caller with no
+    SNR estimate may pass 1.0 and get correctly ordered, unscaled soft
+    values.
+
+    Parameters
+    ----------
+    x : NDArray[np.complex64]
+        Received symbols (amplitude matters here — unlike the hard path,
+        which uses phase only).
+    llr : NDArray[np.float32]
+        Out: x_len * log2(M) LLRs.
+    m : int
+        M in {2,4,8}.
+    n0 : float
+        Noise power `E[|n|^2]`; must be positive.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.mpsk import mpsk_soft_demap, mpsk_demap
+    >>> x = np.array([0.9+0.1j, -0.8-0.2j], dtype=np.complex64)   # BPSK
+    >>> llr = np.empty(2, dtype=np.float32)
+    >>> mpsk_soft_demap(x, llr, 2, 1.0)
+    >>> np.round(llr, 3)                       # 4*Re(y)/n0
+    array([ 3.6, -3.2], dtype=float32)
+    >>> np.array_equal((llr < 0).astype(np.uint8), mpsk_demap(x, 2))
     True
 
     """

@@ -33,7 +33,7 @@ class TestSnippetDedent(util.MdCase):
             ''',
             R'''
             <div class="highlight"><pre><span></span><code>def some_method(self, param):
-                &quot;&quot;&quot;Docstring.&quot;&quot;&quot;
+                """Docstring."""
 
                 return param
             </code></pre></div>
@@ -52,7 +52,7 @@ class TestSnippetDedent(util.MdCase):
             ''',
             R'''
             <div class="highlight"><pre><span></span><code>def some_method(self, param):
-                &quot;&quot;&quot;Docstring.&quot;&quot;&quot;
+                """Docstring."""
 
                 return param
             </code></pre></div>
@@ -1273,7 +1273,7 @@ class TestURLDedentSnippets(util.MdCase):
             ''',
             '''
             <div class="highlight"><pre><span></span><code>def some_method(self, param):
-                &quot;&quot;&quot;Docstring.&quot;&quot;&quot;
+                """Docstring."""
 
                 return param
             </code></pre></div>

@@ -4,8 +4,6 @@ from importlib.metadata import (
 )
 from typing import (
     Any,
-    Dict,
-    Union,
 )
 
 from semantic_version import (
@@ -45,7 +43,7 @@ else:
         pass
 
 
-def is_london_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
+def is_london_block(block: dict[str, Any] | BlockAPI) -> bool:
     if isinstance(block, BlockAPI):
         try:
             # it's not enough to check hasattr because the attribute could be
@@ -60,7 +58,7 @@ def is_london_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
     return False
 
 
-def is_shanghai_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
+def is_shanghai_block(block: dict[str, Any] | BlockAPI) -> bool:
     if isinstance(block, BlockAPI):
         try:
             # it's not enough to check hasattr because the attribute could be
@@ -74,7 +72,7 @@ def is_shanghai_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
     return False
 
 
-def is_cancun_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
+def is_cancun_block(block: dict[str, Any] | BlockAPI) -> bool:
     if isinstance(block, BlockAPI):
         try:
             # it's not enough to check hasattr because the attribute could be
@@ -96,7 +94,7 @@ def is_cancun_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
     return False
 
 
-def is_prague_block(block: Union[Dict[str, Any], BlockAPI]) -> bool:
+def is_prague_block(block: dict[str, Any] | BlockAPI) -> bool:
     if isinstance(block, BlockAPI):
         try:
             return block.header.requests_hash is not None

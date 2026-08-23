@@ -3,7 +3,7 @@ arg_type = "void"
 return_type = "float _Complex"
 mutable = "true"
 class_name = "_SynthEngine"
-depends_on = [{ name = "lo", link = true }, { name = "awgn", link = true }, "pn", { name = "fir", link = true }, { name = "resamp", link = true }, "wfm_dsp"]
+depends_on = [{ name = "lo", link = true }, { name = "awgn", link = true }, "pn", { name = "fir", link = true }, { name = "resamp", link = true }, "wfm_dsp", { name = "wfm_frame", link = true }, { name = "gold", link = true }]
 impl = """
 float complex sym;
 if (state->shaper) {
@@ -24,22 +24,14 @@ if (state->shaper) {
             state->cur_re = wfm_synth_cont_dsss_chip(state);
             state->cur_im = 0.0f;
         } else if (state->bits && state->n_bits) {
-            if (state->bit_mod == 2) { /* qpsk: 2 bits/symbol, Gray-mapped */
-                uint8_t b0 = state->bits[state->bit_idx];
-                uint8_t b1 = state->bits[(state->bit_idx + 1) % state->n_bits];
-                const float s = 0.70710678118654752f;
-                state->cur_re = b0 ? -s : s;
-                state->cur_im = b1 ? -s : s;
-                state->bit_idx = (state->bit_idx + 2) % state->n_bits;
-            } else if (state->bit_mod == 1) { /* bpsk: 0->+1, 1->-1 */
-                state->cur_re = state->bits[state->bit_idx] ? -1.0f : 1.0f;
-                state->cur_im = 0.0f;
-                state->bit_idx = (state->bit_idx + 1) % state->n_bits;
-            } else { /* none: unmodulated 0/1 amplitude */
-                state->cur_re = state->bits[state->bit_idx] ? 1.0f : 0.0f;
-                state->cur_im = 0.0f;
-                state->bit_idx = (state->bit_idx + 1) % state->n_bits;
-            }
+            /* ONE bits->symbol map for every order, shared with
+             * wfm_synth_next_symbol() and wfm_synth_steps(). Inlining it
+             * here is what let the QPSK copy drift into a different label
+             * assignment than mpsk_constellation() -- see
+             * wfm_synth_bit_symbol(). */
+            float _Complex bs = wfm_synth_bit_symbol(state);
+            state->cur_re     = crealf(bs);
+            state->cur_im     = cimagf(bs);
         }
     }
     if (state->fir) {
@@ -199,18 +191,18 @@ if (type == WFM_SYNTH_NOISE) {
 } else if (snr < WFM_SYNTH_SNR_CLEAN) {
     int mode = snr_mode;
     if (mode == 0)
-        mode = (type == WFM_SYNTH_BPSK || type == WFM_SYNTH_QPSK)
-                   ? 3
-                   : 1; /* *psk → esno; tone/pn/chirp/bits → fs */
-    int bps = (type == WFM_SYNTH_QPSK) ? 2 : 1;
-    double snr_fs;
-    if (mode == 2) /* Eb/No → SNR over fs */
-        snr_fs = snr + 10.0 * log10((double)bps)
-                 - 10.0 * log10((double)obj->nsps);
-    else if (mode == 3) /* Es/No → SNR over fs (Es spans nsps samples) */
-        snr_fs = snr - 10.0 * log10((double)obj->nsps);
-    else /* over fs */
-        snr_fs = snr;
+        /* *psk → esno; tone/pn/chirp/bits → fs. DSSS stays fs HERE and is
+           pre-referred by the composer instead: its Es spans one DATA symbol,
+           and the codes that set the spreading factor attach after create(),
+           so this is the best that can be said at this point. */
+        mode = (type == WFM_SYNTH_BPSK || type == WFM_SYNTH_QPSK) ? 3 : 1;
+    /* The conversion itself is wfm_synth_snr_over_fs() — shared with the
+       composer's per-segment noise floor and with the Plan stimulus engine, so
+       a bundled noisy source and a resolved one cannot place different noise
+       for the same requested SNR. Only the auto mapping above and the span
+       below are ours; both legitimately differ per caller. */
+    double snr_fs = wfm_synth_snr_over_fs(mode, wfm_synth_bps(type),
+                                          (double)obj->nsps, snr);
     float amp = sqrtf(1.0f / (2.0f * powf(10.0f, (float)snr_fs / 10.0f)));
     obj->awgn = awgn_create((uint64_t)seed, amp);
 }

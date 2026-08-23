@@ -124,9 +124,10 @@ def is_valid_latitude(value: Union[float, int, object]) -> bool:
         value: Number to validate
 
     Returns:
-        bool: True if valid latitude, False otherwise
+        bool: True if valid latitude, False otherwise. Booleans are rejected even
+            though ``bool`` is a subclass of ``int``.
     """
-    if not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return -90 <= float(value) <= 90
 
@@ -138,9 +139,10 @@ def is_valid_longitude(value: Union[float, int, object]) -> bool:
         value: Number to validate
 
     Returns:
-        bool: True if valid longitude, False otherwise
+        bool: True if valid longitude, False otherwise. Booleans are rejected even
+            though ``bool`` is a subclass of ``int``.
     """
-    if not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return -180 <= float(value) <= 180
 
@@ -203,7 +205,7 @@ def is_geohash_series(obj: object) -> bool:
         return False
     from pandas import Series
 
-    return isinstance(obj, Series) and all(is_valid_geohash(str(x)) for x in obj)
+    return isinstance(obj, Series) and all(is_valid_geohash(x) for x in obj)
 
 
 def is_latitude_series(obj: object) -> bool:

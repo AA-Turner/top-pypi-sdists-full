@@ -21,6 +21,57 @@ logger = logging.getLogger(__name__)
 # filing's item structure had been found.
 _ITEM_HEADER_START = re.compile(r'^\s*item\s+(\d+(?:\.\d+)?[A-Za-z]?)\b', re.IGNORECASE)
 
+_WHITESPACE_RUN = re.compile(r'\s+')
+
+# A Part boundary — "PART II", "PART II. OTHER INFORMATION", "Part I - Financial
+# Information". Anchored, and the numeral must end at a word boundary so
+# "Participation in the plan" is not read as a part header.
+_PART_HEADER = re.compile(r'^\s*PART\s+(I|II|III|IV|V)\b', re.IGNORECASE)
+
+# A bare SIGNATURES line, which terminates the last item of a report. Requires
+# the whole paragraph to be that one word — "Signatures of the undersigned
+# officers appear below" is prose, not a boundary. Same test Strategy 5b uses.
+_SIGNATURES_HEADER = re.compile(r'^\s*SIGNATURES?\s*$', re.IGNORECASE)
+
+# An item's own SUB-header: an item number, one or more parenthesized
+# sub-designations, and nothing else — "Item 14(a)(1):", "Item 14 (a)(2):".
+# Filings that itemize under Regulation S-K's lettered sub-paragraphs write
+# these inside the item they belong to, so they mark a subdivision and never the
+# start of a new section.
+#
+# The whole string must be consumed, which is what separates a sub-header from a
+# designated item header: "ITEM 9A(T). CONTROLS AND PROCEDURES" carries a title
+# and so fails this test and stays a boundary. A bare, undesignated "Item 3." —
+# the shape 20-F headings commonly use — has no parenthesized group and likewise
+# stays a boundary.
+_ITEM_SUBHEADER = re.compile(
+    r'^\s*(?:Item|ITEM)\s+\d+[A-Za-z]?\s*(?:\([A-Za-z0-9]{1,3}\)\s*)+[.:;\-–—]?\s*$',
+    re.IGNORECASE
+)
+
+
+def _normalize_header_text(text: str) -> str:
+    """Collapse a header's internal whitespace runs to single spaces.
+
+    Header text arrives carrying the source HTML's line wrapping — a table cell
+    written as::
+
+        <td>ITEM 5. OPERATING
+        AND FINANCIAL REVIEW AND PROSPECTS</td>
+
+    yields ``'ITEM\\n5. OPERATING\\nAND FINANCIAL REVIEW AND PROSPECTS'``. In HTML
+    that newline is just whitespace, but the section patterns join words with
+    ``.*``, which does not cross a newline (they are compiled without DOTALL).
+    So a wrapped header matched or missed depending on which metacharacter its
+    pattern happened to use: ``Information\\s+on\\s+the\\s+Company`` matched
+    because ``\\s`` covers ``\\n``, while ``Operating.*Financial\\s+Review`` did
+    not. On the 2010 20-F ``0001144204-10-017467`` that silently cost Items 5,
+    6, 11, 12, 15 and 16D-16F, and on ``0001062993-16-008650`` Items 6 and 11 —
+    lookups that returned text only via the legacy ChunkedDocument fallback
+    (edgartools-dt1f.1).
+    """
+    return _WHITESPACE_RUN.sub(' ', text).strip()
+
 
 class SectionExtractor:
     """
@@ -495,6 +546,28 @@ class SectionExtractor:
     _ITEM_COVERAGE_FLOOR = 0.5
 
     @staticmethod
+    def _has_page_number_suffix(text: str) -> bool:
+        """Does this header end in a bare page number, the way a TOC row does?
+
+        "ITEM 1. IDENTITY OF DIRECTORS, SENIOR MANAGEMENT AND ADVISERS 5" is a
+        table-of-contents row; the body header is the same words without the 5.
+        Used only to DEMOTE a candidate when a cleaner one exists for the same
+        section, because the number is suggestive rather than conclusive — some
+        filings do carry a stray trailing digit on a real header, and a section
+        whose only candidate is page-numbered is still better found than not.
+
+        `_is_likely_toc_entry` answers the same question from HTML offsets and is
+        the primary guard, but it needs `find_toc_boundaries` to have located a
+        TOC; on 0001144204-10-017467 it locates none, so nothing marked that
+        filing's TOC rows at all.
+
+        The leading item number is stripped before testing so that a bare "ITEM
+        5" header does not read its own number as a page number.
+        """
+        remainder = _ITEM_HEADER_START.sub('', text.strip())
+        return bool(re.search(r'\S\s+\d{1,3}$', remainder))
+
+    @staticmethod
     def _is_complete_item_header(text: str) -> bool:
         """Does this header carry title text after the item number?
 
@@ -566,6 +639,27 @@ class SectionExtractor:
         if not expected:
             return True  # No usable denominator — presence is the only test available.
         return len(found) >= expected * self._ITEM_COVERAGE_FLOOR
+
+    def _item_structure_complete(self, headers: List[Tuple[Node, str, int]]) -> bool:
+        """Has every item this form defines turned up among the candidates?
+
+        The stricter sibling of ``_item_structure_found``, and a different
+        question: that one asks whether the document parsed at all, this one asks
+        whether there is anything left to look for. A strategy that can only ADD
+        candidates should be gated on this, because "we have enough items" is not
+        a reason to stop when the items already in hand cannot become the missing
+        one — see Strategy 4, where a filer rendering one item in a table and the
+        rest as headings lost that item entirely.
+
+        Forms with no usable denominator (8-K, title-based) are never complete by
+        this test, so they keep running the strategies they have always run:
+        their gate was ``presence``, which is False until something is found, and
+        an 8-K that has found nothing still needs the fallbacks.
+        """
+        expected = self._canonical_item_count()
+        if not expected:
+            return False
+        return len(self._item_numbers_in(headers)) >= expected
 
     def _find_section_headers(self, document: Document) -> List[Tuple[Node, str, int]]:
         """
@@ -661,10 +755,30 @@ class SectionExtractor:
         # structural headers (Item, SIGNATURES, PART, EXHIBIT, ...) so false
         # positives from stray bold text cannot occur.
         #
-        # Other forms (10-Q, S-1, 424B) are excluded: their stray bold paragraphs
-        # would produce unwanted boundaries.
+        # For 10-Q: PART boundaries and the terminal SIGNATURES line, nothing
+        # else. Goldman's 10-Q renders "PART II. OTHER INFORMATION" in exactly
+        # this shape, and without that marker every header after it is still
+        # labelled Part I by _detect_10q_parts, so the `part_ii_*` patterns
+        # reject their own headers on part context and the filing resolves
+        # part_i_item_1..4 and nothing else. Items 5 and 6 were found and then
+        # thrown away (edgartools-dt1f.1 Defect D). SIGNATURES comes too, for the
+        # same reason 8-K needs it: it is what stops the last item — Item 6,
+        # Exhibits — running to the end of the document.
+        #
+        # Admitting the rest of the `_looks_like_section_header` vocabulary for
+        # 10-Q was tried and reverted. Measured across 31 fixtures it fixed
+        # Goldman's Part II but truncated four other filings, one MD&A from
+        # 33,102 characters to 93, and left Goldman's own Item 6 at 16 — because
+        # a bold "Exhibits" or "Item 6." inside a 10-Q body is ordinarily a
+        # cross-reference, while a bold "PART II" or a bare bold "SIGNATURES" is
+        # not. That is the difference the two patterns encode; it is not a
+        # difference `_looks_like_section_header` can express, since 10-K needs
+        # the wider vocabulary for its Part III stubs.
+        #
+        # S-1 and 424B stay out entirely: they are title-based forms with no
+        # part structure to recover.
         # Deduplicates against positions already captured.
-        if self.form in ('10-K', '8-K'):
+        if self.form in ('10-K', '8-K', '10-Q'):
             existing_positions = {pos for _, _, pos in headers}
             from edgar.documents.nodes import ParagraphNode, TextNode as _TextNode
 
@@ -682,6 +796,10 @@ class SectionExtractor:
                     continue
                 if not self._looks_like_section_header(text):
                     continue
+                if self.form == '10-Q' and not (
+                    _PART_HEADER.match(text) or _SIGNATURES_HEADER.match(text)
+                ):
+                    continue
                 position = _node_position(node)
                 if position in existing_positions:
                     continue  # already captured (e.g. via HeadingNode child in Strategy 1)
@@ -693,8 +811,23 @@ class SectionExtractor:
 
         # Strategy 4: Fallback to table cells with Item patterns
         # Many 8-K filings use tables for layout with Items in table cells
-        # Check again after Strategy 3
-        if not self._item_structure_found(headers):
+        #
+        # Gated on COMPLETENESS rather than on _item_structure_found, which asks
+        # whether half the form's items have turned up. That is the right
+        # question for "did this document parse at all" and the wrong one here,
+        # because a filer does not have to render every item the same way.
+        # ExxonMobil's 10-Q writes six of its seven items as headings and puts
+        # Item 1 in a table — so the gate was satisfied at 6/7 by the very
+        # headers that could never contribute the missing one, and the strategy
+        # that would have found it never ran. Part I Item 1 is the whole
+        # financial-statement section, and get_item_with_part('Part I', 'Item 1')
+        # fell through to id_parse_document for it (edgartools-yrrh).
+        #
+        # A cheaper strategy having succeeded is not evidence that an expensive
+        # one has nothing to add. Same shape as the TOC-augmentation gate
+        # (edgartools-dt1f), which asked whether Part III was complete before
+        # running the pattern pass and so almost never ran it.
+        if not self._item_structure_complete(headers):
             from edgar.documents.table_nodes import TableNode
             table_nodes = document.root.find(lambda n: isinstance(n, TableNode))
             existing_positions = {pos for _, _, pos in headers}
@@ -755,6 +888,57 @@ class SectionExtractor:
                         headers.append((node, text.strip(), position))
                         existing_positions.add(position)
 
+        # Strategy 5c: bare TextNode headers, for filings with no block structure
+        # at all.
+        #
+        # Pre-2002 filings are preformatted text wrapped in minimal HTML, and they
+        # parse to ContainerNode > TextNode with *zero* HeadingNodes and *zero*
+        # ParagraphNodes. Every strategy above draws its candidates from headings,
+        # sections, bold paragraphs or table cells, so on those documents the
+        # header list is not merely short — there is no candidate source at all,
+        # and section detection returns nothing however good the patterns are.
+        # That is why these filings fell through to the legacy ChunkedDocument
+        # fallback in the report classes (edgartools-3dp).
+        #
+        # The header is the node's FIRST LINE, not its whole text: in
+        # preformatted filings a single TextNode carries the heading and the body
+        # that follows it, so the untrimmed text is a thousand characters of prose
+        # that `_looks_like_section_header` rejects on length alone. A title
+        # wrapped across two lines is truncated by this ("...AND RESULTS" without
+        # "OF OPERATIONS"), which costs nothing — the pattern match is anchored at
+        # the start, and the section's title comes from the pattern table rather
+        # than from the matched text.
+        # NOT for 8-K/6-K, and the reason generalises: this strategy can only
+        # find the items that happen to START a TextNode, so it may hand back a
+        # PARTIAL header set. For the annual forms a partial set is still an
+        # improvement on nothing. For current reports it is actively worse —
+        # CurrentReport.__getitem__ tries the new parser first and only falls
+        # through to its text-based extraction when the parser yields nothing, so
+        # one detected header makes it stop at a section that runs past the item
+        # it should have ended at. That is a real filing: GMAC 0001047469-05-006981
+        # carries Item 4.02 at the head of one node and Item 8.01 elsewhere, and
+        # asking for 4.02 returned 8.01's text as well (test_issue_l6cl_8k_items_missing).
+        # Current reports already have era-appropriate text extraction; the annual
+        # forms are what had nothing.
+        if not self._item_structure_found(headers) and not self.form.startswith(("8-K", "6-K")):
+            from edgar.documents.nodes import TextNode as _BareTextNode
+
+            existing_positions = {pos for _, _, pos in headers}
+            for node in document.root.find(lambda n: isinstance(n, _BareTextNode)):
+                text = node.text()
+                if not text:
+                    continue
+                first_line = text.strip().split("\n", 1)[0].strip()
+                if not re.match(r'^Item\s+\d', first_line, re.IGNORECASE):
+                    continue
+                if not self._looks_like_section_header(first_line):
+                    continue
+                position = _node_position(node)
+                if position in existing_positions:
+                    continue
+                headers.append((node, first_line, position))
+                existing_positions.add(position)
+
         # Strategy 5b: SIGNATURES terminal header for 8-K (and 8-K/A).
         #
         # 8-Ks end with a SIGNATURES block that bounds the last item.  The preceding
@@ -791,6 +975,19 @@ class SectionExtractor:
                     headers.append((node, stripped, position))
                     existing_positions.add(position)
                     break  # one SIGNATURES header is enough
+
+        # Collapse the source's line wrapping, once, after every strategy has
+        # run. See _normalize_header_text for what it costs to skip this.
+        #
+        # Deliberately last: the `_item_structure_found` gates above decide which
+        # strategies get to run at all, and they were calibrated against raw
+        # header text. Normalizing before them would change which strategies fire
+        # on filings that have nothing to do with this defect; normalizing here
+        # changes only what the patterns are matched against.
+        headers = [
+            (node, _normalize_header_text(text), position)
+            for node, text, position in headers
+        ]
 
         # Sort by position
         headers.sort(key=lambda x: x[2])
@@ -946,6 +1143,7 @@ class SectionExtractor:
                             'is_main': is_main,
                             'is_toc_entry': is_toc_entry,
                             'is_item_numbered': self._is_item_numbered_pattern(pattern),
+                            'has_page_number': self._has_page_number_suffix(text),
                             'content_size': end_position - position
                         })
 
@@ -999,6 +1197,16 @@ class SectionExtractor:
                 if item_numbered:
                     selection_pool = item_numbered
 
+                # Then drop TOC rows that the HTML-offset guard above did not
+                # catch, but only when a candidate without a page number is
+                # available. Size alone would pick the TOC row every time: it
+                # sits at the front of the filing, so the span it opens runs
+                # through the whole front matter, while the body header it
+                # duplicates opens the item's real (often one-line) content.
+                without_page_number = [c for c in selection_pool if not c['has_page_number']]
+                if without_page_number:
+                    selection_pool = without_page_number
+
                 # Among the selection pool, prefer main headers (uppercase)
                 main_headers = [c for c in selection_pool if c['is_main']]
                 if main_headers:
@@ -1050,8 +1258,26 @@ class SectionExtractor:
                     (boundary_indices is not None and i in boundary_indices)
                     or self._looks_like_section_header(next_text)
                 )
+                # ...but an item's own sub-designated headers are not boundaries,
+                # however much they look like Item headers. The 1999 10-K
+                # 0000950153-99-001234 divides Item 14 with bold "Item 14(a)(1):",
+                # "Item 14 (a)(2):", "Item 14 (a)(3):" markers; without this the
+                # section stopped at the second of them and returned 1,189 of its
+                # 16,063 characters, losing the schedules and the entire exhibit
+                # index (edgartools-dt1f.1 Defect A).
+                if is_boundary and _ITEM_SUBHEADER.match(next_text.strip()):
+                    is_boundary = False
                 if not is_boundary:
                     continue
+
+                # A bare SIGNATURES line ends the last item whatever its level.
+                # Heading level here is a heuristic score, not markup depth, so a
+                # filing whose item headers land at level 1 and whose SIGNATURES
+                # line lands at level 3 would otherwise run the item past the
+                # signature block to the end of the document — which is what the
+                # 1999 10-K does once its Item 14 sub-headers stop closing it.
+                if _SIGNATURES_HEADER.match(next_text.strip()):
+                    return headers[i][2]
 
                 # If next header is at same or higher level, that's our end
                 if next_level <= current_level:

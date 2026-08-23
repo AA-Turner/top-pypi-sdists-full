@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: torch-einops-utils
-Version: 0.1.20
+Version: 0.1.21
 Summary: Personal utility functions
 Project-URL: Homepage, https://pypi.org/project/torch-einops-utils/
 Project-URL: Repository, https://github.com/lucidrains/torch-einops-utils

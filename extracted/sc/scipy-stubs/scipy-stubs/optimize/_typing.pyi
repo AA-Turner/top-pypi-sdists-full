@@ -14,7 +14,6 @@ from ._minimize import _MinimizeOptions
 __all__ = [
     "Bound",
     "Bounds",
-    "Brack",
     "Constraint",
     "Constraints",
     "MethodAll",
@@ -33,8 +32,8 @@ type _Float1D = onp.Array1D[np.float64]
 type _Args = tuple[object, ...]
 
 # bounds
-type Bound = tuple[onp.ToFloat | None, onp.ToFloat | None]
-type Bounds = Sequence[Bound] | _Bounds
+type Bound = Sequence[onp.ToFloat | None]
+type Bounds = Sequence[Bound] | onp.ToFloat2D | _Bounds
 
 # constaints
 @type_check_only
@@ -46,8 +45,6 @@ class _ConstraintDict(TypedDict):
 
 type Constraint = LinearConstraint | NonlinearConstraint | _ConstraintDict
 type Constraints = Constraint | Sequence[Constraint]
-
-type Brack = tuple[onp.ToFloat, onp.ToFloat] | tuple[onp.ToFloat, onp.ToFloat, onp.ToFloat]
 
 type Solver = Literal["minimize", "minimize_scalar", "root", "root_salar", "linprog", "quadratic_assignment"]
 type TRSolver = Literal["exact", "lsmr"]

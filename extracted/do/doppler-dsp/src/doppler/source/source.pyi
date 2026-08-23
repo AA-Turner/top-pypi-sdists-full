@@ -63,6 +63,15 @@ class NCO:
         giving the full-resolution integer ramp that the scaled and carry
         variants derive from. Returns n.
 
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.uint32] | None
+            Output buffer; must hold at least n uint32_t values.
+
         Returns
         -------
         NDArray[np.uint32]
@@ -81,11 +90,23 @@ class NCO:
         """
 
     def steps_u32_max_out(self) -> int:
-        """Maximum samples per call (determines pre-allocated buffer size).
+        """Pre-allocation hint: the buffer size the binding starts with.
 
-        The Python extension pre-allocates output buffers of this size at
+        NOT a limit on the call, and it used to say it was ("requesting more
 
-        create time. Requesting more samples per call is undefined behaviour.
+        samples per call is undefined behaviour"). That was the contract
+
+        before `pass_capacity` (jm gh-138) started telling the kernel the
+
+        caller's capacity: every stepper now clamps to its own max_out
+
+        argument and returns what it actually wrote, and the Python binding
+
+        grows its buffer on demand. Measured: all three faces return 70000
+
+        correct samples for a 70000-sample request. Size an out= buffer
+
+        with this, or ignore it and let the binding allocate.
 
         Returns
         -------
@@ -104,6 +125,15 @@ class NCO:
         operation. When nmax == 0 falls back to the raw accumulator (identical
         to nco_steps_u32). Useful for polyphase filter bank indexing and direct
         LUT addressing. Returns n.
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.uint32] | None
+            Output buffer; must hold at least n uint32_t values.
 
         Returns
         -------
@@ -148,6 +178,13 @@ class NCO:
         carry marks the exact boundary of one input period and is the primitive
         for polyphase sample-clock and rational resampling engines. Returns n.
 
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+
         Returns
         -------
         tuple[NDArray[np.uint32], NDArray[np.uint8]]
@@ -169,7 +206,7 @@ class NCO:
 
     def steps_u32_ctrl(
         self,
-        ctrl: NDArray[np.float32],
+        ctrl: NDArray[np.float64],
         out: NDArray[np.uint32] | None = None,
     ) -> NDArray[np.uint32]:
         """Advance ctrl_len samples; raw phase, with a per-sample control
@@ -187,19 +224,34 @@ class NCO:
         for NCO's raw phase output. With every `ctrl[i] == 0` this is
         bit-identical to nco_steps_u32(). Returns ctrl_len.
 
-        Python's `out=` keyword writes directly into a caller-supplied buffer
-        instead of allocating a fresh one -- essential for driving this from a
-        hot per-epoch tracking loop with no per-call allocation (fill `ctrl` in
-        place, reuse the same `out` buffer every call). That buffer must be
-        sized to `steps_u32_ctrl_max_out()`, NOT just `len(ctrl)` -- the
-        returned view is still correctly sliced to `len(ctrl)` regardless of
-        the buffer's actual size.
+        Python's `out=` keyword writes into a caller-supplied buffer instead of
+        allocating a fresh one. This used to claim it was "essential for a hot
+        per-epoch tracking loop"; measured, it is worth 0-25% below 8192
+        samples and nothing at or above it, so reach for it only if a profile
+        says so.
+
+        The buffer must be sized to `steps_u32_ctrl_max_out()`, NOT just
+        `len(ctrl)` -- so a 64-sample call still needs a 65536-element buffer,
+        which is most of what makes `out=` poor value here. That is this
+        header's doing, not the binding's: `*_max_out(state)` takes only the
+        state, so it is a bound over ALL calls and cannot say what THIS one
+        needs. A generated binding may accept a request-sized buffer only where
+        the bound is declared per-call (a `max_out(state, n)` prototype). The
+        returned view is correctly sliced to `len(ctrl)` regardless of the
+        buffer's size.
 
         Parameters
         ----------
-        ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets,
-            any sign (the fractional cycle is taken, so it wraps correctly).
+        ctrl : NDArray[np.float64]
+            Per-sample normalised-frequency control offsets in `double`, any
+            sign (the fractional cycle is taken, so it wraps correctly).
+            `double` because that is the width the conversion works in and
+            every scalar steer site already uses; a float32 port quantized the
+            request before the fold ever saw it, so the same commanded rate
+            landed on a different phase word depending on which face it entered
+            by.
+        out : NDArray[np.uint32] | None
+            Output buffer; must hold at least ctrl_len uint32_t values.
 
         Returns
         -------
@@ -211,7 +263,7 @@ class NCO:
         >>> from doppler.source import NCO
         >>> import numpy as np
         >>> nco = NCO(norm_freq=0.0, nmax=0)
-        >>> ctrl = np.full(4, 0.25, dtype=np.float32)
+        >>> ctrl = np.full(4, 0.25, dtype=np.float64)
         >>> out = nco.steps_u32_ctrl(ctrl)
         >>> out.tolist()
         [0, 1073741824, 2147483648, 3221225472]
@@ -237,7 +289,7 @@ class NCO:
 
     def steps_u32_scaled_ctrl(
         self,
-        ctrl: NDArray[np.float32],
+        ctrl: NDArray[np.float64],
         out: NDArray[np.uint32] | None = None,
     ) -> NDArray[np.uint32]:
         """Advance ctrl_len samples; values scaled to `[0, nmax)`, with a
@@ -253,9 +305,16 @@ class NCO:
 
         Parameters
         ----------
-        ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets,
-            any sign (the fractional cycle is taken, so it wraps correctly).
+        ctrl : NDArray[np.float64]
+            Per-sample normalised-frequency control offsets in `double`, any
+            sign (the fractional cycle is taken, so it wraps correctly).
+            `double` because that is the width the conversion works in and
+            every scalar steer site already uses; a float32 port quantized the
+            request before the fold ever saw it, so the same commanded rate
+            landed on a different phase word depending on which face it entered
+            by.
+        out : NDArray[np.uint32] | None
+            Output buffer; must hold at least ctrl_len uint32_t values.
 
         Returns
         -------
@@ -267,7 +326,7 @@ class NCO:
         >>> from doppler.source import NCO
         >>> import numpy as np
         >>> nco = NCO(norm_freq=0.0, nmax=4)
-        >>> ctrl = np.full(4, 0.25, dtype=np.float32)
+        >>> ctrl = np.full(4, 0.25, dtype=np.float64)
         >>> out = nco.steps_u32_scaled_ctrl(ctrl)
         >>> out.tolist()
         [0, 1, 2, 3]
@@ -291,27 +350,36 @@ class NCO:
 
     def steps_u32_ovf_ctrl(
         self,
-        ctrl: NDArray[np.float32],
+        ctrl: NDArray[np.float64],
     ) -> tuple[NDArray[np.uint32], NDArray[np.uint8]]:
         """Advance ctrl_len samples; raw phase + per-sample carry, with a
         per-sample control offset added on top of phase_inc.
 
-        The nco_steps_u32_ovf output mapping (raw phase plus a carry flag
-        marking each sample whose advance wrapped past 2^32) driven by the
+        The nco_steps_u32_ovf output mapping (raw phase plus a flag marking
+        each sample whose advance crossed a cycle boundary) driven by the
         nco_steps_u32_ctrl control port -- every stepper has a matching
-        control-input counterpart. The carry reflects THIS sample's true
-        advance (`phase_inc + ctrl_inc`, added as a single 64-bit sum so a wrap
-        is never missed even when the control offset itself is large), not just
-        phase_inc alone -- needed by any consumer (e.g. a coupled carrier/code
-        tracker) that must detect a period boundary while the rate is being
-        actively steered. With every `ctrl[i] == 0` this is bit-identical to
-        nco_steps_u32_ovf(). Returns ctrl_len.
+        control-input counterpart. The flag reflects THIS sample's true SIGNED
+        advance (`norm_freq + ctrl`, formed in cycles before either term is
+        folded into the accumulator), not just phase_inc alone -- needed by any
+        consumer (e.g. a coupled carrier/code tracker, or a resampler asking
+        "does this input produce an output") that must detect a period boundary
+        while the rate is being actively steered. A forward crossing is a carry
+        (one EXTRA output/load), a backward one a borrow (one FEWER); see
+        nco_step_u32_ovf_ctrl for why the sign cannot be recovered after the
+        fold, nor taken from `ctrl` alone. With every `ctrl[i] == 0` and
+        `norm_freq` in [0, 1) this is bit-identical to nco_steps_u32_ovf().
+        Returns ctrl_len.
 
         Parameters
         ----------
-        ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets,
-            any sign (the fractional cycle is taken, so it wraps correctly).
+        ctrl : NDArray[np.float64]
+            Per-sample normalised-frequency control offsets in `double`, any
+            sign (the fractional cycle is taken, so it wraps correctly).
+            `double` because that is the width the conversion works in and
+            every scalar steer site already uses; a float32 port quantized the
+            request before the fold ever saw it, so the same commanded rate
+            landed on a different phase word depending on which face it entered
+            by.
 
         Returns
         -------
@@ -323,7 +391,7 @@ class NCO:
         >>> from doppler.source import NCO
         >>> import numpy as np
         >>> nco = NCO(norm_freq=0.25, nmax=0)
-        >>> ctrl = np.zeros(4, dtype=np.float32)
+        >>> ctrl = np.zeros(4, dtype=np.float64)
         >>> ph, carry = nco.steps_u32_ovf_ctrl(ctrl)
         >>> ph.tolist()
         [0, 1073741824, 2147483648, 3221225472]
@@ -509,7 +577,17 @@ class LO:
         """Generate n CF32 phasors at the current norm_freq. Each sample is
         cos(θ) + j·sin(θ) where θ is the phase BEFORE the accumulator is
         advanced, giving a unit-magnitude complex sinusoid via the 65536-entry
-        LUT. SFDR ≈ 96 dBc. Returns n.
+        LUT. SFDR is ≥ 90 dBc at any frequency and ~96 dBc at a typical one —
+        see the file header for why those are two different numbers. Returns n.
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least n float complex values.
 
         Returns
         -------
@@ -541,7 +619,7 @@ class LO:
 
     def steps_ctrl(
         self,
-        ctrl: NDArray[np.float32],
+        ctrl: NDArray[np.float64],
         out: NDArray[np.complex64] | None = None,
     ) -> NDArray[np.complex64]:
         """Generate CF32 phasors with per-sample FM deviation. For each sample
@@ -554,9 +632,12 @@ class LO:
 
         Parameters
         ----------
-        ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency deviations. Only
-            the fractional part of each element contributes.
+        ctrl : NDArray[np.float64]
+            Per-sample normalised-frequency deviations in `double`. Only the
+            fractional part of each element contributes. See
+            nco_steps_u32_ctrl() on why the port is `double` and not float32.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least ctrl_len float complex values.
 
         Returns
         -------
@@ -568,7 +649,7 @@ class LO:
         >>> import numpy as np
         >>> from doppler.source import LO
         >>> lo = LO(0.25)
-        >>> ctrl = np.zeros(4, dtype=np.float32)
+        >>> ctrl = np.zeros(4, dtype=np.float64)
         >>> out = lo.steps_ctrl(ctrl)
         >>> out.dtype
         dtype('complex64')
@@ -774,6 +855,15 @@ class AWGN:
         Im each have zero mean and standard deviation `amplitude`. Total
         complex power = 2 × amplitude². The AVX2 path processes 8 samples in
         parallel when available.
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least n float complex values.
 
         Returns
         -------

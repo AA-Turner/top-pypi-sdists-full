@@ -740,6 +740,7 @@ from mixpeek.models.page_meta import PageMeta
 from mixpeek.models.page_tab_input import PageTabInput
 from mixpeek.models.page_tab_output import PageTabOutput
 from mixpeek.models.pagination import Pagination
+from mixpeek.models.pagination1 import Pagination1
 from mixpeek.models.pagination_metadata import PaginationMetadata
 from mixpeek.models.pagination_response import PaginationResponse
 from mixpeek.models.parameters import Parameters
@@ -802,6 +803,7 @@ from mixpeek.models.publish_retriever_response import PublishRetrieverResponse
 from mixpeek.models.published_extractor_response import PublishedExtractorResponse
 from mixpeek.models.published_retriever_response import PublishedRetrieverResponse
 from mixpeek.models.query import Query
+from mixpeek.models.query_outcome import QueryOutcome
 from mixpeek.models.rss_config import RSSConfig
 from mixpeek.models.rss_field_source import RSSFieldSource
 from mixpeek.models.rss_http_header_credentials import RSSHttpHeaderCredentials
@@ -812,6 +814,7 @@ from mixpeek.models.rate_limit_tier import RateLimitTier
 from mixpeek.models.raw_inference_request import RawInferenceRequest
 from mixpeek.models.raw_inference_response import RawInferenceResponse
 from mixpeek.models.recent_error import RecentError
+from mixpeek.models.recommendation_coverage import RecommendationCoverage
 from mixpeek.models.reconcile_settings import ReconcileSettings
 from mixpeek.models.redeem_promo_request import RedeemPromoRequest
 from mixpeek.models.redeem_promo_response import RedeemPromoResponse
@@ -1170,6 +1173,9 @@ from mixpeek.models.trigger_execution_history_item import TriggerExecutionHistor
 from mixpeek.models.trigger_history_request import TriggerHistoryRequest
 from mixpeek.models.trigger_on import TriggerOn
 from mixpeek.models.trust_tier import TrustTier
+from mixpeek.models.typeahead_collection_suggestion import TypeaheadCollectionSuggestion
+from mixpeek.models.typeahead_response import TypeaheadResponse
+from mixpeek.models.typeahead_value_suggestion import TypeaheadValueSuggestion
 from mixpeek.models.umap_params import UMAPParams
 from mixpeek.models.unified_extractor_list_response import UnifiedExtractorListResponse
 from mixpeek.models.unified_extractor_response import UnifiedExtractorResponse

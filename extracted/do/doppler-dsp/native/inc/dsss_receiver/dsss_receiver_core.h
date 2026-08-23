@@ -6,8 +6,8 @@
  *
  * The single-object form of the chain validated across this repo's
  * "continuous async-DSSS receiver" story
- * (`docs/gallery/dsss-acq-async-data.md`,
- * `docs/gallery/dsss-despread-async-data.md`,
+ * (`docs/gallery/async-dsss-receiver-spec.md`,
+ * `docs/gallery/dsss-acq-characterization.md`,
  * `docs/gallery/dsss-receiver.md`): a continuous, non-bursty
  * spreading code whose data-symbol clock need not be synchronous to the
  * code-epoch clock. `steps()` streams raw samples through whichever
@@ -178,9 +178,11 @@ extern "C"
    * stable loop bandwidth for a one-update-per-code-epoch geometry, not
    * `dll_create()`'s own default of 0.01, which this story found unstable
    * here) and `zeta=0.707`, `spacing=0.5`; `MpskReceiver` always uses
-   * `pulse=iandd`, `bn_carrier=bn_timing=0.01`, `zeta=0.707`,
-   * `acq_to_track=1`, `lock_thresh=0.3`, `warmup_syms=30` — this story's
-   * own validated values throughout. `lock_thresh=0.3` predates the
+   * `pulse=iandd`, `bn_carrier=bn_timing=0.01`, `zeta=0.707` and
+   * `lock_thresh=0.3` — this story's own validated values throughout. It
+   * also passed `acq_to_track=1` and `warmup_syms=30` until those were
+   * deleted (doppler#877, `1f417e97`); the composed receiver now runs its
+   * one NDA discriminator here as everywhere else. `lock_thresh=0.3` predates the
    * lock statistic becoming a calibrated detector and is retained because it
    * is validated here, but it now has a derivable reading: the carrier lock
    * EMA's noise-only sd is 0.1132 at every M, so 0.3 is **2.65 noise sigmas**,
@@ -436,7 +438,7 @@ extern "C"
    * freshly-sized `RateConverter` — never coupled to each other (see the
    * module docstring). Rebuilds `dll`/`rc`/`rx` with every replacement
    * allocated first, only freeing and adopting the old ones once every
-   * allocation has succeeded (mirrors `Acquisition`'s own `_regrid()`
+   * allocation has succeeded (mirrors `Acquisition`'s own `acq_regrid()`
    * discipline) — a failed pin leaves the receiver tracking on its prior
    * grid, not half-destroyed. Only meaningful once tracking (the grid
    * defaults still apply to create-time auto-sizing for the next hit

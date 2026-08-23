@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: autoflake
-Version: 2.3.3
+Version: 2.4.0
 Summary: Removes unused imports and unused variables
 Project-URL: Homepage, https://www.github.com/PyCQA/autoflake
 License-Expression: MIT
@@ -12,6 +12,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: pyflakes>=3.0.0
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
@@ -225,7 +226,7 @@ Add the following to your `.pre-commit-config.yaml`
 
 ```yaml
 -   repo: https://github.com/PyCQA/autoflake
-    rev: v2.3.3
+    rev: v2.4.0
     hooks:
     -   id: autoflake
 ```
@@ -235,7 +236,7 @@ of arguments:
 
 ```yaml
 -   repo: https://github.com/PyCQA/autoflake
-    rev: v2.3.3
+    rev: v2.4.0
     hooks:
     -   id: autoflake
         args: [--remove-all-unused-imports, --in-place]

@@ -11,12 +11,14 @@ from uuid import uuid4
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aegra_api.core.active_runs import active_runs
 from aegra_api.core.auth_deps import auth_dependency, get_current_user
 from aegra_api.core.auth_filters import build_metadata_filter
 from aegra_api.core.auth_handlers import build_auth_context, handle_event
+from aegra_api.core.database import db_manager
 from aegra_api.core.orm import Run as RunORM
 from aegra_api.core.orm import Thread as ThreadORM
 from aegra_api.core.orm import get_session
@@ -34,7 +36,7 @@ from aegra_api.models import (
     ThreadUpdate,
     User,
 )
-from aegra_api.models.errors import CONFLICT, NOT_FOUND
+from aegra_api.models.errors import CONFLICT, NOT_FOUND, AgentProtocolError
 from aegra_api.services.streaming_service import streaming_service
 from aegra_api.services.thread_state_service import ThreadStateService
 from aegra_api.utils.run_utils import strip_pinned_config_keys
@@ -182,19 +184,6 @@ async def create_thread(
 
     thread_id = request.thread_id or str(uuid4())
 
-    if request.thread_id:
-        existing_stmt = select(ThreadORM).where(
-            ThreadORM.thread_id == thread_id,
-            ThreadORM.user_id == user.identity,
-        )
-        existing = await session.scalar(existing_stmt)
-
-        if existing:
-            if request.if_exists == "do_nothing":
-                return _serialize_thread(existing)
-            else:
-                raise HTTPException(409, f"Thread '{thread_id}' already exists")
-
     metadata = request.metadata or {}
     # Always enforce owner from authenticated user
     metadata["owner"] = user.identity
@@ -203,21 +192,43 @@ async def create_thread(
     metadata.setdefault("graph_id", None)
     metadata.setdefault("thread_name", "")
 
-    thread_orm = ThreadORM(
-        thread_id=thread_id,
-        status="idle",
-        metadata_json=metadata,
-        user_id=user.identity,
+    # Insert first and let the primary key arbitrate. A SELECT-then-INSERT lets
+    # two concurrent requests for the same thread_id both miss the SELECT and
+    # then collide on thread_pkey, and the loser's UniqueViolationError escapes
+    # as a 500 instead of honouring if_exists.
+    insert_stmt = (
+        pg_insert(ThreadORM)
+        .values(
+            thread_id=thread_id,
+            status="idle",
+            metadata_json=metadata,
+            user_id=user.identity,
+        )
+        .on_conflict_do_nothing(index_elements=["thread_id"])
+        .returning(ThreadORM)
     )
-
-    session.add(thread_orm)
+    created = (await session.scalars(insert_stmt)).first()
     await session.commit()
 
-    with contextlib.suppress(Exception):
-        await session.refresh(thread_orm)
+    if created is not None:
+        # Pass metadata explicitly in case the returned row is a partial mock
+        return _serialize_thread(created, default_metadata=metadata)
 
-    # Pass metadata explicitly in case refresh failed (tests/mocks)
-    return _serialize_thread(thread_orm, default_metadata=metadata)
+    # Nothing inserted, so the ID is taken. This read stays scoped to the caller
+    # while thread_pkey is global, so an incumbent owned by someone else is
+    # deliberately not found here and falls through to the conflict below rather
+    # than being adopted.
+    existing = await session.scalar(
+        select(ThreadORM).where(
+            ThreadORM.thread_id == thread_id,
+            ThreadORM.user_id == user.identity,
+        )
+    )
+
+    if existing is not None and request.if_exists == "do_nothing":
+        return _serialize_thread(existing)
+
+    raise HTTPException(409, f"Thread '{thread_id}' already exists")
 
 
 @router.get("/threads", response_model=ThreadList)
@@ -811,7 +822,16 @@ async def get_thread_history_get(
     return await get_thread_history_post(thread_id, req, user, session)
 
 
-@router.delete("/threads/{thread_id}", responses={**NOT_FOUND})
+@router.delete(
+    "/threads/{thread_id}",
+    responses={
+        **NOT_FOUND,
+        500: {
+            "model": AgentProtocolError,
+            "description": "Checkpoint cleanup failed; the thread is preserved and the delete can be retried",
+        },
+    },
+)
 async def delete_thread(
     thread_id: str,
     user: User = Depends(get_current_user),
@@ -819,9 +839,9 @@ async def delete_thread(
 ) -> dict[str, str]:
     """Delete a thread by its ID.
 
-    Permanently removes the thread and its metadata. Any active runs on the
-    thread are automatically cancelled before deletion. Checkpoint history
-    stored in the graph backend is not affected.
+    Permanently removes the thread, its metadata, and its checkpoint history
+    stored in the graph backend. Any active runs on the thread are
+    automatically cancelled before deletion.
     """
     # Authorization check
     ctx = build_auth_context(user, "threads", "delete")
@@ -855,6 +875,10 @@ async def delete_thread(
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
+
+    # Checkpoints first: if this fails the thread row survives and the client
+    # can retry; the reverse order would orphan LangGraph checkpoint rows.
+    await db_manager.get_checkpointer().adelete_thread(thread_id)
 
     await session.delete(thread)
     await session.commit()

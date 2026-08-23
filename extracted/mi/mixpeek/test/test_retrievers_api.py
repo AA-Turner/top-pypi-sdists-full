@@ -125,6 +125,13 @@ class TestRetrieversApi(unittest.TestCase):
         """
         pass
 
+    def test_typeahead_retrievers(self) -> None:
+        """Test case for typeahead_retrievers
+
+        Typeahead
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

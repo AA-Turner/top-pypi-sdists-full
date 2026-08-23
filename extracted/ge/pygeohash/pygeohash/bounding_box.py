@@ -7,28 +7,96 @@ related to geospatial regions.
 
 from __future__ import annotations
 
-from typing import List, NamedTuple, Set, Iterator
+import math
+from typing import Any, Iterable, List, NamedTuple, Set, Iterator, Type, TypeVar
 
 from pygeohash.geohash import decode_exactly, encode
 from pygeohash.logging import get_logger
 
 logger = get_logger(__name__)
 
+_FIELD_ORDER = "BoundingBox fields are (min_lat, min_lon, max_lat, max_lon)"
 
-class BoundingBox(NamedTuple):
-    """Named tuple representing a geospatial bounding box.
 
-    Attributes:
-        min_lat (float): The minimum (southern) latitude of the box in decimal degrees.
-        min_lon (float): The minimum (western) longitude of the box in decimal degrees.
-        max_lat (float): The maximum (northern) latitude of the box in decimal degrees.
-        max_lon (float): The maximum (eastern) longitude of the box in decimal degrees.
-    """
+class _BoundingBoxFields(NamedTuple):
+    """Field layout for :class:`BoundingBox`; ``typing.NamedTuple`` forbids overriding ``__new__``."""
 
     min_lat: float
     min_lon: float
     max_lat: float
     max_lon: float
+
+
+_BoundingBoxT = TypeVar("_BoundingBoxT", bound=_BoundingBoxFields)
+
+
+class BoundingBox(_BoundingBoxFields):
+    """Named tuple representing a geospatial bounding box.
+
+    The fields interleave latitude and longitude, so the order is
+    ``(min_lat, min_lon, max_lat, max_lon)`` rather than the grouped
+    ``(min_lat, max_lat, min_lon, max_lon)``. Coordinates must be finite numbers within
+    the geographic bounds for their axis; booleans are rejected even though ``bool`` is a
+    subclass of ``int``. Construction also rejects an inverted box
+    (``min_lat > max_lat`` or ``min_lon > max_lon``) with a ``ValueError``, which is
+    what a grouped argument list produces. A degenerate box whose minimum equals its
+    maximum on either axis is valid. Boxes spanning the antimeridian, which would need
+    ``min_lon > max_lon``, are not supported.
+
+    Attributes:
+        min_lat (float): The minimum (southern) latitude of the box in decimal degrees.
+            Must be between -90 and 90 and not exceed ``max_lat``.
+        min_lon (float): The minimum (western) longitude of the box in decimal degrees.
+            Must be between -180 and 180 and not exceed ``max_lon``.
+        max_lat (float): The maximum (northern) latitude of the box in decimal degrees,
+            between -90 and 90.
+        max_lon (float): The maximum (eastern) longitude of the box in decimal degrees,
+            between -180 and 180.
+
+    Raises:
+        ValueError: If a coordinate is a boolean, non-finite, outside its geographic
+            bounds, or the box has ``min_lat > max_lat`` or ``min_lon > max_lon``.
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, min_lat: float, min_lon: float, max_lat: float, max_lon: float) -> "BoundingBox":
+        for field, value, lower, upper in (
+            ("min_lat", min_lat, -90.0, 90.0),
+            ("min_lon", min_lon, -180.0, 180.0),
+            ("max_lat", max_lat, -90.0, 90.0),
+            ("max_lon", max_lon, -180.0, 180.0),
+        ):
+            # bool is a subclass of int, so it has to be rejected explicitly.
+            if isinstance(value, bool):
+                raise ValueError(f"{field} ({value}) must be a number, not a bool")
+            try:
+                is_finite = math.isfinite(value)
+            except TypeError:
+                is_finite = False
+            if not is_finite:
+                raise ValueError(f"{field} ({value}) must be a finite number")
+            if not lower <= value <= upper:
+                raise ValueError(f"{field} ({value}) must be between {lower:g} and {upper:g}")
+
+        if min_lat > max_lat:
+            raise ValueError(f"min_lat ({min_lat}) must not exceed max_lat ({max_lat}); {_FIELD_ORDER}")
+        if min_lon > max_lon:
+            raise ValueError(
+                f"min_lon ({min_lon}) must not exceed max_lon ({max_lon}); "
+                "boxes spanning the antimeridian are not supported"
+            )
+        return super().__new__(cls, min_lat, min_lon, max_lat, max_lon)
+
+    # mypy rejects the narrowed self-type against the synthesized namedtuple signature.
+    @classmethod
+    def _make(cls: Type[_BoundingBoxT], iterable: Iterable[Any]) -> _BoundingBoxT:  # type: ignore[override]
+        """Build a box from an iterable of field values, validating the ordering.
+
+        Overridden so that ``_make`` and ``_replace`` route through ``__new__`` instead of
+        ``tuple.__new__``, which would bypass validation.
+        """
+        return cls(*iterable)
 
 
 def get_bounding_box(geohash: str) -> BoundingBox:
@@ -42,8 +110,8 @@ def get_bounding_box(geohash: str) -> BoundingBox:
             values that define the bounding box of the geohash.
 
     Example:
-        >>> get_bounding_box("u4pruyd")
-        BoundingBox(min_lat=57.649, min_lon=10.407, max_lat=57.649, max_lon=10.407)
+        >>> tuple(round(value, 6) for value in get_bounding_box("u4pruyd"))
+        (57.64801, 10.406799, 57.649384, 10.408173)
 
     Note:
         The precision of the coordinates in the bounding box depends on the length
@@ -140,8 +208,8 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
 
     Example:
         >>> box = BoundingBox(57.64, 10.40, 57.65, 10.41)
-        >>> geohashes_in_box(box, precision=5)
-        ['u4pru', 'u4prv']
+        >>> sorted(geohashes_in_box(box, precision=5))
+        ['u4pru']
 
     Note:
         The number of geohashes returned depends on the size of the bounding box
@@ -177,12 +245,11 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
     # This ensures we get all geohashes that intersect with the bounding box
     for lat in _float_range(start_lat, end_lat, lat_step / 2):
         for lon in _float_range(start_lon, end_lon, lon_step / 2):
-            if bbox.min_lat <= lat <= bbox.max_lat or bbox.min_lon <= lon <= bbox.max_lon:
-                gh: str = encode(lat, lon, precision)
-                gh_bbox: BoundingBox = get_bounding_box(gh)
-                # Only add geohashes that actually intersect with our bounding box
-                if do_boxes_intersect(bbox, gh_bbox):
-                    result.add(gh)
+            gh: str = encode(lat, lon, precision)
+            gh_bbox: BoundingBox = get_bounding_box(gh)
+            # Only add geohashes that actually intersect with our bounding box
+            if do_boxes_intersect(bbox, gh_bbox):
+                result.add(gh)
 
     logger.debug("Found %d intersecting geohashes", len(result))
     return list(result)

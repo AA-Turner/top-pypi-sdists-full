@@ -2,14 +2,21 @@
  * @file cic_core.h
  * @brief CIC decimation filter — 4-stage, M=1, UQ16 integer pipeline.
  *
- * **INPUT AMPLITUDE IS BOUNDED: |Re| and |Im| <= 1.0.** A component beyond
- * +-1.0 is CLIPPED at the boundary, before any filtering happens.  Unlike the
+ * **INPUT AMPLITUDE IS BOUNDED: |Re| and |Im| <= 2.0.** A component beyond
+ * that is CLIPPED at the boundary, before any filtering happens.  Unlike the
  * library's floating-point blocks this one is not scale-free — it is the one
  * place where turning the input gain up changes the answer — and the clip is
  * silent in the sample stream: no error, no NaN, just a degraded output that
- * looks plausible.  Measured cost: an RRC-BPSK waveform at peak 1.29
- * matched-filters to -25 dB EVM where the same waveform at peak 0.32 reaches
- * -50 dB.
+ * looks plausible.  Measured cost: an RRC-BPSK waveform driven into the clip
+ * matched-filters to -25 dB EVM where the same waveform well inside it
+ * reaches -50 dB.
+ *
+ * The bound is `CIC_PAPR_HEADROOM` (2.0, i.e. 6 dB) and not 1.0 because that
+ * headroom is exactly what it buys: the encode scale is
+ * `32768 / CIC_PAPR_HEADROOM`, so full scale sits 6 dB above unity amplitude
+ * and a signal whose PEAKS exceed its unit average — every pulse-shaped
+ * waveform — has somewhere to put them.  Budgeting the DC gain alone left
+ * the peaks clipping against a bound the average never approached.
  *
  * **So check @c clipped** — a sticky flag raised by any saturating component
  * and cleared only by cic_reset(), following the same convention as the
@@ -31,9 +38,11 @@
  * Input/output boundary: CF32 (`float _Complex`), matching the doppler
  * default signal type.  Internally, each sample is converted to UQ16 —
  * offset-binary: v_q15 + 32768 → `[0, 65535]` in a uint64_t — giving 48
- * bits of headroom for the pipeline gain of N * log2(R) bits.  For R <= 4096
- * (log2 = 12) the gain is 48 bits; max accumulation = 65535 * R^N =
- * (2^16 - 1) * 2^48 = 2^64 - 2^48 < 2^64, so no overflow occurs.
+ * bits of headroom for the pipeline gain of N * log2(R) bits.  At the cap
+ * `CIC_R_MAX` (2048, log2 = 11) the gain is 44 bits; max accumulation =
+ * 65535 * R^N = (2^16 - 1) * 2^44, which is 16x inside 2^64.  R = 4096 also
+ * fits, but to within one part in 65536 — see CIC_R_MAX for why the cap is
+ * a halving below it.
  *
  * All arithmetic is unsigned: inputs are non-negative `[0, 65535]`, wrapping
  * is defined (mod 2^64), and the output decode subtracts the offset in
@@ -75,6 +84,24 @@ extern "C" {
 #define CIC_N 4
 
 /**
+ * @brief Largest decimation ratio a CIC will be built at.
+ *
+ * The 64-bit accumulator holds `65535 * R^CIC_N`. At R = 4096 that is
+ * `(2^16 - 1) * 2^48 = 2^64 - 2^48` — it fits, and fills the accumulator to
+ * **within one part in 65536**. "Fits exactly" is not headroom: it is the
+ * value at which any further term overflows, and the CIC's exactness argument
+ * (every intermediate overflow cancels in the combs) holds only while the
+ * TRUE result fits in 64 bits.
+ *
+ * 2048 gives `2^60 - 2^44` — **16x margin** — for one halving of the largest
+ * single-stage ratio. Nothing in the tree asked for more: the planner is the
+ * only thing that can reach the cap, and past it it already hands the residual
+ * to the resampler stage, so a lower cap costs a slightly larger residual and
+ * nothing else.
+ */
+#define CIC_R_MAX 2048u
+
+/**
  * @brief CIC filter state.
  *
  * Allocate with cic_create(); free with cic_destroy().
@@ -103,8 +130,9 @@ typedef struct {
  * Unlike doppler's floating-point blocks this one is not scale-free --
  * scale the input into range first.
  *
- * @param R  Decimation ratio.  Must be a power of two in `[2, 4096]`.
- *           Returns NULL for R=0, non-power-of-two, or R > 4096.
+ * @param R  Decimation ratio.  Must be a power of two in `[2, 2048]`
+ *           (`CIC_R_MAX`).  Returns NULL for R=0, non-power-of-two, or a
+ *           ratio above that cap.
  * @return   Heap-allocated state, or NULL on invalid R or OOM.
  *
  * @code
@@ -146,6 +174,31 @@ void cic_reset(cic_state_t *state);
 #define CIC_STATE_MAGIC DP_FOURCC ('C', 'I', 'C', '_')
 #define CIC_STATE_VERSION 2u
 
+/**
+ * @brief Peak-to-average headroom the input encoding reserves, as a voltage
+ *        ratio (2.0 = 6 dB).
+ *
+ * A fixed-point CIC has TWO input-budget terms, and only one of them is the
+ * accumulator's. The **DC gain** `R^N` is budgeted there — 16-bit input plus
+ * 48 bits of pipeline gain would fill the 64-bit accumulator exactly at
+ * R = 4096, which is why CIC_R_MAX sits a halving below it.
+ * The **PAPR** is budgeted here, at the encoder, because a signal's peak is
+ * not its symbol amplitude: a root-raised-cosine symbol stream peaks at
+ * **1.582x** its symbol amplitude (measured, and a pulse property — identical
+ * at every samples-per-symbol).
+ *
+ * Encoding at full scale therefore clipped any signal presented at its
+ * natural amplitude, and the caller had to back off by the PAPR — 4 dB that
+ * nothing downstream restored, leaving a timing loop under-driven by the
+ * square of it, 2.5x. Reserving the headroom here instead lets a unit-
+ * amplitude signal through unclipped and costs 2 dB of quantisation SNR
+ * against a caller who backs off perfectly, which no caller did.
+ *
+ * This changes only the encode/decode scale PAIR, never the normalising
+ * shift, so the DC gain stays exactly one — see cic_dc_gain().
+ */
+#define CIC_PAPR_HEADROOM 2.0f
+
 /** @brief Bytes cic_get_state() writes (envelope + payload). */
 size_t cic_state_bytes(const cic_state_t *state);
 /** @brief Serialize the integrator/comb/phase state into @p blob. */
@@ -162,6 +215,26 @@ int cic_set_state(cic_state_t *state, const void *blob);
  * always large enough as long as block size stays consistent.
  */
 size_t cic_decimate_max_out(cic_state_t *state);
+
+/**
+ * @brief The filter's response to a constant input, from its own geometry.
+ *
+ * A CIC's pipeline gain is `R^N`, and this implementation removes it with a
+ * right-shift of `N*log2(R)` bits, so the DC gain is `R^N / 2^shift` — one
+ * exactly, whenever the shift matches R. Computed from `R` and the stored
+ * shift rather than measured, so a mismatch between the two is visible
+ * without running a signal through the filter.
+ *
+ * @param state State. Must be non-NULL.
+ * @return The DC gain. 1.0 for every power-of-two R the filter accepts.
+ *
+ * @code
+ * cic_state_t *c = cic_create (32);
+ * printf ("%.4f\n", cic_dc_gain (c));   // 1.0000
+ * cic_destroy (c);
+ * @endcode
+ */
+double cic_dc_gain(const cic_state_t *state);
 
 /**
  * @brief Decimate a block of CF32 samples through the CIC pipeline.
@@ -215,8 +288,8 @@ cic_decimate(cic_state_t *state, const float complex *in,
            The four comparisons run regardless, so noting that one fired
            costs a register OR — which is the whole reason `clipped` exists
            rather than a line of documentation asking callers to be careful. */
-        float sr = crealf(in[i]) * 32768.0f;
-        float si = cimagf(in[i]) * 32768.0f;
+        float sr = crealf(in[i]) * (32768.0f / CIC_PAPR_HEADROOM);
+        float si = cimagf(in[i]) * (32768.0f / CIC_PAPR_HEADROOM);
         if (sr >  32767.0f) { sr =  32767.0f; clip = 1; }
         if (sr < -32768.0f) { sr = -32768.0f; clip = 1; }
         if (si >  32767.0f) { si =  32767.0f; clip = 1; }
@@ -256,10 +329,14 @@ cic_decimate(cic_state_t *state, const float complex *in,
         if (n_out >= max_out)
             continue;
 
-        /* UQ16 → CF32: right-shift to normalise, remove offset-binary bias. */
+        /* UQ16 → CF32: right-shift to normalise, remove offset-binary bias,
+           and undo the encoder's PAPR headroom. The offset is NOT scaled by
+           it — it is the offset-binary midpoint, not signal. */
         out[n_out++] = CMPLXF(
-            ((float)(uint16_t)(re >> shift) - 32768.0f) * (1.0f / 32768.0f),
-            ((float)(uint16_t)(im >> shift) - 32768.0f) * (1.0f / 32768.0f));
+            ((float)(uint16_t)(re >> shift) - 32768.0f)
+                * (CIC_PAPR_HEADROOM / 32768.0f),
+            ((float)(uint16_t)(im >> shift) - 32768.0f)
+                * (CIC_PAPR_HEADROOM / 32768.0f));
     }
     state->clipped |= (uint8_t)clip;   /* sticky; cleared only by reset() */
     return n_out;
@@ -270,7 +347,8 @@ cic_decimate(cic_state_t *state, const float complex *in,
  * Recomputes the normalisation shift (CIC_N * log2(R)) and zeros all
  * accumulators so the filter behaves exactly like a freshly created
  * one with the new R. Silently ignores R values that are not a
- * power-of-two in `[2, 4096]` — the state is left unchanged in that case.
+ * power-of-two in `[2, 2048]` (`CIC_R_MAX`) — the state is left unchanged in
+ * that case.
  *
  * @param state  Pointer to a valid cic_state_t.
  * @param R      New decimation ratio.  Same constraints as cic_create().

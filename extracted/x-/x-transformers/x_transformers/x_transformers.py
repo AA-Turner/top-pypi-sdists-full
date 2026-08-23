@@ -26,7 +26,7 @@ from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 import einx
 from einops.layers.torch import Rearrange
 from einops import rearrange, repeat, reduce, pack, unpack
-from torch_einops_utils import masked_mean, pad_at_dim, safe_cat, tree_map_tensor
+from torch_einops_utils import masked_mean, pad_at_dim, safe_cat, slice_right_at_dim, tree_map_tensor
 from torch_einops_utils.nn import Sequential, Lambda, Identity
 
 # einstein notation
@@ -4485,7 +4485,7 @@ class TransformerWrapper(Module):
             hiddens = intermediates.hiddens
             new_mems = [cat(pair, dim = -2) for pair in zip(mems, hiddens)] if exists(mems) else hiddens
 
-            new_mems = [t[..., -self.max_mem_len:, :] for t in new_mems]
+            new_mems = [slice_right_at_dim(t, self.max_mem_len, dim = -2) for t in new_mems]
 
             if detach_mems:
                 new_mems = tree_map_tensor(lambda t: t.detach(), new_mems)

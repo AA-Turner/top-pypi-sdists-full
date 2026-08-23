@@ -1,10 +1,5 @@
 import os
 import time
-from typing import (
-    Dict,
-    List,
-    Union,
-)
 
 from eth_abi import (
     abi,
@@ -84,7 +79,11 @@ if is_supported_pyevm_version_available():
     )
     from eth.exceptions import (
         HeaderNotFound as EVMHeaderNotFound,
+    )
+    from eth.exceptions import (
         InvalidInstruction as EVMInvalidInstruction,
+    )
+    from eth.exceptions import (
         Revert as EVMRevert,
     )
     from eth.vm.forks import (
@@ -336,9 +335,7 @@ def _get_transaction_by_hash(chain, transaction_hash):
                 return block, transaction, index
     else:
         raise TransactionNotFound(
-            "No transaction found for transaction hash: {}".format(
-                encode_hex(transaction_hash)
-            )
+            f"No transaction found for transaction hash: {encode_hex(transaction_hash)}"
         )
 
 
@@ -601,7 +598,7 @@ class PyEVMBackend(BaseChainBackend):
         )
 
     def get_fee_history(
-        self, block_count=1, newest_block="latest", reward_percentiles: List[int] = ()
+        self, block_count=1, newest_block="latest", reward_percentiles: list[int] = ()
     ):
         if isinstance(block_count, int) and not 1 <= block_count <= 1024:
             raise ValidationError("block_count must be between 1 and 1024")
@@ -674,9 +671,10 @@ class PyEVMBackend(BaseChainBackend):
             if key in ("from", "type"):
                 continue
             if key == "v" and is_typed_transaction:
-                yield "y_parity", transaction[
-                    "v"
-                ]  # use y_parity for typed txns, internally
+                yield (
+                    "y_parity",
+                    transaction["v"],
+                )  # use y_parity for typed txns, internally
                 continue
             yield key, transaction[key]
 
@@ -807,7 +805,7 @@ class PyEVMBackend(BaseChainBackend):
 
     def apply_withdrawals(
         self,
-        withdrawals_list: List[Dict[str, Union[int, str]]],
+        withdrawals_list: list[dict[str, int | str]],
     ) -> None:
         """
         Apply withdrawals to the state and mine the block that includes the withdrawals.

@@ -23,6 +23,8 @@
 #include "pn/pn_core.h"
 #include "resamp/resamp_core.h"
 #include <math.h> /* log10/powf/sqrtf in create_impl */
+#include "gold/gold_core.h"
+#include "mpsk/mpsk_core.h" /* mpsk_constellation — the ONE bit->symbol map */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,82 +62,76 @@ enum {
 #define WFM_SYNTH_SNR_CLEAN 100.0
 
 /**
- * @brief Maximal-length-sequence (MLS) primitive polynomial for an LFSR of the
- * given register length n, in pn_core's right-shift Galois convention. Returns
- * 0 for lengths outside 2..64 (caller errors). Generated from verified
- * primitive polynomials (period 2^n-1); the n=2..16 values are unchanged.
+ * @brief Bits carried by one symbol of @p type — the `bps` an Eb/No needs.
+ *
+ * QPSK carries two, everything else one. DSSS is one because its payload is
+ * BPSK, which is what makes `ebno == esno` for a DSSS source.
+ */
+JM_FORCEINLINE int
+wfm_synth_bps (int type)
+{
+  return (type == WFM_SYNTH_QPSK) ? 2 : 1;
+}
+
+/**
+ * @brief Convert a per-symbol or per-bit SNR to SNR over the full sample rate.
+ *
+ * **The one place this arithmetic lives.** A noise amplitude is always
+ * referenced to fs, so every SNR mode is a conversion into that: an Es/N0
+ * spreads the symbol's energy over @p span samples, and an Eb/No does the same
+ * after first multiplying by the bits the symbol carries. Getting it wrong is
+ * silent — the waveform is still a waveform, at an SNR nobody asked for — so
+ * having it written twice is how a generator and a composer come to place
+ * different noise for the same requested number.
+ *
+ * @param mode  RESOLVED mode: 1 fs, 2 Eb/No, 3 Es/No. Never 0 (auto) — see
+ *              below.
+ * @param bps   Bits per symbol, from wfm_synth_bps().
+ * @param span  Samples one symbol's energy is spread over.
+ * @param snr   The requested figure, in dB, in @p mode's reference.
+ * @return      SNR in dB over fs, ready for awgn_amplitude_for_snr().
+ *
+ * **`auto` and `span` are deliberately the CALLER's**, and that is not an
+ * oversight: they are the two things that legitimately differ. `wfm_synth`
+ * resolves `auto` to fs for a DSSS source because at create() time it cannot
+ * do better — the codes attach afterwards, so the spreading factor that sets
+ * the symbol span is not yet known — while the composer resolves the same
+ * source to Es/No and passes the true span (`sf * sps` for a burst, or
+ * `fs/symbol_rate` for a continuous asynchronous stream, which coincide only
+ * in the synchronous case that mode exists to avoid). Those differences are
+ * inputs, not a second formula.
+ * @code
+ * // Es/No 12 dB at 8 samples/symbol -> 2.969 dB over fs
+ * double fs_db = wfm_synth_snr_over_fs (3, 1, 8.0, 12.0);
+ * // the same figure read as Eb/No on QPSK is 3.010 dB hotter
+ * double eb_db = wfm_synth_snr_over_fs (2, wfm_synth_bps (WFM_SYNTH_QPSK),
+ *                                       8.0, 12.0);
+ * @endcode
+ */
+JM_FORCEINLINE double
+wfm_synth_snr_over_fs (int mode, int bps, double span, double snr)
+{
+  double s = (span > 0.0) ? span : 1.0;
+  if (mode == 2) /* Eb/No */
+    return snr + 10.0 * log10 ((double)bps) - 10.0 * log10 (s);
+  if (mode == 3) /* Es/No */
+    return snr - 10.0 * log10 (s);
+  return snr; /* over fs */
+}
+
+/**
+ * @brief The MLS primitive polynomial table — pn's, reached by its old name.
+ *
+ * The table itself moved to `pn/pn_core.h` (`pn_mls_poly`), because the
+ * convention it encodes is pn_create()'s tap mask and not the synth's. This
+ * spelling is retained for the call sites that already use it; it forwards and
+ * holds no table of its own, so the two cannot disagree.
  */
 JM_FORCEINLINE uint64_t
 wfm_synth_mls_poly(uint32_t n)
 {
-    switch (n) {
-    case 2: return 0x3u;
-    case 3: return 0x5u;
-    case 4: return 0x9u;
-    case 5: return 0x12u;
-    case 6: return 0x21u;
-    case 7: return 0x41u;
-    case 8: return 0x8Eu;
-    case 9: return 0x108u;
-    case 10: return 0x204u;
-    case 11: return 0x402u;
-    case 12: return 0x829u;
-    case 13: return 0x100Du;
-    case 14: return 0x2015u;
-    case 15: return 0x4001u;
-    case 16: return 0x8016u;
-    case 17: return 0x10004u;
-    case 18: return 0x20013u;
-    case 19: return 0x40013u;
-    case 20: return 0x80004u;
-    case 21: return 0x100002u;
-    case 22: return 0x200001u;
-    case 23: return 0x400010u;
-    case 24: return 0x80000Du;
-    case 25: return 0x1000004u;
-    case 26: return 0x2000023u;
-    case 27: return 0x4000013u;
-    case 28: return 0x8000004u;
-    case 29: return 0x10000002u;
-    case 30: return 0x20000029u;
-    case 31: return 0x40000004u;
-    case 32: return 0x80000057u;
-    case 33: return 0x100000029ull;
-    case 34: return 0x200000073ull;
-    case 35: return 0x400000002ull;
-    case 36: return 0x80000003Bull;
-    case 37: return 0x100000001Full;
-    case 38: return 0x2000000031ull;
-    case 39: return 0x4000000008ull;
-    case 40: return 0x800000001Cull;
-    case 41: return 0x10000000004ull;
-    case 42: return 0x2000000001Full;
-    case 43: return 0x4000000002Cull;
-    case 44: return 0x80000000032ull;
-    case 45: return 0x10000000000Dull;
-    case 46: return 0x200000000097ull;
-    case 47: return 0x400000000010ull;
-    case 48: return 0x80000000005Bull;
-    case 49: return 0x1000000000038ull;
-    case 50: return 0x200000000000Eull;
-    case 51: return 0x4000000000025ull;
-    case 52: return 0x8000000000004ull;
-    case 53: return 0x10000000000023ull;
-    case 54: return 0x2000000000003Eull;
-    case 55: return 0x40000000000023ull;
-    case 56: return 0x8000000000004Aull;
-    case 57: return 0x100000000000016ull;
-    case 58: return 0x200000000000031ull;
-    case 59: return 0x40000000000003Dull;
-    case 60: return 0x800000000000001ull;
-    case 61: return 0x1000000000000013ull;
-    case 62: return 0x2000000000000034ull;
-    case 63: return 0x4000000000000001ull;
-    case 64: return 0x800000000000000Dull;
-    default: return 0u;
-    }
+    return pn_mls_poly(n);
 }
-
 /**
  * @brief Synth state.
  *
@@ -180,6 +176,54 @@ typedef struct {
     awgn_state_t * awgn;
     pn_state_t * pn;
 } wfm_synth_state_t;
+
+/**
+ * @brief Next symbol from the user bit pattern, cycled — one mapping, every M.
+ *
+ * **The single home for the bits->symbol map.** It had four copies: two in
+ * this header (`wfm_synth_next_symbol` and `wfm_synth_step`) and two in
+ * `wfm_synth_steps()`. `wfm_synth_next_symbol`'s own comment says the kernel
+ * is shared "so the single-sample and block paths cannot diverge -- they call
+ * the SAME function rather than each inlining the arithmetic", and the
+ * arithmetic was inlined four times anyway.
+ *
+ * `bit_mod` is BITS PER SYMBOL, which is what its existing values already mean
+ * (1 = BPSK, 2 = QPSK), so M = 1 << bit_mod and 3 = 8PSK extends the numbering
+ * rather than reinterpreting it. One symbol's bits are read **MSB-first** into
+ * a Gray label and handed to `mpsk_constellation()` -- the library's canonical
+ * mapping, and the one `dp_ber_score()` inverts to score bit errors.
+ *
+ * That shared mapping is the point. The QPSK branches this replaces put `b0`
+ * on the I sign and `b1` on the Q sign: the same CONSTELLATION, but two of the
+ * four labels swapped against `mpsk_constellation()`. Nothing scored a QPSK
+ * bit pattern against truth, so it never produced a wrong number -- but a
+ * framed QPSK stream read through the canonical scorer would have shown about
+ * half its symbols wrong on a perfectly working receiver, which is the
+ * plausible-number failure docs/design/rx-test.md exists to stop.
+ *
+ * `bit_mod == 0` is not PSK -- it is the 0/1 amplitude line this type has
+ * always emitted -- so it keeps its own branch.
+ *
+ * @param s  Synth state; `bits`/`n_bits` must be non-empty, `bit_idx` advances.
+ * @return Unit-modulus constellation point (a unit-amplitude line at
+ *         `bit_mod == 0`), which is what Synth's unit-power SNR reference needs.
+ */
+JM_FORCEINLINE float _Complex
+wfm_synth_bit_symbol(wfm_synth_state_t *s)
+{
+    unsigned g = 0u;
+    int      k;
+    if (s->bit_mod <= 0) {
+        float a    = s->bits[s->bit_idx] ? 1.0f : 0.0f;
+        s->bit_idx = (s->bit_idx + 1) % s->n_bits;
+        return a + 0.0f * I;
+    }
+    for (k = 0; k < s->bit_mod; k++) { /* MSB-first within the symbol */
+        g          = (g << 1) | (unsigned)(s->bits[s->bit_idx] ? 1u : 0u);
+        s->bit_idx = (s->bit_idx + 1) % s->n_bits;
+    }
+    return mpsk_constellation(g, 1 << s->bit_mod);
+}
 
 /**
  * @brief One continuous-DSSS chip: `code[n % n_code] ^ data`, as a BPSK sign.
@@ -246,21 +290,7 @@ wfm_synth_next_symbol(wfm_synth_state_t *s)
         if (s->chips_per_symbol > 0.0) /* continuous DSSS: lazy chip */
             return wfm_synth_cont_dsss_chip(s) + 0.0f * I;
         if (s->bits && s->n_bits) {
-            if (s->bit_mod == 2) { /* qpsk: 2 bits/symbol, Gray-mapped */
-                uint8_t b0     = s->bits[s->bit_idx];
-                uint8_t b1     = s->bits[(s->bit_idx + 1) % s->n_bits];
-                s->bit_idx     = (s->bit_idx + 2) % s->n_bits;
-                return (b0 ? -q : q) + (b1 ? -q : q) * I;
-            }
-            if (s->bit_mod == 1) { /* bpsk: 0->+1, 1->-1 */
-                float re   = s->bits[s->bit_idx] ? -1.0f : 1.0f;
-                s->bit_idx = (s->bit_idx + 1) % s->n_bits;
-                return re + 0.0f * I;
-            }
-            /* none: unmodulated 0/1 amplitude */
-            float re   = s->bits[s->bit_idx] ? 1.0f : 0.0f;
-            s->bit_idx = (s->bit_idx + 1) % s->n_bits;
-            return re + 0.0f * I;
+            return wfm_synth_bit_symbol(s);
         }
         return 0.0f + 0.0f * I;
     }
@@ -648,22 +678,14 @@ wfm_synth_step(wfm_synth_state_t *state)
                 state->cur_re = wfm_synth_cont_dsss_chip(state);
                 state->cur_im = 0.0f;
             } else if (state->bits && state->n_bits) {
-                if (state->bit_mod == 2) { /* qpsk: 2 bits/symbol, Gray-mapped */
-                    uint8_t b0 = state->bits[state->bit_idx];
-                    uint8_t b1 = state->bits[(state->bit_idx + 1) % state->n_bits];
-                    const float s = 0.70710678118654752f;
-                    state->cur_re = b0 ? -s : s;
-                    state->cur_im = b1 ? -s : s;
-                    state->bit_idx = (state->bit_idx + 2) % state->n_bits;
-                } else if (state->bit_mod == 1) { /* bpsk: 0->+1, 1->-1 */
-                    state->cur_re = state->bits[state->bit_idx] ? -1.0f : 1.0f;
-                    state->cur_im = 0.0f;
-                    state->bit_idx = (state->bit_idx + 1) % state->n_bits;
-                } else { /* none: unmodulated 0/1 amplitude */
-                    state->cur_re = state->bits[state->bit_idx] ? 1.0f : 0.0f;
-                    state->cur_im = 0.0f;
-                    state->bit_idx = (state->bit_idx + 1) % state->n_bits;
-                }
+                /* ONE bits->symbol map for every order, shared with
+                 * wfm_synth_next_symbol() and wfm_synth_steps(). Inlining it
+                 * here is what let the QPSK copy drift into a different label
+                 * assignment than mpsk_constellation() -- see
+                 * wfm_synth_bit_symbol(). */
+                float _Complex bs = wfm_synth_bit_symbol(state);
+                state->cur_re     = crealf(bs);
+                state->cur_im     = cimagf(bs);
             }
         }
         if (state->fir) {

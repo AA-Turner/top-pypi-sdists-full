@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.budget_limits import BudgetLimits
+from mixpeek.models.pagination import Pagination
 from mixpeek.models.retriever_input_schema_field_input import RetrieverInputSchemaFieldInput
 from mixpeek.models.stage_config_input import StageConfigInput
 from typing import Optional, Set
@@ -36,8 +37,10 @@ class AdhocExecuteRequest(BaseModel):
     stages: Annotated[List[StageConfigInput], Field(min_length=1)] = Field(description="REQUIRED. Ordered list of stage configurations. At least one stage is required for execution.")
     inputs: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Input values matching the input_schema. These values are passed to stages for parameterization. Omit it (or pass {}) when the stages carry hardcoded query values.")
     budget_limits: Optional[BudgetLimits] = Field(default=None, description="OPTIONAL. Budget limits for execution.")
+    pagination: Optional[Pagination] = None
+    limit: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="DEPRECATED alias for the pagination page size, honored only when 'pagination' is absent — mirrors the by-id execute request. Previously silently ignored on adhoc bodies (BACKE-3445).")
     stream: Optional[StrictBool] = Field(default=False, description="Enable streaming execution to receive real-time stage updates via Server-Sent Events (SSE). NOT REQUIRED - defaults to False for standard execution.   When stream=True: - Response Content-Type: text/event-stream - Events emitted: stage_start, stage_complete, stage_error, execution_complete, execution_error - Each event is formatted as: data: {json}\\n\\n - StreamStageEvent contains: event_type, execution_id, stage_name, stage_index, total_stages, documents (intermediate), statistics, budget_used   When to use streaming: - Progress tracking for multi-stage pipelines - Displaying intermediate results as stages complete - Real-time budget and performance monitoring - Debugging pipeline execution   When to skip streaming: - Single-stage or fast pipelines (<100ms) - No need for intermediate results - Minimizing overhead is critical")
-    __properties: ClassVar[List[str]] = ["collection_identifiers", "input_schema", "stages", "inputs", "budget_limits", "stream"]
+    __properties: ClassVar[List[str]] = ["collection_identifiers", "input_schema", "stages", "inputs", "budget_limits", "pagination", "limit", "stream"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +98,9 @@ class AdhocExecuteRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of budget_limits
         if self.budget_limits:
             _dict['budget_limits'] = self.budget_limits.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of pagination
+        if self.pagination:
+            _dict['pagination'] = self.pagination.to_dict()
         return _dict
 
     @classmethod
@@ -117,6 +123,8 @@ class AdhocExecuteRequest(BaseModel):
             "stages": [StageConfigInput.from_dict(_item) for _item in obj["stages"]] if obj.get("stages") is not None else None,
             "inputs": obj.get("inputs"),
             "budget_limits": BudgetLimits.from_dict(obj["budget_limits"]) if obj.get("budget_limits") is not None else None,
+            "pagination": Pagination.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
+            "limit": obj.get("limit"),
             "stream": obj.get("stream") if obj.get("stream") is not None else False
         })
         return _obj

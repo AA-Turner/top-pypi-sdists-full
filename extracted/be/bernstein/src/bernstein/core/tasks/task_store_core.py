@@ -25,6 +25,7 @@ from bernstein.core.hook_events import HookEvent
 from bernstein.core.persistence.anchored_write import anchored_append
 from bernstein.core.persistence.durable_write import fsynced_write
 from bernstein.core.persistence.runtime_state import rotate_log_file
+from bernstein.core.persistence.store import role_mismatch_error
 from bernstein.core.security.sanitize import sanitize_log
 from bernstein.core.tasks.artifacts import ArtifactSpec
 from bernstein.core.tasks.errors import TaskDomainError
@@ -45,7 +46,7 @@ from bernstein.core.tasks.unreachable import blocking_dependency, unreachable_ta
 from bernstein.core.tenanting import ensure_tenant_layout, normalize_tenant_id, try_normalize_tenant_id
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from bernstein.core.security.audit_chain import AuditChainStore
     from bernstein.core.tasks.contracts import ContractViolation, WorkerCompletion, WorkerRefusal
@@ -457,6 +458,7 @@ class TaskStore:
         archive_path: Path = DEFAULT_ARCHIVE_PATH,
         metrics_jsonl_path: Path | None = None,
     ) -> None:
+        self._task_listeners: list[Callable[[Task], None]] = []
         self._tasks: dict[str, Task] = {}
         self._agents: dict[str, AgentSession] = {}
         # Secondary indices for O(1) status/role lookups
@@ -513,6 +515,24 @@ class TaskStore:
                 ``None`` to detach.
         """
         self._audit_chain = chain
+
+    def add_task_listener(self, listener: Callable[[Task], None]) -> None:
+        """Register a callback invoked whenever a task's status or record is updated."""
+        if listener not in self._task_listeners:
+            self._task_listeners.append(listener)
+
+    def remove_task_listener(self, listener: Callable[[Task], None]) -> None:
+        """Unregister a task update callback."""
+        if listener in self._task_listeners:
+            self._task_listeners.remove(listener)
+
+    def _notify_task_updated(self, task: Task) -> None:
+        """Invoke registered task listeners with the updated task."""
+        for listener in list(self._task_listeners):
+            try:
+                listener(task)
+            except Exception:
+                logger.exception("Error in task listener for task %s", task.id)
 
     @staticmethod
     def _claim_snapshot(task: Task) -> ClaimSnapshot:
@@ -1220,6 +1240,7 @@ class TaskStore:
             blocking_task_id,
             blocker.status.value,
         )
+        self._notify_task_updated(task)
         return True
 
     async def _cascade_failed_dependency(self, *task_ids: str) -> None:
@@ -1984,9 +2005,7 @@ class TaskStore:
                     f"Version conflict: task {task_id} is at version {task.version}, expected {expected_version}"
                 )
             if agent_role is not None and task.role != agent_role:
-                raise ValueError(
-                    f"role mismatch: task {task_id} requires role '{task.role}', agent has role '{agent_role}'"
-                )
+                raise role_mismatch_error(task_id, task.role, agent_role)
             if task.status != TaskStatus.OPEN:
                 # never silently re-return an already-claimed or
                 # terminal task - that enables double-claim. Raise so the

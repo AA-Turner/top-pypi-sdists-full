@@ -7,8 +7,8 @@ Generates ``docs/assets/mpsk_receiver_demo.png`` (committed gallery asset):
              (a phase-rotating cloud collapses onto the 4 clusters).
   - Middle — the tracked carrier frequency and lock metric converging.
   - Right  — symbol error rate vs matched-filter Es/N0 for BPSK / QPSK / 8PSK,
-             measured (NDA acquire + decision-directed handover) against the
-             coherent M-PSK bound, ~1-2 dB implementation loss.
+             measured (M-th-power NDA throughout) against the coherent
+             M-PSK bound, ~1-2 dB implementation loss.
 
 Run:  uv run python src/doppler/examples/mpsk_receiver_demo.py
 """
@@ -22,17 +22,30 @@ import numpy as np
 
 from doppler.ber import ber_settle_syms, ber_theory_ser
 from doppler.track import MpskReceiver
+from doppler.wfm import Composer, Segment
 
-# A QPSK signal at 8 samples/symbol with a residual carrier offset.
-rng = np.random.default_rng(0)
-idx = rng.integers(0, 4, 4000)
-tx = np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)).astype(np.complex64)
-tx = np.repeat(tx, 8).astype(np.complex64)
-k = np.arange(tx.size)
-iq = (tx * np.exp(2j * np.pi * 0.0015 * k)).astype(np.complex64)
+# A QPSK signal at 8 samples/symbol with a residual carrier offset, from
+# wfmgen's built-in PSK source. `fs=1.0` is the normalised face: with no
+# sample rate declared, `freq` IS cycles per sample, which is the unit the
+# receiver's pull-in bound is stated in two comments below -- so the offset
+# and the bound can be compared without a conversion in between.
+iq = np.asarray(
+    Composer(
+        [
+            Segment(
+                type="qpsk",  # Gray-coded, on the pi/4 grid, unit power
+                sps=8,
+                fs=1.0,  # normalised: freq is cycles/sample
+                freq=0.0015,  # the residual offset, in those units
+                num_samples=4000 * 8,
+                seed=0,
+            )
+        ]
+    ).compose()
+)
 
-# Acquire blind (M-th-power NDA), then hand the shared LO over to
-# low-jitter decision-directed tracking once locked and warmed up.
+# One discriminator, blind from the first strobe: the M-th-power NDA error
+# steers the shared LO whether or not anything has declared lock.
 # bn_carrier is normalised to the SYMBOL rate, not the sample rate, and
 # carrier PULL-IN range scales with it: acquiring a 0.0015 cyc/sample offset
 # from a cold start (init_norm_freq defaults to 0) needs ~0.02 here.
@@ -43,18 +56,56 @@ rx = MpskReceiver(
     pulse="iandd",
     bn_carrier=0.02,
     bn_timing=0.01,
-    acq_to_track=1,
     # The lock statistic is normalised: ~1.0 at lock for every M, so this is a
     # plain fraction of what a locked constellation reads. It used to be scaled
     # per-M (QPSK peaked at 0.619), where 0.4 meant 0.4/0.619 = 65% of the
     # ceiling -- so 0.65 here is the SAME operating point, not a retune.
     lock_thresh=0.65,
-    warmup_syms=200,
 )
 sym = rx.steps(iq)  # recovered symbols (~ len(iq) / sps)
 bits = rx.bits(iq)  # hard Gray bits, LSB-first per symbol
-assert rx.tracking == 1  # switched to decision-directed tracking
+assert rx.locked == 1  # the carrier lock indicator declared
 # --8<-- [end:receiver]
+
+# --8<-- [start:level]
+# Diagnosing a LEVEL problem: use `agc_gain_db`, not `lock`.
+#
+# The front end's AGC applies the exact reciprocal of the input level, so
+# `agc_gain_db` is an ABSOLUTE reading -- "the input is this far from the
+# level the cascade was built for" -- and not merely a trend. `lock` cannot
+# see a level error at all: it is the M-th-power carrier statistic and
+# `carrier_nda_disc` divides out its own |z|^M, so it is invariant to
+# amplitude by construction. Watching `lock` to find a level problem is
+# watching the one readout that is blind to it.
+levels, gains, locks_by_level = (0.25, 1.0, 4.0), [], []
+for amp in levels:
+    rx_l = MpskReceiver(
+        m=4, sps=8, m_out=4, pulse="iandd", bn_carrier=0.02, bn_timing=0.01
+    )
+    rx_l.steps((iq * amp).astype(np.complex64))
+    gains.append(rx_l.agc_gain_db)
+    locks_by_level.append(rx_l.lock)
+
+# The law: gain + 20*log10(amp) is CONSTANT. Each 4x step must move the gain
+# by exactly 20*log10(4) = 12.04 dB, which is what makes the number absolute.
+offsets = [g + 20 * np.log10(a) for g, a in zip(gains, levels)]
+assert max(offsets) - min(offsets) < 0.05, (
+    f"agc_gain_db is not the reciprocal of the level: offsets {offsets}"
+)
+# And `lock` is unmoved across the same 16x span -- the blind spot, asserted
+# so that a change making `lock` level-sensitive shows up here as a failure
+# rather than as a surprise in the field.
+assert max(locks_by_level) - min(locks_by_level) < 0.05, (
+    f"lock became level-sensitive: {locks_by_level}"
+)
+print(
+    f"level 0.25/1/4 -> agc_gain_db "
+    f"{gains[0]:+.2f}/{gains[1]:+.2f}/{gains[2]:+.2f} dB "
+    f"(steps {gains[0] - gains[1]:.2f}, {gains[1] - gains[2]:.2f}); "
+    f"lock {locks_by_level[0]:.3f}/{locks_by_level[1]:.3f}/"
+    f"{locks_by_level[2]:.3f} -- blind to the level"
+)
+# --8<-- [end:level]
 
 PHI0 = {2: 0.0, 4: np.pi / 4, 8: 0.0}
 
@@ -62,20 +113,42 @@ PHI0 = {2: 0.0, 4: np.pi / 4, 8: 0.0}
 def _signal(m, sps, foff, esn0_db, nsym, seed):
     """Rectangular (I&D-matched) M-PSK at a carrier offset + AWGN.
 
-    sigma is set so the *matched-filter-output* Es/N0 equals ``esn0_db``: a
-    unit symbol through the length-sps boxcar has output noise sigma^2 / sps.
+    Built by wfmgen through its ``symbols`` source, which takes an arbitrary
+    constellation stream and owns the oversampling, the carrier offset and
+    the noise. That face is what lets ONE function serve every M here: the
+    ``bits`` source's ``modulation`` reaches bpsk and qpsk only, so 8PSK
+    could not be expressed through it, and a per-M branch is exactly the
+    duplication this is replacing.
+
+    The symbol array is also the BER truth, so nothing has to be recovered
+    or assumed to score against it.
+
+    What this replaces is `sigma = sqrt(sps / (2 * 10**(esn0_db/10)))` -- a
+    matched-filter Es/N0 convention written out by hand, where the `sps` is
+    the boxcar's noise-bandwidth term and the `2` splits it across I and Q.
+    `snr_mode="esno"` states it once. Verified equivalent rather than
+    assumed: with the noise off the two waveforms are byte-identical, and at
+    Es/N0 10 dB both measure 10.0 dB at the matched-filter output.
     """
     rng = np.random.default_rng(seed)
     idx = rng.integers(0, m, nsym)
     syms = np.exp(1j * (2 * np.pi * idx / m + PHI0[m])).astype(np.complex64)
-    tx = np.repeat(syms, sps).astype(np.complex64)
-    n = np.arange(tx.size)
-    tx = tx * np.exp(1j * 2 * np.pi * foff * n)
-    sigma = np.sqrt(sps / (2 * 10 ** (esn0_db / 10)))
-    tx = tx + (
-        rng.normal(0, sigma, tx.size) + 1j * rng.normal(0, sigma, tx.size)
-    )
-    return tx.astype(np.complex64), idx
+    iq = Composer(
+        [
+            Segment(
+                type="symbols",
+                symbols=syms,
+                sps=sps,
+                fs=1.0,  # normalised: foff is cycles/sample
+                freq=foff,
+                snr=esn0_db,
+                snr_mode="esno",
+                num_samples=nsym * sps,
+                seed=seed,
+            )
+        ]
+    ).compose()
+    return np.asarray(iq).astype(np.complex64), idx
 
 
 def _settle_floor(bn_timing, bn_carrier):
@@ -92,8 +165,8 @@ def _ser(out, idx, m, settle):
     """Steady-state symbol error rate, measured after ``settle`` symbols.
 
     Searches lag and constellation rotation because neither is observable from
-    the output alone: the group delay depends on the pulse, the front end and
-    the handover instant, and an NDA receiver locks to any of the M rotations.
+    the output alone: the group delay depends on the pulse and the front
+    end, and an NDA receiver locks to any of the M rotations.
     """
     th = np.angle(out) - PHI0[m]
     oi = np.round(th * m / (2 * np.pi)).astype(int) % m
@@ -192,7 +265,7 @@ def main(out_path: str = "mpsk_receiver_demo.png") -> None:
     ax_l.set_title("Carrier acquisition + lock", fontsize=10)
     ax_l.grid(alpha=0.3)
 
-    # ── Right: BER vs Es/N0 per M (NDA acquire + DD handover) ──────────────
+    # ── Right: BER vs Es/N0 per M (M-th-power NDA throughout) ─────────────
     orders = [
         (2, "BPSK", "tab:blue"),
         (4, "QPSK", "tab:orange"),
@@ -220,9 +293,7 @@ def main(out_path: str = "mpsk_receiver_demo.png") -> None:
                 init_norm_freq=0.0005,
                 bn_carrier=0.005,
                 bn_timing=0.005,
-                acq_to_track=1,
                 lock_thresh=0.3,
-                warmup_syms=300,
             )
             out2 = rxm.steps(tx2)
             ser = _ser(out2, idx2, m, _settle_floor(0.005, 0.005))
@@ -254,7 +325,7 @@ def main(out_path: str = "mpsk_receiver_demo.png") -> None:
     ax_b.set_xlabel("matched-filter Es/N0 (dB)")
     ax_b.set_ylabel("BER")
     ax_b.set_ylim(1e-5, 1)
-    ax_b.set_title("BER vs Es/N0 (acquire + handover)", fontsize=10)
+    ax_b.set_title("BER vs Es/N0 (NDA throughout)", fontsize=10)
     ax_b.legend(fontsize=7, ncol=3, loc="lower left")
     ax_b.grid(alpha=0.3, which="both")
 

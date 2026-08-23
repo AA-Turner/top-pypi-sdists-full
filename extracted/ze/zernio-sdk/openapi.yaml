@@ -15111,7 +15111,10 @@ paths:
       summary: Edit published post
       description: |
         Edit the text of an already-published post. Supported on X (Twitter), Discord,
-        Facebook, and Reddit. Each platform enforces its own rules:
+        Facebook, Reddit, LinkedIn, Telegram, Pinterest, Google Business Profile, YouTube,
+        and Slack. When a post was published to several accounts on the same platform,
+        pass `accountId` to pick which account's copy to edit (the first entry is edited
+        otherwise). Each platform enforces its own rules:
 
         **X (Twitter)**
         - Connected X account must have an active X Premium subscription
@@ -15136,6 +15139,49 @@ paths:
         - Body only. Reddit exposes no API to edit a post title, ever
         - The post ID is unchanged
 
+        **LinkedIn**
+        - Text only, no time limit. Media, polls, articles, and reshare targets cannot be
+          changed
+        - Works for member and organization posts published through this API. The post
+          keeps its ID and LinkedIn shows an "edited" marker
+        - Text is limited to 3,000 characters; mentions and hashtags are preserved
+
+        **Telegram**
+        - No time limit; messages published through Zernio are editable indefinitely
+        - Text posts: edits the message text (up to 4096 characters)
+        - Media posts: edits the caption only (up to 1024 characters). The media itself
+          cannot be swapped
+        - For albums, the caption shown on the album (its first message) is edited
+        - The message ID is unchanged
+
+        **Pinterest**
+        - Description only, maximum 800 characters. Media, link, and board cannot be
+          changed, and a pin title derived from the old content's first line at publish
+          stays as-is
+        - Pinterest's pin-update endpoint is currently in closed beta; until the app is
+          allowlisted by Pinterest, edits are rejected with a "beta feature not yet
+          enabled" error
+        - The pin ID is unchanged
+
+        **Google Business Profile**
+        - Post body (summary) text only. Call-to-action, event/offer fields, and media are
+          untouched
+        - No time limit and no edit limit. The post ID is unchanged
+        - The post must still exist on Google: a post deleted from the Business Profile
+          dashboard, or an event/offer post past its end date, returns a 404
+
+        **YouTube**
+        - `content` replaces the video description only. The title is unchanged, even if
+          it was originally derived from the content's first line at publish time
+        - Title, tags, thumbnail, and privacy edits belong to `POST /v1/posts/{postId}/update-metadata`
+        - No time window and no edit cap. The video ID is unchanged
+
+        **Slack**
+        - Text only, up to 4,000 characters. Media cannot be swapped, and media posts
+          whose share message reference never resolved cannot be edited
+        - No time limit unless workspace admins restrict message editing
+        - The message ID is unchanged
+
         Media edits are not supported on any platform. The post record in Zernio is updated
         with the new content and an edit-history entry.
       parameters:
@@ -15154,10 +15200,15 @@ paths:
                 platform:
                   type: string
                   description: The platform to edit the post on.
-                  enum: [twitter, discord, facebook, reddit]
+                  enum: [twitter, discord, facebook, reddit, linkedin, telegram, pinterest, googlebusiness, youtube, slack]
                 content:
                   type: string
                   description: The new post text content
+                accountId:
+                  type: string
+                  description: >
+                    Which account's copy of the post to edit when the post was published
+                    to several accounts on the same platform; defaults to the first.
             example:
               platform: "facebook"
               content: "Updated post text with corrected information"
@@ -15173,8 +15224,8 @@ paths:
                   id:
                     type: string
                     description: >
-                      The platform post ID after the edit. X assigns a new ID; Discord,
-                      Facebook, and Reddit return the original ID unchanged.
+                      The platform post ID after the edit. X assigns a new ID; every other
+                      platform returns the original ID unchanged.
                   url: { type: string, format: uri, description: URL of the edited post }
                   message: { type: string }
               example:
@@ -15186,8 +15237,11 @@ paths:
           description: >
             Invalid request: platform not supported, post not published, edit window expired,
             not X Premium, or missing content. Also returned when the platform rejects the edit
-            with a 4xx, which covers a Reddit link post (no editable body) and a Facebook post
-            that was not created by this app.
+            with a 4xx, which covers a Reddit link post (no editable body), a Facebook post
+            that was not created by this app, content over a platform's length limit
+            (LinkedIn 3,000, Telegram 4096 text / 1024 caption, Pinterest 800, Slack 4,000),
+            a Telegram edit with unchanged content, and a Pinterest app not yet allowlisted
+            for the pin-update beta.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Forbidden
@@ -25281,9 +25335,16 @@ paths:
         '403':
           description: Inbox addon required or profile limit reached
         '404':
-          description: Account or recipient user not found
+          description: 'Account or recipient user not found (Reddit: PARTICIPANT_NOT_FOUND when the u/username does not exist)'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [account_not_found, PARTICIPANT_NOT_FOUND] }
         '422':
-          description: Recipient does not accept DMs from this account
+          description: 'Recipient does not accept DMs from this account (X/Twitter), or does not accept private messages from you (Reddit)'
           content:
             application/json:
               schema:
@@ -25292,7 +25353,14 @@ paths:
                   error: { type: string }
                   code: { type: string, enum: [DM_NOT_ALLOWED] }
         '429':
-          description: X API rate limit exceeded
+          description: 'X API rate limit exceeded, or Reddit rate limit reached for this account'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [rate_limited] }
   /v1/inbox/conversations/search:
     get:
       x-resource-group: "messages"
@@ -25826,6 +25894,17 @@ paths:
         instead of sending the message a second time; same key + different body
         returns 422; a key still in flight returns 409. Works for JSON and
         multipart (file upload) requests alike. Keys are retained for 24 hours.
+
+        Only successful (2xx) responses are stored for replay: if the request
+        throws or returns a non-2xx status, the key is released so the same key
+        can be retried once the problem is fixed. The header therefore protects
+        the "request succeeded but the response was lost" case. For an ambiguous
+        failure (a 5xx or a network timeout), reconcile before retrying: a
+        failure after the platform already accepted the message also releases
+        the key, and a blind retry could send it twice. List the conversation's
+        messages first, and treat an empty result as inconclusive rather than
+        as proof nothing was sent, since a send that failed while being recorded
+        leaves no trace on our side.
       tags: [Messages]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -26366,10 +26445,20 @@ paths:
                   data:
                     type: object
                     properties:
-                      messageId: { type: string, description: ID of the sent message (not returned for Reddit) }
-                      conversationId: { type: [string, "null"], description: Twitter conversation ID }
-                      sentAt: { type: [string, "null"], format: date-time, description: Bluesky sent timestamp }
-                      message: { type: [string, "null"], description: Success message (Reddit only) }
+                      messageId:
+                        type: string
+                        description: 'Platform id of the sent message (not returned for Reddit). For WhatsApp this is the raw Meta wamid, the same id delivered as message.platformMessageId on webhooks and delivery-status updates, and the value to pass as replyTo to quote-reply.'
+                      conversationId:
+                        type: string
+                        description: 'Zernio conversation id, echoed so the thread can be read back or replied to. It equals the id the list-conversations endpoint returns for Telegram, WhatsApp, SMS and Slack; for Facebook, Instagram, Bluesky and Reddit that endpoint returns the platform thread id instead, so do not correlate the two by equality. For X (Twitter), when the request addressed the conversation by its Twitter dm_conversation_id, that platform id is echoed back instead. Omitted when the send succeeded but the conversation could not be resolved to a stored record.'
+                      attachments:
+                        type: array
+                        description: 'Echo of the sent attachment with its resolved public URL, when one is available (Facebook, Instagram, Telegram, WhatsApp).'
+                        items:
+                          type: object
+                          properties:
+                            type: { type: string }
+                            url: { type: string }
         '400':
           description: 'Bad request (e.g., attachment not supported for platform, validation error, category combined with a template or attachment, category used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send)'
           content:
@@ -41938,7 +42027,7 @@ paths:
                     square: { type: string, format: uri, description: "Square 1:1 marketing image URL (e.g. 1080x1080). Required for Google Display." }
                 video:
                   type: object
-                  description: "Meta (facebook, instagram) and LinkedIn. When set, creates a VIDEO ad on the legacy (or, for Meta, attach) shape. Mutually exclusive with `imageUrl`. For Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB."
+                  description: "Meta (facebook, instagram) and LinkedIn. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB."
                   properties:
                     url: { type: string, format: uri, description: "Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === 'ready'. LinkedIn: uploaded via the Videos API (multipart), then the request blocks until LinkedIn finishes transcoding (status AVAILABLE) — short clips take ~10-30s. Provide either `url` or `id`."}
                     id: { type: string, description: "Meta only. Reuse a video ALREADY uploaded to this ad account instead of re-uploading the file: pass the `videoId` returned by a previous create. Wins over `url`, so N ads that differ only in copy share one upload (`existingCreativeId` only covers the identical-copy case). Provide either `url` or `id`."}
@@ -43211,6 +43300,53 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/videos:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdVideos
+      tags: ["Ad Creatives"]
+      x-platforms: ["meta"]
+      summary: Ad video library
+      description: |-
+        Lists the ad account's video library (Meta's `/act_X/advideos`), rows returned verbatim.
+        The default projection covers id, title, status, poster frames and length; `fields` is a
+        raw-passthrough override. Any `id` here is reusable as `video.id` on the create
+        endpoints, so N ads that differ only in copy share one upload.
+
+        This is the only way to reach a video uploaded OUTSIDE Zernio (Ads Manager, another
+        tool); videos we uploaded also come back as `creative.videoId` on GET /v1/ads.
+
+        Meta transcodes asynchronously, so a row is only usable once `status.video_status`
+        reads `ready`. There is no upload operation here: upload by URL inline via `video.url`
+        on POST /v1/ads/create.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph field override (supports nested {} projections)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Ad videos (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta ad video row (id, title, status, picture, thumbnails, length)." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
   /v1/ads/interests:
     get:
       x-resource-group: "ads"
@@ -43669,11 +43805,21 @@ paths:
       summary: Create custom audience
       description: |
         Create a custom audience. `customer_list` is supported on Meta, Google, X, LinkedIn, TikTok, and Pinterest;
-        `website` and `lookalike` are Meta-only. `saved_targeting` stores a reusable TargetingSpec (no member upload,
-        no adAccountId) that you reference later via `savedTargetingId` on `POST /v1/ads/create`. Upload-backed audiences
-        are created empty, add members via `POST /v1/ads/audiences/{audienceId}/users`. On TikTok and Pinterest the
-        audience is provisioned lazily on the first member upload (until then its status is `pending`). Create is not
-        idempotent, never auto-retry.
+        `website` and `lookalike` are Meta-only; `company_list`, `engagement` and `website_retargeting` are LinkedIn-only.
+        `saved_targeting` stores a reusable TargetingSpec (no member upload, no adAccountId) that you reference later via
+        `savedTargetingId` on `POST /v1/ads/create`.
+
+        How the audience gets filled depends on the type:
+
+        - `customer_list` is created empty. Add members with `POST /v1/ads/audiences/{audienceId}/users`.
+          On TikTok and Pinterest the audience is provisioned lazily on that first upload (until then its status is `pending`).
+        - `company_list` is filled AT CREATION from the `companies` array below, which is required. To change the list
+          afterwards send the new full list to `POST /v1/ads/audiences/{audienceId}/companies` (a replace, not a merge).
+          The `/users` endpoint rejects these audiences with a 422.
+        - `website`, `website_retargeting`, `engagement`, `meta_engagement` and `lookalike` fill themselves from the pixel,
+          engagement source or seed audience you point them at. They take no member upload at all.
+
+        Create is not idempotent, never auto-retry.
       security:
         - bearerAuth: []
       requestBody:
@@ -43751,8 +43897,10 @@ paths:
                       description: |
                         Required for company_list audiences (LinkedIn only): plain-text
                         company rows for account targeting. Each row needs at least one
-                        identifier. LinkedIn recommends 1,000+ companies for a usable
-                        match rate and takes up to 48h to process the list.
+                        identifier. Not hashed, LinkedIn matches these against its own
+                        company graph. LinkedIn recommends 1,000+ companies for a usable
+                        match rate and takes up to 48h to process the list. Replace the
+                        list later with POST /v1/ads/audiences/{audienceId}/companies.
                       items:
                         type: object
                         additionalProperties: false
@@ -43782,7 +43930,36 @@ paths:
                     sourceAudienceId: { type: string, description: Required for lookalike audiences }
                     country: { type: string, description: "2-letter code, required for lookalike audiences" }
                     ratio: { type: number, minimum: 0.01, maximum: 0.20, description: Required for lookalike audiences }
-                    rule: { type: object, description: "Optional raw Meta rule, forwarded verbatim: pixel event rule for website audiences, or the engagement rule for meta_engagement (overrides the built rule, e.g. for event/canvas/lead-form sources)." }
+                    urlContains:
+                      type: string
+                      description: |
+                        website only. Narrows the audience from all visitors to visitors of
+                        URLs containing this substring. Ignored when `rule` is supplied.
+                    rule:
+                      type: object
+                      description: |
+                        Optional raw Meta rule, replacing the one we build. Omit it for all
+                        visitors of `pixelId`, or use `urlContains` for the common page-match
+                        case.
+
+                        For `website` this is Meta's Flexible Audience Rule and is VALIDATED
+                        before we call Meta: every entry in `inclusions.rules` (and
+                        `exclusions.rules`) must carry `event_sources`, `retention_seconds`
+                        AND `filter`. Meta rejects a rule missing any of the three with code
+                        100 / subcode 1713098 ("Invalid rule JSON format"), so a bad shape is
+                        a 400 here instead. The pre-2018 flat shapes (`{url: ...}`,
+                        `{event: ...}`) are not accepted by Meta at all (subcode 1870029).
+
+                        Example, visitors of /checkout in the last 30 days:
+                        `{"inclusions":{"operator":"or","rules":[{"event_sources":[{"id":"<pixelId>","type":"pixel"}],"retention_seconds":2592000,"filter":{"operator":"and","filters":[{"field":"url","operator":"i_contains","value":"/checkout"}]}}]}}`
+
+                        Note Meta DERIVES `retention_days` from `retention_seconds` and
+                        stores `event_sources[].id` as a number, so a rule read back will
+                        not be byte-identical to the one you sent.
+
+                        For `meta_engagement` the rule is forwarded verbatim and NOT
+                        validated: that type has two dialects (the `video` source uses a
+                        legacy flat array), so no single schema covers both.
                     customerFileSource: { type: string, description: "Data source declaration for GDPR compliance (customer_list only)" }
                 - type: object
                   title: SavedTargetingAudience
@@ -43925,6 +44102,9 @@ paths:
         Upload user data to a customer_list audience. Data is SHA256-hashed server-side before sending to the platform.
         Email is used on every platform; phone is used on Meta only (other platforms ignore it). On TikTok and Pinterest,
         the first upload also provisions the audience (deferred create). LinkedIn uploads are full-replace. Max 10,000 users per request.
+
+        customer_list only. A LinkedIn `company_list` audience takes company rows, not people: send those to
+        `POST /v1/ads/audiences/{audienceId}/companies`. This endpoint 422s for every other audience type.
       security:
         - bearerAuth: []
       parameters:
@@ -43965,6 +44145,73 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
           description: Audience is not a customer_list type or has no platform ID yet
+
+  /v1/ads/audiences/{audienceId}/companies:
+    post:
+      x-resource-group: "ads"
+      operationId: replaceAdAudienceCompanies
+      tags: ["Ad Audiences"]
+      x-platforms: ["linkedin"]
+      summary: Replace audience companies
+      description: |
+        Upload the company rows of a LinkedIn `company_list` audience (account-based marketing).
+        LinkedIn-only, every other platform returns 422.
+
+        A LinkedIn audience segment holds exactly one uploaded list, so the list you send here REPLACES the
+        segment's list instead of being appended to it: always send the full set of companies. LinkedIn returns
+        only the identifier of the uploaded file, never its rows, so the merge cannot be done for you, keep the
+        source list on your side. LinkedIn does not document how quickly companies dropped from the list stop
+        being targeted, so treat removals as eventual rather than immediate.
+        Rows are plain text (not hashed), matched against LinkedIn's own company graph. Matching is asynchronous:
+        LinkedIn takes up to 48h for a new audience and up to 24h for a later update, and the audience stays
+        `processing` meanwhile. LinkedIn recommends at least 1,000 companies for a usable match rate, and caps a
+        list at 300,000.
+
+        The initial list is sent with `companies` on `POST /v1/ads/audiences`; this endpoint is for every
+        change after that.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: audienceId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [companies]
+              properties:
+                companies:
+                  type: array
+                  minItems: 1
+                  maxItems: 300000
+                  description: 'The complete company list. Each row needs at least one of name, domain, website or linkedinPageUrl.'
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      name: { type: string, maxLength: 255 }
+                      domain: { type: string, maxLength: 100 }
+                      website: { type: string, maxLength: 100 }
+                      linkedinPageUrl: { type: string }
+      responses:
+        '200':
+          description: Companies uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  numReceived: { type: integer, description: 'Rows sent to LinkedIn. Matching happens asynchronously, so this is not the matched company count.' }
+        '400':
+          description: 'Invalid input (malformed audienceId, empty companies array, a row with no identifier)'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: 'Audience is not a company_list type, is not on LinkedIn, or has no platform ID yet'
 
   /v1/ads/conversions/quality:
     get:

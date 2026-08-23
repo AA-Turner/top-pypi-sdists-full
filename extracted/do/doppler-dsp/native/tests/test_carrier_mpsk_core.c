@@ -15,42 +15,12 @@
  * Python test (test_carrier_mpsk.py), where both types live in track.so.
  */
 #include "carrier_mpsk/carrier_mpsk_core.h"
+#include "dp_rng_test.h"
+#include "dp_test.h"
 #include <complex.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#define CHECK(cond)                                                           \
-  do                                                                          \
-    {                                                                         \
-      if (!(cond))                                                            \
-        {                                                                     \
-          fprintf (stderr, "FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);    \
-          _fails++;                                                           \
-        }                                                                     \
-    }                                                                         \
-  while (0)
-
-/* xorshift32 PRNG — deterministic across runs. */
-static uint32_t
-xs (uint32_t *st)
-{
-  uint32_t x = *st;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  *st = x;
-  return x;
-}
-
-/* Box-Muller unit-variance Gaussian (per component), seeded. */
-static float
-gauss (uint32_t *st)
-{
-  double r1 = (xs (st) + 1.0) / 4294967297.0;
-  double r2 = (xs (st) + 1.0) / 4294967297.0;
-  return (float)(sqrt (-2.0 * log (r1)) * cos (2.0 * M_PI * r2));
-}
 
 /* Continuous M-PSK-at-symbol-rate signal with carrier residual f0
  * (cycles/sample), optional per-sample frequency ramp, and optional AWGN
@@ -64,7 +34,7 @@ make_signal (float complex *rx, int *labels, size_t nsym, size_t tsamps, int m,
   size_t   k = 0;
   for (size_t s = 0; s < nsym; s++)
     {
-      int g            = (int)(xs (&bst) % (uint32_t)m);
+      int g            = (int)(dp_xs32 (&bst) % (uint32_t)m);
       labels[s]        = g;
       float complex pt = mpsk_constellation (g, m);
       for (size_t i = 0; i < tsamps; i++, k++)
@@ -72,31 +42,35 @@ make_signal (float complex *rx, int *labels, size_t nsym, size_t tsamps, int m,
           float complex c = cexpf ((float)phase * I);
           rx[k]           = pt * c;
           if (sigma > 0.0f)
-            rx[k] += CMPLXF (sigma * gauss (&nst), sigma * gauss (&nst));
+            {
+              /* Sequenced: CMPLXF's two arguments are
+                 indeterminately sequenced too. gcc and clang happen to
+                 agree here (real takes the first draw); pinned anyway,
+                 because "they agree today" is not a guarantee. */
+              float n_re = sigma * (float)dp_gauss (&nst);
+              float n_im = sigma * (float)dp_gauss (&nst);
+              rx[k] += CMPLXF (n_re, n_im);
+            }
           phase += w;
           w += ramp * 2.0 * M_PI;
         }
     }
 }
 
-/* Nearest constellation Gray label to a (possibly rotated/scaled) symbol. */
+/* Nearest constellation Gray label to a (possibly rotated/scaled) symbol.
+ *
+ * This was a private O(M) correlation search until the mpsk certification
+ * found it: a SECOND copy of the library's decision rule, which meant this
+ * test scored the carrier loop against its own slicer rather than against
+ * `mpsk_slice` — the one the receiver actually decides with. The two were
+ * free to disagree with no gate noticing. It now delegates, and the
+ * equivalence it used to assume (nearest in phase == nearest by Euclidean
+ * distance on the unit circle) is proven in test_mpsk_core.c §5b instead. */
 static int
 nearest_label (float complex y, int m)
 {
-  float         best = -1e30f;
-  int           bi   = 0;
-  float complex u    = y / (cabsf (y) + 1e-12f);
-  for (int g = 0; g < m; g++)
-    {
-      float complex p = mpsk_constellation (g, m);
-      float d = crealf (u * conjf (p)); /* cos(angle) — max = nearest */
-      if (d > best)
-        {
-          best = d;
-          bi   = g;
-        }
-    }
-  return bi;
+  float complex ahat;
+  return (int)mpsk_slice (y, m, &ahat);
 }
 
 /* Run the loop; report tracked freq, lock, and the ambiguity-tolerant
@@ -131,7 +105,6 @@ run (carrier_mpsk_state_t *c, const float complex *rx, const int *labels,
 int
 main (void)
 {
-  int _fails = 0;
 
   /* ---------------------------------------------------------------- *
    * 1. Lifecycle, gain math, init==create parity, m validation       *
@@ -139,24 +112,24 @@ main (void)
   {
     carrier_mpsk_state_t *c
         = carrier_mpsk_create (0.05, 0.707, 0.01, 16, 0.0, 4);
-    CHECK (c != NULL);
+    DP_CHECK (c != NULL);
     if (!c)
       return 1;
-    CHECK (c->lf.kp > 0.0 && c->lf.ki > 0.0);
-    CHECK (fabs (carrier_mpsk_get_norm_freq (c) - 0.01) < 1e-12);
-    CHECK (carrier_mpsk_get_m (c) == 4);
+    DP_CHECK (c->lf.kp > 0.0 && c->lf.ki > 0.0);
+    DP_CHECK (fabs (carrier_mpsk_get_norm_freq (c) - 0.01) < 1e-12);
+    DP_CHECK (carrier_mpsk_get_m (c) == 4);
 
     carrier_mpsk_state_t v;
     carrier_mpsk_init (&v, 0.05, 0.707, 0.01, 16, 0.0, 4);
-    CHECK (v.lf.kp == c->lf.kp && v.lf.ki == c->lf.ki);
-    CHECK (v.nco.phase_inc == c->nco.phase_inc);
+    DP_CHECK (v.lf.kp == c->lf.kp && v.lf.ki == c->lf.ki);
+    DP_CHECK (v.nco.phase_inc == c->nco.phase_inc);
     carrier_mpsk_destroy (c);
 
     /* only M in {2,4,8} is a valid constellation order */
-    CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 2) != NULL);
-    CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 8) != NULL);
-    CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 3) == NULL);
-    CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 16) == NULL);
+    DP_CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 2) != NULL);
+    DP_CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 8) != NULL);
+    DP_CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 3) == NULL);
+    DP_CHECK (carrier_mpsk_create (0.05, 0.707, 0.0, 16, 0.0, 16) == NULL);
   }
 
   /* ---------------------------------------------------------------- *
@@ -178,9 +151,9 @@ main (void)
           double f, lk;
           int    se;
           run (c, rx, labels, nsym, tsamps, m, &f, &lk, &se);
-          CHECK (fabs (f - f0s[t]) < 3e-4);
-          CHECK (lk > 0.9);
-          CHECK (se == 0);
+          DP_CHECK (fabs (f - f0s[t]) < 3e-4);
+          DP_CHECK (lk > 0.9);
+          DP_CHECK (se == 0);
           carrier_mpsk_destroy (c);
         }
     free (rx);
@@ -201,9 +174,9 @@ main (void)
     double f, lk;
     int    se;
     run (c, rx, labels, nsym, tsamps, 8, &f, &lk, &se);
-    CHECK (fabs (f - 0.0015) < 5e-4);
-    CHECK (lk > 0.9);
-    CHECK (se == 0);
+    DP_CHECK (fabs (f - 0.0015) < 5e-4);
+    DP_CHECK (lk > 0.9);
+    DP_CHECK (se == 0);
     carrier_mpsk_destroy (c);
     free (rx);
     free (labels);
@@ -223,8 +196,8 @@ main (void)
     double f, lk;
     int    se;
     run (c, rx, labels, nsym, tsamps, 4, &f, &lk, &se);
-    CHECK (se == 0); /* min over the 4 rotations is exact */
-    CHECK (lk > 0.9);
+    DP_CHECK (se == 0); /* min over the 4 rotations is exact */
+    DP_CHECK (lk > 0.9);
     carrier_mpsk_destroy (c);
     free (rx);
     free (labels);
@@ -244,9 +217,9 @@ main (void)
     double f, lk;
     int    se;
     run (c, rx, labels, nsym, tsamps, 4, &f, &lk, &se);
-    CHECK (fabs (f - 0.0015) < 5e-4);
-    CHECK (lk > 0.7);
-    CHECK (se == 0);
+    DP_CHECK (fabs (f - 0.0015) < 5e-4);
+    DP_CHECK (lk > 0.7);
+    DP_CHECK (se == 0);
     carrier_mpsk_destroy (c);
     free (rx);
     free (labels);
@@ -268,15 +241,15 @@ main (void)
         = carrier_mpsk_create (0.01, 0.707, 0.0, tsamps, 0.0, 4);
     run (pll, rx, labels, nsym, tsamps, 4, &f, &lk, &se);
     int pll_locked = (fabs (f - f0) < 5e-4) && (lk > 0.9);
-    CHECK (!pll_locked); /* the bare narrow PLL does NOT acquire it */
+    DP_CHECK (!pll_locked); /* the bare narrow PLL does NOT acquire it */
     carrier_mpsk_destroy (pll);
 
     carrier_mpsk_state_t *fll
         = carrier_mpsk_create (0.01, 0.707, 0.0, tsamps, 0.03, 4);
     run (fll, rx, labels, nsym, tsamps, 4, &f, &lk, &se);
-    CHECK (fabs (f - f0) < 5e-4);
-    CHECK (lk > 0.9);
-    CHECK (se == 0);
+    DP_CHECK (fabs (f - f0) < 5e-4);
+    DP_CHECK (lk > 0.9);
+    DP_CHECK (se == 0);
     carrier_mpsk_destroy (fll);
     free (rx);
     free (labels);
@@ -299,7 +272,7 @@ main (void)
     double f2, lk2;
     int    se2;
     run (c, rx, labels, nsym, tsamps, 8, &f2, &lk2, &se2);
-    CHECK (f1 == f2 && lk1 == lk2 && se1 == se2);
+    DP_CHECK (f1 == f2 && lk1 == lk2 && se1 == se2);
     carrier_mpsk_destroy (c);
     free (rx);
     free (labels);
@@ -335,28 +308,22 @@ main (void)
 
     carrier_mpsk_state_t *r2
         = carrier_mpsk_create (0.01, 0.707, 0.0, 4, 0.0, 4);
-    CHECK (carrier_mpsk_set_state (r2, blob) == DP_OK);
+    DP_CHECK (carrier_mpsk_set_state (r2, blob) == DP_OK);
     ((char *)blob)[0] ^= (char)0xFF;
-    CHECK (carrier_mpsk_set_state (r2, blob) == DP_ERR_INVALID);
+    DP_CHECK (carrier_mpsk_set_state (r2, blob) == DP_ERR_INVALID);
     ((char *)blob)[0] ^= (char)0xFF;
     nB += carrier_mpsk_steps (r2, rx + CUT, L - CUT, outB + nB, CAP - nB);
     carrier_mpsk_destroy (r2);
     free (blob);
 
-    CHECK (nA == nB);
+    DP_CHECK (nA == nB);
     for (size_t i = 0; i < nA && i < nB; i++)
-      CHECK (crealf (outA[i]) == crealf (outB[i])
-             && cimagf (outA[i]) == cimagf (outB[i]));
+      DP_CHECK (crealf (outA[i]) == crealf (outB[i])
+                && cimagf (outA[i]) == cimagf (outB[i]));
     free (rx);
     free (outA);
     free (outB);
   }
 
-  if (_fails)
-    {
-      fprintf (stderr, "test_carrier_mpsk_core FAILED (%d)\n", _fails);
-      return 1;
-    }
-  printf ("test_carrier_mpsk_core PASSED\n");
-  return 0;
+  DP_TEST_END ("test_carrier_mpsk_core");
 }

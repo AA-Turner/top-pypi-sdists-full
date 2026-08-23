@@ -78,6 +78,8 @@ from prompt_toolkit.formatted_text import ANSI, AnyFormattedText
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.input import DummyInput, create_input
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.key_binding.key_processor import KeyPress, KeyPressEvent
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.output import DummyOutput, create_output
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession, choice, set_title
@@ -740,6 +742,50 @@ class Cmd:
                 # No macro found or already processed. The statement is complete.
                 return False
 
+    def _create_key_bindings(self, completekey: str) -> KeyBindings:
+        """Create and configure custom key bindings for the PromptSession."""
+        key_bindings = KeyBindings()
+
+        if completekey != self.DEFAULT_COMPLETEKEY:
+
+            @key_bindings.add(completekey)
+            def _trigger_completion(event: KeyPressEvent) -> None:  # pragma: no cover
+                """Trigger completion using the custom completion key."""
+                b = event.current_buffer
+                if b.complete_state:
+                    b.complete_next()
+                else:
+                    b.start_completion(select_first=False)
+
+        @key_bindings.add("enter", filter=filters.completion_is_selected)
+        def _accept_completion(event: KeyPressEvent) -> None:  # pragma: no cover
+            """Accept a selected completion on Enter without submitting the command."""
+            event.current_buffer.complete_state = None
+
+        @key_bindings.add(Keys.BracketedPaste)
+        def _handle_bracketed_paste(event: KeyPressEvent) -> None:
+            """Handle bracketed paste by feeding lines as keystrokes separated by Enter.
+
+            By default, prompt_toolkit inserts pasted text as a single buffer blob.
+            Translating newlines into Enter keystrokes allows multiple pasted commands
+            to execute sequentially and multiline commands to continue as expected.
+            """
+            data = event.data.replace("\r\n", "\n").replace("\r", "\n")
+            if "\n" not in data:
+                event.current_buffer.insert_text(data)
+                return
+
+            key_presses = []
+            for i, line in enumerate(data.split("\n")):
+                if i > 0:
+                    key_presses.append(KeyPress(Keys.ControlM, "\r"))
+                if line:
+                    key_presses.append(KeyPress(Keys.Any, line))
+
+            event.key_processor.feed_multiple(key_presses)
+
+        return key_bindings
+
     def _create_main_session(
         self,
         *,
@@ -756,26 +802,6 @@ class Cmd:
         Otherwise, uses dummy drivers to support non-interactive streams like
         pipes or files.
         """
-        # Configure custom key bindings
-        key_bindings = KeyBindings()
-
-        # Add a binding for 'enter' that triggers only when a completion is selected.
-        # This allows accepting a completion without submitting the command.
-        @key_bindings.add("enter", filter=filters.completion_is_selected)
-        def _(event: Any) -> None:  # pragma: no cover
-            event.current_buffer.complete_state = None
-
-        if completekey != self.DEFAULT_COMPLETEKEY:
-            # Configure prompt_toolkit `KeyBindings` with the custom key for completion
-            @key_bindings.add(completekey)
-            def _(event: Any) -> None:  # pragma: no cover
-                """Trigger completion."""
-                b = event.current_buffer
-                if b.complete_state:
-                    b.complete_next()
-                else:
-                    b.start_completion(select_first=False)
-
         # Base configuration
         kwargs: dict[str, Any] = {
             "auto_suggest": AutoSuggestFromHistory() if auto_suggest else None,
@@ -785,8 +811,9 @@ class Cmd:
             "complete_in_thread": complete_in_thread,
             "complete_while_typing": False,
             "completer": Cmd2Completer(self),
+            "enable_suspend": True,
             "history": Cmd2History(item.raw for item in self.history),
-            "key_bindings": key_bindings,
+            "key_bindings": self._create_key_bindings(completekey),
             "lexer": Cmd2Lexer(self),
             "multiline": filters.Condition(self._should_continue_multiline),
             "prompt_continuation": self.continuation_prompt,
@@ -849,7 +876,7 @@ class Cmd:
         all_commandset_defs = CommandSet.__subclasses__()
         existing_commandset_types = [type(command_set) for command_set in self._installed_command_sets]
 
-        def load_commandset_by_type(commandset_types: list[type[CommandSet[Any]]]) -> None:
+        def load_commandset_by_type(commandset_types: Sequence[type[CommandSet[Any]]]) -> None:
             for cmdset_type in commandset_types:
                 # check if the type has sub-classes. We will only auto-load leaf class types.
                 subclasses = cmdset_type.__subclasses__()
@@ -2547,11 +2574,11 @@ class Cmd:
                             completer.complete, tokens=raw_tokens[1:] if spec.preserve_quotes else tokens[1:], cmd_set=cmd_set
                         )
                     else:
-                        completer_func = self.completedefault  # type: ignore[assignment]
+                        completer_func = self.completedefault  # type: ignore[assignment, ty:invalid-assignment]
 
             # Not a recognized macro or command
             else:
-                completer_func = self.completedefault  # type: ignore[assignment]
+                completer_func = self.completedefault  # type: ignore[assignment, ty:invalid-assignment]
 
         # Otherwise we are completing the command token or performing custom completion
         else:
@@ -2968,7 +2995,7 @@ class Cmd:
                 with self.sigint_protection:
                     if py_bridge_call:
                         # Start saving command's stdout at this point
-                        self.stdout.pause_storage = False  # type: ignore[attr-defined]
+                        self.stdout.pause_storage = False  # type: ignore[attr-defined, ty:invalid-assignment]
 
                     redir_saved_state = self._redirect_output(statement)
 
@@ -3007,7 +3034,7 @@ class Cmd:
 
                     if py_bridge_call:
                         # Stop saving command's stdout before command finalization hooks run
-                        self.stdout.pause_storage = True  # type: ignore[attr-defined]
+                        self.stdout.pause_storage = True  # type: ignore[attr-defined, ty:invalid-assignment]
         except (SkipPostcommandHooks, EmptyStatement):
             # Don't do anything, but do allow command finalization hooks to run
             pass
@@ -3512,7 +3539,7 @@ class Cmd:
                     self.active_session = self.main_session
 
         # We're not at a terminal, so we're likely reading from a file or a pipe.
-        prompt_obj = prompt() if callable(prompt) else prompt
+        prompt_obj = prompt if isinstance(prompt, (ANSI, str)) else prompt()
         prompt_str = prompt_obj.value if isinstance(prompt_obj, ANSI) else prompt_obj
 
         # If this is an interactive pipe, then display the prompt first
@@ -3613,6 +3640,7 @@ class Cmd:
             complete_in_thread=self.main_session.complete_in_thread,
             complete_while_typing=self.main_session.complete_while_typing,
             completer=completer_to_use,
+            enable_suspend=self.main_session.enable_suspend,
             history=InMemoryHistory(history) if history is not None else InMemoryHistory(),
             key_bindings=self.main_session.key_bindings,
             input=self.main_session.input,
@@ -3635,6 +3663,7 @@ class Cmd:
         """
         temp_session: PromptSession[str] = PromptSession(
             color_depth=self.main_session.color_depth,
+            enable_suspend=self.main_session.enable_suspend,
             input=self.main_session.input,
             output=self.main_session.output,
             style=self.main_session.style,
@@ -3800,7 +3829,7 @@ class Cmd:
             "An alias is a command that enables replacement of a word by another string.",
         )
         alias_parser = argparse_utils.DEFAULT_ARGUMENT_PARSER(description=alias_description)
-        alias_parser.epilog = TextGroup(
+        alias_parser.epilog = TextGroup(  # type: ignore[assignment, ty:invalid-assignment]
             "See Also",
             "macro",
         )
@@ -3832,7 +3861,7 @@ class Cmd:
                 "for the actual command the alias resolves to."
             ),
         )
-        alias_create_parser.epilog = TextGroup("Notes", alias_create_notes)
+        alias_create_parser.epilog = TextGroup("Notes", alias_create_notes)  # type: ignore[assignment, ty:invalid-assignment]
 
         # Add arguments
         alias_create_parser.add_argument("name", help="name of this alias")
@@ -4014,7 +4043,7 @@ class Cmd:
             "A macro is similar to an alias, but it can contain argument placeholders.",
         )
         macro_parser = argparse_utils.DEFAULT_ARGUMENT_PARSER(description=macro_description)
-        macro_parser.epilog = TextGroup(
+        macro_parser.epilog = TextGroup(  # type: ignore[assignment, ty:invalid-assignment]
             "See Also",
             "alias",
         )
@@ -4077,7 +4106,7 @@ class Cmd:
                 "This default behavior changes if custom completion for macro arguments has been implemented."
             ),
         )
-        macro_create_parser.epilog = TextGroup("Notes", macro_create_notes)
+        macro_create_parser.epilog = TextGroup("Notes", macro_create_notes)  # type: ignore[assignment, ty:invalid-assignment]
 
         # Add arguments
         macro_create_parser.add_argument("name", help="name of this macro")
@@ -4572,7 +4601,7 @@ class Cmd:
     @staticmethod
     def _build__eof_parser() -> Cmd2ArgumentParser:
         _eof_parser = argparse_utils.DEFAULT_ARGUMENT_PARSER(description="Called when Ctrl-D is pressed.")
-        _eof_parser.epilog = TextGroup(
+        _eof_parser.epilog = TextGroup(  # type: ignore[assignment, ty:invalid-assignment]
             "Note",
             "This command is for internal use and is not intended to be called from the command line.",
         )
@@ -5032,7 +5061,7 @@ class Cmd:
             # Check if we are running Python code
             if py_code_to_run:
                 try:  # noqa: SIM105
-                    interp.runcode(py_code_to_run)  # type: ignore[arg-type]
+                    interp.runcode(py_code_to_run)  # type: ignore[arg-type, ty:invalid-argument-type]
                 except BaseException:  # noqa: BLE001, S110
                     # We don't care about any exception that happened in the Python code
                     pass
@@ -5418,11 +5447,11 @@ class Cmd:
         try:
             import lzma as decompress_lib
 
-            decompress_exceptions: tuple[type[Exception]] = (decompress_lib.LZMAError,)
+            decompress_exceptions: tuple[type[Exception], ...] = (decompress_lib.LZMAError,)
         except ModuleNotFoundError:  # pragma: no cover
             import bz2 as decompress_lib  # type: ignore[no-redef]
 
-            decompress_exceptions: tuple[type[Exception]] = (OSError, ValueError)  # type: ignore[no-redef]
+            decompress_exceptions: tuple[type[Exception], ...] = (OSError, ValueError)  # type: ignore[no-redef]
 
         try:
             history_json = decompress_lib.decompress(compressed_bytes).decode(encoding="utf-8")
@@ -5471,7 +5500,7 @@ class Cmd:
     def _build_edit_parser(cls) -> Cmd2ArgumentParser:
         edit_description = "Run a text editor and optionally open a file with it."
         edit_parser = argparse_utils.DEFAULT_ARGUMENT_PARSER(description=edit_description)
-        edit_parser.epilog = TextGroup(
+        edit_parser.epilog = TextGroup(  # type: ignore[assignment, ty:invalid-assignment]
             "Note",
             Text.assemble(
                 "To set a new editor, run: ",
@@ -5593,7 +5622,7 @@ class Cmd:
         _relative_run_script_parser = cls._build_base_run_script_parser()
 
         # Append to existing description
-        _relative_run_script_parser.description = Group(
+        _relative_run_script_parser.description = Group(  # type: ignore[assignment, ty:invalid-assignment]
             cast(Group, _relative_run_script_parser.description),
             "\n",
             (
@@ -5602,7 +5631,7 @@ class Cmd:
             ),
         )
 
-        _relative_run_script_parser.epilog = TextGroup(
+        _relative_run_script_parser.epilog = TextGroup(  # type: ignore[assignment, ty:invalid-assignment]
             "Note",
             "This command is intended to be used from within a text script.",
         )

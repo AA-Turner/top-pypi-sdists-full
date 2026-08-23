@@ -48,8 +48,8 @@ static const float s_hb_fir[DDC_HB_TAPS] = {
 };
 
 static ddcr_state_t *
-_ddcr_new (double norm_freq, double rate, int pulse, double beta, size_t span,
-           double pulse_sps, size_t num_phases)
+ddcr_ddcr_new (double norm_freq, double rate, int pulse, double beta,
+               size_t span, double pulse_sps, size_t num_phases)
 {
   if (rate <= 0.0 || rate >= 0.5)
     return NULL;
@@ -96,7 +96,7 @@ _ddcr_new (double norm_freq, double rate, int pulse, double beta, size_t span,
 ddcr_state_t *
 ddcr_create (double norm_freq, double rate)
 {
-  return _ddcr_new (norm_freq, rate, RC_PULSE_NONE, 0.0, 0, 0.0, 0);
+  return ddcr_ddcr_new (norm_freq, rate, RC_PULSE_NONE, 0.0, 0, 0.0, 0);
 }
 
 ddcr_state_t *
@@ -105,7 +105,8 @@ ddcr_create_matched (double norm_freq, double rate, int pulse, double beta,
 {
   if (pulse == RC_PULSE_NONE)
     return NULL;
-  return _ddcr_new (norm_freq, rate, pulse, beta, span, pulse_sps, num_phases);
+  return ddcr_ddcr_new (norm_freq, rate, pulse, beta, span, pulse_sps,
+                        num_phases);
 }
 
 void
@@ -279,6 +280,16 @@ ddcr_execute_ctrl_push_tap (ddcr_state_t *s, float x, double rate_ctrl,
                             double freq_ctrl, float _Complex *out,
                             size_t max_out, float _Complex *lo_out, int *n_lo)
 {
+  return ddcr_execute_ctrl_push_tap2 (s, x, rate_ctrl, freq_ctrl, out, max_out,
+                                      lo_out, n_lo, NULL, NULL);
+}
+
+size_t
+ddcr_execute_ctrl_push_tap2 (ddcr_state_t *s, float x, double rate_ctrl,
+                             double freq_ctrl, float _Complex *out,
+                             size_t max_out, float _Complex *lo_out, int *n_lo,
+                             float _Complex *pre_out, int *n_pre)
+{
   /* The 2:1 halfband is the block API's own state machine — one sample in,
      0 or 1 intermediate samples out.  Half the pushes end here, and on those
      the LO does not step at all, so there is no post-LO sample to tap. */
@@ -287,6 +298,8 @@ ddcr_execute_ctrl_push_tap (ddcr_state_t *s, float x, double rate_ctrl,
     {
       if (n_lo)
         *n_lo = 0;
+      if (n_pre)
+        *n_pre = 0;
       return 0;
     }
 
@@ -295,7 +308,14 @@ ddcr_execute_ctrl_push_tap (ddcr_state_t *s, float x, double rate_ctrl,
     *lo_out = z;
   if (n_lo)
     *n_lo = 1;
-  return RateConverter_execute_ctrl_push (s->rc, z, rate_ctrl, out, max_out);
+  return RateConverter_execute_ctrl_push_tap (s->rc, z, rate_ctrl, out,
+                                              max_out, pre_out, n_pre);
+}
+
+double
+ddcr_get_bank_sps (const ddcr_state_t *s)
+{
+  return RateConverter_get_bank_sps (s->rc);
 }
 
 size_t
@@ -316,4 +336,11 @@ bool
 ddcr_get_clipped (const ddcr_state_t *s)
 {
   return RateConverter_get_clipped (s->rc) != 0;
+}
+
+int
+ddcr_set_telemetry (ddcr_state_t *s, dp_tlm_t *tlm, const char *prefix,
+                    uint32_t decim)
+{
+  return RateConverter_set_telemetry (s->rc, tlm, prefix, decim);
 }

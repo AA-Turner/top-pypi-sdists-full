@@ -1,4 +1,6 @@
+import json
 import os
+import zlib
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import (
@@ -83,8 +85,8 @@ class SnapshotSession:
 
     # Snapshot report generated on finish
     report: Optional["SnapshotReport"] = None
-    # All the collected test items
-    _collected_items: set["pytest.Item"] = field(default_factory=set)
+    # All the collected test items, keyed by nodeid to preserve collection order
+    _collected_items: dict[str, "pytest.Item"] = field(default_factory=dict)
     # All the selected test items. Will be set to False until the test item is run.
     _selected_items: dict[str, ItemStatus] = field(default_factory=dict)
     _assertions: list["SnapshotAssertion"] = field(default_factory=list)
@@ -130,21 +132,30 @@ class SnapshotSession:
             extension, test_location, index
         )
         self._queued_snapshot_writes[ext_key][loc_key] = data
+        if extension.write_immediately:
+            self._flush_snapshot_write_queue_key(ext_key)
+
+    def _flush_snapshot_write_queue_key(
+        self, ext_key: _QueuedWriteExtensionKey
+    ) -> None:
+        queued_write = self._queued_snapshot_writes.pop(ext_key, None)
+        if not queued_write:
+            return
+        extension_class, snapshot_location = ext_key
+        name_order = (
+            self.snapshot_name_order() if self.snapshot_declaration_order else None
+        )
+        extension_class.write_snapshot(
+            snapshot_location=snapshot_location,
+            snapshots=[
+                (data, loc, index) for (loc, index), data in queued_write.items()
+            ],
+            name_order=name_order,
+        )
 
     def flush_snapshot_write_queue(self) -> None:
-        for (
-            extension_class,
-            snapshot_location,
-        ), queued_write in self._queued_snapshot_writes.items():
-            if queued_write:
-                extension_class.write_snapshot(
-                    snapshot_location=snapshot_location,
-                    snapshots=[
-                        (data, loc, index)
-                        for (loc, index), data in queued_write.items()
-                    ],
-                )
-        self._queued_snapshot_writes.clear()
+        for ext_key in list(self._queued_snapshot_writes):
+            self._flush_snapshot_write_queue_key(ext_key)
 
     def recall_snapshot(
         self,
@@ -174,8 +185,34 @@ class SnapshotSession:
     def warn_unused_snapshots(self) -> bool:
         return bool(self.pytest_session.config.option.warn_unused_snapshots)
 
+    @property
+    def disable_unused_snapshots(self) -> bool:
+        return bool(
+            getattr(
+                self.pytest_session.config.option, "disable_unused_snapshots", False
+            )
+        )
+
+    @property
+    def snapshot_declaration_order(self) -> bool:
+        return bool(
+            getattr(
+                self.pytest_session.config.option, "snapshot_declaration_order", False
+            )
+        )
+
+    def snapshot_name_order(self) -> dict[str, int]:
+        """Map snapshot names to pytest collection index (declaration order)."""
+        order: dict[str, int] = {}
+        for index, item in enumerate(self._collected_items.values()):
+            name = PyTestLocation(item).snapshot_name
+            if name not in order:
+                order[name] = index
+        return order
+
     def collect_items(self, items: list["pytest.Item"]) -> None:
-        self._collected_items.update(self.filter_valid_items(items))
+        for item in self.filter_valid_items(items):
+            self._collected_items[item.nodeid] = item
 
     def select_items(self, items: list["pytest.Item"]) -> None:
         for item in self.filter_valid_items(items):
@@ -185,7 +222,7 @@ class SnapshotSession:
 
     def start(self) -> None:
         self.report = None
-        self._collected_items = set()
+        self._collected_items = {}
         self._selected_items = {}
         self._assertions = []
         self._extensions = {}
@@ -216,11 +253,13 @@ class SnapshotSession:
         output = getattr(self.pytest_session.config, "workeroutput", None)
         if output is None or self.report is None:
             return
+        collections = {
+            name: getattr(self.report, name).serialize() for name in _MERGED_COLLECTIONS
+        }
         payload: dict[str, Any] = {
-            "collections": {
-                name: getattr(self.report, name).serialize()
-                for name in _MERGED_COLLECTIONS
-            },
+            "collections": zlib.compress(
+                json.dumps(collections, separators=(",", ":")).encode()
+            ),
             "num_xfails": self.report._num_xfails,
             "selected": {
                 nodeid: status.value for nodeid, status in self._selected_items.items()
@@ -237,7 +276,7 @@ class SnapshotSession:
         # worker needs to send it to avoid transmitting it once per worker.
         if os.getenv("PYTEST_XDIST_WORKER") == "gw0":
             payload["collected"] = [
-                self._serialize_item(item) for item in self._collected_items
+                self._serialize_item(item) for item in self._collected_items.values()
             ]
         output["syrupy_report"] = payload
 
@@ -250,7 +289,12 @@ class SnapshotSession:
         selected: dict[str, ItemStatus] = {}
         for report in self._worker_reports:
             self.report._num_xfails += report["num_xfails"]
-            for name, serialized in report["collections"].items():
+            serialized_collections = report["collections"]
+            if isinstance(serialized_collections, bytes):
+                serialized_collections = json.loads(
+                    zlib.decompress(serialized_collections)
+                )
+            for name, serialized in serialized_collections.items():
                 getattr(self.report, name).merge_serialized(serialized)
             for nodeid, value in report["selected"].items():
                 status = ItemStatus(value)
@@ -269,28 +313,33 @@ class SnapshotSession:
                     for item in report["collected"]
                 }
         self.report.selected_items = selected
+        self.report._invalidate_selection_caches()
 
     def finish(self) -> int:
         exitstatus = 0
         self.flush_snapshot_write_queue()
         self.report = SnapshotReport(
             base_dir=self.pytest_session.config.rootpath,
-            collected_items=self._collected_items,
+            collected_items=set(self._collected_items.values()),
             selected_items=self._selected_items,
             assertions=self._assertions,
             options=self.pytest_session.config.option,
         )
 
         if is_xdist_worker():
-            # Publish this worker's report so the controller can combine the
-            # reports of all workers and handle unused snapshot detection.
-            self._publish_worker_report()
+            # When unused detection is disabled there is nothing for the
+            # controller to merge; skip the worker report (5.4-like xdist cost).
+            if not self.disable_unused_snapshots:
+                self._publish_worker_report()
             return exitstatus
 
         # On the pytest-xdist controller no tests run locally, so the report is
         # rebuilt from the reports published by each worker.
         if self._worker_reports:
             self._merge_worker_reports()
+
+        if self.disable_unused_snapshots:
+            return exitstatus
 
         if self.report.num_unused:
             if self.report.should_delete_unused_snapshots:
@@ -304,6 +353,9 @@ class SnapshotSession:
 
     def register_request(self, assertion: "SnapshotAssertion") -> None:
         self._assertions.append(assertion)
+
+        if self.disable_unused_snapshots:
+            return
 
         test_location = assertion.test_location.filepath
         extension_class = assertion.extension.__class__

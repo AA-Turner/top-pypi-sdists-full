@@ -1101,6 +1101,37 @@ fn draft4_integer_values_are_a_typed_group(schema: &Value) {
     assert_eq!(group.body.kind(), CanonicalKind::Enum);
 }
 
+// Draft 4 gives `1` and `1.0` different types, so an element demand taking only the first leaves
+// the part of the member it takes rather than the whole member or nothing.
+#[test]
+fn draft4_an_element_demand_keeps_the_member_spelling_it_takes() {
+    let draft4 = || options().with_draft(Draft::Draft4);
+    let member = draft4()
+        .canonicalize(&json!({"enum": [[1]]}))
+        .expect("canonicalizes");
+    let elements = draft4()
+        .canonicalize(&json!({
+            "type": "array",
+            "items": {"type": "number", "not": {"type": "integer"}}
+        }))
+        .expect("canonicalizes");
+    let difference = member
+        .subtract(&elements)
+        .expect("subtracts")
+        .to_json_schema();
+    let validator = jsonschema::options()
+        .with_draft(Draft::Draft4)
+        .build(&difference)
+        .expect("compiles");
+    assert!(validator.is_valid(&json!([1])));
+    assert!(!validator.is_valid(&json!([1.0])));
+    // Only `Yes` claims containment, and the member holds a value the element demand refuses.
+    assert_ne!(
+        elements.covers(&member).expect("compares"),
+        Containment::Yes
+    );
+}
+
 // An `anyOf` whose branches stay disjoint surfaces as an AnyOf view exposing each branch.
 #[test]
 fn view_exposes_anyof_branches() {
@@ -3516,7 +3547,9 @@ fn an_operand_mismatch_says_what_disagreed(mismatch: OperandMismatch, expected: 
 #[test_case(&json!({"type": "string", "minLength": 2}), Satisfiability::Yes; "a length window holds strings")]
 #[test_case(&json!({"type": "array", "items": {"type": "string"}}), Satisfiability::Yes; "an array window holds the empty array")]
 #[test_case(&json!({"type": "object", "properties": {"a": false}}), Satisfiability::Yes; "an object window holds the empty object")]
-#[test_case(&json!({"type": "string", "pattern": "^a"}), Satisfiability::Unknown; "a pattern is left undecided")]
+#[test_case(&json!({"type": "string", "pattern": "^a"}), Satisfiability::Yes; "a value is built from a pattern anchored at the start")]
+#[test_case(&json!({"type": "string", "pattern": "a.b"}), Satisfiability::Yes; "a value is built from a pattern with a wildcard")]
+#[test_case(&json!({"type": "string", "pattern": "a{100}"}), Satisfiability::Unknown; "a pattern with more repetitions than are written out is left undecided")]
 #[test_case(&json!({"type": "integer", "multipleOf": 3}), Satisfiability::Yes; "zero is a multiple of every divisor")]
 #[test_case(&json!({"type": "object", "required": ["a"]}), Satisfiability::Yes; "an object carrying the key it requires")]
 #[test_case(&json!({"type": "array", "minItems": 2, "items": {"type": "integer"}}), Satisfiability::Yes; "an array as long as it must be")]
@@ -4539,6 +4572,34 @@ fn negate_declines(schema: &Value) {
         canonicalize(schema).expect("canonicalizes").negate(),
         Err(CanonicalizationError::UnsupportedResult)
     ));
+}
+
+// A definition whose `if` reads it back is the validator's answer, not the algebra's, so negation
+// bars the pointer whole - as it does for a choice reading its own target.
+#[test]
+fn a_condition_reading_its_own_definition_is_barred_whole() {
+    let ill_founded = canonicalize(&json!({
+        "$defs": {"t": {
+            "if": {"$ref": "#/$defs/t"},
+            "then": {"type": "array"},
+            "else": {"type": "null"}
+        }},
+        "$ref": "#/$defs/t"
+    }))
+    .expect("canonicalizes");
+    let barred = ill_founded.negate().expect("negates");
+    let (whole, complement) = (
+        validator_for(&ill_founded.to_json_schema()).expect("builds"),
+        validator_for(&barred.to_json_schema()).expect("builds"),
+    );
+    for instance in [json!(null), json!([1]), json!({}), json!("x"), json!(1)] {
+        assert_eq!(
+            !whole.is_valid(&instance),
+            complement.is_valid(&instance),
+            "the complement disagrees on {instance}\n  complement = {}",
+            barred.to_json_schema()
+        );
+    }
 }
 
 // Each definition resolves twice per level, so the complement's size doubles with depth; the walk

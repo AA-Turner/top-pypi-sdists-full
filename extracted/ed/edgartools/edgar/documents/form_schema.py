@@ -101,6 +101,14 @@ class FormSchema:
     # flagged with a warning and reduced confidence rather than silently returned
     # (Verification Constitution #2; edgartools-9hwf). Curated from the h44r
     # fixture corpus; empty for forms with no enforced bands.
+    #
+    # On a form whose item numbers repeat across parts the bare item is not a
+    # key: a 10-Q has two Item 1s, Financial Statements in Part I (~90k chars)
+    # and Legal Proceedings in Part II (a few hundred, often a pointer), and
+    # judging the second against the first's band flagged correctly-extracted
+    # sections on most of the corpus (edgartools-xhmd). Such an item is written
+    # part-qualified, ``"II:6"``, and matches only in that Part; a bare key
+    # matches in any Part, which is right for 10-K, whose items are unique.
     size_bands: Tuple[Tuple[str, int, int], ...] = ()
     # Section/title vocabulary for the regex pattern extractor, as
     # {section_key: ((regex, title), ...)}. Item-based forms (10-K/10-Q/20-F/8-K)
@@ -144,18 +152,29 @@ class FormSchema:
                 return i
         return 99999
 
-    def band_for(self, item_key: Optional[str]) -> Optional[Tuple[int, int]]:
-        """Return the ``(low, high)`` size band for a bare item key, or None.
+    def band_for(self, item_key: Optional[str],
+                 part: Optional[str] = None) -> Optional[Tuple[int, int]]:
+        """Return the ``(low, high)`` size band for an item key, or None.
 
         None means the item is not size-enforced on this form (so callers must
         not flag it), matching the pre-schema ``SIZE_BANDS.get(form, {}).get(...)``
         miss behaviour.
+
+        ``part`` is the section's Part ("II", or "Part II"), needed only on forms
+        that qualify a band by Part — see :attr:`size_bands`. A part-qualified
+        band matches only when the caller names that Part, so a caller with no
+        Part context gets None rather than another Part's band.
         """
         if not item_key:
             return None
         key = item_key.upper()
+        want_part = part.upper().replace("PART", "").strip() if part else None
         for k, low, high in self.size_bands:
-            if k == key:
+            if ":" in k:
+                band_part, band_item = (s.strip() for s in k.split(":", 1))
+                if band_item == key and want_part is not None and band_part == want_part:
+                    return (low, high)
+            elif k == key:
                 return (low, high)
         return None
 
@@ -297,10 +316,16 @@ _TEN_K_SIZE_BANDS = (
                                 # Floor was an artifact of Item 16 absorbing the
                                 # signatures block before edgartools-nqzc split it.
 )
+# Every 10-Q band is Part-qualified: this form's item numbers repeat, and the
+# corpus these were derived from collapsed the two Item 1s (and the two Item 2s)
+# into one bucket, keeping the larger. The values below are therefore Part I's
+# all along — they were never a description of Part II's Legal Proceedings or
+# Unregistered Sales, which are legitimately short and are left unenforced
+# (edgartools-xhmd). Part II's Exhibits is the one 10-Q item with no twin.
 _TEN_Q_SIZE_BANDS = (
-    ("1", 18_009, 720_376),     # Financial Statements
-    ("2", 10_134, 405_368),     # MD&A
-    ("6", 518,    20_720),      # Exhibits
+    ("I:1", 18_009, 720_376),   # Part I — Financial Statements
+    ("I:2", 10_134, 405_368),   # Part I — MD&A
+    ("II:6", 518,   20_720),    # Part II — Exhibits
 )
 
 # What a filer may put between an item number and its title.
@@ -321,7 +346,18 @@ _TEN_Q_SIZE_BANDS = (
 # colon and semicolon are new for all three forms. 8-K is not a caller: its
 # numbers are dotted ("Item 5.02") and the period there is structural, not a
 # separator.
-_ITEM_SEP = r'\s*[.:;\-–—]?\s*[-–—.]?\s*'
+#
+# The leading slot is a parenthesized designation attached to the item number
+# rather than punctuation: "ITEM 9A(T). CONTROLS AND PROCEDURES". Item 9A(T) was
+# the SEC's transitional designation for a smaller reporting company's
+# internal-control report, roughly 2007-2010, so it is a cohort of filings and
+# not a filer's quirk. Without this slot the "(" stopped the match dead and no
+# controls_procedures section was created, leaving `tenk["Item 9A"]` reachable
+# only through the ChunkedDocument fallback 6.0 deletes (edgartools-dt1f.1
+# Defect B). One letter only, so a Regulation AB number like "Item 1112(b)"
+# cannot be read as item 11 with a designation — and the title that every
+# pattern requires next already rules that out independently.
+_ITEM_SEP = r'(?:\s*\([A-Za-z]\))?\s*[.:;\-–—]?\s*[-–—.]?\s*'
 
 # Per-form section/title vocabulary for the regex pattern extractor (moved here
 # from SectionExtractor.SECTION_PATTERNS — FormSchema is the single home of form
@@ -388,8 +424,24 @@ _TEN_K_SECTION_PATTERNS = {
     # "Exhibits") are common enough as ordinary headings that a bare-title
     # alternative would match unrelated blocks.  Keys use the part_N_item_N
     # convention so Section.parse_section_name() resolves part and item.
+    # Items 4 and 14 have each carried TWO titles, and only the modern one was
+    # here — so on a pre-2011 filing the header was found as a candidate and
+    # then discarded at match time, and the item was reachable only through the
+    # ChunkedDocument fallback 6.0 deletes (edgartools-dt1f.1 Defect A). The
+    # blast radius is every 10-K from before the relevant renumbering, not the
+    # one fixture that surfaced it.
+    #
+    # Item 4 was "Submission of Matters to a Vote of Security Holders" until the
+    # SEC moved mine-safety disclosure into it in 2011 (Dodd-Frank s.1503).
+    # Both titles are kept, rather than dropping the title requirement: this
+    # form's Item 4 has no bare-title alternative on purpose (see the comment
+    # above), and a title-optional pattern would match any bare "Item 4" marker
+    # — including a filing's own sub-headers, which is what makes the shape
+    # unsafe for Item 14 below.
     'part_i_item_4': (
         (f'^(Item|ITEM)\\s+4{_ITEM_SEP}Mine\\s+Safety', 'Item 4 - Mine Safety Disclosures'),
+        (f'^(Item|ITEM)\\s+4{_ITEM_SEP}Submission\\s+of\\s+Matters',
+         'Item 4 - Submission of Matters to a Vote of Security Holders'),
     ),
     'part_ii_item_5': (
         (f'^(Item|ITEM)\\s+5{_ITEM_SEP}Market\\s+for', 'Item 5 - Market for Registrant\'s Common Equity'),
@@ -429,8 +481,23 @@ _TEN_K_SECTION_PATTERNS = {
     'part_iii_item_13': (
         (f'^(Item|ITEM)\\s+13{_ITEM_SEP}Certain\\s+Relationships', 'Item 13 - Certain Relationships and Related Transactions'),
     ),
+    # Exhibits were Item 14 until the 2003 renumbering (Sarbanes-Oxley
+    # implementation) moved them to Item 15 and gave Item 14 to accountant fees,
+    # so a pre-2003 "Item 14: Exhibits, Financial Statement Schedules and
+    # Reports on Form 8-K" needs the older title here. The key stays
+    # part_iii_item_14 even though that filing files exhibits under Part IV:
+    # TenK.__getitem__ resolves "Item 14" through _ITEM_TO_PART_10K, which is
+    # the modern map, so the canonical key is what the lookup asks for.
+    #
+    # The title is REQUIRED, not optional. This filing writes its own exhibit
+    # sub-headers as bold "Item 14(a)(1):", "Item 14 (a)(2):", "Item 14 (a)(3):"
+    # — bare item markers with no title — and since _ITEM_SEP now absorbs a
+    # one-letter designation, a title-optional Item 14 pattern would match all
+    # three and cut the section into fragments at its own sub-headers.
     'part_iii_item_14': (
         (f'^(Item|ITEM)\\s+14{_ITEM_SEP}Principal\\s+Accountant', 'Item 14 - Principal Accountant Fees and Services'),
+        (f'^(Item|ITEM)\\s+14{_ITEM_SEP}Exhibits',
+         'Item 14 - Exhibits, Financial Statement Schedules and Reports on Form 8-K'),
     ),
     # Part IV — Item 16 (Form 10-K Summary, optional).  Item 15 (Exhibits) is
     # already represented in the TOC-extraction path as 'part_iv_item_15'.

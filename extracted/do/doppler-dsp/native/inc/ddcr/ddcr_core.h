@@ -64,6 +64,8 @@
 #include "cic/cic_core.h"
 #include "fir/fir_core.h"
 #include "resample/resample_core.h"
+#include "agc/agc_core.h"
+#include "dp_tlm/dp_tlm_core.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -299,8 +301,8 @@ extern "C"
    * (1024,)
    * >>> y.dtype
    * dtype('complex64')
-   * >>> round(float(abs(y[500])), 2)   # one-sided cosine amplitude ≈ 0.5
-   * 0.5
+   * >>> round(float(abs(y[500])), 2)   # analytic signal of a unit cosine
+   * 1.0
    * @endcode
    */
   size_t ddcr_execute (ddcr_state_t *s, const float *in, size_t n_in,
@@ -344,8 +346,8 @@ extern "C"
    * >>> y = ddcr.execute_ctrl(x, 0.0, -0.2)     # ctrl completes the tune
    * >>> y.shape
    * (1024,)
-   * >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 0.5
-   * 0.5
+   * >>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 1.0
+   * 1.0
    *
    * @endcode
    */
@@ -421,6 +423,45 @@ extern "C"
                                      float _Complex *lo_out, int *n_lo);
 
   /**
+   * @brief ddcr_execute_ctrl_push_tap(), plus the MFR-INPUT tap.
+   *
+   * The real-input twin of ddc_execute_ctrl_push_tap2(). @p pre_out receives
+   * the cascade's output after every integer stage and after the AGC but
+   * ahead of the terminal matched filter — the node an NDA carrier
+   * discriminator can read with no symbol timing. Its rate is
+   * ddcr_get_bank_sps() samples per symbol.
+   *
+   * The halfband gates the whole call: on the inputs it swallows there is no
+   * LO step and no cascade push, so @p n_lo and @p n_pre both come back 0.
+   *
+   * @param s         Must be non-NULL.
+   * @param x          One real input sample.
+   * @param rate_ctrl  Rate deviation for this input (terminal-stage rate).
+   * @param freq_ctrl  Frequency deviation, cycles/sample at the LO's own
+   *                   (halved) intermediate rate.
+   * @param out        Output buffer for any emitted outputs.
+   * @param max_out    Capacity of @p out.
+   * @param lo_out     Receives the post-LO, pre-cascade sample when @p n_lo
+   *                   comes back 1. May be NULL.
+   * @param n_lo       Receives 1 when the halfband emitted and the LO
+   *                   stepped, else 0. May be NULL.
+   * @param pre_out    Receives the MFR-input sample; may be NULL.
+   * @param n_pre      Receives 1 if @p pre_out was written, else 0; may be
+   *                   NULL.
+   * @return Number of terminal outputs written.
+   */
+  size_t ddcr_execute_ctrl_push_tap2 (ddcr_state_t *s, float x,
+                                      double rate_ctrl, double freq_ctrl,
+                                      float _Complex *out, size_t max_out,
+                                      float _Complex *lo_out, int *n_lo,
+                                      float _Complex *pre_out, int *n_pre);
+
+  /** @brief Samples per symbol of the MFR-input tap; a planner outcome.
+   *  Identical to the complex twin's at every rate ratio — `bank_sps` is
+   *  symbol-relative, so the halfband's 2:1 is absorbed by the plan. */
+  double ddcr_get_bank_sps (const ddcr_state_t *s);
+
+  /**
    * @brief Is this object's rectangular matched filter degenerately narrow?
    *
    * The real chain's copy of ddc_get_narrow_pulse(): true only for the
@@ -439,6 +480,25 @@ extern "C"
    * comfortably inside the CIC's bound — but a scaled-up input does not.
    */
   bool ddcr_get_clipped (const ddcr_state_t *s);
+
+  /**
+   * @brief Attach (or detach) a telemetry context on the cascade's AGC.
+   *
+   * The twin of ddc_set_telemetry(), forwarded to the same
+   * RateConverter_set_telemetry() over the same cascade: the R2C front end and
+   * the fixed stages have no loop to report, so the one instrumented child is
+   * the pre-terminal AGC ("<prefix>.gain_db" and "<prefix>.level_db"). DP_OK
+   * with no probes when the cascade has no AGC enabled.
+   *
+   * @param s      Must be non-NULL.
+   * @param tlm    Telemetry context to attach, or NULL to detach.
+   * @param prefix Probe-name prefix, e.g. "rx.agc".
+   * @param decim  Emit every decim-th gain update; >= 1.
+   * @return DP_OK, or DP_ERR_INVALID when the probe table cannot take the
+   *         AGC's probes (the attach fails whole).
+   */
+  int ddcr_set_telemetry (ddcr_state_t *s, dp_tlm_t *tlm, const char *prefix,
+                          uint32_t decim);
 
 
 #ifdef __cplusplus

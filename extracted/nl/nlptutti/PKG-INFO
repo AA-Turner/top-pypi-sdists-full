@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nlptutti
-Version: 0.0.0.20
+Version: 0.0.0.22
 Summary: Korean STT CER, WER, and CRR metrics with explicit normalization and reproducible reports
 Author-email: hyeonsangjeon <wungnut0310@gmail.com>
 License: MIT
@@ -43,6 +43,13 @@ Markdown으로 비교하는 Python 패키지입니다.
 Microsoft Azure Speech, Amazon Transcribe, Google Cloud Speech-to-Text 같은
 클라우드 STT와 OpenAI Whisper, FunASR 같은 오픈소스 도구가 만든 **출력**을
 평가합니다. 음성을 전사하거나 모델을 내려받는 패키지는 아닙니다.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hyeonsangjeon/computing-Korean-STT-error-rates/main/pic/FORMULA_CASE.png" alt="표준 CER·WER와 Nlptutti normalized 오류율 공식" width="640">
+</p>
+<p align="center">
+  <sub><strong>S</strong> 치환 · <strong>D</strong> 삭제 · <strong>I</strong> 삽입 · <strong>N</strong> 참조 단위 수 · <strong>C</strong> 정답 일치 수</sub>
+</p>
 
 ## 1분 빠른 시작
 

@@ -1,3 +1,9 @@
+from collections.abc import Sequence
+from typing import (
+    Any,
+    cast,
+)
+
 import rlp
 
 from trie.constants import (
@@ -41,27 +47,27 @@ from .nibbles import (
 )
 
 
-def get_node_type(node):
+def get_node_type(node: RawHexaryNode) -> int:
     if node == BLANK_NODE:
         return NODE_TYPE_BLANK
-    elif len(node) == 2:
+    elif isinstance(node, list) and len(node) == 2:
         key, _ = node
-        nibbles = decode_nibbles(key)
+        nibbles = decode_nibbles(cast(bytes, key))
         if is_nibbles_terminated(nibbles):
             return NODE_TYPE_LEAF
         else:
             return NODE_TYPE_EXTENSION
-    elif len(node) == 17:
+    elif isinstance(node, list) and len(node) == 17:
         return NODE_TYPE_BRANCH
     else:
         raise InvalidNode("Unable to determine node type")
 
 
-def is_blank_node(node):
+def is_blank_node(node: Any) -> bool:
     return node == BLANK_NODE
 
 
-def is_leaf_node(node):
+def is_leaf_node(node: list) -> bool:
     if len(node) != 2:
         return False
     key, _ = node
@@ -69,7 +75,7 @@ def is_leaf_node(node):
     return is_nibbles_terminated(nibbles)
 
 
-def is_extension_node(node):
+def is_extension_node(node: list) -> bool:
     if len(node) != 2:
         return False
     key, _ = node
@@ -77,11 +83,11 @@ def is_extension_node(node):
     return not is_nibbles_terminated(nibbles)
 
 
-def is_branch_node(node):
+def is_branch_node(node: list) -> bool:
     return len(node) == 17
 
 
-def decode_node(encoded_node_or_hash):
+def decode_node(encoded_node_or_hash: bytes | list) -> bytes | list:
     if encoded_node_or_hash == BLANK_NODE:
         return BLANK_NODE
     elif isinstance(encoded_node_or_hash, list):
@@ -90,28 +96,34 @@ def decode_node(encoded_node_or_hash):
         return rlp.decode(encoded_node_or_hash)
 
 
-def extract_key(node):
+def extract_key(node: RawHexaryNode) -> tuple[int, ...]:
+    if not isinstance(node, list):
+        raise InvalidNode("Blank node does not have a key")
     prefixed_key, _ = node
-    key = remove_nibbles_terminator(decode_nibbles(prefixed_key))
+    key = remove_nibbles_terminator(decode_nibbles(cast(bytes, prefixed_key)))
     return key
 
 
-def compute_leaf_key(nibbles):
+def compute_leaf_key(nibbles: Sequence[int]) -> bytes:
     return encode_nibbles(add_nibbles_terminator(nibbles))
 
 
-def compute_extension_key(nibbles):
+def compute_extension_key(nibbles: Sequence[int]) -> bytes:
     return encode_nibbles(nibbles)
 
 
-def get_common_prefix_length(left_key, right_key):
-    for idx, (left_nibble, right_nibble) in enumerate(zip(left_key, right_key)):
+def get_common_prefix_length(left_key: Sequence[Any], right_key: Sequence[Any]) -> int:
+    for idx, (left_nibble, right_nibble) in enumerate(
+        zip(left_key, right_key, strict=False)
+    ):
         if left_nibble != right_nibble:
             return idx
     return min(len(left_key), len(right_key))
 
 
-def consume_common_prefix(left_key, right_key):
+def consume_common_prefix(
+    left_key: Sequence[int], right_key: Sequence[int]
+) -> tuple[Sequence[int], Sequence[int], Sequence[int]]:
     common_prefix_length = get_common_prefix_length(left_key, right_key)
     common_prefix = left_key[:common_prefix_length]
     left_remainder = left_key[common_prefix_length:]
@@ -119,15 +131,17 @@ def consume_common_prefix(left_key, right_key):
     return common_prefix, left_remainder, right_remainder
 
 
-def key_starts_with(full_key, partial_key):
+def key_starts_with(full_key: tuple, partial_key: tuple) -> bool:
     if len(full_key) < len(partial_key):
         return False
     else:
-        return all(left == right for left, right in zip(full_key, partial_key))
+        return all(
+            left == right for left, right in zip(full_key, partial_key, strict=False)
+        )
 
 
 # Binary Trie node utils
-def parse_node(node):
+def parse_node(node: bytes) -> tuple[int, bytes, bytes]:
     """
     Input: a serialized node
     """
@@ -149,12 +163,14 @@ def parse_node(node):
         if len(node) == 1:
             raise InvalidNode("Invalid leaf node, can not contain empty value")
         # Output: node type, None, value
-        return LEAF_TYPE, None, node[1:]
+        # The second field has no meaning for a leaf. Keep the runtime sentinel for
+        # backwards compatibility while exposing the byte-only fields used by callers.
+        return LEAF_TYPE, None, node[1:]  # type: ignore[return-value]
     else:
         raise InvalidNode("Unable to parse node")
 
 
-def encode_kv_node(keypath, child_node_hash):
+def encode_kv_node(keypath: bytes, child_node_hash: bytes) -> bytes:
     """
     Serializes a key/value node
     """
@@ -166,7 +182,9 @@ def encode_kv_node(keypath, child_node_hash):
     return KV_TYPE_PREFIX + encode_from_bin_keypath(keypath) + child_node_hash
 
 
-def encode_branch_node(left_child_node_hash, right_child_node_hash):
+def encode_branch_node(
+    left_child_node_hash: bytes, right_child_node_hash: bytes
+) -> bytes:
     """
     Serializes a branch node
     """
@@ -177,7 +195,7 @@ def encode_branch_node(left_child_node_hash, right_child_node_hash):
     return BRANCH_TYPE_PREFIX + left_child_node_hash + right_child_node_hash
 
 
-def encode_leaf_node(value):
+def encode_leaf_node(value: bytes) -> bytes:
     """
     Serializes a leaf node
     """
@@ -195,7 +213,7 @@ def annotate_node(node_body: RawHexaryNode) -> HexaryTrieNode:
     if node_type == NODE_TYPE_LEAF:
         return HexaryTrieNode(
             sub_segments=(),
-            value=bytes(node_body[-1]),
+            value=bytes(cast(bytes, node_body[-1])),
             suffix=Nibbles(extract_key(node_body)),
             raw=node_body,
             node_type=NodeType(node_type),
@@ -206,7 +224,7 @@ def annotate_node(node_body: RawHexaryNode) -> HexaryTrieNode:
         )
         return HexaryTrieNode(
             sub_segments=sub_segments,
-            value=bytes(node_body[-1]),
+            value=bytes(cast(bytes, node_body[-1])),
             suffix=Nibbles(()),
             raw=node_body,
             node_type=NodeType(node_type),

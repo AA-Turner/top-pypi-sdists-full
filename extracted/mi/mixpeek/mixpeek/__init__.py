@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.415"
+__version__ = "1.3.430"
 
 # Define package exports
 __all__ = [
@@ -852,6 +852,7 @@ __all__ = [
     "PageTabInput",
     "PageTabOutput",
     "Pagination",
+    "Pagination1",
     "PaginationMetadata",
     "PaginationResponse",
     "Parameters",
@@ -914,6 +915,7 @@ __all__ = [
     "PublishedExtractorResponse",
     "PublishedRetrieverResponse",
     "Query",
+    "QueryOutcome",
     "RSSConfig",
     "RSSFieldSource",
     "RSSHttpHeaderCredentials",
@@ -924,6 +926,7 @@ __all__ = [
     "RawInferenceRequest",
     "RawInferenceResponse",
     "RecentError",
+    "RecommendationCoverage",
     "ReconcileSettings",
     "RedeemPromoRequest",
     "RedeemPromoResponse",
@@ -1282,6 +1285,9 @@ __all__ = [
     "TriggerHistoryRequest",
     "TriggerOn",
     "TrustTier",
+    "TypeaheadCollectionSuggestion",
+    "TypeaheadResponse",
+    "TypeaheadValueSuggestion",
     "UMAPParams",
     "UnifiedExtractorListResponse",
     "UnifiedExtractorResponse",
@@ -2204,6 +2210,7 @@ from mixpeek.models.page_meta import PageMeta as PageMeta
 from mixpeek.models.page_tab_input import PageTabInput as PageTabInput
 from mixpeek.models.page_tab_output import PageTabOutput as PageTabOutput
 from mixpeek.models.pagination import Pagination as Pagination
+from mixpeek.models.pagination1 import Pagination1 as Pagination1
 from mixpeek.models.pagination_metadata import PaginationMetadata as PaginationMetadata
 from mixpeek.models.pagination_response import PaginationResponse as PaginationResponse
 from mixpeek.models.parameters import Parameters as Parameters
@@ -2266,6 +2273,7 @@ from mixpeek.models.publish_retriever_response import PublishRetrieverResponse a
 from mixpeek.models.published_extractor_response import PublishedExtractorResponse as PublishedExtractorResponse
 from mixpeek.models.published_retriever_response import PublishedRetrieverResponse as PublishedRetrieverResponse
 from mixpeek.models.query import Query as Query
+from mixpeek.models.query_outcome import QueryOutcome as QueryOutcome
 from mixpeek.models.rss_config import RSSConfig as RSSConfig
 from mixpeek.models.rss_field_source import RSSFieldSource as RSSFieldSource
 from mixpeek.models.rss_http_header_credentials import RSSHttpHeaderCredentials as RSSHttpHeaderCredentials
@@ -2276,6 +2284,7 @@ from mixpeek.models.rate_limit_tier import RateLimitTier as RateLimitTier
 from mixpeek.models.raw_inference_request import RawInferenceRequest as RawInferenceRequest
 from mixpeek.models.raw_inference_response import RawInferenceResponse as RawInferenceResponse
 from mixpeek.models.recent_error import RecentError as RecentError
+from mixpeek.models.recommendation_coverage import RecommendationCoverage as RecommendationCoverage
 from mixpeek.models.reconcile_settings import ReconcileSettings as ReconcileSettings
 from mixpeek.models.redeem_promo_request import RedeemPromoRequest as RedeemPromoRequest
 from mixpeek.models.redeem_promo_response import RedeemPromoResponse as RedeemPromoResponse
@@ -2634,6 +2643,9 @@ from mixpeek.models.trigger_execution_history_item import TriggerExecutionHistor
 from mixpeek.models.trigger_history_request import TriggerHistoryRequest as TriggerHistoryRequest
 from mixpeek.models.trigger_on import TriggerOn as TriggerOn
 from mixpeek.models.trust_tier import TrustTier as TrustTier
+from mixpeek.models.typeahead_collection_suggestion import TypeaheadCollectionSuggestion as TypeaheadCollectionSuggestion
+from mixpeek.models.typeahead_response import TypeaheadResponse as TypeaheadResponse
+from mixpeek.models.typeahead_value_suggestion import TypeaheadValueSuggestion as TypeaheadValueSuggestion
 from mixpeek.models.umap_params import UMAPParams as UMAPParams
 from mixpeek.models.unified_extractor_list_response import UnifiedExtractorListResponse as UnifiedExtractorListResponse
 from mixpeek.models.unified_extractor_response import UnifiedExtractorResponse as UnifiedExtractorResponse

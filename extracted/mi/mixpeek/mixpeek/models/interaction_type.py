@@ -44,6 +44,11 @@ class InteractionType(str, Enum):
     FILTER_TOGGLE = 'filter_toggle'
     SKIP = 'skip'
     RETURN_TO_RESULTS = 'return_to_results'
+    PLAY = 'play'
+    DOWNLOAD = 'download'
+    SAVE = 'save'
+    ADD_TO_PROJECT = 'add_to_project'
+    RATING = 'rating'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

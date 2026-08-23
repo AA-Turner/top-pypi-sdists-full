@@ -16,14 +16,15 @@ from typing import Optional, Union, cast
 
 import httpcore
 import orjson as json
-from httpx import AsyncClient, ConnectError, HTTPError, ReadTimeout, RequestError, Response, Timeout, TimeoutException
+from httpx import URL, AsyncClient, ConnectError, HTTPError, ReadTimeout, RequestError, Response, Timeout, TimeoutException
 from stamina import retry
 from tqdm import tqdm
 
 # Suppress stamina retry logging (e.g., "stamina.retry_scheduled" messages)
 logging.getLogger("stamina").setLevel(logging.ERROR)
 
-from edgar.core import get_edgar_data_directory, text_extensions
+from edgar.core import text_extensions
+from edgar.settings import get_edgar_data_directory
 from edgar.exceptions import (
     IdentityNotSetError,
     TooManyRequestsError,
@@ -708,6 +709,20 @@ def is_redirect(response):
     return response.status_code in [301, 302]
 
 
+def redirect_url(url, response) -> str:
+    """Resolve a redirect's ``Location`` against the URL that produced it.
+
+    ``Location`` may be relative (RFC 7231 7.1.2) and SEC uses that form:
+    ``/about/opendatasetsshtmlinvestment_company`` 301s to a bare
+    ``/data-research/...`` path. Following the header verbatim hands httpx a
+    URL with no scheme, which fails with ``UnsupportedProtocol`` — the request
+    never reaches the network, so callers see a hard error rather than a
+    redirect. ``URL.join`` does RFC 3986 reference resolution, leaving absolute
+    Locations untouched and giving protocol-relative ones the current scheme.
+    """
+    return str(URL(url).join(response.headers["Location"]))
+
+
 def _get_retry_after(response: Response) -> Optional[int]:
     """
     Extract Retry-After header value from response.
@@ -819,7 +834,7 @@ def get_with_retry(url, identity=None, identity_callable=None, **kwargs):
             if response.status_code == 429:
                 raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
             elif is_redirect(response):
-                return get_with_retry(url=response.headers["Location"], identity=identity, identity_callable=identity_callable, **kwargs)
+                return get_with_retry(url=redirect_url(url, response), identity=identity, identity_callable=identity_callable, **kwargs)
             return response
     except ConnectError as e:
         if is_ssl_error(e):
@@ -863,7 +878,7 @@ async def get_with_retry_async(client: AsyncClient, url, identity=None, identity
             raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
         elif is_redirect(response):
             return await get_with_retry_async(
-                client=client, url=response.headers["Location"], identity=identity, identity_callable=identity_callable, **kwargs
+                client=client, url=redirect_url(url, response), identity=identity, identity_callable=identity_callable, **kwargs
             )
         return response
     except ConnectError as e:
@@ -910,7 +925,7 @@ def stream_with_retry(url, identity=None, identity_callable=None, bypass_cache=F
                 if response.status_code == 429:
                     raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
                 elif is_redirect(response):
-                    response = stream_with_retry(response.headers["Location"], identity=identity, identity_callable=identity_callable, **kwargs)
+                    response = stream_with_retry(redirect_url(url, response), identity=identity, identity_callable=identity_callable, **kwargs)
                     yield from response
                 else:
                     yield response
@@ -959,7 +974,7 @@ def post_with_retry(url, data=None, json=None, identity=None, identity_callable=
                 raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
             elif is_redirect(response):
                 return post_with_retry(
-                    response.headers["Location"], data=data, json=json, identity=identity, identity_callable=identity_callable, **kwargs
+                    redirect_url(url, response), data=data, json=json, identity=identity, identity_callable=identity_callable, **kwargs
                 )
             return response
     except ConnectError as e:
@@ -1006,7 +1021,7 @@ async def post_with_retry_async(client: AsyncClient, url, data=None, json=None, 
             raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
         elif is_redirect(response):
             return await post_with_retry_async(
-                client, response.headers["Location"], data=data, json=json, identity=identity, identity_callable=identity_callable, **kwargs
+                client, redirect_url(url, response), data=data, json=json, identity=identity, identity_callable=identity_callable, **kwargs
             )
         return response
     except ConnectError as e:

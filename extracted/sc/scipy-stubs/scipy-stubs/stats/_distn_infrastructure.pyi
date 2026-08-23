@@ -21,6 +21,9 @@ type _Tuple2[T] = tuple[T, T]
 type _Tuple3[T] = tuple[T, T, T]
 type _Tuple4[T] = tuple[T, T, T, T]
 
+# workaround for a strange bug in pyright's overlapping overload detection with `numpy<2.1`
+type _WorkaroundForPyright = tuple[int] | tuple[Any, ...]
+
 type _Floating = np.float64 | np.float32 | np.float16  # longdouble often results in trouble
 type _CoFloat = _Floating | npc.integer
 
@@ -106,6 +109,8 @@ class rv_frozen(Generic[_RVT_co, _FloatNDT_co]):
     dist: _RVT_co
     args: _RVArgs[_FloatNDT_co]
     kwds: _RVKwds
+    a: Final[float]
+    b: Final[float]
 
     @property
     def random_state(self, /) -> onp.random.RNG: ...
@@ -248,6 +253,21 @@ class rv_discrete_frozen(rv_frozen[_DRVT_co, _FloatNDT_co], Generic[_DRVT_co, _F
         self, /, size: AnyShape | None = None, random_state: onp.random.ToRNG | None = None
     ) -> onp.ArrayND[np.int64] | Any: ...
 
+    #
+    @override
+    def expect(
+        self: rv_discrete_frozen[_DRVT_co, _Float],
+        /,
+        func: Callable[[onp.Array1D[np.int_]], onp.ToFloatND] | None = None,
+        lb: onp.ToInt | None = None,
+        ub: onp.ToInt | None = None,
+        conditional: _Bool = False,
+        *,
+        maxcount: onp.ToInt = 1000,
+        tolerance: onp.ToFloat = 1e-10,
+        chunksize: onp.ToInt = 32,
+    ) -> _Float: ...
+
 # NOTE: Because of the limitations of `ParamSpec`, there is no proper way to annotate specific "positional or keyword arguments".
 # Considering the Liskov Substitution Principle, the only remaining option is to annotate `*args, and `**kwargs` as `Any`.
 class rv_generic:
@@ -258,6 +278,9 @@ class rv_generic:
 
     #
     def __init__(self, /, seed: onp.random.ToRNG | None = None) -> None: ...
+    def __setstate__(self, state: dict[str, Any]) -> None: ...
+
+    #
     def _attach_methods(self, /) -> None: ...
     def _attach_argparser_methods(self, /) -> None: ...
     def _construct_argparser(
@@ -343,21 +366,21 @@ class rv_generic:
 
     #
     @overload
-    def stats(self, /, *args: onp.ToFloat, moment: _Moment1, **kwds: onp.ToFloat) -> _Float: ...
+    def stats(self, /, *args: onp.ToFloat, moments: _Moment1, **kwds: onp.ToFloat) -> _Float: ...
     @overload
-    def stats(self, /, *args: onp.ToFloat, moment: _Moment2 = ..., **kwds: onp.ToFloat) -> _Tuple2[_Float]: ...
+    def stats(self, /, *args: onp.ToFloat, moments: _Moment2 = ..., **kwds: onp.ToFloat) -> _Tuple2[_Float]: ...
     @overload
-    def stats(self, /, *args: onp.ToFloat, moment: _Moment3, **kwds: onp.ToFloat) -> _Tuple3[_Float]: ...
+    def stats(self, /, *args: onp.ToFloat, moments: _Moment3, **kwds: onp.ToFloat) -> _Tuple3[_Float]: ...
     @overload
-    def stats(self, /, *args: onp.ToFloat, moment: _Moment4, **kwds: onp.ToFloat) -> _Tuple4[_Float]: ...
+    def stats(self, /, *args: onp.ToFloat, moments: _Moment4, **kwds: onp.ToFloat) -> _Tuple4[_Float]: ...
     @overload
-    def stats(self, /, *args: _ToFloatOrND, moment: _Moment1, **kwds: _ToFloatOrND) -> _FloatOrND: ...
+    def stats(self, /, *args: _ToFloatOrND, moments: _Moment1, **kwds: _ToFloatOrND) -> _FloatOrND: ...
     @overload
-    def stats(self, /, *args: _ToFloatOrND, moment: _Moment2 = ..., **kwds: _ToFloatOrND) -> _Tuple2[_FloatOrND]: ...
+    def stats(self, /, *args: _ToFloatOrND, moments: _Moment2 = ..., **kwds: _ToFloatOrND) -> _Tuple2[_FloatOrND]: ...
     @overload
-    def stats(self, /, *args: _ToFloatOrND, moment: _Moment3, **kwds: _ToFloatOrND) -> _Tuple3[_FloatOrND]: ...
+    def stats(self, /, *args: _ToFloatOrND, moments: _Moment3, **kwds: _ToFloatOrND) -> _Tuple3[_FloatOrND]: ...
     @overload
-    def stats(self, /, *args: _ToFloatOrND, moment: _Moment4, **kwds: _ToFloatOrND) -> _Tuple4[_FloatOrND]: ...
+    def stats(self, /, *args: _ToFloatOrND, moments: _Moment4, **kwds: _ToFloatOrND) -> _Tuple4[_FloatOrND]: ...
 
     #
     @overload
@@ -425,6 +448,8 @@ class rv_generic:
 class _ShapeInfo:
     name: Final[str]
     integrality: Final[bool]
+    endpoints: Final[Sequence[_Float]]
+    inclusive: Final[bool]
     domain: Final[Sequence[_Float]]  # in practice always a list of size two
 
     def __init__(
@@ -694,12 +719,12 @@ class rv_continuous(_rv_mixin, rv_generic):
     def fit_loc_scale(self, /, data: _ToFloatOrND, *args: onp.ToFloat) -> _Tuple2[_Float]: ...
 
     #
-    def fit(
+    def fit[FuncT: Callable[..., onp.ToFloat], X0T: onp.ToFloat1D, ArgsT: tuple[Any, ...]](
         self,
         /,
         data: _ToFloatOrND | CensoredData[np.float64],
         *args: onp.ToFloat,
-        optimizer: Callable[[_FloatND, tuple[float, ...], tuple[float, ...], bool], tuple[onp.ToFloat, ...]] | None = ...,
+        optimizer: Callable[[FuncT, X0T, ArgsT, int], onp.ToFloat1D] | None = ...,
         method: _FitMethod = "MLE",
         **kwds: onp.ToFloat,
     ) -> tuple[_Float, ...]: ...
@@ -742,14 +767,14 @@ class rv_continuous(_rv_mixin, rv_generic):
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat,
     ) -> _Float2D: ...
-    @overload  # size: ()  (default)
+    @overload  # size: () | None  (default)
     def rvs(
         self,
         /,
         *args: onp.ToFloat,
         loc: onp.ToFloat = 0,
         scale: onp.ToFloat = 1,
-        size: tuple[()] = (),
+        size: tuple[()] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat,
     ) -> np.float64: ...
@@ -772,7 +797,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloat | onp.ToFloatND = 0,
         scale: onp.ToFloat | onp.ToFloatND = 1,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat | onp.ToFloatND,
     ) -> _FloatND: ...
@@ -785,7 +810,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloat | onp.ToFloatND = 0,
         scale: onp.ToFloat | onp.ToFloatND = 1,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat | onp.ToFloatND,
     ) -> _FloatND: ...
@@ -799,7 +824,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloat | onp.ToFloatND = 0,
         scale: onp.ToFloat | onp.ToFloatND = 1,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat | onp.ToFloatND,
     ) -> _FloatND: ...
@@ -810,7 +835,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloatND,
         scale: onp.ToFloat | onp.ToFloatND = 1,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat | onp.ToFloatND,
     ) -> _FloatND: ...
@@ -821,7 +846,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloat | onp.ToFloatND = 0,
         scale: onp.ToFloatND,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat | onp.ToFloatND,
     ) -> _FloatND: ...
@@ -832,7 +857,7 @@ class rv_continuous(_rv_mixin, rv_generic):
         *args: onp.ToFloat | onp.ToFloatND,
         loc: onp.ToFloat | onp.ToFloatND = 0,
         scale: onp.ToFloat | onp.ToFloatND = 1,
-        size: SupportsIndex | tuple[SupportsIndex, ...] = (),
+        size: SupportsIndex | tuple[SupportsIndex, ...] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloatND,
     ) -> _FloatND: ...
@@ -855,8 +880,8 @@ class rv_discrete(_rv_mixin, rv_generic):
         shapes: str | None = None,
         seed: onp.random.ToRNG | None = None,
     ) -> Self: ...
-    # NOTE: The return types of the following overloads is ignored by mypy
-    @overload
+    # NOTE: The return types of the following overloads is ignored by mypy (2.3)
+    @overload  # values: (int, float)
     def __new__(
         cls,
         a: onp.ToFloat,
@@ -864,13 +889,13 @@ class rv_discrete(_rv_mixin, rv_generic):
         name: str | None,
         badvalue: _Float | None,
         moment_tol: _Float,
-        values: _Tuple2[onp.ToFloatND],
+        values: tuple[onp.ToIntND, onp.ToFloatND],
         inc: int | np.int_ = 1,
         longname: str | None = None,
         shapes: str | None = None,
         seed: onp.random.ToRNG | None = None,
-    ) -> rv_sample: ...
-    @overload
+    ) -> rv_sample[np.int64]: ...
+    @overload  # values: (int, float)  (keyword)
     def __new__(
         cls,
         a: onp.ToFloat = 0,
@@ -879,12 +904,41 @@ class rv_discrete(_rv_mixin, rv_generic):
         badvalue: _Float | None = None,
         moment_tol: _Float = 1e-8,
         *,
-        values: _Tuple2[onp.ToFloatND],
+        values: tuple[onp.ToIntND, onp.ToFloatND],
         inc: int | np.int_ = 1,
         longname: str | None = None,
         shapes: str | None = None,
         seed: onp.random.ToRNG | None = None,
-    ) -> rv_sample: ...
+    ) -> rv_sample[np.int64]: ...
+    @overload  # values: (float, float)
+    def __new__(
+        cls,
+        a: onp.ToFloat,
+        b: onp.ToFloat,
+        name: str | None,
+        badvalue: _Float | None,
+        moment_tol: _Float,
+        values: tuple[onp.ToJustFloatND, onp.ToFloatND],
+        inc: int | np.int_ = 1,
+        longname: str | None = None,
+        shapes: str | None = None,
+        seed: onp.random.ToRNG | None = None,
+    ) -> rv_sample[np.float64]: ...
+    @overload  # values: (float, float)  (keyword)
+    def __new__(
+        cls,
+        a: onp.ToFloat = 0,
+        b: onp.ToFloat = ...,
+        name: str | None = None,
+        badvalue: _Float | None = None,
+        moment_tol: _Float = 1e-8,
+        *,
+        values: tuple[onp.ToJustFloatND, onp.ToFloatND],
+        inc: int | np.int_ = 1,
+        longname: str | None = None,
+        shapes: str | None = None,
+        seed: onp.random.ToRNG | None = None,
+    ) -> rv_sample[np.float64]: ...
 
     #
     def __init__(
@@ -1027,7 +1081,7 @@ class rv_discrete(_rv_mixin, rv_generic):
         /,
         *args: onp.ToFloat,
         loc: onp.ToFloat = 0,
-        size: tuple[()] = (),
+        size: tuple[()] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat,
     ) -> int: ...
@@ -1047,7 +1101,7 @@ class rv_discrete(_rv_mixin, rv_generic):
         /,
         *args: _ToFloatOrND,
         loc: _ToFloatOrND = 0,
-        size: AnyShape = (),
+        size: AnyShape | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: _ToFloatOrND,
     ) -> onp.ArrayND[np.int64] | int: ...
@@ -1084,17 +1138,37 @@ class rv_sample(rv_discrete, Generic[_XKT_co, _PKT_co]):
 
     #
     @override
-    @overload
+    @overload  # size: 0d | None  (default)
     def rvs(
         self,
         /,
         *args: onp.ToFloat,
         loc: onp.ToFloat = 0,
-        size: tuple[()] = (),
+        size: tuple[()] | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: onp.ToFloat,
-    ) -> np.float64: ...
-    @overload
+    ) -> _XKT_co: ...
+    @overload  # size: 1d
+    def rvs(
+        self,
+        /,
+        *args: _ToFloatOrND,
+        loc: _ToFloatOrND = 0,
+        size: SupportsIndex,
+        random_state: onp.random.ToRNG | None = None,
+        **kwds: _ToFloatOrND,
+    ) -> onp.Array1D[_XKT_co]: ...
+    @overload  # size: >=1d (known)
+    def rvs[ShapeT: tuple[int, *tuple[int, ...]]](
+        self,
+        /,
+        *args: _ToFloatOrND,
+        loc: _ToFloatOrND = 0,
+        size: ShapeT,
+        random_state: onp.random.ToRNG | None = None,
+        **kwds: _ToFloatOrND,
+    ) -> onp.ArrayND[_XKT_co, ShapeT]: ...
+    @overload  # size: >=1d (unknown)
     def rvs(
         self,
         /,
@@ -1103,17 +1177,17 @@ class rv_sample(rv_discrete, Generic[_XKT_co, _PKT_co]):
         size: SupportsIndex | tuple[SupportsIndex, *tuple[SupportsIndex, ...]],
         random_state: onp.random.ToRNG | None = None,
         **kwds: _ToFloatOrND,
-    ) -> onp.ArrayND[np.float64]: ...
-    @overload
+    ) -> onp.ArrayND[_XKT_co, _WorkaroundForPyright]: ...
+    @overload  # fallback
     def rvs(
         self,
         /,
         *args: _ToFloatOrND,
         loc: _ToFloatOrND = 0,
-        size: AnyShape = (),
+        size: AnyShape | None = None,
         random_state: onp.random.ToRNG | None = None,
         **kwds: _ToFloatOrND,
-    ) -> onp.ArrayND[np.float64] | np.float64: ...
+    ) -> onp.ArrayND[_XKT_co] | Any: ...
 
 # private helper subtypes
 @type_check_only
@@ -1121,55 +1195,49 @@ class _rv_continuous_0(rv_continuous):
     # overrides of rv_generic
     @override
     @overload  # loc: 0-d, scale: 0-d, moments: 1 (positional)
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moment: _Moment1) -> _Float: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moments: _Moment1) -> _Float: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 1 (keyword)
-    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moment: _Moment1) -> _Float: ...
+    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moments: _Moment1) -> _Float: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 2 (default)
-    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, moment: _Moment2 = "mv") -> _Tuple2[_Float]: ...
+    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, moments: _Moment2 = "mv") -> _Tuple2[_Float]: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 3 (positional)
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moment: _Moment3) -> _Tuple3[_Float]: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moments: _Moment3) -> _Tuple3[_Float]: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 3 (keyword)
-    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moment: _Moment3) -> _Tuple3[_Float]: ...
+    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moments: _Moment3) -> _Tuple3[_Float]: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 4 (positional)
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moment: _Moment4) -> _Tuple4[_Float]: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloat, moments: _Moment4) -> _Tuple4[_Float]: ...
     @overload  # loc: 0-d, scale: 0-d, moments: 4 (keyword)
-    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moment: _Moment4) -> _Tuple4[_Float]: ...
-
-    #
+    def stats(self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, moments: _Moment4) -> _Tuple4[_Float]: ...
     @overload  # loc: 0-d, scale: n-d (positional), moments: 1
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moment: _Moment1) -> _FloatND: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moments: _Moment1) -> _FloatND: ...
     @overload  # loc: 0-d, scale: n-d (positional), moments: 2 (default)
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moment: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moments: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
     @overload  # loc: 0-d, scale: n-d (positional), moments: 3
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moment: _Moment3) -> _Tuple3[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moments: _Moment3) -> _Tuple3[_FloatND]: ...
     @overload  # loc: 0-d, scale: n-d (positional), moments: 4
-    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moment: _Moment4) -> _Tuple4[_FloatND]: ...
-
-    #
+    def stats(self, /, loc: onp.ToFloat, scale: onp.ToFloatND, moments: _Moment4) -> _Tuple4[_FloatND]: ...
     @overload  # loc: 0-d, scale: n-d (keyword), moments: 1
-    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moment: _Moment1) -> _FloatND: ...
+    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moments: _Moment1) -> _FloatND: ...
     @overload  # loc: 0-d, scale: n-d (keyword), moments: 2 (default)
-    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moment: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moments: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
     @overload  # loc: 0-d, scale: n-d (keyword), moments: 3
-    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moment: _Moment3) -> _Tuple3[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moments: _Moment3) -> _Tuple3[_FloatND]: ...
     @overload  # loc: 0-d, scale: n-d (keyword), moments: 4
-    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moment: _Moment4) -> _Tuple4[_FloatND]: ...
-
-    #
+    def stats(self, /, loc: onp.ToFloat = 0, *, scale: onp.ToFloatND, moments: _Moment4) -> _Tuple4[_FloatND]: ...
     @overload  # loc: n-d, scale: ?-d, moments: 1 (positional)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moment: _Moment1) -> _FloatND: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moments: _Moment1) -> _FloatND: ...
     @overload  # loc: n-d, scale: ?-d, moments: 1 (keyword)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moment: _Moment1) -> _FloatND: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moments: _Moment1) -> _FloatND: ...
     @overload  # loc: n-d, scale: ?-d, moments: 2 (default)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, moment: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, moments: _Moment2 = "mv") -> _Tuple2[_FloatND]: ...
     @overload  # loc: n-d, scale: ?-d, moments: 3 (positional)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moment: _Moment3) -> _Tuple3[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moments: _Moment3) -> _Tuple3[_FloatND]: ...
     @overload  # loc: n-d, scale: ?-d, moments: 3 (keyword)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moment: _Moment3) -> _Tuple3[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moments: _Moment3) -> _Tuple3[_FloatND]: ...
     @overload  # loc: n-d, scale: ?-d, moments: 4 (positional)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moment: _Moment4) -> _Tuple4[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND, moments: _Moment4) -> _Tuple4[_FloatND]: ...
     @overload  # loc: n-d, scale: ?-d, moments: 4 (keyword)
-    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moment: _Moment4) -> _Tuple4[_FloatND]: ...
+    def stats(self, /, loc: onp.ToFloatND, scale: _ToFloatOrND = 1, *, moments: _Moment4) -> _Tuple4[_FloatND]: ...
 
     #
     @override
@@ -1348,9 +1416,67 @@ class _rv_continuous_0(rv_continuous):
 
     #
     @override
+    @overload  # size: () | None  (default)
     def rvs(
-        self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, size: AnyShape = 1, random_state: onp.random.ToRNG | None = None
-    ) -> _FloatOrND: ...
+        self,
+        /,
+        loc: onp.ToFloat = 0,
+        scale: onp.ToFloat = 1,
+        size: tuple[()] | None = None,
+        random_state: onp.random.ToRNG | None = None,
+    ) -> np.float64: ...
+    @overload  # size: int
+    def rvs(
+        self,
+        /,
+        loc: onp.ToFloat = 0,
+        scale: onp.ToFloat = 1,
+        *,
+        size: SupportsIndex,
+        random_state: onp.random.ToRNG | None = None,
+    ) -> onp.Array1D[np.float64]: ...
+    @overload  # size: (int, [int, ...])
+    def rvs[ShapeT: tuple[int, *tuple[int, ...]]](
+        self, /, loc: onp.ToFloat = 0, scale: onp.ToFloat = 1, *, size: ShapeT, random_state: onp.random.ToRNG | None = None
+    ) -> onp.ArrayND[np.float64, ShapeT]: ...
+    @overload  # size: (index, ...)
+    def rvs(
+        self,
+        /,
+        loc: onp.ToFloat = 0,
+        scale: onp.ToFloat = 1,
+        *,
+        size: tuple[SupportsIndex, ...],
+        random_state: onp.random.ToRNG | None = None,
+    ) -> onp.ArrayND[np.float64] | Any: ...
+    @overload  # loc: Nd
+    def rvs(
+        self,
+        /,
+        loc: onp.ToFloatND,
+        scale: onp.ToFloat | onp.ToFloatND = 1,
+        size: AnyShape | None = None,
+        random_state: onp.random.ToRNG | None = None,
+    ) -> onp.ArrayND[np.float64]: ...
+    @overload  # scale: Nd
+    def rvs(
+        self,
+        /,
+        loc: onp.ToFloat = 0,
+        *,
+        scale: onp.ToFloatND,
+        size: AnyShape | None = None,
+        random_state: onp.random.ToRNG | None = None,
+    ) -> onp.ArrayND[np.float64]: ...
+    @overload  # size: <unknown>
+    def rvs(
+        self,
+        /,
+        loc: onp.ToFloat | onp.ToFloatND = 0,
+        scale: onp.ToFloat | onp.ToFloatND = 1,
+        size: AnyShape | None = None,
+        random_state: onp.random.ToRNG | None = None,
+    ) -> onp.ArrayND[np.float64] | Any: ...
 
     #
     @override

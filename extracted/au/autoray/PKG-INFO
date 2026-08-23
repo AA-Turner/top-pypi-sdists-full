@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: autoray
-Version: 0.10.1
+Version: 0.11.0
 Summary: Abstract your array operations.
 Project-URL: Documentation, https://autoray.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/autoray/

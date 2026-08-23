@@ -1,5 +1,5 @@
 //! Set algebra over canonical IR nodes.
-use std::{collections::BTreeSet, sync::Arc};
+use std::{cell::Cell, collections::BTreeSet, sync::Arc};
 
 use ahash::AHashSet;
 use referencing::Draft;
@@ -16,7 +16,7 @@ use crate::{
             NumberLeaf, NumberLeaves, ObjectLeaf, ObjectLeaves, ObjectViolation, PropertyMap,
             Round, Schema, SchemaKind, Side, StringLeaf, StringLeaves, UncheckableFacet, Verdict,
         },
-        negate, oracle, parse, DefinitionMap,
+        negate, oracle, parse, witness, DefinitionMap,
     },
     JsonType, JsonTypeSet,
 };
@@ -883,6 +883,10 @@ fn pairwise_overlaps(branches: &[Schema], ctx: &CanonicalizationContext) -> Vec<
     overlaps
 }
 
+/// Object branches a union minimizes. Each pass reads every branch against the others, so a wider
+/// pool costs more than the smaller form it would reach is worth.
+const OBJECT_POOL_LIMIT: usize = 256;
+
 /// The schema accepting every value that ANY of the `branches` accepts (set union, `anyOf`), in normal form.
 ///
 /// A branch that is a pointer stays one. A meet of two pointers is a body no name denotes, so
@@ -1076,9 +1080,10 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
     // Folding object leaves can produce a leaf spanning the whole domain even though its inputs
     // did not, so the folds run before the widening below picks such leaves up. Merging and
     // narrowing feed each other; each pass shrinks the leaf count or the requirement count, which
-    // bounds the loop.
+    // bounds the loop. Past `OBJECT_POOL_LIMIT` branches none of it runs, here or on a later pass
+    // that widens the pool: the branches stand as they are, accepting the same values.
     let mut objects: Vec<ObjectLeaf> = objects.into_iter().collect();
-    loop {
+    while objects.len() <= OBJECT_POOL_LIMIT {
         merge_sole_differing_keys(&mut objects, ctx);
         if drop_object_branch_covered_by_siblings(&mut objects, ctx) {
             continue;
@@ -1751,6 +1756,16 @@ fn collapse_object_leaves_covering_domain(
     if leaves.len() < 2 {
         return false;
     }
+    // The split ends on the piece that rejects every key, which is the empty object: a leaf takes
+    // it when it demands none, its size window reaches zero, and no violation asks for one. A pool
+    // whose leaves all turn it away covers no domain.
+    if !leaves.iter().any(|leaf| {
+        leaf.required.is_empty()
+            && leaf.violations.is_empty()
+            && leaf.sizes.contains(&BoundCardinality::from(0))
+    }) {
+        return false;
+    }
     let mut keys: Vec<Arc<str>> = leaves
         .iter()
         .flat_map(|leaf| leaf.required.iter().chain(leaf.properties.keys()).cloned())
@@ -1777,6 +1792,36 @@ fn collapse_object_leaves_covering_domain(
     leaves.clear();
     leaves.push(piece);
     true
+}
+
+/// Branches a pool needs before a value scan pays for itself.
+const VALUE_SCAN_FLOOR: usize = 8;
+
+/// Whether the branch takes a value none of its siblings do. A leaf holding a `$ref` this run
+/// cannot read builds no candidate, which answers `false` and leaves the walks to decide.
+fn holds_a_value_the_siblings_miss(
+    packed: &Schema,
+    leaves: &[ObjectLeaf],
+    index: usize,
+    ctx: &CanonicalizationContext,
+) -> bool {
+    witness::candidate_instances(
+        packed,
+        &|uri| ctx.definition(uri),
+        witness::CANDIDATE_DEPTH,
+        &Cell::new(witness::CANDIDATE_NODES),
+        ctx,
+    )
+    .iter()
+    .any(|candidate| {
+        let Value::Object(map) = candidate else {
+            return false;
+        };
+        object_leaf_admits(&leaves[index], map, ctx) == Verdict::Admits
+            && leaves.iter().enumerate().all(|(sibling, leaf)| {
+                sibling == index || object_leaf_admits(leaf, map, ctx) == Verdict::Rejects
+            })
+    })
 }
 
 /// Pack every leaf into a node once. The coverage walk below tests one node against the same set of
@@ -1876,6 +1921,13 @@ fn piece_meets_demands(piece: &Schema, leaf: &Schema) -> bool {
         .all(|key| demanded.binary_search(key).is_ok())
 }
 
+/// [`piece_meets_demands`] for the routines holding leaves rather than packed nodes.
+fn demands_every_key_of(piece: &ObjectLeaf, leaf: &ObjectLeaf) -> bool {
+    leaf.required
+        .iter()
+        .all(|key| piece.required.binary_search(key).is_ok())
+}
+
 /// Whether barring any of these keys leaves the piece saying the same thing about its required
 /// list and still admitting something. A key constraint, a shield, a pattern map or a size ceiling
 /// read the key set as a whole, so under any of them a barred key reaches further than the entry it
@@ -1962,6 +2014,14 @@ fn drop_object_branch_covered_by_siblings(
                 )
             })
         }) {
+            continue;
+        }
+        // A value this branch takes and no sibling takes settles every question below: the piece
+        // holding it is part of the branch, and no split cuts it out. Worth looking for only
+        // where the splits outcost the search, which is a pool of more than a few branches.
+        if leaves.len() >= VALUE_SCAN_FLOOR
+            && holds_a_value_the_siblings_miss(&packed[index], leaves, index, ctx)
+        {
             continue;
         }
         let keys = keys_beside(leaves, index);
@@ -2076,18 +2136,18 @@ fn drop_required_covered_by_sibling(
                 // Probed one sibling at a time: a sibling whose intersection this run could only
                 // approximate says nothing, and wrapping the whole search in one probe would let
                 // it bury a later sibling that covers exactly.
-                let covered =
-                    (0..leaves.len())
-                        .filter(|&sibling| sibling != index)
-                        .any(|sibling| {
-                            holds_exactly(ctx, || {
-                                intersect(
-                                    gained.clone(),
-                                    object_leaf(leaves[sibling].clone(), ctx),
-                                    ctx,
-                                ) == gained
-                            })
-                        });
+                let covered = (0..leaves.len())
+                    .filter(|&sibling| sibling != index)
+                    .filter(|&sibling| demands_every_key_of(&weakened, &leaves[sibling]))
+                    .any(|sibling| {
+                        holds_exactly(ctx, || {
+                            intersect(
+                                gained.clone(),
+                                object_leaf(leaves[sibling].clone(), ctx),
+                                ctx,
+                            ) == gained
+                        })
+                    });
                 if covered {
                     leaves[index] = weakened;
                     return true;
@@ -2229,6 +2289,13 @@ fn widen_entry_covered_by_sibling(
         for key in keys {
             for sibling in (0..leaves.len()).filter(|&sibling| sibling != index) {
                 if leaves[sibling].additional.is_some() {
+                    continue;
+                }
+                // The gained leaf requires this leaf's keys and the one being widened; a
+                // sibling requiring any other key accepts nothing it accepts.
+                if !leaves[sibling].required.iter().all(|demanded| {
+                    *demanded == key || leaves[index].required.binary_search(demanded).is_ok()
+                }) {
                     continue;
                 }
                 let entry = leaves[index]
@@ -2538,25 +2605,28 @@ pub(crate) fn string_leaf(mut leaf: StringLeaf, ctx: &CanonicalizationContext) -
     let Some(leaf) = NonEmpty::new(leaf) else {
         return Schema::falsy();
     };
-    // `maxLength: 0` accepts the empty string and nothing else. A leaf this narrow is spelled as
-    // the constant before anything can exclude from it, so exclusions cannot reach here. Nothing
-    // prunes a barred pattern against the window, so the collapse gives way to one.
+    // `maxLength: 0` leaves the empty string as the only string left, so the rest of the leaf is
+    // checked against it: the leaf is that one value or nothing at all. A `format`, media type, or
+    // encoding the validator does not check rejects nothing.
     // e.g.  {"type": "string", "maxLength": 0}  =>  {"const": ""}
-    if leaf.get().patterns.is_empty()
-        && leaf.get().excluded_patterns.is_empty()
-        && leaf.get().formats.is_empty()
-        && leaf.get().content_media_types.is_empty()
-        && leaf.get().content_encodings.is_empty()
-        && leaf
-            .get()
-            .lengths
-            .maximum
-            .as_ref()
-            .is_some_and(BoundCardinality::is_zero)
+    // e.g.  {"type": "string", "maxLength": 0, "pattern": "^a"}  =>  false
+    if leaf
+        .get()
+        .lengths
+        .maximum
+        .as_ref()
+        .is_some_and(BoundCardinality::is_zero)
     {
-        return Schema::new(SchemaKind::Const(CanonicalJson::from_value(
-            &Value::String(String::new()),
-        )));
+        let matchers = StringMatchers::compile(leaf.get(), ctx);
+        match string_leaf_admits_text(leaf.get(), &matchers, "", UncheckableFacet::Skipped) {
+            Verdict::Admits => {
+                return Schema::new(SchemaKind::Const(CanonicalJson::from_value(
+                    &Value::String(String::new()),
+                )))
+            }
+            Verdict::Rejects => return Schema::falsy(),
+            Verdict::Unknown => {}
+        }
     }
     Schema::new(SchemaKind::String(leaf))
 }
@@ -3465,7 +3535,17 @@ fn contains_verdict(
                     possible += 1;
                 }
                 Verdict::Unknown => possible += 1,
-                Verdict::Rejects => {}
+                // Draft 4 reads `1` and `1.0` as one value but gives them different types, so a
+                // demand for `integer` takes the first and refuses the second. The element then
+                // meets the demand on part of what it stands for, which counts toward the ceiling
+                // but not toward the floor.
+                Verdict::Rejects => {
+                    if matches!(ctx.draft(), Draft::Draft4)
+                        && !rejects_value(&facet.schema, element, ctx)
+                    {
+                        possible += 1;
+                    }
+                }
             }
         }
         let definite = BoundCardinality::from(definite);
@@ -3527,11 +3607,12 @@ fn restrict_array_member(
         };
     debug_assert!(
         contains.is_empty()
+            || matches!(ctx.draft(), Draft::Draft4)
             || leaf
                 .contains
                 .iter()
                 .any(|facet| contains_reference(&facet.schema)),
-        "only reference-bearing contains facets survive an undecidable finite member"
+        "outside Draft 4 only reference-bearing contains facets survive an undecidable finite member"
     );
     let mut restricted = Vec::with_capacity(elements.len());
     for (index, element) in elements.iter().enumerate() {

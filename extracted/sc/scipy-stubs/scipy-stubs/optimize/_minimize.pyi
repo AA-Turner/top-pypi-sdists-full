@@ -1,5 +1,6 @@
 from collections.abc import Callable, Mapping, Sequence
-from typing import Concatenate, Final, Literal, LiteralString, Protocol, TypeVar, TypedDict, overload, type_check_only
+from typing import Any, Concatenate, Final, Generic, Literal, LiteralString, Protocol, TypedDict, overload, type_check_only
+from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
@@ -16,8 +17,6 @@ __all__ = ["minimize", "minimize_scalar"]
 
 ###
 
-type _Tuple2[T] = tuple[T, T]
-type _Tuple3[T] = tuple[T, T, T]
 type _Args = tuple[object, ...]
 
 type _Floating = float | npc.floating
@@ -29,17 +28,21 @@ type _Fun0D[RT] = Callable[Concatenate[float, ...], RT] | Callable[Concatenate[n
 type _Fun1D[RT] = Callable[Concatenate[_Float1D, ...], RT]
 type _Fun1Dp[RT] = Callable[Concatenate[_Float1D, _Float1D, ...], RT]
 
+type _ToJac[T] = tuple[T, *tuple[onp.ToFloat1D, ...]]
+
 type _FDMethod = Literal["2-point", "3-point", "cs"]
 
-type _ToBracket = _Tuple2[onp.ToFloat] | _Tuple3[onp.ToFloat]
-type _ToBound = _Tuple2[onp.ToFloat]
+type _MethodCobyla = Literal["COBYLA", "cobyla"]
+type _MethodF64 = Literal["Nelder-Mead", "nelder-mead", "COBYQA", "cobyqa"]
+
 type _Ignored = object
 
 _MinimizeScalarResultT_co = TypeVar("_MinimizeScalarResultT_co", bound=_MinimizeScalarResultBase, covariant=True)
+_FunT_co = TypeVar("_FunT_co", bound=onp.ToFloat, default=float, covariant=True)
 
 @type_check_only
 class _CallbackResult(Protocol):
-    def __call__(self, /, intermediate_result: OptimizeResult) -> None: ...
+    def __call__(self, /, intermediate_result: OptimizeResult[Any]) -> None: ...
 
 @type_check_only
 class _CallbackVector(Protocol):
@@ -47,12 +50,12 @@ class _CallbackVector(Protocol):
 
 @type_check_only
 class _MinimizeMethodFun(Protocol):
-    def __call__(self, fun: _Fun1D[onp.ToFloat], x0: onp.ToFloat1D, /, args: _Args) -> OptimizeResult: ...
+    def __call__(self, fun: _Fun1D[onp.ToFloat], x0: onp.ToFloat1D, /, args: _Args) -> OptimizeResult[Any]: ...
 
 @type_check_only
 class _MinimizeScalarMethodFun(Protocol[_MinimizeScalarResultT_co]):
     def __call__(
-        self, fun: _Fun0D[onp.ToFloat], /, *, args: _Args, bracket: _ToBracket, bound: _ToBound
+        self, fun: _Fun0D[onp.ToFloat], /, *, args: _Args, bracket: onp.ToFloat1D, bound: onp.ToFloat1D
     ) -> _MinimizeScalarResultT_co: ...
 
 @type_check_only
@@ -165,20 +168,47 @@ MINIMIZE_METHODS_NEW_CB: Final[list[MethodMimimize]] = ...
 MINIMIZE_SCALAR_METHODS: Final[list[MethodMinimizeScalar]] = ...
 
 # NOTE: This `OptimizeResult` specialization is specific to `minimize`
-class OptimizeResult(_OptimizeResult):
+class OptimizeResult(_OptimizeResult, Generic[_FunT_co]):
     success: bool
     status: int
     message: LiteralString
     x: _Float1D
     nit: int
     maxcv: float  # requires `bounds`
-    fun: float
+    fun: _FunT_co
     nfev: int
-    jac: _Float1D | Sequence[_Float2D | csr_array[np.float32]]  # is a list when method="trust-constr"
+    jac: _Float1D | Sequence[_Float2D | csr_array[np.float64]]  # is a list when method="trust-constr"
     njev: int  # requires `jac`
     hess: _Float2D  # requires `hess` or `hessp`
     hess_inv: _Float2D | LinearOperator  # requires `hess` or `hessp`, depends on solver
     nhev: int  # requires `hess` or `hessp`
+    final_simplex: tuple[_Float2D, _Float1D]  # requires method="Nelder-Mead"
+    direc: _Float2D  # requires method="Powell"
+    multipliers: _Float1D  # requires method="SLSQP"
+
+    # requires method="trust-constr"
+    method: Literal["equality_constrained_sqp", "tr_interior_point"]
+    grad: _Float1D
+    lagrangian_grad: _Float1D
+    constr: list[_Float1D]
+    v: list[_Float1D]
+    constr_nfev: list[int]
+    constr_njev: list[int]
+    constr_nhev: list[int]
+    optimality: np.float64
+    constr_violation: np.float64
+    tr_radius: np.float64
+    constr_penalty: float
+    execution_time: float
+    barrier_parameter: float  # requires an inequality constraint
+    barrier_tolerance: float  # requires an inequality constraint
+    niter: int
+    cg_niter: int
+    cg_stop_cond: int
+
+@type_check_only
+class _CobylaResult(OptimizeResult[np.float64]):
+    nfev: np.intp  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleVariableOverride] # pyrefly:ignore[bad-override-mutable-attribute]
 
 @overload  # identity function with and one parameter, `jac` not truthy
 def minimize[Float1DT: _Float1D](
@@ -194,10 +224,72 @@ def minimize[Float1DT: _Float1D](
     tol: onp.ToFloat | None = None,
     callback: _CallbackResult | _CallbackVector | None = None,
     options: _MinimizeOptions | None = None,
-) -> OptimizeResult: ...
-@overload  # `fun` return scalar, `jac` not truthy
+) -> OptimizeResult[np.float64]: ...
+@overload  # method={COBYLA}  (positional)
 def minimize(
     fun: _Fun1D[onp.ToFloat],
+    x0: onp.ToFloat | onp.ToFloat1D,
+    args: _Args,
+    method: _MethodCobyla,
+    jac: _Fun1D[onp.ToFloat1D] | _FDMethod | onp.ToFalse | None = None,
+    hess: _Fun1D[onp.ToFloat2D] | _FDMethod | HessianUpdateStrategy | None = None,
+    hessp: _Fun1Dp[onp.ToFloat1D] | None = None,
+    bounds: Bounds | None = None,
+    constraints: Constraints = (),
+    tol: onp.ToFloat | None = None,
+    callback: _CallbackResult | _CallbackVector | None = None,
+    options: _MinimizeOptions | None = None,
+) -> _CobylaResult: ...
+@overload  # method={COBYLA}  (keyword)
+def minimize(
+    fun: _Fun1D[onp.ToFloat],
+    x0: onp.ToFloat | onp.ToFloat1D,
+    args: _Args = (),
+    *,
+    method: _MethodCobyla,
+    jac: _Fun1D[onp.ToFloat1D] | _FDMethod | onp.ToFalse | None = None,
+    hess: _Fun1D[onp.ToFloat2D] | _FDMethod | HessianUpdateStrategy | None = None,
+    hessp: _Fun1Dp[onp.ToFloat1D] | None = None,
+    bounds: Bounds | None = None,
+    constraints: Constraints = (),
+    tol: onp.ToFloat | None = None,
+    callback: _CallbackResult | _CallbackVector | None = None,
+    options: _MinimizeOptions | None = None,
+) -> _CobylaResult: ...
+@overload  # method={nelder-mead,COBYQA}  (positional)
+def minimize(
+    fun: _Fun1D[onp.ToFloat],
+    x0: onp.ToFloat | onp.ToFloat1D,
+    args: _Args,
+    method: _MethodF64,
+    jac: _Fun1D[onp.ToFloat1D] | _FDMethod | onp.ToFalse | None = None,
+    hess: _Fun1D[onp.ToFloat2D] | _FDMethod | HessianUpdateStrategy | None = None,
+    hessp: _Fun1Dp[onp.ToFloat1D] | None = None,
+    bounds: Bounds | None = None,
+    constraints: Constraints = (),
+    tol: onp.ToFloat | None = None,
+    callback: _CallbackResult | _CallbackVector | None = None,
+    options: _MinimizeOptions | None = None,
+) -> OptimizeResult[np.float64]: ...
+@overload  # method={nelder-mead,COBYQA}  (keyword)
+def minimize(
+    fun: _Fun1D[onp.ToFloat],
+    x0: onp.ToFloat | onp.ToFloat1D,
+    args: _Args = (),
+    *,
+    method: _MethodF64,
+    jac: _Fun1D[onp.ToFloat1D] | _FDMethod | onp.ToFalse | None = None,
+    hess: _Fun1D[onp.ToFloat2D] | _FDMethod | HessianUpdateStrategy | None = None,
+    hessp: _Fun1Dp[onp.ToFloat1D] | None = None,
+    bounds: Bounds | None = None,
+    constraints: Constraints = (),
+    tol: onp.ToFloat | None = None,
+    callback: _CallbackResult | _CallbackVector | None = None,
+    options: _MinimizeOptions | None = None,
+) -> OptimizeResult[np.float64]: ...
+@overload  # `fun` return scalar, `jac` not truthy
+def minimize[FunT: onp.ToFloat](
+    fun: _Fun1D[FunT],
     x0: onp.ToFloat | onp.ToFloat1D,
     args: _Args = (),
     method: MethodMimimize | _MinimizeMethodFun | None = None,
@@ -209,10 +301,10 @@ def minimize(
     tol: onp.ToFloat | None = None,
     callback: _CallbackResult | _CallbackVector | None = None,
     options: _MinimizeOptions | None = None,
-) -> OptimizeResult: ...
+) -> OptimizeResult[FunT]: ...
 @overload  # fun` return (scalar, vector), `jac` truthy  (positional)
-def minimize(
-    fun: _Fun1D[tuple[onp.ToFloat, onp.ToFloat1D]],
+def minimize[FunT: onp.ToFloat](
+    fun: _Fun1D[_ToJac[FunT]],
     x0: onp.ToFloat | onp.ToFloat1D,
     args: _Args,
     method: MethodMimimize | _MinimizeMethodFun | None,
@@ -224,10 +316,10 @@ def minimize(
     tol: onp.ToFloat | None = None,
     callback: _CallbackResult | _CallbackVector | None = None,
     options: _MinimizeOptions | None = None,
-) -> OptimizeResult: ...
+) -> OptimizeResult[FunT]: ...
 @overload  # fun` return (scalar, vector), `jac` truthy  (keyword)
-def minimize(
-    fun: _Fun1D[tuple[onp.ToFloat, onp.ToFloat1D]],
+def minimize[FunT: onp.ToFloat](
+    fun: _Fun1D[_ToJac[FunT]],
     x0: onp.ToFloat | onp.ToFloat1D,
     args: _Args = (),
     method: MethodMimimize | _MinimizeMethodFun | None = None,
@@ -240,13 +332,13 @@ def minimize(
     tol: onp.ToFloat | None = None,
     callback: _CallbackResult | _CallbackVector | None = None,
     options: _MinimizeOptions | None = None,
-) -> OptimizeResult: ...
+) -> OptimizeResult[FunT]: ...
 
 #
 @overload  # method="brent" or method="golden"
 def minimize_scalar(
     fun: _Fun0D[onp.ToFloat],
-    bracket: _ToBracket | None = None,
+    bracket: onp.ToFloat1D | None = None,
     bounds: None = None,
     args: _Args = (),
     method: Literal["brent", "golden"] | None = None,  # default: "brent"
@@ -257,7 +349,7 @@ def minimize_scalar(
 def minimize_scalar(
     fun: _Fun0D[onp.ToFloat],
     bracket: _Ignored | None,
-    bounds: _ToBound,
+    bounds: onp.ToFloat1D,
     args: _Args = (),
     method: Literal["bounded"] | None = None,
     tol: onp.ToFloat | None = None,
@@ -268,7 +360,7 @@ def minimize_scalar(
     fun: _Fun0D[onp.ToFloat],
     bracket: _Ignored | None = None,
     *,
-    bounds: _ToBound,
+    bounds: onp.ToFloat1D,
     args: _Args = (),
     method: Literal["bounded"] | None = None,
     tol: onp.ToFloat | None = None,
@@ -277,8 +369,8 @@ def minimize_scalar(
 @overload  # method=<custom>  (positional)
 def minimize_scalar[ResultT: _MinimizeScalarResultBase](
     fun: _Fun0D[onp.ToFloat],
-    bracket: _ToBracket | None,
-    bounds: _ToBound | None,
+    bracket: onp.ToFloat1D | None,
+    bounds: onp.ToFloat1D | None,
     args: _Args,
     method: _MinimizeScalarMethodFun[ResultT],
     tol: onp.ToFloat | None = None,
@@ -287,8 +379,8 @@ def minimize_scalar[ResultT: _MinimizeScalarResultBase](
 @overload  # method=<custom>  (keyword)
 def minimize_scalar[ResultT: _MinimizeScalarResultBase](
     fun: _Fun0D[onp.ToFloat],
-    bracket: _ToBracket | None = None,
-    bounds: _ToBound | None = None,
+    bracket: onp.ToFloat1D | None = None,
+    bounds: onp.ToFloat1D | None = None,
     args: _Args = (),
     *,
     method: _MinimizeScalarMethodFun[ResultT],

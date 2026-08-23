@@ -29,6 +29,13 @@ class Reader:
         byte order, likewise a hint that only headerless raw uses; `"le"` or
         `"be"` from Python, 0 or 1 from C.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``cannot open capture:
+        no such file, unrecognised file type, or an unsupported BLUE format
+        mode (only S and C are supported)``.
+
     Examples
     --------
     >>> import pathlib, tempfile
@@ -84,6 +91,15 @@ class Reader:
         so a `while` over the result terminates. Never returns more than the
         file's declared payload — trailing bytes past `data_size` (an extended
         header, X-Midas slack) are not samples.
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.complex64] | None
+            destination, at least max_out samples.
 
         Returns
         -------

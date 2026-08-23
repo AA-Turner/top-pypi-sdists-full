@@ -9,9 +9,8 @@
  *
  * 1. **Is it SETTLED?** A second-order loop needs ~5/Bn symbols, the two loops
  *    are cascaded so their budgets ADD, and joint tracking DOUBLES the sum —
- *    `2*(5/bn_timing + 5/bn_carrier)`, plus the handover instant again if
- *    `acq_to_track` is on. And the analytic budget alone is not enough: take
- *    `max(budget, timing lock, carrier lock, handover + budget)` from the
+ *    `2*(5/bn_timing + 5/bn_carrier)`. And the analytic budget alone is not
+ *    enough: take `max(budget, timing lock, carrier lock)` from the
  *    receiver's own verify-counted indicators. Measuring inside that window
  *    measures settling and reports it as steady state (measured cost: -9.0 dB
  *    EVM where the settled answer is -23.2 dB; SER 5.9x the bound where the
@@ -361,13 +360,15 @@ dp_ber_lock_symbol (const unsigned char *flag, size_t n, size_t sustain,
  * can be optimistic because a detector declares on a statistic that crossed a
  * threshold, not on a settled loop.
  *
- * **A handover settles last of all.** With `acq_to_track` on it fires on
- * carrier lock plus a warmup — strictly after the budget and after every lock
- * indicator — and the decision-directed loop then has its own transient. So a
- * handover contributes `its instant + the budget again`. Measured on 8PSK at
- * its SER=1e-3 anchor: handover at symbol 2525 against a 2000-symbol budget,
- * SER 5.95x the coherent bound measured from 2000 and 1.68x from 4525, with
- * essentially every error in the one pre-handover block.
+ * There used to be a third term. A receiver that handed the carrier from an
+ * NDA discriminator to a decision-directed one settled LAST of all — the
+ * handover fired after every lock indicator and the new loop then had its own
+ * transient, so it contributed `its instant + the budget again` (measured on
+ * 8PSK at its SER=1e-3 anchor: handover at symbol 2525 against a 2000-symbol
+ * budget, and 5.95x the coherent bound if you measured from 2000 instead of
+ * 4525). No receiver in this library has a handover any more (doppler#877),
+ * so the term went with it rather than staying as a parameter that could only
+ * be passed -1.
  *
  * Pass NULL for any indicator the receiver does not publish. Pass a loop's
  * `bn` as 0 if it is not running.
@@ -376,7 +377,6 @@ dp_ber_lock_symbol (const unsigned char *flag, size_t n, size_t sustain,
  * @param bn_carrier   Carrier loop noise bandwidth per symbol (0 if none).
  * @param lock_timing  Per-symbol timing lock flag, or NULL.
  * @param lock_carrier Per-symbol carrier lock flag, or NULL.
- * @param tracking     Per-symbol handover flag, or NULL.
  * @param n            Length of whichever flag arrays were passed.
  * @param ok           Out: 0 when a supplied indicator never sustained lock,
  *                     meaning there is NO valid steady-state window. May be
@@ -386,20 +386,18 @@ dp_ber_lock_symbol (const unsigned char *flag, size_t n, size_t sustain,
 static inline size_t
 dp_ber_settle (double bn_timing, double bn_carrier,
                const unsigned char *lock_timing,
-               const unsigned char *lock_carrier,
-               const unsigned char *tracking, size_t n, int *ok)
+               const unsigned char *lock_carrier, size_t n, int *ok)
 {
   size_t budget = ber_settle_syms (bn_timing, bn_carrier);
-  /* An indicator the receiver does not publish is "not required", which is
-     what ber_settle_from() reads a -1 as for the handover. For timing and
-     carrier a -1 means the loop never locked, so distinguish "absent" from
-     "never locked" here and let the core own the max/handover policy. */
+  /* An indicator the receiver does not publish is "not required", so it
+     contributes 0. A -1 means the loop never locked, which is a different
+     answer entirely -- distinguish the two here and let the core own the
+     max policy. */
   int t = lock_timing ? (int)ber_lock_symbol (lock_timing, n, 200, 0.9) : 0;
   int c = lock_carrier ? (int)ber_lock_symbol (lock_carrier, n, 200, 0.9) : 0;
-  int h = tracking ? (int)ber_lock_symbol (tracking, n, 200, 0.9) : -1;
   if (ok)
     *ok = (t >= 0 && c >= 0);
-  return ber_settle_from (budget, t, c, h);
+  return ber_settle_from (budget, t, c);
 }
 
 /* --- 4. Counting - inverse binomial sampling ----------------------------- */
@@ -592,11 +590,18 @@ typedef struct
   double loss_db;      /**< Implementation loss: `esn0_db - esn0(measured)`. */
   size_t window_lo;    /**< First symbol measured. */
   size_t window_hi;    /**< One past the last. */
-  int    settled;      /**< The window cleared every settling budget. */
-  int    aligned;      /**< The marker detection passed its Pfa gate. */
-  int    enough;       /**< The error target was reached. */
-  int    sane;         /**< EVM / M2M4 / theory all agree with the rate. */
-  int    ok;           /**< All four gates. Anything less is not a result. */
+  /* The alignment that fixed the record. It is part of DEFENDING the rate,
+     not a by-product of computing it: a caller scoring anything else against
+     the same record — per-frame outcomes, a telemetry series — has to place
+     it in the same coordinates, and recomputing the detection to find out
+     where it sat is a second copy of the decision. */
+  long        lag;     /**< rx index = truth index - lag. 0 if unaligned. */
+  double      phase;   /**< Residual constellation rotation, radians. */
+  int         settled; /**< The window cleared every settling budget. */
+  int         aligned; /**< The marker detection passed its Pfa gate. */
+  int         enough;  /**< The error target was reached. */
+  int         sane;    /**< EVM / M2M4 / theory all agree with the rate. */
+  int         ok;      /**< All four gates. Anything less is not a result. */
   const char *why;     /**< The first failing gate. */
 } dp_ber_report_t;
 
@@ -659,6 +664,8 @@ dp_ber_report (const dp_ber_t *b, double esn0_db, const dp_ber_sync_t *sy,
   r.theory_ber   = dp_ber_theory_ber (b->m, esn0);
   r.window_lo    = lo;
   r.window_hi    = hi;
+  r.lag          = (sy && sy->ok) ? sy->lag : 0;
+  r.phase        = (sy && sy->ok) ? sy->phase : 0.0;
   r.settled      = settled ? 1 : 0;
   r.aligned      = (sy && sy->ok) ? 1 : 0;
   r.enough       = dp_ber_enough (b);
@@ -763,7 +770,7 @@ dp_ber_print (const char *label, const dp_ber_report_t *r)
  * for (unsigned seed = 0; !dp_ber_enough (&acc) && seed < 200; seed++)
  *   {
  *     size_t nout   = run_receiver (seed, rx, truth, lock_t, lock_c);
- *     size_t settle = dp_ber_settle (bn_t, bn_c, lock_t, lock_c, NULL,
+ *     size_t settle = dp_ber_settle (bn_t, bn_c, lock_t, lock_c,
  *                                    nout, &ok);
  *     r = dp_ber_measure (&acc, rx, nout, truth, nsym, esn0_db, settle, ok,
  *                         NULL);
@@ -799,7 +806,7 @@ dp_ber_measure (dp_ber_t *b, const float complex *rx, size_t n_rx,
 {
   dp_ber_marker_t local;
   dp_ber_sync_t   sy;
-  size_t          lo;
+  size_t          lo, hi;
 
   if (!mk)
     {
@@ -816,19 +823,51 @@ dp_ber_measure (dp_ber_t *b, const float complex *rx, size_t n_rx,
   sy = dp_ber_sync (rx, n_rx, truth, n_truth, mk, b->m, DP_BER_LAG_SPAN,
                     DP_BER_SYNC_PFA);
 
-  /* Score from the settled point, but never before the marker ends: the
-     symbols that fixed the alignment must not also be scored. */
+  /* Where scoring may begin, in rx coordinates. The two marker shapes want
+     different answers and the difference is not cosmetic:
+
+       - a BLIND marker (period 0) is a stretch of truth borrowed to fix the
+         alignment, so scoring starts past its END — those symbols must not
+         also be scored;
+       - a PERIODIC marker recurs for the whole record, so scoring starts at
+         its FIRST OCCURRENCE. `ber_meter`'s exclusion reads an index before
+         `t0` as "not a marker" (`ber_meter_core.c:122`), so a window opening
+         earlier scores the sync words that precede `t0` as if they were
+         data — known symbols that had no chance of being wrong, quietly
+         flattering the denominator. Starting at `t0` costs no leading block
+         (every occurrence is then excluded uniformly) and is what
+         `rx_frame_fer.c` already did by hand. */
   lo = settle;
+  hi = n_rx;
   if (sy.ok)
     {
-      size_t mn  = mk->n ? mk->n : DP_BER_SYNC_SYMS;
-      size_t end = mk->t0 + mn;
-      long   e   = (long)end - sy.lag;
-      if (!mk->period && e > 0 && (size_t)e > lo)
+      size_t mn = mk->n ? mk->n : DP_BER_SYNC_SYMS;
+      long   e  = (long)(mk->period ? mk->t0 : mk->t0 + mn) - sy.lag;
+      if (e > 0 && (size_t)e > lo)
         lo = (size_t)e;
-      dp_ber_score (b, rx, lo, n_rx, truth, n_truth, mk, &sy);
+      /* And the SAME argument at the other end of the window. `in_marker`
+         bounds exclusion at both ends — `t < t0` above, and
+         `off / period >= occurrences` here — so scoring past the last
+         EXCLUDED occurrence reintroduces the identical defect at the tail:
+         sync words counted as data, flattering the denominator in the same
+         direction.
+
+         Measured on both named frames it does not currently bite — exclusion
+         already reaches 44 symbols past the scored top at period 285 and 824
+         at period 1679 — but that margin is a function of the LAG, which is
+         detected rather than chosen: on the 285 geometry a lag beyond ~245
+         turns it positive, and `DP_BER_LAG_SPAN` is 200. So it is bounded
+         rather than left to a coincidence that holds at the two geometries
+         anyone has looked at. Today this changes no number. */
+      if (mk->period && sy.occurrences)
+        {
+          long cover = (long)(mk->t0 + sy.occurrences * mk->period) - sy.lag;
+          if (cover > (long)lo && (size_t)cover < hi)
+            hi = (size_t)cover;
+        }
+      dp_ber_score (b, rx, lo, hi, truth, n_truth, mk, &sy);
     }
-  return dp_ber_report (b, esn0_db, &sy, lo, n_rx, settled, DP_BER_CONF);
+  return dp_ber_report (b, esn0_db, &sy, lo, hi, settled, DP_BER_CONF);
 }
 
 #endif /* DP_BER_TEST_H */

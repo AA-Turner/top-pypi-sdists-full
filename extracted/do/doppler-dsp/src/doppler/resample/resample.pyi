@@ -44,6 +44,8 @@ class Resampler:
         ----------
         x : NDArray[np.complex64]
             CF32 input samples.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least RESAMPLER_MAX_OUT samples.
 
         Returns
         -------
@@ -74,22 +76,22 @@ class Resampler:
     def execute_ctrl(
         self,
         x: NDArray[np.complex64],
-        ctrl: NDArray[np.complex64],
+        ctrl: NDArray[np.float64],
     ) -> NDArray[np.complex64]:
         """Resample with per-sample additive rate deviations. Effective rate
-        for sample i is base_rate + real(`ctrl[i]`). Uses a unified
-        double-precision accumulator that handles both interpolation and
-        decimation in a single code path — suitable for Doppler-shift
-        simulation and fractional-sample timing correction. ctrl and x must
-        have the same length.
+        for sample i is base_rate + `ctrl[i]`. Uses a unified double-precision
+        accumulator that handles both interpolation and decimation in a single
+        code path — suitable for Doppler-shift simulation and fractional-sample
+        timing correction. ctrl and x must have the same length.
 
         Parameters
         ----------
         x : NDArray[np.complex64]
             CF32 input samples.
-        ctrl : NDArray[np.complex64]
-            CF32 array, same length as x; only the real part is used as a
-            per-sample rate addend.
+        ctrl : NDArray[np.float64]
+            Real float64 array, same length as x; the per-sample rate addend.
+            Anything numpy can safely widen to float64 is accepted (float32, a
+            plain list); a complex array is refused rather than truncated.
 
         Returns
         -------
@@ -103,7 +105,7 @@ class Resampler:
         >>> import numpy as np
         >>> r = Resampler(rate=1.0)
         >>> x = np.zeros(64, dtype=np.complex64)
-        >>> ctrl = np.zeros(64, dtype=np.complex64)
+        >>> ctrl = np.zeros(64)
         >>> y = r.execute_ctrl(x, ctrl)
         >>> y.shape, y.dtype
         ((64,), dtype('complex64'))
@@ -213,11 +215,12 @@ class Resampler:
     def rate(self, value: float) -> None: ...
 
     @property
+    def ctrl_acc(self) -> float:
+        """The control accumulator's fractional phase, in [0, 1)."""
+
+    @property
     def num_phases(self) -> int:
-        """Number of polyphase branches in the filter bank. Always a power of
-        two. The built-in bank has 4096 phases giving sub-sample timing
-        resolution of 1/4096 of an input sample period.
-        """
+        """Num phases."""
 
     @property
     def num_taps(self) -> int:
@@ -284,8 +287,8 @@ class HalfbandDecimator:
     Parameters
     ----------
     h : NDArray[np.float32]
-        Float32 FIR branch coefficients, length num_taps. Must be a symmetric
-        halfband prototype (antisymmetric even-indexed taps zeroed).
+        Float32 FIR branch coefficients. Must be a symmetric halfband prototype
+        (antisymmetric even-indexed taps zeroed).
 
     Examples
     --------
@@ -316,6 +319,8 @@ class HalfbandDecimator:
         x : NDArray[np.complex64]
             CF32 input array. Length must be even for exact half-rate output;
             odd lengths write floor(x_len/2).
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least floor(x_len/2) samples.
 
         Returns
         -------
@@ -496,8 +501,8 @@ class CIC:
     Parameters
     ----------
     R : int, default 16
-        Decimation ratio. Must be a power of two in `[2, 4096]`. Returns NULL
-        for R=0, non-power-of-two, or R > 4096.
+        Decimation ratio. Must be a power of two in `[2, 2048]` (`CIC_R_MAX`).
+        Returns NULL for R=0, non-power-of-two, or a ratio above that cap.
 
     Examples
     --------
@@ -530,7 +535,8 @@ class CIC:
         Recomputes the normalisation shift (CIC_N * log2(R)) and zeros all
         accumulators so the filter behaves exactly like a freshly created one
         with the new R. Silently ignores R values that are not a power-of-two
-        in `[2, 4096]` — the state is left unchanged in that case.
+        in `[2, 2048]` (`CIC_R_MAX`) — the state is left unchanged in that
+        case.
 
         Parameters
         ----------
@@ -564,6 +570,8 @@ class CIC:
         ----------
         x : NDArray[np.complex64]
             Input.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least max_out elements.
 
         Returns
         -------
@@ -741,6 +749,13 @@ class RateConverter:
         Non-zero to append a CIC passband-droop compensating FIR after any CIC
         stage.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``RateConverter:
+        invalid parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps
+        > 0, num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.resample import RateConverter
@@ -766,6 +781,8 @@ class RateConverter:
         ----------
         x : NDArray[np.complex64]
             Input.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least max_out samples.
 
         Returns
         -------
@@ -841,7 +858,7 @@ class RateConverter:
         800
         >>> rc2 = RateConverter(rate=0.8, compensate=0)
         >>> rc2.execute_ctrl(x, 0.05).shape[0]  # +ctrl speeds the tail up
-        850
+        851
 
         """
 
@@ -887,7 +904,7 @@ class RateConverter:
         >>> x = (np.arange(10, dtype=np.float32) + 1).astype(np.complex64)
         >>> # a decimator emits 0 between strobes, 1 on a strobe:
         >>> [rc.execute_ctrl_push(complex(v), 0.0).shape[0] for v in x]
-        [0, 1, 1, 1, 1, 0, 1, 1, 1, 1]
+        [1, 1, 1, 1, 0, 1, 1, 1, 1, 0]
 
         """
 
@@ -1085,6 +1102,13 @@ class MatchedRateConverter:
     num_phases : int, default 1024
         num_phases constructor parameter.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``RateConverter:
+        invalid parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps
+        > 0, num_phases a power of two >= 2)``.
+
     Examples
     --------
     >>> from doppler.resample import RateConverter
@@ -1119,6 +1143,8 @@ class MatchedRateConverter:
         ----------
         x : NDArray[np.complex64]
             Input.
+        out : NDArray[np.complex64] | None
+            Output buffer; must hold at least max_out samples.
 
         Returns
         -------
@@ -1194,7 +1220,7 @@ class MatchedRateConverter:
         800
         >>> rc2 = RateConverter(rate=0.8, compensate=0)
         >>> rc2.execute_ctrl(x, 0.05).shape[0]  # +ctrl speeds the tail up
-        850
+        851
 
         """
 
@@ -1240,7 +1266,7 @@ class MatchedRateConverter:
         >>> x = (np.arange(10, dtype=np.float32) + 1).astype(np.complex64)
         >>> # a decimator emits 0 between strobes, 1 on a strobe:
         >>> [rc.execute_ctrl_push(complex(v), 0.0).shape[0] for v in x]
-        [0, 1, 1, 1, 1, 0, 1, 1, 1, 1]
+        [1, 1, 1, 1, 0, 1, 1, 1, 1, 0]
 
         """
 
@@ -1675,6 +1701,9 @@ class HalfbandDecimatorQ15:
         ----------
         x : NDArray[np.int16]
             Input.
+        out : NDArray[np.int16] | None
+            Output buffer; caller must provide space for 2*max_out int16_t
+            values (one interleaved I/Q pair per output).
 
         Returns
         -------
@@ -1870,7 +1899,10 @@ def ciccompmf(N: int, R: int, M: int) -> NDArray[np.float64]:
     R : int
         CIC decimation factor (>= 2).
     M : int
-        Number of compensator taps in `[1, 19]` (odd or even).
+        Number of compensator taps: odd M in `[1, 19]`, even M in `[1,
+        18]`. The Bernoulli table is nine entries, so the two parities do
+        not reach the same length; anything outside its own range yields
+        the all-zero filter above.
 
     Returns
     -------
@@ -1930,7 +1962,8 @@ def kaiser_num_taps(
     Parameters
     ----------
     num_phases : int
-        Number of polyphase branches (power of two).
+        Number of polyphase branches (power of two). A value below 1 is not
+        a bank; the function returns 0.
     atten : float
         Desired stopband attenuation in dB.
     pb : float

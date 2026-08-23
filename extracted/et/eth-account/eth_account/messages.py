@@ -1,9 +1,6 @@
 from typing import (
     Any,
-    Dict,
     NamedTuple,
-    Optional,
-    Union,
 )
 
 from eth_typing import (
@@ -72,11 +69,11 @@ def _hash_eip191_message(signable_message: SignableMessage) -> Hash32:
 
 # watch for updates to signature format
 def encode_intended_validator(
-    validator_address: Union[Address, str],
-    primitive: Optional[bytes] = None,
+    validator_address: Address | str,
+    primitive: bytes | None = None,
     *,
-    hexstr: Optional[str] = None,
-    text: Optional[str] = None,
+    hexstr: str | None = None,
+    text: str | None = None,
 ) -> SignableMessage:
     """
     Encode a message using the "intended validator" approach (ie~ version 0)
@@ -115,10 +112,10 @@ def encode_intended_validator(
 
 
 def encode_defunct(
-    primitive: Optional[bytes] = None,
+    primitive: bytes | None = None,
     *,
-    hexstr: Optional[str] = None,
-    text: Optional[str] = None,
+    hexstr: str | None = None,
+    text: str | None = None,
 ) -> SignableMessage:
     r"""
     Encode a message for signing, using an old, unrecommended approach.
@@ -160,19 +157,19 @@ def encode_defunct(
                         header=b'thereum Signed Message:\n6',
                         body=b'I\xe2\x99\xa5SF')
 
-        >>> encode_defunct(bytes(message_text, encoding='utf-8'))
+        >>> encode_defunct(bytes(message_text, encoding="utf-8"))
         SignableMessage(version=b'E',
                         header=b'thereum Signed Message:\n6',
                         body=b'I\xe2\x99\xa5SF')
 
         >>> to_hex(text=message_text)
         '0x49e299a55346'
-        >>> encode_defunct(hexstr='0x49e299a55346')
+        >>> encode_defunct(hexstr="0x49e299a55346")
         SignableMessage(version=b'E',
                         header=b'thereum Signed Message:\n6',
                         body=b'I\xe2\x99\xa5SF')
 
-        >>> encode_defunct(0x49e299a55346)
+        >>> encode_defunct(0x49E299A55346)
         SignableMessage(version=b'E',
                         header=b'thereum Signed Message:\n6',
                         body=b'I\xe2\x99\xa5SF')
@@ -189,10 +186,10 @@ def encode_defunct(
 
 
 def defunct_hash_message(
-    primitive: Optional[bytes] = None,
+    primitive: bytes | None = None,
     *,
-    hexstr: Optional[str] = None,
-    text: Optional[str] = None,
+    hexstr: str | None = None,
+    text: str | None = None,
 ) -> HexBytes:
     """
     Convert the provided message into a message hash, to be signed.
@@ -214,10 +211,10 @@ def defunct_hash_message(
 
 
 def encode_typed_data(
-    domain_data: Optional[Dict[str, Any]] = None,
-    message_types: Optional[Dict[str, Any]] = None,
-    message_data: Optional[Dict[str, Any]] = None,
-    full_message: Optional[Dict[str, Any]] = None,
+    domain_data: dict[str, Any] | None = None,
+    message_types: dict[str, Any] | None = None,
+    message_data: dict[str, Any] | None = None,
+    full_message: dict[str, Any] | None = None,
 ) -> SignableMessage:
     r"""
     Encode an EIP-712_ message in a manner compatible with other implementations
@@ -311,12 +308,16 @@ def encode_typed_data(
         ...     "contents": "Hello, Bob!",
         ... }
         >>> key = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        >>> signable_message = encode_typed_data(domain_data, message_types, message_data)
+        >>> signable_message = encode_typed_data(
+        ...     domain_data, message_types, message_data
+        ... )
         >>> signed_message = Account.sign_message(signable_message, key)
         >>> signed_message.message_hash
         HexBytes('0xc5bb16ccc59ae9a3ad1cb8343d4e3351f057c994a97656e1aff8c134e56f7530')
         >>> # the message can be signed in one step using Account.sign_typed_data
-        >>> signed_typed_data = Account.sign_typed_data(key, domain_data, message_types, message_data)
+        >>> signed_typed_data = Account.sign_typed_data(
+        ...     key, domain_data, message_types, message_data
+        ... )
         >>> signed_typed_data == signed_message
         True
 
@@ -348,16 +349,16 @@ def encode_typed_data(
         ...         "version": "1",
         ...         "chainId": 1,
         ...         "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
-        ...         "salt": b"decafbeef"
+        ...         "salt": b"decafbeef",
         ...     },
         ...     "message": {
         ...         "from": {
         ...             "name": "Cow",
-        ...             "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"
+        ...             "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
         ...         },
         ...         "to": {
         ...             "name": "Bob",
-        ...             "wallet": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+        ...             "wallet": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
         ...         },
         ...         "contents": "Hello, Bob!",
         ...     },
@@ -369,7 +370,9 @@ def encode_typed_data(
         >>> signed_message_2 == signed_message
         True
         >>> # the full_message can be signed in one step using Account.sign_typed_data
-        >>> signed_typed_data_2 = Account.sign_typed_data(key, domain_data, message_types, message_data)
+        >>> signed_typed_data_2 = Account.sign_typed_data(
+        ...     key, domain_data, message_types, message_data
+        ... )
         >>> signed_typed_data_2 == signed_message_2
         True
 

@@ -1058,9 +1058,12 @@ class CIDs:
             logger.warning(f"ENSO ingestion skipped: {type(e).__name__}: {e}")
 
         # CCI (USDA NASS crop-condition index): monthly-mean per (state, year),
-        # broadcast onto rows by (adm1_name, year, Month). Only maize/soybean
-        # have coverage -> other crops get an empty frame and this merge is a
-        # no-op (no 'cci' column, so compute_eo_indices skips the CCI branch).
+        # broadcast onto rows by (adm1_name, year, Month). The source CSV
+        # covers maize, soybean, rice, winter_wheat, spring_wheat, sorghum,
+        # cotton (see geoprepare.datasets.CROP_CONDITION) -- NASS reports no
+        # CONDITION series for other geocif crops, which get an empty frame
+        # and this merge becomes a no-op (no 'cci' column, so
+        # compute_eo_indices skips the CCI branch).
         # Config: [DEFAULT] cci_file = path to the cleaned condition CSV.
         try:
             from . import cci as _cci

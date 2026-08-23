@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import arxiv
 
 from arxiv_mcp_server.tools.download import (
+    EXTRACTOR_VERSION,
     handle_download,
     get_paper_path,
     _html_to_text,
@@ -15,7 +16,25 @@ from arxiv_mcp_server.tools.download import (
     _download_arxiv_pdf_to_path,
     _fetch_pdf_content,
     PaperNotFoundError,
+    download_tool,
 )
+
+
+def _write_cached_paper(storage, paper_id, content, extractor_version=None):
+    """Write markdown plus a sidecar stamped with an extractor version."""
+    (storage / f"{paper_id}.md").write_text(content, encoding="utf-8")
+    version = EXTRACTOR_VERSION if extractor_version is None else extractor_version
+    payload = {
+        "id": paper_id,
+        "title": "Cached Paper",
+        "authors": [],
+        "published": None,
+        "extractor_version": version,
+    }
+    (storage / f"{paper_id}.meta.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
 
 # ---------------------------------------------------------------------------
 # PDF download helper (httpx streaming)
@@ -268,240 +287,109 @@ def test_html_to_text_extracts_article_text():
 
 
 # ---------------------------------------------------------------------------
-# Integration-style handler tests
+# Shared ID normalization (issue #200)
 # ---------------------------------------------------------------------------
+
+_ID_FORM_CASES = [
+    ("1810.04805", "1810.04805"),
+    ("arxiv:1810.04805", "1810.04805"),
+    ("https://arxiv.org/abs/1810.04805", "1810.04805"),
+    ("https://arxiv.org/pdf/1810.04805.pdf", "1810.04805"),
+]
 
 
 @pytest.mark.asyncio
-async def test_cached_paper_returns_immediately(temp_storage_path, mocker):
-    """A paper already in cache is returned immediately without network calls."""
-    paper_id = "2103.12345"
+@pytest.mark.parametrize("raw_id, expected", _ID_FORM_CASES)
+async def test_download_paper_id_normalize_matrix(
+    temp_storage_path, mocker, raw_id, expected
+):
+    """download_paper accepts bare / arxiv: / abs / pdf forms via parse_arxiv_id."""
+    from arxiv_mcp_server.tools import download as download_module
 
-    # Patch get_paper_path to use temp dir — this is the only path helper we need
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
+    _write_cached_paper(temp_storage_path, expected, "# Cached\nNormalized ID path.")
+    mocker.patch.object(
+        download_module,
+        "get_paper_path",
+        side_effect=lambda pid, suffix=".md": temp_storage_path / f"{pid}{suffix}",
     )
+    mock_html = mocker.patch.object(download_module, "_fetch_html_content")
+    mock_pdf = mocker.patch.object(download_module, "_fetch_pdf_content")
 
-    md_path = temp_storage_path / f"{paper_id}.md"
-    md_path.write_text("# Cached Paper\nThis is cached content.", encoding="utf-8")
-
-    # Ensure no network calls are made
-    mock_httpx = mocker.patch("arxiv_mcp_server.tools.download._fetch_html_content")
-    mock_pdf = mocker.patch("arxiv_mcp_server.tools.download._fetch_pdf_content")
-
-    response = await handle_download({"paper_id": paper_id})
+    response = await handle_download({"paper_id": raw_id})
     result = json.loads(response[0].text)
 
     assert result["status"] == "success"
+    assert result["paper_id"] == expected
     assert result["source"] == "cache"
-    assert "Cached Paper" in result["content"]
-    assert result["content_length"] == len("# Cached Paper\nThis is cached content.")
-    assert result["next_start"] is None
-    assert result["is_truncated"] is False
-    mock_httpx.assert_not_called()
+    mock_html.assert_not_called()
     mock_pdf.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_download_cache_supports_content_pagination(temp_storage_path, mocker):
-    """download_paper can return a bounded chunk to avoid MCP client truncation."""
-    paper_id = "2505.13525"
+@pytest.mark.parametrize(
+    "raw_id",
+    ["not-a-paper", "arxiv:not-a-paper", "https://example.com/abs/1810.04805"],
+)
+async def test_download_rejects_invalid_id_forms(raw_id):
+    response = await handle_download({"paper_id": raw_id})
+    result = json.loads(response[0].text)
+    assert result["status"] == "error"
+    assert "Invalid arXiv ID" in result["message"]
 
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
 
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
+@pytest.mark.asyncio
+async def test_download_paper_defaults_to_bounded_cached_content(
+    temp_storage_path, mocker
+):
+    """Omitting max_chars on download_paper returns a bounded chunk (#127)."""
+    from arxiv_mcp_server.tools import download as download_module
+    from arxiv_mcp_server.tools.content import DEFAULT_MAX_CHARS
+
+    paper_id = "2103.12345"
+    content = "C" * (DEFAULT_MAX_CHARS + 2_500)
+    _write_cached_paper(temp_storage_path, paper_id, content)
+    mocker.patch.object(
+        download_module,
+        "get_paper_path",
+        side_effect=lambda pid, suffix=".md": temp_storage_path / f"{pid}{suffix}",
     )
+    mock_html = mocker.patch.object(download_module, "_fetch_html_content")
+    mock_pdf = mocker.patch.object(download_module, "_fetch_pdf_content")
 
-    md_path = temp_storage_path / f"{paper_id}.md"
-    content = "abcdefghijklmnopqrstuvwxyz"
-    md_path.write_text(content, encoding="utf-8")
-    mock_httpx = mocker.patch("arxiv_mcp_server.tools.download._fetch_html_content")
-    mock_pdf = mocker.patch("arxiv_mcp_server.tools.download._fetch_pdf_content")
-
-    response = await handle_download(
-        {"paper_id": paper_id, "start": 10, "max_chars": 5}
-    )
+    response = await handle_download({"paper_id": paper_id})
     result = json.loads(response[0].text)
 
     assert result["status"] == "success"
     assert result["source"] == "cache"
     assert result["content_length"] == len(content)
-    assert result["start"] == 10
-    assert result["returned_chars"] == 5
-    assert result["next_start"] == 15
+    assert result["returned_chars"] == DEFAULT_MAX_CHARS
     assert result["is_truncated"] is True
-    chunk = result["content"].split("\n\n", 1)[1]
-    assert chunk == "klmno"
-    mock_httpx.assert_not_called()
+    assert result["next_start"] == DEFAULT_MAX_CHARS
+    assert "next_retrieval" in result
+    assert len(result["content"]) == DEFAULT_MAX_CHARS
+    assert "UNTRUSTED EXTERNAL CONTENT" in result["content_warning"]
+    assert "UNTRUSTED" not in result["content"]
+    mock_html.assert_not_called()
     mock_pdf.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_html_endpoint_success(temp_storage_path, mocker):
-    """HTML endpoint returns 200 -> content saved and returned directly."""
-    paper_id = "2103.11111"
+async def test_download_paper_return_full_text_opt_in(temp_storage_path, mocker):
+    from arxiv_mcp_server.tools import download as download_module
+    from arxiv_mcp_server.tools.content import DEFAULT_MAX_CHARS
 
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
-    )
-
-    html_text = "Title of the Paper\nAbstract content goes here."
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_html_content",
-        return_value=html_text,
-    )
-    # PDF path should NOT be called
-    mock_pdf = mocker.patch("arxiv_mcp_server.tools.download._fetch_pdf_content")
-
-    response = await handle_download({"paper_id": paper_id})
-    result = json.loads(response[0].text)
-
-    assert result["status"] == "success"
-    assert result["source"] == "html"
-    assert result["content"].endswith(html_text)
-    assert result["content"].startswith("[UNTRUSTED EXTERNAL CONTENT")
-    # Markdown file should have been saved to cache
-    assert (temp_storage_path / f"{paper_id}.md").exists()
-    mock_pdf.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_html_404_falls_back_to_pdf(temp_storage_path, mocker):
-    """HTML endpoint returns None (404) -> falls back to PDF conversion."""
-    paper_id = "2103.22222"
-
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
-    )
-    # Simulate pdf extra being available so the PDF fallback path is reached
-    mocker.patch("arxiv_mcp_server.tools.download._pdf_available", True)
-
-    # HTML not available
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_html_content",
-        return_value=None,
-    )
-
-    mock_arxiv_result = MagicMock(spec=arxiv.Result)
-    pdf_markdown = "# PDF Paper\nConverted from PDF."
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_pdf_content",
-        return_value=(pdf_markdown, mock_arxiv_result),
-    )
-
-    response = await handle_download({"paper_id": paper_id})
-    result = json.loads(response[0].text)
-
-    assert result["status"] == "success"
-    assert result["source"] == "pdf"
-    assert result["content"].endswith(pdf_markdown)
-    assert result["content"].startswith("[UNTRUSTED EXTERNAL CONTENT")
-    assert (temp_storage_path / f"{paper_id}.md").exists()
-
-
-@pytest.mark.asyncio
-async def test_paper_not_found_on_arxiv(temp_storage_path, mocker):
-    """StopIteration from PDF fallback -> error message returned."""
-    paper_id = "9999.99999"
-
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
-    )
-    # Simulate pdf extra being available so the PDF fallback path is reached
-    mocker.patch("arxiv_mcp_server.tools.download._pdf_available", True)
-
-    # HTML not available
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_html_content",
-        return_value=None,
-    )
-    # PDF fetch raises PaperNotFoundError (paper not found)
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_pdf_content",
-        side_effect=PaperNotFoundError(f"Paper {paper_id} not found on arXiv"),
-    )
-
-    response = await handle_download({"paper_id": paper_id})
-    result = json.loads(response[0].text)
-
-    assert result["status"] == "error"
-    assert "not found on arXiv" in result["message"]
-
-
-@pytest.mark.asyncio
-async def test_no_check_status_parameter(temp_storage_path, mocker):
-    """Passing check_status is no longer a valid argument but should not crash
-    the handler — extra kwargs are simply ignored."""
-    paper_id = "2103.33333"
-
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
-    )
-
-    html_text = "Some paper content"
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_html_content",
-        return_value=html_text,
-    )
-
-    # Should not raise even if client passes check_status=True (it's ignored)
-    response = await handle_download({"paper_id": paper_id})
-    result = json.loads(response[0].text)
-    assert result["status"] == "success"
-
-
-@pytest.mark.asyncio
-async def test_download_rejects_path_traversal_paper_id(temp_storage_path, mocker):
-    """Paper IDs cannot escape the configured storage directory."""
+    paper_id = "2103.12345"
+    content = "D" * (DEFAULT_MAX_CHARS + 1_200)
+    _write_cached_paper(temp_storage_path, paper_id, content)
     mocker.patch.object(
-        __import__("arxiv_mcp_server.tools.download", fromlist=["settings"]).settings,
-        "_get_storage_path_from_args",
-        return_value=temp_storage_path,
+        download_module,
+        "get_paper_path",
+        side_effect=lambda pid, suffix=".md": temp_storage_path / f"{pid}{suffix}",
     )
 
-    response = await handle_download({"paper_id": "../../private/secret"})
-    payload = json.loads(response[0].text)
-
-    assert payload["status"] == "error"
-    assert "invalid arxiv id" in payload["message"].lower()
-
-
-@pytest.mark.asyncio
-async def test_unexpected_error_returns_error_status(temp_storage_path, mocker):
-    """Any unexpected exception results in a clean error response."""
-    paper_id = "2103.44444"
-
-    def fake_path(pid, suffix=".md"):
-        return temp_storage_path / f"{pid}{suffix}"
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download.get_paper_path", side_effect=fake_path
-    )
-
-    mocker.patch(
-        "arxiv_mcp_server.tools.download._fetch_html_content",
-        side_effect=RuntimeError("Network exploded"),
-    )
-
-    response = await handle_download({"paper_id": paper_id})
+    response = await handle_download({"paper_id": paper_id, "return_full_text": True})
     result = json.loads(response[0].text)
 
-    assert result["status"] == "error"
-    assert "Error:" in result["message"]
+    assert result["is_truncated"] is False
+    assert result["returned_chars"] == len(content)
+    assert result["next_start"] is None

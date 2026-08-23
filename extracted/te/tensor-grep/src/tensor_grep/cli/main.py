@@ -1658,6 +1658,11 @@ def _execute_find(
         # BackendExecutionError (e.g. a corrupt model directory) deliberately propagates -- the
         # command boundary (C1) must catch it and exit 2, never degrade here.
 
+    # Name WHAT RAN: both fields are `required`/minLength-1 in the envelope `tg find` reuses and
+    # were emitted null. `rank_fallback_reason` says WHY the dense leg is absent; these say which.
+    result.routing_backend = "HybridFindBackend" if dense_index else "Bm25FindBackend"
+    result.routing_reason = "find_bm25_dense_rrf" if dense_index else "find_bm25_only"
+
     late_reranker = None
     if os.environ.get("TG_LATE_RERANK") == "1":
         from tensor_grep.core.retrieval_late import (
@@ -10058,6 +10063,12 @@ def rulesets(
     if not payload["rulesets"]:
         typer.echo("No built-in rulesets are currently registered.")
         return
+
+    # ONE banner, before the listing -- not one warning per ruleset. Six repetitions of the same
+    # sentence is noise that trains the reader to skip it.
+    if payload.get("rulesets_runnable") is False:
+        typer.echo(f"WARNING: {payload['rulesets_unavailable_reason']}")
+        typer.echo("")
 
     for ruleset in cast(list[dict[str, object]], payload["rulesets"]):
         typer.echo(

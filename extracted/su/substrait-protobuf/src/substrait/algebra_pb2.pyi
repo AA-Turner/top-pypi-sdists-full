@@ -1104,6 +1104,14 @@ class ConsistentPartitionWindowRel(google.protobuf.message.Message):
         phase: Global___AggregationPhase.ValueType
         invocation: Global___AggregateFunction.AggregationInvocation.ValueType
         bounds_type: Global___Expression.WindowFunction.BoundsType.ValueType
+        """Defines how this function's window bounds are interpreted.
+        Must be ROWS or RANGE when either bound is CurrentRow, Preceding, or
+        Following.
+
+        For RANGE with a Preceding or Following bound, `sorts` on the enclosing
+        ConsistentPartitionWindowRel must contain exactly one ordering expression
+        and must not use SORT_DIRECTION_CLUSTERED or a custom comparison function.
+        """
         @property
         def arguments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionArgument]: ...
         @property
@@ -1111,9 +1119,19 @@ class ConsistentPartitionWindowRel(google.protobuf.message.Message):
         @property
         def output_type(self) -> substrait.type_pb2.Type: ...
         @property
-        def lower_bound(self) -> Global___Expression.WindowFunction.Bound: ...
+        def lower_bound(self) -> Global___Expression.WindowFunction.Bound:
+            """Defines the lower bound of the window frame.
+            Optional; defaults to the start of the partition.
+            See `Expression.WindowFunction.Bound`.
+            """
+
         @property
-        def upper_bound(self) -> Global___Expression.WindowFunction.Bound: ...
+        def upper_bound(self) -> Global___Expression.WindowFunction.Bound:
+            """Defines the upper bound of the window frame.
+            Optional; defaults to the end of the partition.
+            See `Expression.WindowFunction.Bound`.
+            """
+
         def __init__(
             self,
             *,
@@ -3339,28 +3357,32 @@ class Expression(google.protobuf.message.Message):
         class _BoundsTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Expression.WindowFunction._BoundsType.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             BOUNDS_TYPE_UNSPECIFIED: Expression.WindowFunction._BoundsType.ValueType  # 0
+            """Unspecified. Producers must set one of the defined bounds type."""
             BOUNDS_TYPE_ROWS: Expression.WindowFunction._BoundsType.ValueType  # 1
-            """The lower and upper bound specify how many rows before and after the current row
-            the window should extend.
+            """Bounds are physical row offsets in the declared ordering in `sorts`.
+            If no ordering is declared, no order is guaranteed.
             """
             BOUNDS_TYPE_RANGE: Expression.WindowFunction._BoundsType.ValueType  # 2
-            """The lower and upper bound describe a range of values.  The window should include all rows
-            where the value of the ordering column is greater than or equal to (current_value - lower bound)
-            and less than or equal to (current_value + upper bound).  This bounds type is only valid if there
-            is a single ordering column.
+            """Bounds are value offsets from the current row's ordering value.
+            This bounds type requires exactly one ordering expression if Preceding or Following is used.
+            Preceding moves toward values earlier in the declared ordering in `sorts`;
+            Following moves toward values later in the declared ordering in `sorts`.
+            Bounds are inclusive.
             """
 
         class BoundsType(_BoundsType, metaclass=_BoundsTypeEnumTypeWrapper): ...
         BOUNDS_TYPE_UNSPECIFIED: Expression.WindowFunction.BoundsType.ValueType  # 0
+        """Unspecified. Producers must set one of the defined bounds type."""
         BOUNDS_TYPE_ROWS: Expression.WindowFunction.BoundsType.ValueType  # 1
-        """The lower and upper bound specify how many rows before and after the current row
-        the window should extend.
+        """Bounds are physical row offsets in the declared ordering in `sorts`.
+        If no ordering is declared, no order is guaranteed.
         """
         BOUNDS_TYPE_RANGE: Expression.WindowFunction.BoundsType.ValueType  # 2
-        """The lower and upper bound describe a range of values.  The window should include all rows
-        where the value of the ordering column is greater than or equal to (current_value - lower bound)
-        and less than or equal to (current_value + upper bound).  This bounds type is only valid if there
-        is a single ordering column.
+        """Bounds are value offsets from the current row's ordering value.
+        This bounds type requires exactly one ordering expression if Preceding or Following is used.
+        Preceding moves toward values earlier in the declared ordering in `sorts`;
+        Following moves toward values later in the declared ordering in `sorts`.
+        Bounds are inclusive.
         """
 
         @typing.final
@@ -3371,45 +3393,131 @@ class Expression(google.protobuf.message.Message):
 
             @typing.final
             class Preceding(google.protobuf.message.Message):
-                """Defines that the bound extends this far back from the current record."""
+                """Defines a bound earlier than the current record in the declared ordering in `sorts`."""
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
                 OFFSET_FIELD_NUMBER: builtins.int
+                OFFSET_EXPR_FIELD_NUMBER: builtins.int
                 offset: builtins.int
-                """A strictly positive integer specifying the number of records that
-                the window extends back from the current record. Required. Use
-                CurrentRow for offset zero and Following for negative offsets.
+                """A strictly positive integer specifying the offset of this bound.
+                Use CurrentRow for offset zero and Following for negative offsets.
+
+                At least one of `offset` and `offset_expr` must be set; setting
+                neither is invalid. Because `offset` has no explicit presence, it is
+                considered set when it is non-zero; zero was never a valid offset.
+                Consumers must use `offset_expr` when it is set and ignore `offset`.
+                Producers may set both during migration, in which case `offset` must
+                be the int64-literal equivalent of `offset_expr` -- possible only
+                when the distance is a positive int64 literal -- so that consumers
+                which do not yet read `offset_expr` can still execute the plan.
+
+                Deprecated: use `offset_expr` instead.
                 """
+                @property
+                def offset_expr(self) -> Global___Expression:
+                    """Expression specifying the distance of this bound from the current
+                    row. Its interpretation depends on `WindowFunction.bounds_type`:
+
+                    * BOUNDS_TYPE_ROWS: evaluates to a non-negative integer number
+                      of rows. The type must be int64.
+                    * BOUNDS_TYPE_RANGE: evaluates to a non-negative distance
+                      applied toward values earlier in the declared ordering in `sorts`.
+                      Its type D must be compatible with the type T of the single ordering
+                      expression, i.e. `add(T, D) -> T` and `subtract(T, D) -> T` must
+                      be defined (e.g. timestamp/interval_day, decimal/decimal,
+                      i64/i64).
+
+                    A null offset expression result is invalid. When the current row's
+                    ordering value is null, a RANGE offset bound is equivalent to CurrentRow.
+                    A negative result is invalid; a zero result is equivalent
+                    to CurrentRow. Because `offset` cannot represent zero, producers
+                    should emit CurrentRow rather than a zero `offset_expr` so that the
+                    bound remains readable by consumers that do not yet support
+                    `offset_expr`. Use Following for a bound after the current row.
+
+                    Field references resolve against the input schema of the relation
+                    containing this window function; the expression must behave
+                    as if evaluated once per input record.
+                    It must not contain window or aggregate functions.
+                    """
+
                 def __init__(
                     self,
                     *,
                     offset: builtins.int = ...,
+                    offset_expr: Global___Expression | None = ...,
                 ) -> None: ...
-                def ClearField(self, field_name: typing.Literal["offset", b"offset"]) -> None: ...
+                def HasField(self, field_name: typing.Literal["offset_expr", b"offset_expr"]) -> builtins.bool: ...
+                def ClearField(self, field_name: typing.Literal["offset", b"offset", "offset_expr", b"offset_expr"]) -> None: ...
 
             @typing.final
             class Following(google.protobuf.message.Message):
-                """Defines that the bound extends this far ahead of the current record."""
+                """Defines a bound later than the current record in the declared ordering in `sorts`."""
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
                 OFFSET_FIELD_NUMBER: builtins.int
+                OFFSET_EXPR_FIELD_NUMBER: builtins.int
                 offset: builtins.int
-                """A strictly positive integer specifying the number of records that
-                the window extends ahead of the current record. Required. Use
-                CurrentRow for offset zero and Preceding for negative offsets.
+                """A strictly positive integer specifying the offset of this bound.
+                Use CurrentRow for offset zero and Preceding for negative offsets.
+
+                At least one of `offset` and `offset_expr` must be set; setting
+                neither is invalid. Because `offset` has no explicit presence, it is
+                considered set when it is non-zero; zero was never a valid offset.
+                Consumers must use `offset_expr` when it is set and ignore `offset`.
+                Producers may set both during migration, in which case `offset` must
+                be the int64-literal equivalent of `offset_expr` -- possible only
+                when the distance is a positive int64 literal -- so that consumers
+                which do not yet read `offset_expr` can still execute the plan.
+
+                Deprecated: use `offset_expr` instead.
                 """
+                @property
+                def offset_expr(self) -> Global___Expression:
+                    """Expression specifying the distance of this bound from the current
+                    row. Its interpretation depends on `WindowFunction.bounds_type`:
+
+                    * BOUNDS_TYPE_ROWS: evaluates to a non-negative integer number
+                      of rows. The type must be int64.
+                    * BOUNDS_TYPE_RANGE: evaluates to a non-negative distance
+                      applied toward values later in the declared ordering in `sorts`.
+                      Its type D must be compatible with the type T of the single ordering
+                      expression, i.e. `add(T, D) -> T` and `subtract(T, D) -> T` must
+                      be defined (e.g. timestamp/interval_day, decimal/decimal,
+                      i64/i64).
+
+                    A null offset expression result is invalid. When the current row's
+                    ordering value is null, a RANGE offset bound is equivalent to CurrentRow.
+                    A negative result is invalid; a zero result is equivalent
+                    to CurrentRow. Because `offset` cannot represent zero, producers
+                    should emit CurrentRow rather than a zero `offset_expr` so that the
+                    bound remains readable by consumers that do not yet support
+                    `offset_expr`. Use Preceding for a bound before the current row.
+
+                    Field references resolve against the input schema of the relation
+                    containing this window function; the expression must behave
+                    as if evaluated once per input record.
+                    It must not contain window or aggregate functions.
+                    """
+
                 def __init__(
                     self,
                     *,
                     offset: builtins.int = ...,
+                    offset_expr: Global___Expression | None = ...,
                 ) -> None: ...
-                def ClearField(self, field_name: typing.Literal["offset", b"offset"]) -> None: ...
+                def HasField(self, field_name: typing.Literal["offset_expr", b"offset_expr"]) -> builtins.bool: ...
+                def ClearField(self, field_name: typing.Literal["offset", b"offset", "offset_expr", b"offset_expr"]) -> None: ...
 
             @typing.final
             class CurrentRow(google.protobuf.message.Message):
-                """Defines that the bound extends to or from the current record."""
+                """Defines that the bound extends to or from the current record under
+                BOUNDS_TYPE_ROWS, or to or from the current peer group under
+                BOUNDS_TYPE_RANGE. A peer group is the set of records with equal sort
+                key values, where two null sort key values are considered equal.
+                """
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3436,13 +3544,11 @@ class Expression(google.protobuf.message.Message):
             UNBOUNDED_FIELD_NUMBER: builtins.int
             @property
             def preceding(self) -> Global___Expression.WindowFunction.Bound.Preceding:
-                """The bound extends some number of records behind the current record."""
+                """The bound is earlier than the current record in the declared ordering in `sorts`."""
 
             @property
             def following(self) -> Global___Expression.WindowFunction.Bound.Following:
-                """The bound extends some number of records ahead of the current
-                record.
-                """
+                """The bound is later than the current record in the declared ordering in `sorts`."""
 
             @property
             def current_row(self) -> Global___Expression.WindowFunction.Bound.CurrentRow:
@@ -3498,7 +3604,9 @@ class Expression(google.protobuf.message.Message):
         Optional, defaults to AGGREGATION_INVOCATION_ALL.
         """
         bounds_type: Global___Expression.WindowFunction.BoundsType.ValueType
-        """Defines the bounds type: ROWS, RANGE"""
+        """Defines how the window bounds are interpreted.
+        Required when either bound is CurrentRow, Preceding, or Following
+        """
         @property
         def arguments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionArgument]:
             """The arguments to be bound to the function. This must have exactly the
@@ -3536,23 +3644,29 @@ class Expression(google.protobuf.message.Message):
             priority; only if a sort field determines two records to be equivalent
             is the next field queried. This field is optional, and is only allowed
             if the window function is defined to support sorting.
+
+            For RANGE bounds type, SORT_DIRECTION_CLUSTERED and custom comparison
+            functions are not allowed in any of the sorts if either bound is Preceding
+            or Following.
             """
 
         @property
         def partitions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression]:
             """When one or more partition expressions are specified, two records are
             considered to be in the same partition if and only if these expressions
-            yield an equal record of values for both. When computing the window
-            function, only the subset of records within the bounds that are also in
-            the same partition as the current record are aggregated.
+            yield an equal record of values for both (nulls are considered equal).
+            When computing the window function, only the subset of records within
+            the inclusive frame bounds that are also in the same partition as the current record
+            are aggregated.
             """
 
         @property
         def lower_bound(self) -> Global___Expression.WindowFunction.Bound:
             """Defines the record relative to the current record from which the window
             extends. The bound is inclusive. If the lower bound indexes a record
-            greater than the upper bound, TODO (null range/no records passed?
-            wrapping around as if lower/upper were swapped? error? null?).
+            greater than the upper bound (i.e., empty frame due to contradiction),
+            then the behavior follows the semantics of the window function over
+            the empty frame (e.g., SUM yields NULL, COUNT(*) yields 0).
             Optional; defaults to the start of the partition.
             """
 
@@ -3560,8 +3674,9 @@ class Expression(google.protobuf.message.Message):
         def upper_bound(self) -> Global___Expression.WindowFunction.Bound:
             """Defines the record relative to the current record up to which the window
             extends. The bound is inclusive. If the upper bound indexes a record
-            less than the lower bound, TODO (null range/no records passed?
-            wrapping around as if lower/upper were swapped? error? null?).
+            less than the lower bound (i.e., empty frame due to contradiction),
+            then the behavior follows the semantics of the window function over
+            the empty frame (e.g., SUM yields NULL, COUNT(*) yields 0).
             Optional; defaults to the end of the partition.
             """
 

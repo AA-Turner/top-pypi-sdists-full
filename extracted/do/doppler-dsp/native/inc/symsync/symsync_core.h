@@ -23,6 +23,7 @@
 #include "nco/nco_core.h"
 #include "dp_tlm/dp_tlm_core.h"
 #include "telemetry/telemetry_core.h"
+#include "detection/detection_core.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -103,9 +104,18 @@ extern "C"
    * non-transition-symbol self-noise cost. @see dttl_ted for the
    * decision-directed alternative.
    *
+   * @note **Contract: unit amplitude in.** This is a raw numerator and it
+   * carries the signal amplitude — `A^2` here, since both factors are signal
+   * — which it deliberately does not divide out. What makes `bn` mean one
+   * bandwidth is dividing by the detector's OWN slope,
+   * @ref symsync_ted_slope, and that is a construct-time constant computed
+   * at `A = 1`; feed this anything else and the loop gain is off by `A^2`.
+   * Levelling the symbols is the one upstream AGC's job — there is
+   * deliberately no level loop in here, and there used to be.
+   *
    * @param mid   Mid-symbol (transition-gate) interpolant.
    * @param diff  `on_time[k] - on_time[k-1]`.
-   * @return Raw (pre-AGC-normalized) timing error.
+   * @return Raw, un-normalized timing error. @see symsync_ted_slope
    */
   JM_FORCEINLINE double
   gardner_ted (float complex mid, float complex diff)
@@ -113,6 +123,68 @@ extern "C"
     return (double)(crealf (mid) * crealf (diff)
                     + cimagf (mid) * cimagf (diff));
   }
+
+  /** @brief Pulse code for symsync_ted_slope(); values match rc_pulse_t. */
+  enum
+  {
+    SYMSYNC_PULSE_IANDD = 0, /**< rectangular / NRZ.                      */
+    SYMSYNC_PULSE_RRC   = 1  /**< root-raised cosine, roll-off `beta`.    */
+  };
+
+  /**
+   * @brief The detector's OWN contribution to the loop gain: `|dS/dtau|` at
+   *        the lock point, for a unit-amplitude symbol stream.
+   *
+   * A TED's raw output is a timing error multiplied by three things it did
+   * not choose — the signal amplitude, the transition density, and the
+   * detector's own slope against this pulse. Only the last belongs to the
+   * detector, and only it can be computed rather than estimated: the matched
+   * pair's composite is a raised cosine in closed form (wfm_rc_h()), so for
+   * i.i.d. symbols
+   *
+   *     Gardner:  S(tau) = sum_k g(tau-1/2-k) * [g(tau-k) - g(tau-1-k)]
+   *     DTTL:     S(tau) = g(tau-1/2) - g(tau+1/2)
+   *
+   * and the answer is a construct-time number. Amplitude does NOT appear:
+   * it enters as `A^2` (Gardner) or `A^1` (DTTL) and is the AGC's business,
+   * not the detector's — a unity-gain matched cascade delivers the symbol
+   * amplitude it was sent (RateConverter_gain()). Transition density is left
+   * alone, because it is data.
+   *
+   * Divide a raw TED output by this and the result has unit slope per symbol
+   * of timing error, so a loop bandwidth means the same thing at every
+   * roll-off, on either detector. Measured through a real matched cascade at
+   * the stable zero, it does: 0.99 to 1.00 for both, from beta 0.1 to 0.9
+   * (`validate_ratesync_scurve` phase 3).
+   *
+   * @note This comment used to claim the opposite — "the shipped
+   * normalisation's slope varies 10.6x between beta 0.1 and 0.9" — and that
+   * claim is **withdrawn**. It came from a measurement that differentiated
+   * the S-curve about a fixed offset of zero, which through that cascade is
+   * the UNSTABLE T/2 equilibrium rather than the eye centre. DTTL's S-curve
+   * is not sinusoidal, so its two zeros carry very different slopes and the
+   * error surfaced as a spurious roll-off dependence; Gardner's is, so its
+   * two agree to 0.001 and nothing looked wrong on the default detector.
+   * Recorded because the sentence outlived its evidence and was cited, in
+   * good faith, as independent confirmation of the report finding it came
+   * from. See the RateSync validation report, F15, and gh-669.
+   *
+   * Caller multiplies by the reciprocal — see ratesync_loop_t::ted_scale.
+   * Never call this on a hot path; it is a construct-time quantity.
+   *
+   * @param ted   SYMSYNC_TED_GARDNER or SYMSYNC_TED_DTTL.
+   * @param pulse SYMSYNC_PULSE_RRC or SYMSYNC_PULSE_IANDD.
+   * @param beta  RRC roll-off; ignored for the rectangle.
+   * @param span  one-sided pulse span in symbols; sets the summation range.
+   * @return      `|dS/dtau|` at the lock point, unit amplitude. Positive.
+   *
+   * @code
+   * double k = symsync_ted_slope (SYMSYNC_TED_GARDNER, SYMSYNC_PULSE_RRC,
+   *                               0.35, 8);
+   * printf ("%.3f\n", k);   // 1.077
+   * @endcode
+   */
+  double symsync_ted_slope (int ted, int pulse, double beta, size_t span);
 
   /**
    * @brief Sign-sign DTTL: gate the transition sample by the hard-decision
@@ -127,10 +199,21 @@ extern "C"
    * matches gardner_ted's convention so both TEDs share one loop-filter
    * polarity.
    *
+   * @note **Contract: unit amplitude in.** This is a raw numerator and it
+   * carries the signal amplitude — `A^1` here, not `A^2` as in
+   * @ref gardner_ted, because the transition term is a hard decision of
+   * fixed size and only `mid` is signal. That difference in degree is why no
+   * single normaliser applied outside can serve both detectors, and why each
+   * divides by its own slope instead: @ref symsync_ted_slope, a
+   * construct-time constant computed at `A = 1`. Feed this anything else and
+   * the loop gain is off by `A`. Levelling the symbols is the one upstream
+   * AGC's job — there is deliberately no level loop in here, and there used
+   * to be.
+   *
    * @param mid   Mid-symbol (transition-gate) interpolant.
    * @param y     `on_time[k]`.
    * @param prev  `on_time[k-1]`.
-   * @return Raw (pre-AGC-normalized) timing error.
+   * @return Raw, un-normalized timing error. @see symsync_ted_slope
    */
   JM_FORCEINLINE double
   dttl_ted (float complex mid, float complex y, float complex prev)

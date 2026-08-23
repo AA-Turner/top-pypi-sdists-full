@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyan3
-Version: 2.8.0
+Version: 2.8.1
 Summary: Generate approximate call graphs for Python programs
 Keywords: call-graph,static-code-analysis,code-visualization,dependency-analysis
 Author-Email: Juha Jeronen <juha.m.jeronen@gmail.com>
@@ -456,7 +456,7 @@ The module-level mode has its own set of options (separate from the call-graph m
 - `--graphviz-layout` — layout algorithm (`dot`, `fdp`, `neato`, etc.)
 - `--concentrate` — merge bidirectional edges into double-headed arrows (note: may produce small gaps at split points due to GraphViz precision; see above)
 - `-x`, `--exclude` — exclude files matching a pattern (repeatable; see [Excluding files](#excluding-files))
-- `--init` — include `__init__` modules (excluded by default to reduce clutter)
+- `--init` — draw a package's `__init__` as its own node, named `pkg.__init__`, together with the implicit dependency every module under `pkg` has on it. By default the `__init__` is drawn as the package itself, under the name `pkg`, and only dependencies that name the package are edges
 - `--root` — project root directory (file paths are made relative to this before deriving module names; if omitted, inferred automatically)
 
 
@@ -469,6 +469,8 @@ pyan3 --module-level pkg/**/*.py -C
 ```
 
 This finds all unique import cycles in the analyzed module set, and reports statistics (count, min/average/median/max cycle length). Note that for large codebases, the number of cycles can be large — most are harmless consequences of cross-package imports.
+
+The cycle report works on the raw import records rather than the drawn graph, so it names a package `pkg.__init__` where the graph says `pkg`, and it counts the implicit dependency every module under a package has on that package's `__init__`. That is deliberate for the counting — those implicit imports are exactly how a cycle between two packages usually arises — but it does mean the two views name the same module differently.
 
 If a cycle is actually causing an `ImportError`, you usually already know which cycle from the traceback. The `-C` flag provides a broader view of what other cycles exist.
 
@@ -485,7 +487,7 @@ dot_source = pyan.create_modulegraph(
     format="dot",              # also: "svg", "html", "tgf", "yed", "text"
     colored=True,
     nested_groups=True,
-    with_init=False,           # exclude __init__ modules (default)
+    with_init=False,           # draw a package's __init__ as the package (default)
     concentrate=True,          # merge bidirectional edges
     exclude=["test_*.py"],     # exclude files matching these patterns
     layout="dot",              # GraphViz layout algorithm
@@ -622,7 +624,7 @@ _Items tagged with ☆ are new in Pyan3 (the Python 3 fork). Items tagged with �
 
 **Module-level analysis** ★:
 
-- `__init__` modules excluded by default (opt-in with `--init`) ★
+- A package's `__init__` drawn as the package itself, or separately with `--init` ★
 - Directory input — pass a directory path, auto-globs `**/*.py` ★
 
 ## TODO
@@ -677,38 +679,134 @@ Pyan draws less than it knows. A call graph that shows every relation the analyz
 
 ### Uses edges that a more specific edge already conveys
 
-A bare `import b` produces a uses edge whether or not the name is ever referenced. A module node therefore collects one edge per imported name, on top of whatever its body actually does — and each of those runs parallel to the edges of the functions that use the name.
+A bare `import harbor` produces a uses edge whether or not the name is ever referenced. A module node therefore collects one edge per imported name, on top of whatever its body actually does — and each of those runs parallel to the edges of the functions that use the name.
 
 A uses edge `S → T` is dropped when either:
 
 - **`S` is a module, and something defined in that module's own file also uses `T`.** The function's edge says it more precisely.
 - **`T` is a module, and `S` also uses something under `T`.** Reaching into a module implies depending on it.
 
-Three restrictions keep the rule from eating real information:
+The first case in full — the module-level edge goes, the function's stays:
 
-- **Only modules widen.** `f → Thing` alongside `f → Thing.method` stays: the first is a constructor call, which a call graph exists to show. Between modules, the same shape is an import.
-- **Only one end widens at a time.** For a package that imports its own subpackage, `S` contains `T`, and widening both ends would let an edge between two modules *inside* the subpackage stand in for the package's own import.
-- **Source-side widening counts only same-file members**, since a package's dotted-name descendants are separate files: `sub/beta.py` importing `alpha` says nothing about what `sub/__init__.py` imports.
+```python
+# boat.py
+from harbor import Berth   # boat -> harbor.Berth           ...dropped
 
-What survives is anything nothing else records — a module-level use no function reproduces (`router = make_router()`), and an import whose name is never referenced. The rule never removes the last evidence of a dependency: an edge goes only when a finer edge runs between the same pair, so `--depth 0` still shows every module-to-module dependency.
+def cast_off():
+    Berth()                # boat.cast_off -> harbor.Berth  ...kept
+```
+
+The second case needs one node to do both — to use the module *and* to reach inside it. Here that node is `boat` itself:
+
+```python
+# boat.py
+import harbor              # boat -> harbor          ...dropped
+harbor.signal()            # boat -> harbor.signal   ...kept
+```
+
+Move the call into a function and the import edge stays, because the node reaching inside `harbor` is then `boat.cast_off`, and `boat` is left using nothing but `harbor`:
+
+```python
+# boat.py
+import harbor              # boat -> harbor                 ...kept
+
+def cast_off():
+    harbor.Berth()         # boat.cast_off -> harbor.Berth  ...kept
+```
+
+Note what this is *not*. A module that merely **defines** a function has a `defines` edge to it, and defines edges are never touched — so in a module where `cast_off()` calls `moor()`, nothing is dropped, there being no module-level *use* of `moor` in the first place. The rule needs the module's own body to use something, which in practice means an import.
+
+Both cases work by narrowing one end of the edge to something inside it, and asking whether that narrower edge exists. Three restrictions on the narrowing keep the rule from eating real information:
+
+- **Only a module narrows.** A class and a module make the same shape — an edge to `X`, and an edge to something inside `X` — and mean different things by it. Write `b = Berth(); b.assign()` in `cast_off` and you get `cast_off → Berth` *and* `cast_off → Berth.assign`, both kept: the first is a constructor call, and a call graph exists to show calls. Write `import harbor; harbor.signal()` in that same function and you get `cast_off → harbor` and `cast_off → harbor.signal`, and the first goes — it is the import statement written to enable the second.
+- **Only one end narrows at a time.** In `harbor → harbor.quay`, the source already contains the target. Narrowing both would look for the finer edge anywhere inside `harbor` on one end and anywhere inside `harbor.quay` on the other — and `harbor.quay.bollard → harbor.quay.crane` fits that, being inside both. It is not code in `harbor/__init__.py` and it never reaches `harbor.quay`, so it says nothing about whether that import can go.
+- **Narrowing the source reaches only same-file members**, since a package's dotted-name descendants are separate files: `quay/bollard.py` importing `crane` says nothing about what `quay/__init__.py` imports.
+
+The last two are both about packages, and one arrangement shows each:
+
+```python
+# harbor/__init__.py
+from harbor import quay             # harbor -> harbor.quay                    ...kept
+
+# harbor/quay/__init__.py
+from harbor.quay import crane       # harbor.quay -> harbor.quay.crane         ...kept
+
+# harbor/quay/bollard.py
+from harbor.quay import crane       # harbor.quay.bollard -> harbor.quay.crane ...dropped
+
+def tie_up():
+    return crane                    # harbor.quay.bollard.tie_up -> harbor.quay.crane  ...kept
+```
+
+`harbor → harbor.quay` is the both-ends case: `tie_up` lies under `harbor` and `crane` lies under `harbor.quay`, so if both ends narrowed at once, the `tie_up → crane` edge at the bottom would qualify as the finer edge — though it is written in `bollard.py` rather than in `harbor/__init__.py`, and neither of its ends is one of the two in question. `harbor.quay → harbor.quay.crane` is the source-side one — `tie_up` does use exactly that target, but the two ends do not take "inside" to mean the same thing. A target takes in everything under its dotted path; a source takes in only what its own file defines. `tie_up` is under `harbor.quay` by name, and defined in `bollard.py`, so it is not one of the source's. But inside `bollard.py`, `tie_up` *is* a same-file member, so the ordinary first case applies and the module-level import goes.
+
+What survives is anything nothing else records — a module-level use no function reproduces, and an import whose name is never referenced:
+
+```python
+# boat.py
+from harbor import make_manifest, tide_table  # boat -> harbor.tide_table    ...kept, nothing else uses it
+
+manifest = make_manifest()                    # boat -> harbor.make_manifest ...kept, no function repeats it
+```
+
+The rule never removes the last evidence of a dependency: an edge goes only when a finer edge runs between the same pair, so `--depth 0` still shows every module-to-module dependency.
 
 Applies in every mode, including `--text` and the Python API. Switch it off with `--keep-subsumed-edges`, or `cull_subsumed_edges=False` in `create_callgraph()`, `CallGraphVisitor` and `CallGraphVisitor.from_sources` — worth doing when you are asking questions *about imports* rather than about calls.
 
 ### Module nodes, when grouping
 
-With `-g` / `--grouped` (or `-e` / `--nested-groups`), a module that has members is represented by the cluster holding them. Drawing the module node beside that cluster would label the same thing twice, so the node moves *inside* its own cluster and is labelled `<module>` — the name CPython gives the module-level code object.
+With `-g` / `--grouped` (or `-e` / `--nested-groups`), every module is drawn as a cluster. Drawing the module node beside that cluster would label the same thing twice, so the node moves *inside* its own cluster and is labelled `<module>` — the name CPython gives the module-level code object.
 
-- `<module>` appears only when the module body uses something, or something uses the module. A module that merely contains definitions is left to its box.
+- `<module>` appears where the module body uses something, where something uses the module, or where it is the only thing its box would hold. A module that merely contains definitions is left to its members.
 - A module's defines edges to its own members are not drawn: the box already states containment.
 
-Neither applies without grouping. There, module nodes keep their full dotted names and all their defines edges, because those edges are then the only thing showing what contains what.
+All three clauses of the first bullet come up in three files:
+
+```python
+# harbor/__init__.py               (empty)
+
+# harbor/pier.py
+from harbor.crane import lift
+
+def unload():
+    lift()
+
+# harbor/crane.py
+def lift():
+    pass
+```
+
+Three boxes, one edge:
+
+- **`harbor`** holds `<module>` alone. It has no members, so without that node the box would be empty — and an empty box is not drawn at all, which would leave the module missing from the graph.
+- **`harbor.pier`** holds `unload` alone. Its module-level import edge was subsumed by `unload`'s (above), leaving the body using nothing, and nothing uses `harbor.pier` either.
+- **`harbor.crane`** holds `lift` alone, for the same reason.
+- The only edge drawn is `unload → lift`. `harbor.pier`'s defines edge to `unload` is not, the box having said it.
+
+Neither bullet applies without grouping. There, module nodes keep their full dotted names and all their defines edges, because those edges are then the only thing showing what contains what.
 
 ### Lambdas, comprehensions, and unused module-level names
 
-An analyzed module is drawn even when it connects to nothing — a package whose `__init__.py` is empty appears as a node with no edges, and that is the point: you handed pyan the file, so "this links nowhere" is an answer rather than clutter. When grouping, it stays a plain node rather than becoming a box: a cluster exists only where a module has members to hold, and an empty `__init__.py` has none. Modules that were only ever imported, never analyzed, are not drawn at all.
+An analyzed module is drawn even when it connects to nothing — a package whose `__init__.py` is empty appears as a node with no edges, and that is the point: you handed pyan the file, so "this links nowhere" is an answer rather than clutter. When grouping, it becomes a box holding `<module>`, like any other module. Modules that were only ever imported, never analyzed, are not drawn at all.
 
-- **Lambdas and comprehensions are folded into the function that contains them.** A lambda that calls `f` is drawn as its enclosing function calling `f`.
+- **Lambdas and comprehensions are folded into the function that contains them.** A lambda that calls `knot` is drawn as its enclosing function calling `knot`. This hides a scope boundary that is really there: below, `x` belongs to the lambda and `y` to the comprehension, not to `rig`. The analyzer honours it — a name bound in one of those scopes shadows the enclosing function's, and a call resolved against it does not reach what the outer name held — but the graph does not show it, so a call made inside a lambda looks like one made in the function body.
 - **A module-level binding that nothing uses is not drawn.** Names like `__version__` or a private constant become nodes during analysis so that other modules can import them; when nothing does, they would be isolated dots.
+
+Both, in one module:
+
+```python
+# rigging.py
+__version__ = "1.0"                # not drawn — no other module imports it
+
+def knot(x):
+    return x
+
+def rig(lines):
+    fasten = lambda x: knot(x)     # rigging.rig -> rigging.knot
+    return [knot(y) for y in lines]  # rigging.rig -> rigging.knot, again
+```
+
+The graph holds `rigging` defining `knot` and `rig`, and `rig` using `knot`. There is no node for the lambda, none for the comprehension, and none for `__version__`.
 
 # Authors
 

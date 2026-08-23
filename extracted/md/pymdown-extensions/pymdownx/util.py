@@ -230,7 +230,7 @@ class PatternSequenceProcessor(InlineProcessor):
         self,
         data: str,
         parent: etree.Element,
-        last: None | etree.Element,
+        last: etree.Element | None,
         full_recursion: bool,
         idx: int
     ) -> None:

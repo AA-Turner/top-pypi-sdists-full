@@ -37,26 +37,26 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: ./.github/actions/setup-uv
         with:
           python-version: '3.12'
-
-      - name: Install deps
-        run: uv sync --group dev --group docs
+          sync: --group dev --group docs
 
       - name: Install doxygen
-        # `make install-docs-deps`, not a raw apt-get: jb.toml's `docs` group is
+        # `make install-docs-deps`, not a raw apt-get: bootstrap.toml's `docs` group is
         # the single dependency list, shared with ci.yml's doxygen job. The
         # inline copy had already drifted from it (missing graphviz's companions
-        # / the LaTeX set jb.toml declares).
-        run: make install-docs-deps
+        # / the LaTeX set bootstrap.toml declares).
+        timeout-minutes: 25
+        run: make install-docs-deps-ci
 
       - name: Generate C API docs
         # `make gen-c-api`, not an inline copy. This step WAS a fourth
@@ -102,6 +102,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       pages: write
       id-token: write

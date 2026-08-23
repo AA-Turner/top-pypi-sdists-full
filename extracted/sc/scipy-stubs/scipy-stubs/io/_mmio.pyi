@@ -13,7 +13,7 @@ __all__ = ["MMFile", "mminfo", "mmread", "mmwrite"]
 ###
 
 type _Format = Literal["coordinate", "array"]
-type _Field = Literal["real", "complex", "pattern", "integer"]
+type _Field = Literal["real", "complex", "pattern", "integer", "unsigned-integer"]
 type _Symmetry = Literal["general", "symmetric", "skew-symmetric", "hermitian"]
 type _Info = tuple[int, int, int, _Format, _Field, _Symmetry]
 
@@ -72,7 +72,7 @@ class MMFile:
 
     # dtype is either intp, uint64, float64, or complex128, depending on the field
     @overload
-    @deprecated("The default value for `spmatrix` is changing to False in v1.20.")
+    @deprecated("The default value for `spmatrix` is changing to False in v2.1.")
     def read(self, /, source: FileLike[bytes], *, spmatrix: _NoValueType = ...) -> onp.Array2D[Any] | coo_matrix[Any]: ...
     @overload
     def read(self, /, source: FileLike[bytes], *, spmatrix: Literal[True]) -> onp.Array2D[Any] | coo_matrix[Any]: ...

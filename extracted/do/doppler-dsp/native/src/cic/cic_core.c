@@ -22,6 +22,8 @@
 
 #include "cic/cic_core.h"
 
+#include <math.h>
+
 #include <string.h>
 
 /* ── internal helpers ──────────────────────────────────────────────────── */
@@ -42,8 +44,9 @@ log2_pow2 (uint32_t x)
 static int
 valid_R (uint32_t R)
 {
-  /* Power of two in [2, 4096]: CIC_N * log2(R) <= 48. */
-  return R >= 2 && R <= 4096 && (R & (R - 1)) == 0;
+  /* Power of two in [2, CIC_R_MAX]: CIC_N * log2(R) <= 44, which is 16x
+     inside the 64-bit accumulator. See CIC_R_MAX. */
+  return R >= 2 && R <= CIC_R_MAX && (R & (R - 1)) == 0;
 }
 
 /* ── lifecycle ─────────────────────────────────────────────────────────── */
@@ -125,6 +128,13 @@ cic_set_state (cic_state_t *state, const void *blob)
 }
 
 /* ── decimate ──────────────────────────────────────────────────────────── */
+
+double
+cic_dc_gain (const cic_state_t *state)
+{
+  return pow ((double)state->R, (double)CIC_N)
+         / ldexp (1.0, (int)state->shift);
+}
 
 size_t
 cic_decimate_max_out (cic_state_t *state)

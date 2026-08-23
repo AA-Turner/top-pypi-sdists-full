@@ -16,13 +16,13 @@ from ._typing import _ToShape2D
 
 __all__ = ["dia_array", "dia_matrix", "isspmatrix_dia"]
 
-type _ToMatrixPy[T] = Sequence[T] | Sequence[Sequence[T]]
-type _ToMatrix[ScalarT: npc.number | np.bool] = (
-    _spbase[ScalarT] | onp.CanArrayND[ScalarT] | Sequence[onp.CanArrayND[ScalarT]] | _ToMatrixPy[ScalarT]
-)
-type _ToData[ScalarT: npc.number | np.bool] = tuple[onp.ArrayND[ScalarT], onp.ArrayND[npc.integer]]
+type _Scalar = npc.number | np.bool
 
-_ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number | np.bool, default=Any, covariant=True)
+type _ToMatrixPy[T] = Sequence[T] | Sequence[Sequence[T]]
+type _ToMatrix[ST: _Scalar] = _spbase[ST] | onp.CanArrayND[ST] | Sequence[onp.CanArrayND[ST]] | _ToMatrixPy[ST]
+type _ToData[ST: _Scalar] = tuple[onp.ArrayND[ST], onp.ArrayND[npc.integer]]
+
+_ScalarT_co = TypeVar("_ScalarT_co", bound=_Scalar, default=Any, covariant=True)
 
 ###
 
@@ -62,7 +62,7 @@ class dia_array(_dia_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
     def __assoc_stacked__(self, /) -> coo_array[_ScalarT_co, tuple[int, int]]: ...
     @override
     @type_check_only
-    def __assoc_stacked_as__[ScalarT: npc.number | np.bool](self, sctype: ScalarT, /) -> coo_array[ScalarT, tuple[int, int]]: ...
+    def __assoc_stacked_as__[ST: _Scalar](self, sctype: ST, /) -> coo_array[ST, tuple[int, int]]: ...
     @override
     @type_check_only
     def __assoc_as_float32__(self, /) -> dia_array[np.float32]: ...
@@ -96,18 +96,7 @@ class dia_array(_dia_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: bool-like (positional)
-    def __init__(
-        self: dia_array[np.bool],
-        /,
-        arg1: _ToShape2D,
-        shape: _ToShape2D | None,
-        dtype: onp.AnyBoolDType,
-        copy: bool = False,
-        *,
-        maxprint: int | None = None,
-    ) -> None: ...
-    @overload  # 2-d shape-like, dtype: bool-like (keyword)
+    @overload  # 2-d shape-like, dtype: bool-like
     def __init__(
         self: dia_array[np.bool],
         /,
@@ -118,18 +107,7 @@ class dia_array(_dia_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         copy: bool = False,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: int-like (positional)
-    def __init__(
-        self: dia_array[np.int64],
-        /,
-        arg1: _ToShape2D,
-        shape: _ToShape2D | None,
-        dtype: onp.AnyIntDType,
-        copy: bool = False,
-        *,
-        maxprint: int | None = None,
-    ) -> None: ...
-    @overload  # 2-d shape-like, dtype: int-like (keyword)
+    @overload  # 2-d shape-like, dtype: int-like
     def __init__(
         self: dia_array[np.int64],
         /,
@@ -140,18 +118,7 @@ class dia_array(_dia_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         copy: bool = False,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: complex128-like (positional)
-    def __init__(
-        self: dia_array[np.complex128],
-        /,
-        arg1: _ToShape2D,
-        shape: _ToShape2D | None,
-        dtype: onp.AnyComplex128DType,
-        copy: bool = False,
-        *,
-        maxprint: int | None = None,
-    ) -> None: ...
-    @overload  # 2-d shape-like, dtype: complex128-like (keyword)
+    @overload  # 2-d shape-like, dtype: complex128-like
     def __init__(
         self: dia_array[np.complex128],
         /,
@@ -159,6 +126,17 @@ class dia_array(_dia_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         shape: _ToShape2D | None = None,
         *,
         dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: <known>
+    def __init__(
+        self,
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
         maxprint: int | None = None,
     ) -> None: ...
@@ -237,7 +215,7 @@ class dia_matrix(_dia_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
     def __assoc_stacked__(self, /) -> coo_matrix[_ScalarT_co]: ...
     @override
     @type_check_only
-    def __assoc_stacked_as__[ScalarT: npc.number | np.bool](self, sctype: ScalarT, /) -> coo_matrix[ScalarT]: ...
+    def __assoc_stacked_as__[ST: _Scalar](self, sctype: ST, /) -> coo_matrix[ST]: ...
     @override
     @type_check_only
     def __assoc_as_float32__(self, /) -> dia_matrix[np.float32]: ...
@@ -269,6 +247,28 @@ class dia_matrix(_dia_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         dtype: None = None,
         copy: bool = False,
         *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like
+    def __init__(
+        self: dia_matrix[np.bool],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: <known>
+    def __init__(
+        self,
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.ToDType[_ScalarT_co],
+        copy: bool = False,
         maxprint: int | None = None,
     ) -> None: ...
     @overload  # matrix-like builtins.bool, dtype: bool-like | None

@@ -233,7 +233,7 @@ ResamplerObj_execute_ctrl (ResamplerObject *self, PyObject *args,
                                              NPY_ARRAY_C_CONTIGUOUS);
   if (!x_arr)
     return NULL;
-  ctrl_arr = (PyArrayObject *)PyArray_FROM_OTF (ctrl_obj, NPY_COMPLEX64,
+  ctrl_arr = (PyArrayObject *)PyArray_FROM_OTF (ctrl_obj, NPY_DOUBLE,
                                                 NPY_ARRAY_C_CONTIGUOUS);
   if (!ctrl_arr)
     {
@@ -289,7 +289,7 @@ ResamplerObj_execute_ctrl (ResamplerObject *self, PyObject *args,
         }
       size_t n_out = Resampler_execute_ctrl (
           self->handle, (const float complex *)PyArray_DATA (x_arr), _n_in,
-          (const float complex *)PyArray_DATA (ctrl_arr),
+          (const double *)PyArray_DATA (ctrl_arr),
           (size_t)PyArray_SIZE (ctrl_arr),
           (float complex *)PyArray_DATA (out_arr), _cap);
       Py_DECREF (x_arr);
@@ -326,8 +326,7 @@ ResamplerObj_execute_ctrl (ResamplerObject *self, PyObject *args,
     }
   size_t n_out = Resampler_execute_ctrl (
       self->handle, (const float complex *)PyArray_DATA (x_arr),
-      (size_t)PyArray_SIZE (x_arr),
-      (const float complex *)PyArray_DATA (ctrl_arr),
+      (size_t)PyArray_SIZE (x_arr), (const double *)PyArray_DATA (ctrl_arr),
       (size_t)PyArray_SIZE (ctrl_arr), self->_execute_ctrl_buf,
       self->_execute_ctrl_buf_cap);
   npy_intp  dim = (npy_intp)n_out;
@@ -404,6 +403,18 @@ Resampler_getprop_num_taps (ResamplerObject *self, void *Py_UNUSED (closure))
       (unsigned long long)Resampler_get_num_taps (self->handle));
 }
 
+static PyObject *
+Resampler_getprop_ctrl_acc (ResamplerObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (Resampler_get_ctrl_acc (self->handle));
+}
+
 static PyGetSetDef Resampler_getset[] = {
   { "rate", (getter)Resampler_getprop_rate, (setter)Resampler_setprop_rate,
     "Get / set the output-to-input sample rate ratio. The setter recomputes "
@@ -421,6 +432,8 @@ static PyGetSetDef Resampler_getset[] = {
     "Taps per polyphase branch. Total prototype filter length is num_phases * "
     "num_taps - 1. The built-in bank uses 19 taps per branch.\n",
     NULL },
+  { "ctrl_acc", (getter)Resampler_getprop_ctrl_acc, NULL,
+    "The control accumulator's fractional phase, in [0, 1).\n", NULL },
   { NULL }
 };
 
@@ -514,7 +527,7 @@ static PyMethodDef ResamplerObj_methods[] = {
     "construction), so read it from the instance rather than assuming a\n"
     "constant.\n"
     "\n"
-    "Raises ``RuntimeError`` if the ResamplerObj has already been destroyed.\n"
+    "Raises ``RuntimeError`` if the Resampler has already been destroyed.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -531,7 +544,7 @@ static PyMethodDef ResamplerObj_methods[] = {
     "implementation detail of the C core and is not a stable format across\n"
     "builds.\n"
     "\n"
-    "Raises ``RuntimeError`` if the ResamplerObj has already been destroyed.\n"
+    "Raises ``RuntimeError`` if the Resampler has already been destroyed.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -541,13 +554,13 @@ static PyMethodDef ResamplerObj_methods[] = {
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
     "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()` "
-    "before\n"
-    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "was constructed with. Length is validated against `state_bytes()`\n"
+    "before the blob is handed to the C core, and the core may reject it as\n"
+    "well.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"
-    "``RuntimeError`` if the ResamplerObj has already been destroyed.\n"
+    "``RuntimeError`` if the Resampler has already been destroyed.\n"
     "\n"
     "Parameters\n"
     "----------\n"

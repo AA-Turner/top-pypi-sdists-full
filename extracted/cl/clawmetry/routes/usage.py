@@ -31,6 +31,8 @@ stay in ``dashboard.py`` and are reached via late ``import dashboard as _d``.
 Pure mechanical move — zero behaviour change.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import time
@@ -60,6 +62,10 @@ _NON_OPENCLAW_RT_SET = frozenset((
     "deepseek_harness",
     "exo",
     "kimi",
+    "devin",
+    "gemini_cli",
+    "cline",
+    "openhands",
 ))
 
 def _event_runtime(ev) -> str:
@@ -924,6 +930,10 @@ _RUNTIME_PREFIXES = frozenset({
     "aider", "goose", "opencode", "qwen_code", "pi", "deepagents", "n8n",
     "antigravity", "copilot", "grok", "qm", "deepseek_harness", "exo",
     "kimi",
+    "devin",
+    "gemini_cli",
+    "cline",
+    "openhands",
 })
 
 

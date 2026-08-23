@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.932"
+version = "0.4.934"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -29,7 +29,10 @@ dependencies = [
     # libgdal build satisfies the editable self-dep. Was pinned to the cgohlke
     # wheel 3.10.2 (win) / system libgdal 3.11.0 (HPC) — both obsolete under pixi.
     "gdal>=3.10",
-    "pyeogpr>=2.4.7",
+    # NOTE: pyeogpr was removed as a dependency (2026-08-22). It was never
+    # imported anywhere in geocif, AND it was deleted from PyPI (404), which
+    # made every fresh resolve of geocif fail ("pyeogpr was not found in the
+    # package registry") and silently backtrack installs to geocif 0.2.77.
     "pyproj",
     "rasterio",
     "rtree",

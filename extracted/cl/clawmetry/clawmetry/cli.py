@@ -1228,6 +1228,23 @@ def _cmd_connect(args) -> None:
         config["encryption_key"] = enc_key
     save_config(config)
 
+    # Record the choice the dashboard's first-run gate reads, so a machine
+    # onboarded from the terminal is never asked to onboard AGAIN in the
+    # browser (founder live-hit 2026-08-22: `clawmetry status` showed the
+    # linked cloud_pro account while http://localhost:8900 showed the
+    # "Welcome to ClawMetry" modal and a second sign-in). The keep-local
+    # sign-in is self-host by definition — the marker staying put is that
+    # path's whole point — and the trial it mints is what unlocks runtimes.
+    try:
+        from clawmetry import onboarding_state as _obs
+
+        _obs.record_choice(
+            "selfhost_trial" if _keep_local_signin else "managed",
+            source="cli:connect",
+        )
+    except Exception:
+        pass  # never let gate bookkeeping fail a successful connect
+
     # Explicit connect is an opt-in to cloud: clear any local-only marker so the
     # daemon actually pushes (otherwise a prior local-only install / disconnect
     # leaves it ingesting to DuckDB only and the node never appears in cloud).
@@ -1283,7 +1300,7 @@ def _cmd_connect(args) -> None:
         from clawmetry.license import auto_provision_pro
         _pro_installed, _pro_msg = auto_provision_pro(api_key, node_id)
         if _pro_installed:
-            print("  Pro adapters installed - all 22 runtimes available.")
+            print("  Pro adapters installed - all 26 runtimes available.")
         elif _pro_msg:
             # Entitled but the wheel could not be installed right now; surface a
             # quiet hint without alarming the user (connect still succeeded).
@@ -2000,7 +2017,13 @@ def _cmd_disconnect(args) -> None:
         _kill_sync_daemon()  # also kill any bare subprocess daemon
         print("✅  Stopped sync daemon")
 
+    _node_id_dc = ""
     if CONFIG_FILE.exists():
+        try:
+            import json as _json_dc
+            _node_id_dc = _json_dc.loads(CONFIG_FILE.read_text()).get("node_id", "")
+        except Exception:
+            pass
         CONFIG_FILE.unlink()
         print(f"✅  Removed config ({CONFIG_FILE})")
     if STATE_FILE.exists():
@@ -2034,6 +2057,16 @@ def _cmd_disconnect(args) -> None:
     except Exception as _e:
         print(f"⚠️  Could not write opt-out marker: {_e}")
 
+    # Clear the cloud token mirrored into ~/.openclaw/openclaw.json and
+    # the OS-keychain workspace key.  Neither lives under ~/.clawmetry so
+    # they survive a config-delete; explicit cleanup prevents a later
+    # install from silently re-adopting the old identity (founder bug
+    # 2026-08-10: fresh desktop install landed on the dashboard signed-in).
+    from clawmetry.config import clear_cloud_token, delete_workspace_keychain_entry
+    if clear_cloud_token():
+        print("✅  Removed cloud token from OpenClaw config")
+    if _node_id_dc:
+        delete_workspace_keychain_entry(_node_id_dc)
     print("Disconnected from ClawMetry Cloud.")
 
 
@@ -2453,6 +2486,7 @@ def _cmd_uninstall(args=None) -> None:
 
     # Execute uninstall
     # 0. Purge server-side registration (node_registry + node data)
+    _node_id = ""
     try:
         import json as _json_u
         cfg_path = home / ".clawmetry" / "config.json"
@@ -2715,9 +2749,11 @@ def _cmd_uninstall(args=None) -> None:
     # — a stale token in a file OpenClaw owns. We only remove our own key;
     # the rest of openclaw.json is preserved (or the file is deleted if our
     # key was the only thing in it).
-    _stripped, _oc_json_path = _strip_clawmetry_from_openclaw_json()
-    if _stripped:
-        _say(f"  ✅  Stripped clawmetry section from {_oc_json_path}")
+    from clawmetry.config import clear_cloud_token, delete_workspace_keychain_entry
+    if clear_cloud_token():
+        _say(f"  ✅  Stripped clawmetry section from ~/.openclaw/openclaw.json")
+    if _node_id:
+        delete_workspace_keychain_entry(_node_id)
 
     # 10. Desktop thin-shell runtime dir (~/Library/Application Support/ClawMetry
     # on macOS, %LOCALAPPDATA%/ClawMetry on Windows, ~/.local/share/ClawMetry
@@ -3789,6 +3825,25 @@ def _instant_register(BOLD, GREEN, DIM):
     return result
 
 
+def _record_gate_choice(choice: str) -> None:
+    """Tell the dashboard's first-run gate that onboarding finished here.
+
+    The wizard's branches each end in a different place, so this is called
+    at the branch, not at a shared exit: the paths where sign-in FAILED and
+    we fall back to local ("No account connected. Running local-only") must
+    NOT record anything — the user tried to choose and the flow broke, so
+    the browser gate is their second chance, not noise.
+
+    Best-effort by contract; see clawmetry/onboarding_state.py.
+    """
+    try:
+        from clawmetry import onboarding_state as _obs
+
+        _obs.record_choice(choice, source="cli:onboard")
+    except Exception:
+        pass
+
+
 def _cmd_onboard(args) -> None:
     """clawmetry onboard / setup -- interactive first-time setup wizard."""
     import os as _os
@@ -3883,7 +3938,7 @@ def _cmd_onboard(args) -> None:
     print()
     print(f"  {BOLD('Plans')} {DIM('(same either way; each tier includes the one before):')}")
     print(f"    {DIM('Free    $0          watch OpenClaw + NVIDIA NemoClaw, forever')}")
-    print(f"    {DIM('Starter $9/node/mo  everything in Free + observability for all 22 runtimes')}")
+    print(f"    {DIM('Starter $9/node/mo  everything in Free + observability for all 26 runtimes')}")
     print(f"    {DIM('Pro    $19/node/mo  everything in Starter + governance (alerts, approvals, evals)')}")
     print()
     print(f"  {BOLD('How do you want to run ClawMetry?')}")
@@ -3991,6 +4046,7 @@ def _cmd_onboard(args) -> None:
         print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
         print()
         _write_nocloud_marker()
+        _record_gate_choice("selfhost_free")
         _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
@@ -4064,6 +4120,10 @@ def _cmd_onboard(args) -> None:
         else:
             _pricing_url = "https://clawmetry.com/pricing?deploy=self"
             print(f"  {DIM('Get one at')} {CYAN(_pricing_url)} {DIM('then run')} {CYAN('clawmetry activate <key>')}")
+            # Self-host WAS chosen; the key just arrives later. Record it so
+            # the browser gate doesn't re-ask a question already answered
+            # (activation itself upgrades the record to selfhost_license).
+            _record_gate_choice("selfhost_free")
         print()
         _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
@@ -4080,6 +4140,7 @@ def _cmd_onboard(args) -> None:
         print()
     print()
     if _want_trial in ("n", "no"):
+        _record_gate_choice("selfhost_free")
         print(f"  {DIM('Free plan: OpenClaw + NeMo at http://localhost:8900.')}")
         print(f"  {DIM('Trial or license anytime:')} {CYAN('clawmetry onboard')} {DIM('·')} {CYAN('https://clawmetry.com/pricing?deploy=self')}")
         print()
@@ -4681,6 +4742,21 @@ def _unattended_update_target(current: str):
             "Unattended updates disabled "
             "(CLAWMETRY_AUTO_UPDATE kill switch or CI environment)"
         )
+    # A deployment that declared itself private (self-hosted, air-gapped, or
+    # repointed at a customer-run server) must not reach pypi.org. On a network
+    # with no route out the call can only time out; on a monitored one it is
+    # unexplained egress during a security review. Upgrades in these
+    # deployments belong to the operator's change process, not to us.
+    try:
+        from clawmetry.endpoints import egress_suppressed
+        if egress_suppressed():
+            return None, (
+                "Unattended updates disabled (self-hosted / offline deployment "
+                "— upgrade through your own change process)"
+            )
+    except Exception:
+        # Fail closed: no policy module means no unattended network call.
+        return None, "Update policy unavailable; skipping unattended update"
     try:
         req = urllib.request.Request(
             "https://pypi.org/pypi/clawmetry/json",

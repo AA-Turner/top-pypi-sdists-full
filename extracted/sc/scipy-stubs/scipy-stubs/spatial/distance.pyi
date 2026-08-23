@@ -60,6 +60,7 @@ type _MetricName = Literal[
     "hamm",
     "ha",
     "h",
+    "matching",
     "minkowski",
     "mi",
     "m",
@@ -88,7 +89,7 @@ type _MetricName = Literal[
 ###
 
 type _MetricFunc = Callable[[onp.Array1D[np.float64], onp.Array1D[np.float64]], onp.ToFloat | None]
-type _Metric = _MetricName | _MetricFunc  # noqa: PYI047
+type _Metric = _MetricName | _MetricFunc  # ruff: ignore[unused-private-type-alias]
 
 type _Force = Literal["NO", "No", "no", "TOMATRIX", "ToMatrix", "tomatrix", "TOVECTOR", "ToVector", "tovector"]
 
@@ -248,7 +249,7 @@ def hamming(u: onp.ToFloat1D, v: onp.ToFloat1D, w: onp.ToFloat1D | None = None) 
 def jaccard(u: onp.ToFloat1D, v: onp.ToFloat1D, w: onp.ToFloat1D | None = None) -> np.float64: ...
 def rogerstanimoto(u: onp.ToFloat1D, v: onp.ToFloat1D, w: onp.ToFloat1D | None = None) -> float: ...
 def russellrao(u: onp.ToFloat1D, v: onp.ToFloat1D, w: onp.ToFloat1D | None = None) -> float: ...
-def seuclidean(u: onp.ToFloat1D, v: onp.ToFloat1D, V: onp.ToFloat1D) -> float: ...
+def seuclidean(u: onp.ToFloat1D, v: onp.ToFloat1D, V: onp.ToFloat1D) -> np.float64: ...
 def yule(u: onp.ToFloat1D, v: onp.ToFloat1D, w: onp.ToFloat1D | None = None) -> float: ...
 
 type _ToFloatMax2D = onp.ToFloatStrict2D | onp.ToFloatStrict1D

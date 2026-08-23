@@ -1,9 +1,7 @@
-import random
-
+import hypothesis.strategies as st
 from eth_utils import (
     encode_hex,
 )
-import hypothesis.strategies as st
 
 from eth_abi.utils.numeric import (
     scale_places,
@@ -91,10 +89,12 @@ tuple_type_strs = st.recursive(
 type_strs = st.one_of(non_tuple_type_strs, tuple_type_strs)
 
 
-def guaranteed_permute(xs):
+@st.composite
+def guaranteed_permute(draw, xs):
     len_xs = len(xs)
     indices = tuple(range(len_xs))
 
+    random = draw(st.randoms(use_true_random=False))
     shuffled_indices = indices
     while indices == shuffled_indices:
         shuffled_indices = tuple(random.sample(indices, k=len_xs))
@@ -108,7 +108,7 @@ malformed_non_tuple_type_strs = (
         st.one_of(total_bits, fixed_size_strs),
         array_list_strs,
     )
-    .map(guaranteed_permute)
+    .flatmap(guaranteed_permute)
     .map(join)
 )
 
@@ -277,7 +277,7 @@ tuple_strs_values = st.recursive(
 
 
 def unzip_strs_values(strs_values):
-    type_strs, type_values = zip(*strs_values)
+    type_strs, type_values = zip(*strs_values, strict=False)
 
     return tuple(type_strs), tuple(type_values)
 

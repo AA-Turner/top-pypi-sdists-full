@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudpathlib
-Version: 0.24.0
+Version: 0.25.0
 Summary: pathlib-style classes for cloud storage services.
 Keywords: pathlib,cloud storage,s3,azure blob storage,google cloud storage
 Author-email: DrivenData <info@drivendata.org>

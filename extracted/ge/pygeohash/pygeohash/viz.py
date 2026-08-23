@@ -13,18 +13,17 @@ Functions:
 # mypy: disable-error-code="list-item,assignment"
 
 import warnings
-from typing import List, Optional, Tuple, Union, Any, cast, TypeVar
-from typing_extensions import TypeAlias, Protocol
+from typing import List, Optional, Protocol, Tuple, Union, Any, cast, TypeVar
 
 from pygeohash.geohash import decode
 from pygeohash.bounding_box import get_bounding_box, geohashes_in_box, BoundingBox
 
 # Type aliases for better readability
-FoliumMap: TypeAlias = Any  # Would be folium.Map if folium was always available
-FoliumRectangle: TypeAlias = Any  # Would be folium.Rectangle if folium was always available
-FoliumElement: TypeAlias = Any  # Would be folium.Element if folium was always available
-MatplotlibAxis: TypeAlias = Any  # Would be matplotlib.axes.Axes if matplotlib was always available
-MatplotlibFigure: TypeAlias = Any  # Would be matplotlib.figure.Figure if matplotlib was always available
+FoliumMap = Any  # Would be folium.Map if folium was always available
+FoliumRectangle = Any  # Would be folium.Rectangle if folium was always available
+FoliumElement = Any  # Would be folium.Element if folium was always available
+MatplotlibAxis = Any  # Would be matplotlib.axes.Axes if matplotlib was always available
+MatplotlibFigure = Any  # Would be matplotlib.figure.Figure if matplotlib was always available
 BoundingBoxCoords = Tuple[float, float, float, float]  # min_lat, min_lon, max_lat, max_lon
 
 T = TypeVar("T")
@@ -226,11 +225,20 @@ def plot_geohashes(
     Returns:
         Tuple: (fig, ax) - The matplotlib figure and axis objects
 
+    Raises:
+        ValueError: If ``geohashes`` is empty, or if ``colors`` is an empty list.
+
     Examples:
         >>> import pygeohash as pgh
         >>> from pygeohash.viz import plot_geohashes
         >>> fig, ax = plot_geohashes(["9q8yyk", "9q8yym", "9q8yyj"])
     """
+    if not geohashes:
+        raise ValueError("plot_geohashes requires at least one geohash")
+
+    if not isinstance(colors, str) and not colors:
+        raise ValueError("colors must be a color name, a colormap name, or a non-empty list of colors")
+
     if not _check_viz_dependencies():
         return None, None
 
@@ -382,8 +390,19 @@ def add_geohashes(
     popups: Optional[List[str]] = None,
     tooltips: Optional[List[str]] = None,
 ) -> FoliumMapProtocol:
-    """Add multiple geohashes to the map."""
+    """Add multiple geohashes to the map.
+
+    Raises:
+        ValueError: If ``geohashes`` is non-empty and ``colors`` or ``fill_colors``
+            is an empty list.
+    """
     n_geohashes = len(geohashes)
+
+    if n_geohashes:
+        if not isinstance(colors, str) and not colors:
+            raise ValueError("colors must be a color name or a non-empty list of colors")
+        if fill_colors is not None and not fill_colors:
+            raise ValueError("fill_colors must be None or a non-empty list of colors")
 
     # Set up colors
     if isinstance(colors, str):
@@ -445,17 +464,24 @@ def add_geohash_grid(
     fill_opacity: float = 0.2,
     weight: int = 1,
 ) -> FoliumMapProtocol:
-    """Add a grid of geohashes at the specified precision."""
+    """Add a grid of geohashes at the specified precision.
+
+    When no ``bbox`` is given the viewport is derived from the map center and zoom
+    and clipped to the world bounds, so maps centered near a pole or the
+    antimeridian render the visible part of the grid. An explicitly supplied
+    ``bbox`` is passed through unchanged and validated by :class:`BoundingBox`.
+    """
     # If no bounding box is provided, use the current map bounds
     if bbox is None:
         lat, lon = self.location
         # Rough estimate of degrees visible at different zoom levels
         degrees_visible = 360 / (2 ** (self._zoom_start - 1))
+        half_extent = degrees_visible / 2
         bbox = (
-            lat - degrees_visible / 2,  # min_lat
-            lon - degrees_visible / 2,  # min_lon
-            lat + degrees_visible / 2,  # max_lat
-            lon + degrees_visible / 2,  # max_lon
+            max(-90.0, lat - half_extent),  # min_lat
+            max(-180.0, lon - half_extent),  # min_lon
+            min(90.0, lat + half_extent),  # max_lat
+            min(180.0, lon + half_extent),  # max_lon
         )
 
     # Get all geohashes in the bounding box

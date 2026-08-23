@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mo-dots
-Version: 10.685.25166
+Version: 10.688.26234
 Summary: More Dots! Dot-access to Python dicts like Javascript
 Home-page: https://github.com/klahnakoski/mo-dots
 Author: Kyle Lahnakoski
@@ -16,20 +16,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mo-future==7.685.25166
-Requires-Dist: mo-imports==7.685.25166
+Requires-Dist: mo-future==7.687.26234
+Requires-Dist: mo-imports==7.687.26234
 Provides-Extra: tests
-Requires-Dist: mo-logs>=8.672.25036; extra == "tests"
-Requires-Dist: mo-json>=6.672.25036; extra == "tests"
-Requires-Dist: mo-threads>=6.672.25036; extra == "tests"
-Requires-Dist: mo-testing>=8.674.25037; extra == "tests"
+Requires-Dist: mo-logs>=8.678.25061; extra == "tests"
+Requires-Dist: mo-json>=6.682.25104; extra == "tests"
+Requires-Dist: mo-threads>=6.682.25104; extra == "tests"
+Requires-Dist: mo-testing>=8.685.25166; extra == "tests"
 Requires-Dist: pyLibrary>=3.264.22338; extra == "tests"
-Requires-Dist: mo-math>=7.672.25036; extra == "tests"
-Requires-Dist: mo-times>=5.672.25036; extra == "tests"
+Requires-Dist: mo-math>=7.678.25061; extra == "tests"
+Requires-Dist: mo-times>=5.682.25104; extra == "tests"
 Requires-Dist: jx-elasticsearch>=3.99.20292; extra == "tests"
-Requires-Dist: beautifulsoup4>=4.13.3; extra == "tests"
+Requires-Dist: beautifulsoup4>=4.15.0; extra == "tests"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

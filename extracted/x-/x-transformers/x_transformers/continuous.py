@@ -19,7 +19,8 @@ from x_transformers.x_transformers import (
     LayerNorm,
     masked_mean,
     always,
-    pad_at_dim
+    pad_at_dim,
+    slice_right_at_dim
 )
 
 # helper functions
@@ -236,7 +237,7 @@ class ContinuousTransformerWrapper(Module):
 
         if return_mems:
             hiddens = intermediates.hiddens
-            new_mems = tuple(t[..., -self.max_mem_len:, :].detach() for t in hiddens)
+            new_mems = tuple(slice_right_at_dim(t, self.max_mem_len, dim = -2).detach() for t in hiddens)
             return out, new_mems
 
         if return_attn:

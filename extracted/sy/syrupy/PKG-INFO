@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: syrupy
-Version: 5.5.3
+Version: 6.0.0
 Summary: Pytest Snapshot Test Utility
 Project-URL: repository, https://github.com/syrupy-project/syrupy
 Author: Noah Ulster
@@ -33,7 +33,11 @@ Description-Content-Type: text/markdown
 
 ## Overview
 
-Syrupy is a zero-dependency [pytest](https://docs.pytest.org/en/latest/) snapshot plugin. It enables developers to write tests which assert immutability of computed results.
+Syrupy is a zero-dependency [pytest](https://docs.pytest.org/en/latest/) snapshot plugin that enables developers to write tests which assert immutability of computed results. It is open source and MIT licensed, with over 43 members of the open source community having contributed code, reported issues, or provided other feedback.
+
+Day-to-day maintenance, issue triage, and development are led by me, Noah. Contributions are always welcome and greatly appreciated. If you find Syrupy (or any of my other projects) useful, consider supporting my work through [GitHub Sponsors](https://github.com/sponsors/noahnu).
+
+— Noah (@noahnu)
 
 ## Motivation
 
@@ -53,12 +57,14 @@ python -m pip install syrupy
 
 Syrupy will always be compatible with the latest version of Python and Pytest. If you're running an old version of Python or Pytest, you will need to use an older major version of Syrupy:
 
-| Syrupy Version | Python Support | Pytest Support |
-| -------------- | -------------- | -------------- |
-| 5.x.x          | >=3.10         | >=8            |
-| 4.x.x          | >=3.8.1,       | >=7,   <9      |
-| 3.x.x          | >=3.7, <4      | >=5.1, <8      |
-| 2.x.x          | >=3.6, <4      | >=5.1, <8      |
+| Syrupy Version     | Python Support | Pytest Support |
+| ------------------ | -------------- | -------------- |
+| 7.x.x (unreleased) | >=3.11         | >=8            |
+| 6.x.x (latest)     | >=3.10         | >=8
+| 5.x.x              | >=3.10         | >=8,   <9      |
+| 4.x.x              | >=3.8.1,       | >=7,   <9      |
+| 3.x.x              | >=3.7, <4      | >=5.1, <8      |
+| 2.x.x              | >=3.6, <4      | >=5.1, <8      |
 
 ## Usage
 
@@ -80,6 +86,14 @@ pytest --snapshot-update
 
 A snapshot file should be generated under a `__snapshots__` directory in the same directory as `test_file.py`. The `__snapshots__` directory and all its children should be committed along with your test code.
 
+Syrupy automatically marks tests that directly or indirectly use the `snapshot`
+fixture with `syrupy_snapshot`. To update snapshots without running unrelated
+tests, combine the marker with the update option:
+
+```shell
+pytest --snapshot-update -m syrupy_snapshot
+```
+
 #### Usage in `unittest.TestCase` subclasses
 
 [Due to limitations in `unittest` and `pytest`](https://docs.pytest.org/en/9.0.x/how-to/unittest.html#pytest-features-in-unittest-testcase-subclasses), the `snapshot` fixture is not directly usable in `TestCase` subclasses (including Django's `TestCase`).
@@ -90,6 +104,7 @@ Possible workarounds include using marks:
 from unittest import TestCase
 import pytest
 
+
 @pytest.fixture(scope="function")
 def snapshot_in_class(request, snapshot):
     """
@@ -97,6 +112,7 @@ def snapshot_in_class(request, snapshot):
     unittest.TestCase tests
     """
     request.cls.snapshot = snapshot
+
 
 class MyTest(TestCase):
     @pytest.mark.usefixtures("snapshot_in_class")
@@ -110,6 +126,7 @@ Or using a fixture with `autouse`:
 ```python
 from unittest import TestCase
 import pytest
+
 
 class MyTest(TestCase):
     @pytest.fixture(autouse=True)
@@ -154,6 +171,7 @@ def limit_foo_attrs(prop, path):
     allowed_foo_attrs = {"do", "not", "serialize", "these", "attrs"}
     return isinstance(path[-1][1], Foo) and prop in allowed_foo_attrs
 
+
 def test_bar(snapshot):
     actual = Foo(...)
     assert actual == snapshot(exclude=limit_foo_attrs)
@@ -166,6 +184,7 @@ def limit_foo_attrs(prop, path):
     allowed_foo_attrs = {"only", "serialize", "these", "attrs"}
     return isinstance(path[-1][1], Foo) and prop in allowed_foo_attrs
 
+
 def test_bar(snapshot):
     actual = Foo(...)
     assert actual == snapshot(include=limit_foo_attrs)
@@ -177,6 +196,7 @@ def test_bar(snapshot):
 class Foo:
     def __dir__(self):
         return ["only", "serialize", "these", "attrs"]
+
 
 def test_bar(snapshot):
     actual = Foo(...)
@@ -195,6 +215,7 @@ These are the cli options exposed to `pytest` by the plugin.
 | `--snapshot-update-new-only`   | Snapshots that do not yet exist will be written, but existing snapshots are not modified or deleted on mismatch. | `False`                                                                                                      |
 | `--snapshot-details`           | Includes details of unused, generated, and updated snapshots (test name and snapshot location) in the final report.                                    | `False`                                                                                                      |
 | `--snapshot-warn-unused`       | Prints a warning on unused snapshots rather than fail the test suite.                                                          | `False`                                                                                                      |
+| `--snapshot-disable-unused`    | **Not recommended.** Disables unused snapshot detection entirely (no discovery, reporting, or deletion of unused snapshots). Prefer `--snapshot-warn-unused` when you still want unused counted. Escape hatch for very large amber suites / xdist cost. | `False`                                                                                                      |
 | `--snapshot-no-cleanup`        | Do not delete unused snapshots when updating with `--snapshot-update`.                                                         | `False`                                                                                                      |
 | `--snapshot-default-extension` | Use to change the default snapshot extension class.                                                                            | [AmberSnapshotExtension](https://github.com/syrupy-project/syrupy/blob/main/src/syrupy/extensions/amber/__init__.py) |
 | `--snapshot-no-colors`         | Disable test results output highlighting. Equivalent to setting the environment variables `ANSI_COLORS_DISABLED` or `NO_COLOR` | Disabled by default if not in terminal.                                                                      |
@@ -202,6 +223,7 @@ These are the cli options exposed to `pytest` by the plugin.
 | `--snapshot-diff-mode` | Configures how diffs are displayed on assertion failure. If working with very large snapshots, disabling the diff can improve performance. | `detailed` |
 | `--snapshot-ignore-file-extensions` | Comma separated list of file extensions to ignore when walking the file tree and discovering used/unused snapshots. | No extensions are ignored by default. |
 | `--snapshot-dirname` | Directory name to store snapshots in. | `__snapshots__` |
+| `--snapshot-declaration-order` | **Experimental.** Write amber snapshots in pytest collection/declaration order (test definition order, including parametrize/`ids` order) instead of alphabetical snapshot name order. | `False` |
 
 ### Assertion Options
 
@@ -230,12 +252,9 @@ Multiple matchers can be composed together using `compose_matchers`, e.g.:
 ```py
 from syrupy.matchers import compose_matchers
 
+
 def test_multiple_matchers(snapshot):
-    data = {
-        "number": 1,
-        "datetime": datetime.datetime.now(),
-        "float": 1.3
-    }
+    data = {"number": 1, "datetime": datetime.datetime.now(), "float": 1.3}
 
     assert data == snapshot(
         matcher=compose_matchers(
@@ -265,15 +284,20 @@ When strict, this will raise a `ValueError` if the types specified are not match
 ```py
 from syrupy.matchers import path_type
 
+
 def test_bar(snapshot):
     actual = {
-      "date_created": datetime.now(),
-      "value": "Some computed value!!",
+        "date_created": datetime.now(),
+        "value": "Some computed value!!",
     }
-    assert actual == snapshot(matcher=path_type({
-      "date_created": (datetime,),
-      "nested.path.id": (int,),
-    }))
+    assert actual == snapshot(
+        matcher=path_type(
+            {
+                "date_created": (datetime,),
+                "nested.path.id": (int,),
+            }
+        )
+    )
 ```
 
 ```py
@@ -323,10 +347,11 @@ Takes an argument list of property names, with support for indexed iterables.
 ```py
 from syrupy.filters import props
 
+
 def test_bar(snapshot):
     actual = {
-      "id": uuid.uuid4(),
-      "list": [1,2,3],
+        "id": uuid.uuid4(),
+        "list": [1, 2, 3],
     }
     assert actual == snapshot(exclude=props("id", "1"))
 ```
@@ -351,10 +376,11 @@ Takes an argument list of path strings.
 ```py
 from syrupy.filters import paths
 
+
 def test_bar(snapshot):
     actual = {
-      "date": datetime.now(),
-      "list": [1,2,3],
+        "date": datetime.now(),
+        "list": [1, 2, 3],
     }
     assert actual == snapshot(exclude=paths("date", "list.1"))
 ```
@@ -385,9 +411,7 @@ It should return `true` if the property should be included, or `false` if the pr
 Note that `include` has some caveats which make it a bit more difficult to use than `exclude`. Both `include` and `exclude` are evaluated for each key of an object before traversing down nested paths. This means if you want to include a nested path, you must include all parents of the nested path, otherwise the nested child will never be reached to be evaluated against the include predicate. For example:
 
 ```py
-obj = {
-    "nested": { "key": True }
-}
+obj = {"nested": {"key": True}}
 assert obj == snapshot(include=paths("nested", "nested.key"))
 ```
 
@@ -396,10 +420,7 @@ The extra "nested" is required, otherwise the nested dictionary will never be se
 To avoid adding duplicate path parts, we provide a convenient `paths_include` which supports a list/tuple instead of a string for each path to match:
 
 ```py
-obj = {
-    "other": False,
-    "nested": { "key": True }
-}
+obj = {"other": False, "nested": {"key": True}}
 assert obj == snapshot(include=paths_include(["other"], ["nested", "key"]))
 ```
 
@@ -415,20 +436,26 @@ def test_foo(snapshot):
 
 #### `diff`
 
-This is an option to snapshot only the diff between the actual object and a previous snapshot, with the `diff` argument being the previous snapshot `index`/`name`.
+This is an option to snapshot only the diff between the actual object and either a previous snapshot or in-memory data. Give the `diff` argument a previous snapshot `index`/`name` to use a saved snapshot, or use `diff_data` to write only the difference without creating a base snapshot.
 
 ```py
 def test_diff(snapshot):
-    actual0 = [1,2,3,4]
-    actual1 = [0,1,3,4]
+    actual0 = [1, 2, 3, 4]
+    actual1 = [0, 1, 3, 4]
 
     assert actual0 == snapshot
     assert actual1 == snapshot(diff=0)
     # This is equivalent to the lines above
     # Must use the index name to diff when given
-    assert actual0 == snapshot(name='snap_name')
-    assert actual1 == snapshot(diff='snap_name')
+    assert actual0 == snapshot(name="snap_name")
+    assert actual1 == snapshot(diff="snap_name")
+
+    # A data object can be used as the base without writing it as a snapshot.
+    # Unlike `diff`, `diff_data` also accepts strings as data.
+    assert actual1 == snapshot(diff_data=actual0)
 ```
+
+Integer and string values passed to `diff` continue to refer to a snapshot index or name.
 
 ##### Built-In Extensions
 
@@ -436,7 +463,7 @@ Syrupy comes with a few built-in preset configurations for you to choose from. Y
 
 **Amber Extensions**
 
-- **`AmberSnapshotExtension`**: This is the default extension which generates `.ambr` files. Serialization of most data types are supported.
+- **`AmberSnapshotExtension`**: This is the default extension which generates `.ambr` files. Serialization of most data types are supported, including stdlib dataclasses. For attrs and Pydantic models, see the [serializer plugins example](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/amber/test_amber_serializer_plugins.py).
   - Line control characters are normalised when snapshots are generated i.e. `\r` and `\n` characters are all written as `\n`. This is to allow interoperability of snapshots between operating systems that use disparate line control characters.
 - **`SingleFileAmberSnapshotExtension`**: A variant of the `AmberSnapshotExtension` which writes 1 snapshot per file.
 
@@ -485,6 +512,7 @@ import pytest
 
 from syrupy.extensions.json import JSONSnapshotExtension
 
+
 @pytest.fixture
 def snapshot_json(snapshot):
     return snapshot.with_defaults(extension_class=JSONSnapshotExtension)
@@ -504,14 +532,12 @@ from datetime import datetime
 
 from syrupy.matchers import path_type
 
+
 def test_api_call(client, snapshot_json):
     resp = client.post("/user", json={"name": "Jane"})
     assert resp.status_code == 201
 
-    matcher = path_type({
-      "id": (int,),
-      "registeredAt": (datetime,)
-    })
+    matcher = path_type({"id": (int,), "registeredAt": (datetime,)})
     assert snapshot_json(matcher=matcher) == resp.json()
 ```
 
@@ -531,6 +557,7 @@ Or a case where the value needs to be replaced using a condition e.g. file path 
 import re
 
 from syrupy.matchers import path_type
+
 
 def test_matches_generated_string_value(snapshot, tmp_file):
     matcher = path_value(
@@ -577,7 +604,7 @@ addopts = --snapshot-ignore-file-extensions dvc,tmp,zip
 - [Custom comparator](https://github.com/syrupy-project/syrupy/tree/main/tests/integration/test_custom_comparator.py)
 - [JPEG image extension](https://github.com/syrupy-project/syrupy/tree/main/tests/examples/test_custom_image_extension.py)
 - [Built-in image extensions](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/image/test_image_svg.py)
-- [Amber Serializer Plugins](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/amber/test_amber_serializer_plugins.py) -- e.g. serializing attrs, dataclasses, Pydantic
+- [Amber Serializer Plugins](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/amber/test_amber_serializer_plugins.py) -- e.g. serializing attrs and Pydantic (stdlib dataclasses are built-in)
 
 ### Inline Snapshots
 
@@ -601,6 +628,8 @@ See [#675](https://github.com/syrupy-project/syrupy/issues/675) for the original
 ## Known Limitations
 
 - `pytest-xdist`: unused snapshot detection and removal are supported when running with multiple processes. Each worker reports the snapshots it used and the controller combines them to determine which snapshots are unused. See [#535](https://github.com/syrupy-project/syrupy/issues/535) for more information.
+- Single-file snapshot extensions (`SingleFileSnapshotExtension` and subclasses) write updated snapshots to disk immediately during the test, rather than buffering until session end. This avoids holding large payloads (e.g. images) in memory for the whole run. Multi-entry amber files still batch writes until session finish so each `.ambr` is rewritten once. See [#841](https://github.com/syrupy-project/syrupy/issues/841).
+- Unused detection on very large amber files (hundreds of thousands of named snapshots) can dominate runtime under xdist. `--snapshot-disable-unused` skips that work but is **not recommended**: obsolete snapshots are never reported or removed (including under `--snapshot-update`). Prefer fixing suite shape or accepting the cost when possible; you can put the flag in `addopts` if needed.
 
 _We welcome contributions to patch these known limitations._
 
@@ -686,6 +715,14 @@ To develop locally, clone this repository and run `. script/bootstrap` to instal
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="http://www.drmaciver.com"><img src="https://avatars.githubusercontent.com/u/28623?v=4?s=100" width="100px;" alt="David R. MacIver"/><br /><sub><b>David R. MacIver</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3ADRMacIver" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://frenck.dev"><img src="https://avatars.githubusercontent.com/u/195327?v=4?s=100" width="100px;" alt="Franck Nijhof"/><br /><sub><b>Franck Nijhof</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3Afrenck" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/chuenchen309"><img src="https://avatars.githubusercontent.com/u/48723787?v=4?s=100" width="100px;" alt="Andrew Chen"/><br /><sub><b>Andrew Chen</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3Achuenchen309" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://ksmanis.github.io"><img src="https://avatars.githubusercontent.com/u/13301367?v=4?s=100" width="100px;" alt="Konstantinos Smanis"/><br /><sub><b>Konstantinos Smanis</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3AKSmanis" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.hit.edu.cn/"><img src="https://avatars.githubusercontent.com/u/266078689?v=4?s=100" width="100px;" alt="Yang Fan"/><br /><sub><b>Yang Fan</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=yangfan-yf-yf" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/w3lld1"><img src="https://avatars.githubusercontent.com/u/42353747?v=4?s=100" width="100px;" alt="w3lld1"/><br /><sub><b>w3lld1</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=w3lld1" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tiagoskaneta"><img src="https://avatars.githubusercontent.com/u/7189039?v=4?s=100" width="100px;" alt="Tiago Surjus Kaneta"/><br /><sub><b>Tiago Surjus Kaneta</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=tiagoskaneta" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://dnehrig.com"><img src="https://avatars.githubusercontent.com/u/4050749?v=4?s=100" width="100px;" alt="Daniel Nehrig"/><br /><sub><b>Daniel Nehrig</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=danielnehrig" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

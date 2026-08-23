@@ -1,7 +1,7 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.51.0"
+jm_version = "0.63.3"
 name = "doppler"
 version = "0.1.0"
 build = "cmake"
@@ -9,6 +9,22 @@ build = "cmake"
 # — see docs). Omitting "windows" drops jm's per-component MinGW DLL-copy
 # boilerplate (jm-gh-213); the drift gate treats its absence as correct.
 platforms = ["linux", "macos"]
+# c_style / c_format_command (gh-265, gh-745): jm formats the C it generates
+# with the project's OWN pinned clang-format, so its render and the committed
+# bytes agree instead of differing by style forever.
+#
+# jm emits K&R 4-space; doppler is GNU 2-space. Without this, every `jm apply`
+# was followed by a manual clang-format pass that made the fragments differ
+# from a full render permanently -- which is most of what UNRECONCILED has
+# been counting. The argv form routes through uv so the binary is the one in
+# uv.lock, not whatever is on PATH: gh-745 was filed from this repo on 21.1.8
+# locally against 22.1.8 in CI, identical input giving different output and a
+# `status --check` that flipped red across machines.
+#
+# jm appends `-i --style=file --fallback-style=LLVM`, so the committed
+# .clang-format decides the layout -- there is no second style definition.
+c_style = "clang-format"
+c_format_command = ["uv", "run", "--group", "dev", "clang-format"]
 # py_format_command (gh-746): jm runs the project's OWN pinned ruff over the
 # generated .pyi stubs + re-export __init__.py shims, so generated Python comes
 # out in doppler's exact ruff style (quotes/spacing/blank-lines) instead of an
@@ -31,7 +47,7 @@ perf = "true"
 pytest = "true"
 pytest_benchmark = "true"
 schema = "7"
-c_deps = ["hbdecim", "resamp", "wfmcompose"]
+c_deps = ["hbdecim", "resamp", "wfmcompose", "ccsds_tm", "conv", "rs"]
 # dsss.pyi came OFF this list in jm 0.28.3 (gh-428): its ten hand-maintained
 # has_params-single-array-param members (despreader.steps/bits,
 # burst_despreader.steps/bits, burst_demod.demod, + each *_max_out()) are now
@@ -117,10 +133,52 @@ c_deps = ["hbdecim", "resamp", "wfmcompose"]
 # file's stale/missing classification -- it is broader than the reason it was
 # added for (just-makeit#823). Re-check both on every pin bump; jm lists an
 # allowed kwargs finding under KWARGS with a `~`, so they stay visible.
+#
+# native/tests/jm_test.h is allowed MISSING, deliberately and permanently.
+# jm 0.58.0 ships it as a create-only shared assertion harness (CHECK,
+# REQUIRE, ALMOST_EQ) because one downstream had accumulated 90 copies of
+# CHECK in 6 incompatible variants -- that downstream was THIS repo, and it
+# had already fixed the problem its own way. `native/tests/dp_test.h` is that
+# fix: DP_CHECK / DP_REQUIRE / dp_nearf, with 90 test files on it and
+# `make tests-ssot` enforcing it as the single definition. Vendoring
+# jm_test.h beside it would put two peer assertion harnesses in one
+# directory, which is the duplication this repo forbids -- and tests-ssot
+# says so itself, failing on jm_test.h's CHECK, REQUIRE and the two retired
+# ALMOST_EQ spellings. So the file is not adopted, and this entry is what
+# tells the drift gate that its absence is a decision.
+#
+# Consequence worth knowing: a test scaffolded by jm 0.58.0+ will
+# `#include "jm_test.h"` and not compile here until it is converted to
+# DP_CHECK / DP_REQUIRE. tests-ssot fails it on the way past, so the
+# conversion is prompted rather than discovered. Tracked as #730.
 status_allow = [
     "zensical.toml",
     "native/src/resample/resample_ext_Resampler.c",
     "native/src/wfm/wfm_ext_wfm_synth.c",
+    "native/tests/jm_test.h",
+    # The three deliberate UNWIRED cores (jm gh-984). Each is scoped to its
+    # COMPONENT, never to `CMakeLists.txt` itself: naming the file would
+    # exempt EVERY core from the wiring check and re-open the hole that hid
+    # 38 unlinkable symbols across 6 components (gh-747).
+    #
+    # Verified rather than assumed — `nm` over each core's objects against
+    # `libdoppler.a` before adding it here: wfm_compose / wfm_sink_stub /
+    # wfmgen export NOTHING out-of-line, so no C consumer can be missing
+    # anything. wfmcompose's own CMakeLists states the policy: its cores are
+    # app/binding-only, and `timing_core` is "the one general-purpose
+    # primitive worth shipping" — which it wires into both libraries itself,
+    # guarded.
+    #
+    # `stream_core_obj` and `wfm_sink_core` were here too, for a reason that
+    # was jm's rather than ours: their symbols ship in `libdoppler_stream`,
+    # the OPTIONAL second library, and jm read only
+    # `doppler_lib`/`doppler_lib_static`. **jm 0.60.2 (gh-991) reads
+    # `add_library(NAME SHARED|STATIC $<TARGET_OBJECTS:X>)` too**, so both are
+    # now correctly seen as shipped and their exemptions are DELETED — a
+    # suppression kept past its cause is one that hides the next real finding.
+    "CMakeLists.txt:wfm_compose_core",
+    "CMakeLists.txt:wfm_sink_stub_core",
+    "CMakeLists.txt:wfmgen_core",
 ]
 
 # Benchmark only the 64k block (jm-gh-390). doppler dropped the small-block
@@ -190,6 +248,27 @@ name = "wfm_compose"
 link = true
 [[module.wfm_plan.depends_on]]
 name = "wfm_dsp"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "wfm_frame"
+link = true
+
+# ccsds_tm (+ conv/rs, which it configures): wfm_synth_bridge.c assembles a
+# framed source through wfm_frame_assemble, and the coding stages a source may
+# select are CCSDS's picks. wfm_frame.c cannot call them -- ccsds_tm depends
+# on it -- so they arrive as a kernel table and every consumer must carry the
+# objects.
+[[module.wfm_plan.depends_on]]
+name = "ccsds_tm"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "conv"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "rs"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "gold"
 link = true
 [[module.wfm_plan.depends_on]]
 name = "wfm_synth"
@@ -626,7 +705,7 @@ Examples
 [0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]
 
 """
-objects = ["pn", "wfm_synth", "gold"]
+objects = ["pn", "wfm_synth", "gold", "frame"]
 # wfm_synth.toml's depends_on link=true (gh-225) links lo/awgn/fir _core into the
 # wfm .so; pn is in-module (linked via objects). Replaces extra_link_libs.
 # wfm_dsp_core (the rrc/dsss kernels in wfm_dsp.c) backs the rrc_taps/dsss_spread
@@ -705,6 +784,24 @@ return_type = "uint64_t"
 name = "n"
 type = "uint32_t"
 
+# The CCSDS Attached Sync Marker as bits a Python receiver can search for.
+#
+# doppler#900 (2b). Without it the only Python path to the marker is to
+# transcribe `0x1ACFFC1D` MSB-first by hand -- which is precisely the hazard
+# `ccsds_tm_asm_bits` exists to remove ("an MSB-first expansion written out
+# twice is a transcription that can disagree with itself"), and which this
+# tree's own `.pyi` doctests were doing in four places.
+#
+# Hosted on `wfm` rather than on `detection`, where `SyncFinder` lives,
+# because wfm already links ccsds_tm through `frame`'s `depends_on` and
+# `detection` is a general module that must not learn one standard's picks.
+[[module.wfm.functions]]
+name = "ccsds_asm_bits"
+doc = "The CCSDS Attached Sync Marker, 0x1ACFFC1D, as 32 unpacked bits — `out[0]` is the first bit on the wire (the top of 0x1A). Pass it to `doppler.detection.SyncFinder` to acquire a CADU in a bit stream; it is NOT randomised, so it reads the same in every frame and in exactly one polarity, which is what makes it the thing that reports a 180-degree carrier ambiguity."
+out_type = "uint8_t"
+variable_output = true
+out_size = "32"
+
 [[module.wfm.functions]]
 name = "crc16"
 doc = "CRC-16-CCITT (poly 0x1021, init 0xFFFF) over an unpacked 0/1 bit array, MSB-first — the DSSS burst frame trailer wfmgen appends and BurstDemod validates."
@@ -713,6 +810,32 @@ return_type = "uint16_t"
 [[module.wfm.functions.params]]
 name = "bits"
 type = "uint8_t[]"
+
+[[module.wfm.functions]]
+name = "rrc_h"
+doc = "Analytic root-raised-cosine pulse at arbitrary (non-grid) times `t`, in symbol periods. The transmit half of a matched-filter pair. Use this, not a transcription of the formula, whenever a stimulus needs the pulse off the integer sample grid — a non-integer samples-per-symbol or a fractional timing offset has no grid to sample. `rrc_taps` remains the right call for filter taps."
+out_type = "double"
+
+[[module.wfm.functions.params]]
+name = "t"
+type = "double[]"
+
+[[module.wfm.functions.params]]
+name = "beta"
+type = "double"
+
+[[module.wfm.functions]]
+name = "rc_h"
+doc = "Analytic full raised-cosine pulse at arbitrary (non-grid) times `t`, in symbol periods. Already the Nyquist response a matched TX/RX pair produces, so this is what models the matched-filter OUTPUT directly — a timing-detector S-curve reference, or a receiver test with its front end collapsed away."
+out_type = "double"
+
+[[module.wfm.functions.params]]
+name = "t"
+type = "double[]"
+
+[[module.wfm.functions.params]]
+name = "beta"
+type = "double"
 
 [[module.wfm.functions]]
 name = "rrc_taps"
@@ -775,6 +898,29 @@ link = true
 
 [[module.wfm_compose.depends_on]]
 name = "wfm_dsp"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "wfm_frame"
+link = true
+
+# ccsds_tm (+ conv/rs, which it configures): wfm_synth_bridge.c assembles a
+# framed source through wfm_frame_assemble, and the coding stages a source may
+# select are CCSDS's picks. wfm_frame.c cannot call them -- ccsds_tm depends
+# on it -- so they arrive as a kernel table and every consumer must carry the
+# objects.
+[[module.wfm_compose.depends_on]]
+name = "ccsds_tm"
+link = true
+[[module.wfm_compose.depends_on]]
+name = "conv"
+link = true
+[[module.wfm_compose.depends_on]]
+name = "rs"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "gold"
 link = true
 
 [[module.wfm_compose.depends_on]]
@@ -943,13 +1089,13 @@ name = "acq_code"
 type = "uint8_t*"
 bytes = true
 coerce = "bit_pattern"
-doc = "For type=dsss: the acquisition/preamble code (0/1 chips), repeated acq_reps times unmodulated at the head of the burst — the coherent pull-in target BurstDespreader.set_acq/BurstDemod.set_preamble lock to."
+doc = "The acquisition/preamble code (0/1), repeated acq_reps times at the head of the frame — the coherent pull-in target BurstDespreader.set_acq/BurstDemod.set_preamble lock to. For type=dsss it is unmodulated chips ahead of the spread frame; for type=bits it is the head of the bit pattern. Setting it (or sync) is what makes a source FRAMED."
 
 [[module.wfm_compose.source.fields]]
 name = "acq_reps"
 type = "size_t"
 default = "1"
-doc = "For type=dsss: preamble repetitions (periods of acq_code before the frame)."
+doc = "Preamble repetitions (periods of acq_code before the sync word)."
 
 [[module.wfm_compose.source.fields]]
 name = "data_code"
@@ -963,14 +1109,14 @@ name = "sync"
 type = "uint8_t*"
 bytes = true
 coerce = "bit_pattern"
-doc = "For type=dsss: the frame-sync word bits (e.g. Barker-13) between the preamble and the payload — what BurstDemod.set_sync correlates to resolve frame position and BPSK polarity. Optional."
+doc = "The frame-sync word bits (e.g. Barker-13) between the preamble and the payload — what BurstDemod.set_sync correlates to resolve frame position and BPSK polarity, and what a BER alignment detects against. Optional; setting it (or acq_code) is what makes a source FRAMED."
 
 [[module.wfm_compose.source.fields]]
 name = "crc"
 type = "int"
 enum = "crc"
 default = "crc16"
-doc = "For type=dsss: the frame trailer — crc16 appends a CRC-16-CCITT over the payload bits (what BurstDemod validates as frame_valid); none omits it."
+doc = "The frame trailer — crc16 appends a CRC-16-CCITT over the payload bits (what BurstDemod validates as frame_valid, and what makes a truth-free frame error rate possible); none omits it. Applies only to a FRAMED source: it defaults to crc16, so it alone never frames an otherwise plain pattern."
 
 [[module.wfm_compose.source.fields]]
 name = "symbol_rate"
@@ -1504,7 +1650,17 @@ Examples
 [0, 1]
 
 """
-objects = ["lockdet"]
+# syncword joins lockdet here rather than in wfm: `det_threshold(pfa)`,
+# `det_pd` and `det_dwell` are this module's existing shape -- a detector and
+# the arithmetic for choosing its threshold -- and a sync-marker correlator
+# is that same family. doppler#897 found the threshold of THIS detector had
+# no arithmetic beside it at all, so `SyncFinder.pfa` / `.max_errors_for`
+# land where a caller already looks for `det_threshold`.
+#
+# It stays free of any one standard: the object takes the marker, and CCSDS
+# reaches it through `doppler.wfm.ccsds_asm_bits()` -- wfm already links
+# ccsds_tm (frame's `depends_on`), and detection must not.
+objects = ["lockdet", "syncword"]
 
 [[module.detection.functions]]
 name = "marcum_q"
@@ -1593,6 +1749,50 @@ type = "double"
 [[module.detection.functions.params]]
 name = "n_noncoh"
 type = "int"
+
+[[module.detection.functions]]
+name = "det_q_inv"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "p"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_dwell_gauss"
+return_type = "int"
+
+[[module.detection.functions.params]]
+name = "mean"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "var"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pd"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_threshold_gauss"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "mean"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pd"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
 
 [[module.detection.functions]]
 name = "det_ema_alpha"
@@ -1892,6 +2092,33 @@ name = "m"
 type = "int"
 default = "4"
 
+# Soft (LLR) demapping -- the constellation's other decision, and the input a
+# Viterbi wants. `llr` is a caller-provided out-param rather than a returned
+# array because jm's `out_type` binding sizes a function's output 1:1 with its
+# input array and this one expands by log2(M); `kaiser_window` is the existing
+# precedent for that shape. See docs/design/mpsk-soft.md.
+[[module.mpsk.functions]]
+name = "mpsk_soft_demap"
+
+[[module.mpsk.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.mpsk.functions.params]]
+name = "llr"
+type = "float[]"
+out = true
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.mpsk.functions.params]]
+name = "n0"
+type = "float"
+default = "1.0"
+
 [[module.mpsk.functions]]
 name = "mpsk_bits_per_symbol"
 return_type = "int"
@@ -1915,6 +2142,27 @@ True
 
 """
 objects = ["agc"]
+
+[[module.agc.functions]]
+name = "settling_samples"
+doc = "How many samples this loop needs to settle -- the design query a caller sizing a warm-up budget, a burst preamble or an acquisition guard has to answer. 1/(4*loop_bw) is the loop FILTER's time constant and not the object's: the detector sits inside the loop and measures in power, so a quiet input settles more slowly. Measured, the multiplier runs from about 0.8 on a loud start to nearly 5 on a quiet one with a slow detector. This runs the real loop against a constant input and counts, so there is no fitted curve to go stale. gain_err_db is POSITIVE for a quiet input, which is the slow direction and the one to budget for. Returns 0 rather than a plausible guess when the arguments are invalid. Design-time only: it allocates and iterates."
+return_type = "size_t"
+
+[[module.agc.functions.params]]
+name = "loop_bw"
+type = "double"
+
+[[module.agc.functions.params]]
+name = "alpha"
+type = "double"
+
+[[module.agc.functions.params]]
+name = "gain_err_db"
+type = "double"
+
+[[module.agc.functions.params]]
+name = "tol_db"
+type = "double"
 
 # Propagation impairments: things that TRANSFORM a signal on its way from
 # transmitter to receiver, as opposed to source's awgn/lo/nco, which GENERATE
@@ -1962,6 +2210,58 @@ type = "float _Complex"
 [[module.util.functions.params]]
 name = "lin"
 type = "float"
+
+[[module.util.functions]]
+name = "saturate"
+doc = "Saturate a value into [lo, hi], total over every double including NaN and both infinities. The NaN destination is a parameter because which end is safe is domain knowledge: a gain control guarding a measured power wants the ceiling, a lock statistic wants the floor. Use it at the boundary where an untrusted value first becomes persistent state -- the input of an EMA, accumulator or integrator."
+return_type = "double"
+
+[[module.util.functions.params]]
+name = "v"
+type = "double"
+
+[[module.util.functions.params]]
+name = "lo"
+type = "double"
+
+[[module.util.functions.params]]
+name = "hi"
+type = "double"
+
+[[module.util.functions.params]]
+name = "nan_to"
+type = "double"
+
+[[module.util.functions]]
+name = "ema_step"
+doc = "One step of a first-order exponential moving average, state + alpha*(x - state). The canonical EMA for the library: it was written out four times in two different algebraic forms before this existed, and duplicated implementations drift. The incremental form is the more accurate of the two everywhere the library operates, by a margin that grows as the average lengthens; alpha == 1 (pass-through) and alpha == 0 (frozen) are both exact. NOT total in x -- a non-finite observation poisons the state permanently, because an EMA remembers, so saturate() belongs on this function's input."
+return_type = "double"
+
+[[module.util.functions.params]]
+name = "state"
+type = "double"
+
+[[module.util.functions.params]]
+name = "x"
+type = "double"
+
+[[module.util.functions.params]]
+name = "alpha"
+type = "double"
+
+[[module.util.functions]]
+name = "ema_alpha_decim"
+doc = "The EMA coefficient that advances d samples in one step, 1 - (1 - alpha)^d. A decimated loop updates once per chunk of d samples and must not thereby change its own time constant. Computed through expm1/log1p because the direct expression cancels catastrophically for small alpha -- 26865 ulps off at alpha 1e-5, d 1 -- and being exact at d == 1 is what lets the decimated and per-sample paths be compared bit-for-bit."
+return_type = "double"
+
+[[module.util.functions.params]]
+name = "alpha"
+type = "double"
+
+[[module.util.functions.params]]
+name = "d"
+type = "size_t"
+
 [module.arith]
 doc = """
 Fixed-point accumulators: Q8 and Q15 scalar sums (AccQ8, AccQ15) with exact integer arithmetic for bit-true pipelines.
@@ -2184,6 +2484,20 @@ values = ["auto", "fs", "ebno", "esno"]
 name = "wfm_lfsr"
 values = ["galois", "fibonacci"]
 
+# Where a frame field's bits come from. Order IS wfm_seq_kind_t
+# (native/inc/wfm/wfm_frame.h): literal = 0, then the three generated kinds.
+# The C enum stays the SSOT — this names its indices for the Python face.
+[[enum]]
+name = "wfm_seq_kind"
+values = ["literal", "pn", "gold", "dotted"]
+
+# What a frame stage does to the fields it covers. Order IS wfm_stage_kind_t
+# (native/inc/wfm/wfm_frame.h); the C enum stays the SSOT and this names its
+# indices for the Python face.
+[[enum]]
+name = "wfm_stage_kind"
+values = ["crc16", "rs", "randomise", "conv"]
+
 [[enum]]
 name = "bitmod"
 values = ["none", "bpsk", "qpsk"]
@@ -2263,7 +2577,68 @@ Examples
 True
 
 """
-objects = ["loop_filter", "costas", "dll", "symsync", "ratesync", "carrier_mpsk", "carrier_nda", "mpsk_receiver", "mpsk_receiver_r"]
+objects = ["loop_filter", "costas", "dll", "symsync", "ratesync", "carrier_mpsk", "carrier_nda", "mpsk_receiver"]
+
+# Collocated: module name == object name, the `ddc` shape. NOT `fec` -- that
+# prefix was retired in doppler#828 (30 symbols, 31 files) in favour of
+# ccsds_tm_ for the standard's picks and conv_/rs_ for the general codes, and
+# a module by that name regenerates the retired prefix straight back into
+# its own generated core and binding filenames.
+# coding — the general channel codes, as one Python home.
+#
+# doppler#900. `conv` and `rs` are code FAMILIES that CCSDS configures; they
+# are not CCSDS's, and their C components are deliberately separate for that
+# reason. What they lacked was a Python home: `Viterbi` shipped in its own
+# module (it is one algorithm over one family) and an encoder had nowhere to
+# go that read correctly — `viterbi.ConvEncoder` names the decoder to reach
+# the encoder, and `[module.conv]` would collide with the hand-owned c_dep
+# CMakeLists that already lives at native/src/conv/.
+#
+# So: one module for the family, holding BOTH directions, with `rs` to
+# follow. The umbrella is justified by the second caller rather than invented
+# ahead of one.
+#
+# `Viterbi` moved here from `[module.viterbi]`, which is gone. A module named
+# after the DECODING algorithm cannot hold the encoder without reading wrong,
+# and jm's `reexports` names submodules of the same package rather than a
+# sibling, so a re-export could not bridge them either. Free to move because
+# `Viterbi` shipped in no tag — it is `[Unreleased]` as of 0.42.0.
+#
+# NOT `fec`: doppler#828 retired that identifier prefix across 30 symbols, and
+# a module by that name regenerates it into its own generated filenames — the
+# retired-names gate catches it, which is the gate working.
+[module.coding]
+objects = ["conv_enc", "viterbi", "rs_codec"]
+doc = """
+The general channel codes — the families a standard configures, rather than
+any standard's picks. `ConvEncoder` and `Viterbi` are the two directions of a
+rate-1/n convolutional code and both take the generator polynomials;
+`ReedSolomon` is both directions of an RS code over `GF(2**J)` and takes the
+five numbers that define one. A caller names their own code rather than
+choosing from a menu.
+
+`ccsds_tm` holds CCSDS 131.0-B's configuration of these, the way any other
+caller would — and note that a standard adds things that are NOT properties
+of the code, such as the dual-basis symbol representation CCSDS transmits its
+Reed-Solomon symbols in. Matching the algebra is not the same as matching the
+wire.
+
+Examples
+--------
+>>> import numpy as np
+>>> from doppler.coding import ConvEncoder, ReedSolomon, Viterbi
+>>> bits = np.array([1, 0, 1, 1, 0, 0, 1, 0], dtype=np.uint8)
+>>> sym = ConvEncoder([0o171, 0o133], k=7).encode(bits)
+>>> sym.size == 2 * bits.size
+True
+>>> llr = np.where(sym, -8.0, 8.0).astype(np.float32)
+>>> bits_out = Viterbi([0o171, 0o133], k=7, depth=35).decode(llr)
+>>> bits_out.dtype
+dtype('uint8')
+>>> rs = ReedSolomon(nroots=32)             # RS(255,223), corrects 16
+>>> rs.n, rs.k, rs.e
+(255, 223, 16)
+"""
 
 [module.dsss]
 doc = """
@@ -2317,7 +2692,7 @@ Examples
 0
 
 """
-objects = ["ber_meter"]
+objects = ["ber_meter", "frame_meter"]
 
 [[module.ber.functions]]
 name = "ber_theory_ser"
@@ -2369,7 +2744,7 @@ type = "int"
 
 [[module.ber.functions]]
 name = "ber_settle_syms"
-doc = "Symbols to discard before a steady-state measurement means anything: 2*(5/bn_timing + 5/bn_carrier). Three factors, and skipping any produces a confident wrong number -- 5/Bn per loop is the standard second-order settling time (in SYMBOLS, since both bn are symbol-rate normalised); the two budgets ADD because the loops are cascaded (the carrier discriminator reads the on-time strobe, so it cannot converge until timing has); and the sum DOUBLES for joint tracking. This is a FLOOR, not the answer: take the max of it and every lock indicator the receiver publishes, plus the handover instant again if one is enabled. Pass a loop's bn as 0 if it is not running."
+doc = "Symbols to discard before a steady-state measurement means anything: 2*(5/bn_timing + 5/bn_carrier). Three factors, and skipping any produces a confident wrong number -- 5/Bn per loop is the standard second-order settling time (in SYMBOLS, since both bn are symbol-rate normalised); the two budgets ADD because the loops are cascaded (the carrier discriminator reads the on-time strobe, so it cannot converge until timing has); and the sum DOUBLES for joint tracking. This is a FLOOR, not the answer: take the max of it and every lock indicator the receiver publishes. Pass a loop's bn as 0 if it is not running."
 return_type = "size_t"
 
 [[module.ber.functions.params]]
@@ -2425,7 +2800,7 @@ default = "4"
 
 [[module.ber.functions]]
 name = "ber_settle_from"
-doc = "Where a steady-state measurement may start: max(budget, timing lock, carrier lock, handover + budget). The analytic budget and the receiver's own indicators are both fallible in the SAME direction, so whichever settles last decides. A handover settles last of all -- it fires on carrier lock plus a warmup, strictly after every other term, and the decision-directed loop then has its own transient, so it contributes its instant PLUS the budget again (measured on 8PSK: handover at symbol 2525 against a 2000-symbol budget, SER 5.95x the coherent bound from 2000 versus 1.68x from 4525). Pass -1 for an indicator the receiver does not publish, which is what ber_lock_symbol() returns for 'never locked'. A -1 timing or carrier lock means there is NO valid steady-state window -- check that yourself before trusting the return; a -1 handover is not a failure, since a pure-NDA receiver never publishes one."
+doc = "Where a steady-state measurement may start: max(budget, timing lock, carrier lock). The analytic budget and the receiver's own indicators are both fallible in the SAME direction, so whichever settles last decides. There was a fourth term until doppler#877: a receiver that handed the carrier from an NDA discriminator to a decision-directed one settled last of all, contributing its instant PLUS the budget again (measured on 8PSK: handover at symbol 2525 against a 2000-symbol budget, and 5.95x the coherent bound if the window started at 2000 rather than 4525). No receiver in this library hands over any more, so the term went with the handover rather than remaining as an argument that could only be passed -1. Pass -1 for an indicator the receiver does not publish, which is what ber_lock_symbol() returns for 'never locked'. A -1 timing or carrier lock means there is NO valid steady-state window -- check that yourself before trusting the return."
 return_type = "size_t"
 
 [[module.ber.functions.params]]
@@ -2439,10 +2814,5 @@ default = "-1"
 
 [[module.ber.functions.params]]
 name = "carrier_lock"
-type = "int"
-default = "-1"
-
-[[module.ber.functions.params]]
-name = "handover"
 type = "int"
 default = "-1"

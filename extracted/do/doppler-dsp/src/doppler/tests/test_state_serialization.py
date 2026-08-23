@@ -42,6 +42,7 @@ from doppler.acquire import CarrierAcquisition
 from doppler.agc import AGC
 from doppler.analyzer import Specan
 from doppler.arith import AccQ8, AccQ15
+from doppler.coding import ConvEncoder, Viterbi
 from doppler.cvt import ADC, F32ToI16, F32ToI16U32, F32ToI16U64, F32ToUQ15
 from doppler.ddc import DDC, Ddcr, MatchedDDC
 from doppler.delay import DelayCf64
@@ -86,6 +87,8 @@ _HB_TAPS = np.array([-0.21, 0.64, 0.64, -0.21], dtype=np.float32)
 _REF16 = (np.arange(16) + 0.5j).astype(np.complex64)
 # A 31-chip 0/1 spreading code for the burst despreader.
 _CODE31 = (np.arange(31, dtype=np.uint8) & 1).astype(np.uint8)
+# CCSDS 131.0-B-3 section 3's inner code, as Viterbi takes it.
+_CCSDS_POLY = np.array([0o171, 0o133], dtype=np.uint32)
 
 # name -> (make, feed): `make()` builds a fresh instance; `feed(obj, seg)` runs
 # one block and returns its output as an owned array (copy — some executes
@@ -420,6 +423,22 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
     "BurstDespreader": (
         lambda: BurstDespreader(code=_CODE31, sps=4),
         _burst_despreader_feed,
+    ),
+    # Viterbi — the path metrics, the survivor ring and its fill counter all
+    # carry across calls, and the decoder is a link in a chain (behind the
+    # receiver, in front of the R-S decoder) that is only checkpointable if
+    # every link is. Fed real LLRs; the emitted bits are the observable.
+    "Viterbi": (
+        lambda: Viterbi(_CCSDS_POLY, k=7, depth=35),
+        lambda o, seg: np.array(o.decode(seg.real.astype(np.float32))),
+    ),
+    # ConvEncoder — the shift register is the whole running state, and it is
+    # the reason the object exists: an encoder resumed without it emits k-1
+    # wrong symbols at the boundary, which decodes against a receiver of
+    # one's own construction and against nothing else.
+    "ConvEncoder": (
+        lambda: ConvEncoder(_CCSDS_POLY, k=7, invert=0x2),
+        lambda o, seg: np.array(o.encode((seg.real > 0).astype(np.uint8))),
     ),
     # Detectors / analyzer / generator — output is phase/threshold dependent,
     # so the post-block state blob is the resume observable.

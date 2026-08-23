@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arxiv-mcp-server
-Version: 0.6.3
+Version: 0.7.0
 Summary: A flexible arXiv search and analysis service with MCP protocol support
 Project-URL: Repository, https://github.com/blazickjp/arxiv-mcp-server
 Project-URL: Issues, https://github.com/blazickjp/arxiv-mcp-server/issues
@@ -232,24 +232,77 @@ Direct MCP installation is the shortest path. Install the plugin when you also w
 
 ## Tools
 
-The server currently exposes 14 tools.
+The server currently exposes 19 tools.
 
 | Tool | Purpose | Notes |
 |---|---|---|
-| `search_papers` | Search arXiv by query, category, date, and sort order | Remote arXiv API |
+| `search_papers` | Search arXiv by query, category, date, and sort order | Default ≤5 compact results (`abstract_mode=snippet`); remote arXiv API |
 | `get_abstract` | Fetch metadata and an abstract by arXiv ID | Does not download the paper |
-| `download_paper` | Download and convert a paper to local Markdown | HTML first; PDF fallback uses `[pdf]` |
-| `list_papers` | List papers stored locally | Returns arXiv IDs |
-| `read_paper` | Read locally stored paper content | Supports `start` and `max_chars` |
+| `download_paper` | Download and convert a paper to local Markdown | HTML first; PDF fallback uses `[pdf]`; `force=true` re-fetches; content bounded to 12,000 chars by default |
+| `list_papers` | List papers stored locally | Returns id, title, authors, published; `compact` for IDs only |
+| `read_paper` | Read locally stored paper content | Bounded to 12,000 chars by default; supports `start`/`max_chars`/`return_full_text` |
+| `get_paper_outline` | Paginated markdown heading outline | Stable hierarchical section IDs |
+| `read_paper_section` | Read one bounded markdown section | By outline ID or unique title |
+| `search_paper_text` | Bounded passage search in a paper | Source offsets; no Torch required |
 | `get_paper_latex` | Retrieve bounded author-submitted LaTeX | Remote arXiv source archive |
 | `list_paper_latex_sections` | Return a paginated LaTeX outline | Supports `start` and `max_sections` |
 | `get_paper_latex_section` | Read one bounded LaTeX section | Select by outline ID or exact title |
-| `citation_graph` | Fetch references and citing papers | Remote Semantic Scholar API |
+| `citation_graph` | Fetch references and citing papers | Remote Semantic Scholar API; optional `SEMANTIC_SCHOLAR_API_KEY` |
 | `export_citations` | Export BibTeX for one or more arXiv IDs | Authoritative arXiv metadata |
 | `watch_topic` | Save or update an arXiv topic watch | Stored locally |
+| `list_watches` | List saved topic watches | Read-only; does not advance last_checked |
 | `check_alerts` | Check saved watches for new papers | Returns papers since the last check |
+| `unwatch_topic` | Delete a saved topic watch | Exact topic match; not-found if missing |
 | `semantic_search` | Search downloaded papers by semantic similarity | Requires `[pro]` |
 | `reindex` | Rebuild the local semantic index | Requires `[pro]` |
+
+### search_papers query guide
+
+Tool schemas stay short on purpose. Use this section (not the always-loaded MCP description) for query tutorials, category catalogs, and workflow examples.
+
+**Query construction**
+
+- Use quoted phrases for exact matches: `"multi-agent systems"`, `"neural networks"`
+- Combine related concepts with OR: `"AI agents" OR "software agents"`
+- Field-specific searches: `ti:"exact title phrase"`, `au:"author name"`, `abs:"keyword"`, `cat:cs.LG`
+- Exclude with ANDNOT: `"machine learning" ANDNOT "survey"`
+- Prefer 2–4 core concepts over long keyword lists
+
+**Advanced patterns**
+
+- Field + phrase: `ti:"transformer architecture"`
+- Multiple fields: `au:"Smith" AND ti:"quantum"`
+- Exclusions: `"deep learning" ANDNOT ("survey" OR "review")`
+- Broad + narrow: `"artificial intelligence" AND (robotics OR "computer vision")`
+
+**Category filtering** (recommended for relevance)
+
+Computer Science: `cs.AI` (AI), `cs.LG` (ML), `cs.CL` (NLP), `cs.CV` (vision), `cs.MA` (multi-agent), `cs.RO` (robotics), `cs.NE` (neural/evolutionary), `cs.IR` (IR), `cs.HC` (HCI), `cs.CR` (security), `cs.DB` (databases)
+
+Statistics & Math: `stat.ML`, `stat.AP`, `math.OC`, `math.ST`
+
+Physics & other: `quant-ph`, `eess.SP`, `eess.AS`, `physics.data-an`
+
+**Effective examples**
+
+- `ti:"reinforcement learning"` with `categories: ["cs.LG", "cs.AI"]`
+- `au:"Hinton" AND "deep learning"` with `categories: ["cs.LG"]`
+- `"multi-agent" ANDNOT "survey"` with `categories: ["cs.MA"]`
+- `abs:"transformer" AND ti:"attention"` with `categories: ["cs.CL"]`
+
+**Dates and sorting**
+
+- Dates use `YYYY-MM-DD` (`date_from` / `date_to`)
+- Default `sort_by` is `relevance`; use `date` for newest-first monitoring
+- Foundational work: `date_to: "2010-12-31"` with title/abstract field searches
+
+**Result size, abstracts, and pagination**
+
+- Default `max_results` is **5** (cap 50). Pass an explicit value for larger pages.
+- `abstract_mode`: `snippet` (default, ~280 chars, marked `… [truncated]` when cut), `full` (complete abstract), or `none` (omit abstracts). Other metadata (title, authors, categories, dates, URLs) is always returned.
+- Responses report `total_results` (corpus hits), `returned`, `has_more`, `start`, `next_start`, and `abstract_mode`
+- Pass `start=next_start` with the same `abstract_mode` for the next page
+- arXiv enforces ~3 seconds between requests (handled server-side); on rate-limit errors wait ~60s
 
 ### Search and inspect a paper
 
@@ -259,12 +312,11 @@ Ask your MCP client to call `search_papers` with:
 {
   "query": "\"Kolmogorov-Arnold Networks\"",
   "categories": ["cs.LG", "cs.AI"],
-  "max_results": 5,
   "sort_by": "date"
 }
 ```
 
-Then call `get_abstract` with:
+Defaults return up to five compact results with abstract snippets. Use `"abstract_mode": "full"` when you need complete abstracts in the search response, or call `get_abstract` for a single paper after a compact search:
 
 ```json
 {
@@ -272,28 +324,52 @@ Then call `get_abstract` with:
 }
 ```
 
+Do not call `get_abstract` again for papers already returned with `abstract_mode=full`.
+
 ### Download and read full text
 
 Call `download_paper` with:
 
 ```json
 {
-  "paper_id": "2404.19756",
-  "max_chars": 12000
+  "paper_id": "2404.19756"
 }
 ```
+
+Omitting `max_chars` returns a bounded first chunk (default **12,000** paper characters). Cached papers are returned immediately. Pass `"force": true` to re-download and overwrite the local markdown and sidecar (also happens automatically when the HTML extractor version changes).
 
 Then page through the cached content with `read_paper`:
 
 ```json
 {
   "paper_id": "2404.19756",
-  "start": 0,
-  "max_chars": 12000
+  "start": 0
 }
 ```
 
-Large-content responses include `content_length`, `returned_chars`, `next_start`, and `is_truncated`. Pass `next_start` into the next call to continue reading.
+Or continue from a prior chunk:
+
+```json
+{
+  "paper_id": "2404.19756",
+  "start": 12000
+}
+```
+
+Large-content responses include `content_length`, `returned_chars`, `next_start`, `is_truncated`, and (when truncated) `next_retrieval` with the next-call instruction. Pass `next_start` into the next call's `start` to continue reading. Pass an explicit `max_chars` to override the default chunk size, or `"return_full_text": true` to opt into the previous unbounded full-paper response.
+
+#### Migration notes (bounded content default)
+
+Previously, omitting `max_chars` on `download_paper` / `read_paper` returned the **entire** paper. That default is now a **12,000-character** chunk so a single MCP tool call cannot flood the client context window.
+
+| Need | Call |
+|---|---|
+| First bounded chunk (new default) | `{ "paper_id": "…" }` |
+| Continue reading | `{ "paper_id": "…", "start": <next_start> }` |
+| Custom chunk size | `{ "paper_id": "…", "max_chars": 5000 }` |
+| Old unbounded behavior | `{ "paper_id": "…", "return_full_text": true }` |
+
+Clients that already passed `max_chars` are unchanged. Only callers that relied on the omitted-`max_chars` = full-text behavior need to add `return_full_text: true` or page via `next_start`.
 
 ### Read original LaTeX by section
 
@@ -395,6 +471,8 @@ Connect clients to:
 }
 ```
 
+Cloud and load-balancer probes should GET `http://<host>:<port>/healthz`. It returns `200` with body `ok` once the HTTP server is listening. There is no separate `/ready` check: if the process is up, it is ready. The stdio transport has no HTTP endpoints.
+
 The server binds to `127.0.0.1` by default and enables MCP DNS-rebinding protection. If a reverse proxy exposes the server, keep the process on a private interface and provide authentication and network controls upstream. Use `ALLOWED_HOSTS` and `ALLOWED_ORIGINS` for the host and origin values forwarded by the proxy.
 
 ## Configuration
@@ -409,6 +487,7 @@ The server binds to `127.0.0.1` by default and enables MCP DNS-rebinding protect
 | `PORT` | `8000` | HTTP bind port |
 | `ALLOWED_HOSTS` | empty | Additional accepted HTTP Host values |
 | `ALLOWED_ORIGINS` | empty | Additional accepted HTTP Origin values |
+| `SEMANTIC_SCHOLAR_API_KEY` | empty | Optional Semantic Scholar API key for `citation_graph` |
 
 Environment variable names are case-insensitive through Pydantic settings. `--storage-path` is a command-line option rather than an environment setting.
 

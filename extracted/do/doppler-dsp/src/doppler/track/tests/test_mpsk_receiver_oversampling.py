@@ -39,7 +39,7 @@ inside the budget but takes six times longer; beyond `2 * Bn` neither path
 acquires at all -- and that is correct behaviour, not a defect, because pull-in
 range is set by loop bandwidth. An assertion out there would pass or fail on
 where the transient happened to push the integrator, which is why this table is
-documentation and not a test. Widening pull-in is `nda_tap`'s job (a
+documentation and not a test. Widening pull-in is the loop bandwidth's job (a
 higher-rate tap sees a proportionally wider range) or a coarse frequency
 estimate's, passed in as `init_norm_freq`.
 
@@ -54,6 +54,7 @@ import numpy as np
 import pytest
 
 from ._mpsk_rx_harness import (
+    DEFAULT_M,
     clock_offset_inside_bw,
     demod,
     freq_offset_inside_bw,
@@ -88,14 +89,19 @@ RATIOS = [
 
 PATHS = [("R", True), ("C", False)]
 
+#: The AWGN cases settle later than the noiseless ones and need the room: the
+#: complex path settles at ~3900 symbols against the real path's 2000.
+_AWGN_NSYM = 12000
+
 
 def _measure(real, sps, m_out, bn, nsym, esn0_db=None):
     """One case, with BOTH loops given something to acquire.
 
-    Half the loop bandwidth on each: a carrier offset of `bn/2 * Rs` and a
-    sample-clock error of `bn/2`. Seeding the receiver exactly on truth would
-    leave both loops idle in their initial state, and every lock time and EVM
-    measured that way describes a receiver that never had to work.
+    Half of each loop's acquisition bound: a carrier offset of
+    `bn/(2*m) * Rs` -- the `m` because the discriminator is an M-th power --
+    and a sample-clock error of `bn/2`. Seeding the receiver exactly on truth
+    would leave both loops idle in their initial state, and every lock time
+    and EVM measured that way describes a receiver that never had to work.
     """
     x, idx = make_signal(sps, nsym, real=real, esn0_db=esn0_db)
     y, pr = demod(
@@ -105,17 +111,18 @@ def _measure(real, sps, m_out, bn, nsym, esn0_db=None):
         m_out=m_out,
         bn_timing=bn,
         bn_carrier=bn,
-        freq_offset=freq_offset_inside_bw(bn, sps),
+        freq_offset=freq_offset_inside_bw(bn, DEFAULT_M),
         clock_offset=clock_offset_inside_bw(bn),
     )
     settle = settle_from(pr, floor=settle_floor(bn, bn))
     if settle is None or len(y) - settle < 200:
         return None
-    evm, ser, lag = symbol_metrics(y, idx, settle=settle)
+    r = symbol_metrics(y, idx, settle=settle)
     return {
-        "evm": evm,
-        "ser": ser,
-        "lag": lag,
+        "evm": r.evm_db,
+        "m2m4": r.m2m4_db,
+        "ser": r.ser,
+        "lag": r.lag,
         "settle": settle,
         "t_lock": lock_symbol(pr["sync.locked"]),
         "c_lock": lock_symbol(pr["car.locked"]),
@@ -149,7 +156,10 @@ def test_noiseless_decode_is_error_free(
         f"(EVM {r['evm']:.1f} dB, window from {r['settle']})"
     )
     assert r["evm"] < -18.0, f"{path} sps={sps}: EVM {r['evm']:.1f} dB"
-    assert abs(r["lag"]) < 190, f"lag search saturated at {r['lag']}"
+    # A saturated or undetected alignment used to be checked here, by hand,
+    # against the lag the harness returned. `symbol_metrics` now refuses to
+    # return an SER at all in that case, so reaching this line means an
+    # alignment was detected.
 
 
 @pytest.mark.parametrize(
@@ -157,7 +167,7 @@ def test_noiseless_decode_is_error_free(
 )
 @pytest.mark.parametrize("path,real", PATHS, ids=[p[0] for p in PATHS])
 def test_evm_lands_on_the_coherent_bound(
-    path, real, label, sps, m_out, bn, nsym
+    path, real, label, sps, m_out, bn, nsym, request
 ):
     """`EVM_dB = -(Es/N0)_dB` at every ratio, on both paths.
 
@@ -170,7 +180,18 @@ def test_evm_lands_on_the_coherent_bound(
     those two conventions honest against each other.
     """
     esn0 = 12.0
-    r = _measure(real, sps, m_out, bn, nsym, esn0_db=esn0)
+    # sps=512 and sps=2048 were strict-xfail here on BOTH paths until the
+    # front-end AGC landed, and the marker called the fix exactly: the level
+    # was being set where the signal's share of a unit-power composite still
+    # depended on the input oversampling (A^2 drive 0.76 at sps=20, 0.50 at
+    # 64, 0.11 at 512, 0.03 at 2048), and a TED's slope goes as A^2. The AGC
+    # now sits inside the cascade AFTER the decimation, where the noise has
+    # been filtered to the terminal rate, so the level no longer moves with
+    # sps -- and the carrier discriminator normalises by its own |z|^M instead
+    # of leaning on an AGC downstream of the timing strobe. Every ratio runs
+    # unmarked on both paths; strict=True is what turned this red the moment
+    # it started passing, which is what it was for.
+    r = _measure(real, sps, m_out, bn, max(nsym, _AWGN_NSYM), esn0_db=esn0)
     assert r is not None, f"{path} at sps={sps}: no settled window under AWGN"
     assert -esn0 - 1.0 < r["evm"] < -esn0 + 3.5, (
         f"{path} sps={sps}: EVM {r['evm']:.1f} dB against a {-esn0:.0f} dB "
@@ -196,7 +217,7 @@ def test_both_loops_lock_within_their_budget(
     transient happens to push the integrator, and both outcomes are silent
     about
     correctness. Pull-in beyond `Bn` belongs in a characterisation sweep with a
-    reported success fraction (and is what `nda_tap` and a coarse frequency
+    reported success fraction (and is what a wider loop and a coarse frequency
     estimate exist to address), never here.
 
     Timing lock is quantised to the detector's `avgs` (133 looks per decision),
@@ -210,7 +231,7 @@ def test_both_loops_lock_within_their_budget(
         m_out=m_out,
         bn_timing=bn,
         bn_carrier=bn,
-        freq_offset=freq_offset_inside_bw(bn, sps),
+        freq_offset=freq_offset_inside_bw(bn, DEFAULT_M),
         clock_offset=clock_offset_inside_bw(bn),
     )
     budget = settle_floor(bn, bn)
@@ -293,7 +314,7 @@ def test_timing_nco_does_not_slip_at_any_ratio():
             m_out=m_out,
             bn_timing=bn,
             bn_carrier=bn,
-            freq_offset=freq_offset_inside_bw(bn, sps),
+            freq_offset=freq_offset_inside_bw(bn, DEFAULT_M),
             clock_offset=clock_offset_inside_bw(bn),
         )
         mu = pr["sync.mu"]

@@ -29,12 +29,17 @@ EXPECTED_TOOLS = {
     "get_abstract",
     "get_paper_latex",
     "get_paper_latex_section",
+    "get_paper_outline",
     "list_paper_latex_sections",
     "list_papers",
+    "list_watches",
     "read_paper",
+    "read_paper_section",
     "reindex",
+    "search_paper_text",
     "search_papers",
     "semantic_search",
+    "unwatch_topic",
     "watch_topic",
 }
 PROMPT_ARGUMENTS = {

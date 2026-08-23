@@ -6851,17 +6851,143 @@ def _pick_heartbeat_interval(resp_json: dict | None) -> int:
     )
 
 
+def _machine_specs() -> dict:
+    """Which machine is this? — hostname, OS, arch, RAM, cores.
+
+    Deliberately EXCLUDES network addresses. Local IPs stay in the
+    E2E-encrypted snapshot (machineInfo) where the cloud cannot read them;
+    these five fields are what a person needs to recognise their own machine
+    in a fleet list, and none of them is an address anything can be reached at.
+
+    Every value is best effort and omitted rather than guessed: a fleet card
+    showing "Ubuntu 24.04 - 16 GB" is useful, one showing "unknown - 0 GB" is
+    worse than showing nothing at all.
+    """
+    import socket as _socket
+
+    specs: dict = {}
+    try:
+        specs["hostname"] = _socket.gethostname() or ""
+    except Exception:
+        pass
+    # OS as a PERSON names it ("Ubuntu 24.04", "macOS 15.3"), not as the kernel
+    # does ("Linux 6.8.0-45-generic"). The kernel string is the wrong answer to
+    # "which of my machines is this" — every Linux box gives roughly the same one.
+    system = ""
+    try:
+        system = platform.system()
+    except Exception:
+        pass
+    try:
+        if system == "Linux":
+            name = version = ""
+            with open("/etc/os-release", encoding="utf-8") as fh:
+                for line in fh:
+                    key, _, val = line.partition("=")
+                    val = val.strip().strip('"')
+                    if key == "NAME":
+                        name = val
+                    elif key == "VERSION_ID":
+                        version = val
+            specs["os"] = name or "Linux"
+            specs["os_release"] = version
+        elif system == "Darwin":
+            specs["os"] = "macOS"
+            specs["os_release"] = (platform.mac_ver() or ("",))[0] or ""
+        elif system == "Windows":
+            specs["os"] = "Windows"
+            specs["os_release"] = (platform.win32_ver() or ("",))[0] or ""
+        elif system:
+            specs["os"] = system
+            specs["os_release"] = platform.release()
+    except Exception:
+        if system:
+            specs["os"] = system
+    try:
+        specs["arch"] = platform.machine() or ""
+    except Exception:
+        pass
+    try:
+        import multiprocessing as _mp
+
+        specs["cpu_count"] = int(_mp.cpu_count())
+    except Exception:
+        pass
+    ram = _total_ram_gb()
+    if ram:
+        specs["ram_gb"] = ram
+    return {k: v for k, v in specs.items() if v not in ("", None)}
+
+
+def _total_ram_gb() -> float:
+    """Installed RAM in GB, or 0.0 when it cannot be read.
+
+    Three platform paths and no dependency on psutil, which is optional here.
+    """
+    try:
+        system = platform.system()
+        if system == "Linux":
+            with open("/proc/meminfo", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("MemTotal:"):
+                        return round(int(line.split()[1]) / 1024 / 1024, 1)
+        elif system == "Darwin":
+            out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], timeout=2)
+            return round(int(out.strip()) / 1024 / 1024 / 1024, 1)
+        elif system == "Windows":
+            import ctypes
+
+            class _MemStatus(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            st = _MemStatus()
+            st.dwLength = ctypes.sizeof(_MemStatus)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st))
+            return round(st.ullTotalPhys / 1024 / 1024 / 1024, 1)
+    except Exception:
+        pass
+    return 0.0
+
+
 def _build_node_meta() -> dict:
     """Routing-safe node metadata for the PLAINTEXT heartbeat.
 
-    The machine fingerprint (os, arch, ram_gb, cpu_count, local_ips) used to
-    live here and the cloud stored it in cleartext. It now rides the
-    E2E-encrypted snapshot (machineInfo, see _build_machine_info); only
-    routing/entitlement fields the cloud legitimately needs in cleartext stay
-    here. Best-effort: failures yield an empty value rather than raising — the
+    Carries what the cloud needs to ROUTE and ENTITLE a node, plus the machine
+    specs that let a person tell their own machines apart (see
+    :func:`_machine_specs`).
+
+    History, because this line moved once already: the full machine
+    fingerprint used to live here in cleartext, and was moved wholesale into
+    the E2E-encrypted snapshot. That took the network addresses out of the
+    cloud's reach, which was the point — and it also took away every way to
+    tell which physical machine a fleet card meant, because the snapshot can
+    only be decrypted with THAT node's key, which is the very thing you go to
+    the machine to fetch. Founder live-hit 2026-08-22, on an account with 18
+    nodes: "it's really confusing to know who owns this instance".
+
+    So the split is now drawn where the risk actually is: identity you would
+    read off a sticker on the case (hostname, OS, arch, RAM, cores) rides the
+    plaintext heartbeat; network addresses stay E2E-encrypted in machineInfo
+    and surface only in a view whose key the viewer already holds.
+
+    Best-effort: failures yield an empty value rather than raising — the
     heartbeat MUST keep flowing even on weird platforms.
     """
     meta: dict = {}
+    try:
+        meta.update(_machine_specs())
+    except Exception:
+        pass
     # Pro-adapter + auto-update status so the cloud Fleet can show whether an
     # entitled node is actually running clawmetry-pro (the paid runtime
     # adapters) and keeping itself current — turning the "I'm on Pro but Claude
@@ -6887,8 +7013,10 @@ _LITE_RT_LABELS = {
     "nanoclaw": "NanoClaw", "pi": "Pi", "deepagents": "Deep Agents",
     "n8n": "n8n", "antigravity": "Antigravity", "copilot": "GitHub Copilot",
     "grok": "Grok", "qm": "QM", "deepseek_harness": "DeepSeek Harness",
-    "exo": "Exo",
-    "kimi": "Kimi CLI",
+    "exo": "Exo", "kimi": "Kimi CLI", "devin": "Devin",
+    "gemini_cli": "Gemini CLI",
+    "cline": "Cline",
+    "openhands": "OpenHands",
 }
 
 # Activity thresholds (seconds) for classifying a detected runtime. Detecting a
@@ -6899,6 +7027,25 @@ _LITE_RT_LABELS = {
 # node). We attach last_active + status so the Fleet can render honestly.
 _RT_ACTIVE_SECS = 7 * 86400     # used within a week -> active
 _RT_IDLE_SECS = 30 * 86400      # used within a month -> idle
+
+
+def _gemini_cli_store_paths() -> list:
+    """Gemini CLI session store: the per-project chat-recording tree.
+
+    ``CLAWMETRY_GEMINI_CLI_HOME`` points straight AT a ``.gemini`` dir;
+    ``GEMINI_CLI_HOME`` (the CLI's own override) names the dir that CONTAINS
+    it, so the leaf is appended. Only ``tmp`` is listed, never the ``.gemini``
+    root — Antigravity keeps its own trees beside it (antigravity-cli, jetski)
+    and pointing at the root would let one runtime claim the other's data.
+    """
+    direct = os.environ.get("CLAWMETRY_GEMINI_CLI_HOME", "").strip()
+    if direct:
+        roots = [os.path.expanduser(direct)]
+    else:
+        cli_home = os.environ.get("GEMINI_CLI_HOME", "").strip()
+        base = os.path.expanduser(cli_home) if cli_home else os.path.expanduser("~")
+        roots = [os.path.join(base, ".gemini")]
+    return [os.path.join(r, "tmp") for r in roots]
 
 
 def _kimi_store_paths() -> list:
@@ -6916,6 +7063,12 @@ def _kimi_store_paths() -> list:
     out += [os.path.join(home, ".kimi", "sessions"),
             os.path.join(home, ".kimi-code", "sessions")]
     return out
+def _xdg_data_home() -> str:
+    """``$XDG_DATA_HOME`` with the spec default. Devin (and Goose/opencode)
+    anchor their stores here, so honour the env var rather than hardcoding
+    ``~/.local/share`` — a machine that moves XDG_DATA_HOME would otherwise
+    read as "runtime not installed"."""
+    return os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
 
 
 def _runtime_data_paths(rid: str) -> list:
@@ -6957,6 +7110,14 @@ def _runtime_data_paths(rid: str) -> list:
                 [os.path.join(home, "exo", ".exo", "exoharness"),
                  os.path.join(home, ".exo", "exoharness")]),
         "kimi": _kimi_store_paths(),
+        # Devin CLI: one SQLite store for every session, XDG-anchored. The
+        # vendor installer migrates the legacy "cognition"/"chisel" data
+        # namespaces to "devin", so older installs still resolve.
+        "devin": ([os.path.expanduser(os.environ.get("CLAWMETRY_DEVIN_DB", "").strip())]
+                  if os.environ.get("CLAWMETRY_DEVIN_DB", "").strip() else []) + [
+            os.path.join(_xdg_data_home(), ns, "cli", "sessions.db")
+            for ns in ("devin", "cognition", "chisel")],
+        "gemini_cli": _gemini_cli_store_paths(),
     }
     return _M.get(rid, [])
 
@@ -7097,6 +7258,14 @@ def _detect_runtimes_lite() -> list:
                 [os.path.join(home, "exo", ".exo", "exoharness"),
                  os.path.join(home, ".exo", "exoharness")]),
         "kimi": _kimi_store_paths(),
+        # Devin CLI: one SQLite store for every session, XDG-anchored. The
+        # vendor installer migrates the legacy "cognition"/"chisel" data
+        # namespaces to "devin", so older installs still resolve.
+        "devin": ([os.path.expanduser(os.environ.get("CLAWMETRY_DEVIN_DB", "").strip())]
+                  if os.environ.get("CLAWMETRY_DEVIN_DB", "").strip() else []) + [
+            os.path.join(_xdg_data_home(), ns, "cli", "sessions.db")
+            for ns in ("devin", "cognition", "chisel")],
+        "gemini_cli": _gemini_cli_store_paths(),
     }
     for rid, paths in _present.items():
         try:
@@ -12956,23 +13125,18 @@ def _build_machine_info():
             )
         # Kernel
         items.append({"label": "Kernel", "value": platform.release(), "status": "ok"})
-        # RAM + all local IPs. These moved here from the plaintext heartbeat's
-        # node_meta: the machine fingerprint is now E2E-encrypted in the snapshot
-        # and never sent in cleartext. The "Local IPs" label contains "IP" so the
-        # cloud Network-modal interceptor picks it up too.
+        # RAM (shared reader with the heartbeat's machine specs, so the two
+        # surfaces can never disagree about how much memory this box has).
+        #
+        # The LOCAL IPS below are the part that stays E2E-only: the heartbeat
+        # now carries the machine's specs in cleartext so a person can pick
+        # their own machine out of a fleet list, but nothing the machine can be
+        # REACHED at ever leaves here unencrypted. That line is drawn in
+        # _build_node_meta; keep both sides of it in sync.
         try:
-            _ramgb = ""
-            if platform.system() == "Linux":
-                with open("/proc/meminfo") as _mf:
-                    for _line in _mf:
-                        if _line.startswith("MemTotal:"):
-                            _ramgb = str(round(int(_line.split()[1]) / 1024 / 1024, 1))
-                            break
-            elif platform.system() == "Darwin":
-                _mem = subprocess.check_output(["sysctl", "-n", "hw.memsize"], timeout=2)
-                _ramgb = str(round(int(_mem.strip()) / 1024 / 1024 / 1024, 1))
+            _ramgb = _total_ram_gb()
             if _ramgb:
-                items.append({"label": "RAM", "value": _ramgb + " GB", "status": "ok"})
+                items.append({"label": "RAM", "value": f"{_ramgb} GB", "status": "ok"})
         except Exception:
             pass
         try:
@@ -12998,11 +13162,19 @@ def _build_machine_info():
 # namespaced + tagged with the runtime. To add a runtime: ship its adapter and
 # add a (module, class) row here. Import is per-adapter + defensive so a missing
 # or broken adapter (e.g. an older wheel) never blocks the others.
-# The 12 paid runtime adapters live in the closed-source clawmetry-pro
-# package (moved in Phase 4 of the open-core split). ``_family_adapter_classes()``
+# The paid runtime adapters live in the closed-source clawmetry-pro package
+# (moved in Phase 4 of the open-core split). ``_family_adapter_classes()``
 # below imports them by absolute path; the import gracefully fails when
-# clawmetry-pro is not installed and the daemon proceeds with OpenClaw +
-# NeMo (the Free runtimes) only.
+# clawmetry-pro is not installed and the daemon proceeds with the Free
+# runtimes only.
+#
+# FREE adapters are bundled right here in OSS and carry a ``clawmetry.adapters.*``
+# import path, so `pip install clawmetry` alone observes them -- no account, no
+# licence, no wheel download. Goose (block/goose) is the first: its maintainers
+# will only take a ClawMetry tutorial into their docs if it works without a paid
+# plan, and it is an OSS runtime with no enterprise willingness-to-pay, so the
+# adapter belongs in the open package. See docs/ENTITLEMENTS.md for the rule
+# (open-source runtime -> free adapter; commercial vendor product -> paid).
 _FAMILY_ADAPTER_SPECS = (
     ("clawmetry_pro.adapters.picoclaw", "PicoClawAdapter"),
     ("clawmetry_pro.adapters.nanoclaw", "NanoClawAdapter"),
@@ -13011,13 +13183,20 @@ _FAMILY_ADAPTER_SPECS = (
     ("clawmetry_pro.adapters.codex", "CodexAdapter"),
     ("clawmetry_pro.adapters.cursor", "CursorAdapter"),
     ("clawmetry_pro.adapters.aider", "AiderAdapter"),
-    ("clawmetry_pro.adapters.goose", "GooseAdapter"),
+    # FREE + bundled in OSS (see the note above). A licensed install may also
+    # carry clawmetry-pro's own GooseAdapter; the registry override seam in
+    # dashboard.py keeps whichever registered first, and both read the same
+    # sessions.db, so there is no double-ingest either way.
+    ("clawmetry.adapters.goose", "GooseAdapter"),
     ("clawmetry_pro.adapters.opencode", "OpencodeAdapter"),
     ("clawmetry_pro.adapters.qwen_code", "QwenCodeAdapter"),
     ("clawmetry_pro.adapters.pi", "PiAdapter"),
     ("clawmetry_pro.adapters.deepagents", "DeepAgentsAdapter"),
     ("clawmetry_pro.adapters.n8n", "N8nAdapter"),
     ("clawmetry_pro.adapters.antigravity", "AntigravityAdapter"),
+    ("clawmetry_pro.adapters.gemini_cli", "GeminiCliAdapter"),
+    ("clawmetry_pro.adapters.cline", "ClineAdapter"),
+    ("clawmetry_pro.adapters.openhands", "OpenHandsAdapter"),
     ("clawmetry_pro.adapters.copilot", "CopilotAdapter"),
     ("clawmetry_pro.adapters.grok", "GrokAdapter"),
     # qm (github.com/yc-software/qm, qm.ycombinator.com) — YC's Postgres-
@@ -13042,6 +13221,12 @@ _FAMILY_ADAPTER_SPECS = (
     # dir)>/<uuid>/. The adapter reads BOTH share dirs (~/.kimi and the
     # successor ~/.kimi-code) plus $KIMI_SHARE_DIR / CLAWMETRY_KIMI_ROOTS.
     ("clawmetry_pro.adapters.kimi", "KimiAdapter"),
+    # Devin CLI (cli.devin.ai) — every session in ONE SQLite store at
+    # $XDG_DATA_HOME/devin/cli/sessions.db: a message FOREST (fork /
+    # revert leave abandoned branches the adapter must not bill) plus
+    # the ACP tool-call records. Devin Cloud sessions are API-only and
+    # deliberately not ingested here.
+    ("clawmetry_pro.adapters.devin", "DevinAdapter"),
 )
 
 
@@ -14476,6 +14661,10 @@ _RUNTIME_PREFIXES = frozenset({
     "aider", "goose", "opencode", "qwen_code", "pi", "deepagents", "n8n",
     "antigravity", "copilot", "grok", "qm", "deepseek_harness", "exo",
     "kimi",
+    "devin",
+    "gemini_cli",
+    "cline",
+    "openhands",
 })
 
 
@@ -16204,6 +16393,37 @@ def _backfill_benign_errors_once(store) -> None:
         log.debug("benign-error backfill failed: %s", _e)
 
 
+def _resolve_spending(daily_usage, state_spending):
+    """Pick the today/week/month spend triple from ONE source.
+
+    A real $0.00 is a FACT, not a missing value. The pre-fix expression was
+
+        "today": float(_du.get("todayCost") or _state.get("today") or 0)
+
+    which treats 0.0 as falsy, so a genuinely-idle window silently rendered
+    the stale ``state.json`` number instead of zero. Each key also fell back
+    INDEPENDENTLY, so one payload could carry a live ``week`` beside a stale
+    ``today`` and the cloud hero card showed three numbers from three
+    different eras (reported 2026-08-22: today and month byte-identical,
+    week not).
+
+    ``_build_daily_usage()`` returns {} on failure, so "absent" IS
+    distinguishable from "zero": key on presence, and take the whole triple
+    from one source so the payload is internally consistent. ``source`` is
+    surfaced so the cloud can tell a real $0 from a degraded read.
+    """
+    live = daily_usage or {}
+    stale = state_spending or {}
+    keys = (("today", "todayCost"), ("week", "weekCost"), ("month", "monthCost"))
+    if all(live.get(src_key) is not None for _, src_key in keys):
+        out = {out_key: float(live.get(src_key)) for out_key, src_key in keys}
+        out["source"] = "live"
+        return out
+    out = {out_key: float(stale.get(out_key) or 0) for out_key, _ in keys}
+    out["source"] = "state"
+    return out
+
+
 def _build_daily_usage(days=14):
     """14-day token/cost history for the cloud Cost tab.
 
@@ -16260,7 +16480,9 @@ def _build_daily_usage(days=14):
                     daily_cost[d] = float(s.get("cost_usd"))
         except Exception:
             pass
-        now = datetime.now()
+        from clawmetry.cost_windows import now_local
+
+        now = now_local()
         out_days = []
         for i in range(days - 1, -1, -1):
             ds = (now - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -16273,9 +16495,10 @@ def _build_daily_usage(days=14):
                 "cacheReadTokens": dcr.get(ds, 0),
                 "cacheWriteTokens": dcw.get(ds, 0),
             })
-        tstr = now.strftime("%Y-%m-%d")
-        wk = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-        mo = now.strftime("%Y-%m-01")
+        # Same calendar-local windows every other cost surface uses.
+        from clawmetry.cost_windows import window_start_days
+
+        tstr, wk, mo = window_start_days(now)
         # Per-runtime daily series (#3004) so the cloud Cost 14-day chart can
         # render purely from the encrypted snapshot when scoped to a runtime,
         # instead of falling back to the scoped server path. Sourced from the
@@ -19350,11 +19573,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     # the real four-figure month — trust-destroying. Computing dailyUsage
     # once here and reusing it bounds the cost.
     _du = _build_daily_usage()
-    spending = {
-        "today": float(_du.get("todayCost") or state.get("spending", {}).get("today") or 0),
-        "week":  float(_du.get("weekCost")  or state.get("spending", {}).get("week")  or 0),
-        "month": float(_du.get("monthCost") or state.get("spending", {}).get("month") or 0),
-    }
+    spending = _resolve_spending(_du, state.get("spending", {}))
 
     # LLM Context Inspector parity (2026-05-23): expose the SAME fields
     # the OSS /api/overview now adds so the Context tab reads one value

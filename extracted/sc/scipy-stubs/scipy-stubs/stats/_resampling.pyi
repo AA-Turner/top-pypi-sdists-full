@@ -14,7 +14,6 @@ __all__ = ["bootstrap", "monte_carlo_test", "permutation_test"]
 
 ###
 
-type _FloatND = float | np.float64 | onp.ArrayND[np.float64]
 type _BootstrapMethod = Literal["percentile", "basic", "bca", "BCa"]
 type _PermutationType = Literal["independent", "samples", "pairings"]
 
@@ -22,8 +21,8 @@ type _Statistic = Callable[..., onp.ToFloat] | Callable[..., onp.ToFloatND]
 
 type _JustAnyShape = tuple[Never, Never, Never, Never]
 
-_FloatNDT = TypeVar("_FloatNDT", bound=_FloatND, default=Any)
-_DistT = TypeVar("_DistT", bound=onp.ArrayND[np.float64], default=onp.ArrayND[np.float64])
+_FloatNDT = TypeVar("_FloatNDT", bound=float | npc.floating | onp.ArrayND[npc.floating], default=Any)
+_DistT = TypeVar("_DistT", bound=onp.ArrayND[npc.floating], default=onp.ArrayND[np.float64])
 
 @type_check_only
 class _RVSCallable(Protocol):
@@ -187,9 +186,9 @@ def power(
 ###
 
 #
-@overload
+@overload  # ?d +f64
 def bootstrap(
-    data: Sequence[onp.ArrayND[npc.floating | npc.integer, _JustAnyShape]],
+    data: Sequence[onp.ArrayND[npc.integer, _JustAnyShape]],
     statistic: _Statistic,
     *,
     n_resamples: int = 9_999,
@@ -204,9 +203,26 @@ def bootstrap(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> BootstrapResult[onp.ArrayND[np.float64] | np.float64, onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # ?d floating
+def bootstrap[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ArrayND[FloatT, _JustAnyShape]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: int = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[onp.ArrayND[FloatT] | FloatT, onp.ArrayND[FloatT]]: ...
+@overload  # 1d +f64
 def bootstrap(
-    data: Sequence[onp.ToFloatStrict1D],
+    data: Sequence[onp.ToArrayStrict1D[float, npc.integer]],
     statistic: _Statistic,
     *,
     n_resamples: int = 9_999,
@@ -221,9 +237,26 @@ def bootstrap(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> BootstrapResult[np.float64, onp.Array1D[np.float64]]: ...
-@overload
+@overload  # 1d floating
+def bootstrap[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict1D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: Literal[0, -1] = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[FloatT, onp.Array1D[FloatT]]: ...
+@overload  # 2d +f64
 def bootstrap(
-    data: Sequence[onp.ToFloatStrict2D],
+    data: Sequence[onp.ToArrayStrict2D[float, npc.integer]],
     statistic: _Statistic,
     *,
     n_resamples: int = 9_999,
@@ -238,9 +271,26 @@ def bootstrap(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> BootstrapResult[onp.Array1D[np.float64], onp.Array2D[np.float64]]: ...
-@overload
+@overload  # 2d floating
+def bootstrap[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict2D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: Literal[0, 1, -1, -2] = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[onp.Array1D[FloatT], onp.Array2D[FloatT]]: ...
+@overload  # 3d +f64
 def bootstrap(
-    data: Sequence[onp.ToFloatStrict3D],
+    data: Sequence[onp.ToArrayStrict3D[float, npc.integer]],
     statistic: _Statistic,
     *,
     n_resamples: int = 9_999,
@@ -255,7 +305,58 @@ def bootstrap(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> BootstrapResult[onp.Array2D[np.float64], onp.Array3D[np.float64]]: ...
-@overload
+@overload  # 3d floating
+def bootstrap[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict3D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: Literal[0, 1, 2, -1, -2, -3] = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[onp.Array2D[FloatT], onp.Array3D[FloatT]]: ...
+@overload  # Nd +f64
+def bootstrap(
+    data: Sequence[onp.ToArrayND[float, npc.integer]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: int = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64]]: ...
+@overload  # Nd floating
+def bootstrap[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayND[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    vectorized: bool | None = None,
+    paired: bool = False,
+    axis: int = 0,
+    confidence_level: float = 0.95,
+    alternative: Alternative = "two-sided",
+    method: _BootstrapMethod = "BCa",
+    bootstrap_result: BootstrapResult | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> BootstrapResult[onp.ArrayND[FloatT] | Any, onp.ArrayND[FloatT]]: ...
+@overload  # fallback
 def bootstrap(
     data: Sequence[onp.ToFloatND],
     statistic: _Statistic,
@@ -271,12 +372,12 @@ def bootstrap(
     bootstrap_result: BootstrapResult | None = None,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> BootstrapResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64]]: ...
+) -> BootstrapResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64 | Any]]: ...
 
 #
-@overload
+@overload  # ?d +f64
 def permutation_test(
-    data: Sequence[onp.ArrayND[npc.floating | npc.integer, _JustAnyShape]],
+    data: Sequence[onp.ArrayND[npc.integer, _JustAnyShape]],
     statistic: _Statistic,
     *,
     permutation_type: _PermutationType = "independent",
@@ -288,9 +389,23 @@ def permutation_test(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> PermutationTestResult[onp.ArrayND[np.float64] | np.float64, onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # ?d floating
+def permutation_test[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ArrayND[FloatT, _JustAnyShape]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: int = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[onp.ArrayND[FloatT] | FloatT, onp.ArrayND[FloatT]]: ...
+@overload  # 1d +f64
 def permutation_test(
-    data: Sequence[onp.ToFloatStrict1D],
+    data: Sequence[onp.ToArrayStrict1D[float, npc.integer]],
     statistic: _Statistic,
     *,
     permutation_type: _PermutationType = "independent",
@@ -302,9 +417,23 @@ def permutation_test(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> PermutationTestResult[np.float64, onp.Array1D[np.float64]]: ...
-@overload
+@overload  # 1d floating
+def permutation_test[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict1D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, -1] = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[FloatT, onp.Array1D[FloatT]]: ...
+@overload  # 2d +f64
 def permutation_test(
-    data: Sequence[onp.ToFloatStrict2D],
+    data: Sequence[onp.ToArrayStrict2D[float, npc.integer]],
     statistic: _Statistic,
     *,
     permutation_type: _PermutationType = "independent",
@@ -316,9 +445,23 @@ def permutation_test(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> PermutationTestResult[onp.Array1D[np.float64], onp.Array2D[np.float64]]: ...
-@overload
+@overload  # 2d floating
+def permutation_test[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict2D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, 1, -1, -2] = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[onp.Array1D[FloatT], onp.Array2D[FloatT]]: ...
+@overload  # 3d +f64
 def permutation_test(
-    data: Sequence[onp.ToFloatStrict3D],
+    data: Sequence[onp.ToArrayStrict3D[float, npc.integer]],
     statistic: _Statistic,
     *,
     permutation_type: _PermutationType = "independent",
@@ -330,7 +473,49 @@ def permutation_test(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> PermutationTestResult[onp.Array2D[np.float64], onp.Array3D[np.float64]]: ...
-@overload
+@overload  # 3d floating
+def permutation_test[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayStrict3D[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, 1, 2, -1, -2, -3] = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[onp.Array2D[FloatT], onp.Array3D[FloatT]]: ...
+@overload  # Nd +f64
+def permutation_test(
+    data: Sequence[onp.ToArrayND[float, npc.integer]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: int = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64]]: ...
+@overload  # Nd floating
+def permutation_test[FloatT: (np.float64, np.float32, np.float16)](
+    data: Sequence[onp.ToArrayND[FloatT, FloatT]],
+    statistic: _Statistic,
+    *,
+    permutation_type: _PermutationType = "independent",
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: int = 0,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> PermutationTestResult[onp.ArrayND[FloatT] | Any, onp.ArrayND[FloatT]]: ...
+@overload  # fallback
 def permutation_test(
     data: Sequence[onp.ToFloatND],
     statistic: _Statistic,
@@ -343,12 +528,24 @@ def permutation_test(
     axis: int = 0,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> PermutationTestResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64]]: ...
+) -> PermutationTestResult[onp.ArrayND[np.float64] | Any, onp.ArrayND[np.float64 | Any]]: ...
 
 #
-@overload
+@overload  # ?d ~floating  (workaround)
+def monte_carlo_test[FloatT: npc.floating](
+    data: onp.ArrayND[FloatT, _JustAnyShape],
+    rvs: _RVSCallable,
+    statistic: _Statistic,
+    *,
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: int = 0,
+) -> MonteCarloTestResult[onp.ArrayND[FloatT] | FloatT, onp.ArrayND[np.float64]]: ...
+@overload  # ?d +f64  (workaround)
 def monte_carlo_test(
-    data: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    data: onp.ArrayND[npc.integer, _JustAnyShape],
     rvs: _RVSCallable,
     statistic: _Statistic,
     *,
@@ -358,9 +555,21 @@ def monte_carlo_test(
     alternative: Alternative = "two-sided",
     axis: int = 0,
 ) -> MonteCarloTestResult[onp.ArrayND[np.float64] | np.float64, onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # 1d ~floating
+def monte_carlo_test[FloatT: npc.floating](
+    data: onp.ToArrayStrict1D[FloatT, FloatT],
+    rvs: _RVSCallable,
+    statistic: _Statistic,
+    *,
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, -1] = 0,
+) -> MonteCarloTestResult[FloatT, onp.Array1D[np.float64]]: ...
+@overload  # 1d +f64
 def monte_carlo_test(
-    data: onp.ToFloatStrict1D,
+    data: onp.ToArrayStrict1D[float, npc.integer],
     rvs: _RVSCallable,
     statistic: _Statistic,
     *,
@@ -370,9 +579,21 @@ def monte_carlo_test(
     alternative: Alternative = "two-sided",
     axis: Literal[0, -1] = 0,
 ) -> MonteCarloTestResult[np.float64, onp.Array1D[np.float64]]: ...
-@overload
+@overload  # 2d ~floating
+def monte_carlo_test[FloatT: npc.floating](
+    data: onp.ToArrayStrict2D[FloatT, FloatT],
+    rvs: _RVSCallable,
+    statistic: _Statistic,
+    *,
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, 1, -1, -2] = 0,
+) -> MonteCarloTestResult[onp.Array1D[FloatT], onp.Array2D[np.float64]]: ...
+@overload  # 2d +f64
 def monte_carlo_test(
-    data: onp.ToFloatStrict2D,
+    data: onp.ToArrayStrict2D[float, npc.integer],
     rvs: _RVSCallable,
     statistic: _Statistic,
     *,
@@ -382,9 +603,21 @@ def monte_carlo_test(
     alternative: Alternative = "two-sided",
     axis: Literal[0, 1, -1, -2] = 0,
 ) -> MonteCarloTestResult[onp.Array1D[np.float64], onp.Array2D[np.float64]]: ...
-@overload
+@overload  # 3d ~floating
+def monte_carlo_test[FloatT: npc.floating](
+    data: onp.ToArrayStrict3D[FloatT, FloatT],
+    rvs: _RVSCallable,
+    statistic: _Statistic,
+    *,
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: Literal[0, 1, 2, -1, -2, -3] = 0,
+) -> MonteCarloTestResult[onp.Array2D[FloatT], onp.Array3D[np.float64]]: ...
+@overload  # 3d +f64
 def monte_carlo_test(
-    data: onp.ToFloatStrict3D,
+    data: onp.ToArrayStrict3D[float, npc.integer],
     rvs: _RVSCallable,
     statistic: _Statistic,
     *,
@@ -394,9 +627,21 @@ def monte_carlo_test(
     alternative: Alternative = "two-sided",
     axis: Literal[0, 1, 2, -1, -2, -3] = 0,
 ) -> MonteCarloTestResult[onp.Array2D[np.float64], onp.Array3D[np.float64]]: ...
-@overload
+@overload  # nd ~floating
+def monte_carlo_test[FloatT: npc.floating](
+    data: onp.ToArrayND[FloatT, FloatT],
+    rvs: _RVSCallable,
+    statistic: _Statistic,
+    *,
+    vectorized: bool | None = None,
+    n_resamples: int = 9_999,
+    batch: int | None = None,
+    alternative: Alternative = "two-sided",
+    axis: int = 0,
+) -> MonteCarloTestResult[onp.ArrayND[FloatT] | Any, onp.ArrayND[np.float64]]: ...
+@overload  # nd +f64
 def monte_carlo_test(
-    data: onp.ToFloatND,
+    data: onp.ToArrayND[float, npc.integer],
     rvs: _RVSCallable,
     statistic: _Statistic,
     *,

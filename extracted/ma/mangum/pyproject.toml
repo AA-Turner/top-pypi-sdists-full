@@ -4,24 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mangum"
-version = "0.21.0"
+version = "0.22.0"
 authors = [
     { name = "Jordan Eremieff", email = "jordan@eremieff.com" },
     { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" },
 ]
 description = "AWS Lambda support for ASGI applications"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = ["typing_extensions"]
@@ -31,7 +31,7 @@ dev = [
     "pytest>=8.0.0",
     "coverage",
     "ruff",
-    "starlette",
+    "starlette>=1.0",
     "quart>=0.20.0",
     "hypercorn>=0.15.0",
     "mypy",
@@ -40,7 +40,12 @@ dev = [
     "mkautodoc",
     "mkdocs>=1.6.0; python_version >= '3.12'",
     "mkdocs-material; python_version >= '3.12'",
+    "testcontainers[localstack]>=4.15.0",
+    "boto3>=1.43.78",
+    "types-boto3>=1.43.78",
+    "httpx2>=2.12.0",
 ]
+localstack = []
 
 [project.urls]
 Homepage = "https://github.com/Kludex/mangum"
@@ -72,7 +77,8 @@ xfail_strict = true
 filterwarnings = [
     # Turn warnings that aren't filtered into exceptions
     "error",
-    "ignore::DeprecationWarning:starlette",
+    # testcontainers calls its own deprecated wait_for_logs API during container startup
+    "ignore: The wait_for_logs function with string or callable predicates is deprecated.*:DeprecationWarning",
     "ignore: There is no current event loop:DeprecationWarning",
     "ignore: 'pkgutil.get_loader' is deprecated.*:DeprecationWarning",
     "ignore: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead:DeprecationWarning",
@@ -83,6 +89,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source_pkgs = ["mangum", "tests"]
+omit = ["tests/echo_lambda/*"]
 
 [tool.coverage.report]
 fail_under = 100
@@ -92,6 +99,7 @@ exclude_lines = [
     "pragma: no cover",
     "pragma: nocover",
     "if typing.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
     "@typing.overload",
     "raise NotImplementedError",
 ]

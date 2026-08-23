@@ -117568,13 +117568,26 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Job performance summary"""
 
     __schema__ = schema
-    __field_names__ = ("object_path", "alerts_count", "generates_alerts", "terminology")
+    __field_names__ = (
+        "object_path",
+        "object_type",
+        "alerts_count",
+        "generates_alerts",
+        "terminology",
+    )
     object_path = sgqlc.types.Field(String, graphql_name="objectPath")
     """Parent-folder hierarchy of the asset within its source system
     (e.g. 'Default / Customer Loads'), with the trailing object name
     stripped. Currently populated for Informatica MTT jobs only; null
     for other integration types or when the path has not yet been
     resolved.
+    """
+
+    object_type = sgqlc.types.Field(String, graphql_name="objectType")
+    """Source-system object-type label for the job (e.g. 'Data Stream').
+    Currently populated for Salesforce Data Cloud jobs only; null for
+    other integration types and for jobs whose label has not been
+    collected yet.
     """
 
     alerts_count = sgqlc.types.Field(Int, graphql_name="alertsCount")

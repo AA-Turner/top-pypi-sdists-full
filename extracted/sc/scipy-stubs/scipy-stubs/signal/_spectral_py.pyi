@@ -7,25 +7,25 @@ import optype as op
 import optype.numpy as onp
 import optype.numpy.compat as npc
 
-from .windows._windows import _ToWindow
+from ._signaltools import _ToWindowOrArray, _TrendType
 
 __all__ = ["check_COLA", "check_NOLA", "coherence", "csd", "istft", "lombscargle", "periodogram", "spectrogram", "stft", "welch"]
 
 ###
 
-type _float64_1d = onp.Array1D[np.float64]  # noqa: PYI042
-type _float32_nd = onp.ArrayND[np.float32]  # noqa: PYI042
-type _float64_nd = onp.ArrayND[np.float64]  # noqa: PYI042
-type _float80_nd = onp.ArrayND[np.float96 | np.float128]  # noqa: PYI042
-type _complex64_nd = onp.ArrayND[np.complex64]  # noqa: PYI042
-type _complex128_nd = onp.ArrayND[np.complex128]  # noqa: PYI042
-type _complex160_nd = onp.ArrayND[np.complex192 | np.complex256]  # noqa: PYI042
+type _float64_1d = onp.Array1D[np.float64]  # ruff: ignore[snake-case-type-alias]
+type _float32_nd = onp.ArrayND[np.float32]  # ruff: ignore[snake-case-type-alias]
+type _float64_nd = onp.ArrayND[np.float64]  # ruff: ignore[snake-case-type-alias]
+type _float80_nd = onp.ArrayND[np.float96 | np.float128]  # ruff: ignore[snake-case-type-alias]
+type _complex64_nd = onp.ArrayND[np.complex64]  # ruff: ignore[snake-case-type-alias]
+type _complex128_nd = onp.ArrayND[np.complex128]  # ruff: ignore[snake-case-type-alias]
+type _complex160_nd = onp.ArrayND[np.complex192 | np.complex256]  # ruff: ignore[snake-case-type-alias]
 
 type _ToInexact32ND = onp.ToArrayND[npc.inexact32, npc.inexact32 | npc.floating16]
 type _ToInexact64ND = onp.ToArrayND[complex, npc.inexact64 | npc.integer | np.bool]
 type _ToInexact80ND = onp.ToArrayND[npc.inexact80, npc.inexact80]
 
-type _Detrend = Literal["literal", "constant", False] | Callable[[onp.ArrayND], onp.ArrayND]
+type _Detrend = _TrendType | Literal[False] | Callable[[onp.ArrayND], onp.ArrayND]
 type _Scaling = Literal["density", "spectrum"]
 type _LegacyScaling = Literal["psd", "spectrum"]
 type _Average = Literal["mean", "median"]
@@ -47,7 +47,7 @@ def lombscargle(
 ) -> _float64_1d: ...
 @overload
 @deprecated(
-    "The `precenter` argument is deprecated and will be removed in SciPy 1.19.0. "
+    "The `precenter` argument is deprecated and will be removed in SciPy 2.0. "
     "The functionality can be substituted by passing `y - y.mean()` to `y`."
 )
 def lombscargle(
@@ -69,7 +69,7 @@ def lombscargle(
 def periodogram(
     x: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow | None = "boxcar",
+    window: _ToWindowOrArray | None = "boxcar",
     nfft: int | None = None,
     detrend: _Detrend = "constant",
     return_onesided: bool = True,
@@ -80,7 +80,7 @@ def periodogram(
 def periodogram(
     x: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow | None = "boxcar",
+    window: _ToWindowOrArray | None = "boxcar",
     nfft: int | None = None,
     detrend: _Detrend = "constant",
     return_onesided: bool = True,
@@ -91,7 +91,7 @@ def periodogram(
 def periodogram(
     x: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow | None = "boxcar",
+    window: _ToWindowOrArray | None = "boxcar",
     nfft: int | None = None,
     detrend: _Detrend = "constant",
     return_onesided: bool = True,
@@ -104,7 +104,7 @@ def periodogram(
 def welch(
     x: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -118,7 +118,7 @@ def welch(
 def welch(
     x: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -132,7 +132,7 @@ def welch(
 def welch(
     x: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -150,7 +150,7 @@ def csd(
     x: _ToInexact64ND,
     y: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -165,7 +165,7 @@ def csd(
     x: _ToInexact32ND,
     y: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -180,7 +180,7 @@ def csd(
     x: _ToInexact80ND,
     y: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -195,7 +195,7 @@ def csd(
     x: onp.ToComplexND,
     y: onp.ToComplexND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -212,7 +212,7 @@ def csd(
 def spectrogram(
     x: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -226,7 +226,7 @@ def spectrogram(
 def spectrogram(
     x: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -241,7 +241,7 @@ def spectrogram(
 def spectrogram(
     x: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -255,7 +255,7 @@ def spectrogram(
 def spectrogram(
     x: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -270,7 +270,7 @@ def spectrogram(
 def spectrogram(
     x: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -284,7 +284,7 @@ def spectrogram(
 def spectrogram(
     x: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -299,7 +299,7 @@ def spectrogram(
 def spectrogram(
     x: onp.ToComplexND,
     fs: float = 1.0,
-    window: _ToWindow = ("tukey_periodic", 0.25),
+    window: _ToWindowOrArray = ("tukey_periodic", 0.25),
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -311,15 +311,15 @@ def spectrogram(
 ) -> tuple[_float64_1d, _float64_1d, onp.Array]: ...
 
 #
-def check_COLA(window: _ToWindow, nperseg: int, noverlap: int, tol: float = 1e-10) -> np.bool: ...
-def check_NOLA(window: _ToWindow, nperseg: int, noverlap: int, tol: float = 1e-10) -> np.bool: ...
+def check_COLA(window: _ToWindowOrArray, nperseg: int, noverlap: int, tol: float = 1e-10) -> np.bool: ...
+def check_NOLA(window: _ToWindowOrArray, nperseg: int, noverlap: int, tol: float = 1e-10) -> np.bool: ...
 
 #
 @overload  # c128
 def stft(
     x: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int = 256,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -334,7 +334,7 @@ def stft(
 def stft(
     x: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int = 256,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -349,7 +349,7 @@ def stft(
 def stft(
     x: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int = 256,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -364,7 +364,7 @@ def stft(
 def stft(
     x: onp.ToComplexND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int = 256,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -382,7 +382,7 @@ def stft(
 def istft(
     Zxx: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -396,7 +396,7 @@ def istft(
 def istft(
     Zxx: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -411,7 +411,7 @@ def istft(
 def istft(
     Zxx: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -425,7 +425,7 @@ def istft(
 def istft(
     Zxx: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -440,7 +440,7 @@ def istft(
 def istft(
     Zxx: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -454,7 +454,7 @@ def istft(
 def istft(
     Zxx: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -469,7 +469,7 @@ def istft(
 def istft(
     Zxx: onp.ToComplexND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -487,7 +487,7 @@ def coherence(
     x: _ToInexact64ND,
     y: _ToInexact64ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -499,7 +499,7 @@ def coherence(
     x: _ToInexact32ND,
     y: _ToInexact32ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -511,7 +511,7 @@ def coherence(
     x: _ToInexact80ND,
     y: _ToInexact80ND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,
@@ -523,7 +523,7 @@ def coherence(
     x: onp.ToComplexND,
     y: onp.ToComplexND,
     fs: float = 1.0,
-    window: _ToWindow = "hann_periodic",
+    window: _ToWindowOrArray = "hann_periodic",
     nperseg: int | None = None,
     noverlap: int | None = None,
     nfft: int | None = None,

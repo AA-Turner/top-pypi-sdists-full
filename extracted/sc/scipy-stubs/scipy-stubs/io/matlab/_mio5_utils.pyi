@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 from typing import Any, ClassVar, Final, Literal, Never, Self
-from typing_extensions import CapsuleType
+from typing_extensions import CapsuleType, disjoint_base
 
 import numpy as np
 import optype.numpy as onp
@@ -11,7 +11,7 @@ import optype.numpy.compat as npc
 from ._miobase import MatVarReader
 from ._streams import GenericStream, _FileLike
 
-type _bint = Literal[0, 1] | bool  # noqa: PYI042
+type _bint = Literal[0, 1] | bool  # ruff: ignore[snake-case-type-alias]
 
 ###
 
@@ -23,6 +23,7 @@ swapped_code: Final[Literal[">", "<"]] = ...  # undocumented  # ">" sys.byteorde
 
 def byteswap_u4(u4: np.uint32) -> np.uint32: ...  # undocumented
 
+@disjoint_base
 class VarHeader5:  # undocumented
     # cdef readonly object name
     name: Final[object]
@@ -43,6 +44,7 @@ class VarHeader5:  # undocumented
     #
     def set_dims(self, /, dims: object) -> None: ...
 
+@disjoint_base
 class VarReader5:  # undocumented
     __pyx_vtable__: ClassVar[CapsuleType] = ...
 

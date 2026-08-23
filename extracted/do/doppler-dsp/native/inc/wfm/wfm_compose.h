@@ -123,6 +123,33 @@ typedef struct {
     int dsss_code_only;  /* continuous dsss: 1 = code-only (--data none), no
                             data modulation; 0 = data-modulated (payload if
                             supplied, else the seeded PN). Ignored for burst. */
+    /* Channel coding over the frame, as STAGES with the spans they cover
+       (wfm/wfm_frame.h). Each is optional and they do not all cover the same
+       bits, which is the whole reason the frame is a description rather than
+       a pipeline: the outer code and the randomiser reach over the payload
+       group, and the inner code reaches over everything including a marker
+       neither of the other two touches.
+
+       Set all four with a Transfer Frame payload and no preamble or sync word
+       and the result is a CCSDS CADU. That is the point -- CCSDS is the
+       configuration these flags reach, not a mode they switch into. */
+    unsigned rs_depth;   /* outer code interleaving depth; 0 = no outer code.
+                            4.3.5.1 allows 1,2,3,4,5,8 and the payload must be
+                            exactly 223*depth octets -- virtual fill is not
+                            implemented (gh-813), so any other length is
+                            refused rather than padded. */
+    int randomise;       /* XOR a section-10 pseudo-random sequence over the
+                            payload group -- not over a marker, which has to
+                            look the same in every frame to be found.
+                            0 = off, 1 = 131.0-B-6 10.4.1's 131071-bit
+                            sequence (the `shall`), 2 = 10.4.2's 255-bit one,
+                            which B-6 keeps only for legacy systems. It is a
+                            CHOICE rather than a flag because B-6 makes it
+                            one, and because the two produce waveforms only
+                            the matching receiver derandomises. */
+    int attach_asm;      /* prepend the 0x1ACFFC1D marker as a FIELD */
+    int convolutional;   /* inner code over the whole frame, marker included;
+                            doubles the bit count (rate 1/2, K=7) */
 } wfm_source_t;
 
 /**
@@ -296,6 +323,60 @@ double wfm_source_create_snr(const wfm_source_t *src, double fs, double snr,
  */
 int wfm_source_attach_dsss(wfm_synth_state_t *syn, const wfm_source_t *src,
                            double fs);
+
+/**
+ * @brief Non-zero when this source describes a FRAME.
+ *
+ * A preamble or a sync word is what says "framed". **Deliberately not `crc`**:
+ * it defaults to crc16 on every source (`[[module.wfm_compose.source.fields]]`
+ * and wfmgen alike), so reading it as intent would silently append a trailer
+ * to every unframed bit pattern anyone has ever generated. With neither a
+ * preamble nor a sync word, `crc` stays inert exactly as it always was.
+ *
+ * @param src  The source; NULL reads as unframed.
+ */
+int wfm_source_has_frame(const wfm_source_t *src);
+
+/**
+ * @brief NULL when this source's frame fields can be honoured; else why not.
+ *
+ * ONE rule, asked by all three faces — the wfmgen CLI before it generates, the
+ * standalone `Synth` through `wfm_source_to_synth`, and the composer through
+ * `wfm_compose_create` — because the alternative is what shipped: the flags
+ * were accepted, stored and readable back on every face, and applied on none
+ * of them, so a caller who asked for a framed waveform silently got an
+ * unframed one.
+ *
+ * A frame needs a payload, and the unspread types that source their symbols
+ * from the PN LFSR (`bpsk`/`qpsk`/`pn`) have no length to bound one. So the
+ * frame is honoured where the payload is EXPLICIT — `type=bits` with a
+ * pattern, which `modulation` already maps to BPSK or QPSK — and refused with
+ * a reason everywhere else.
+ *
+ * @param src  The source.
+ * @return NULL if there is nothing wrong, else a static message.
+ */
+const char *wfm_source_frame_error(const wfm_source_t *src);
+
+/**
+ * @brief Attach an unspread source's bit pattern, framed or not.
+ *
+ * The `type=bits` counterpart of wfm_source_attach_dsss(), and called from the
+ * same two places for the same reason. When the source carries a frame, the
+ * pattern handed to `wfm_synth_set_bits()` is `wfm_frame_bits()` of
+ * `[preamble x reps | sync | payload | crc]` rather than the payload alone —
+ * so the layout, the CRC's position and its bit order come from the one
+ * descriptor that the DSSS path and the receiver already read.
+ *
+ * The frame CYCLES, exactly as an unframed pattern does: one descriptor fills
+ * whatever length is asked for, which is what turns a one-frame description
+ * into a multi-frame record.
+ *
+ * @param syn  A synth from wfm_synth_create() with `wtype == WFM_SYNTH_BITS`.
+ * @param src  The source (pattern, modulation, and any frame fields).
+ * @return 0 on success (or a non-bits/no-pattern no-op); -1 on failure.
+ */
+int wfm_source_attach_frame(wfm_synth_state_t *syn, const wfm_source_t *src);
 
 /**
  * @brief Construct + configure the synth for one resolved source.

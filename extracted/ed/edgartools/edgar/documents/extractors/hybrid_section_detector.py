@@ -181,10 +181,25 @@ class HybridSectionDetector:
         if not self.form or self.form.startswith('8-K'):
             return toc_sections
 
-        canonical = {schema.item_for_section_key(key) for key in schema.section_patterns}
-        canonical.discard(None)
+        # What the form defines, and what the TOC named, BOTH AS (part, item)
+        # pairs. On a 10-Q an item number is only unique within its part — Item 1
+        # is Financial Statements in Part I and Legal Proceedings in Part II — so
+        # comparing bare numbers reports a TOC that named one of them as having
+        # named both. That is not a near-miss: on pg/10q the two sets came out
+        # exactly equal, this returned "the TOC named everything", and the
+        # augmentation that would have supplied the missing part_ii_item_1 never
+        # ran at all (edgartools-yrrh).
+        #
+        # `resolve_section_key` is what makes the comparison possible on the
+        # schema side: it recovers ('II', '7') for a semantic key like `mda`,
+        # whose key string carries neither part nor item.
+        canonical = {schema.resolve_section_key(key) for key in schema.section_patterns}
+        canonical = {(part, item) for part, item in canonical if item}
         found_items = {sec.item for sec in toc_sections.values() if sec.item}
-        if not canonical or canonical <= found_items:
+        found_part_items = {
+            (sec.part, sec.item) for sec in toc_sections.values() if sec.item
+        }
+        if not canonical or canonical <= found_part_items:
             return toc_sections  # The TOC named everything the form defines.
 
         # Run pattern extractor against the same document.
@@ -202,10 +217,32 @@ class HybridSectionDetector:
         # same two-vocabulary trap that cost `wfc/10k` a week in BASELINE_GAPS.
         # It did not bite before only because the Part III gate kept this code
         # from running on the filings where the TOC succeeds.
+        #
+        # AND ON THE PART AS WELL AS THE ITEM, because an item number is only
+        # unique within its part. A 10-Q has TWO Item 1s — Financial Statements
+        # in Part I, Legal Proceedings in Part II — so an item-only comparison
+        # reads the second as a duplicate of the first and drops it. On pg/10q
+        # the pattern extractor found part_ii_item_1 and this filter discarded
+        # it, because the TOC had already contributed part_i_item_1 and both
+        # answer '1'; `get_item_with_part('Part II', 'Item 1')` then fell through
+        # to id_parse_document, which returned 222,536 characters for a section
+        # of 1,018 (edgartools-yrrh).
+        #
+        # The 10-K dedup above is unaffected: its pattern sections carry a part
+        # too — `mda` is part 'II', item '7', the same pair as `part_ii_item_7` —
+        # so they still collide. Only a section with no part at all falls back to
+        # comparing the bare item, which is what 20-F and the part-less keys need.
+        def _toc_already_has(sec) -> bool:
+            if not sec.item:
+                return False
+            if sec.part:
+                return (sec.part, sec.item) in found_part_items
+            return sec.item in found_items
+
         extras = {
             key: sec
             for key, sec in pattern_sections.items()
-            if key not in toc_sections and (not sec.item or sec.item not in found_items)
+            if key not in toc_sections and not _toc_already_has(sec)
         }
         if not extras:
             return toc_sections
@@ -327,15 +364,31 @@ class HybridSectionDetector:
     def _apply_size_guardrail(self, sections: Dict[str, Section]) -> Dict[str, Section]:
         """Flag sections whose extracted content size is anomalous for their item.
 
-        Uses the per-(form, item) bands in ``section_size_bands``. For
+        Uses the per-(form, part, item) bands in ``section_size_bands``. The
+        Part is part of the key because a 10-Q's item numbers repeat: judging
+        Part II's Legal Proceedings against Part I's Financial Statements band
+        flagged a correctly-extracted section on most of the corpus
+        (edgartools-xhmd). For
         TOC-detected sections the content length is already known (stored in
         ``end_offset`` by the detector), so this adds no extraction cost. A
         section outside its band gets a human-readable ``warning`` and its
         confidence reduced to ``ANOMALOUS_CONFIDENCE`` — the section is still
         returned (callers can introspect ``.warnings``), it is just no longer
         presented as high-confidence wrong content.
+
+        Undersize sections are then split by cause (GH #927): a filer that
+        incorporates the item by reference is short *and correctly extracted*,
+        so it gets the cross-reference warning rather than the truncation one.
+        Only sections the bands already flagged pay for the text extraction that
+        test needs — a healthy filing does no extra work.
         """
-        from edgar.documents.section_size_bands import ANOMALOUS_CONFIDENCE, evaluate_size
+        from edgar.documents.section_size_bands import (
+            ANOMALOUS_CONFIDENCE,
+            cross_reference_warning,
+            evaluate_size,
+            is_cross_reference,
+            is_undersize,
+        )
 
         for section in sections.values():
             # Only TOC sections set end_offset to the extracted *text length*
@@ -352,8 +405,35 @@ class HybridSectionDetector:
             if length <= 0:
                 continue
             item_key = section.item
-            warning = evaluate_size(self.form, item_key, length)
+            part = section.part
+            if evaluate_size(self.form, item_key, length, part=part) is None:
+                continue
+            # The proxy said anomalous; decide on the length the caller will
+            # actually see. end_offset and .text() disagree by a few characters
+            # (nflx 10-Q: 227 vs 223), and a warning that quotes a number the
+            # caller cannot reproduce is not diagnosable (edgartools-xhmd). Only
+            # sections the proxy already flagged pay for this.
+            try:
+                text = section.text()
+            except Exception:  # noqa: BLE001
+                text = None
+                logger.debug("Section %s: text extraction failed; sizing on the "
+                             "offset proxy", section.name, exc_info=True)
+            # An empty render says nothing about size — the proxy stands.
+            if text:
+                length = len(text)
+            warning = evaluate_size(self.form, item_key, length, part=part)
             if warning:
+                if text and is_undersize(self.form, item_key, length, part=part):
+                    try:
+                        if is_cross_reference(text):
+                            warning = cross_reference_warning(self.form, item_key, length,
+                                                              part=part)
+                    except Exception:
+                        # Keep the size warning: the section is still anomalous,
+                        # we just could not tell which cause it is.
+                        logger.debug("Section %s: cross-reference test failed; "
+                                     "keeping the size warning", section.name, exc_info=True)
                 section.warnings.append(warning)
                 section.confidence = min(section.confidence, ANOMALOUS_CONFIDENCE)
                 logger.info(f"Section {section.name}: {warning}")

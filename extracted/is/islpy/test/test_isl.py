@@ -40,7 +40,7 @@ def test_basics():
                 space, {"a": -1, 1: 42}))
             .project_out(dt.set, 1, 1))
 
-    bset2 = isl.BasicSet(  # noqa
+    bset2 = isl.BasicSet(  # ruff:ignore[unused-variable]
             "{[i] : exists (a : i = 2a and i >= 10 and i <= 42)}",
             context=ctx)
 
@@ -75,7 +75,7 @@ def test_pwqpoly():
 
 def no_test_id_user():
     ctx = isl.Context()
-    foo = isl.Id("foo", context=ctx)  # noqa
+    foo = isl.Id("foo", context=ctx)  # ruff:ignore[unused-variable]
     t = (1, 2)
     bar = isl.Id("bar", t, context=ctx)
 
@@ -96,7 +96,7 @@ def test_upcast():
 
     isl.PwAff(b)
 
-    assert b.is_equal(a)
+    assert b.to_pw_aff().is_equal(a)
     assert a.is_equal(b)
 
     s = isl.BasicSet("[n] -> {[i,j,k]: i<=j + k and (exists m: m=j+k) "
@@ -120,7 +120,7 @@ def test_pickling():
         inst2 = loads(dumps(inst))
 
         assert inst.space == inst2.space
-        assert inst.is_equal(inst2)
+        assert inst.plain_is_equal(inst2)
 
 
 def test_apostrophes_during_pickling():
@@ -209,7 +209,7 @@ def test_schedule():
 
     def callback(node, build):
         schedulemap = build.get_schedule()
-        accessmap = accesses.apply_domain(schedulemap)
+        accessmap = accesses.to_union_map().apply_domain(schedulemap)
         aff = isl.PwMultiAff.from_map(isl.Map.from_union_map(accessmap))
         access = build.call_from_pw_multi_aff(aff)
         return isl.AstNode.alloc_user(access)
@@ -220,13 +220,11 @@ def test_schedule():
 
     def cb_print_user(printer, options, node):
         print("Callback user called")
-        printer = printer.print_str("Callback user")
-        return printer
+        return printer.print_str("Callback user")
 
     def cb_print_for(printer, options, node):
         print("Callback for called")
-        printer = printer.print_str("Callback For")
-        return printer
+        return printer.print_str("Callback For")
 
     opts = isl.AstPrintOptions.alloc(isl.DEFAULT_CONTEXT)
     opts, _cb_print_user_handle = opts.set_print_user(cb_print_user)
@@ -281,7 +279,7 @@ def test_get_schedule_map():
 def test_codegen():
     # courtesy of Marek Pałkowski
 
-    def isl_ast_codegen(S):  # noqa: N803
+    def isl_ast_codegen(S):  # ruff:ignore[invalid-argument-name]
         b = isl.AstBuild.from_context(isl.Set("{:}"))
         m = isl.Map.from_domain_and_range(S, S)
         m = isl.Map.identity(m.get_space())
@@ -363,8 +361,8 @@ def test_align_spaces():
     a1_aligned = isl.align_spaces(a1, a2, obj_bigger_ok=True)
     a2_aligned = isl.align_spaces(a2, a1)
 
-    assert a1_aligned == isl.Aff("[t1, t0, t2] -> { [(32)] }")
-    assert a2_aligned == isl.Aff("[t1, t0, t2] -> { [(0)] }")
+    assert a1_aligned.plain_is_equal(isl.Aff("[t1, t0, t2] -> { [(32)] }"))
+    assert a2_aligned.to_pw_aff().is_equal(isl.PwAff("[t1, t0, t2] -> { [(0)] }"))
 
 
 def test_pass_numpy_int():
@@ -382,8 +380,8 @@ def test_isl_align_two():
     a2 = isl.Aff("[t1, t0] -> { [(0)] }")
 
     a1_aligned, a2_aligned = isl.align_two(a1, a2)
-    assert a1_aligned == isl.Aff("[t1, t0, t2] -> { [(32)] }")
-    assert a2_aligned == isl.Aff("[t1, t0, t2] -> { [(0)] }")
+    assert a1_aligned.plain_is_equal(isl.Aff("[t1, t0, t2] -> { [(32)] }"))
+    assert a2_aligned.plain_is_equal(isl.Aff("[t1, t0, t2] -> { [(0)] }"))
 
     b1 = isl.BasicSet("[n0, n1, n2] -> { [i0, i1] : }")
     b2 = isl.BasicSet("[n0, n2, n1, n3] -> { [i1, i0, i2] : }")
@@ -438,10 +436,11 @@ def test_union_casts():
     s1 = isl.UnionSet("{[0]}")
     s2 = isl.BasicSet("{[1]}")
 
-    s2.union(s1)  # works fine
+    s2u = s2.to_set().to_union_set()
+    s2u.union(s1)  # works fine
     s1.union(s2)  # did not work while #29 was not fixed
 
-    assert s2.union(s1) == s1.union(s2)
+    assert s2u.union(s1) == s1.union(s2)
 
 
 def test_remove_map_if_callback():

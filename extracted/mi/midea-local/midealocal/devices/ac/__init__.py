@@ -517,7 +517,7 @@ class MideaACDevice(MideaDevice):
             self._fresh_air_version = DeviceAttributes.fresh_air_2
         new_status.update(self._refresh_self_clean_status(message))
         new_status.update(self._refresh_temperature_limits(message))
-        self._update_capabilities(message)
+        new_status.update(self._update_capabilities(message))
         return new_status
 
     @staticmethod
@@ -545,10 +545,23 @@ class MideaACDevice(MideaDevice):
             else self._default_refresh_interval
         )
 
-    def _update_capabilities(self, message: MessageACResponse) -> None:
-        """Accumulate decoded B5 capability flags from a B5 response."""
-        if hasattr(message, "capabilities"):
-            self._capabilities.update(message.capabilities)
+    def _update_capabilities(self, message: MessageACResponse) -> dict[str, Any]:
+        """Accumulate decoded B5 capability flags from a B5 response.
+
+        Returns a status delta so a capability-only frame (no DeviceAttributes
+        changed) still reaches update_all(); callers that derive state from
+        `capabilities` would otherwise never be notified of the change.
+        """
+        if not hasattr(message, "capabilities"):
+            return {}
+        new_capabilities = message.capabilities
+        if all(
+            self._capabilities.get(key) == value
+            for key, value in new_capabilities.items()
+        ):
+            return {}
+        self._capabilities.update(new_capabilities)
+        return {"capabilities": dict(self._capabilities)}
 
     def _refresh_self_clean_status(self, message: MessageACResponse) -> dict[str, Any]:
         """Apply a reported self-clean status, ignoring stale readings.
@@ -918,6 +931,15 @@ class MideaACDevice(MideaDevice):
                     # Force fan_speed to AUTO when leaving DRY mode
                     if self._attributes[DeviceAttributes.mode] == DRY_MODE:
                         message.fan_speed = 102
+                    # Optimistically reflect the commanded state in the cache so
+                    # an immediate follow-up write (e.g. set_target_temperature,
+                    # which serializes a full packet from make_message_uniq_set)
+                    # is built from power=True and the new mode. Without this the
+                    # follow-up reuses the stale last-confirmed power=False and
+                    # turns the unit back off before the mode response arrives.
+                    # https://github.com/midea-lan/midea-local/issues/495
+                    self._attributes[DeviceAttributes.power] = True
+                    self._attributes[DeviceAttributes.mode] = value
         if message is not None:
             self.build_send(message)
             if optimistic_self_clean is not None:

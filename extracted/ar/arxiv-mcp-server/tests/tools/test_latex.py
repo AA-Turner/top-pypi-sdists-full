@@ -201,6 +201,63 @@ def test_flatten_source_does_not_follow_unsafe_or_cyclic_inputs():
     assert len(flattened) < 1000
 
 
+def test_flatten_source_resolves_two_arg_import_and_subimport():
+    files = {
+        "main.tex": (
+            "\\documentclass{article}\n"
+            "\\begin{document}\n"
+            "\\import{sections/}{intro}\n"
+            "\\end{document}\n"
+        ),
+        "sections/intro.tex": ("\\section{Introduction}\n\\subimport{./}{method}\n"),
+        "sections/method.tex": "\\subsection{Method}\nDetails.\n",
+    }
+
+    flattened, main_file, unmatched = latex._flatten_source_with_unmatched(files)
+
+    assert main_file == "main.tex"
+    assert "\\section{Introduction}" in flattened
+    assert "\\subsection{Method}" in flattened
+    assert "Details." in flattened
+    assert "\\import{sections/}{intro}" not in flattened
+    assert "\\subimport{./}{method}" not in flattened
+    assert unmatched == ()
+
+
+def test_flatten_source_resolves_import_from_archive_root():
+    files = {
+        "nested/paper.tex": (
+            "\\documentclass{article}\n"
+            "\\begin{document}\n"
+            "\\import{shared/}{defs}\n"
+            "\\end{document}\n"
+        ),
+        "shared/defs.tex": "\\section{Definitions}\nTerms.",
+    }
+
+    flattened, main_file = latex._flatten_source(files)
+
+    assert main_file == "nested/paper.tex"
+    assert "\\section{Definitions}" in flattened
+    assert "Terms." in flattened
+
+
+def test_flatten_source_does_not_escape_via_import():
+    files = {
+        "main.tex": (
+            "\\documentclass{article}\n"
+            "\\import{../}{secret}\n"
+            "\\begin{document}\n\\end{document}\n"
+        ),
+        "../secret.tex": "must not appear",
+    }
+
+    flattened, _main, unmatched = latex._flatten_source_with_unmatched(files)
+
+    assert "must not appear" not in flattened
+    assert any("import" in item for item in unmatched)
+
+
 def test_parse_sections_returns_stable_hierarchical_ids():
     source = r"""
 \section{Introduction}
@@ -269,6 +326,85 @@ def test_parse_sections_ignores_commented_headings():
     sections = latex._parse_sections(source)
 
     assert [(item.section_id, item.title) for item in sections] == [("1", "Real")]
+
+
+def test_parse_sections_expands_simple_title_macros():
+    source = r"""
+\newcommand{\cinnamon}{Llama 2}
+\newcommand{\modelname}{\textsc{Llama 2-Chat}\xspace}
+\def\anise{Llama 1}
+\section{Introduction}
+Intro.
+\subsection{\cinnamon Pretrained Model Evaluation}
+Details.
+\section{\modelname Alignment}
+Chat.
+\subsection{\anise Baseline}
+Prior.
+"""
+
+    sections = latex._parse_sections(source)
+
+    assert [(item.section_id, item.title) for item in sections] == [
+        ("1", "Introduction"),
+        ("1.1", "Llama 2 Pretrained Model Evaluation"),
+        ("2", "Llama 2-Chat Alignment"),
+        ("2.1", "Llama 1 Baseline"),
+    ]
+    body = latex._extract_section(
+        source, sections, "Llama 2 Pretrained Model Evaluation"
+    )
+    assert body is not None
+    assert body.startswith("\\subsection{\\cinnamon Pretrained Model Evaluation}")
+    assert "\\section{\\modelname Alignment}" not in body
+    # Raw macro title and messy whitespace/case still resolve.
+    assert latex._extract_section(
+        source, sections, "\\cinnamon Pretrained Model Evaluation"
+    )
+    assert latex._extract_section(
+        source, sections, "  llama 2   pretrained model evaluation "
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_latex_section_by_expanded_human_title(monkeypatch):
+    source = (
+        "\\newcommand{\\cinnamon}{Llama 2}\n"
+        "\\section{Intro}\nA\n"
+        "\\subsection{\\cinnamon Pretrained Model Evaluation}\nBody text\n"
+        "\\section{Next}\nNope\n"
+    )
+    monkeypatch.setattr(
+        latex,
+        "_load_source",
+        lambda _paper_id: latex.LatexSource(source, "main.tex", 1),
+    )
+
+    listed = _payload(
+        await latex.handle_list_paper_latex_sections({"paper_id": "2401.00001"})
+    )
+    assert listed["sections"][1]["title"] == "Llama 2 Pretrained Model Evaluation"
+
+    by_title = _payload(
+        await latex.handle_get_paper_latex_section(
+            {
+                "paper_id": "2401.00001",
+                "section_id": "Llama 2 Pretrained Model Evaluation",
+            }
+        )
+    )
+    by_id = _payload(
+        await latex.handle_get_paper_latex_section(
+            {"paper_id": "2401.00001", "section_id": "1.1"}
+        )
+    )
+
+    assert by_title["status"] == "success"
+    assert by_title["section"]["id"] == "1.1"
+    assert by_title["section"]["title"] == "Llama 2 Pretrained Model Evaluation"
+    assert "Body text" in by_title["content"]
+    assert "Nope" not in by_title["content"]
+    assert by_id["section"]["title"] == by_title["section"]["title"]
 
 
 def test_download_archive_aborts_when_stream_exceeds_limit(monkeypatch):
@@ -367,6 +503,33 @@ async def test_get_latex_honors_explicit_page(monkeypatch):
     assert payload["content"].endswith("fghi")
     assert payload["start"] == 5
     assert payload["next_start"] == 9
+
+
+@pytest.mark.asyncio
+async def test_list_latex_sections_errors_when_outline_empty(monkeypatch):
+    monkeypatch.setattr(
+        latex,
+        "_load_source",
+        lambda _paper_id: latex.LatexSource(
+            content=(
+                "\\documentclass{article}\\usepackage{import}"
+                "\\begin{document}\\end{document}"
+            ),
+            main_file="main.tex",
+            source_files=2,
+            unmatched_includes=("\\import{sections/}{intro}",),
+        ),
+    )
+
+    payload = _payload(
+        await latex.handle_list_paper_latex_sections({"paper_id": "2401.00001"})
+    )
+
+    assert payload["status"] == "error"
+    assert "did not resolve" in payload["message"]
+    assert "read_paper" in payload["message"]
+    assert "HTML" in payload["message"]
+    assert "\\import{sections/}{intro}" in payload["message"]
 
 
 @pytest.mark.asyncio
@@ -504,3 +667,74 @@ async def test_server_registers_and_routes_latex_tools(monkeypatch):
     monkeypatch.setattr(server, "handle_get_paper_latex", fake_handler)
     result = await server.call_tool("get_paper_latex", {"paper_id": "2401.00001"})
     assert json.loads(result[0].text)["status"] == "success"
+
+
+# ---------------------------------------------------------------------------
+# Shared ID normalization (issue #200)
+# ---------------------------------------------------------------------------
+
+_LATEX_ID_FORM_CASES = [
+    ("1706.03762", "1706.03762"),
+    ("arxiv:1706.03762", "1706.03762"),
+    ("https://arxiv.org/abs/1706.03762", "1706.03762"),
+    ("https://arxiv.org/pdf/1706.03762.pdf", "1706.03762"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_id, expected", _LATEX_ID_FORM_CASES)
+async def test_latex_list_paper_id_normalize_matrix(monkeypatch, raw_id, expected):
+    """list_paper_latex_sections accepts bare / arxiv: / abs / pdf forms."""
+    recorded = []
+
+    def _fake_load(paper_id):
+        recorded.append(paper_id)
+        return latex.LatexSource("\\section{Intro}\nHello", "main.tex", 1)
+
+    monkeypatch.setattr(latex, "_load_source", _fake_load)
+    payload = _payload(
+        await latex.handle_list_paper_latex_sections({"paper_id": raw_id})
+    )
+    assert payload["status"] == "success"
+    assert payload["paper_id"] == expected
+    assert recorded == [expected]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_id, expected", _LATEX_ID_FORM_CASES)
+async def test_latex_get_paper_id_normalize_matrix(monkeypatch, raw_id, expected):
+    """get_paper_latex accepts bare / arxiv: / abs / pdf forms."""
+    recorded = []
+
+    def _fake_load(paper_id):
+        recorded.append(paper_id)
+        return latex.LatexSource("body text", "main.tex", 1)
+
+    monkeypatch.setattr(latex, "_load_source", _fake_load)
+    payload = _payload(await latex.handle_get_paper_latex({"paper_id": raw_id}))
+    assert payload["status"] == "success"
+    assert payload["paper_id"] == expected
+    assert recorded == [expected]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_id, expected", _LATEX_ID_FORM_CASES)
+async def test_latex_get_section_paper_id_normalize_matrix(
+    monkeypatch, raw_id, expected
+):
+    """get_paper_latex_section accepts bare / arxiv: / abs / pdf forms."""
+    recorded = []
+
+    def _fake_load(paper_id):
+        recorded.append(paper_id)
+        return latex.LatexSource("\\section{Intro}\nHello", "main.tex", 1)
+
+    monkeypatch.setattr(latex, "_load_source", _fake_load)
+    payload = _payload(
+        await latex.handle_get_paper_latex_section(
+            {"paper_id": raw_id, "section_id": "1"}
+        )
+    )
+    assert payload["status"] == "success"
+    assert payload["paper_id"] == expected
+    assert recorded == [expected]

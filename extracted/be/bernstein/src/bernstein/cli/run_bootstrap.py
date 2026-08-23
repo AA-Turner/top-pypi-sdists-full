@@ -1420,10 +1420,14 @@ def _poll_no_plan_after_spawn() -> dict[str, Any] | None:
     return status_payload
 
 
+#: Ceiling for the terminal-state wait when the caller names no other.
+_RUN_WAIT_DEFAULT_S = 3600.0
+
+
 def _wait_for_run_completion(
     *,
     poll_interval_s: float = 2.0,
-    timeout_s: float = 3600.0,
+    timeout_s: float = _RUN_WAIT_DEFAULT_S,
 ) -> dict[str, Any] | None:
     """Poll the server until the run reaches a terminal state.
 
@@ -1677,6 +1681,7 @@ def _await_first_spawn_outcome(
     *,
     timeout_s: float = _FIRST_SPAWN_WAIT_S,
     poll_interval_s: float = _FIRST_SPAWN_POLL_S,
+    narrate_wait: bool = False,
 ) -> tuple[str, str | None]:
     """Briefly poll the task server for the outcome of the first agent spawn.
 
@@ -1692,6 +1697,13 @@ def _await_first_spawn_outcome(
     Args:
         timeout_s: Maximum total time to wait for a verdict.
         poll_interval_s: Delay between polls.
+        narrate_wait: When True and the first poll does not already produce a
+            verdict, show a transient Rich status ("waiting for the first
+            agent") while the remaining polls run, clearing it before the
+            caller renders its own surface. A fast start -- the first poll
+            already reports an agent -- stays silent. Off by default so the
+            non-interactive detach branch and ``--quiet`` keep today's
+            chatter-free behaviour.
 
     Returns:
         ``("spawned", None)`` once at least one agent is live,
@@ -1702,38 +1714,64 @@ def _await_first_spawn_outcome(
     deadline = time.time() + timeout_s
     transient_reason: str | None = None
     unreachable_polls = 0
-    while True:
+
+    def _poll_once() -> tuple[str, str | None] | None:
+        nonlocal unreachable_polls, transient_reason
         health = server_get("/health")
         if not isinstance(health, dict):
             unreachable_polls += 1
             if unreachable_polls >= _FIRST_SPAWN_MAX_UNREACHABLE:
                 return "unknown", None
-        else:
-            unreachable_polls = 0
-            if int(health.get("agent_count", 0) or 0) > 0:
-                return "spawned", None
-            failed_page: Any = server_get("/tasks?status=failed&limit=50")
-            entries = failed_page.get("tasks", []) if isinstance(failed_page, dict) else []
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                reason = str(entry.get("result_summary") or "")
-                if not reason.startswith("Spawn failed"):
-                    continue
-                completed_at = float(entry.get("completed_at") or 0.0)
-                if completed_at < time.time() - _FIRST_SPAWN_FRESHNESS_S:
-                    continue
-                if "(transient" in reason:
-                    # A retry may still succeed - keep polling until deadline.
-                    transient_reason = reason
-                    continue
-                return "refused", reason
-        if time.time() >= deadline:
-            break
-        time.sleep(poll_interval_s)
-    if transient_reason is not None:
-        return "refused", transient_reason
-    return "unknown", None
+            return None
+        unreachable_polls = 0
+        if int(health.get("agent_count", 0) or 0) > 0:
+            return "spawned", None
+        failed_page: Any = server_get("/tasks?status=failed&limit=50")
+        entries = failed_page.get("tasks", []) if isinstance(failed_page, dict) else []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            reason = str(entry.get("result_summary") or "")
+            if not reason.startswith("Spawn failed"):
+                continue
+            completed_at = float(entry.get("completed_at") or 0.0)
+            if completed_at < time.time() - _FIRST_SPAWN_FRESHNESS_S:
+                continue
+            if "(transient" in reason:
+                # A retry may still succeed - keep polling until deadline.
+                transient_reason = reason
+                continue
+            return "refused", reason
+        return None
+
+    # The first poll runs before any narration, so a fast start (the first
+    # poll already reports an agent) stays exactly as quiet as it is today.
+    first = _poll_once()
+    if first is not None:
+        return first
+    if time.time() >= deadline:
+        if transient_reason is not None:
+            return "refused", transient_reason
+        return "unknown", None
+
+    def _finish_waiting() -> tuple[str, str | None]:
+        while True:
+            time.sleep(poll_interval_s)
+            result = _poll_once()
+            if result is not None:
+                return result
+            if time.time() >= deadline:
+                break
+        if transient_reason is not None:
+            return "refused", transient_reason
+        return "unknown", None
+
+    if narrate_wait:
+        # Only now is the wait real: tell the operator we are still waiting
+        # for the first agent, and clear the indicator before returning.
+        with console.status("Waiting for the first agent to register..."):
+            return _finish_waiting()
+    return _finish_waiting()
 
 
 def exec_restart() -> None:
@@ -2023,6 +2061,21 @@ def exec_restart() -> None:
     ),
 )
 @click.option(
+    "--wait",
+    is_flag=False,
+    flag_value=str(_RUN_WAIT_DEFAULT_S),
+    default=None,
+    type=float,
+    metavar="[SECONDS]",
+    help=(
+        "Block until the run reaches a terminal state and exit with its "
+        "outcome, keeping the progress output. Takes an optional ceiling in "
+        f"seconds (default {_RUN_WAIT_DEFAULT_S:.0f}); a fleet that allows a "
+        "run longer than that has to say so. Without it a non-interactive "
+        "run detaches once the first agent is up."
+    ),
+)
+@click.option(
     "--task",
     "-t",
     "task_filter",
@@ -2189,6 +2242,7 @@ def run(
     from_plan: Path | None = None,
     auto_approve: bool = False,
     quiet: bool = False,
+    wait: float | None = None,
     skip_gate: tuple[str, ...] = (),
     skip_gate_reason: str | None = None,
     audit: bool = False,
@@ -2242,6 +2296,7 @@ def run(
             from_plan=from_plan,
             auto_approve=auto_approve,
             quiet=quiet,
+            wait=wait,
             skip_gate=skip_gate,
             skip_gate_reason=skip_gate_reason,
             audit=audit,
@@ -2294,6 +2349,7 @@ def _run_impl(
     plan_only: bool,
     from_plan: Path | None,
     auto_approve: bool,
+    wait: float | None = None,
     quiet: bool,
     skip_gate: tuple[str, ...],
     skip_gate_reason: str | None,
@@ -2681,7 +2737,7 @@ def _run_impl(
                 )
                 persist_server_port(port, workdir)
 
-            _finalize_run_output(quiet=quiet)
+            _finalize_run_output(quiet=quiet, wait=wait)
             return
         except BernsteinFirstRunError:
             # Already carries a structured category and exit code; let the
@@ -2730,7 +2786,7 @@ def _run_impl(
 
             bootstrap_failed(exc).print()
             raise SystemExit(1) from exc
-        _finalize_run_output(quiet=quiet)
+        _finalize_run_output(quiet=quiet, wait=wait)
         return
 
     # Seed file mode
@@ -2775,7 +2831,7 @@ def _run_impl(
         bootstrap_failed(exc).print()
         raise SystemExit(1) from exc
 
-    _finalize_run_output(quiet=quiet)
+    _finalize_run_output(quiet=quiet, wait=wait)
 
     # Close the first-run timer (spec 2026-05-17).  Fail-closed.
     if _telemetry_first_run_timer is not None:

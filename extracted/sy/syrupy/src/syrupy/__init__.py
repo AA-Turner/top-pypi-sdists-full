@@ -72,6 +72,17 @@ def pytest_addoption(parser: "pytest.Parser") -> None:
         help="Do not fail on unused snapshots",
     )
     group.addoption(
+        "--snapshot-disable-unused",
+        action="store_true",
+        default=False,
+        dest="disable_unused_snapshots",
+        help=(
+            "Disable unused snapshot detection entirely (not recommended). "
+            "Skips discovery/reporting of unused snapshots and does not "
+            "remove them on --snapshot-update"
+        ),
+    )
+    group.addoption(
         "--snapshot-no-cleanup",
         action="store_true",
         default=False,
@@ -128,6 +139,16 @@ def pytest_addoption(parser: "pytest.Parser") -> None:
         dest="snapshot_dirname",
         default="__snapshots__",
         help="Directory name to use to store snapshots",
+    )
+    group.addoption(
+        "--snapshot-declaration-order",
+        action="store_true",
+        default=False,
+        dest="snapshot_declaration_order",
+        help=(
+            "(Experimental) Write amber snapshots in pytest "
+            "collection/declaration order instead of alphabetical name order"
+        ),
     )
 
 
@@ -192,6 +213,7 @@ def pytest_sessionstart(session: Any) -> None:
     session.config._syrupy.start()
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(
     session: Any, config: Any, items: list["pytest.Item"]
 ) -> None:
@@ -199,6 +221,9 @@ def pytest_collection_modifyitems(
     After tests are collected and before any modification is performed.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_collection_modifyitems
     """
+    for item in items:
+        if "snapshot" in getattr(item, "fixturenames", ()):
+            item.add_marker("syrupy_snapshot")
     config._syrupy.collect_items(items)
 
 
@@ -228,6 +253,10 @@ class DeferXDist:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "syrupy_snapshot: test directly or indirectly uses the snapshot fixture",
+    )
     if config.pluginmanager.hasplugin("xdist") or config.pluginmanager.hasplugin(
         "xdist.plugin"
     ):
@@ -251,7 +280,7 @@ def pytest_sessionfinish(session: "pytest.Session", exitstatus: int) -> None:
     Finish session run and set exit status.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionfinish
     """
-    session.exitstatus |= exitstatus | session.config._syrupy.finish()  # type: ignore[attr-defined]  # noqa: E501
+    session.exitstatus |= exitstatus | session.config._syrupy.finish()  # type: ignore[attr-defined]
 
 
 def pytest_terminal_summary(

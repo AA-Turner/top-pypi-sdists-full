@@ -14,16 +14,18 @@ target_link_libraries(mpsk_receiver_core PUBLIC
     cic_core
     fir_core
     resample_core
+    agc_core
+    dp_tlm_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     loop_filter_core
     lockdet_core
     symsync_core
     nco_core
     farrow_core
-    dp_tlm_core
-    agc_core
-    boxcar_core)
+    detection_core
+    pn_core)
 
 add_executable(test_mpsk_receiver_core
                ${CMAKE_SOURCE_DIR}/native/tests/test_mpsk_receiver_core.c)
@@ -38,16 +40,18 @@ target_link_libraries(test_mpsk_receiver_core
     cic_core
     fir_core
     resample_core
+    agc_core
+    dp_tlm_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     loop_filter_core
     lockdet_core
     symsync_core
     nco_core
     farrow_core
-    dp_tlm_core
-    agc_core
-    boxcar_core
+    detection_core
+    pn_core
     m)
 target_include_directories(test_mpsk_receiver_core
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
@@ -67,16 +71,18 @@ target_link_libraries(bench_mpsk_receiver_core
     cic_core
     fir_core
     resample_core
+    agc_core
+    dp_tlm_core
     hbdecim_r2c_core
+    ddcr_core
     ratesync_core
     loop_filter_core
     lockdet_core
     symsync_core
     nco_core
     farrow_core
-    dp_tlm_core
-    agc_core
-    boxcar_core
+    detection_core
+    pn_core
     m)
 target_include_directories(
   bench_mpsk_receiver_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc

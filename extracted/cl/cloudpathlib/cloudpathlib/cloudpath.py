@@ -88,6 +88,7 @@ from .exceptions import (
     CloudPathFileExistsError,
     CloudPathFileNotFoundError,
     CloudPathIsADirectoryError,
+    CloudPathLocalPathTraversalError,
     CloudPathNotADirectoryError,
     CloudPathNotExistsError,
     CloudPathNotImplementedError,
@@ -105,6 +106,36 @@ if TYPE_CHECKING:
     from .client import Client
 
 from .cloudpath_info import CloudPathInfo
+
+
+def _ensure_local_path_within_base(
+    candidate: Path, base: Path, cloud_path: "CloudPath", resolve: bool = True
+) -> Path:
+    """Guard against path traversal: cloud object keys are opaque strings and may contain ``..``
+    segments (or, on Windows, ``\\`` separators and drive letters), but cloudpathlib maps them onto
+    local paths (the cache directory or a download destination) with plain path arithmetic. Confirm
+    ``candidate`` stays within ``base``; raise :class:`CloudPathLocalPathTraversalError` if it
+    escapes. Returns ``candidate`` unchanged when it is contained.
+
+    When ``resolve`` is True (the default), both paths are resolved on the filesystem, which also
+    follows symlinks — appropriate for user-supplied download destinations. When False, a purely
+    lexical check (``os.path.normpath``) is used with no filesystem syscalls; this is used for the
+    cache mapping, where cloudpathlib only ever writes file content and object keys therefore
+    cannot introduce symlinks inside the base directory.
+    """
+    if resolve:
+        candidate_cmp = Path(candidate).resolve()
+        base_cmp = Path(base).resolve()
+    else:
+        candidate_cmp = Path(os.path.normpath(candidate))
+        base_cmp = Path(os.path.normpath(base))
+    if not candidate_cmp.is_relative_to(base_cmp):
+        raise CloudPathLocalPathTraversalError(
+            f"Refusing to map cloud path '{cloud_path}' to a local path outside its base directory "
+            f"'{base}' (it would resolve to '{candidate_cmp}'). The object key contains path "
+            f"segments that escape the local cache directory or download destination."
+        )
+    return candidate
 
 
 class CloudImplementation:
@@ -570,7 +601,7 @@ class CloudPath(metaclass=CloudPathMeta):
     @staticmethod
     def _walk_results_from_tree(root, tree, top_down=True):
         """Utility to yield tuples in the form expected by `.walk` from the file
-        tree constructed by `_build_substree`.
+        tree constructed by `_build_subtree`.
         """
         dirs = []
         files = []
@@ -586,12 +617,80 @@ class CloudPath(metaclass=CloudPathMeta):
         if not top_down:
             yield root, dirs, files
 
+    def _walk_lazy(
+        self,
+        top_down: bool = True,
+        on_error: Optional[Callable] = None,
+    ) -> Generator[Tuple[Self, List[str], List[str]], None, None]:
+        """Iterative walk that lists one directory level at a time, so callers
+        can prune ``dirnames`` in place (when ``top_down=True``) to avoid
+        fetching the contents of skipped subtrees.
+
+        Implemented with an explicit stack (like CPython's
+        ``pathlib.Path.walk``) to avoid recursion limits on deeply nested trees.
+        """
+        # The stack holds either a directory still to be listed, or, for
+        # bottom-up traversal, a deferred ``(dirpath, dirnames, filenames)``
+        # result tuple whose children have already been queued.
+        stack: List[Union[Self, Tuple[Self, List[str], List[str]]]] = [self]
+
+        while stack:
+            top = stack.pop()
+
+            if isinstance(top, tuple):
+                yield top
+                continue
+
+            dirnames: List[str] = []
+            filenames: List[str] = []
+            try:
+                for child, is_dir in self.client._list_dir(top, recursive=False):
+                    if child == top:  # some backends include the directory itself
+                        continue
+                    (dirnames if is_dir else filenames).append(child.name)
+            except Exception as error:
+                if on_error is not None:
+                    on_error(error)
+                    continue
+                raise
+
+            if top_down:
+                yield top, dirnames, filenames
+                # Push children in reverse so they pop in listing order. Reading
+                # ``dirnames`` here (after the yield) is what lets callers prune.
+                stack += [top / d for d in reversed(dirnames)]
+            else:
+                # Defer this directory until after its children are walked.
+                stack.append((top, dirnames, filenames))
+                stack += [top / d for d in reversed(dirnames)]
+
     def walk(
         self,
         top_down: bool = True,
         on_error: Optional[Callable] = None,
         follow_symlinks: bool = False,
+        lazy: bool = False,
     ) -> Generator[Tuple[Self, List[str], List[str]], None, None]:
+        """Walk the directory tree rooted at this path, similar to
+        :meth:`pathlib.Path.walk` and :func:`os.walk`.
+
+        By default (``lazy=False``) the entire subtree is listed up front with a
+        single recursive listing, which is the fastest option for a full walk on
+        cloud backends.
+
+        Pass ``lazy=True`` to defer listing until each directory is visited (one
+        non-recursive listing per directory). This is slower for a full walk,
+        but lets callers prune ``dirnames`` in place (when ``top_down=True``) to
+        avoid fetching the contents of skipped subtrees entirely -- which can be
+        dramatically faster and cheaper for sparse traversals.
+
+        ``follow_symlinks`` is accepted for signature parity with ``pathlib``
+        but has no effect on cloud backends, which do not have symlinks.
+        """
+        if lazy:
+            yield from self._walk_lazy(top_down=top_down, on_error=on_error)
+            return
+
         try:
             file_tree = self._build_subtree(recursive=True)  # walking is always recursive
             yield from self._walk_results_from_tree(self, file_tree, top_down=top_down)
@@ -907,8 +1006,10 @@ class CloudPath(metaclass=CloudPathMeta):
             sequence_class = (
                 type(path_version) if not isinstance(path_version, _PathParents) else tuple
             )
-            return sequence_class(  # type: ignore
-                self._new_cloudpath(_resolve(p)) for p in path_version if _resolve(p) != p.root
+            return sequence_class(  # type: ignore[call-arg]
+                self._new_cloudpath(_resolve(p))
+                for p in path_version
+                if isinstance(p, PurePosixPath) and _resolve(p) != p.root
             )
 
         # when pathlib returns something else, we probably just want that thing
@@ -1089,7 +1190,9 @@ class CloudPath(metaclass=CloudPathMeta):
 
         if self.is_file():
             if destination.is_dir():
-                destination = destination / self.name
+                destination = _ensure_local_path_within_base(
+                    destination / self.name, destination, self
+                )
             return self.client._download_file(self, destination)
         else:
             destination.mkdir(exist_ok=True)
@@ -1099,7 +1202,8 @@ class CloudPath(metaclass=CloudPathMeta):
                     rel = rel + "/"
 
                 rel_dest = str(f)[len(rel) :]
-                f.download_to(destination / rel_dest)
+                target = _ensure_local_path_within_base(destination / rel_dest, destination, f)
+                f.download_to(target)
 
             return destination
 
@@ -1333,16 +1437,28 @@ class CloudPath(metaclass=CloudPathMeta):
 
         destination.mkdir(parents=True, exist_ok=True)
 
+        # when copying to a local destination, a listing may surface a key's ".." segment as a
+        # directory entry named "..", so each child destination must be confirmed within the
+        # destination before recursing (otherwise the recursion walks outside it); cloud-to-cloud
+        # copytree is not a local-filesystem traversal concern
+        destination_is_local = isinstance(destination, Path)
+
         for subpath in contents:
             if subpath.name in ignored_names:
                 continue
             if subpath.is_file():
-                subpath.copy(
-                    destination / subpath.name, force_overwrite_to_cloud=force_overwrite_to_cloud
-                )
+                file_destination = destination / subpath.name
+                if destination_is_local:
+                    _ensure_local_path_within_base(file_destination, destination, subpath)
+                subpath.copy(file_destination, force_overwrite_to_cloud=force_overwrite_to_cloud)
             elif subpath.is_dir():
+                dir_destination = destination / (
+                    subpath.name + ("" if subpath.name.endswith("/") else "/")
+                )
+                if destination_is_local:
+                    _ensure_local_path_within_base(dir_destination, destination, subpath)
                 subpath.copytree(
-                    destination / (subpath.name + ("" if subpath.name.endswith("/") else "/")),
+                    dir_destination,
                     force_overwrite_to_cloud=force_overwrite_to_cloud,
                     ignore=ignore,
                 )
@@ -1440,17 +1556,28 @@ class CloudPath(metaclass=CloudPathMeta):
 
     def clear_cache(self):
         """Removes cache if it exists"""
-        if self._local.exists():
-            if self._local.is_file():
-                self._local.unlink()
+        try:
+            local = self._local
+        except CloudPathLocalPathTraversalError:
+            # a key that cannot be safely mapped to a local path can never have been cached,
+            # so there is nothing to clear (and __del__ must not raise on such paths)
+            return
+        if local.exists():
+            if local.is_file():
+                local.unlink()
             else:
-                shutil.rmtree(self._local)
+                shutil.rmtree(local)
 
     # ===========  private cloud methods ===============
     @property
     def _local(self) -> Path:
         """Cached local version of the file."""
-        return self.client._local_cache_dir / self._no_prefix
+        return _ensure_local_path_within_base(
+            self.client._local_cache_dir / self._no_prefix,
+            self.client._local_cache_dir,
+            self,
+            resolve=False,
+        )
 
     def _new_cloudpath(self, path: Union[str, os.PathLike], *parts: str) -> Self:
         """Use the scheme, client, cache dir of this cloudpath to instantiate

@@ -50,7 +50,7 @@ import os
 os.environ["PYOPENCL_HOME"] = os.path.dirname(os.path.abspath(__file__))
 
 try:
-    import pyopencl._cl as _cl
+    from pyopencl import _cl
 except ImportError:
     from os.path import dirname, join, realpath
     if realpath(join(os.getcwd(), "pyopencl")) == realpath(dirname(__file__)):
@@ -72,7 +72,7 @@ from pyopencl.typing import (
         SVMInnerT,
         WaitList,
         )
-from pyopencl._cl import (  # noqa: F401
+from pyopencl._cl import (  # ruff:ignore[unused-import]
         get_cl_header_version,
         program_kind,
         status_code,
@@ -219,7 +219,7 @@ else:
         from pyopencl._cl import UserEvent
     if get_cl_header_version() >= (1, 2):
         from pyopencl._cl import ImageDescriptor
-        from pyopencl._cl import (  # noqa: F401
+        from pyopencl._cl import (  # ruff:ignore[unused-import]
             _enqueue_barrier_with_wait_list, _enqueue_fill_buffer,
             _enqueue_marker_with_wait_list, enqueue_fill_image,
             enqueue_migrate_mem_objects, unload_platform_compiler)
@@ -316,7 +316,7 @@ def _find_include_path(options: Sequence[str]) -> list[str]:
     option_idx = 0
     while option_idx < len(options):
         option = options[option_idx].strip()
-        if option.startswith("-I") or option.startswith("/I"):
+        if option.startswith(("-I", "/I")):
             if len(option) == 2:
                 if option_idx+1 < len(options):
                     include_path.append(unquote(options[option_idx+1]))
@@ -473,7 +473,7 @@ class Program:
             knl = Kernel(self, attr)
             # Nvidia does not raise errors even for invalid names,
             # but this will give an error if the kernel is invalid.
-            knl.num_args  # noqa: B018
+            knl.num_args  # ruff:ignore[useless-expression]
 
             count = self._knl_retrieval_count[attr] = (
                 self._knl_retrieval_count.get(attr, 0) + 1)
@@ -607,11 +607,9 @@ class Program:
 
             if source is not None:
                 from tempfile import NamedTemporaryFile
-                srcfile = NamedTemporaryFile(mode="wt", delete=False, suffix=".cl")
-                try:
+                with NamedTemporaryFile(mode="wt", delete=False, suffix=".cl") \
+                        as srcfile:
                     srcfile.write(source)
-                finally:
-                    srcfile.close()
 
                 msg = msg + "\n(source saved as %s)" % srcfile.name
 
@@ -881,7 +879,6 @@ def choose_devices(interactive: bool | None = None,
         raise Error("no devices found")
     elif len(devices) == 1 and not answers:
         cc_print(f"Choosing only available device: {devices[0]}")
-        pass
     else:
         if not answers:
             cc_print("Choose device(s):")
@@ -1493,8 +1490,8 @@ DTYPE_TO_CHANNEL_TYPE = {
     np.dtype(np.uint8): channel_type.UNSIGNED_INT8,
     }
 try:
-    np.float16  # noqa: B018
-except Exception:
+    np.float16  # ruff:ignore[useless-expression]
+except Exception:  # ruff:ignore[try-except-pass]
     pass
 else:
     DTYPE_TO_CHANNEL_TYPE[np.dtype(np.float16)] = channel_type.HALF_FLOAT
@@ -1511,7 +1508,7 @@ def image_from_array(
             ctx: Context,
             ary: NDArray[Any],
             num_channels: int | None = None,
-            mode: Literal["r"] | Literal["w"] = "r",
+            mode: Literal["r", "w"] = "r",
             norm_int: bool = False
         ) -> Image:
     if not ary.flags.c_contiguous:
@@ -1668,7 +1665,7 @@ def svm_empty(
             flags: svm_mem_flags,
             shape: int | tuple[int, ...],
             dtype: DTypeT,
-            order: Literal["F"] | Literal["C"] = "C",
+            order: Literal["F", "C"] = "C",
             alignment: int | None = None,
             queue: CommandQueue | None = None,
         ) -> np.ndarray[tuple[int, ...], DTypeT]:
@@ -1782,7 +1779,7 @@ def csvm_empty(
             ctx: Context,
             shape: int | tuple[int, ...],
             dtype: DTypeT,
-            order: Literal["F"] | Literal["C"] = "C",
+            order: Literal["F", "C"] = "C",
             alignment: int | None = None,
             queue: CommandQueue | None = None,
         ) -> np.ndarray[tuple[int, ...], DTypeT]:
@@ -1814,7 +1811,7 @@ def fsvm_empty(
             ctx: Context,
             shape: int | tuple[int, ...],
             dtype: DTypeT,
-            order: Literal["F"] | Literal["C"] = "C",
+            order: Literal["F", "C"] = "C",
             alignment: int | None = None,
             queue: CommandQueue | None = None,
         ) -> np.ndarray[tuple[int, ...], DTypeT]:
@@ -1892,7 +1889,6 @@ __all__ = [
     "Platform",
     "Program",
     "RuntimeError",
-    "SVMAllocation",
     "SVMAllocation",
     "SVMMap",
     "SVMPointer",

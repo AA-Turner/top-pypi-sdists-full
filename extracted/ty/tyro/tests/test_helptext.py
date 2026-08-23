@@ -1687,3 +1687,248 @@ def test_callable_description_without_pydantic_imported() -> None:
         sys.modules.pop("pydantic", None)
         description = _docstrings.get_callable_description(FreshForNoPydantic)
     assert "Docstring for FreshForNoPydantic." in description
+
+
+def test_usage_positional_shown_when_short() -> None:
+    """Positional metavars appear in the usage line when it's short enough to
+    show all arguments. https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        indir: tyro.conf.Positional[pathlib.Path]
+        verbose: bool = False
+
+    helptext = get_helptext_with_checks(Args)
+    usage_text = helptext.partition("\n\n")[0]
+    assert "PATH" in usage_text
+    assert "[OPTIONS]" not in usage_text
+
+
+def test_usage_positional_shown_when_abbreviated() -> None:
+    """Positional metavars stay visible when the usage line is abbreviated to
+    [OPTIONS]. https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        indir: tyro.conf.Positional[pathlib.Path]
+        first_long_option_name: int = 0
+        second_long_option_name: int = 1
+        third_long_option_name: int = 2
+        fourth_long_option_name: int = 3
+        fifth_long_option_name: int = 4
+
+    helptext = get_helptext_with_checks(Args)
+    usage_text = helptext.partition("\n\n")[0]
+    assert "[OPTIONS]" in usage_text
+    # The positional argument follows [OPTIONS], matching argparse's
+    # optionals-then-positionals convention.
+    assert "[OPTIONS] PATH" in usage_text.replace("\n", " ")
+
+
+def test_usage_optional_positional_shown_when_abbreviated() -> None:
+    """Optional positional metavars keep their brackets in the abbreviated
+    usage line. https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        indir: tyro.conf.Positional[pathlib.Path] = pathlib.Path("in")
+        first_long_option_name: int = 0
+        second_long_option_name: int = 1
+        third_long_option_name: int = 2
+        fourth_long_option_name: int = 3
+        fifth_long_option_name: int = 4
+
+    helptext = get_helptext_with_checks(Args)
+    usage_text = helptext.partition("\n\n")[0]
+    assert "[OPTIONS]" in usage_text
+    assert "[PATH]" in usage_text
+
+
+def test_usage_abbreviated_with_field_name_metavar() -> None:
+    """The abbreviated usage line uses field-name metavars when
+    `PositionalMetavarFromFieldName` is set.
+    https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        indir: pathlib.Path
+        first_long_option_name: int = 0
+        second_long_option_name: int = 1
+        third_long_option_name: int = 2
+        fourth_long_option_name: int = 3
+        fifth_long_option_name: int = 4
+
+    helptext = get_helptext_with_checks(
+        Args,
+        config=(
+            tyro.conf.PositionalRequiredArgs,
+            tyro.conf.PositionalMetavarFromFieldName,
+        ),
+    )
+    usage_text = helptext.partition("\n\n")[0]
+    assert "[OPTIONS]" in usage_text
+    assert "INDIR" in usage_text
+
+
+def test_usage_abbreviated_multiple_positionals() -> None:
+    """All positional metavars are preserved, in order, in the abbreviated
+    usage line. https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        indir: tyro.conf.Positional[pathlib.Path]
+        outdir: tyro.conf.Positional[pathlib.Path]
+        count: tyro.conf.Positional[int]
+        first_long_option_name: int = 0
+        second_long_option_name: int = 1
+        third_long_option_name: int = 2
+        fourth_long_option_name: int = 3
+        fifth_long_option_name: int = 4
+
+    helptext = get_helptext_with_checks(
+        Args, config=(tyro.conf.PositionalMetavarFromFieldName,)
+    )
+    usage_text = helptext.partition("\n\n")[0].replace("\n", " ")
+    assert "[OPTIONS]" in usage_text
+    indir_index = usage_text.index("INDIR")
+    outdir_index = usage_text.index("OUTDIR")
+    count_index = usage_text.index("COUNT")
+    assert usage_text.index("[OPTIONS]") < indir_index < outdir_index < count_index
+
+
+def test_usage_no_positionals_abbreviated_unchanged() -> None:
+    """The abbreviated usage line is unchanged when there are no positional
+    arguments. https://github.com/brentyi/tyro/issues/484"""
+
+    @dataclasses.dataclass
+    class Args:
+        first_long_option_name: int = 0
+        second_long_option_name: int = 1
+        third_long_option_name: int = 2
+        fourth_long_option_name: int = 3
+        fifth_long_option_name: int = 4
+        sixth_long_option_name: int = 5
+
+    helptext = get_helptext_with_checks(Args)
+    usage_text = helptext.partition("\n\n")[0]
+    assert usage_text.replace("\n", " ").rstrip().endswith("[OPTIONS]")
+
+
+def test_nested_group_docstring_as_description() -> None:
+    """Class docstrings of nested types should be used as the default group
+    description. https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupFromDocstring:
+        """Settings related to workflow execution."""
+
+        cores: int = 1
+
+    @dataclasses.dataclass
+    class ParentOfDocstringGroup:
+        work: NestedGroupFromDocstring = dataclasses.field(
+            default_factory=NestedGroupFromDocstring
+        )
+
+    helptext = get_helptext_with_checks(ParentOfDocstringGroup)
+    assert "Settings related to workflow execution." in helptext
+
+
+def test_nested_group_attribute_docstring_takes_precedence() -> None:
+    """An attribute docstring on the field should override the nested type's
+    class docstring. https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupWithClassDoc:
+        """Class-level description."""
+
+        cores: int = 1
+
+    @dataclasses.dataclass
+    class ParentWithAttributeDoc:
+        work: NestedGroupWithClassDoc = dataclasses.field(
+            default_factory=NestedGroupWithClassDoc
+        )
+        """Attribute-level description."""
+
+    helptext = get_helptext_with_checks(ParentWithAttributeDoc)
+    assert "Attribute-level description." in helptext
+    assert "Class-level description." not in helptext
+
+
+def test_nested_group_arg_help_overrides_docstring() -> None:
+    """`tyro.conf.arg(help=...)` should override the nested type's class
+    docstring. https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupForArgHelp:
+        """Class-level description."""
+
+        cores: int = 1
+
+    @dataclasses.dataclass
+    class ParentWithArgHelp:
+        work: Annotated[
+            NestedGroupForArgHelp, tyro.conf.arg(help="Explicit description.")
+        ] = dataclasses.field(default_factory=NestedGroupForArgHelp)
+
+    helptext = get_helptext_with_checks(ParentWithArgHelp)
+    assert "Explicit description." in helptext
+    assert "Class-level description." not in helptext
+
+
+def test_nested_group_arg_help_empty_suppresses_docstring() -> None:
+    """An explicit `tyro.conf.arg(help="")` should suppress the nested type's
+    class docstring. https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupForEmptyHelp:
+        """Class-level description."""
+
+        cores: int = 1
+
+    @dataclasses.dataclass
+    class ParentWithEmptyHelp:
+        work: Annotated[NestedGroupForEmptyHelp, tyro.conf.arg(help="")] = (
+            dataclasses.field(default_factory=NestedGroupForEmptyHelp)
+        )
+
+    helptext = get_helptext_with_checks(ParentWithEmptyHelp)
+    assert "Class-level description." not in helptext
+
+
+def test_nested_group_no_docstring() -> None:
+    """A nested dataclass without a docstring should not leak the
+    autogenerated `Name(field: type)` docstring into the group description.
+    https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupNoDocstring:
+        cores: int = 1
+
+    @dataclasses.dataclass
+    class ParentOfNoDocstringGroup:
+        work: NestedGroupNoDocstring = dataclasses.field(
+            default_factory=NestedGroupNoDocstring
+        )
+
+    helptext = get_helptext_with_checks(ParentOfNoDocstringGroup)
+    assert "NestedGroupNoDocstring(" not in helptext
+
+
+def test_nested_group_docstring_required_field() -> None:
+    """The class docstring fallback should also apply when the nested field is
+    required. https://github.com/brentyi/tyro/issues/483"""
+
+    @dataclasses.dataclass
+    class NestedGroupRequired:
+        """Settings for a required group."""
+
+        cores: int
+
+    @dataclasses.dataclass
+    class ParentOfRequiredGroup:
+        work: NestedGroupRequired
+
+    helptext = get_helptext_with_checks(ParentOfRequiredGroup)
+    assert "Settings for a required group." in helptext

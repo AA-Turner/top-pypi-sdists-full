@@ -73,24 +73,64 @@ add_executable(test_wfm_compose
     ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_compose.c)
 # the composer reuses synth, which pulls in lo/awgn/pn
 target_link_libraries(test_wfm_compose PRIVATE
-    wfm_compose_core wfm_draw_core wfm_dsp_core wfm_cjson_core wfm_synth_core lo_core awgn_core
-    pn_core fir_core resamp_core
+    wfm_compose_core wfm_draw_core wfm_dsp_core wfm_frame_core wfm_cjson_core
+    ccsds_tm_core conv_core rs_core
+    wfm_synth_core lo_core awgn_core
+    pn_core gold_core fir_core resamp_core
     m)
 target_include_directories(test_wfm_compose PRIVATE
     ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/vendor/cjson)
 add_test(NAME test_wfm_compose COMMAND test_wfm_compose)
+
+# Benchmark — hand-written here for the same reason the test above is: the
+# composer is a hand-owned c_dep, so `jm apply` writes no target for it. The
+# link line matches the test's; the composer reuses synth, which pulls in
+# lo/awgn/pn.
+add_executable(bench_wfm_compose_core
+    ${CMAKE_SOURCE_DIR}/native/benchmarks/bench_wfm_compose_core.c)
+target_link_libraries(bench_wfm_compose_core PRIVATE
+    wfm_compose_core wfm_draw_core wfm_dsp_core wfm_frame_core wfm_cjson_core
+    ccsds_tm_core conv_core rs_core
+    wfm_synth_core lo_core awgn_core
+    pn_core gold_core fir_core resamp_core
+    m)
+target_include_directories(bench_wfm_compose_core PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc
+    ${CMAKE_SOURCE_DIR}/native/benchmarks
+    ${CMAKE_SOURCE_DIR}/vendor/cjson)
 
 # wfm_plan: Gate-0 (render("{}") ≡ full compose, memcmp==0) + per-axis
 # gains/enable/snr/seed vs a full compose of the equivalently-modified spec.
 add_executable(test_wfm_plan
     ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_plan.c)
 target_link_libraries(test_wfm_plan PRIVATE
-    wfm_compose_core wfm_draw_core wfm_dsp_core wfm_cjson_core wfm_synth_core lo_core awgn_core
-    pn_core fir_core resamp_core
+    wfm_compose_core wfm_draw_core wfm_dsp_core wfm_frame_core wfm_cjson_core
+    ccsds_tm_core conv_core rs_core
+    wfm_synth_core lo_core awgn_core
+    pn_core gold_core fir_core resamp_core
     m)
 target_include_directories(test_wfm_plan PRIVATE
     ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/vendor/cjson)
 add_test(NAME test_wfm_plan COMMAND test_wfm_plan)
+
+# ── The frame descriptor, and the DSSS burst that is one ────────────────────
+# Its own OBJECT library, NOT folded into wfm_dsp_core, and the split follows
+# the FUNCTION rather than the file: assembling a frame is what these do, while
+# wfm_dsp_core is spreading and RRC taps -- which every receiver links for a
+# matched filter and which must not start dragging in a Gold LFSR because a
+# frame somewhere might use one. (Measured: folding them together put
+# gold_create into eight targets, four of them jm-generated.)
+#
+# pn/gold are here because the generated sequence kinds ARE pn_create /
+# gold_create -- the descriptor references the generators rather than adding
+# one, which is what lets a receiver regenerate a long record's truth from a
+# handful of numbers instead of carrying the array.
+add_library(wfm_frame_core OBJECT
+    ${CMAKE_SOURCE_DIR}/native/src/wfm/wfm_frame.c)
+target_include_directories(wfm_frame_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/native/inc
+    ${CMAKE_SOURCE_DIR}/native/inc/wfm)
+target_link_libraries(wfm_frame_core PUBLIC pn_core gold_core m)
 
 # ── DSSS spreading + RRC pulse-shaping taps (pure DSP, no deps) ──────────────
 add_library(wfm_dsp_core OBJECT
@@ -100,9 +140,29 @@ target_include_directories(wfm_dsp_core PUBLIC
     ${CMAKE_SOURCE_DIR}/native/inc/wfm)
 target_link_libraries(wfm_dsp_core PUBLIC m)
 
+add_executable(test_wfm_frame
+    ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_frame.c)
+target_link_libraries(test_wfm_frame PRIVATE wfm_frame_core pn_core gold_core m)
+target_include_directories(test_wfm_frame PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_wfm_frame COMMAND test_wfm_frame)
+
+# native/tests/dp_frame_test.h is the NAMED starter set built on that
+# descriptor -- five wfm_frame_t values a receiver harness selects by name, so
+# that a run is reproducible from its description and two harnesses cannot
+# quietly disagree about what "a burst frame" means. Header-only and owned by
+# no object, so its test is registered beside the descriptor's.
+add_executable(test_dp_frame
+    ${CMAKE_SOURCE_DIR}/native/tests/test_dp_frame.c)
+target_link_libraries(test_dp_frame PRIVATE wfm_frame_core pn_core gold_core m)
+target_include_directories(test_dp_frame PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_dp_frame COMMAND test_dp_frame)
+
 add_executable(test_wfm_dsp
     ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_dsp.c)
-target_link_libraries(test_wfm_dsp PRIVATE wfm_dsp_core m)
+target_link_libraries(test_wfm_dsp PRIVATE wfm_dsp_core wfm_frame_core
+    pn_core gold_core m)
 target_include_directories(test_wfm_dsp
     PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
 add_test(NAME test_wfm_dsp COMMAND test_wfm_dsp)
@@ -226,7 +286,7 @@ if(NOT WIN32)
     target_link_libraries(wfmgen_cli PRIVATE
         wfmgen_core
         wfm_compose_core wfm_draw_core wfm_writer_core wfm_keywords_core wfm_sink_core timing_core wfm_cjson_core
-        wfm_dsp_core wfm_synth_core lo_core awgn_core pn_core fir_core resamp_core
+        wfm_dsp_core wfm_frame_core ccsds_tm_core conv_core rs_core wfm_synth_core lo_core awgn_core pn_core gold_core fir_core resamp_core
         $<TARGET_OBJECTS:stream_core_obj>
         dp_tlm_core
         nats_vendor_static
@@ -279,4 +339,20 @@ if(NOT WIN32)
     add_test(NAME wfmgen_cli COMMAND ${CMAKE_COMMAND}
         -DEXE=$<TARGET_FILE:wfmgen_cli>
         -P ${CMAKE_SOURCE_DIR}/native/tests/wfmgen_cli_test.cmake)
+
+    # Per-flag behaviour matrix. wfmgen_cli above covers 23 of the 51 flags
+    # the dispatcher accepts; this pins the resolved --record spec and a hash
+    # of the emitted bytes for the rest, so a change to how ANY flag reaches
+    # its field is caught. It exists for gh-723's table-driven parser rewrite,
+    # which rewrites exactly that path -- but it outlives the rewrite as the
+    # CLI's parse-semantics regression gate.
+    #
+    # Fails closed on coverage: a flag added to the dispatcher without a case
+    # fails this test on the commit that adds it.
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME wfmgen_flag_matrix COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/scripts/gen_wfmgen_flag_matrix.py
+            --exe $<TARGET_FILE:wfmgen_cli> --check)
+    endif()
 endif()

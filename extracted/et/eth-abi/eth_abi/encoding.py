@@ -1,13 +1,14 @@
 import abc
 import codecs
 import decimal
+from collections.abc import (
+    Callable,
+)
 from itertools import (
     accumulate,
 )
 from typing import (
     Any,
-    Optional,
-    Type,
 )
 
 from eth_utils import (
@@ -77,8 +78,8 @@ class BaseEncoder(BaseCoder, metaclass=abc.ABCMeta):
     def invalidate_value(
         cls,
         value: Any,
-        exc: Type[Exception] = EncodingTypeError,
-        msg: Optional[str] = None,
+        exc: type[Exception] = EncodingTypeError,
+        msg: str | None = None,
     ) -> None:
         """
         Throws a standard exception for when a value is not encodable by an
@@ -122,7 +123,7 @@ class TupleEncoder(BaseEncoder):
                 "were expected",
             )
 
-        for item, encoder in zip(value, self.encoders):
+        for item, encoder in zip(value, self.encoders, strict=False):
             try:
                 encoder.validate_value(item)
             except AttributeError:
@@ -133,7 +134,7 @@ class TupleEncoder(BaseEncoder):
 
         raw_head_chunks = []
         tail_chunks = []
-        for value, encoder in zip(values, self.encoders):
+        for value, encoder in zip(values, self.encoders, strict=False):
             if getattr(encoder, "is_dynamic", False):
                 raw_head_chunks.append(None)
                 tail_chunks.append(encoder(value))
@@ -145,7 +146,7 @@ class TupleEncoder(BaseEncoder):
         tail_offsets = (0,) + tuple(accumulate(map(len, tail_chunks[:-1])))
         head_chunks = tuple(
             encode_uint_256(head_length + offset) if chunk is None else chunk
-            for chunk, offset in zip(raw_head_chunks, tail_offsets)
+            for chunk, offset in zip(raw_head_chunks, tail_offsets, strict=False)
         )
 
         encoded_value = b"".join(head_chunks + tuple(tail_chunks))
@@ -163,8 +164,8 @@ class TupleEncoder(BaseEncoder):
 class FixedSizeEncoder(BaseEncoder):
     value_bit_size = None
     data_byte_size = None
-    encode_fn = None
-    type_check_fn = None
+    encode_fn: Callable[..., Any] | None = None
+    type_check_fn: Callable[..., Any] | None = None
     is_big_endian = None
 
     def validate(self):
@@ -238,9 +239,9 @@ class PackedBooleanEncoder(BooleanEncoder):
 
 class NumberEncoder(Fixed32ByteSizeEncoder):
     is_big_endian = True
-    bounds_fn = None
-    illegal_value_fn = None
-    type_check_fn = None
+    bounds_fn: Callable[..., Any] | None = None
+    illegal_value_fn: Callable[..., Any] | None = None
+    type_check_fn: Callable[..., Any] | None = None
 
     def validate(self):
         super().validate()
@@ -262,6 +263,8 @@ class NumberEncoder(Fixed32ByteSizeEncoder):
         if illegal_value:
             self.invalidate_value(value, exc=IllegalValue)
 
+        if self.bounds_fn is None:
+            raise AssertionError("`bounds_fn` is None")
         lower_bound, upper_bound = self.bounds_fn(self.value_bit_size)
         if value < lower_bound or value > upper_bound:
             self.invalidate_value(

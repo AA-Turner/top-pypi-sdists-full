@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from doppler.resample import MatchedRateConverter, RateConverter, rate_convert
+from doppler.wfm import rrc_h
 
 
 def _dc(n: int) -> np.ndarray:
@@ -292,27 +293,6 @@ _MF_SPAN = 8
 _MF_NSYM = 500
 
 
-def _rrc_h(t: np.ndarray, beta: float) -> np.ndarray:
-    """Analytic RRC, vectorised, with both removable singularities."""
-    t = np.asarray(t, dtype=np.float64)
-    out = np.empty_like(t)
-    zero = np.abs(t) < 1e-9
-    sing = beta > 0 and np.isclose(np.abs(t), 1 / (4 * beta), atol=1e-9)
-    gen = ~(zero | sing)
-    out[zero] = 1 - beta + 4 * beta / math.pi
-    if np.any(sing):
-        a = math.pi / (4 * beta)
-        out[sing] = (beta / math.sqrt(2)) * (
-            (1 + 2 / math.pi) * math.sin(a) + (1 - 2 / math.pi) * math.cos(a)
-        )
-    tg = t[gen]
-    pt = math.pi * tg
-    num = np.sin(pt * (1 - beta)) + 4 * beta * tg * np.cos(pt * (1 + beta))
-    den = pt * (1 - (4 * beta * tg) ** 2)
-    out[gen] = num / den
-    return out
-
-
 def _rrc_bpsk(sps: float, phi: float, seed: int = 7) -> tuple:
     """RRC-shaped BPSK plus the symbols that made it.
 
@@ -329,7 +309,7 @@ def _rrc_bpsk(sps: float, phi: float, seed: int = 7) -> tuple:
     for k, a in enumerate(syms):
         t = (idx - (k + _MF_SPAN) * sps) / sps - phi
         near = np.abs(t) <= _MF_SPAN
-        x[near] += a * _rrc_h(t[near], _MF_BETA)
+        x[near] += a * rrc_h(t[near], _MF_BETA)
     return (0.25 * x).astype(np.complex64), syms
 
 
@@ -555,14 +535,16 @@ def test_input_bound_applies_exactly_when_a_cic_is_planned(rate, has_cic):
     # scale-free, so the docs' rule has to be the code's rule.
     assert any("CIC" in s for s in RateConverter(rate=rate).stages) is has_cic
 
-    # Drive it 4x past full scale and see whether the gain holds.
+    # Drive it 4x past the bound and see whether the gain holds.
     y = RateConverter(rate=rate).execute(
-        np.full(8192, 4.0, dtype=np.complex64)
+        np.full(8192, 8.0, dtype=np.complex64)
     )
-    gain = float(y[-1].real) / 4.0
+    gain = float(y[-1].real) / 8.0
     if has_cic:
-        # Clipped at the boundary: unity-amplitude out for a 4x input.
-        assert float(y[-1].real) == pytest.approx(1.0, rel=1e-2)
+        # Clipped at the boundary, which is CIC_PAPR_HEADROOM (2.0, 6 dB
+        # above unity) rather than 1.0 -- that headroom is the whole point
+        # of the encode scale being 32768/CIC_PAPR_HEADROOM.
+        assert float(y[-1].real) == pytest.approx(2.0, rel=1e-2)
         assert gain == pytest.approx(0.25, rel=1e-2)
     else:
         assert gain == pytest.approx(1.0, rel=1e-2)
@@ -575,7 +557,8 @@ def test_input_bound_is_silent_not_an_error():
         np.full(8192, 50.0, dtype=np.complex64)
     )
     assert np.all(np.isfinite(y))
-    assert abs(float(y[-1].real) - 1.0) < 0.01
+    # Saturates at the CIC_PAPR_HEADROOM bound (2.0), not at unity.
+    assert abs(float(y[-1].real) - 2.0) < 0.01
 
 
 def test_clipped_reports_the_bound_the_cascade_hides():

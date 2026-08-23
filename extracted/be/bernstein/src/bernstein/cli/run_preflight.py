@@ -604,7 +604,7 @@ def _make_profile_ctx(profile: bool, workdir: Path) -> contextlib.AbstractContex
     return contextlib.nullcontext()
 
 
-def _raise_if_no_plan_after_spawn() -> None:
+def _raise_if_no_plan_after_spawn(*, narrate_wait: bool = True) -> None:
     """Diagnose a spawned-then-dead agent before a display branch's own wait.
 
     The non-interactive detach path (issue #3528, #4246) briefly confirms the
@@ -628,11 +628,17 @@ def _raise_if_no_plan_after_spawn() -> None:
     message. A spawn refusal is left untouched here; each branch's existing
     terminal-state check already accounts for it once the refused task
     reaches a terminal status.
+
+    Args:
+        narrate_wait: When True, the first-spawn wait shows a transient Rich
+            status ("waiting for the first agent") while it polls, so a slow
+            start reads as progress instead of a hang. ``--quiet`` passes
+            False to keep its promise of no progress chatter.
     """
     from bernstein.cli.run_bootstrap import _await_first_spawn_outcome, _poll_no_plan_after_spawn
     from bernstein.core.errors import BernsteinFirstRunError, ErrorCategory
 
-    outcome, _reason = _await_first_spawn_outcome()
+    outcome, _reason = _await_first_spawn_outcome(narrate_wait=narrate_wait)
     if outcome == "spawned" and _poll_no_plan_after_spawn() is not None:
         raise BernsteinFirstRunError(
             "Spawned agent exited before producing a work plan",
@@ -640,7 +646,7 @@ def _raise_if_no_plan_after_spawn() -> None:
         )
 
 
-def _finalize_run_output(*, quiet: bool) -> None:
+def _finalize_run_output(*, quiet: bool, wait: float | None = None) -> None:
     """Render either the interactive dashboard or the final summary.
 
     Uses terminal capability detection (TUI-003) to choose between the
@@ -685,21 +691,29 @@ def _finalize_run_output(*, quiet: bool) -> None:
 
     Args:
         quiet: When True, wait for quiescence and print only the terminal summary.
+        wait: Seconds to wait for quiescence, keeping the progress output;
+            None detaches as before.
     """
     from bernstein.cli.run_bootstrap import (
+        _RUN_WAIT_DEFAULT_S,
         _poll_quiescent_status,
         _wait_for_run_completion,
         exec_restart,
     )
 
     try:
-        if quiet:
+        if quiet or wait is not None:
             # `--quiet` means "no progress chatter", not "swallow the reason
             # the run produced nothing" -- run the same fast diagnosis every
             # other branch runs before falling back to the slower, general
             # terminal-state wait below (issue #3528).
-            _raise_if_no_plan_after_spawn()
-            final_status = _wait_for_run_completion()
+            #
+            # `--wait` asks for the same terminal-state wait without giving up
+            # the progress output, and takes this branch even on a TTY: a
+            # caller that wants an exit code wants the run's outcome, not a
+            # dashboard it has to close.
+            _raise_if_no_plan_after_spawn(narrate_wait=not quiet)
+            final_status = _wait_for_run_completion(timeout_s=_RUN_WAIT_DEFAULT_S if wait is None else wait)
             _show_run_summary()
             _exit_nonzero_on_unhealthy_run(final_status)
             return

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyc_wheel
-Version: 2.4.3
+Version: 2.4.4
 Summary: Compile all py files in a wheel to pyc files.
 Author-email: Adam Karpierz <adam@karpierz.net>, Grant Patten <grant@gpatten.com>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -34,7 +34,7 @@ Classifier: Typing :: Typed
 Requires-Python: <4.0.0,>=3.11.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: typing-extensions>=4.15.0
+Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: setuptools>=81.0.0
 Requires-Dist: pkg-about>=2.4.0
 Dynamic: license-file

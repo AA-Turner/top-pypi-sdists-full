@@ -2,7 +2,7 @@
 build-backend = "scikit_build_core.build"
 requires = [
     "scikit-build-core >=0.9.3",
-    "nanobind >=2.7",
+    "nanobind >=3.0",
     "pcpp",
 
     # stubgen uses @override :/
@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "islpy"
-version = "2026.1"
+version = "2026.2.1"
 description = "Wrapper around isl, an integer set library"
 readme = "README.rst"
 license = "MIT"
@@ -97,12 +97,14 @@ extend-select = [
 ]
 extend-ignore = [
     "C90",  # McCabe complexity
-    "E221", # multiple spaces before operator
-    "E226", # missing whitespace around arithmetic operator
-    "E402", # module-level import not at top of file
-    "UP031", # use f-strings instead of %
-    "UP032", # use f-strings instead of .format
-    "RUF067", # no code in __init__ *shrug*
+    "multiple-spaces-before-operator",
+    "missing-whitespace-around-arithmetic-operator",
+    "module-import-not-at-top-of-file",
+    "printf-string-formatting",
+    "f-string",
+    "non-empty-init-module",
+    "try-consider-else",
+    "collapsible-if",
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -119,9 +121,13 @@ lines-after-imports = 2
 
 [tool.ruff.lint.per-file-ignores]
 "islpy/*.pyi" = [
-    "N801", "N802", "E501", "I001", "F401", "E202", "E203", "Q000",
-    "RUF012"
+    "invalid-class-name", "invalid-function-name", "line-too-long", "unsorted-imports", "unused-import", "whitespace-before-close-bracket", "whitespace-before-punctuation", "bad-quotes-inline-string",
+    "mutable-class-default"
 ]
+
+"test/test_*.py" = ["exec-builtin"]
+"doc/conf.py" = ["exec-builtin"]
+"gen_wrap.py" = ["open-file-with-context-handler"]
 
 [tool.cibuildwheel]
 # i686 does not have enough memory for LTO to complete
@@ -160,4 +166,3 @@ reportPrivateUsage = "none"
 root = "islpy/_isl.pyi"
 reportUnannotatedClassAttribute = "none"
 reportImplicitOverride = "none"
-

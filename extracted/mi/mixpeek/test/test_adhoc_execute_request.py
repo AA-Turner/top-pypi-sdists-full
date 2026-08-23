@@ -56,6 +56,8 @@ class TestAdhocExecuteRequest(unittest.TestCase):
                 budget_limits = mixpeek.models.budget_limits.BudgetLimits(
                     max_credits = 0.0, 
                     max_time_ms = 0.0, ),
+                pagination = None,
+                limit = 1.0,
                 stream = True
             )
         else:

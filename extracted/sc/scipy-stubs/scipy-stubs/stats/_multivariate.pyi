@@ -1,4 +1,4 @@
-# there are `overload-overlap` false positivies on `numpy<2.1` that can't selectively be ignored or worked around
+# there are `overload-overlap` false positives on `numpy<2.1` that can't selectively be ignored or worked around
 # mypy: disable-error-code=overload-overlap
 
 import types
@@ -42,7 +42,7 @@ type _Array2ND[ScalarT: np.generic] = onp.Array[tuple[int, int, *tuple[Any, ...]
 type _Array3ND[ScalarT: np.generic] = onp.Array[tuple[int, int, int, *tuple[Any, ...]], ScalarT]
 
 type _ScalarOrArray_f8 = np.float64 | _Array1ND[np.float64]
-type _AnyCov = Covariance | onp.ToFloat2D | onp.ToFloat
+type _ToCov = Covariance | onp.ToFloat2D | onp.ToFloat
 
 type _ToIntStrict1D = onp.ToArrayStrict1D[int, npc.integer]
 type _ToIntStrict2D = onp.ToArrayStrict2D[int, npc.integer]
@@ -91,102 +91,102 @@ class multivariate_normal_gen(multi_rv_generic):
         self,
         /,
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         seed: onp.random.ToRNG | None = None,
     ) -> multivariate_normal_frozen[tuple[()]]: ...
     @overload
     def __call__(
-        self, /, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False, seed: onp.random.ToRNG | None = None
+        self, /, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False, seed: onp.random.ToRNG | None = None
     ) -> multivariate_normal_frozen[tuple[int]]: ...
 
     #
     @overload
     def logpdf(
-        self, /, x: onp.ToFloat, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloat, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _ToCov = 1, allow_singular: bool = False
     ) -> np.float64: ...
     @overload
-    def logpdf[ShapeT: tuple[int, ...]](
+    def logpdf(
         self,
         /,
-        x: onp.ArrayND[npc.floating | npc.integer, ShapeT],
+        x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
-    ) -> onp.ArrayND[np.float64, ShapeT]: ...
-    @overload
-    def logpdf(
-        self, /, x: onp.ToFloatND, mean: onp.ToFloat | None = None, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> onp.ArrayND[np.float64, _WorkaroundForPyright]: ...
+    ) -> onp.ArrayND[np.float64]: ...
     @overload
     def logpdf(
         self,
         /,
         x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
     @overload
     def logpdf(
-        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> np.float64: ...
-    @overload
-    def logpdf(
-        self, /, x: onp.ToFloatStrict2D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat | None = None, cov: _ToCov = 1, allow_singular: bool = False
     ) -> onp.Array1D[np.float64]: ...
     @overload
     def logpdf(
-        self, /, x: onp.ToFloatStrict3D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> np.float64: ...
+    @overload
+    def logpdf(
+        self, /, x: onp.ToFloatStrict2D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> onp.Array1D[np.float64]: ...
+    @overload
+    def logpdf(
+        self, /, x: onp.ToFloatStrict3D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
     ) -> onp.Array2D[np.float64]: ...
     @overload
     def logpdf(
-        self, /, x: onp.ToFloatND, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+        self, /, x: onp.ToFloatND, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
 
-    #
+    # keep in sync with `logpdf`
     @overload
     def pdf(
-        self, /, x: onp.ToFloat, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloat, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _ToCov = 1, allow_singular: bool = False
     ) -> np.float64: ...
     @overload
-    def pdf[ShapeT: tuple[int, ...]](
+    def pdf(
         self,
         /,
-        x: onp.ArrayND[npc.floating | npc.integer, ShapeT],
+        x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
-    ) -> onp.ArrayND[np.float64, ShapeT]: ...
-    @overload
-    def pdf(
-        self, /, x: onp.ToFloatND, mean: onp.ToFloat | None = None, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> onp.ArrayND[np.float64, _WorkaroundForPyright]: ...
+    ) -> onp.ArrayND[np.float64]: ...
     @overload
     def pdf(
         self,
         /,
         x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
     @overload
     def pdf(
-        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> np.float64: ...
-    @overload
-    def pdf(
-        self, /, x: onp.ToFloatStrict2D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat | None = None, cov: _ToCov = 1, allow_singular: bool = False
     ) -> onp.Array1D[np.float64]: ...
     @overload
     def pdf(
-        self, /, x: onp.ToFloatStrict3D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
+        self, /, x: onp.ToFloatStrict1D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> np.float64: ...
+    @overload
+    def pdf(
+        self, /, x: onp.ToFloatStrict2D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> onp.Array1D[np.float64]: ...
+    @overload
+    def pdf(
+        self, /, x: onp.ToFloatStrict3D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
     ) -> onp.Array2D[np.float64]: ...
     @overload
     def pdf(
-        self, /, x: onp.ToFloatND, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+        self, /, x: onp.ToFloatND, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
 
     #
     @overload
@@ -195,7 +195,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloat,
         mean: onp.ToFloat | onp.ToFloat1D | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -205,27 +205,12 @@ class multivariate_normal_gen(multi_rv_generic):
         rng: onp.random.ToRNG | None = None,
     ) -> np.float64: ...
     @overload
-    def logcdf[ShapeT: tuple[int, ...]](
-        self,
-        /,
-        x: onp.ArrayND[npc.floating | npc.integer, ShapeT],
-        mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
-        allow_singular: bool = False,
-        maxpts: int | None = None,
-        abseps: float = 1e-5,
-        releps: float = 1e-5,
-        *,
-        lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
-        rng: onp.random.ToRNG | None = None,
-    ) -> onp.ArrayND[np.float64, ShapeT]: ...
-    @overload
     def logcdf(
         self,
         /,
-        x: onp.ToFloatND,
+        x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -233,14 +218,14 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> onp.ArrayND[np.float64, _WorkaroundForPyright]: ...
+    ) -> onp.ArrayND[np.float64]: ...
     @overload
     def logcdf(
         self,
         /,
         x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -248,14 +233,29 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
+    @overload
+    def logcdf(
+        self,
+        /,
+        x: onp.ToFloatStrict1D,
+        mean: onp.ToFloat | None = None,
+        cov: _ToCov = 1,
+        allow_singular: bool = False,
+        maxpts: int | None = None,
+        abseps: float = 1e-5,
+        releps: float = 1e-5,
+        *,
+        lower_limit: onp.ToFloat | onp.ToFloat1D | None = None,
+        rng: onp.random.ToRNG | None = None,
+    ) -> onp.Array1D[np.float64]: ...
     @overload
     def logcdf(
         self,
         /,
         x: onp.ToFloatStrict1D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -270,7 +270,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatStrict2D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -285,7 +285,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatStrict3D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -300,7 +300,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatND,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -308,16 +308,16 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
 
-    #
+    # keep in sync with `logcdf`
     @overload
     def cdf(
         self,
         /,
         x: onp.ToFloat,
         mean: onp.ToFloat | onp.ToFloat1D | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -327,27 +327,12 @@ class multivariate_normal_gen(multi_rv_generic):
         rng: onp.random.ToRNG | None = None,
     ) -> np.float64: ...
     @overload
-    def cdf[ShapeT: tuple[int, ...]](
-        self,
-        /,
-        x: onp.ArrayND[npc.floating | npc.integer, ShapeT],
-        mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
-        allow_singular: bool = False,
-        maxpts: int | None = None,
-        abseps: float = 1e-5,
-        releps: float = 1e-5,
-        *,
-        lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
-        rng: onp.random.ToRNG | None = None,
-    ) -> onp.ArrayND[np.float64, ShapeT]: ...
-    @overload
     def cdf(
         self,
         /,
-        x: onp.ToFloatND,
+        x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -355,14 +340,14 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> onp.ArrayND[np.float64, _WorkaroundForPyright]: ...
+    ) -> onp.ArrayND[np.float64]: ...
     @overload
     def cdf(
         self,
         /,
         x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -370,14 +355,29 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
+    @overload
+    def cdf(
+        self,
+        /,
+        x: onp.ToFloatStrict1D,
+        mean: onp.ToFloat | None = None,
+        cov: _ToCov = 1,
+        allow_singular: bool = False,
+        maxpts: int | None = None,
+        abseps: float = 1e-5,
+        releps: float = 1e-5,
+        *,
+        lower_limit: onp.ToFloat | onp.ToFloat1D | None = None,
+        rng: onp.random.ToRNG | None = None,
+    ) -> onp.Array1D[np.float64]: ...
     @overload
     def cdf(
         self,
         /,
         x: onp.ToFloatStrict1D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -392,7 +392,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatStrict2D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -407,7 +407,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatStrict3D,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -422,7 +422,7 @@ class multivariate_normal_gen(multi_rv_generic):
         /,
         x: onp.ToFloatND,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         maxpts: int | None = None,
         abseps: float = 1e-5,
@@ -430,7 +430,7 @@ class multivariate_normal_gen(multi_rv_generic):
         *,
         lower_limit: onp.ToFloat | onp.ToFloatND | None = None,
         rng: onp.random.ToRNG | None = None,
-    ) -> np.float64 | onp.ArrayND[np.float64]: ...
+    ) -> onp.ArrayND[np.float64] | np.float64: ...
 
     #
     @overload
@@ -463,14 +463,14 @@ class multivariate_normal_gen(multi_rv_generic):
     ) -> onp.ArrayND[np.float64]: ...
     @overload
     def rvs(
-        self, /, mean: onp.ToFloat1D | None, cov: _AnyCov, size: tuple[int, ...], random_state: onp.random.ToRNG | None = None
+        self, /, mean: onp.ToFloat1D | None, cov: _ToCov, size: tuple[int, ...], random_state: onp.random.ToRNG | None = None
     ) -> onp.ArrayND[np.float64]: ...
     @overload
     def rvs(
         self,
         /,
         mean: onp.ToFloat1D | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         *,
         size: tuple[int, ...],
         random_state: onp.random.ToRNG | None = None,
@@ -479,14 +479,14 @@ class multivariate_normal_gen(multi_rv_generic):
     def rvs(
         self,
         /,
-        mean: onp.ToFloat1D | None = None,
-        cov: _AnyCov = 1,
+        mean: onp.ToFloat | onp.ToFloat1D | None = None,
+        cov: _ToCov = 1,
         size: int | tuple[int, ...] = 1,
         random_state: onp.random.ToRNG | None = None,
     ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
     #
-    def entropy(self, /, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _AnyCov = 1) -> np.float64: ...
+    def entropy(self, /, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _ToCov = 1) -> np.float64: ...
 
     #
     def fit(
@@ -500,11 +500,11 @@ class multivariate_normal_gen(multi_rv_generic):
     #
     @overload
     def marginal(
-        self, dimensions: int, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _AnyCov = 1, allow_singular: bool = False
+        self, dimensions: int, mean: onp.ToFloat | onp.ToFloat1D | None = None, cov: _ToCov = 1, allow_singular: bool = False
     ) -> multivariate_normal_frozen[tuple[()]]: ...
     @overload
     def marginal(
-        self, dimensions: onp.ToInt1D, mean: onp.ToFloat1D, cov: _AnyCov = 1, allow_singular: bool = False
+        self, dimensions: onp.ToInt1D, mean: onp.ToFloat1D, cov: _ToCov = 1, allow_singular: bool = False
     ) -> multivariate_normal_frozen[tuple[int]]: ...
 
 #
@@ -529,7 +529,7 @@ class multivariate_normal_frozen(multi_rv_frozen[multivariate_normal_gen], Gener
         self: multivariate_normal_frozen[tuple[()]],
         /,
         mean: onp.ToFloat | None = None,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         seed: onp.random.ToRNG | None = None,
         maxpts: int | None = None,
@@ -541,7 +541,7 @@ class multivariate_normal_frozen(multi_rv_frozen[multivariate_normal_gen], Gener
         self: multivariate_normal_frozen[tuple[int]],
         /,
         mean: onp.ToFloat1D,
-        cov: _AnyCov = 1,
+        cov: _ToCov = 1,
         allow_singular: bool = False,
         seed: onp.random.ToRNG | None = None,
         maxpts: int | None = None,
@@ -980,6 +980,10 @@ class dirichlet_gen(multi_rv_generic):
         size: tuple[SupportsIndex, SupportsIndex, SupportsIndex, *tuple[SupportsIndex, ...]],
         random_state: onp.random.ToRNG | None = None,
     ) -> _Array3ND[np.float64]: ...
+    @overload
+    def rvs(
+        self, /, alpha: onp.ToFloat1D, size: tuple[SupportsIndex, ...], random_state: onp.random.ToRNG | None = None
+    ) -> _Array1ND[np.float64]: ...
 
 class dirichlet_frozen(multi_rv_frozen[dirichlet_gen]):
     # pyrefly: ignore [bad-override]
@@ -1011,6 +1015,8 @@ class dirichlet_frozen(multi_rv_frozen[dirichlet_gen]):
         size: tuple[SupportsIndex, SupportsIndex, SupportsIndex, *tuple[SupportsIndex, ...]],
         random_state: onp.random.ToRNG | None = None,
     ) -> _Array3ND[np.float64]: ...
+    @overload
+    def rvs(self, /, size: tuple[SupportsIndex, ...], random_state: onp.random.ToRNG | None = None) -> _Array1ND[np.float64]: ...
 
 class wishart_gen(multi_rv_generic):
     def __call__(
@@ -1563,6 +1569,8 @@ class uniform_direction_gen(multi_rv_generic):
     ) -> onp.Array2D[np.float64]: ...
     @overload
     def rvs(self, /, dim: int, size: onp.AtLeast2D, random_state: onp.random.ToRNG | None = None) -> _Array3ND[np.float64]: ...
+    @overload
+    def rvs(self, /, dim: int, size: tuple[int, ...], random_state: onp.random.ToRNG | None = None) -> _Array2ND[np.float64]: ...
 
 class uniform_direction_frozen(multi_rv_frozen[uniform_direction_gen]):
     dim: Final[int]
@@ -1575,7 +1583,7 @@ class uniform_direction_frozen(multi_rv_frozen[uniform_direction_gen]):
     @overload
     def rvs(self, /, size: int | tuple[int], random_state: onp.random.ToRNG | None = None) -> onp.Array2D[np.float64]: ...
     @overload
-    def rvs(self, /, size: onp.AtLeast2D, random_state: onp.random.ToRNG | None = None) -> _Array2ND[np.float64]: ...
+    def rvs(self, /, size: tuple[int, ...], random_state: onp.random.ToRNG | None = None) -> _Array2ND[np.float64]: ...
 
 class random_correlation_gen(multi_rv_generic):
     def __call__(
@@ -1797,9 +1805,9 @@ class multivariate_hypergeom_frozen(multi_rv_frozen[multivariate_hypergeom_gen])
 
     #
     @overload
-    def rvs(self, /, size: tuple[()], random_state: onp.random.ToRNG | None = None) -> _Array1ND[np.int_]: ...
-    @overload
     def rvs(self, /, size: int | tuple[int] = 1, random_state: onp.random.ToRNG | None = None) -> _Array2ND[np.int_]: ...
+    @overload
+    def rvs(self, /, size: tuple[int, ...], random_state: onp.random.ToRNG | None = None) -> _Array1ND[np.int_]: ...
 
 type _RandomTableRVSMethod = Literal["boyett", "patefield"]
 
@@ -1845,7 +1853,7 @@ class random_table_gen(multi_rv_generic):
         row: onp.ToJustIntND,
         col: onp.ToJustIntND,
         *,
-        size: onp.AtLeast1D,
+        size: tuple[int, ...],
         method: _RandomTableRVSMethod | None = None,
         random_state: onp.random.ToRNG | None = None,
     ) -> _Array3ND[np.int_]: ...
@@ -1874,7 +1882,7 @@ class random_table_frozen(multi_rv_frozen[random_table_gen]):
     ) -> onp.Array3D[np.int_]: ...
     @overload
     def rvs(
-        self, /, size: onp.AtLeast1D, method: _RandomTableRVSMethod | None = None, random_state: onp.random.ToRNG | None = None
+        self, /, size: tuple[int, ...], method: _RandomTableRVSMethod | None = None, random_state: onp.random.ToRNG | None = None
     ) -> _Array3ND[np.int_]: ...
 
 class dirichlet_multinomial_gen(multi_rv_generic):
@@ -1910,7 +1918,7 @@ class vonmises_fisher_gen(multi_rv_generic):
         /,
         mu: onp.ToFloat1D | None = None,
         kappa: onp.ToFloat = 1,
-        size: SupportsIndex | tuple[SupportsIndex, *tuple[SupportsIndex, ...]] = 1,
+        size: SupportsIndex | tuple[SupportsIndex, ...] = 1,
         random_state: onp.random.ToRNG | None = None,
     ) -> _Array2ND[np.float64]: ...
     def fit(self, /, x: onp.ToFloatND) -> tuple[onp.Array1D[np.float64], float]: ...
@@ -1923,10 +1931,7 @@ class vonmises_fisher_frozen(multi_rv_frozen[vonmises_fisher_gen]):
     def pdf(self, /, x: onp.ToFloatND) -> _ScalarOrArray_f8: ...
     def entropy(self, /) -> np.float64: ...
     def rvs(
-        self,
-        /,
-        size: SupportsIndex | tuple[SupportsIndex, *tuple[SupportsIndex, ...]] = 1,
-        random_state: onp.random.ToRNG | None = None,
+        self, /, size: SupportsIndex | tuple[SupportsIndex, ...] = 1, random_state: onp.random.ToRNG | None = None
     ) -> _Array2ND[np.float64]: ...
 
 class normal_inverse_gamma_gen(multi_rv_generic):

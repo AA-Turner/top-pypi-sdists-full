@@ -11,6 +11,7 @@
 /* ======================================================== */
 
 #include "dp_tlm_capture/dp_tlm_capture_core.h"
+#include "tlm_read_dict.h"
 
 typedef struct
 {
@@ -94,39 +95,34 @@ MemoryCaptureObj_init (MemoryCaptureObject *self, PyObject *args,
   Py_XSETREF (self->_tlm_owner, tlm_obj);
   size_t                   block_samples = (size_t)block_samples_raw;
   const dp_sample_clock_t *clock         = NULL;
-  if (clock_obj == Py_None || clock_obj == NULL)
+  if (clock_obj != Py_None)
     {
-      PyErr_SetString (
-          PyExc_TypeError,
-          "clock is required and cannot be None;"
-          " pass the doppler.wfm.dp_sample_clock capsule or an object"
-          " exposing it as ._capsule");
-      return -1;
-    }
-  PyObject *clock_cap = clock_obj;
-  Py_INCREF (clock_cap);
-  if (!PyCapsule_CheckExact (clock_cap))
-    {
-      Py_DECREF (clock_cap);
-      clock_cap = PyObject_GetAttrString (clock_obj, "_capsule");
-      if (!clock_cap)
+      PyObject *clock_cap = clock_obj;
+      Py_INCREF (clock_cap);
+      if (!PyCapsule_CheckExact (clock_cap))
         {
-          if (!PyErr_ExceptionMatches (PyExc_AttributeError))
-            return -1;
-          PyErr_Clear ();
-          PyErr_Format (PyExc_TypeError,
-                        "clock must be the doppler.wfm.dp_sample_clock capsule"
-                        " or an object exposing it as ._capsule,"
-                        " not %s",
-                        Py_TYPE (clock_obj)->tp_name);
-          return -1;
+          Py_DECREF (clock_cap);
+          clock_cap = PyObject_GetAttrString (clock_obj, "_capsule");
+          if (!clock_cap)
+            {
+              if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+                return -1;
+              PyErr_Clear ();
+              PyErr_Format (
+                  PyExc_TypeError,
+                  "clock must be the doppler.wfm.dp_sample_clock capsule"
+                  " or an object exposing it as ._capsule,"
+                  " not %s",
+                  Py_TYPE (clock_obj)->tp_name);
+              return -1;
+            }
         }
+      clock = (const dp_sample_clock_t *)PyCapsule_GetPointer (
+          clock_cap, "doppler.wfm.dp_sample_clock");
+      Py_DECREF (clock_cap);
+      if (!clock)
+        return -1;
     }
-  clock = (const dp_sample_clock_t *)PyCapsule_GetPointer (
-      clock_cap, "doppler.wfm.dp_sample_clock");
-  Py_DECREF (clock_cap);
-  if (!clock)
-    return -1;
   Py_INCREF (clock_obj);
   Py_XSETREF (self->_clock_owner, clock_obj);
   self->handle = dp_tlm_capture_open_memory (tlm, block_samples, clock);
@@ -194,6 +190,43 @@ done:
       Py_INCREF (MemoryCaptureObj_records_dtype);
     }
   return out;
+}
+
+/* Hand-written, sharing tlm_read_dict.h with Telemetry.read_dict(); only the
+   record SOURCE differs. Here it is the capture's own accumulator, borrowed
+   and only read — every array handed back is a fresh numpy allocation — and
+   unlike the ring drain this does NOT consume, exactly as records() does not.
+ */
+static PyObject *
+MemoryCaptureObj_read_dict (MemoryCaptureObject *self, PyObject *args,
+                            PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char       *_kwlist[] = { "n", "index", NULL };
+  unsigned long long n_raw     = 0;
+  int                with_idx  = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|Kp", _kwlist, &n_raw,
+                                    &with_idx))
+    return NULL;
+
+  /* The context carries the registry the ids resolve against. */
+  dp_tlm_t *tlm = dp_tlm_capture_context (self->handle);
+  if (!tlm)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "read_dict: no context");
+      return NULL;
+    }
+
+  const dp_tlm_rec_t *recs  = dp_tlm_capture_records (self->handle);
+  size_t              n_out = dp_tlm_capture_count (self->handle);
+  if (n_raw != 0 && n_out > (size_t)n_raw)
+    n_out = (size_t)n_raw;
+
+  return tlm_build_read_dict (tlm, recs, n_out, with_idx);
 }
 
 static PyObject *
@@ -355,28 +388,69 @@ static PyObject *
 MemoryCaptureObj_exit (MemoryCaptureObject *self, PyObject *args)
 {
   (void)args;
-  if (self->handle)
+  if (!self->handle)
+    Py_RETURN_NONE;
+  /* gh-805 §H: the handle deliberately SURVIVES this call —
+     finalize is not free, and the captured results only become
+     valid once it has run. The free stays in tp_dealloc. */
+  int _rc = dp_tlm_capture_close (self->handle);
+  if (_rc != 0)
     {
-      int rc = dp_tlm_capture_destroy (self->handle);
-      /* gh-541: clear the handle before reporting, so a second
-         call is a no-op rather than a double free — the state is
-         released whatever the status says. */
-      self->handle = NULL;
-      if (rc != 0)
-        {
-          PyErr_SetString (PyExc_ValueError,
-                           "the capture has a hole: records were dropped, "
-                           "which the block bound makes impossible unless a "
-                           "step ran longer than block_samples or no "
-                           "boundary was reached at all — see "
-                           "Capture.dropped");
-          return NULL;
-        }
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "the capture has a hole: records were dropped, which the "
+                    "block bound makes impossible unless a step ran longer "
+                    "than block_samples or no boundary was reached at all — "
+                    "see Capture.dropped",
+                    (long long)_rc);
+      return NULL;
     }
   Py_RETURN_NONE;
 }
 
 static PyMethodDef MemoryCaptureObj_methods[] = {
+
+  { "read_dict", (PyCFunction)(void *)MemoryCaptureObj_read_dict,
+    METH_VARARGS | METH_KEYWORDS,
+    "read_dict(n=0, index=False) -> dict\n"
+    "\n"
+    "The captured records, grouped by probe name.\n"
+    "\n"
+    "records() hands back one structured array carrying every probe\n"
+    "interleaved; this splits it, so a consumer never writes the\n"
+    "`recs[recs[\"probe\"] == id][\"value\"]` filter or the id-to-name\n"
+    "inversion by hand. Every REGISTERED probe gets a key, including one\n"
+    "that captured nothing, so the key set is stable.\n"
+    "\n"
+    "Like records(), this does NOT consume — call it as often as you like.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "n : int, optional\n"
+    "    Records to take from the front; 0 (the default) means all.\n"
+    "index : bool, optional\n"
+    "    When True each value is ``(n, values)`` — the sample indices\n"
+    "    alongside the values, so a real time axis is ``n / fs``.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "dict\n"
+    "    ``{probe_name: values}``, or ``{probe_name: (n, values)}`` when\n"
+    "    `index` is True.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.telemetry import MemoryCapture, Telemetry\n"
+    ">>> tlm = Telemetry(1 << 12)\n"
+    ">>> eid = tlm.probe(\"sync.e\")\n"
+    ">>> with MemoryCapture(tlm, 64, None) as cap:\n"
+    "...     tlm.set_now(0)\n"
+    "...     tlm.emit(eid, 0.25)\n"
+    "...     tlm.set_now(64)\n"
+    ">>> n, v = cap.read_dict(index=True)[\"sync.e\"]\n"
+    ">>> v\n"
+    "array([0.25], dtype=float32)\n"
+    ">>> n\n"
+    "array([0], dtype=uint64)\n" },
 
   { "records", (PyCFunction)(void *)MemoryCaptureObj_records,
     METH_VARARGS | METH_KEYWORDS,
@@ -462,7 +536,7 @@ static PyMethodDef MemoryCaptureObj_methods[] = {
     ">>> cap.count\n"
     "1\n" },
   { "close", (PyCFunction)MemoryCaptureObj_close, METH_NOARGS,
-    "close() -> int\n"
+    "close() -> None\n"
     "\n"
     "Final boundary, then flush, join, and write the sidecar.\n"
     "\n"
@@ -470,6 +544,15 @@ static PyMethodDef MemoryCaptureObj_methods[] = {
     "joins the writer thread, closes the file and writes `<path>-meta`.\n"
     "Idempotent: a second call is a no-op returning the first call's\n"
     "verdict.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``the capture has a hole: records were dropped, which the block\n"
+    "    bound makes impossible unless a step ran longer than block_samples\n"
+    "    or no boundary was reached at all — see Capture.dropped``, with the\n"
+    "    return code appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -516,19 +599,23 @@ static PyMethodDef MemoryCaptureObj_methods[] = {
   { "__enter__", (PyCFunction)MemoryCaptureObj_enter, METH_NOARGS,
     "Enter a context manager, returning this object.\n"
     "\n"
-    "Lets a DpTlmCapture be used in a `with` statement so its C resources\n"
-    "are released deterministically on exit rather than at collection time.\n"
+    "Lets a MemoryCapture be used in a `with` statement so its C resources\n"
+    "are finalized deterministically on exit rather than at collection time.\n"
     "\n"
     "Returns\n"
     "-------\n"
-    "DpTlmCapture\n"
+    "MemoryCapture\n"
     "    This same object, not a copy.\n" },
   { "__exit__", (PyCFunction)MemoryCaptureObj_exit, METH_VARARGS,
-    "Exit a context manager, releasing the DpTlmCapture.\n"
+    "Exit a context manager, finalizing the MemoryCapture.\n"
     "\n"
-    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
-    "raised inside the `with` body propagates normally; this never\n"
-    "suppresses one.\n"
+    "Equivalent to calling `close()`. The MemoryCapture is **not** released\n"
+    "here: it stays usable, which is what makes results gathered during the\n"
+    "`with` body readable after it. The memory is freed when the object is\n"
+    "collected.\n"
+    "\n"
+    "Returns ``None``, so an exception raised inside the `with` body\n"
+    "propagates normally; this never suppresses one.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -537,7 +624,14 @@ static PyMethodDef MemoryCaptureObj_methods[] = {
     "exc : object | None\n"
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
-    "    Traceback object, or None. Ignored.\n" },
+    "    Traceback object, or None. Ignored.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If ``close()`` reports failure. ``__exit__`` calls it and raises\n"
+    "    what it raises, so a failed finalize propagates out of the ``with``\n"
+    "    block (gh-805 §H).\n" },
   { NULL }
 };
 

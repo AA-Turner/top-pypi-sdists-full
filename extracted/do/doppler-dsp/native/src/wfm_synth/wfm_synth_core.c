@@ -1,6 +1,7 @@
 #include "wfm_synth/wfm_synth_core.h"
 
-#include "wfm/wfm_dsp.h" /* wfm_frame_dsss_chips — the DSSS burst builder */
+#include "mpsk/mpsk_core.h" /* mpsk_constellation — the ONE map */
+#include "wfm/wfm_dsp.h"    /* wfm_frame_dsss_chips — the DSSS burst builder */
 
 wfm_synth_state_t *
 wfm_synth_create (int type, double fs, double freq, double snr, int snr_mode,
@@ -103,20 +104,20 @@ wfm_synth_create (int type, double fs, double freq, double snr, int snr_mode,
     {
       int mode = snr_mode;
       if (mode == 0)
-        mode = (type == WFM_SYNTH_BPSK || type == WFM_SYNTH_QPSK)
-                   ? 3
-                   : 1; /* *psk → esno; tone/pn/chirp/bits → fs */
-      int    bps = (type == WFM_SYNTH_QPSK) ? 2 : 1;
-      double snr_fs;
-      if (mode == 2) /* Eb/No → SNR over fs */
-        snr_fs = snr + 10.0 * log10 ((double)bps)
-                 - 10.0 * log10 ((double)obj->nsps);
-      else if (mode == 3) /* Es/No → SNR over fs (Es spans nsps samples) */
-        snr_fs = snr - 10.0 * log10 ((double)obj->nsps);
-      else /* over fs */
-        snr_fs = snr;
-      float amp = sqrtf (1.0f / (2.0f * powf (10.0f, (float)snr_fs / 10.0f)));
-      obj->awgn = awgn_create ((uint64_t)seed, amp);
+        /* *psk → esno; tone/pn/chirp/bits → fs. DSSS stays fs HERE and is
+           pre-referred by the composer instead: its Es spans one DATA symbol,
+           and the codes that set the spreading factor attach after create(),
+           so this is the best that can be said at this point. */
+        mode = (type == WFM_SYNTH_BPSK || type == WFM_SYNTH_QPSK) ? 3 : 1;
+      /* The conversion itself is wfm_synth_snr_over_fs() — shared with the
+         composer's per-segment noise floor and with the Plan stimulus engine,
+         so a bundled noisy source and a resolved one cannot place different
+         noise for the same requested SNR. Only the auto mapping above and the
+         span below are ours; both legitimately differ per caller. */
+      double snr_fs = wfm_synth_snr_over_fs (mode, wfm_synth_bps (type),
+                                             (double)obj->nsps, snr);
+      float  amp = sqrtf (1.0f / (2.0f * powf (10.0f, (float)snr_fs / 10.0f)));
+      obj->awgn  = awgn_create ((uint64_t)seed, amp);
     }
   if (want_noise && !obj->awgn)
     {
@@ -211,7 +212,7 @@ wfm_synth_set_bits (wfm_synth_state_t *state, const uint8_t *bits, size_t n,
 {
   if (state->wtype != WFM_SYNTH_BITS)
     return 0; /* no-op for every other type */
-  if (!bits || n == 0 || modulation < 0 || modulation > 2)
+  if (!bits || n == 0 || modulation < 0 || modulation > 3)
     return -1;
   uint8_t *copy = malloc (n);
   if (!copy)
@@ -618,26 +619,10 @@ wfm_synth_steps (wfm_synth_state_t *state, float complex *output, size_t n)
                         }
                       else if (bits && nb)
                         {
-                          if (bmod == 2)
-                            {
-                              uint8_t b0 = bits[bit_idx];
-                              uint8_t b1 = bits[(bit_idx + 1) % nb];
-                              cre        = b0 ? -s : s;
-                              cim        = b1 ? -s : s;
-                              bit_idx    = (bit_idx + 2) % nb;
-                            }
-                          else if (bmod == 1)
-                            {
-                              cre     = bits[bit_idx] ? -1.0f : 1.0f;
-                              cim     = 0.0f;
-                              bit_idx = (bit_idx + 1) % nb;
-                            }
-                          else
-                            {
-                              cre     = bits[bit_idx] ? 1.0f : 0.0f;
-                              cim     = 0.0f;
-                              bit_idx = (bit_idx + 1) % nb;
-                            }
+                          float complex bs = wfm_synth_bit_symbol (state);
+                          bit_idx          = state->bit_idx;
+                          cre              = crealf (bs);
+                          cim              = cimagf (bs);
                         }
                     }
                   out[i]
@@ -668,26 +653,10 @@ wfm_synth_steps (wfm_synth_state_t *state, float complex *output, size_t n)
                       }
                     else if (bits && nb)
                       {
-                        if (bmod == 2)
-                          {
-                            uint8_t b0 = bits[bit_idx];
-                            uint8_t b1 = bits[(bit_idx + 1) % nb];
-                            cre        = b0 ? -s : s;
-                            cim        = b1 ? -s : s;
-                            bit_idx    = (bit_idx + 2) % nb;
-                          }
-                        else if (bmod == 1)
-                          {
-                            cre     = bits[bit_idx] ? -1.0f : 1.0f;
-                            cim     = 0.0f;
-                            bit_idx = (bit_idx + 1) % nb;
-                          }
-                        else
-                          {
-                            cre     = bits[bit_idx] ? 1.0f : 0.0f;
-                            cim     = 0.0f;
-                            bit_idx = (bit_idx + 1) % nb;
-                          }
+                        float complex bs = wfm_synth_bit_symbol (state);
+                        bit_idx          = state->bit_idx;
+                        cre              = crealf (bs);
+                        cim              = cimagf (bs);
                       }
                   }
                 if (++sym_pos >= nsps)

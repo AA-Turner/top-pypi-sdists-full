@@ -12,7 +12,7 @@ build-backend = "just_buildit"
 
 [project]
 name = "doppler-dsp"
-version = "0.42.0"
+version = "0.43.2"
 description = "Practical, portable, performant digital signal processing."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -83,7 +83,8 @@ python_files = ["test_*.py", "bench_*.py"]
 testpaths = ["src"]
 markers = [
     "docs_snippets: doc-example drift gate (runs the ```python fences in docs/); CI runs it once on 3.12, excluded from the version matrix via -m 'not docs_snippets'",
-    "examples: example-script smoke gate (runs every example as a subprocess, discovered not registered); excluded from the coverage run via -m 'not examples'",
+    "examples_serial: an example whose own assertion is a TIMING, so it cannot share the machine. Applied from src/doppler/examples/.examples-serial, never by hand. The example gate runs its bulk under xdist with `-m 'examples and not examples_serial'` and then gives these a second SERIAL pass -- the same split `test-python` applies to the benchmark directories. Found the hard way: ddc_fn_scaling.py asserts a 2-thread speedup > 1.25x to prove execute() releases the GIL, and under 8 xdist workers it measured 1.15x and reported the contention as 'execute appears GIL-bound'.",
+    "examples: example-script smoke gate (runs every example as a subprocess, discovered not registered); excluded from `make test-python` by the Makefile's PYTEST_SELECT because the gate owns a target of its own (test-examples-python), so the suites add up instead of overlapping. NOT excluded from `make coverage`, which runs the whole suite: an example exercises library code through the instrumented extension and that coverage counts. This said 'excluded from the coverage run via -m not examples' from the day the marker was added (f79ac33f) and the coverage recipe never carried the flag, so the claim described an intention rather than the build.",
 ]
 
 [dependency-groups]
@@ -114,7 +115,7 @@ dev = [
     # reuses whatever version happens to be installed as a uv TOOL, which is
     # not "latest" and drifts per machine. Keep in sync with jm_version in
     # just-makeit.toml.
-    "just-makeit==0.51.0",
+    "just-makeit==0.63.3",
     # The lint/format toolchain. It lives HERE, not in
     # .pre-commit-config.yaml's `additional_dependencies`, because that is what
     # makes local and CI resolve identically: the hooks dispatch to
@@ -135,6 +136,22 @@ dev = [
     # absent. The CI lint job runs a modern Python, so markdown is still
     # enforced — it just is not enforced twice on an interpreter that cannot
     # install the formatter.
+    # clang-format and clang-tidy were the last carve-out from the rule
+    # above ("not Python project dependencies"), and that carve-out is what
+    # produced two SSOTs for one tool: .pre-commit-config.yaml pinned
+    # clang-format through mirrors-clang-format's `rev:` while nothing pinned
+    # it for anyone else, so `make`, a bare shell and the hook could each get
+    # a different binary. jm gh-745 was filed on that exact symptom from this
+    # repo — 21.1.8 locally against 22.1.8 in CI, "identical input, different
+    # output, and a `jm status --check` that flips red across machines on a
+    # project nobody touched".
+    #
+    # 22.1.8 matches the `rev:` it replaces, so adopting this reformats
+    # nothing. clang-tidy had no pin at ALL (a bare `entry: clang-tidy`) and
+    # is not even installed on some dev boxes, which makes it a gate that
+    # cannot run rather than one that passes.
+    "clang-format==22.1.8",
+    "clang-tidy==22.1.8",
     "ruff==0.15.21",
     "mdformat==1.0.0; python_version >= '3.10'",
     "mdformat-gfm==1.0.0; python_version >= '3.10'",
@@ -151,8 +168,26 @@ docs = [
     "mkdoxy>=1.2.8",
 ]
 
+# ── ruff ─────────────────────────────────────────────────────────────────────
+# ONE config, and it lives here. There was a root `ruff.toml` alongside this
+# block until 2026-08-12, and ruff does not merge the two — it takes the first
+# config it finds, `ruff.toml` wins, and everything here was DEAD. Proved
+# rather than assumed: `ruff check --show-settings` printed
+# `Settings path: "/home/matt/doppler/ruff.toml"`, and this block's
+# line-length/excludes only looked effective because the other file happened
+# to agree. A rule added here did nothing at all.
+#
+# That is the shape this repo keeps finding: a second source of truth that
+# reads as authoritative. Nothing referenced `ruff.toml` by name (no
+# `--config` in the Makefile, pre-commit, CI or scripts), so consolidating it
+# cost nothing.
 [tool.ruff]
 line-length = 79
+# Explicit rather than inferred from `requires-python`. Ruff would derive the
+# same 3.9 from it, but the floor is what makes PEP 604 (`X | Y`) a runtime
+# error in a module that does not defer annotations, so it is stated where a
+# reader looking for it will find it.
+target-version = "py39"
 # jm-generated type stubs are owned by just-makeit (manifest-drift gate);
 # never reformat them here. vendored third-party is left as upstream ships it.
 # jm generates the re-export `__init__.py` shims; like the .pyi stubs they are
@@ -161,3 +196,77 @@ extend-exclude = ["*.pyi", "vendor", "src/doppler/*/__init__.py"]
 # pre-commit passes files explicitly; force-exclude ensures extend-exclude
 # still applies even when ruff receives a .pyi path on the command line.
 force-exclude = true
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "TC",   # flake8-type-checking
+    "ANN",  # flake8-annotations
+    "N",    # pep8-naming
+    "NPY",  # numpy rules
+    "RUF",  # ruff-specific
+    # flake8-future-annotations, FA102 ONLY. It fails a module that writes
+    # `X | Y` without `from __future__ import annotations` — valid SYNTAX on
+    # 3.9 and a TypeError the moment the annotation is evaluated. That
+    # shipped: `characterize.py` took `out_path: str | Path | None`, every
+    # local gate passed because they all run on 3.12, and only CI's 3.9 job
+    # failed, at import time. The floor is declared above, so the linter can
+    # enforce it instead of the version matrix discovering it.
+    #
+    # Not the whole `FA` set. Its sibling FA100 is cosmetic — "you could
+    # simplify `typing.Optional` if you added the future import" — and
+    # selecting it would rewrite an unrelated example (hbdecim_q15_demo.py)
+    # as a drive-by. A correctness rule and a style campaign are different
+    # decisions; this is the first one.
+    "FA102",
+]
+ignore = [
+    # DSP naming conventions: N (sample count), Fs (sample rate), Q (filter
+    # quality), H (transfer function), etc. are standard uppercase symbols in
+    # signal-processing literature and map directly to C API parameter names.
+    "N803",  # argument name should be lowercase
+    "N806",  # variable in function should be lowercase
+
+    # Unicode in technical content: Greek letters (α, β, ω, μ) and typographic
+    # minus (−) are intentional in DSP docstrings and inline comments; replacing
+    # them with ASCII lookalikes degrades readability of mathematical content.
+    "RUF001",  # ambiguous unicode character in string
+    "RUF002",  # ambiguous unicode character in docstring
+    "RUF003",  # ambiguous unicode character in comment
+
+    "ANN204",  # missing return type on __init__ — always None, noisy
+    "ANN401",  # disallows `Any` — too strict at C extension boundaries
+]
+
+[tool.ruff.lint.per-file-ignores]
+# ANN enforced on all user-facing API surfaces. Excluded:
+# - tests, benchmarks, scripts: not public API
+# - examples: demonstrate API usage, are not API themselves
+"**/tests/**"           = ["ANN"]
+"**/benchmarks/**"      = ["ANN"]
+"examples/**"           = ["ANN"]
+"src/doppler/examples/**" = ["ANN"]
+"scripts/**"            = ["ANN"]
+"conftest.py"           = ["ANN"]
+"**/conftest.py"        = ["ANN"]
+
+# CamelCase test/bench filenames mirror the class under test (HalfbandDecimator,
+# RateConverter, Resampler); renaming would break references across the repo.
+"src/doppler/resample/tests/test_*.py" = ["N999"]
+"src/doppler/resample/benchmarks/bench_*.py" = ["N999"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["doppler"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+docstring-code-line-length = 79

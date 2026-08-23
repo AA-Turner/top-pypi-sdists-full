@@ -4,7 +4,7 @@ from functools import reduce
 from contextlib import nullcontext
 
 import torch
-from torch import nn
+from torch import nn, cat
 from torch.nn import Module
 import torch.nn.functional as F
 from torch.func import functional_call, vmap
@@ -170,9 +170,10 @@ class LowRankLinear(Module):
         assert low_rank_dim < min(out_dim, in_dim), f'low rank dim ({low_rank_dim}) must be less than the minimum of the input ({in_dim}) and output ({out_dim}) dimensions of the weight matrix'
 
         # two low rank matrices, no weight matrix, the memories will be stored in these
+        # the memory is initially zero, but one of the matrices is randomly initialized so the gradients can flow into it
 
         self.weight_a = nn.Parameter(torch.randn(out_dim, low_rank_dim))
-        self.weight_b = nn.Parameter(torch.randn(low_rank_dim, in_dim))
+        self.weight_b = nn.Parameter(torch.zeros(low_rank_dim, in_dim))
 
         # carry over the bias, if it exists
 
@@ -252,6 +253,59 @@ class TTTMetaLearningTargetKLLoss(Module):
         loss = F.kl_div(log_prob_encoded, prob_earlier, reduction = 'none').sum(dim = -1)
         return loss
 
+class TTTNextLatentPredictionLoss(Module):
+    """ use a small MLP to generate the ttt inner loop gradients, by predicting the next latent, instead of cross entropy """
+
+    def __init__(
+        self,
+        *,
+        dim,
+        hidden_dim = None,
+        num_layers = 3,
+        loss_type = 'smooth_l1'
+    ):
+        super().__init__()
+
+        hidden_dim = default(hidden_dim, dim)
+
+        layers = [nn.LayerNorm(dim)]
+
+        for i in range(num_layers):
+            is_last = i == (num_layers - 1)
+
+            in_dim = dim if i == 0 else hidden_dim
+            out_dim = dim if is_last else hidden_dim
+
+            layers.append(nn.Linear(in_dim, out_dim))
+
+            if not is_last:
+                layers.append(nn.GELU())
+
+        self.predictor = nn.Sequential(*layers)
+
+        if loss_type == 'smooth_l1':
+            self.loss_fn = F.smooth_l1_loss
+        elif loss_type == 'mse':
+            self.loss_fn = F.mse_loss
+        else:
+            raise ValueError(f'unknown loss type {loss_type}')
+
+    def forward(self, intermediates, mask = None):
+        hiddens = intermediates.last_layer_hiddens
+
+        # the last token predicts the first token in the window
+
+        pred = self.predictor(hiddens)
+        target = cat((hiddens[:, 1:], hiddens[:, :1]), dim = 1).detach()
+
+        loss = self.loss_fn(pred, target, reduction = 'none').mean(dim = -1) # (b n)
+
+        if exists(mask):
+            # target latent at position i + 1 is only valid if the token label at i + 1 is valid
+            loss = loss.masked_fill(~cat((mask[:, 1:], mask[:, :1]), dim = 1), 0.)
+
+        return loss
+
 # xl autoregressive wrapper class
 
 class XLAutoregressiveWrapper(Module):
@@ -269,6 +323,7 @@ class XLAutoregressiveWrapper(Module):
         ttt_muon_lr = 1e-2,
         ttt_low_rank_paths = tuple(),
         ttt_custom_loss_module: Module | None = None,
+        ttt_next_latent_loss = False,
         episodic_mem_len = 0
     ):
         super().__init__()
@@ -288,6 +343,14 @@ class XLAutoregressiveWrapper(Module):
         self.ttt_muon_steps = ttt_muon_steps
         self.ttt_muon_lr = ttt_muon_lr
         self.ttt_custom_loss_module = ttt_custom_loss_module
+
+        if ttt_next_latent_loss:
+            assert not exists(ttt_custom_loss_module), 'ttt_custom_loss_module and ttt_next_latent_loss cannot both be set'
+
+            dim = getattr(getattr(net, 'attn_layers', None), 'dim', None)
+            assert exists(dim), 'the model must have an attn_layers.dim attribute to derive the dimension for the next latent prediction loss'
+
+            self.ttt_custom_loss_module = TTTNextLatentPredictionLoss(dim = dim)
 
         self.has_episodic_mem = episodic_mem_len > 0
 
@@ -548,6 +611,10 @@ class XLAutoregressiveWrapper(Module):
 
             x = out[:, curr_pos:]
 
+            if x.shape[-1] == 0:
+                # the tokens end exactly on a segment boundary, recompute the last complete segment with a fresh cache
+                x = out[:, curr_pos - max_seq_len:]
+
             logits, cache = net(
                 x,
                 mems = curr_mems,
@@ -608,8 +675,6 @@ class XLAutoregressiveWrapper(Module):
 
         batch, seq_len = x.shape[:2]
 
-        self.init_ttt(batch)
-
         # prepare chunks
 
         split_x = x.split(max_seq_len, dim = -1)
@@ -623,6 +688,9 @@ class XLAutoregressiveWrapper(Module):
         forward_context = torch.enable_grad if self.has_ttt else nullcontext
 
         with forward_context():
+            # init the ttt batch parameters under grad context, to work even when called within an outer no_grad context
+            self.init_ttt(batch)
+
             for idx, (chunk, chunk_labels, loss_weight) in enumerate(zip(split_x, split_labels, loss_weights)):
                 is_last_chunk = (idx == num_chunks - 1)
                 should_detach = divisible_by(idx + 1, self.tbptt_steps)

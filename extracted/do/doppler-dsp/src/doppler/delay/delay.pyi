@@ -75,7 +75,7 @@ class DelayCf64:
 
     def ptr(
         self,
-        count: int = 1,
+        count: int = ...,
         out: NDArray[np.complex128] | None = None,
     ) -> NDArray[np.complex128]:
         """Return a zero-copy view of the n most recent samples. Copies at most
@@ -84,6 +84,15 @@ class DelayCf64:
         of up to num_taps elements; no wrap-around logic is needed. The Python
         binding returns a NumPy array backed directly by the pre-allocated
         output buffer (base object is the DelayCf64 itself).
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.complex128] | None
+            Output buffer; must hold at least max_out elements.
 
         Returns
         -------

@@ -24,6 +24,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <limits.h>
 #include <math.h>
 #include <string.h>
 
@@ -112,6 +113,11 @@ static int decode_to_doubles(const char *geohash, double *out_lat, double *out_l
     int is_even = 1;
     size_t len = strlen(geohash);
 
+    if (len < 1 || len > 12) {
+        PyErr_SetString(PyExc_ValueError, "Geohash must be between 1 and 12 characters long");
+        return -1;
+    }
+
     init_base32_decode_map();
 
     for (size_t i = 0; i < len; i++) {
@@ -190,6 +196,45 @@ static PyObject* geohash_decode(PyObject *self, PyObject *args) {
     return make_named_tuple(LatLong_type, Py_BuildValue("dd", lat, lon));
 }
 
+// Argument converters for the encoders. bool is a subclass of int, so the plain
+// "d"/"i" format units coerce True/False to 1.0/0.0 before any check below can
+// see them; these reject booleans up front so a direct extension call matches
+// the package-root wrappers' contract.
+static int convert_coordinate(PyObject *obj, void *addr) {
+    if (PyBool_Check(obj)) {
+        PyErr_SetString(PyExc_ValueError, "latitude and longitude must be numbers, not booleans");
+        return 0;
+    }
+    double value = PyFloat_AsDouble(obj);
+    if (value == -1.0 && PyErr_Occurred()) {
+        return 0;
+    }
+    *(double *)addr = value;
+    return 1;
+}
+
+static int convert_precision(PyObject *obj, void *addr) {
+    if (PyBool_Check(obj)) {
+        PyErr_SetString(PyExc_ValueError, "precision must be an integer, not a boolean");
+        return 0;
+    }
+    PyObject *index = PyNumber_Index(obj);
+    if (index == NULL) {
+        return 0;
+    }
+    long value = PyLong_AsLong(index);
+    Py_DECREF(index);
+    if (value == -1 && PyErr_Occurred()) {
+        return 0;
+    }
+    if (value < INT_MIN || value > INT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "Python int too large to convert to C int");
+        return 0;
+    }
+    *(int *)addr = (int)value;
+    return 1;
+}
+
 // Encode coordinates to a geohash string
 static PyObject* geohash_encode(PyObject *self, PyObject *args, PyObject *kwargs) {
     double latitude, longitude;
@@ -197,8 +242,10 @@ static PyObject* geohash_encode(PyObject *self, PyObject *args, PyObject *kwargs
 
     static char *kwlist[] = {"latitude", "longitude", "precision", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "dd|i", kwlist,
-                                    &latitude, &longitude, &precision)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&", kwlist,
+                                    convert_coordinate, &latitude,
+                                    convert_coordinate, &longitude,
+                                    convert_precision, &precision)) {
         return NULL;
     }
 
@@ -277,8 +324,10 @@ static PyObject* geohash_encode_strictly(PyObject *self, PyObject *args, PyObjec
 
     static char *kwlist[] = {"latitude", "longitude", "precision", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "dd|i", kwlist,
-                                    &latitude, &longitude, &precision)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&", kwlist,
+                                    convert_coordinate, &latitude,
+                                    convert_coordinate, &longitude,
+                                    convert_precision, &precision)) {
         return NULL;
     }
 

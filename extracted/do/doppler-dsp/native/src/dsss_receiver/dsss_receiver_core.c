@@ -3,53 +3,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* MpskReceiver's terminal outputs per symbol (`m_out`).
+/* MpskReceiver's terminal outputs per symbol (`m_out`) comes from
+ * `mpsk_rx_derive_m_out()` in mpsk_rx_loops.h -- the rule's one home since
+ * gh-644. This file used to carry a second implementation of it, and the
+ * two disagreed below sps = 2: the shared rule REFUSES with 0, the local
+ * one floored at 2. Neither value builds at sps = 1, so migrating moved
+ * which rule refuses rather than whether one does -- but a silent value
+ * difference between two copies of a single rule is exactly how the first
+ * drift here happened, and the retired copy's own comment was a monument
+ * to it (gh-782).
  *
- * This used to be "largest divisor of sps in {4, 2, 1}", sized for the old
- * `n`: the NDA arm's dumps per symbol, whose window was sps/n, so dividing
- * sps exactly was the whole point. The cascade rebuild retired that arm --
- * the parameter in this slot is now `m_out`, terminal outputs per symbol,
- * which must be EVEN and in [2, 8] and need NOT divide sps (the front end
- * plans its own cascade from a double sps). The old rule survived the
- * rename and produced values that are wrong under the new meaning:
- *
- *   - `sps=8` gave 4, which does not decode this despread stream at all
- *     (measured BER 0.44 at CN0=110 dB-Hz, i.e. noiseless, where m_out=8
- *     gives 0.0000; Doppler-independent, so not a rate/pull-in effect);
- *   - any ODD sps gave 1, which is not a legal m_out, so create() returned
- *     NULL and dp_xnn() ABORTED the process -- `sps=5` was a SIGABRT with
- *     no exception and no message.
- *
- * So: prefer 8, the coherent-bound default (an m_out-tap sum spans the
- * symbol, and 8 samples that integral finely enough to land ~0.4 dB off
- * the bound where 4 loses ~3 dB -- see mpsk_receiver_create), and step down
- * by 2 only as far as `sps` allows, since MpskReceiver requires
- * sps >= m_out. Every result is even and >= 2 for any sps >= 2, so the
- * abort is structurally gone rather than merely unlikely. */
-static int
-_derive_m_out (size_t sps)
-{
-  int m = MPSK_RX_M_OUT_DEFAULT;
-  while (m > 2 && (size_t)m > sps)
-    m -= 2;
-  return m;
-}
+ * The complex twin's bound is `sps`, inclusive: mpsk_receiver_create()
+ * requires sps >= m_out. */
 
 /* Allocate a fresh Dll/RateConverter/MpskReceiver triple (+ seed the
  * pre-despread carrier loop, by value into *car_out -- costas_init never
  * allocates, so it can't fail) from the given hand-off phase/frequency and
  * grid, without touching `state`'s existing children -- the fail-safe half
- * of the "allocate everything first" regrid discipline (_regrid() in
+ * of the "allocate everything first" regrid discipline (acq_regrid() in
  * acq_core.c is the precedent). Cannot fail: the sub-object allocations are
  * small, internal, and argument-validated, so they route through the
  * abort-on-OOM helpers (dp_xnn) rather than an unwind path no test reaches. */
 static void
-_build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
-              size_t code_len, size_t spc, int m, int differential,
-              double chip_phase, double doppler_hz_est, size_t segments,
-              size_t sps, int n, costas_state_t *car_out,
-              dll_state_t **dll_out, RateConverter_state_t **rc_out,
-              mpsk_receiver_state_t **rx_out)
+dsss_rx_build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
+                     size_t code_len, size_t spc, int m, int differential,
+                     double chip_phase, double doppler_hz_est, size_t segments,
+                     size_t sps, int n, costas_state_t *car_out,
+                     dll_state_t **dll_out, RateConverter_state_t **rc_out,
+                     mpsk_receiver_state_t **rx_out)
 {
   double partial_rate = chip_rate * (double)segments / (double)code_len;
   double target_rate  = (double)sps * symbol_rate;
@@ -112,8 +93,8 @@ _build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
      phase fault. */
   mpsk_receiver_state_t *rx = dp_xnn (mpsk_receiver_create (
       m, (double)sps, (size_t)n, MPSK_RX_PULSE_IANDD, 0.35, 8, 0.01, 0.707,
-      0.005, 1, 0.3, 0.0, 30, differential, MPSK_RX_NUM_PHASES,
-      MPSK_RX_NDA_TAP_STROBE));
+      0.005, 0.3, 0.0, differential, MPSK_RX_NUM_PHASES, 1,
+      MPSK_RX_AGC_BW_RATIO));
 
   /* Pre-despread carrier loop: seeded in cycles/sample at the FRONT-END
    * rate (chip_rate*spc) -- the stage that actually owns removing the
@@ -121,7 +102,7 @@ _build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
    * costas_update() per code PERIOD (code_len*spc samples) -- `bn`/
    * `bn_fll` are normalized to this update rate (loop_filter_init's own
    * per-update convention, costas_core.c), so `tsamps` here must match
-   * the actual call cadence in _carrier_update_from_partials, not a
+   * the actual call cadence in dsss_rx_carrier_update_from_partials, not a
    * finer per-segment interval: calling costas_update() once per
    * partial instead would quadruple the loop's real-time bandwidth at
    * a fixed `bn`, weakening tracking rather than speeding it up. */
@@ -136,7 +117,7 @@ _build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
 }
 
 static void
-_free_chain (dsss_receiver_state_t *s)
+dsss_rx_free_chain (dsss_receiver_state_t *s)
 {
   mpsk_receiver_destroy (s->rx);
   RateConverter_destroy (s->rc);
@@ -149,19 +130,21 @@ _free_chain (dsss_receiver_state_t *s)
 /* Build a fresh chain and, only on success, swap it in for state's current
  * one (freeing the old triple) -- the "allocate everything first" half of
  * the regrid discipline applied at the call site, not just inside
- * _build_chain. Cannot fail (the sub-object allocations are trusted). */
+ * dsss_rx_build_chain. Cannot fail (the sub-object allocations are trusted).
+ */
 static void
-_rebuild_chain (dsss_receiver_state_t *s, double chip_phase,
-                double doppler_hz_est, size_t segments, size_t sps, int n)
+dsss_rx_rebuild_chain (dsss_receiver_state_t *s, double chip_phase,
+                       double doppler_hz_est, size_t segments, size_t sps,
+                       int n)
 {
   costas_state_t         car;
   dll_state_t           *dll = NULL;
   RateConverter_state_t *rc  = NULL;
   mpsk_receiver_state_t *rx  = NULL;
-  _build_chain (s->chip_rate, s->symbol_rate, s->code, s->code_len, s->spc,
-                s->m, s->differential, chip_phase, doppler_hz_est, segments,
-                sps, n, &car, &dll, &rc, &rx);
-  _free_chain (s);
+  dsss_rx_build_chain (s->chip_rate, s->symbol_rate, s->code, s->code_len,
+                       s->spc, s->m, s->differential, chip_phase,
+                       doppler_hz_est, segments, sps, n, &car, &dll, &rc, &rx);
+  dsss_rx_free_chain (s);
   s->car           = car;
   s->dll           = dll;
   s->rc            = rc;
@@ -175,7 +158,7 @@ _rebuild_chain (dsss_receiver_state_t *s, double chip_phase,
 /* Sum whatever dll_steps() just emitted for one wiped period into a single
  * DATA-WIPED pseudo-coherent prompt and steer the carrier loop from it,
  * once per period (matching costas_init's own tsamps=one-period
- * calibration, see _build_chain). dll_steps() emits `segments`-many
+ * calibration, see dsss_rx_build_chain). dll_steps() emits `segments`-many
  * PARTIAL prompts per period, and a data-bit transition can land inside
  * the period -- at SPEC's own async ratio (periods/symbol ~= 1.111) this
  * happens in the large majority of periods, not as a rare edge case, so
@@ -192,17 +175,17 @@ _rebuild_chain (dsss_receiver_state_t *s, double chip_phase,
  * here as it already is inside costas_update() itself.
  *
  * This decision has to live here, in the consumer, not inside
- * dll_steps() itself: `partials` (== `_track_carrier_dll`'s own dll_out)
- * is the actual despread symbol stream this object also hands straight
- * to RateConverter/mpsk_receiver, not scratch, and a natural period that
- * straddles a transition genuinely carries two different data bits in
- * its two halves -- no single sign is correct for the whole period
- * there, so dll_core.c cannot make this call on its own output (see its
- * segments>1 emit-block comment). A single (or all-zero-magnitude)
- * partial degenerates harmlessly to a plain pass-through / no-op sum. */
+ * dll_steps() itself: `partials` (== `dsss_rx_track_carrier_dll`'s own
+ * dll_out) is the actual despread symbol stream this object also hands
+ * straight to RateConverter/mpsk_receiver, not scratch, and a natural period
+ * that straddles a transition genuinely carries two different data bits in its
+ * two halves -- no single sign is correct for the whole period there, so
+ * dll_core.c cannot make this call on its own output (see its segments>1
+ * emit-block comment). A single (or all-zero-magnitude) partial degenerates
+ * harmlessly to a plain pass-through / no-op sum. */
 static void
-_carrier_update_from_partials (costas_state_t      *car,
-                               const float complex *partials, size_t n)
+dsss_rx_carrier_update_from_partials (costas_state_t      *car,
+                                      const float complex *partials, size_t n)
 {
   if (n == 0)
     return;
@@ -231,8 +214,9 @@ _carrier_update_from_partials (costas_state_t      *car,
  * prompts written to `dll_out` (capped at max_out, a generous
  * caller-supplied bound). */
 static size_t
-_track_carrier_dll (dsss_receiver_state_t *s, const float complex *x,
-                    size_t x_len, float complex *dll_out, size_t max_out)
+dsss_rx_track_carrier_dll (dsss_receiver_state_t *s, const float complex *x,
+                           size_t x_len, float complex *dll_out,
+                           size_t max_out)
 {
   size_t emitted = 0;
   size_t pos     = 0; /* index into x of the next unconsumed raw sample */
@@ -251,7 +235,7 @@ _track_carrier_dll (dsss_receiver_state_t *s, const float complex *x,
         s->car_wiped_buf[i] = costas_wipeoff (&s->car, s->car_carry_buf[i]);
       size_t n_out = dll_steps (s->dll, s->car_wiped_buf, s->tsamps,
                                 dll_out + emitted, max_out - emitted);
-      _carrier_update_from_partials (&s->car, dll_out + emitted, n_out);
+      dsss_rx_carrier_update_from_partials (&s->car, dll_out + emitted, n_out);
       emitted += n_out;
       s->car_carry_len = 0;
     }
@@ -263,7 +247,7 @@ _track_carrier_dll (dsss_receiver_state_t *s, const float complex *x,
         s->car_wiped_buf[i] = costas_wipeoff (&s->car, chunk[i]);
       size_t n_out = dll_steps (s->dll, s->car_wiped_buf, s->tsamps,
                                 dll_out + emitted, max_out - emitted);
-      _carrier_update_from_partials (&s->car, dll_out + emitted, n_out);
+      dsss_rx_carrier_update_from_partials (&s->car, dll_out + emitted, n_out);
       emitted += n_out;
       pos += s->tsamps;
     }
@@ -282,14 +266,14 @@ _track_carrier_dll (dsss_receiver_state_t *s, const float complex *x,
  * ratio) rather than relying on a *_max_out() call that would need to
  * know x_len in advance. */
 static size_t
-_track_chain (dsss_receiver_state_t *s, const float complex *x, size_t x_len,
-              float complex *out, size_t max_out)
+dsss_rx_track_chain (dsss_receiver_state_t *s, const float complex *x,
+                     size_t x_len, float complex *out, size_t max_out)
 {
   if (x_len == 0)
     return 0;
 
   float complex *dll_out = dp_xmalloc (x_len * sizeof *dll_out);
-  size_t         n_dll   = _track_carrier_dll (s, x, x_len, dll_out, x_len);
+  size_t n_dll = dsss_rx_track_carrier_dll (s, x, x_len, dll_out, x_len);
 
   size_t         rc_cap = (size_t)((double)n_dll * s->rc->rate) + 64;
   float complex *rc_out = dp_xmalloc (rc_cap * sizeof *rc_out);
@@ -308,7 +292,16 @@ dsss_receiver_create (const uint8_t *code, size_t code_len, double chip_rate,
                       size_t segments, size_t sps, int differential)
 {
   if (!code || code_len < 1 || chip_rate <= 0.0 || symbol_rate <= 0.0
-      || spc < 1 || (m != 2 && m != 4 && m != 8) || segments < 1 || sps < 1)
+      || spc < 1 || (m != 2 && m != 4 && m != 8)
+      || segments < 1
+      /* sps < 2 cannot carry an m_out at all: the smallest legal terminal
+         count is 2 and MpskReceiver requires sps >= m_out, so sps = 1 has
+         no receiver to build. It used to pass this guard and reach
+         mpsk_receiver_create(), whose argument-error NULL then went
+         through dp_xnn() and ABORTED the interpreter with no exception and
+         no message (gh-782). Refusing here is the honest answer, and it is
+         the range mpsk_rx_derive_m_out() already documents. */
+      || sps < 2)
     return NULL;
 
   dsss_receiver_state_t *obj = dp_xcalloc (1, sizeof (*obj));
@@ -341,12 +334,13 @@ dsss_receiver_create (const uint8_t *code, size_t code_len, double chip_rate,
   /* Placeholder chain (phase 0, no Doppler) -- always allocated, seeded
    * for real the moment a hit fires (see the state struct's own doc
    * comment for why). */
-  _build_chain (chip_rate, symbol_rate, obj->code, code_len, spc, m,
-                differential, 0.0, 0.0, segments, sps, _derive_m_out (sps),
-                &obj->car, &obj->dll, &obj->rc, &obj->rx);
+  dsss_rx_build_chain (chip_rate, symbol_rate, obj->code, code_len, spc, m,
+                       differential, 0.0, 0.0, segments, sps,
+                       mpsk_rx_derive_m_out ((double)sps, 0), &obj->car,
+                       &obj->dll, &obj->rc, &obj->rx);
   obj->segments = segments;
   obj->sps      = sps;
-  obj->n        = _derive_m_out (sps);
+  obj->n        = mpsk_rx_derive_m_out ((double)sps, 0);
   return obj;
 }
 
@@ -355,7 +349,7 @@ dsss_receiver_destroy (dsss_receiver_state_t *state)
 {
   if (!state)
     return;
-  _free_chain (state);
+  dsss_rx_free_chain (state);
   free (state->car_wiped_buf);
   free (state->car_carry_buf);
   acq_destroy (state->acq);
@@ -370,7 +364,8 @@ dsss_receiver_reset (dsss_receiver_state_t *state)
   /* Best-effort: on OOM, leave the current chain in place rather than
    * signal a failure this void-returning lifecycle function can't report
    * (matches dll_reset()/mpsk_receiver_reset()'s own void contract). */
-  _rebuild_chain (state, 0.0, 0.0, state->segments, state->sps, state->n);
+  dsss_rx_rebuild_chain (state, 0.0, 0.0, state->segments, state->sps,
+                         state->n);
   state->tracking       = 0;
   state->doppler_hz_est = 0.0;
   state->cn0_dbhz_est   = 0.0;
@@ -422,17 +417,17 @@ dsss_receiver_steps (dsss_receiver_state_t *state, const float complex *x,
       acq_handoff_t ho;
       acq_build_handoff (state->acq, &hit, state->code_len, state->spc, &ho);
 
-      _rebuild_chain (state, ho.chip_phase, ho.doppler_hz_est, state->segments,
-                      state->sps, state->n);
+      dsss_rx_rebuild_chain (state, ho.chip_phase, ho.doppler_hz_est,
+                             state->segments, state->sps, state->n);
 
       state->tracking       = 1;
       state->doppler_hz_est = ho.doppler_hz_est;
       state->cn0_dbhz_est   = ho.cn0_dbhz_est;
 
-      return _track_chain (state, tail, tail_len, out, max_out);
+      return dsss_rx_track_chain (state, tail, tail_len, out, max_out);
     }
 
-  return _track_chain (state, x, x_len, out, max_out);
+  return dsss_rx_track_chain (state, x, x_len, out, max_out);
 }
 
 int
@@ -456,7 +451,7 @@ int
 dsss_receiver_configure_chain_raw (dsss_receiver_state_t *state,
                                    size_t segments, size_t sps, int n)
 {
-  if (segments < 1 || sps < 1 || n < 1 || (int)(sps % (size_t)n) != 0)
+  if (segments < 1 || sps < 2 || n < 1 || (int)(sps % (size_t)n) != 0)
     return -1;
 
   double chip_phase      = dll_get_code_phase (state->dll);
@@ -464,7 +459,7 @@ dsss_receiver_configure_chain_raw (dsss_receiver_state_t *state,
   double doppler_hz_now
       = mpsk_receiver_get_norm_freq (state->rx) * old_target_rate;
 
-  _rebuild_chain (state, chip_phase, doppler_hz_now, segments, sps, n);
+  dsss_rx_rebuild_chain (state, chip_phase, doppler_hz_now, segments, sps, n);
   return 0;
 }
 

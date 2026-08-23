@@ -541,16 +541,29 @@ def main(cli_args=None):
         help="module-level import dependency analysis (use --module-level --help for full options)",
     )
 
+    # The filenames are whatever argparse did not claim, rather than a declared
+    # positional, because a declared one cannot be interspersed with options:
+    # `nargs="*"` takes a single contiguous run, so `pyan3 a.py --dot b.py` would
+    # become an error. The price is that a misspelled option looks exactly like a
+    # filename, so reject the option-shaped leftovers by hand — otherwise pyan
+    # runs with the default the user was trying to override, and says nothing.
     known_args, unknown_args = parser.parse_known_args(cli_args)
+    misspelled = [a for a in unknown_args if a.startswith("-")]
+    if misspelled:
+        parser.error("unrecognized option(s): {}".format(" ".join(misspelled)))
 
     filenames = [os.path.abspath(fn2) for fn2 in expand_sources(unknown_args, exclude=known_args.exclude)]
 
     # determine root
     root = os.path.abspath(known_args.root) if known_args.root is not None else None
 
+    # The length check is deliberate where its sibling below is a plain truth test:
+    # `not unknown_args` beside an error about filenames reads as though the program
+    # wanted unknown arguments. Spelling it out makes a reader pause exactly long
+    # enough to see that here an unrecognized argument *is* a filename.
     if len(unknown_args) == 0:
         parser.error("Need one or more filenames to process")
-    elif len(filenames) == 0:
+    elif not filenames:
         parser.error("No files found matching given glob: {}".format(" ".join(unknown_args)))
 
     if known_args.nested_groups:

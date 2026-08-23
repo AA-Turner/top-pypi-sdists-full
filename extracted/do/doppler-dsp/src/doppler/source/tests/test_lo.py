@@ -7,6 +7,7 @@ phase continuity, ctrl-port FM shift, LUT accuracy, property accessors.
 import numpy as np
 import pytest
 
+import doppler.measure
 from doppler.source import LO
 
 TOL = 1e-3  # half a LUT bin at 2^16 resolution (~4.8e-5); 1e-3 is generous
@@ -93,7 +94,7 @@ def test_steps_ctrl_constant_shift():
     """Constant ctrl = 0.25 with base norm_freq=0 equals LO at 0.25."""
     lo_ctrl = LO(0.0)
     lo_ref = LO(0.25)
-    ctrl = np.full(8, 0.25, dtype=np.float32)
+    ctrl = np.full(8, 0.25, dtype=np.float64)
     out_ctrl = lo_ctrl.steps_ctrl(ctrl)
     out_ref = lo_ref.steps(8)
     np.testing.assert_allclose(out_ctrl.real, out_ref.real, atol=TOL)
@@ -103,7 +104,7 @@ def test_steps_ctrl_constant_shift():
 def test_steps_ctrl_no_base_mutation():
     """steps_ctrl must not modify the base norm_freq."""
     lo = LO(0.0)
-    ctrl = np.full(8, 0.25, dtype=np.float32)
+    ctrl = np.full(8, 0.25, dtype=np.float64)
     lo.steps_ctrl(ctrl)
     assert lo.norm_freq == 0.0
 
@@ -111,7 +112,7 @@ def test_steps_ctrl_no_base_mutation():
 def test_steps_ctrl_output_length():
     """Output length equals len(ctrl)."""
     lo = LO(0.1)
-    ctrl = np.zeros(16, dtype=np.float32)
+    ctrl = np.zeros(16, dtype=np.float64)
     out = lo.steps_ctrl(ctrl)
     assert len(out) == 16
     assert out.dtype == np.complex64
@@ -139,6 +140,64 @@ def test_quarter_rate_quadrature():
         [-out[0].imag, out[0].real],
         atol=TOL,
     )
+
+
+# ── Spurious content ──────────────────────────────────────────────────
+#
+# lo_core.h guarantees SFDR >= 90 dBc at ANY frequency. That is a bound,
+# not the typical ~96 dBc, and the two differ because the spur level is
+# set by the LOW 16 bits of phase_inc -- the remainder the LUT index
+# throws away -- rather than by the frequency. The header used to state
+# ~96 dBc unqualified; these two tests are why it no longer does, and
+# what stops it drifting back.
+#
+# Full characterisation, including the sweep these two points were
+# chosen from: src/doppler/source/tests/validation/lo/results.md.
+
+SFDR_BOUND_DBC = 90.0
+
+# phase_inc = (carrier << 16) | remainder. The carrier keeps the tone
+# clear of DC and Nyquist (both are excluded from a spur search, so a
+# tone parked on either measures nonsense rather than the LO); the
+# remainder is what actually sets the spur.
+_SFDR_CARRIER = 12345
+
+
+def _sfdr_dbc(remainder, n=1 << 16):
+    """SFDR of the LO at a chosen phase_inc remainder, measured."""
+    tone = doppler.measure.ToneMeasure(n=n, fs=1.0, dynamic_range_db=150.0)
+    phase_inc = (_SFDR_CARRIER << 16) | remainder
+    return tone.analyze_complex(LO(phase_inc / 2.0**32).steps(n)).sfdr_dbc
+
+
+def test_sfdr_worst_case_meets_the_documented_bound():
+    """The WORST remainder still clears 90 dBc.
+
+    Half a LUT bin makes the truncation error alternate with period 2,
+    which concentrates every bit of it into a single spur -- the
+    classical 6.02*B - 3.92 = 92.40 dBc bound for a B-bit phase index,
+    and the worst any frequency can do.
+    """
+    worst = _sfdr_dbc(0x8000)
+    assert worst == pytest.approx(92.40, abs=0.2), (
+        f"the worst-case spur moved: {worst:.2f} dBc, expected the "
+        f"6.02*16 - 3.92 = 92.40 dBc phase-truncation bound"
+    )
+    assert worst >= SFDR_BOUND_DBC
+
+
+def test_sfdr_typical_and_spur_free_cases():
+    """The other two regimes, so the bound is not the whole story.
+
+    A generic remainder gives the familiar ~96 dBc; a remainder of zero
+    is no truncation at all and is limited only by float32.
+    """
+    typical = _sfdr_dbc(0x4D2F)
+    assert typical == pytest.approx(96.33, abs=0.3)
+    assert typical >= SFDR_BOUND_DBC
+
+    # A whole number of LUT bins indexes the table exactly.
+    assert _sfdr_dbc(0x0000) > 140.0
 
 
 # ── Property accessors ────────────────────────────────────────────────
@@ -213,7 +272,7 @@ def test_steps_ctrl_large_n():
     """steps_ctrl sizes its buffer to the control-array length, not a fixed
     cap."""
     n = 200_000
-    ctrl = np.zeros(n, dtype=np.float32)
+    ctrl = np.zeros(n, dtype=np.float64)
     y = LO(norm_freq=0.1).steps_ctrl(ctrl)
     assert y.shape == (n,)
     assert np.allclose(np.abs(y), 1.0, atol=TOL)
@@ -221,7 +280,7 @@ def test_steps_ctrl_large_n():
 
 def test_steps_ctrl_out_writes_into_callers_buffer():
     lo = LO(norm_freq=0.1)
-    ctrl = np.zeros(64, dtype=np.float32)
+    ctrl = np.zeros(64, dtype=np.float64)
     out = np.zeros(max(lo.steps_ctrl_max_out(), len(ctrl)), dtype=np.complex64)
     y = lo.steps_ctrl(ctrl, out=out)
     assert np.shares_memory(y, out)
@@ -253,8 +312,8 @@ def test_steps_no_aliasing_across_calls():
 
 def test_steps_ctrl_no_aliasing_across_calls():
     lo = LO(norm_freq=0.0)
-    ctrl1 = np.full(4, 0.25, dtype=np.float32)
-    ctrl2 = np.full(4, 0.5, dtype=np.float32)
+    ctrl1 = np.full(4, 0.25, dtype=np.float64)
+    ctrl2 = np.full(4, 0.5, dtype=np.float64)
     first = lo.steps_ctrl(ctrl1)
     first_snapshot = first.copy()
     _ = lo.steps_ctrl(ctrl2)

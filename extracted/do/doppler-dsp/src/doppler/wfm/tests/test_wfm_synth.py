@@ -8,6 +8,8 @@ sweep, and the auto-resolved SNR (Es/No for the modulated types).
 import numpy as np
 import pytest
 
+from doppler.mpsk import mpsk_map
+from doppler.snr import snr_data_aided_db
 from doppler.wfm import PN, Synth, bits, chirp, mls_poly, rrc_taps
 
 
@@ -117,6 +119,105 @@ def test_bpsk_esno_auto_snr():
     assert np.isclose(_power(s), expected_total, atol=0.05)
 
 
+#: Symbols per case in the Es/N0 read-back below. 20 000 puts the estimator's
+#: own standard error near 0.03 dB, so the 0.25 dB tolerance is about the
+#: generator, not about how long the test ran.
+_ESNO_NSYM = 20000
+
+
+@pytest.mark.parametrize("sps", [1, 4, 8, 16])
+@pytest.mark.parametrize("esno", [0.0, 6.0, 12.0, 20.0])
+def test_esno_mode_delivers_esno_at_the_matched_filter(sps, esno):
+    """``snr_mode="esno"`` must deliver the Es/N0 it claims, where it claims.
+
+    The claim is a RATIO OF ENERGIES at the symbol decision, not a per-sample
+    power ratio, so it is only readable after a matched filter: an
+    integrate-and-dump over ``sps`` samples turns the requested `Es = A^2*sps`
+    into the soft symbol's power and the per-sample `N0` into `sps*N0`, and
+    the ratio survives. Reading the raw sample stream instead measures
+    `Es/N0 - 10log10(sps)` and reads 9 dB low at sps=8, which is what makes a
+    wrong `esno` look plausible.
+
+    Read back with `snr.snr_data_aided_db` -- the library's own data-aided
+    estimator, against the known transmitted signs -- so a shared error would
+    have to live in both the generator and the estimator to hide here. Nothing
+    checked this before: `test_bpsk_esno_auto_snr` above pins the total power
+    the resolved noise amplitude produces, which is the same number for a
+    correct Es/N0 and for one referenced to the wrong node.
+    """
+    rng = np.random.default_rng(5)
+    sent = rng.integers(0, 2, _ESNO_NSYM).astype(np.uint8)
+    syms = np.where(sent, -1.0, 1.0).astype(np.complex64)
+    x = Synth(
+        type="symbols",
+        symbols=syms,
+        sps=sps,
+        fs=1.0,
+        freq=0.0,
+        snr=esno,
+        snr_mode="esno",
+        seed=7,
+    ).steps(sps * _ESNO_NSYM)
+    soft = x.reshape(_ESNO_NSYM, sps).sum(axis=1).astype(np.complex64)
+    got = float(snr_data_aided_db(np.ascontiguousarray(soft), sent))
+    assert abs(got - esno) < 0.25, (
+        f"sps={sps}: asked for Es/N0 {esno:.1f} dB, the matched-filter "
+        f"output reads {got:.2f} dB"
+    )
+
+
+def test_esno_holds_on_a_carrier():
+    """The LO must not change the delivered Es/N0 -- it is a rotation.
+
+    fs/4 is the placement the real receiver path is designed around, and a
+    carrier is the one thing between the noise injection and the measurement
+    that could plausibly rescale it.
+    """
+    rng = np.random.default_rng(5)
+    sent = rng.integers(0, 2, _ESNO_NSYM).astype(np.uint8)
+    syms = np.where(sent, -1.0, 1.0).astype(np.complex64)
+    sps, esno, fc = 8, 12.0, 0.25
+    x = Synth(
+        type="symbols",
+        symbols=syms,
+        sps=sps,
+        fs=1.0,
+        freq=fc,
+        snr=esno,
+        snr_mode="esno",
+        seed=7,
+    ).steps(sps * _ESNO_NSYM)
+    z = x * np.exp(-2j * np.pi * fc * np.arange(x.size))
+    soft = z.reshape(_ESNO_NSYM, sps).sum(axis=1).astype(np.complex64)
+    got = float(snr_data_aided_db(np.ascontiguousarray(soft), sent))
+    assert abs(got - esno) < 0.25, f"on an fs/4 carrier: {got:.2f} dB"
+
+
+def test_bpsk_payload_regenerates_from_its_descriptor():
+    """The PN-sourced bits of a `type="bpsk"` waveform are reproducible.
+
+    A stimulus whose payload cannot be regenerated outside the generator can
+    only be scored against itself, which is how a receiver test ends up
+    measuring its own demodulator. `PN(poly=0, seed, length)` -- the same three
+    numbers the waveform descriptor carries -- must reproduce the transmitted
+    bits exactly, so a BER can be scored against the descriptor alone.
+    """
+    n, sps, seed, length = 4000, 4, 7, 16
+    x = Synth(
+        type="bpsk",
+        sps=sps,
+        fs=1.0,
+        freq=0.0,
+        snr=100.0,
+        seed=seed,
+        pn_length=length,
+    ).steps(sps * n)
+    sent = (x[::sps].real < 0).astype(np.uint8)
+    assert np.array_equal(
+        PN(poly=0, seed=seed, length=length).generate(n), sent
+    )
+
+
 def test_reset_reproduces():
     obj = Synth(type="qpsk", sps=4, seed=11)
     a = obj.steps(512)
@@ -193,15 +294,29 @@ def test_rrc_shapes_bits():
     assert _occupied_bw(rrc) < 0.5 * _occupied_bw(rect)
 
 
-def test_rrc_bits_matches_matched_filter():
+@pytest.mark.parametrize("sps", [4, 3])
+def test_rrc_bits_matches_matched_filter(sps):
     """Definitive check: the bits RRC output equals the symbol-rate impulse
-    train convolved with the sqrt(sps)-scaled taps — for both bpsk and qpsk."""
-    sps, span, beta, n = 4, 8, 0.35, 200
+    train convolved with the sqrt(sps)-scaled taps — for both bpsk and qpsk.
+
+    ``sps`` selects the shaping implementation, and that is why it is
+    parametrized rather than fixed: ``wfm_synth_set_rrc`` shapes a
+    **power-of-two** ``sps`` with a polyphase ``resamp`` bank and falls back
+    to a **dense FIR** for anything else. Same convolution, two separate
+    block loops in ``wfm_synth_steps()`` — and the dense-FIR bits loop had no
+    test on any path, so the four-copy bits→symbol map it carried could have
+    been fixed in one branch and not the other with nothing to say so.
+    """
+    span, beta, n = 8, 0.35, 200
     pat = np.array([1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0], np.uint8)
     taps = rrc_taps(beta, sps, span)
 
-    # bpsk: 0 -> +1, 1 -> -1
-    syms = np.where(pat == 1, -1.0, 1.0).astype(np.complex64)
+    # The reference symbols come from the library's own bits->symbol map
+    # (mpsk_map, the inverse dp_ber_score() applies), NOT from a formula
+    # rewritten here: a hand-built map is a second copy that can — and did —
+    # disagree with the canonical label assignment while both sides looked
+    # self-consistent. One symbol's bits are read MSB-first into a Gray label.
+    syms = mpsk_map(pat, 2)  # bpsk: 1 bit/symbol, the bit IS the label
     nsym = n // sps + span + 4
     imp = np.zeros(nsym * sps, dtype=np.complex64)
     imp[::sps] = syms[np.arange(nsym) % len(syms)]
@@ -216,13 +331,9 @@ def test_rrc_bits_matches_matched_filter():
     ).steps(n)
     assert np.allclose(got, ref, atol=1e-5)
 
-    # qpsk: Gray-mapped 2 bits/symbol, legs at +-1/sqrt(2)
-    s = 1.0 / np.sqrt(2.0)
+    # qpsk: 2 bits/symbol, MSB first -> the same Gray label mpsk_map takes
     pairs = pat.reshape(-1, 2)
-    qsym = np.array(
-        [(-s if p[0] else s) + 1j * (-s if p[1] else s) for p in pairs],
-        dtype=np.complex64,
-    )
+    qsym = mpsk_map(((pairs[:, 0] << 1) | pairs[:, 1]).astype(np.uint8), 4)
     impq = np.zeros(nsym * sps, dtype=np.complex64)
     impq[::sps] = qsym[np.arange(nsym) % len(qsym)]
     refq = np.convolve(impq, taps * np.sqrt(sps))[:n]
@@ -366,7 +477,8 @@ def test_bits_array_input():
 def test_carrier_freq_truncates_toward_zero():
     """The carrier's actual frequency is the *truncated* 32-bit phase-word
     approximation of the requested frequency (native/inc/nco/nco_core.h's
-    nco_norm_to_inc, the one shared LO/NCO primitive), rounded toward zero
+    nco_norm_freq_to_inc, the one shared LO/NCO primitive), rounded toward
+    zero
     -- not to nearest. freq=51 Hz at fs=21e6 is a case where truncation and
     round-to-nearest differ (freq=50 Hz at the same fs does not -- see
     native/tests/test_lo_core.c's own cases for both): the truncated
@@ -605,3 +717,161 @@ def test_chirp_freq_is_f_start_alias():
     a = Synth(type="chirp", freq=1e5, f_end=2e5, fs=1e6).steps(1024)
     b = Synth(type="chirp", f_start=1e5, f_end=2e5, fs=1e6).steps(1024)
     assert np.array_equal(a, b)
+
+
+@pytest.mark.parametrize("sps", [1, 2, 4, 8])
+def test_rrc_shaper_lives_at_every_power_of_two_sps(sps: int) -> None:
+    """The polyphase RRC shaper must produce a real waveform at sps == 1.
+
+    ``sps == 1`` is a power of two, so ``set_rrc`` takes the polyphase
+    branch and builds the shaper at ``rate = sps = 1.0``. Two undefined
+    conversions used to meet there and cancel: ``phase_inc`` came from
+    ``(uint32_t)(2^32 / 1.0)`` (C99 6.3.1.4, 0 on x86) and ``get_branch``
+    shifted a ``uint32_t`` by 32 (6.5.7p3). A zero increment pinned the
+    phase at 0, which made the bad shift select arm 0, and the shaper
+    silently emitted a DEAD waveform -- all zeros, one distinct sample --
+    while every other sps was correct.
+
+    Fixing either alone is worse than fixing neither: a live phase with
+    the bad shift indexes far outside a one-arm bank and segfaults. So
+    this pins the OUTPUT, not the increment, and it is parametrized
+    across sps because the defect was invisible at every value but one.
+    """
+    s = Synth(
+        type="bpsk",
+        sps=sps,
+        pulse="rrc",
+        rrc_beta=0.35,
+        rrc_span=8,
+        symbols=256,
+        seed=7,
+    )
+    y = np.asarray(s.steps(256))
+
+    assert len(y) == 256
+    assert not np.allclose(y, 0.0), f"dead waveform at sps={sps}"
+    # A shaped BPSK stream is near unit power and takes many distinct
+    # values; a stalled delay line yields exactly one.
+    assert len(np.unique(np.round(y, 6))) > 64
+    assert 0.5 < np.sqrt((abs(y) ** 2).mean()) < 1.5
+
+
+# ── The unspread frame ───────────────────────────────────────────────────────
+#
+# `sync` / `acq_code` / `acq_reps` / `crc` were accepted on every face, stored,
+# and readable back — and applied only on `type="dsss"`. A caller who asked for
+# a framed BPSK waveform got an unframed one, exit 0, no warning. What let that
+# ship is that nothing asserted a frame kwarg CHANGES the waveform, so that is
+# what these assert. A flag-presence check would have passed throughout.
+
+BARKER13 = np.array([1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1], np.uint8)
+ACQ8 = np.array([1, 0] * 4, np.uint8)
+PAYLOAD = np.array([0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0], np.uint8)
+
+
+def _framed_kwargs():
+    return {"sync": BARKER13, "acq_code": ACQ8, "acq_reps": 4, "crc": "crc16"}
+
+
+def test_a_frame_changes_the_waveform():
+    """The assertion whose absence was the defect.
+
+    Not "the kwargs are accepted" — they always were. The frame has to reach
+    the samples, and the only way to say that is to compare against the
+    unframed twin built from the same payload and seed.
+    """
+    common = {
+        "type": "bits",
+        "fs": 1e6,
+        "sps": 4,
+        "bits": PAYLOAD,
+        "modulation": "bpsk",
+    }
+    plain = np.asarray(Synth(**common).steps(512))
+    framed = np.asarray(Synth(**common, **_framed_kwargs()).steps(512))
+
+    assert not np.array_equal(plain, framed)
+
+
+def test_a_framed_stream_carries_the_frames_bits():
+    """It is the DESCRIPTOR's bits, not merely different ones.
+
+    `[preamble x 4 | Barker-13 | payload | CRC-16]` at one sample per symbol,
+    BPSK-mapped (0 -> +1, 1 -> -1). Checking the head pins the layout and the
+    order; checking the period pins that the frame is what cycles.
+    """
+    s = Synth(
+        type="bits",
+        fs=1.0,
+        sps=1,
+        bits=PAYLOAD,
+        modulation="bpsk",
+        **_framed_kwargs(),
+    )
+    nbits = 4 * len(ACQ8) + len(BARKER13) + len(PAYLOAD) + 16
+    y = np.asarray(s.steps(2 * nbits)).real
+
+    head = np.concatenate([np.tile(ACQ8, 4), BARKER13, PAYLOAD])
+    np.testing.assert_allclose(y[: len(head)], 1.0 - 2.0 * head, atol=1e-6)
+    # The 16-bit CRC trailer occupies the rest of the frame...
+    assert len(y[:nbits]) == nbits
+    # ...and then the whole frame repeats, which is what turns a one-frame
+    # description into a multi-frame record with no repeat count in it.
+    np.testing.assert_allclose(y[:nbits], y[nbits : 2 * nbits], atol=1e-6)
+
+
+def test_the_frame_survives_a_reset():
+    s = Synth(
+        type="bits",
+        fs=1.0,
+        sps=1,
+        bits=PAYLOAD,
+        modulation="bpsk",
+        **_framed_kwargs(),
+    )
+    first = np.asarray(s.steps(96))
+    s.reset()
+    np.testing.assert_array_equal(first, np.asarray(s.steps(96)))
+
+
+@pytest.mark.parametrize("wtype", ["bpsk", "qpsk", "pn", "tone"])
+def test_a_frame_a_waveform_cannot_carry_is_refused(wtype):
+    """Refused, never accepted and dropped.
+
+    These types source their symbols from the PN LFSR, so there is no length
+    to bound a payload. Silently ignoring the request is what this whole
+    change exists to stop, so the refusal is the feature — and the message
+    names the replacement.
+    """
+    s = Synth(type=wtype, fs=1e6, sps=4, **_framed_kwargs())
+    with pytest.raises((RuntimeError, ValueError)):
+        s.steps(64)
+
+
+def test_a_frame_with_no_payload_is_refused():
+    s = Synth(
+        type="bits", fs=1e6, sps=4, modulation="bpsk", **_framed_kwargs()
+    )
+    with pytest.raises((RuntimeError, ValueError)):
+        s.steps(64)
+
+
+def test_crc_alone_does_not_frame_an_unframed_pattern():
+    """`crc` defaults to crc16 on EVERY source.
+
+    So reading it as intent to frame would have appended a 16-bit trailer to
+    every unframed bit pattern anyone has ever generated — a silent change to
+    existing waveforms, which is the same class of failure as the one being
+    fixed. A preamble or a sync word is what says "framed".
+    """
+    common = {
+        "type": "bits",
+        "fs": 1.0,
+        "sps": 1,
+        "bits": PAYLOAD,
+        "modulation": "bpsk",
+    }
+    plain = np.asarray(Synth(**common).steps(64))
+    crc_only = np.asarray(Synth(**common, crc="crc16").steps(64))
+
+    np.testing.assert_array_equal(plain, crc_only)

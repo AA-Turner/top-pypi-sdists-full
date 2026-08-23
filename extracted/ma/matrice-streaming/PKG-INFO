@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrice_streaming
-Version: 1.0.2
+Version: 1.0.3
 Summary: Common server utilities for Matrice.ai services
 Author-email: "Matrice.ai" <dipendra@matrice.ai>
 License: MIT
@@ -22,6 +22,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.txt
+Requires-Dist: psutil
 Provides-Extra: dev
 Requires-Dist: pytest==9.0.3; extra == "dev"
 Requires-Dist: pytest-cov==6.0.0; extra == "dev"

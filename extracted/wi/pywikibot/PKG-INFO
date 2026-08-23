@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.6.0
+Version: 11.7.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -152,10 +152,10 @@ Dynamic: requires-dist
    :target: https://pypi.org/project/pywikibot/
 .. image:: https://static.pepy.tech/badge/pywikibot
    :alt: Total downloads
-   :target: https://pepy.tech/project/pywikibot
+   :target: https://pepy.tech/projects/pywikibot
 .. image:: https://static.pepy.tech/personalized-badge/pywikibot?period=month&units=international_system&left_color=black&right_color=blue&left_text=monthly
    :alt: Monthly downloads
-   :target: https://pepy.tech/project/pywikibot
+   :target: https://pepy.tech/projects/pywikibot
 .. image:: https://img.shields.io/github/last-commit/wikimedia/pywikibot
    :alt: Last commit
    :target: https://gerrit.wikimedia.org/r/plugins/gitiles/pywikibot/core/
@@ -272,27 +272,55 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.6
+Release 11.7
 ============
 
-* Add support for bolwiki (T429953)
-* The *top_only* parameter of page.User.contributionsand APISite.usercontribs
-  was renamed to *top*. Its behavior has
-  changed, and `False` can now be used as an argument. (T308961)
-* Add a new collection class page.Contributionto hold results from
-  page.User.contribs(T308961)
-* Add a new method page.User.contribsto retrieve user contributions.
-  This method supports all ``prop`` items from Usercontribs(T308961)
-* Add a new exception exceptions.UnexpectedAPIDataError(T308961)
-* Add a new collection class tools.collections.DataRecordand derive
-  page.Revisionfrom it (T432464)
-* Make i18n.altlanga public function (T432543)
-* Use requests.exceptions.JSONDecodeErrorinstead of ValueErrorin
-  data.api.Request._json_loads
-* Provide a backports.sentinelimplementation backported from Python 3.15
+* Yield non-strict unconnected pages in APISite.unconnected_pages()
+  and fix the
+  regression introduced in 10.4.0.
+* api.Request.wait()and data.WaitingMixin.wait
+  accept *kwargs* to be passed to exceptions.ApiTimeoutError. (T434974)
+* exceptions.ApiTimeoutErrorsupports *site* and *uri* attributes passed
+  as parameters. (T434974)
 * Update translations (i18n)
-* Fix WikiStats.get()to propagate HTTP fetch exceptions
-  instead of raising `AttributeError`
+* Honor *mode* for uncompressed archives in tools.open_archive.
+* Remove minimum retry limit from maxlag wait cycle in data.api.Request.submit.
+  (T434566)
+* Fix upload counter in specialbots.UploadRobot.
+* Avoid unnecessary pywikibot.Sitecreation in specialbots.UploadRobot.
+* Add page.BasePage.reviewand page.BasePage.unreview, which call
+  APISite.review_revision().
+  (T408389)
+* Add APISite.review_revision()
+  for the FlaggedRevsextension. (T408389)
+* Add ``show`` filters to APISite.blocks()
+  ; they can be set by the new *account*, *ip*,
+  *ip_range* and *temp* parameters. (T433531)
+* Duplicate pages are no longer yielded in page.BasePage.getReferencesand
+  APISite.pagereferences()when
+  backlinks and template inclusions overlap. (T405551)
+* page.BasePage.getOldVersionis only a convenience wrapper around
+  page.BasePage.get_revision. It is deprecated now in favour of
+  ``get_revision(oldid, content=True).text``.  (T433799)
+* HTML comments spanning multiple lines are now recognized with textlib.Timestripper.
+  (T432541)
+* The *lang* parameter of the i18n.altlangfunction is now positional-only. The *lang* value
+  is no longer included in the returned fallback sequence; the fallback sequence was changed from a
+  list to a tuple.
+* Raise the newly implemented exceptions.CitoidErrorwhen the Citoid service of the
+  data.citoidmodule returns an error response. (T433230)
+* Improvements for APISite.assert_valid_iter_params()
+  : the *msg_prefix* parameter is now
+  positional-only and the *is_ts* parameter is now keyword-only. If *start* and *end* parameters are
+  ``datetime`` objects, the *is_ts* parameter is always treated as ``True``. A ``ValueError`` is
+  raised instead of ``AssertionError`` when *start* and *end* parameters are in the wrong order.
+* All ``ucshow`` parameters of Usercontribsare supported by
+  APSite.usercontribs(),
+  pywikibot.User.contributionsand pywikibot.User.contribs.
+* FlaggedRevssupport was added. The APSite.stable_revid()
+  site method
+  and the page.BasePage.stable_revision_idand page.BasePage.stable_revision
+  properties were added to retrieve the stable revision and its ID. (T409848)
 
 
 Deprecations
@@ -395,6 +423,14 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.7.0: page.BasePage.getOldVersionis now deprecated in favour of
+  get_revision(oldid, content=True).text. (T433799)
+* 11.7.0: The *lang* parameter of the i18n.altlangfunction is positional-only. Passing
+  *lang* as a keyword argument is deprecated.
+* 11.7.0: The interface of APISite.assert_valid_iter_params()
+  was changed. The *msg_prefix*
+  parameter is now positional-only and the *is_ts* parameter is now keyword-only. The previous
+  interface is deprecated.
 * 11.6.0: The *top_only* parameter of APISite.usercontribs
   has been deprecated; use *top* instead
   (T308961)

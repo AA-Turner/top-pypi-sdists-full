@@ -47,6 +47,7 @@ type _Numeric = npc.number | np.bool
 
 type _ToDType = type[complex | _Numeric] | np.dtype[_Numeric] | str
 
+type _SpArray1D[ScalarT: _Numeric] = sparray[ScalarT, tuple[int]]
 type _SpArray2D[ScalarT: _Numeric] = sparray[ScalarT, tuple[int, int]]
 type _COOArray2D[ScalarT: _Numeric] = coo_array[ScalarT, tuple[int, int]]
 type _CSRArray2D[ScalarT: _Numeric] = csr_array[ScalarT, tuple[int, int]]
@@ -54,6 +55,7 @@ type _DOKArray2D[ScalarT: _Numeric] = dok_array[ScalarT, tuple[int, int]]
 
 type _ToArray1D2D[ScalarT: _Numeric] = onp.CanArray[tuple[int] | tuple[int, int], np.dtype[ScalarT]] | Seq[ScalarT | Seq[ScalarT]]
 type _ToSpMatrix[ScalarT: _Numeric] = spmatrix[ScalarT] | onp.ToArray2D[Never, ScalarT]
+type _ToSparse1D[ScalarT: _Numeric] = _spbase[ScalarT, tuple[int]] | onp.ToArray1D[Never, ScalarT]
 type _ToSparse2D[ScalarT: _Numeric] = _spbase[ScalarT, tuple[int, int]] | onp.ToArray2D[Never, ScalarT]
 
 type _FmtBSR = Literal["bsr"]
@@ -63,7 +65,6 @@ type _FmtCSR = Literal["csr"]
 type _FmtDIA = Literal["dia"]
 type _FmtDOK = Literal["dok"]
 type _FmtLIL = Literal["lil"]
-type _FmtNonCOO = Literal["bsr", "csc", "csr", "dia", "dok", "lil"]
 
 # TODO(julvandenbroeck): find a way to separate float and complex
 type _ComplexSeq1D2D = Seq[Seq[complex] | complex]
@@ -84,8 +85,12 @@ type _ToMatsDiagUnknown = Iterable[_spbase | onp.ArrayND[_Numeric] | complex | S
 class _DataSampler(Protocol):
     def __call__(self, /, *, size: int) -> onp.ArrayND[_Numeric]: ...
 
+@type_check_only
+class _HasMT[MT](Protocol):
+    @property
+    def mT(self) -> MT: ...
+
 ###
-#
 
 @overload  # nasty workaround for https://github.com/microsoft/pyright/issues/10232
 def expand_dims[ScalarT: _Numeric](  # type: ignore[overload-overlap]
@@ -96,9 +101,7 @@ def expand_dims[ScalarT: _Numeric](
     A: sparray[ScalarT, tuple[int]], /, *, axis: int = 0
 ) -> coo_array[ScalarT, tuple[int, int]]: ...
 @overload
-def expand_dims[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], /, *, axis: int = 0
-) -> coo_array[ScalarT, tuple[int, int, int]]: ...
+def expand_dims[ScalarT: _Numeric](A: _SpArray2D[ScalarT], /, *, axis: int = 0) -> coo_array[ScalarT, tuple[int, int, int]]: ...
 @overload
 def expand_dims[ScalarT: _Numeric](
     A: sparray[ScalarT, tuple[int, int, int]], /, *, axis: int = 0
@@ -195,8 +198,6 @@ def diags_array(
     format: _FmtLIL,
     dtype: op.JustObject | None = ...,
 ) -> lil_array[np.float64] | lil_array[np.complex128]: ...
-
-#
 @overload  # diagonals: <known>, format: "dia" | None, dtype: None
 def diags_array[ScalarT: _Numeric](
     diagonals: _ToArray1D2D[ScalarT],
@@ -267,8 +268,6 @@ def diags_array[ScalarT: _Numeric](
     format: _FmtLIL,
     dtype: op.JustObject | None = ...,
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: bool-like
 def diags_array(
     diagonals: _ToComplex1D2D,
@@ -339,8 +338,6 @@ def diags_array(
     format: _FmtLIL,
     dtype: onp.AnyBoolDType,
 ) -> lil_array[np.bool]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: int-like
 def diags_array(
     diagonals: _ToComplex1D2D,
@@ -411,8 +408,6 @@ def diags_array(
     format: _FmtLIL,
     dtype: onp.AnyIntDType,
 ) -> lil_array[np.int_]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: float64-like
 def diags_array(
     diagonals: _ToComplex1D2D,
@@ -483,8 +478,6 @@ def diags_array(
     format: _FmtLIL,
     dtype: onp.AnyFloat64DType,
 ) -> lil_array[np.float64]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: complex128-like
 def diags_array(
     diagonals: _ToComplex1D2D,
@@ -555,8 +548,6 @@ def diags_array(
     format: _FmtLIL,
     dtype: onp.AnyComplex128DType,
 ) -> lil_array[np.complex128]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: <known>
 def diags_array[ScalarT: _Numeric](
     diagonals: _ToComplex1D2D,
@@ -627,8 +618,6 @@ def diags_array[ScalarT: _Numeric](
     format: _FmtLIL,
     dtype: onp.ToDType[ScalarT],
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: <unknown>
 def diags_array(
     diagonals: _ToComplex1D2D,
@@ -664,7 +653,6 @@ def diags_array(
     diagonals: _ToComplex1D2D, /, *, offsets: _Offsets = 0, shape: tuple[int, int] | None = None, format: _FmtLIL, dtype: _ToDType
 ) -> lil_array: ...
 
-###
 # NOTE: `diags_array` should be prefered over `diags`
 @overload  # diagonals: <known>, format: "dia" | None, dtype: None
 def diags[ScalarT: _Numeric](
@@ -728,8 +716,6 @@ def diags[ScalarT: _Numeric](
     format: _FmtLIL,
     dtype: op.JustObject | None = ...,
 ) -> lil_matrix[ScalarT]: ...
-
-#
 @overload  # diagonals: <known>, format: "dia" | None, dtype: <known>
 def diags[ScalarT: _Numeric](
     diagonals: _ToArray1D2D[_Numeric],
@@ -793,8 +779,6 @@ def diags[ScalarT: _Numeric](
     format: _FmtLIL,
     dtype: onp.ToDType[ScalarT],
 ) -> lil_matrix[ScalarT]: ...
-
-#
 @overload  # diagonals: <unknown>, format: "dia" | None, dtype: <unknown>
 def diags(
     diagonals: _ToComplex1D2D,
@@ -858,7 +842,6 @@ def diags(
     dtype: _ToDType | op.JustObject | None = ...,
 ) -> lil_matrix: ...
 
-###
 # NOTE: `diags_array` should be prefered over `spdiags`
 @overload
 def spdiags[ScalarT: _Numeric](
@@ -888,8 +871,6 @@ def spdiags[ScalarT: _Numeric](
 def spdiags[ScalarT: _Numeric](
     data: _ToArray1D2D[ScalarT], diags: _Offsets, m: int, n: int, format: _FmtLIL
 ) -> lil_matrix[ScalarT]: ...
-
-#
 @overload
 def spdiags[ScalarT: _Numeric](
     data: _ToArray1D2D[ScalarT], diags: _Offsets, m: tuple[int, int] | None = None, n: None = None, format: _FmtDIA | None = None
@@ -934,8 +915,6 @@ def identity(n: int, dtype: onp.AnyFloat64DType = "d", *, format: _FmtCSR) -> cs
 def identity(n: int, dtype: onp.AnyFloat64DType = "d", *, format: _FmtDOK) -> dok_matrix[np.float64]: ...
 @overload  # dtype: float64-like (default), format: "lil"
 def identity(n: int, dtype: onp.AnyFloat64DType = "d", *, format: _FmtLIL) -> lil_matrix[np.float64]: ...
-
-#
 @overload  # dtype: bool-like, format: "dia" | None
 def identity(n: int, dtype: onp.AnyBoolDType, format: _FmtDIA | None = None) -> dia_matrix[np.bool]: ...
 @overload  # dtype: bool-like, format: "bsr"
@@ -950,8 +929,6 @@ def identity(n: int, dtype: onp.AnyBoolDType, format: _FmtCSR) -> csr_matrix[np.
 def identity(n: int, dtype: onp.AnyBoolDType, format: _FmtDOK) -> dok_matrix[np.bool]: ...
 @overload  # dtype: bool-like, format: "lil"
 def identity(n: int, dtype: onp.AnyBoolDType, format: _FmtLIL) -> lil_matrix[np.bool]: ...
-
-#
 @overload  # dtype: int-like, format: "dia" | None
 def identity(n: int, dtype: onp.AnyIntDType, format: _FmtDIA | None = None) -> dia_matrix[np.int_]: ...
 @overload  # dtype: int-like, format: "bsr"
@@ -966,8 +943,6 @@ def identity(n: int, dtype: onp.AnyIntDType, format: _FmtCSR) -> csr_matrix[np.i
 def identity(n: int, dtype: onp.AnyIntDType, format: _FmtDOK) -> dok_matrix[np.int_]: ...
 @overload  # dtype: int-like, format: "lil"
 def identity(n: int, dtype: onp.AnyIntDType, format: _FmtLIL) -> lil_matrix[np.int_]: ...
-
-#
 @overload  # dtype: complex128-like, format: "dia" | None
 def identity(n: int, dtype: onp.AnyComplex128DType, format: _FmtDIA | None = None) -> dia_matrix[np.complex128]: ...
 @overload  # dtype: complex128-like, format: "bsr"
@@ -982,8 +957,6 @@ def identity(n: int, dtype: onp.AnyComplex128DType, format: _FmtCSR) -> csr_matr
 def identity(n: int, dtype: onp.AnyComplex128DType, format: _FmtDOK) -> dok_matrix[np.complex128]: ...
 @overload  # dtype: complex128-like, format: "lil"
 def identity(n: int, dtype: onp.AnyComplex128DType, format: _FmtLIL) -> lil_matrix[np.complex128]: ...
-
-#
 @overload  # dtype: <known>, format: "dia" | None
 def identity[ScalarT: _Numeric](n: int, dtype: onp.ToDType[ScalarT], format: _FmtDIA | None = None) -> dia_matrix[ScalarT]: ...
 @overload  # dtype: <known>, format: "bsr"
@@ -998,8 +971,6 @@ def identity[ScalarT: _Numeric](n: int, dtype: onp.ToDType[ScalarT], format: _Fm
 def identity[ScalarT: _Numeric](n: int, dtype: onp.ToDType[ScalarT], format: _FmtDOK) -> dok_matrix[ScalarT]: ...
 @overload  # dtype: <known>, format: "lil"
 def identity[ScalarT: _Numeric](n: int, dtype: onp.ToDType[ScalarT], format: _FmtLIL) -> lil_matrix[ScalarT]: ...
-
-#
 @overload  # dtype: <unknown>, format: "dia" | None
 def identity(n: int, dtype: _ToDType, format: _FmtDIA | None = None) -> dia_matrix[Incomplete]: ...
 @overload  # dtype: <unknown>, format: "bsr"
@@ -1015,7 +986,7 @@ def identity(n: int, dtype: _ToDType, format: _FmtDOK) -> dok_matrix[Incomplete]
 @overload  # dtype: <unknown>, format: "lil"
 def identity(n: int, dtype: _ToDType, format: _FmtLIL) -> lil_matrix[Incomplete]: ...
 
-###
+#
 @overload  # dtype: float64-like (default), format: "dia" | None
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyFloat64DType = ..., format: _FmtDIA | None = None
@@ -1044,8 +1015,6 @@ def eye_array(
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyFloat64DType = ..., format: _FmtLIL
 ) -> lil_array[np.float64]: ...
-
-#
 @overload  # dtype: bool-like, format: "dia" | None
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyBoolDType, format: _FmtDIA | None = None
@@ -1062,8 +1031,6 @@ def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyBoolDTy
 def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyBoolDType, format: _FmtDOK) -> _DOKArray2D[np.bool]: ...
 @overload  # dtype: bool-like, format: "lil"
 def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyBoolDType, format: _FmtLIL) -> lil_array[np.bool]: ...
-
-#
 @overload  # dtype: int-like, format: "dia" | None
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyIntDType, format: _FmtDIA | None = None
@@ -1080,8 +1047,6 @@ def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyIntDTyp
 def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyIntDType, format: _FmtDOK) -> _DOKArray2D[np.int_]: ...
 @overload  # dtype: int-like, format: "lil"
 def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyIntDType, format: _FmtLIL) -> lil_array[np.int_]: ...
-
-#
 @overload  # dtype: complex128-like, format: "dia" | None
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyComplex128DType, format: _FmtDIA | None = None
@@ -1110,8 +1075,6 @@ def eye_array(
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.AnyComplex128DType, format: _FmtLIL
 ) -> lil_array[np.complex128]: ...
-
-#
 @overload  # dtype: <known>, format: "dia" | None
 def eye_array[ScalarT: _Numeric](
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.ToDType[ScalarT], format: _FmtDIA | None = None
@@ -1140,8 +1103,6 @@ def eye_array[ScalarT: _Numeric](
 def eye_array[ScalarT: _Numeric](
     m: int, n: int | None = None, *, k: int = 0, dtype: onp.ToDType[ScalarT], format: _FmtLIL
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # dtype: <unknown>, format: "dia" | None
 def eye_array(
     m: int, n: int | None = None, *, k: int = 0, dtype: _ToDType, format: _FmtDIA | None = None
@@ -1159,7 +1120,6 @@ def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: _ToDType, form
 @overload  # dtype: <unknown>, format: "lil"
 def eye_array(m: int, n: int | None = None, *, k: int = 0, dtype: _ToDType, format: _FmtLIL) -> lil_array[Incomplete]: ...
 
-###
 # NOTE: `eye_array` should be prefered over `eye`
 @overload  # dtype: float64-like (default), format: "dia" | None
 def eye(
@@ -1189,8 +1149,6 @@ def eye(
 def eye(
     m: int, n: int | None = None, k: int = 0, dtype: onp.AnyFloat64DType = ..., *, format: _FmtLIL
 ) -> lil_matrix[np.float64]: ...
-
-#
 @overload  # dtype: bool-like, format: "dia" | None
 def eye(
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyBoolDType, format: _FmtDIA | None = None
@@ -1207,8 +1165,6 @@ def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyBoolDType, fo
 def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyBoolDType, format: _FmtDOK) -> dok_matrix[np.bool]: ...
 @overload  # dtype: bool-like, format: "lil"
 def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyBoolDType, format: _FmtLIL) -> lil_matrix[np.bool]: ...
-
-#
 @overload  # dtype: int-like, format: "dia" | None
 def eye(
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyIntDType, format: _FmtDIA | None = None
@@ -1225,8 +1181,6 @@ def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyIntDType, for
 def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyIntDType, format: _FmtDOK) -> dok_matrix[np.int_]: ...
 @overload  # dtype: int-like, format: "lil"
 def eye(m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyIntDType, format: _FmtLIL) -> lil_matrix[np.int_]: ...
-
-#
 @overload  # dtype: complex128-like, format: "dia" | None
 def eye(
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyComplex128DType, format: _FmtDIA | None = None
@@ -1255,8 +1209,6 @@ def eye(
 def eye(
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.AnyComplex128DType, format: _FmtLIL
 ) -> lil_matrix[np.complex128]: ...
-
-#
 @overload  # dtype: <known>, format: "dia" | None
 def eye[ScalarT: _Numeric](
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.ToDType[ScalarT], format: _FmtDIA | None = None
@@ -1285,8 +1237,6 @@ def eye[ScalarT: _Numeric](
 def eye[ScalarT: _Numeric](
     m: int, n: int | None = None, k: int = 0, *, dtype: onp.ToDType[ScalarT], format: _FmtLIL
 ) -> lil_matrix[ScalarT]: ...
-
-#
 @overload  # dtype: <unknown>, format: "dia" | None
 def eye(
     m: int, n: int | None = None, k: int = 0, *, dtype: _ToDType, format: _FmtDIA | None = None
@@ -1304,94 +1254,69 @@ def eye(m: int, n: int | None = None, k: int = 0, *, dtype: _ToDType, format: _F
 @overload  # dtype: <unknown>, format: "lil"
 def eye(m: int, n: int | None = None, k: int = 0, *, dtype: _ToDType, format: _FmtLIL) -> lil_matrix[Incomplete]: ...
 
-###
-@overload  # A: spmatrix or 2d array-like, B: spmatrix, format: None = None
-def kron[ScalarT: _Numeric](
-    A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: None = None
-) -> bsr_matrix[ScalarT] | coo_matrix[ScalarT]: ...
+#
+@overload  # A: spmatrix or 2d array-like, B: spmatrix, format: None (default)
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: None = None) -> bsr_matrix[ST] | coo_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "bsr"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtBSR) -> bsr_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtBSR) -> bsr_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "coo"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtCOO) -> coo_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtCOO) -> coo_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "csc"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtCSC) -> csc_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtCSC) -> csc_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "csr"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtCSR) -> csr_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtCSR) -> csr_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "dia"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtDIA) -> dia_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtDIA) -> dia_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "dok"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtDOK) -> dok_matrix[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtDOK) -> dok_matrix[ST]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "lil"
-def kron[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtLIL) -> lil_matrix[ScalarT]: ...
-@overload  # A: sparray, B: sparse, format: None = ...
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: None = None
-) -> bsr_array[ScalarT] | _COOArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSpMatrix[ST], B: _ToSpMatrix[ST], format: _FmtLIL) -> lil_matrix[ST]: ...
+@overload  # 1d, format: "coo" (default)
+def kron[ST: _Numeric](A: _SpArray1D[ST], B: _ToSparse1D[ST], format: _FmtCOO | None = None) -> coo_array[ST, tuple[int]]: ...
+@overload  # 1d, format: "csr"
+def kron[ST: _Numeric](A: _SpArray1D[ST], B: _ToSparse1D[ST], format: _FmtCSR) -> csr_array[ST, tuple[int]]: ...
+@overload  # 1d, format: "dok"
+def kron[ST: _Numeric](A: _SpArray1D[ST], B: _ToSparse1D[ST], format: _FmtDOK) -> dok_array[ST, tuple[int]]: ...
+@overload  # >2d, format: "coo" (default)
+def kron[ST: _Numeric, ShapeT: tuple[int, int, int, *tuple[int, ...]]](
+    A: sparray[ST, ShapeT], B: sparray[ST, ShapeT], format: _FmtCOO | None = None
+) -> coo_array[ST, ShapeT]: ...
+@overload  # A: sparray, B: sparse, format: None (default)
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: None = None) -> bsr_array[ST] | _COOArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "bsr"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtBSR
-) -> bsr_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtBSR) -> bsr_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "coo"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCOO
-) -> _COOArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtCOO) -> _COOArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "csc"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCSC
-) -> csc_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtCSC) -> csc_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "csr"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCSR
-) -> _CSRArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtCSR) -> _CSRArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "dia"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtDIA
-) -> dia_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtDIA) -> dia_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "dok"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtDOK
-) -> _DOKArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtDOK) -> _DOKArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "lil"
-def kron[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtLIL
-) -> lil_array[ScalarT]: ...
-@overload  # A: sparse, B: sparray, format: None = ...
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: None = None
-) -> bsr_array[ScalarT] | _COOArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _SpArray2D[ST], B: _ToSparse2D[ST], format: _FmtLIL) -> lil_array[ST]: ...
+@overload  # A: sparse, B: sparray, format: None (default)
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: None = None) -> bsr_array[ST] | _COOArray2D[ST]: ...
 @overload  # A: sparse, B: sparray, format: "bsr"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtBSR
-) -> bsr_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtBSR) -> bsr_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "coo"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCOO
-) -> _COOArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtCOO) -> _COOArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "csc"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCSC
-) -> csc_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtCSC) -> csc_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "csr"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCSR
-) -> _CSRArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtCSR) -> _CSRArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "dia"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtDIA
-) -> dia_array[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtDIA) -> dia_array[ST]: ...
 @overload  # A: sparray, B: sparse, format: "dok"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtDOK
-) -> _DOKArray2D[ScalarT]: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtDOK) -> _DOKArray2D[ST]: ...
 @overload  # A: sparray, B: sparse, format: "lil"
-def kron[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtLIL
-) -> lil_array[ScalarT]: ...
-@overload  # A: unknown array-like, B: unknown array-like  (catch-all)
-def kron(A: onp.ToComplex2D, B: onp.ToComplex2D, format: _Format | None = None) -> Incomplete: ...
+def kron[ST: _Numeric](A: _ToSparse2D[ST], B: _SpArray2D[ST], format: _FmtLIL) -> lil_array[ST]: ...
+@overload  # fallback
+def kron(A: onp.ToComplex2D, B: onp.ToComplex2D, format: _Format | None = None) -> Any: ...
 
-###
-# NOTE: The `overload-overlap` mypy errors are false positives.
+#
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "csr" | None
 def kronsum[ScalarT: _Numeric](
     A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtCSR | None = None
@@ -1408,70 +1333,41 @@ def kronsum[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT],
 def kronsum[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtDOK) -> dok_matrix[ScalarT]: ...
 @overload  # A: spmatrix or 2d array-like, B: spmatrix or 2d array-like, format: "lil"
 def kronsum[ScalarT: _Numeric](A: _ToSpMatrix[ScalarT], B: _ToSpMatrix[ScalarT], format: _FmtLIL) -> lil_matrix[ScalarT]: ...
-
-#
 @overload  # A: sparray, B: sparse, format: "csr" | None
 def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCSR | None = None
+    A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtCSR | None = None
 ) -> _CSRArray2D[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "bsr"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtBSR
-) -> bsr_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtBSR) -> bsr_array[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "coo"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCOO
-) -> _COOArray2D[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtCOO) -> _COOArray2D[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "csc"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtCSC
-) -> csc_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtCSC) -> csc_array[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "dia"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtDIA
-) -> dia_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtDIA) -> dia_array[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "dok"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtDOK
-) -> _DOKArray2D[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtDOK) -> _DOKArray2D[ScalarT]: ...
 @overload  # A: sparray, B: sparse, format: "lil"
-def kronsum[ScalarT: _Numeric](
-    A: sparray[ScalarT, tuple[int, int]], B: _ToSparse2D[ScalarT], format: _FmtLIL
-) -> lil_array[ScalarT]: ...
-
-#
+def kronsum[ScalarT: _Numeric](A: _SpArray2D[ScalarT], B: _ToSparse2D[ScalarT], format: _FmtLIL) -> lil_array[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "csr" | None
 def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCSR | None = None
+    A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtCSR | None = None
 ) -> _CSRArray2D[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "bsr"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtBSR
-) -> bsr_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtBSR) -> bsr_array[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "coo"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCOO
-) -> _COOArray2D[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtCOO) -> _COOArray2D[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "csc"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtCSC
-) -> csc_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtCSC) -> csc_array[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "dia"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtDIA
-) -> dia_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtDIA) -> dia_array[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "dok"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtDOK
-) -> _DOKArray2D[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtDOK) -> _DOKArray2D[ScalarT]: ...
 @overload  # A: sparse, B: sparray, format: "lil"
-def kronsum[ScalarT: _Numeric](
-    A: _ToSparse2D[ScalarT], B: sparray[ScalarT, tuple[int, int]], format: _FmtLIL
-) -> lil_array[ScalarT]: ...
+def kronsum[ScalarT: _Numeric](A: _ToSparse2D[ScalarT], B: _SpArray2D[ScalarT], format: _FmtLIL) -> lil_array[ScalarT]: ...
 @overload  # A: unknown array-like, B: unknown array-like  (catch-all)
 def kronsum(A: onp.ToComplex2D, B: onp.ToComplex2D, format: _Format | None = None) -> Incomplete: ...
 
-###
 # NOTE: keep in sync with `vstack`
 @overload  # sparray, format: <default>, dtype: <default>
 def hstack[T](blocks: Seq[_CanStack[T]], format: None = None, dtype: None = None) -> T: ...
@@ -1489,8 +1385,6 @@ def hstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtDIA,
 def hstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtDOK, dtype: None = None) -> _DOKArray2D[ScalarT]: ...
 @overload  # sparray, format: "lil", dtype: <default>
 def hstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtLIL, dtype: None = None) -> lil_array[ScalarT]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: bool-like
 def hstack[T](blocks: Seq[_CanStackAs[np.bool, T]], format: None = None, *, dtype: onp.AnyBoolDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: bool-like
@@ -1507,8 +1401,6 @@ def hstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyBoolDType) -> di
 def hstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyBoolDType) -> _DOKArray2D[np.bool]: ...
 @overload  # sparray, format: "lil", dtype: bool-like
 def hstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyBoolDType) -> lil_array[np.bool]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: int-like
 def hstack[T](blocks: Seq[_CanStackAs[np.int_, T]], format: None = None, *, dtype: onp.AnyIntDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: int-like
@@ -1525,8 +1417,6 @@ def hstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyIntDType) -> dia
 def hstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyIntDType) -> _DOKArray2D[np.int_]: ...
 @overload  # sparray, format: "lil", dtype: int-like
 def hstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyIntDType) -> lil_array[np.int_]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: float64-like
 def hstack[T](blocks: Seq[_CanStackAs[np.float64, T]], format: None = None, *, dtype: onp.AnyFloat64DType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: float64-like
@@ -1543,8 +1433,6 @@ def hstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyFloat64DType) ->
 def hstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyFloat64DType) -> _DOKArray2D[np.float64]: ...
 @overload  # sparray, format: "lil", dtype: float64-like
 def hstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyFloat64DType) -> lil_array[np.float64]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: complex128-like
 def hstack[T](blocks: Seq[_CanStackAs[np.complex128, T]], format: None = None, *, dtype: onp.AnyComplex128DType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: complex128-like
@@ -1561,8 +1449,6 @@ def hstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyComplex128DType)
 def hstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyComplex128DType) -> _DOKArray2D[np.complex128]: ...
 @overload  # sparray, format: "lil", dtype: complex128-like
 def hstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyComplex128DType) -> lil_array[np.complex128]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: <known>
 def hstack[ScalarT: _Numeric, T](
     blocks: Seq[_CanStackAs[ScalarT, T]], format: None = None, *, dtype: onp.ToDType[ScalarT]
@@ -1581,8 +1467,6 @@ def hstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtDIA, dtype: onp.
 def hstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtDOK, dtype: onp.ToDType[ScalarT]) -> _DOKArray2D[ScalarT]: ...
 @overload  # sparray, format: "lil", dtype: <known>
 def hstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtLIL, dtype: onp.ToDType[ScalarT]) -> lil_array[ScalarT]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: <unknown>
 def hstack[T](blocks: Seq[_CanStackAs[Any, T]], format: None = None, *, dtype: _ToDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: <unknown>
@@ -1599,12 +1483,9 @@ def hstack(blocks: Seq[sparray], format: _FmtDIA, dtype: _ToDType) -> dia_array:
 def hstack(blocks: Seq[sparray], format: _FmtDOK, dtype: _ToDType) -> _DOKArray2D[Any]: ...
 @overload  # sparray, format: "lil", dtype: <unknown>
 def hstack(blocks: Seq[sparray], format: _FmtLIL, dtype: _ToDType) -> lil_array: ...
-
-#
 @overload
 def hstack(blocks: Seq[_spbase], format: _Format, dtype: _ToDType | None = None) -> Incomplete: ...
 
-###
 # NOTE: keep in sync with `hstack`
 @overload  # sparray, format: <default>, dtype: <default>
 def vstack[T](blocks: Seq[_CanStack[T]], format: None = None, dtype: None = None) -> T: ...
@@ -1622,8 +1503,6 @@ def vstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtDIA,
 def vstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtDOK, dtype: None = None) -> _DOKArray2D[ScalarT]: ...
 @overload  # sparray, format: "lil", dtype: <default>
 def vstack[ScalarT: _Numeric](blocks: Seq[_SpArray2D[ScalarT]], format: _FmtLIL, dtype: None = None) -> lil_array[ScalarT]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: bool-like
 def vstack[T](blocks: Seq[_CanStackAs[np.bool, T]], format: None = None, *, dtype: onp.AnyBoolDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: bool-like
@@ -1640,8 +1519,6 @@ def vstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyBoolDType) -> di
 def vstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyBoolDType) -> _DOKArray2D[np.bool]: ...
 @overload  # sparray, format: "lil", dtype: bool-like
 def vstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyBoolDType) -> lil_array[np.bool]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: int-like
 def vstack[T](blocks: Seq[_CanStackAs[np.int_, T]], format: None = None, *, dtype: onp.AnyIntDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: int-like
@@ -1658,8 +1535,6 @@ def vstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyIntDType) -> dia
 def vstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyIntDType) -> _DOKArray2D[np.int_]: ...
 @overload  # sparray, format: "lil", dtype: int-like
 def vstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyIntDType) -> lil_array[np.int_]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: float64-like
 def vstack[T](blocks: Seq[_CanStackAs[np.float64, T]], format: None = None, *, dtype: onp.AnyFloat64DType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: float64-like
@@ -1676,8 +1551,6 @@ def vstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyFloat64DType) ->
 def vstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyFloat64DType) -> _DOKArray2D[np.float64]: ...
 @overload  # sparray, format: "lil", dtype: float64-like
 def vstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyFloat64DType) -> lil_array[np.float64]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: complex128-like
 def vstack[T](blocks: Seq[_CanStackAs[np.complex128, T]], format: None = None, *, dtype: onp.AnyComplex128DType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: complex128-like
@@ -1694,8 +1567,6 @@ def vstack(blocks: Seq[sparray], format: _FmtDIA, dtype: onp.AnyComplex128DType)
 def vstack(blocks: Seq[sparray], format: _FmtDOK, dtype: onp.AnyComplex128DType) -> _DOKArray2D[np.complex128]: ...
 @overload  # sparray, format: "lil", dtype: complex128-like
 def vstack(blocks: Seq[sparray], format: _FmtLIL, dtype: onp.AnyComplex128DType) -> lil_array[np.complex128]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: <known>
 def vstack[ScalarT: _Numeric, T](
     blocks: Seq[_CanStackAs[ScalarT, T]], format: None = None, *, dtype: onp.ToDType[ScalarT]
@@ -1714,8 +1585,6 @@ def vstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtDIA, dtype: onp.
 def vstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtDOK, dtype: onp.ToDType[ScalarT]) -> _DOKArray2D[ScalarT]: ...
 @overload  # sparray, format: "lil", dtype: <known>
 def vstack[ScalarT: _Numeric](blocks: Seq[sparray], format: _FmtLIL, dtype: onp.ToDType[ScalarT]) -> lil_array[ScalarT]: ...
-
-#
 @overload  # sparray, format: <default>, dtype: <unknown>
 def vstack[T](blocks: Seq[_CanStackAs[Any, T]], format: None = None, *, dtype: _ToDType) -> T: ...
 @overload  # sparray, format: "bsr", dtype: <unknown>
@@ -1732,12 +1601,10 @@ def vstack(blocks: Seq[sparray], format: _FmtDIA, dtype: _ToDType) -> dia_array:
 def vstack(blocks: Seq[sparray], format: _FmtDOK, dtype: _ToDType) -> _DOKArray2D[Any]: ...
 @overload  # sparray, format: "lil", dtype: <unknown>
 def vstack(blocks: Seq[sparray], format: _FmtLIL, dtype: _ToDType) -> lil_array: ...
-
-#
 @overload
 def vstack(blocks: Seq[_spbase], format: _Format, dtype: _ToDType | None = None) -> Incomplete: ...
 
-###
+#
 @overload  # blocks: <known, known>, format: <default>, dtype: <default>
 def block_array[T](blocks: _ToBlocks[_CanStack[T]], *, format: None = None, dtype: None = None) -> T: ...
 @overload  # blocks: <array, known>, format: "bsr", dtype: <default>
@@ -1768,8 +1635,6 @@ def block_array[ScalarT: _Numeric](
 def block_array[ScalarT: _Numeric](
     blocks: _ToBlocksSpArray[ScalarT], *, format: _FmtLIL, dtype: None = None
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # blocks: <known, bool_>, format: <default>, dtype: bool-like
 def block_array[T](blocks: _ToBlocksCanStackAs[np.bool, T], *, format: None = None, dtype: onp.AnyBoolDType) -> T: ...
 @overload  # blocks: <unknown, unknown>, format: "bsr", dtype: bool-like
@@ -1786,8 +1651,6 @@ def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDIA, dtype: onp.AnyBoolD
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDOK, dtype: onp.AnyBoolDType) -> _DOKArray2D[np.bool]: ...
 @overload  # blocks: <unknown, unknown>, format: "lil", dtype: bool-like
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: onp.AnyBoolDType) -> lil_array[np.bool]: ...
-
-#
 @overload  # blocks: <known, int_>, format: <default>, dtype: int-like
 def block_array[T](blocks: _ToBlocksCanStackAs[np.int64, T], *, format: None = None, dtype: onp.AnyIntDType) -> T: ...
 @overload  # blocks: <unknown, unknown>, format: "bsr", dtype: int-like
@@ -1804,8 +1667,6 @@ def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDIA, dtype: onp.AnyIntDT
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDOK, dtype: onp.AnyIntDType) -> _DOKArray2D[np.int_]: ...
 @overload  # blocks: <unknown, unknown>, format: "lil", dtype: int-like
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: onp.AnyIntDType) -> lil_array[np.int_]: ...
-
-#
 @overload  # blocks: <known, float64>, format: <default>, dtype: float64-like
 def block_array[T](blocks: _ToBlocksCanStackAs[np.float64, T], *, format: None = None, dtype: onp.AnyFloat64DType) -> T: ...
 @overload  # blocks: <unknown, unknown>, format: "bsr", dtype: float64-like
@@ -1822,8 +1683,6 @@ def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDIA, dtype: onp.AnyFloat
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDOK, dtype: onp.AnyFloat64DType) -> _DOKArray2D[np.float64]: ...
 @overload  # blocks: <unknown, unknown>, format: "lil", dtype: float64-like
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: onp.AnyFloat64DType) -> lil_array[np.float64]: ...
-
-#
 @overload  # blocks: <known, complex128>, format: <default>, dtype: complex128-like
 def block_array[T](blocks: _ToBlocksCanStackAs[np.complex128, T], *, format: None = None, dtype: onp.AnyComplex128DType) -> T: ...
 @overload  # blocks: <unknown, unknown>, format: "bsr", dtype: complex128-like
@@ -1840,8 +1699,6 @@ def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDIA, dtype: onp.AnyCompl
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDOK, dtype: onp.AnyComplex128DType) -> _DOKArray2D[np.complex128]: ...
 @overload  # blocks: <unknown, unknown>, format: "lil", dtype: complex128-like
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: onp.AnyComplex128DType) -> lil_array[np.complex128]: ...
-
-#
 @overload  # blocks: <known, known>, format: <default>, dtype: <known>
 def block_array[ScalarT: _Numeric, T](
     blocks: _ToBlocksCanStackAs[ScalarT, T], *, format: None = None, dtype: onp.ToDType[ScalarT]
@@ -1874,8 +1731,6 @@ def block_array[ScalarT: _Numeric](
 def block_array[ScalarT: _Numeric](
     blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: onp.ToDType[ScalarT]
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # blocks: <known, unknown>, format: <default>, dtype: <unknown>
 def block_array[T](blocks: _ToBlocksCanStackAs[Any, T], *, format: None = None, dtype: _ToDType | None = None) -> T: ...
 @overload  # blocks: <unknown, unknown>, format: "bsr", dtype: <unknown>
@@ -1893,13 +1748,11 @@ def block_array(blocks: _ToBlocksUnkown, *, format: _FmtDOK, dtype: _ToDType | N
 @overload  # blocks: <unknown, unknown>, format: "lil", dtype: <unknown>
 def block_array(blocks: _ToBlocksUnkown, *, format: _FmtLIL, dtype: _ToDType | None = None) -> lil_array: ...
 
-###
+#
 @overload  # blocks: <known, known>, format: <default>, dtype: <default>
 def bmat[T](blocks: _ToBlocks[_CanStack[T]], format: None = None, dtype: None = None) -> T: ...
 @overload  # blocks: <matrix, known>, format: <otherwise>, dtype: <default>
 def bmat[ScalarT: _Numeric](blocks: _ToBlocks[spmatrix[ScalarT]], format: _Format, dtype: None = None) -> spmatrix[ScalarT]: ...
-
-#
 @overload  # blocks: <known, known>, format: <default>, dtype: <known>
 def bmat[ScalarT: _Numeric, T](
     blocks: _ToBlocksCanStackAs[ScalarT, T], format: None = None, *, dtype: onp.ToDType[ScalarT]
@@ -1912,8 +1765,6 @@ def bmat[ScalarT: _Numeric](
 def bmat[ScalarT: _Numeric](
     blocks: _ToBlocksUnkown, format: _Format, dtype: onp.ToDType[ScalarT]
 ) -> spmatrix[ScalarT] | _SpArray2D[ScalarT]: ...
-
-#
 @overload  # blocks: <known, unknown>, format: <default>, dtype: <unknown>
 def bmat[T](blocks: _ToBlocksCanStackAs[Any, T], format: None = None, *, dtype: _ToDType) -> T: ...
 @overload  # blocks: <matrix, unknown>, format: <otherwise>, dtype: <unknown>
@@ -1921,7 +1772,7 @@ def bmat(blocks: _ToBlocks[spmatrix[_Numeric]], format: _Format, *, dtype: _ToDT
 @overload  # blocks: <unknown, unknown>, format: <otherwise>, dtype: <unknown>
 def bmat(blocks: _ToBlocksUnkown, format: _Format, *, dtype: _ToDType) -> spmatrix | _SpArray2D[Any]: ...
 
-###
+#
 @overload  # mats: <array, known>, format: <default>, dtype: None
 def block_diag[ScalarT: _Numeric](
     mats: Iterable[sparray[ScalarT]], format: _FmtCOO | None = None, dtype: None = None
@@ -1950,8 +1801,6 @@ def block_diag[ScalarT: _Numeric](
 def block_diag[ScalarT: _Numeric](
     mats: Iterable[sparray[ScalarT]], format: _FmtLIL, dtype: None = None
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # mats: <array, unknown>, format: <default>, dtype: bool-like
 def block_diag(mats: Iterable[sparray], format: _FmtCOO | None = None, *, dtype: onp.AnyBoolDType) -> _COOArray2D[np.bool]: ...
 @overload  # mats: <array, unknown>, format: "bsr", dtype: bool-like
@@ -1966,8 +1815,6 @@ def block_diag(mats: Iterable[sparray], format: _FmtDIA, dtype: onp.AnyBoolDType
 def block_diag(mats: Iterable[sparray], format: _FmtDOK, dtype: onp.AnyBoolDType) -> _DOKArray2D[np.bool]: ...
 @overload  # mats: <array, unknown>, format: "lil", dtype: bool-like
 def block_diag(mats: Iterable[sparray], format: _FmtLIL, dtype: onp.AnyBoolDType) -> lil_array[np.bool]: ...
-
-#
 @overload  # mats: <array, unknown>, format: <default>, dtype: int-like
 def block_diag(mats: Iterable[sparray], format: _FmtCOO | None = None, *, dtype: onp.AnyIntDType) -> _COOArray2D[np.int_]: ...
 @overload  # mats: <array, unknown>, format: "bsr", dtype: int-like
@@ -1982,8 +1829,6 @@ def block_diag(mats: Iterable[sparray], format: _FmtDIA, dtype: onp.AnyIntDType)
 def block_diag(mats: Iterable[sparray], format: _FmtDOK, dtype: onp.AnyIntDType) -> _DOKArray2D[np.int_]: ...
 @overload  # mats: <array, unknown>, format: "lil", dtype: int-like
 def block_diag(mats: Iterable[sparray], format: _FmtLIL, dtype: onp.AnyIntDType) -> lil_array[np.int_]: ...
-
-#
 @overload  # mats: <array, unknown>, format: <default>, dtype: float64-like
 def block_diag(
     mats: Iterable[sparray], format: _FmtCOO | None = None, *, dtype: onp.AnyFloat64DType
@@ -2000,8 +1845,6 @@ def block_diag(mats: Iterable[sparray], format: _FmtDIA, dtype: onp.AnyFloat64DT
 def block_diag(mats: Iterable[sparray], format: _FmtDOK, dtype: onp.AnyFloat64DType) -> _DOKArray2D[np.float64]: ...
 @overload  # mats: <array, unknown>, format: "lil", dtype: float64-like
 def block_diag(mats: Iterable[sparray], format: _FmtLIL, dtype: onp.AnyFloat64DType) -> lil_array[np.float64]: ...
-
-#
 @overload  # mats: <array, unknown>, format: <default>, dtype: complex128-like
 def block_diag(
     mats: Iterable[sparray], format: _FmtCOO | None = None, *, dtype: onp.AnyComplex128DType
@@ -2018,8 +1861,6 @@ def block_diag(mats: Iterable[sparray], format: _FmtDIA, dtype: onp.AnyComplex12
 def block_diag(mats: Iterable[sparray], format: _FmtDOK, dtype: onp.AnyComplex128DType) -> _DOKArray2D[np.complex128]: ...
 @overload  # mats: <array, unknown>, format: "lil", dtype: complex128-like
 def block_diag(mats: Iterable[sparray], format: _FmtLIL, dtype: onp.AnyComplex128DType) -> lil_array[np.complex128]: ...
-
-#
 @overload  # mats: <array, unknown>, format: <default>, dtype: <known>
 def block_diag[ScalarT: _Numeric](
     mats: Iterable[sparray], format: _FmtCOO | None = None, *, dtype: onp.ToDType[ScalarT]
@@ -2048,8 +1889,6 @@ def block_diag[ScalarT: _Numeric](
 def block_diag[ScalarT: _Numeric](
     mats: Iterable[sparray], format: _FmtLIL, dtype: onp.ToDType[ScalarT]
 ) -> lil_array[ScalarT]: ...
-
-#
 @overload  # mats: <unknown, known>, format: <default>, dtype: None
 def block_diag[ScalarT: _Numeric](
     mats: _ToMatsDiag[ScalarT], format: _FmtCOO | None = None, dtype: None = None
@@ -2078,8 +1917,6 @@ def block_diag[ScalarT: _Numeric](
 def block_diag[ScalarT: _Numeric](
     mats: _ToMatsDiag[ScalarT], format: _FmtLIL, dtype: None = None
 ) -> lil_array[ScalarT] | lil_matrix[ScalarT]: ...
-
-#
 @overload  # mats: <unknown, unknown>, format: <default>, dtype: <known>
 def block_diag[ScalarT: _Numeric](
     mats: _ToMatsDiagUnknown, format: _FmtCOO | None = None, *, dtype: onp.ToDType[ScalarT]
@@ -2108,8 +1945,6 @@ def block_diag[ScalarT: _Numeric](
 def block_diag[ScalarT: _Numeric](
     mats: _ToMatsDiagUnknown, format: _FmtLIL, dtype: onp.ToDType[ScalarT]
 ) -> lil_array[ScalarT] | lil_matrix[ScalarT]: ...
-
-#
 @overload  # mats: <unknown, unknown>, format: <default>, dtype: <unknown>
 def block_diag(
     mats: _ToMatsDiagUnknown, format: _FmtCOO | None = None, dtype: _ToDType | None = None
@@ -2127,7 +1962,7 @@ def block_diag(mats: _ToMatsDiagUnknown, format: _FmtDOK, dtype: _ToDType | None
 @overload  # mats: <unknown, unknown>, format: "lil", dtype: <unknown>
 def block_diag(mats: _ToMatsDiagUnknown, format: _FmtLIL, dtype: _ToDType | None = None) -> lil_array | lil_matrix: ...
 
-###
+#
 @overload  # shape: T, format: <default>, dtype: <default>
 def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     shape: ShapeT,
@@ -2139,19 +1974,72 @@ def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
 ) -> coo_array[np.float64, ShapeT]: ...
-@overload  # shape: T, format: <otherwise>, dtype: <default>
-def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
-    shape: ShapeT,
+@overload  # shape: 2d, format: "bsr", dtype: <default>
+def random_array(
+    shape: tuple[int, int],
     *,
     density: float | npc.floating = 0.01,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyFloat64DType | None = None,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
-) -> sparray[np.float64, ShapeT]: ...
-
-#
+) -> bsr_array[np.float64]: ...
+@overload  # shape: 2d, format: "csc", dtype: <default>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSC,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csc_array[np.float64]: ...
+@overload  # shape: T, format: "csr", dtype: <default>
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSR,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csr_array[np.float64, ShapeT]: ...
+@overload  # shape: 2d, format: "dia", dtype: <default>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDIA,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dia_array[np.float64]: ...
+@overload  # shape: T, format: "dok", dtype: <default>
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDOK,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dok_array[np.float64, ShapeT]: ...
+@overload  # shape: 2d, format: "lil", dtype: <default>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtLIL,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> lil_array[np.float64]: ...
 @overload  # shape: T, format: <default>, dtype: <known>
 def random_array[ShapeT: tuple[int, *tuple[int, ...]], ScalarT: _Numeric](
     shape: ShapeT,
@@ -2163,19 +2051,72 @@ def random_array[ShapeT: tuple[int, *tuple[int, ...]], ScalarT: _Numeric](
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
 ) -> coo_array[ScalarT, ShapeT]: ...
-@overload  # shape: T, format: <otherwise>, dtype: <known>
-def random_array[ShapeT: tuple[int, *tuple[int, ...]], ScalarT: _Numeric](
-    shape: ShapeT,
+@overload  # shape: 2d, format: "bsr", dtype: <known>
+def random_array[ScalarT: _Numeric](
+    shape: tuple[int, int],
     *,
     density: float | npc.floating = 0.01,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
-) -> sparray[ScalarT, ShapeT]: ...
-
-#
+) -> bsr_array[ScalarT]: ...
+@overload  # shape: 2d, format: "csc", dtype: <known>
+def random_array[ScalarT: _Numeric](
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSC,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csc_array[ScalarT]: ...
+@overload  # shape: T, format: "csr", dtype: <known>
+def random_array[ShapeT: tuple[int] | tuple[int, int], ScalarT: _Numeric](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSR,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csr_array[ScalarT, ShapeT]: ...
+@overload  # shape: 2d, format: "dia", dtype: <known>
+def random_array[ScalarT: _Numeric](
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDIA,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dia_array[ScalarT]: ...
+@overload  # shape: T, format: "dok", dtype: <known>
+def random_array[ShapeT: tuple[int] | tuple[int, int], ScalarT: _Numeric](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDOK,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dok_array[ScalarT, ShapeT]: ...
+@overload  # shape: 2d, format: "lil", dtype: <known>
+def random_array[ScalarT: _Numeric](
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtLIL,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> lil_array[ScalarT]: ...
 @overload  # shape: T, format: <default>, dtype: complex
 def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     shape: ShapeT,
@@ -2187,19 +2128,72 @@ def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
 ) -> coo_array[np.complex128, ShapeT]: ...
-@overload  # shape: T, format: <otherwise>, dtype: complex
-def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
-    shape: ShapeT,
+@overload  # shape: 2d, format: "bsr", dtype: complex
+def random_array(
+    shape: tuple[int, int],
     *,
     density: float | npc.floating = 0.01,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
-) -> sparray[np.complex128, ShapeT]: ...
-
-#
+) -> bsr_array[np.complex128]: ...
+@overload  # shape: 2d, format: "csc", dtype: complex
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSC,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csc_array[np.complex128]: ...
+@overload  # shape: T, format: "csr", dtype: complex
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSR,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csr_array[np.complex128, ShapeT]: ...
+@overload  # shape: 2d, format: "dia", dtype: complex
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDIA,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dia_array[np.complex128]: ...
+@overload  # shape: T, format: "dok", dtype: complex
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDOK,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dok_array[np.complex128, ShapeT]: ...
+@overload  # shape: 2d, format: "lil", dtype: complex
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtLIL,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> lil_array[np.complex128]: ...
 @overload  # shape: T, format: <default>, dtype: <unknown>
 def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     shape: ShapeT,
@@ -2211,19 +2205,73 @@ def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
 ) -> coo_array[Any, ShapeT]: ...
-@overload  # shape: T, format: <otherwise>, dtype: <unknown>
-def random_array[ShapeT: tuple[int, *tuple[int, ...]]](
-    shape: ShapeT,
+@overload  # shape: 2d, format: "bsr", dtype: <unknown>
+def random_array(
+    shape: tuple[int, int],
     *,
     density: float | npc.floating = 0.01,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: _ToDType,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
     data_sampler: _DataSampler | None = None,
-) -> sparray[Any, ShapeT]: ...
+) -> bsr_array[Any]: ...
+@overload  # shape: 2d, format: "csc", dtype: <unknown>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSC,
+    dtype: _ToDType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csc_array[Any]: ...
+@overload  # shape: T, format: "csr", dtype: <unknown>
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtCSR,
+    dtype: _ToDType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> csr_array[Any, ShapeT]: ...
+@overload  # shape: 2d, format: "dia", dtype: <unknown>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDIA,
+    dtype: _ToDType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dia_array[Any]: ...
+@overload  # shape: T, format: "dok", dtype: <unknown>
+def random_array[ShapeT: tuple[int] | tuple[int, int]](
+    shape: ShapeT,
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtDOK,
+    dtype: _ToDType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> dok_array[Any, ShapeT]: ...
+@overload  # shape: 2d, format: "lil", dtype: <unknown>
+def random_array(
+    shape: tuple[int, int],
+    *,
+    density: float | npc.floating = 0.01,
+    format: _FmtLIL,
+    dtype: _ToDType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+    data_sampler: _DataSampler | None = None,
+) -> lil_array[Any]: ...
 
-###
 # NOTE: `random_array` should be prefered over `random`
 @overload  # format: <default>, dtype: <default>
 def random(
@@ -2237,21 +2285,79 @@ def random(
     *,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[np.float64]: ...
-@overload  # format: <otherwise>, dtype: <default>
+@overload  # format: "bsr", dtype: <default>
 def random(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyFloat64DType | None = None,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.float64]: ...
-
-#
-@overload  # format: <default>, dtype: <known> (keyword)
+) -> bsr_matrix[np.float64]: ...
+@overload  # format: "csc", dtype: <default>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix[np.float64]: ...
+@overload  # format: "csr", dtype: <default>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix[np.float64]: ...
+@overload  # format: "dia", dtype: <default>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[np.float64]: ...
+@overload  # format: "dok", dtype: <default>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[np.float64]: ...
+@overload  # format: "lil", dtype: <default>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[np.float64]: ...
+@overload  # format: <default>, dtype: <known>
 def random[ScalarT: _Numeric](
     m: int,
     n: int,
@@ -2263,47 +2369,79 @@ def random[ScalarT: _Numeric](
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[ScalarT]: ...
-@overload  # format: <otherwise>, dtype: <known> (keyword)
+@overload  # format: "bsr", dtype: <known>
 def random[ScalarT: _Numeric](
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[ScalarT]: ...
-
-#
-@overload  # format: <default>, dtype: <known> (positional)
+) -> bsr_matrix[ScalarT]: ...
+@overload  # format: "csc", dtype: <known>
 def random[ScalarT: _Numeric](
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> coo_matrix[ScalarT]: ...
-@overload  # format: <otherwise>, dtype: <known> (positional)
+) -> csc_matrix[ScalarT]: ...
+@overload  # format: "csr", dtype: <known>
 def random[ScalarT: _Numeric](
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtNonCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[ScalarT]: ...
-
-#
-@overload  # format: <default>, dtype: complex (keyword)
+) -> csr_matrix[ScalarT]: ...
+@overload  # format: "dia", dtype: <known>
+def random[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[ScalarT]: ...
+@overload  # format: "dok", dtype: <known>
+def random[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[ScalarT]: ...
+@overload  # format: "lil", dtype: <known>
+def random[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[ScalarT]: ...
+@overload  # format: <default>, dtype: complex
 def random(
     m: int,
     n: int,
@@ -2315,46 +2453,78 @@ def random(
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[np.complex128]: ...
-@overload  # format: <otherwise>, dtype: complex (keyword)
+@overload  # format: "bsr", dtype: complex
 def random(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.complex128]: ...
-
-#
-@overload  # format: <default>, dtype: complex (positional)
+) -> bsr_matrix[np.complex128]: ...
+@overload  # format: "csc", dtype: complex
 def random(
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> coo_matrix[np.complex128]: ...
-@overload  # format: <otherwise>, dtype: complex (positional)
+) -> csc_matrix[np.complex128]: ...
+@overload  # format: "csr", dtype: complex
 def random(
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtNonCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.complex128]: ...
-
-#
+) -> csr_matrix[np.complex128]: ...
+@overload  # format: "dia", dtype: complex
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[np.complex128]: ...
+@overload  # format: "dok", dtype: complex
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[np.complex128]: ...
+@overload  # format: "lil", dtype: complex
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[np.complex128]: ...
 @overload  # format: <default>, dtype: <unknown>
 def random(
     m: int,
@@ -2367,32 +2537,151 @@ def random(
     *,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix: ...
-@overload  # format: <otherwise> (keyword), dtype: <unknown>
+@overload  # format: "bsr", dtype: <unknown>
 def random(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: _ToDType | None = None,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix: ...
-@overload  # format: <otherwise> (positional), dtype: <unknown>
+) -> bsr_matrix: ...
+@overload  # format: "csc", dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix: ...
+@overload  # format: "csr", dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix: ...
+@overload  # format: "dia", dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix: ...
+@overload  # format: "dok", dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix: ...
+@overload  # format: "lil", dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix: ...
+@overload  # format: "bsr" (positional), dtype: <unknown>
 def random(
     m: int,
     n: int,
     density: float | npc.floating,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: _ToDType | None = None,
     rng: onp.random.ToRNG | None = None,
     data_rvs: _DataRVS | None = None,
     *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix: ...
+) -> bsr_matrix: ...
+@overload  # format: "csc" (positional), dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtCSC,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix: ...
+@overload  # format: "csr" (positional), dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtCSR,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix: ...
+@overload  # format: "dia" (positional), dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtDIA,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix: ...
+@overload  # format: "dok" (positional), dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtDOK,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix: ...
+@overload  # format: "lil" (positional), dtype: <unknown>
+def random(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtLIL,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    data_rvs: _DataRVS | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix: ...
 
-###
 # NOTE: `random_array` should be prefered over `rand`
 @overload  # format: <default>, dtype: <default>
 def rand(
@@ -2405,20 +2694,73 @@ def rand(
     *,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[np.float64]: ...
-@overload  # format: <otherwise>, dtype: <default>
+@overload  # format: "bsr", dtype: <default>
 def rand(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyFloat64DType | None = None,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.float64]: ...
-
-#
-@overload  # format: <default>, dtype: <known> (keyword)
+) -> bsr_matrix[np.float64]: ...
+@overload  # format: "csc", dtype: <default>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix[np.float64]: ...
+@overload  # format: "csr", dtype: <default>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix[np.float64]: ...
+@overload  # format: "dia", dtype: <default>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[np.float64]: ...
+@overload  # format: "dok", dtype: <default>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[np.float64]: ...
+@overload  # format: "lil", dtype: <default>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.AnyFloat64DType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[np.float64]: ...
+@overload  # format: <default>, dtype: <known>
 def rand[ScalarT: _Numeric](
     m: int,
     n: int,
@@ -2429,44 +2771,73 @@ def rand[ScalarT: _Numeric](
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[ScalarT]: ...
-@overload  # format: <otherwise>, dtype: <known> (keyword)
+@overload  # format: "bsr", dtype: <known>
 def rand[ScalarT: _Numeric](
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[ScalarT]: ...
-
-#
-@overload  # format: <default>, dtype: <known> (positional)
+) -> bsr_matrix[ScalarT]: ...
+@overload  # format: "csc", dtype: <known>
 def rand[ScalarT: _Numeric](
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> coo_matrix[ScalarT]: ...
-@overload  # format: <otherwise>, dtype: <known> (positional)
+) -> csc_matrix[ScalarT]: ...
+@overload  # format: "csr", dtype: <known>
 def rand[ScalarT: _Numeric](
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtNonCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
     dtype: onp.ToDType[ScalarT],
     rng: onp.random.ToRNG | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[ScalarT]: ...
-
-#
-@overload  # format: <default>, dtype: complex (keyword)
+) -> csr_matrix[ScalarT]: ...
+@overload  # format: "dia", dtype: <known>
+def rand[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[ScalarT]: ...
+@overload  # format: "dok", dtype: <known>
+def rand[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[ScalarT]: ...
+@overload  # format: "lil", dtype: <known>
+def rand[ScalarT: _Numeric](
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.ToDType[ScalarT],
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[ScalarT]: ...
+@overload  # format: <default>, dtype: complex
 def rand(
     m: int,
     n: int,
@@ -2477,43 +2848,72 @@ def rand(
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix[np.complex128]: ...
-@overload  # format: <otherwise>, dtype: complex (keyword)
+@overload  # format: "bsr", dtype: complex
 def rand(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.complex128]: ...
-
-#
-@overload  # format: <default>, dtype: complex (positional)
+) -> bsr_matrix[np.complex128]: ...
+@overload  # format: "csc", dtype: complex
 def rand(
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> coo_matrix[np.complex128]: ...
-@overload  # format: <otherwise>, dtype: complex (positional)
+) -> csc_matrix[np.complex128]: ...
+@overload  # format: "csr", dtype: complex
 def rand(
     m: int,
     n: int,
-    density: float | npc.floating,
-    format: _FmtNonCOO,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
     dtype: onp.AnyComplex128DType,
     rng: onp.random.ToRNG | None = None,
-    *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix[np.complex128]: ...
-
-#
+) -> csr_matrix[np.complex128]: ...
+@overload  # format: "dia", dtype: complex
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix[np.complex128]: ...
+@overload  # format: "dok", dtype: complex
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix[np.complex128]: ...
+@overload  # format: "lil", dtype: complex
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: onp.AnyComplex128DType,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix[np.complex128]: ...
 @overload  # format: <default>, dtype: <unknown>
 def rand(
     m: int,
@@ -2525,33 +2925,138 @@ def rand(
     *,
     random_state: onp.random.ToRNG | None = None,
 ) -> coo_matrix: ...
-@overload  # format: <otherwise> (keyword), dtype: <unknown>
+@overload  # format: "bsr", dtype: <unknown>
 def rand(
     m: int,
     n: int,
     density: float | npc.floating = 0.01,
     *,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: _ToDType | None = None,
     rng: onp.random.ToRNG | None = None,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix: ...
-@overload  # format: <otherwise> (positional), dtype: <unknown>
+) -> bsr_matrix: ...
+@overload  # format: "csc", dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSC,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix: ...
+@overload  # format: "csr", dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtCSR,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix: ...
+@overload  # format: "dia", dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDIA,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix: ...
+@overload  # format: "dok", dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtDOK,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix: ...
+@overload  # format: "lil", dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating = 0.01,
+    *,
+    format: _FmtLIL,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix: ...
+@overload  # format: "bsr" (positional), dtype: <unknown>
 def rand(
     m: int,
     n: int,
     density: float | npc.floating,
-    format: _FmtNonCOO,
+    format: _FmtBSR,
     dtype: _ToDType | None = None,
     rng: onp.random.ToRNG | None = None,
     *,
     random_state: onp.random.ToRNG | None = None,
-) -> spmatrix: ...
-
-@type_check_only
-class _HasMT[MT](Protocol):
-    @property
-    def mT(self) -> MT: ...
+) -> bsr_matrix: ...
+@overload  # format: "csc" (positional), dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtCSC,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> csc_matrix: ...
+@overload  # format: "csr" (positional), dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtCSR,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> csr_matrix: ...
+@overload  # format: "dia" (positional), dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtDIA,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> dia_matrix: ...
+@overload  # format: "dok" (positional), dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtDOK,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> dok_matrix: ...
+@overload  # format: "lil" (positional), dtype: <unknown>
+def rand(
+    m: int,
+    n: int,
+    density: float | npc.floating,
+    format: _FmtLIL,
+    dtype: _ToDType | None = None,
+    rng: onp.random.ToRNG | None = None,
+    *,
+    random_state: onp.random.ToRNG | None = None,
+) -> lil_matrix: ...
 
 #
 def matrix_transpose[MT](A: _HasMT[MT]) -> MT: ...

@@ -10,6 +10,7 @@ class_name = "RateSync"
 # object has to name every core its own dependency drags in. RateConverter is
 # a cascade of five.
 depends_on = [
+  { name = "ber" }, # dp_sym_test.h delegates here
   { name = "RateConverter", link = true },
   { name = "resamp", link = true },
   { name = "hbdecim", link = true },
@@ -20,6 +21,7 @@ depends_on = [
   { name = "lockdet", link = true },
   { name = "symsync", link = true },
   { name = "dp_tlm", link = true },
+  { name = "pn" }, # dp_tx_test.h's MLS symbol source delegates here
 ]
 serializable = "true"
 # A NULL create here means a parameter was out of range, not that the machine
@@ -53,7 +55,7 @@ default = "8"
 name = "m"
 type = "size_t"
 default = "2"
-doc = "Terminal outputs per symbol: even, 2 <= m <= 8. Gardner needs a transition gate half a symbol from the on-time strobe, which is why m must be even and at least 2. The oversampled stream is a by-product of the same dot products, not an extra cost. Use m >= 4 with pulse=\"iandd\": the rectangle is one symbol wide, so at m=2 its matched filter is a 2-tap sum and the eye statistic barely opens (measured lock_stat -0.34 at m=2 against +0.95 at m=4 on the same NRZ stream). The RRC spans many symbols and is unaffected."
+doc = "Terminal outputs per symbol: even, 2 <= m <= 8. Gardner needs a transition gate half a symbol from the on-time strobe, which is why m must be even and at least 2. The oversampled stream is a by-product of the same dot products, not an extra cost. Use m >= 4 with pulse=\"iandd\": the rectangle is one symbol wide, so at m=2 its matched filter is a 2-tap sum and the eye statistic barely opens. Measured on an NRZ stream, m=2 does not clear the lock detector's own declare threshold while m=4 clears it comfortably, with tens of dB of EVM between them. The rule rests on that separation, not on a particular pair of lock_stat values -- those move with sps and with the stream. The RRC spans many symbols and is unaffected."
 
 [[ratesync.init_params]]
 name = "num_phases"

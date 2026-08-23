@@ -1,5 +1,5 @@
 from typing import Never, Protocol, final, overload, type_check_only
-from typing_extensions import TypeVar, deprecated
+from typing_extensions import deprecated
 
 import numpy as np
 import optype.numpy as onp
@@ -15,8 +15,6 @@ __all__ = ["ConvexHull", "Delaunay", "HalfspaceIntersection", "QhullError", "Vor
 # workaround for type-checkers that don't comply to the overload spec
 type _JustAnyShape = tuple[Never, Never, Never, Never]
 type _ToArrayStrictND = onp.ArrayND[npc.floating | npc.integer, _JustAnyShape]
-
-_ShapeT = TypeVar("_ShapeT", bound=tuple[int, ...])
 
 @type_check_only
 class DelaunayInfo_t(Protocol):
@@ -172,13 +170,17 @@ class Delaunay(_QhullUser):
 
     #
     @overload
-    def plane_distance(self, /, xi: onp.ArrayND[npc.floating | npc.integer, _ShapeT]) -> onp.ArrayND[np.float64, _ShapeT]: ...
+    def plane_distance[ShapeT: tuple[int, ...]](
+        self, /, xi: onp.ArrayND[npc.floating | npc.integer, ShapeT]
+    ) -> onp.ArrayND[np.float64, ShapeT]: ...
     @overload
     def plane_distance(self, /, xi: onp.ToFloatND) -> onp.ArrayND[np.float64]: ...
 
     #
     @overload
-    def lift_points(self, /, x: onp.ArrayND[npc.floating | npc.integer, _ShapeT]) -> onp.ArrayND[np.float64, _ShapeT]: ...
+    def lift_points[ShapeT: tuple[int, ...]](
+        self, /, x: onp.ArrayND[npc.floating | npc.integer, ShapeT]
+    ) -> onp.ArrayND[np.float64, ShapeT]: ...
     @overload
     def lift_points(self, /, x: onp.ToFloatND) -> onp.ArrayND[np.float64]: ...
 
@@ -248,17 +250,17 @@ class HalfspaceIntersection(_QhullUser):
     def add_halfspaces(self, /, halfspaces: onp.ToFloat2D, restart: bool = False) -> None: ...
 
 @overload
-@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 1.22.0.")
+@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 2.2.0.")
 def tsearch(tri: Delaunay, xi: _ToArrayStrictND) -> onp.ArrayND[np.int32]: ...
 @overload
-@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 1.22.0.")
+@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 2.2.0.")
 def tsearch(tri: Delaunay, xi: onp.ToFloatStrict1D) -> onp.Array0D[np.int32]: ...
 @overload
-@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 1.22.0.")
+@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 2.2.0.")
 def tsearch(tri: Delaunay, xi: onp.ToFloatStrict2D) -> onp.Array1D[np.int32]: ...
 @overload
-@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 1.22.0.")
+@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 2.2.0.")
 def tsearch(tri: Delaunay, xi: onp.ToFloatStrict3D) -> onp.Array2D[np.int32]: ...
 @overload
-@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 1.22.0.")
+@deprecated("`tsearch` is deprecated in favor of `Delaunay.find_simplex` and will be removed in SciPy 2.2.0.")
 def tsearch(tri: Delaunay, xi: onp.ToFloatND) -> onp.ArrayND[np.int32]: ...

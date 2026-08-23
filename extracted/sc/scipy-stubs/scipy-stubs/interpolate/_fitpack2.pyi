@@ -52,6 +52,8 @@ class UnivariateSpline:
     ) -> None: ...
 
     #
+    @overload  # 0d
+    def __call__(self, /, x: onp.ToFloat, nu: int = 0, ext: _Ext | None = None) -> onp.Array0D[np.float64]: ...
     @overload  # 1d
     def __call__(self, /, x: onp.ToFloatStrict1D, nu: int = 0, ext: _Ext | None = None) -> onp.Array1D[np.float64]: ...
     @overload  # 2d
@@ -121,12 +123,30 @@ class LSQUnivariateSpline(UnivariateSpline):
 class _BivariateSplineBase:  # undocumented
     @overload  # grid=True  (default)
     def __call__(
-        self, /, x: onp.ToFloatND, y: onp.ToFloatND, dx: int = 0, dy: int = 0, grid: Literal[True] = True
+        self,
+        /,
+        x: onp.ToFloat | onp.ToFloatND,
+        y: onp.ToFloat | onp.ToFloatND,
+        dx: int = 0,
+        dy: int = 0,
+        grid: Literal[True] = True,
     ) -> onp.Array2D[np.float64]: ...
-    @overload  # grid=False
+    @overload  # 0d, 0d, grid=False
     def __call__(
-        self, /, x: onp.ToFloatND, y: onp.ToFloatND, dx: int = 0, dy: int = 0, *, grid: Literal[False]
+        self, /, x: onp.ToFloat, y: onp.ToFloat, dx: int = 0, dy: int = 0, *, grid: Literal[False]
+    ) -> onp.Array0D[np.float64]: ...
+    @overload  # 1d, {0,1}d, grid=False
+    def __call__(
+        self, /, x: onp.ToFloatStrict1D, y: onp.ToFloat | onp.ToFloatStrict1D, dx: int = 0, dy: int = 0, *, grid: Literal[False]
     ) -> onp.Array1D[np.float64]: ...
+    @overload  # 0d, 1d, grid=False
+    def __call__(
+        self, /, x: onp.ToFloat, y: onp.ToFloatStrict1D, dx: int = 0, dy: int = 0, *, grid: Literal[False]
+    ) -> onp.Array1D[np.float64]: ...
+    @overload  # ?d, ?d, grid=False
+    def __call__(
+        self, /, x: onp.ToFloat | onp.ToFloatND, y: onp.ToFloat | onp.ToFloatND, dx: int = 0, dy: int = 0, *, grid: Literal[False]
+    ) -> onp.ArrayND[np.float64]: ...
 
     #
     def get_residual(self, /) -> float: ...
@@ -146,7 +166,7 @@ class _DerivedBivariateSpline(_BivariateSplineBase):  # undocumented
 
 class SmoothBivariateSpline(BivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
 
     def __init__(
@@ -165,7 +185,7 @@ class SmoothBivariateSpline(BivariateSpline):
 
 class LSQBivariateSpline(BivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
 
     def __init__(
@@ -185,7 +205,7 @@ class LSQBivariateSpline(BivariateSpline):
 
 class RectBivariateSpline(BivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
 
     def __init__(
@@ -210,7 +230,7 @@ class SphereBivariateSpline(_BivariateSplineBase):
 
 class SmoothSphereBivariateSpline(SphereBivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
 
     def __init__(
@@ -226,7 +246,7 @@ class SmoothSphereBivariateSpline(SphereBivariateSpline):
 
 class LSQSphereBivariateSpline(SphereBivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
 
     def __init__(
@@ -243,7 +263,7 @@ class LSQSphereBivariateSpline(SphereBivariateSpline):
 
 class RectSphereBivariateSpline(SphereBivariateSpline):
     fp: Final[float]
-    tck: tuple[_Float1D, _Float1D, int]
+    tck: tuple[_Float1D, _Float1D, _Float1D]
     degrees: tuple[int, int]
     v0: np.float64
 

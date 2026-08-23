@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: tyro
-Version: 1.0.15
+Version: 1.0.16
 Summary: CLI interfaces & config objects, from types
 Project-URL: Repository, https://github.com/brentyi/tyro
 Project-URL: Documentation, https://brentyi.github.io/tyro/

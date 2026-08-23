@@ -50,7 +50,7 @@ import pyflakes.api
 import pyflakes.messages
 import pyflakes.reporter
 
-__version__ = "2.3.3"
+__version__ = "2.4.0"
 
 
 _LOGGER = logging.getLogger("autoflake")
@@ -101,6 +101,12 @@ def standard_package_names() -> Iterable[str]:
 IMPORTS_WITH_SIDE_EFFECTS = {"antigravity", "rlcompleter", "this"}
 
 # In case they are built into CPython.
+#
+# ``standard_package_names()`` only discovers modules that have a file in the
+# standard library directory, so modules compiled into the interpreter (e.g.
+# ``itertools``) are invisible to it. ``sys.builtin_module_names`` reports them
+# for the running interpreter; the literals below cover builds where these are
+# extension modules on some platforms but not others.
 BINARY_IMPORTS = {
     "datetime",
     "grp",
@@ -115,7 +121,7 @@ BINARY_IMPORTS = {
     "os",
     "sys",
     "time",
-}
+} | set(sys.builtin_module_names)
 
 SAFE_IMPORTS = (
     frozenset(standard_package_names()) - IMPORTS_WITH_SIDE_EFFECTS | BINARY_IMPORTS
@@ -173,6 +179,19 @@ def unused_variable_line_numbers(
             yield message.lineno
 
 
+def _split_lines(source: str) -> list[str]:
+    """Split source into physical lines, keeping line endings.
+
+    Unlike ``io.StringIO(source).readlines()``, honor the same line
+    terminators as the tokenizer (``\r\n``, ``\r``, and ``\n``), so
+    that enumerating the result stays consistent with the line numbers
+    that pyflakes reports. A bare ``\r`` counts as a line terminator,
+    while other characters ``str.splitlines()`` splits on (such as form
+    feeds) do not.
+    """
+    return re.findall(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+", source)
+
+
 def duplicate_key_line_numbers(
     messages: Iterable[pyflakes.messages.Message],
     source: str,
@@ -190,7 +209,7 @@ def duplicate_key_line_numbers(
 
         key_to_messages = create_key_to_messages_dict(messages)
 
-        lines = source.split("\n")
+        lines = _split_lines(source)
 
         for key, messages in key_to_messages.items():
             good = True
@@ -612,10 +631,9 @@ def filter_code(
 
     line_messages = get_messages_by_line(messages)
 
-    sio = io.StringIO(source)
     previous_line = ""
     result: str | PendingFix = ""
-    for line_number, line in enumerate(sio.readlines(), start=1):
+    for line_number, line in enumerate(_split_lines(source), start=1):
         if isinstance(result, PendingFix):
             result = result(line)
         elif "#" in line:
@@ -684,6 +702,10 @@ def filter_unused_import(
         return line
 
     if multiline_import(line, previous_line):
+        if not FilterMultilineImport.IMPORT_RE.search(line):
+            # Ignore imports with the ``import`` keyword on a continuation
+            # line (e.g. ``from x \<newline> import y``).
+            return line
         filt = FilterMultilineImport(
             line,
             unused_module,

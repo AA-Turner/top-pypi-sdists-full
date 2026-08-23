@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 __copyright__ = "Copyright (C) 2016 Shane J. Latham"
 
 __license__ = """
@@ -28,7 +26,7 @@ import pytest
 import pyopencl as cl
 from pyopencl.characterize import get_pocl_version
 from pyopencl.tools import (
-    pytest_generate_tests_for_pyopencl as pytest_generate_tests,  # noqa: F401
+    pytest_generate_tests_for_pyopencl as pytest_generate_tests,  # ruff:ignore[unused-import]
 )
 
 

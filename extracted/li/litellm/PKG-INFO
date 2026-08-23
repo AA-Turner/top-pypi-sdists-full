@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.97.0
+Version: 1.98.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
@@ -14,6 +14,7 @@ Requires-Dist: aiohttp>=3.14.2,<4.0
 Requires-Dist: pydantic>=2.10.0,<3.0.0
 Requires-Dist: pydantic-settings>=2.14.1,<3.0
 Requires-Dist: jsonschema>=4.0.0,<5.0
+Requires-Dist: boto3>=1.43.1,<2.0
 Requires-Dist: gunicorn>=23.0.0,<24.0 ; extra == 'proxy'
 Requires-Dist: uvicorn>=0.33.0,<1.0 ; extra == 'proxy'
 Requires-Dist: granian>=2.7.4,<3.0 ; extra == 'proxy'
@@ -36,8 +37,8 @@ Requires-Dist: boto3>=1.43.1,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-identity>=1.25.2,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.28.1,<2.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.84 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.54 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.86 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.56 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.1,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'

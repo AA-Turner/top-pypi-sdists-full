@@ -19,7 +19,8 @@ from x_transformers.x_transformers import (
     TokenEmbedding,
     ScaledSinusoidalEmbedding,
     AbsolutePositionalEmbedding,
-    always
+    always,
+    slice_right_at_dim
 )
 
 from x_transformers.autoregressive_wrapper import (
@@ -177,7 +178,7 @@ class XValTransformerWrapper(nn.Module):
 
         if return_mems:
             hiddens = intermediates.hiddens
-            new_mems = tuple(t[..., -self.max_mem_len:, :].detach() for t in hiddens)
+            new_mems = tuple(slice_right_at_dim(t, self.max_mem_len, dim = -2).detach() for t in hiddens)
             return out, new_mems
 
         if return_attn:

@@ -45,12 +45,20 @@ def encode(latitude: float, longitude: float, precision: GeohashPrecision = 12) 
 
     Raises:
         ValueError: If the latitude or longitude values are invalid, or if the precision
-            is not an integer or is outside the valid range (1-12).
+            is not an integer or is outside the valid range (1-12). Booleans are
+            rejected for all three arguments, even though ``bool`` is a subclass of
+            ``int``.
     """
-    if not isinstance(precision, int):
+    # bool is a subclass of int, so it has to be rejected explicitly.
+    if isinstance(precision, bool) or not isinstance(precision, int):
         raise ValueError(f"Precision must be an integer, but got {type(precision).__name__}.")
     if not (MIN_PRECISION <= precision <= MAX_PRECISION):
         raise ValueError(f"Precision must be between {MIN_PRECISION} and {MAX_PRECISION}, but got {precision}.")
+
+    if isinstance(latitude, bool):
+        raise ValueError(f"Latitude must be a number, but got {type(latitude).__name__}.")
+    if isinstance(longitude, bool):
+        raise ValueError(f"Longitude must be a number, but got {type(longitude).__name__}.")
 
     # Validate latitude range
     if not (-90.0 <= latitude <= 90.0):
@@ -84,12 +92,20 @@ def encode_strictly(latitude: float, longitude: float, precision: GeohashPrecisi
 
     Raises:
         ValueError: If the latitude or longitude values are invalid, or if the precision
-            is not an integer or is outside the valid range (1-12).
+            is not an integer or is outside the valid range (1-12). Booleans are
+            rejected for all three arguments, even though ``bool`` is a subclass of
+            ``int``.
     """
-    if not isinstance(precision, int):
+    # bool is a subclass of int, so it has to be rejected explicitly.
+    if isinstance(precision, bool) or not isinstance(precision, int):
         raise ValueError(f"Precision must be an integer, but got {type(precision).__name__}.")
     if not (MIN_PRECISION <= precision <= MAX_PRECISION):
         raise ValueError(f"Precision must be between {MIN_PRECISION} and {MAX_PRECISION}, but got {precision}.")
+
+    if isinstance(latitude, bool):
+        raise ValueError(f"Latitude must be a number, but got {type(latitude).__name__}.")
+    if isinstance(longitude, bool):
+        raise ValueError(f"Longitude must be a number, but got {type(longitude).__name__}.")
 
     # Validate latitude range
     if not (-90.0 <= latitude <= 90.0):
@@ -116,23 +132,28 @@ def decode(geohash: str) -> LatLong:
     """Decode a geohash into a latitude and longitude.
 
     Args:
-        geohash (str): The geohash string to decode.
+        geohash (str): The geohash string to decode. Input is case-insensitive, matching
+            :func:`~pygeohash.types.is_valid_geohash` and :func:`~pygeohash.neighbor.get_adjacent`,
+            so ``"U4PRUYD"`` and ``"U4pruYd"`` decode identically to ``"u4pruyd"``.
 
     Returns:
         LatLong: A named tuple containing the latitude and longitude.
 
     Raises:
-        ValueError: If the geohash is not a string, is empty, or contains invalid characters.
+        ValueError: If the geohash is not a string, is not between 1 and 12 characters,
+            or contains invalid characters.
     """
     if not isinstance(geohash, str):
         raise ValueError(f"Geohash must be a string, but got {type(geohash).__name__}.")
     if not geohash:
         raise ValueError("Geohash cannot be empty.")
+    if len(geohash) > MAX_PRECISION:
+        raise ValueError(f"Geohash must be at most {MAX_PRECISION} characters long.")
 
     # The C extension raises ValueError("Invalid character in geohash") for any
     # non-base32 character, so we let it do the per-character validation instead
     # of paying for a Python-level scan on every call.
-    return LatLong(*c_decode(geohash))
+    return LatLong(*c_decode(geohash.lower()))
 
 
 def decode_exactly(geohash: str) -> ExactLatLong:
@@ -142,22 +163,27 @@ def decode_exactly(geohash: str) -> ExactLatLong:
     function by including the error margins for both latitude and longitude.
 
     Args:
-        geohash (str): The geohash string to decode.
+        geohash (str): The geohash string to decode. Input is case-insensitive, matching
+            :func:`~pygeohash.types.is_valid_geohash` and :func:`~pygeohash.neighbor.get_adjacent`,
+            so ``"U4PRUYD"`` and ``"U4pruYd"`` decode identically to ``"u4pruyd"``.
 
     Returns:
         ExactLatLong: A named tuple containing the latitude, longitude, and their
             respective error margins.
 
     Raises:
-        ValueError: If the geohash is not a string, is empty, or contains invalid characters.
+        ValueError: If the geohash is not a string, is not between 1 and 12 characters,
+            or contains invalid characters.
     """
     if not isinstance(geohash, str):
         raise ValueError(f"Geohash must be a string, but got {type(geohash).__name__}.")
     if not geohash:
         raise ValueError("Geohash cannot be empty.")
+    if len(geohash) > MAX_PRECISION:
+        raise ValueError(f"Geohash must be at most {MAX_PRECISION} characters long.")
 
     # See decode(): the C extension validates characters and raises on its own.
-    return ExactLatLong(*c_decode_exactly(geohash))
+    return ExactLatLong(*c_decode_exactly(geohash.lower()))
 
 
 __all__ = [

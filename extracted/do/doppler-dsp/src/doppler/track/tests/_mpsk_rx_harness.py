@@ -12,15 +12,28 @@ In particular
 * **EVM is the quality metric, not BER.** BER/SER saturates at 0 long before
   the constellation is good, so it cannot distinguish a receiver on the bound
   from one 8 dB off it. The convention is `EVM_dB = -(Es/N0)_dB` (an I/Q-plane
-  quantity against an I/Q-plane bound, no factor of two), so an EVM that BEATS
-  the bound means the measurement is wrong, never that the receiver is good.
+  quantity against an I/Q-plane bound, no factor of two), so an EVM that beats
+  the bound usually means the measurement is wrong rather than the receiver
+  good — **but only usually, and only above ~12 dB.** `ber_evm_db` is
+  SELF-referenced: it scores each symbol against the stream's own hard
+  decision, so a misdecided symbol is measured against a nearer constellation
+  point than the one sent and contributes too small an error vector. The
+  metric therefore flatters by an amount set by the SER — measured on QPSK,
+  2.45 dB at Es/N0 = 3 dB, 1.06 at 6, 0.44 at 9, 0.20 at 12, 0.11 at 15,
+  0.04 at 21 (`native/tests/test_ber_core.c` pins both halves). Every EVM
+  assertion here runs at 12 dB or above, where the flattery is inside the
+  margin; a test at a lower operating point must widen its lower bound or it
+  will read the estimator's own bias as a receiver beating physics.
 * **Nothing is measured before the loops settle.** A second-order loop needs
   ~5/Bn symbols, which at the default `bn_timing = 0.01` is 500 -- longer than
   many test bursts. Measuring inside that window measures settling.
-* **The lag search must be generous.** Group delay varies with pulse, front end
-  and rate; a window that clips it reports chance SER on a perfect decode.
-  `symbol_metrics` searches +-200 and returns the winning lag so a saturated
-  search is visible to the caller.
+* **The alignment is DETECTED, never searched.** Group delay varies with
+  pulse, front end and rate, so it is not knowable in advance -- but a
+  minimum-over-lag search answers that by optimising over the answer, which
+  false-passes on a lucky alignment over garbage and false-floors when the true
+  lag falls outside its span. `detect_alignment` correlates a known marker and
+  gates the peak on a false-alarm probability, and every metric here that needs
+  to know where the stream sits goes through it.
 * **Lock time comes from the receiver's own verify-counted detectors**
   (`sync.locked` / `car.locked`), not from a threshold applied to a statistic.
   Note the granularity: the timing detector averages `avgs` looks per decision
@@ -30,22 +43,35 @@ In particular
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import numpy as np
 
 from doppler.ber import (
     BerMeter,
+    ber_evm_db,
     ber_evm_scatter_floor_db,
     ber_lock_symbol,
     ber_settle_from,
     ber_settle_syms,
 )
+from doppler.snr import snr_m2m4_db
 from doppler.telemetry import Telemetry
 from doppler.track import MpskReceiver, MpskReceiverR
+from doppler.wfm import Synth
 
-#: Ddcr's design centre. The R2C halfband bakes in a +fs/4 shift, and its
-#: image rejection is >100 dB across roughly 0.06..0.44 but collapses at the
-#: band edges (-7 dB at 0.01), so a real-IF signal belongs near fs/4. This is
-#: also the realistic case: 40 MSa/s with a 10 MHz IF is exactly fs/4.
+#: Ddcr's design centre, and the placement the real path exists to serve. An
+#: R2C halfband is the cheapest real-to-complex converter there is, it bakes in
+#: the fs/4 shift for free (the rotation is 1, j, -1, -j: sign flips and rail
+#: swaps) and it decimates by two in the same pass -- all three are the same
+#: fact, and all three are a statement about fs/4. It is also the realistic
+#: case: 40 MSa/s with a 10 MHz IF is exactly fs/4.
+#:
+#: Off-centre is a TOLERANCE, not a band. The halfband's image rejection does
+#: collapse at the edges (-6.5 dB at 0.01, -13.7 at 0.02, past -60 dB across
+#: the middle, symmetric about fs/4), but what that costs a signal is set by
+#: whether its OCCUPIED band overruns DC or Nyquist, not by where its centre
+#: sits: `1/sps < fc < 0.5 - 1/sps`. See docs/design/mpsk.md section 1.3.
 IF_FS4 = 0.25
 
 #: Both loop bandwidths, stated explicitly rather than left to the constructor
@@ -53,6 +79,16 @@ IF_FS4 = 0.25
 #: default change must move the floor with it.
 BN_TIMING = 0.01
 BN_CARRIER = 0.01
+
+#: The constellation order both `make_signal` and `demod` fall back to, named
+#: once so a caller can seed a carrier offset without restating it.
+#:
+#: `freq_offset_inside_bw` needs `m` -- the carrier discriminator is an M-th
+#: power, so the acquisition bound is `bn_carrier / m` -- and a call site that
+#: wrote its own `4` beside a `demod()` taking the default would go silently
+#: wrong the day either moved. Two literals for one fact is exactly the
+#: expressible-but-unstated shape the offset seeding rule exists to remove.
+DEFAULT_M = 4
 
 
 def settle_floor(bn_timing=BN_TIMING, bn_carrier=BN_CARRIER):
@@ -80,31 +116,89 @@ _CI_METER = BerMeter(m=2, target_errors=1, conf=0.99)
 #: The default-bandwidth budget, for tests that do not retune the loops.
 SETTLE_SYMS = settle_floor()
 
-#: Amplitude, comfortably inside the cascade's +-1.0 CIC input bound.
-AMPL = 0.4
+#: What to add to a requested Es/N0 before handing it to the COMPLEX generator
+#: when the stimulus is going to be projected onto its real part.
+#:
+#: `10*log10(2)`, and it is a change of convention, not of noise. Taking `Re{}`
+#: halves the signal energy (half the power of a real passband signal sits at
+#: the negative frequency, so `Es = A^2*sps/2`) and halves the noise variance
+#: with it (`Re{}` of circular complex AWGN of variance `N` is real Gaussian of
+#: variance `N/2`). Es/N0 would therefore come out unchanged -- but the real
+#: path's convention counts the real noise against the HALVED Es, i.e.
+#: `var = Es/(2*Es/N0)`, which is 3 dB less noise than a literal projection.
+#: Asking the complex generator for 3 dB more Es/N0 delivers exactly that
+#: variance, so the real stimulus is bit-for-bit the same waveform, the same
+#: noise realisation scaled by `1/sqrt(2)`, and the same numbers the
+#: hand-rolled generator produced (measured agreement: within 0.06 dB of the
+#: old path's noise variance at every `(m, sps, Es/N0)` tried).
+REAL_ESNO_OFFSET_DB = 10.0 * np.log10(2.0)
 
 
-def make_signal(sps, nsym, *, real, m=4, fc=IF_FS4, esn0_db=None, seed=3):
+def agc(x):
+    """Normalise to unit AVERAGE POWER, which is what an AGC does.
+
+    An AGC is a receiver component and it belongs up the chain, not inside a
+    timing detector — the TED normalises by its own slope and nothing else
+    (docs/design/mpsk.md 5.1), so the level it sees is whatever arrives. This
+    is where that level is set, once, for every stimulus in this harness.
+
+    **Average power, not peak and not symbol amplitude.** On the noiseless
+    rectangular stream those coincide — unit average power IS unit symbol
+    amplitude — but under noise they do not, and average power is the one an
+    AGC can actually measure. The consequence is physical rather than a
+    defect: at a fixed Es/N0 the per-sample noise grows with oversampling, so
+    the signal's share of a unit-power composite shrinks and the loop gain
+    drops with it. That is what a real receiver experiences at low
+    per-sample SNR.
+
+    **Peaks are allowed to clip.** High PAPR is inevitable on some signals,
+    and a converter with a bounded input will occasionally saturate on it;
+    designing the level around the worst peak instead of the average would
+    throw away the range the signal actually uses. The CIC budgets headroom
+    for the typical case (docs/design/cic.md) and takes the rare peak.
+    """
+    p = float(np.mean(np.abs(x) ** 2))
+    return x if p <= 0.0 else x / np.sqrt(p)
+
+
+def make_signal(
+    sps, nsym, *, real, m=DEFAULT_M, fc=IF_FS4, esn0_db=None, seed=3
+):
     """One M-PSK stimulus, as either a real IF or complex baseband.
 
-    Rectangular symbols at `sps` samples each on a carrier at `fc`
-    cycles/sample. The real flavour is `Re{}` of the complex one, which is what
-    a single-ended ADC hands you, so the two paths are compared on the SAME
-    waveform rather than on two similar ones.
+    **The waveform comes from the library generator, not from here.**
+    `wfm.Synth(type="symbols")` holds each constellation point for `sps`
+    samples, mixes it with the `lo` carrier at `fc` cycles/sample and adds
+    `awgn` at the requested Es/N0 -- the same three components the receiver
+    under test is built against, and the same ones `wfmgen` ships to users. All
+    this function still owns is the truth sequence, the M-PSK mapping that
+    defines it, and the level convention below. A private numpy oversample +
+    carrier + noise variance was what stood here; it is the one measurement in
+    this harness that was a genuine duplicate rather than a delegation, and a
+    stimulus nobody else runs is a stimulus nobody else checks.
 
-    `esn0_db` adds AWGN at that symbol-energy-to-noise-density ratio. The two
-    conventions differ and both are needed:
+    The symbol indices stay local because they are TRUTH, not signal: `idx` is
+    what `symbol_metrics` and `coherent_errors` score against, and drawing it
+    from an RNG the harness controls keeps "what was sent" independent of the
+    generator that sends it. The constellation is `exp(2j*pi*k/m)` -- the
+    definition of M-PSK rather than a mapping choice, and deliberately NOT
+    `wfm.qpsk_map`, whose Gray labelling would put a different symbol under
+    index `k` and silently redefine the truth these metrics compare against.
 
-    * complex baseband -- `Es = A^2 * sps`, and `N0` is the variance per
-      complex sample, split evenly between I and Q.
-    * real IF -- `Es = A^2 * sps / 2`, because half the power of a real
-      passband signal sits at the negative frequency, and the real noise
-      variance is `Es / (2 * Es/N0)`.
+    **Unit-modulus symbols are load-bearing.** `Synth` references its SNR to a
+    signal of unit power (`wfm_awgn_amplitude(snr, 1.0)` in effect), so scaling
+    the constellation would scale the delivered Es/N0 with it and nothing would
+    complain. Level is set once, downstream, by `agc()`.
 
-    Both were validated by measurement, not derivation: at `Es/N0 = 12 dB`
-    both paths measure EVM within 0.5 dB of the -12 dB bound at every
-    oversampling ratio tested. A wrong convention here shows up immediately as
-    one path apparently beating the bound.
+    `esn0_db` is the symbol-energy-to-noise-density ratio, `snr_mode="esno"` on
+    the generator: `Es = A^2*sps` spread over `sps` samples, `N0` the variance
+    per complex sample. That claim is now checked rather than assumed --
+    `test_wfm_synth.py` reads it back with `snr.snr_data_aided_db` at the
+    matched-filter output and finds it within 0.04 dB across `sps` 1..16 and
+    Es/N0 0..20 dB. The real flavour is `Re{}` of that complex waveform, which
+    is what a single-ended ADC hands you, generated 3 dB hotter for the reason
+    in `REAL_ESNO_OFFSET_DB` -- so the two paths are compared on the SAME
+    waveform and the same noise realisation, not on two similar ones.
 
     Returns
     -------
@@ -115,24 +209,25 @@ def make_signal(sps, nsym, *, real, m=4, fc=IF_FS4, esn0_db=None, seed=3):
     """
     rng = np.random.default_rng(seed)
     idx = rng.integers(0, m, nsym)
-    bb = np.repeat(np.exp(2j * np.pi * idx / m), int(sps))
-    z = bb * np.exp(2j * np.pi * fc * np.arange(bb.size)) * AMPL
+    snr_db = 100.0  # >= WFM_SYNTH_SNR_CLEAN: no AWGN generated at all
+    if esn0_db is not None:
+        snr_db = esn0_db + (REAL_ESNO_OFFSET_DB if real else 0.0)
+    src = Synth(
+        type="symbols",
+        symbols=np.exp(2j * np.pi * idx / m).astype(np.complex64),
+        sps=int(sps),
+        fs=1.0,  # so `freq` is read as cycles/sample
+        freq=fc,
+        snr=snr_db,
+        snr_mode="esno",
+        seed=seed,
+    )
+    z = src.steps(int(sps) * nsym)
 
     if real:
-        x = z.real.astype(np.float64)
-        if esn0_db is not None:
-            es = AMPL * AMPL * sps / 2.0
-            var = es / (2.0 * 10 ** (esn0_db / 10.0))
-            x = x + rng.standard_normal(x.size) * np.sqrt(var)
+        x = agc(z.real.astype(np.float64))
         return np.ascontiguousarray(x.astype(np.float32)), idx
-
-    x = z.astype(np.complex128)
-    if esn0_db is not None:
-        es = AMPL * AMPL * sps
-        var = es / 10 ** (esn0_db / 10.0)
-        x = x + (
-            rng.standard_normal(x.size) + 1j * rng.standard_normal(x.size)
-        ) * np.sqrt(var / 2)
+    x = agc(z.astype(np.complex128))
     return np.ascontiguousarray(x.astype(np.complex64)), idx
 
 
@@ -150,35 +245,66 @@ def evm_scatter_floor_db(m):
     return ber_evm_scatter_floor_db(m)
 
 
-def freq_offset_inside_bw(bn, sps, frac=0.5):
-    """A carrier offset guaranteed INSIDE the loop bandwidth, in cycles/sample.
+def freq_offset_inside_bw(bn_carrier, m, frac=0.5):
+    """A carrier offset inside the loop's acquisition bound, cycles/SYMBOL.
 
-    This is the only kind of offset a lock-time assertion may use. `bn_carrier`
-    is normalised to the SYMBOL rate, so a loop bandwidth of `bn` is `bn * Rs`,
-    which at `sps` samples per symbol is `bn / sps` cycles per sample. `frac`
-    scales inside that: 0.5 sits at half the loop bandwidth.
+    The only kind of offset a lock-time assertion may seed. Returned in the
+    same units the loop bandwidth is stated in, because that is what makes the
+    two comparable at a glance: `bn_carrier` is normalised to the symbol rate,
+    so the bound is `bn_carrier / m` cycles per symbol and this returns a
+    fraction of it. **There is no `sps` here.** Converting to cycles per sample
+    happens once, at the constructor that wants it -- `demod` does it, and
+    doing it anywhere else is the sps-sized error `dp_rx_mpsk.h` warns about.
 
-    Testing OUTSIDE the loop bandwidth is a coin flip -- acquisition beyond
-    `Bn`
-    depends on where the transient happens to push the integrator, so a pass
-    means the dice fell well and a failure means nothing was broken. Neither
-    outcome is a test. Pull-in range beyond `Bn` is what `nda_tap` and a coarse
-    frequency estimate are for; if it needs measuring, measure it as a
-    characterisation sweep with a reported success fraction, never as a
-    pass/fail assertion.
+    **The `m` is the part that was missing, and it hid a factor of m.** The
+    NDA discriminator is an M-th power, so it sees `m` times the offset; the
+    bound is `bn_carrier / m`, not `bn_carrier` (docs/design/mpsk.md §12
+    section 4.4). A helper without it returns the same number at every order
+    while asking a 4x harder question at 8PSK than at BPSK.
+
+    `frac` is the fraction of the bound: 1.0 seeds exactly at
+    `bn_carrier / m`, and the default 0.5 at half of it. **Tests seed at or
+    under the bound**, and both ends of that matter -- seeded on truth the
+    loop never leaves its initial state and measures nothing, seeded past the
+    bound it measures the dice.
+
+    **The envelope is measured, not quoted here.**
+    `doppler.track.tests.characterization.pull_in` sweeps it — success
+    fraction against multiples of this bound, across every order and two
+    oversampling ratios — and `make characterize` re-derives it. As it stands
+    the carrier loop is reliable out to 4x the bound (3x at 8PSK) and dead by
+    5x, so seeding AT the bound keeps a 3-4x margin. Those figures live in
+    that sweep's output rather than in this docstring because a number
+    nothing re-runs is prose, and two findings were once filed against the
+    receiver on the strength of one (doppler#843, doppler#849).
+
+    Acquisition beyond the bound depends on where the transient happens to
+    push the integrator, so a pass means the dice fell well and a failure
+    means nothing was broken -- neither is a test. Pull-in range beyond it is
+    what a wider loop and a coarse frequency estimate are for; if it needs
+    measuring, measure it as a characterisation sweep with a reported success
+    fraction, never as a pass/fail assertion.
     """
-    return frac * bn / sps
+    return frac * bn_carrier / m
 
 
-def clock_offset_inside_bw(bn, frac=0.5):
+def clock_offset_inside_bw(bn_timing, frac=0.5):
     """A fractional sample-clock error inside the timing loop's bandwidth.
 
     Applied by telling the receiver a nominal `sps` that differs from the
-    stimulus by this fraction, which is exactly what a free-running ADC clock
-    looks like. `bn_timing` is also symbol-rate normalised, so the offset is
-    dimensionless in symbols per symbol and needs no `sps` scaling.
+    stimulus by this fraction, which is what a free-running ADC clock looks
+    like. `bn_timing` is symbol-rate normalised, so the error is already
+    dimensionless in symbols per symbol -- no `sps`, and no `m` either.
+
+    **The absent `m` is measured rather than assumed**: the timing
+    discriminator is not an M-th power, and the same sweep that establishes
+    the carrier envelope establishes this one
+    (`doppler.track.tests.characterization.pull_in`). It is the tighter of
+    the two — reliable to about 1.6-1.8x its bound and dead by 2.5x, against
+    the carrier's 3-4x — which is why the two are stated separately rather
+    than sharing one fraction.
     """
-    return frac * bn
+    return frac * bn_timing
 
 
 def demod(
@@ -187,7 +313,7 @@ def demod(
     real,
     sps,
     m_out,
-    m=4,
+    m=DEFAULT_M,
     fc=IF_FS4,
     bn_timing=BN_TIMING,
     bn_carrier=BN_CARRIER,
@@ -201,7 +327,7 @@ def demod(
     the receiver's actual loops cannot drift apart -- pair every call with
     `settle_floor(bn_timing, bn_carrier)`.
 
-    `freq_offset` (cycles/sample) is subtracted from the seeded
+    `freq_offset` (cycles per SYMBOL) is subtracted from the seeded
     `init_norm_freq`,
     so the carrier loop must acquire it. **Pass a non-zero value whenever the
     test says anything about the carrier loop**: seeded exactly on truth the
@@ -211,6 +337,20 @@ def demod(
 
     `clock_offset` (dimensionless) scales the nominal `sps` the receiver is
     told, so the timing loop must absorb it. Use `clock_offset_inside_bw`.
+
+    **No output-rate check lives here, and that is a finding rather than an
+    omission.** A receiver emits one symbol per symbol period, so the count is
+    `len(x)/sps` -- not `m_out` times it (the terminal cascade rate), and not
+    half of it (a real front end's internal decimation counted twice). Getting
+    that wrong does not raise anywhere by itself: the symbols are real symbols,
+    they are simply not the sequence the truth array describes. The instinct is
+    to add a count invariant here; measured, `BerMeter.align()` already refuses
+    every one of those cases downstream, because a stream at the wrong rate
+    cannot correlate against the truth -- half rate reads -2.5 dB of margin,
+    double rate reads -inf, and `m_out` outputs mistaken for symbols reads
+    -5.6 dB, against +10.5 dB for the healthy run. A second gate with its own
+    tolerance would be a second convention for a question `ber` already
+    answers. See `detect_alignment`.
 
     Returns `(symbols, probes)` where `probes` maps a probe suffix to its
     per-symbol series -- `sync.locked`, `car.locked`, `sync.mu`, and the rest
@@ -224,7 +364,12 @@ def demod(
         m_out=m_out,
         bn_timing=bn_timing,
         bn_carrier=bn_carrier,
-        init_norm_freq=fc - freq_offset,
+        # THE conversion, and the only one: `freq_offset` and both loop
+        # bandwidths are symbol-rate normalised, while `init_norm_freq` is
+        # cycles per SAMPLE. Dividing here means no caller has to hold `sps`
+        # to state a frequency -- doing it at the call site instead is the
+        # sps-sized error `dp_rx_mpsk.h` records.
+        init_norm_freq=fc - freq_offset / float(sps),
         **kw,
     )
     rx.set_telemetry(tlm, "rx")
@@ -262,15 +407,17 @@ def lock_symbol(flag, sustain=200, min_frac=0.9):
 def settle_from(probes, floor=SETTLE_SYMS):
     """Where the measurement window may start, from the receiver's own locks.
 
-    `max(budget, timing lock, carrier lock, handover + budget)` -- the
-    analytic budget and the reported locks are both fallible in the SAME
-    direction, so whichever settles last decides. **With `acq_to_track` on the
-    handover is what settles last**: it fires on carrier lock plus a warmup,
-    strictly after everything else, and the decision-directed loop then has
-    its own transient, so it contributes its instant PLUS the budget again.
-    Measured on 8PSK at its SER=1e-3 anchor: handover at symbol 2525 against a
-    2000-symbol budget, SER 5.9x the coherent bound from 2000 versus 1.7x from
-    4525.
+    `max(budget, timing lock, carrier lock)` -- the analytic budget and the
+    reported locks are both fallible in the SAME direction, so whichever
+    settles last decides.
+
+    There was a fourth term until doppler#877. A receiver that handed the
+    carrier from an NDA discriminator to a decision-directed one settled last
+    of all, contributing its instant PLUS the budget again (measured on 8PSK
+    at its SER=1e-3 anchor: handover at symbol 2525 against a 2000-symbol
+    budget, and 5.9x the coherent bound if the window started at 2000 rather
+    than 4525). No receiver here hands over any more, and the `tracking`
+    probe it was read from no longer exists.
 
     Delegates the policy to `ber.ber_settle_from`. Returns `None` when either
     loop is not locked at the end of the burst -- there is no valid
@@ -280,8 +427,47 @@ def settle_from(probes, floor=SETTLE_SYMS):
     c = lock_symbol(probes["car.locked"])
     if t is None or c is None:
         return None
-    h = lock_symbol(probes["tracking"]) if "tracking" in probes else None
-    return int(ber_settle_from(floor, t, c, -1 if h is None else h))
+    return int(ber_settle_from(floor, t, c))
+
+
+def detect_alignment(y, idx, m, settle, lag_span=40, n_marker=256):
+    """The one alignment recipe: a `BerMeter` with a DETECTED lag, or `None`.
+
+    Every number in this harness that needs to know which transmitted symbol a
+    received one corresponds to comes through here, so there is exactly one
+    answer to "where does the stream sit" per measurement rather than one per
+    metric. `None` means no alignment was detected and nothing may be scored --
+    the second refusal point.
+
+    **Detected, not searched.** `BerMeter.align()` correlates a known marker --
+    a stretch of the truth sequence, taken from the FRONT of the settled window
+    so the symbols that fix the alignment can be kept out of what is scored --
+    and gates the peak on a false-alarm probability, returning `align_ok`:
+    detected, unambiguous (>= 3 dB over the runner-up) and unsaturated. A
+    minimum-over-lag search is an optimisation over the answer instead: it
+    false-passes on a lucky alignment over garbage, and false-floors when the
+    true lag falls outside its span, and in both cases it returns a number.
+
+    `rx` is NOT sliced. The meter's convention is `rx[i] <-> truth[i + lag]`,
+    so slicing `settle` off one side only would make the true lag `settle`
+    itself -- thousands of symbols outside any sane search.
+
+    **It refuses a wrong-rate stream too**, which is why no separate
+    output-rate invariant exists here (see `demod`): a stream carrying half,
+    double or `m_out` times the symbols it should cannot correlate against the
+    truth, and reports -2.5, -inf and -5.6 dB of margin respectively where a
+    healthy run reports +10.5 dB.
+    """
+    t0 = settle + lag_span
+    if t0 + n_marker >= idx.size:
+        return None
+    rx = np.ascontiguousarray(y, dtype=np.complex64)
+    truth = np.ascontiguousarray(idx, dtype=np.uint8)
+    meter = BerMeter(m=m, target_errors=10**9)
+    meter.set_truth(truth)
+    if not meter.align(rx, t0=t0, n_marker=n_marker, lag_span=lag_span):
+        return None
+    return meter
 
 
 def coherent_errors(y, idx, m, settle, lag_span=40):
@@ -292,37 +478,26 @@ def coherent_errors(y, idx, m, settle, lag_span=40):
     the random variable -- and a rate alone cannot be accumulated across
     bursts. See `ser_confidence()`.
 
-    **The alignment is DETECTED, not searched.** This used to take the minimum
-    error count over a lag and rotation search, which is an optimisation over
-    the answer rather than a measurement: it can find a lucky alignment on
-    garbage, and it can miss the true one on a healthy stream and report
-    chance. `BerMeter.align()` correlates a known marker -- here a stretch of
-    the truth sequence, taken from the FRONT of the window so the symbols that
-    fix the alignment are disjoint from the ones scored -- and gates the peak
-    on a false-alarm probability.
+    The alignment comes from `detect_alignment` -- detected, never searched --
+    and this returns `None` rather than a number when it is unavailable.
 
     Returns `None` if the window is too short to judge, or if no alignment
     could be detected in it.
     """
     if y.size - settle < 500:
         return None
+    meter = detect_alignment(y, idx, m, settle, lag_span=lag_span)
+    if meter is None:
+        return None
+    # The marker symbols are held out by `score()` itself -- they are known, so
+    # scoring them would flatter the rate with symbols that had no chance of
+    # being wrong, and the count lands in `meter.skipped`. This used to compute
+    # a `lo` past the marker by hand, which is the same guarantee written a
+    # second time in a second convention: it assumed one occurrence at a lag
+    # sign the meter defines, and it silently dropped every symbol between the
+    # window start and the marker's end instead of just the marker's own.
     rx = np.ascontiguousarray(y, dtype=np.complex64)
-    truth = np.ascontiguousarray(idx, dtype=np.uint8)
-    # `rx` is NOT sliced: the meter's convention is rx[i] <-> truth[i + lag],
-    # so slicing off `settle` from one side only would make the true lag
-    # `settle` itself -- thousands of symbols outside any sane search.
-    t0 = settle + lag_span
-    n_marker = 256
-    if t0 + n_marker >= truth.size:
-        return None
-    meter = BerMeter(m=m, target_errors=10**9)
-    meter.set_truth(truth)
-    if not meter.align(rx, t0=t0, n_marker=n_marker, lag_span=lag_span):
-        return None
-    # Score from just past the marker: the symbols that fixed the alignment
-    # must not also be scored, or they flatter the rate.
-    lo = t0 + n_marker - meter.lag
-    meter.score(rx, lo=lo, hi=rx.size)
+    meter.score(rx, lo=settle, hi=rx.size)
     return (int(meter.errors), int(meter.symbols)) if meter.symbols else None
 
 
@@ -353,6 +528,22 @@ def ser_confidence(errors, symbols, z=1.96):
     return r.p_hat, r.lo, r.hi
 
 
+class SymbolMetrics(NamedTuple):
+    """What one settled burst measures, reported as a set rather than singly.
+
+    Goal 4 of docs/design/rx-test.md: BER, EVM and M2M4 fail DIFFERENTLY, so
+    the disagreement between them is the diagnostic and reporting one alone is
+    what makes a false lock invisible. Named fields rather than a tuple so a
+    caller has to say which number it means -- and so adding the fourth (FER,
+    once the frame layer lands) does not silently renumber anything.
+    """
+
+    evm_db: float
+    ser: float
+    lag: int
+    m2m4_db: float
+
+
 def symbol_metrics(y, idx, m=4, settle=SETTLE_SYMS):
     """EVM (dB) and DIFFERENTIAL SER over the SETTLED part of the burst.
 
@@ -369,27 +560,75 @@ def symbol_metrics(y, idx, m=4, settle=SETTLE_SYMS):
     coherent measurement is 1.2-2.4x, i.e. 0.3-1.0 dB. Use `coherent_errors()`
     when the reference is a coherent curve.
 
-    Returns `(evm_db, ser, lag)`. `lag` is the winning offset; if it sits at
-    either end of the +-200 search the search saturated and the SER is not
-    trustworthy.
+    **The lag is DETECTED, and this is the second refusal point.** It used to
+    be the argmin of a +-200 lag search, with the winning lag returned so the
+    caller could notice a saturated search for itself -- two of seven call
+    sites did, by hand, with a literal `abs(lag) < 190`. That is the refusal
+    goal 1 asks for, implemented five times in five places and therefore not
+    implemented. `detect_alignment()` now supplies the lag, gated on
+    `align_ok`, and this RAISES rather than returning a number when no
+    alignment is available. The detected lag agrees with the old search's
+    (opposite sign, `rx[i] <-> truth[i + lag]`) in every configuration these
+    tests run, so the numbers are unchanged where the search was right; where
+    it was wrong, there is now no number.
+
+    **All three numbers come back together**, because they fail differently
+    and the disagreement is the diagnostic. Under a stable false lock at
+    `df = k*Rs/M` the constellation is stationary, so the two truth-free
+    metrics read almost exactly what a healthy link reads -- measured at
+    sps=16, QPSK, Es/N0 15 dB: EVM -12.52 dB and M2M4 12.93 dB against -13.57
+    and 13.77 for the real thing, while the receiver reports LOCKED. Only the
+    truth-referenced measurement sees it, and here it refuses outright. Report
+    any one of these alone and that failure is invisible.
+
+    `evm_db` and `m2m4_db` are the library's own estimators over the SAME
+    window the SER is scored on -- `ber.ber_evm_db` and `snr.snr_m2m4_db`,
+    both pinned by known answer and sabotage in `native/tests/`. The EVM used
+    to be recomputed here in numpy; it agreed with `ber_evm_db` to four
+    decimals, which is what a duplicate looks like right up until one of them
+    changes.
+
+    Returns a `SymbolMetrics`; `lag` is in the meter's convention.
     """
     ys = y[settle:]
     if len(ys) < 200:
-        return float("nan"), float("nan"), None
+        raise AssertionError(
+            f"only {len(ys)} symbols after settling at {settle} of "
+            f"{len(y)}: too short to measure, so nothing is reported"
+        )
+    rx = np.ascontiguousarray(y, dtype=np.complex64)
+    evm = float(ber_evm_db(rx, settle, len(y), m))
+    m2m4 = float(snr_m2m4_db(np.ascontiguousarray(ys, dtype=np.complex64)))
+
     step = 2.0 * np.pi / m
     yr = ys * np.exp(-1j * np.angle(np.mean(ys**m)) / m)
     yr = yr / np.sqrt(np.mean(np.abs(yr) ** 2))
-    ideal = np.exp(1j * step * np.round(np.angle(yr) / step))
-    evm = 10 * np.log10(np.mean(np.abs(yr - ideal) ** 2))
 
+    meter = detect_alignment(y, idx, m, settle)
+    if meter is None:
+        raise AssertionError(
+            f"no alignment detected over {len(ys)} settled symbols. The "
+            f"truth-free pair reads EVM {evm:.1f} dB and M2M4 {m2m4:.1f} dB "
+            f"(scatter floor {evm_scatter_floor_db(m):.1f} dB) -- if those "
+            f"look healthy, this is the false-lock signature, not a broken "
+            f"demodulator. There is no lag at which an SER means anything, "
+            f"so none is reported"
+        )
+    lag = int(meter.lag)
+
+    # Differences, so no absolute rotation is needed -- only the lag. The
+    # decisions are taken on the settled slice, whose element k is y[settle+k]
+    # and therefore truth[settle+k+lag].
     dec = np.round(np.angle(yr) / step).astype(int) % m
     dd, dt = np.diff(dec) % m, np.diff(idx) % m
-    ser, best = 1.0, None
-    for lag in range(-200, 201):
-        a0, b0 = max(0, lag), max(0, -lag) + settle
-        k = min(len(dd) - a0, len(dt) - b0)
-        if k >= 200:
-            s = float(np.mean(dd[a0 : a0 + k] != dt[b0 : b0 + k]))
-            if s < ser:
-                ser, best = s, lag
-    return evm, ser, best
+    base = settle + lag
+    a0 = max(0, -base)
+    b0 = max(0, base)
+    k = min(len(dd) - a0, len(dt) - b0)
+    if k < 200:
+        raise AssertionError(
+            f"only {k} symbols overlap at the detected lag {lag}: too few to "
+            f"report an SER"
+        )
+    ser = float(np.mean(dd[a0 : a0 + k] != dt[b0 : b0 + k]))
+    return SymbolMetrics(evm, ser, lag, m2m4)

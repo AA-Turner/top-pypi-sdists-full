@@ -29,7 +29,7 @@ class AccF32:
     0.0
 
     """
-    def __init__(self, acc: float = ...) -> None: ...
+    def __init__(self, acc: float = 0.0) -> None: ...
 
     def reset(self) -> None:
         """Zero the accumulator, restoring the same state as a fresh
@@ -386,7 +386,7 @@ class AccCf64:
     0j
 
     """
-    def __init__(self, acc: complex = ...) -> None: ...
+    def __init__(self, acc: complex = 0j) -> None: ...
 
     def reset(self) -> None:
         """Zero the accumulator, restoring the same state as a fresh
@@ -786,6 +786,15 @@ class AccTrace:
         out: NDArray[np.float32] | None = None,
     ) -> NDArray[np.float32]:
         """Copy the current averaged trace (None before any accumulate).
+
+        Parameters
+        ----------
+        count : int
+            How many output samples to ask for. The call may return fewer; size
+            an `out=` buffer with the matching `_max_out()` when you need the
+            worst case.
+        out : NDArray[np.float32] | None
+            Destination, at least n float32 elements.
 
         Returns
         -------

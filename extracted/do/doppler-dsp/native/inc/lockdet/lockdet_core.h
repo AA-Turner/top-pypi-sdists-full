@@ -15,10 +15,33 @@
  *  - **Time hysteresis**: @c n_up consecutive looks above @c up_thresh to
  *    declare, @c n_down consecutive looks below @c down_thresh to drop. A
  *    single contrary look resets the run (consecutive, not cumulative), so
- *    the verify counts compose probabilistically: at per-look false-alarm
- *    rate p the false-declare rate is p^n_up. Size the counts with
- *    det_verify_count() and predict the declare latency with
- *    det_verify_delay() (detection module).
+ *    the verify counts compose probabilistically. At per-look false-alarm
+ *    rate p the false-declare rate per look is
+ *    `p^n_up * (1 - p) / (1 - p^n_up)`, whose reciprocal is exactly
+ *    det_verify_delay(p, n_up), the mean looks to a declare. `p^n_up`
+ *    alone is the **p -> 0 limit** of that, and is what
+ *    det_verify_count() sizes against -- correct to 0.001% at p = 1e-5,
+ *    10% at p = 0.1, and **+87% at p = 0.5 with n_up = 4**. Use it as the
+ *    budget (it errs high, so it over-provisions n_up) and
+ *    det_verify_delay() for the number a caller actually observes.
+ *    Measured across p from 0.1 to 0.5 and n_up from 1 to 4:
+ *    native/validation/lockdet_verify.c.
+ *
+ *    (Both the formula and those ranges are written without an indented
+ *    block or square brackets on purpose: mkdoxy renders this comment into
+ *    markdown, where an indented line is swallowed into the paragraph
+ *    before it and a bare `p in [0.1, 0.5]` parses as a link reference and
+ *    fails the --strict docs build.)
+ *
+ *  - **Non-finite looks**: a NaN look is a **miss in both states** — it never
+ *    advances a declare, and while locked it advances the drop run like any
+ *    other miss, so a metric that goes NaN drops the lock after @c n_down
+ *    rather than holding it lit. An unknown lock is not a lock. The policy is
+ *    not implemented here: the look is passed through util_core.h's
+ *    saturate(), whose @c nan_to parameter documents a lock statistic as the
+ *    caller that wants the floor. Only NaN is unordered — the infinities are
+ *    ordinary looks (+inf a hit, -inf a miss), and the exclusive edges are
+ *    unchanged.
  *
  * The state struct is **public** so a tracker embeds it by value (no heap)
  * and drives it with lockdet_init()/lockdet_step() — e.g. the DLL steps one
@@ -42,6 +65,8 @@
 #include "clib_common.h"
 #include "dp_state.h"
 #include "jm_perf.h"
+#include "util/util_core.h" /* saturate() — the NaN policy, shared */
+#include <math.h>
 #ifdef __cplusplus
 extern "C"
 {
@@ -166,8 +191,14 @@ extern "C"
    * it. A metric inside the `[down_thresh, up_thresh]` band is sticky — it
    * neither advances a declare nor a drop.
    *
+   * A **non-finite look is a miss in both states**: it never advances a
+   * declare, and while locked it advances the drop run like any other miss.
+   * An unknown lock is not a lock, which is the rule util_core.h states for
+   * lock statistics generally. So a metric that goes NaN drops the lock
+   * after @c n_down looks rather than holding it lit indefinitely.
+   *
    * @param state  Must be non-NULL.
-   * @param x      Lock metric for this look.
+   * @param x      Lock metric for this look. Non-finite counts as a miss.
    * @return Decision after this look (1 = locked, 0 = not).
    *
    * @code
@@ -185,6 +216,21 @@ extern "C"
   JM_FORCEINLINE JM_HOT int
   lockdet_step (lockdet_state_t *state, double x)
   {
+    /* An unknown lock is not a lock. Send a non-finite look to the floor
+       through the SHARED primitive rather than encoding the policy here:
+       saturate()'s own documentation names a lock statistic as the caller
+       that wants NaN at the floor, and until now no lock detector called
+       it, so that paragraph described a caller who did not exist.
+       Doing the substitution once, up front, is also what keeps the two
+       comparisons below plain. NaN fails every comparison, so a detector
+       that handles it inline has to encode the policy in the SPELLING of a
+       predicate (`!(x >= t)` rather than `x < t`) — which is subtle enough
+       that the drop side was written the other way and held the lock lit
+       forever on a dead metric.
+       The bounds are infinite because the substitution is the only job:
+       every finite look, and both infinities, pass through untouched. */
+    x = saturate (x, -INFINITY, INFINITY, -INFINITY);
+
     if (!state->locked)
       {
         if (x > state->up_thresh)

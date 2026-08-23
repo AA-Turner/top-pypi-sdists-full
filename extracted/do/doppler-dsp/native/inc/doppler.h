@@ -63,6 +63,8 @@ extern "C" {
 
 #include "gold/gold_core.h"
 
+#include "frame/frame_core.h"
+
 #include "delay/delay_core.h"
 
 #include "fft/fft_core.h"
@@ -109,6 +111,8 @@ extern "C" {
 
 #include "lockdet/lockdet_core.h"
 
+#include "syncword/syncword_core.h"
+
 #include "agc/agc_core.h"
 
 #include "doppler_channel/doppler_channel_core.h"
@@ -135,7 +139,11 @@ extern "C" {
 
 #include "mpsk_receiver/mpsk_receiver_core.h"
 
-#include "mpsk_receiver_r/mpsk_receiver_r_core.h"
+#include "conv_enc/conv_enc_core.h"
+
+#include "viterbi/viterbi_core.h"
+
+#include "rs_codec/rs_codec_core.h"
 
 #include "despreader/despreader_core.h"
 
@@ -156,6 +164,8 @@ extern "C" {
 #include "carrier_acq/carrier_acq_core.h"
 
 #include "ber_meter/ber_meter_core.h"
+
+#include "frame_meter/frame_meter_core.h"
 
 #ifdef __cplusplus
 }

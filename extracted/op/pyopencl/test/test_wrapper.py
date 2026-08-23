@@ -26,14 +26,13 @@ import pytest
 
 import pyopencl as cl
 import pyopencl.array as cl_array
-import pyopencl.clrandom as clrandom
-import pyopencl.cltypes as cltypes
+from pyopencl import clrandom, cltypes
 from pyopencl.characterize import get_pocl_version
 from pyopencl.tools import (
     DeferredAllocator,
     ImmediateAllocator,
     MemoryPool,
-    pytest_generate_tests_for_pyopencl as pytest_generate_tests,  # noqa: F401
+    pytest_generate_tests_for_pyopencl as pytest_generate_tests,  # ruff:ignore[unused-import]
 )
 
 
@@ -58,8 +57,8 @@ def test_get_info(ctx_factory: cl.CtxFactory):
     platform = device.platform
 
     with pytest.deprecated_call():
-        device.persistent_unique_id  # noqa: B018
-    device.hashable_model_and_version_identifier  # noqa: B018
+        device.persistent_unique_id  # ruff:ignore[useless-expression]
+    device.hashable_model_and_version_identifier  # ruff:ignore[useless-expression]
 
     failure_count = [0]
 
@@ -73,7 +72,7 @@ def test_get_info(ctx_factory: cl.CtxFactory):
             (cl.Program, cl.program_info.KERNEL_NAMES),
             (cl.Program, cl.program_info.NUM_KERNELS),
         ])
-    CRASH_QUIRKS = [  # noqa: N806
+    CRASH_QUIRKS = [  # ruff:ignore[non-lowercase-variable-in-function]
             (("NVIDIA Corporation", "NVIDIA CUDA",
                 "OpenCL 1.0 CUDA 3.0.1"),
                 [
@@ -108,7 +107,7 @@ def test_get_info(ctx_factory: cl.CtxFactory):
                     (cl.Program, cl.program_info.SOURCE),
                     ]),
             ]
-    QUIRKS = []  # noqa: N806
+    QUIRKS = []  # ruff:ignore[non-lowercase-variable-in-function]
 
     def find_quirk(quirk_list, cl_obj, info):
         for (vendor, name, version), quirks in quirk_list:
@@ -228,8 +227,8 @@ def test_get_info(ctx_factory: cl.CtxFactory):
         img = cl.Image(ctx, cl.mem_flags.READ_ONLY, img_format, (128, 256))
         assert img.shape == (128, 256)
 
-        img.depth  # noqa: B018
-        img.image.depth  # noqa: B018
+        img.depth  # ruff:ignore[useless-expression]
+        img.image.depth  # ruff:ignore[useless-expression]
         do_test(img, cl.image_info,
                 lambda info: img.get_image_info(info))
 
@@ -300,7 +299,7 @@ def test_invalid_kernel_names_cause_failures(ctx_factory: cl.CtxFactory):
         """).build()
 
     try:
-        prg.sam  # noqa: B018
+        prg.sam  # ruff:ignore[useless-expression]
         raise RuntimeError("invalid kernel name did not cause error")
     except AttributeError:
         pass
@@ -1559,6 +1558,21 @@ def test_buffer_release(ctx_factory: cl.CtxFactory):
     b = mem_pool.allocate(1000)
     print(type(b))
     b.release()
+
+
+def test_set_arg_none(ctx_factory: cl.CtxFactory):
+    # https://github.com/inducer/pyopencl/issues/897
+    ctx = ctx_factory()
+    prg = cl.Program(ctx, """
+    __kernel void sum(
+       __global const float *a_g, __global const float *b_g, __global float *res_g)
+    {
+     int gid = get_global_id(0);
+     res_g[gid] = a_g[gid] + b_g[gid];
+    }
+    """).build()
+
+    prg.sum.set_arg(0, None)
 
 
 if __name__ == "__main__":

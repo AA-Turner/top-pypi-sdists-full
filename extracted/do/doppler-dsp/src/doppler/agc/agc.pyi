@@ -17,9 +17,14 @@ class AGC:
     ref_db : float, default 0.0
         Target output power in dB (e.g. 0.0 for unity power).
     loop_bw : float, default 0.0025
-        Loop noise bandwidth in cycles/sample; the loop settles in roughly
-        1/(4*loop_bw) samples. Smaller values are slower and smoother; keep
-        well below 1/(4*decim) when using agc_steps().
+        Loop noise bandwidth in cycles/sample. The FILTER's time constant is
+        1/(4*loop_bw) samples; the object settles more slowly than that on a
+        quiet input, because the detector is inside the loop and measures in
+        power (see the Linear-in-dB note above — measured 1.7x to 2.2x at -40
+        dB in, worse at small alpha). Treat 1/(4*loop_bw) as a floor on
+        settling, not an estimate of it. Smaller values are slower and
+        smoother. With agc_steps(), the pairing rule is 4*decim*loop_bw <= 0.05
+        — see "Choosing decim".
     alpha : float, default 0.05
         Power-detector EMA coefficient in (0, 1]; smaller values smooth harder
         but react slower to envelope changes.
@@ -154,15 +159,27 @@ class AGC:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the AGC's probes
-        on it. Registers one probe, "<prefix>.gain_db" — the loop-filter
-        integrator (the commanded gain in dB), recorded once per gain-update
-        event and further thinned by decim. Passing NULL detaches (probe sites
-        revert to their single-branch disabled cost); re-attaching after a
-        reset is idempotent (same name -> same probe id). Setup path, never
-        hot: call before the producer thread starts stepping, and keep every
-        object attached to one context on that one thread (the ring is SPSC —
-        see dp_tlm/dp_tlm_core.h). The context is borrowed, not owned: it must
-        outlive the attachment.
+        on it. Registers two probes, both recorded once per gain-update event
+        and further thinned by decim:
+
+        - "<prefix>.gain_db" — the loop-filter integrator, i.e. the gain the
+          loop is commanding, in dB.
+        - "<prefix>.level_db" — the level the power detector measures,
+          `10*log10(p_avg)`, in dB. This is the loop's *input*: the integrator
+          drives `ref_db - level_db` to zero, so level_db is the
+          zero-referenced settling indicator. Reading it says whether the loop
+          has converged without knowing the true input level, which gain_db
+          alone cannot — gain_db settles to an offset that depends on how loud
+          the signal happens to be.
+
+        The pair is emitted from one update, with level_db being the belief
+        that update was answering (measured before the correction is applied).
+        Passing NULL detaches (probe sites revert to their single-branch
+        disabled cost); re-attaching after a reset is idempotent (same name ->
+        same probe id). Setup path, never hot: call before the producer thread
+        starts stepping, and keep every object attached to one context on that
+        one thread (the ring is SPSC — see dp_tlm/dp_tlm_core.h). The context
+        is borrowed, not owned: it must outlive the attachment.
 
         Parameters
         ----------
@@ -173,6 +190,12 @@ class AGC:
         decim : int
             Emit every decim-th gain update; >= 1.
 
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_telemetry failed``, with the return code appended (gh-869).
+
         Examples
         --------
         >>> import numpy as np
@@ -181,15 +204,19 @@ class AGC:
         >>> tlm = Telemetry(1 << 12)
         >>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)
         >>> agc.set_telemetry(tlm, "agc")
-        >>> tlm.probe_names
-        {'agc.gain_db': 0}
-        >>> x = (0.5 + 0j) * np.ones(256, dtype=np.complex64)
+        >>> sorted(tlm.probe_names)
+        ['agc.gain_db', 'agc.level_db']
+        >>> x = (0.5 + 0j) * np.ones(4096, dtype=np.complex64)
         >>> _ = agc.steps(x)
-        >>> recs = tlm.read()          # one record per decim-chunk update
-        >>> len(recs) == 256 // agc.decim
+        >>> recs = tlm.read()      # both probes, per decim-chunk update
+        >>> gain = recs[recs["probe"] == tlm.probe_id("agc.gain_db")]["value"]
+        >>> lvl = recs[recs["probe"] == tlm.probe_id("agc.level_db")]["value"]
+        >>> len(gain) == len(lvl) == 4096 // agc.decim
         True
-        >>> bool(recs["value"][-1] > recs["value"][0])  # gain rises to ref
-        True
+        >>> round(float(gain[-1]), 1)   # -6 dB input, 0 dB ref -> +6 dB gain
+        6.0
+        >>> round(float(lvl[-1]), 1)    # settled: measured level == ref
+        0.0
 
         """
 
@@ -345,3 +372,22 @@ class AGC:
         tb : object | None
             Traceback object, or None. Ignored.
         """
+
+def settling_samples(
+    loop_bw: float,
+    alpha: float,
+    gain_err_db: float,
+    tol_db: float,
+) -> int:
+    """How many samples this loop needs to settle -- the design query a caller
+    sizing a warm-up budget, a burst preamble or an acquisition guard has to
+    answer. 1/(4*loop_bw) is the loop FILTER's time constant and not the
+    object's: the detector sits inside the loop and measures in power, so a
+    quiet input settles more slowly. Measured, the multiplier runs from about
+    0.8 on a loud start to nearly 5 on a quiet one with a slow detector. This
+    runs the real loop against a constant input and counts, so there is no
+    fitted curve to go stale. gain_err_db is POSITIVE for a quiet input, which
+    is the slow direction and the one to budget for. Returns 0 rather than a
+    plausible guess when the arguments are invalid. Design-time only: it
+    allocates and iterates.
+    """

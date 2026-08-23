@@ -71,6 +71,11 @@ class SnapshotSerializer(ABC):
 class SnapshotCollectionStorage(ABC):
     snapshot_dirname: str | Path = "__snapshots__"
     file_extension = ""
+    # When True, snapshot updates are written to disk immediately instead of
+    # being buffered until session finish. Prefer for single-file extensions
+    # where batching does not reduce I/O and large payloads would otherwise
+    # accumulate in memory (see #841).
+    write_immediately: bool = False
 
     @classmethod
     def get_snapshot_name(
@@ -156,6 +161,7 @@ class SnapshotCollectionStorage(ABC):
         *,
         snapshot_location: str,
         snapshots: list[tuple["SerializedData", "PyTestLocation", "SnapshotIndex"]],
+        name_order: dict[str, int] | None = None,
     ) -> None:
         """
         This method is _final_, do not override. You can override
@@ -202,7 +208,9 @@ class SnapshotCollectionStorage(ABC):
         # Ensures the folder path for the snapshot file exists.
         Path(snapshot_location).parent.mkdir(parents=True, exist_ok=True)
 
-        cls.write_snapshot_collection(snapshot_collection=snapshot_collection)
+        cls.write_snapshot_collection(
+            snapshot_collection=snapshot_collection, name_order=name_order
+        )
 
     @abstractmethod
     def delete_snapshots(
@@ -235,10 +243,16 @@ class SnapshotCollectionStorage(ABC):
     @classmethod
     @abstractmethod
     def write_snapshot_collection(
-        cls, *, snapshot_collection: "SnapshotCollection"
+        cls,
+        *,
+        snapshot_collection: "SnapshotCollection",
+        name_order: dict[str, int] | None = None,
     ) -> None:
         """
         Adds the snapshot data to the snapshots in collection location
+
+        ``name_order`` maps snapshot names to collection indices when
+        ``--snapshot-declaration-order`` is enabled.
         """
         raise NotImplementedError
 
@@ -395,7 +409,7 @@ class SnapshotReporter:
                     num_space = _count_leading_whitespace(lines[num_lines // 2])
                 yield " " * num_space + self._marker_context_max
             if self._context_line_count and num_lines > 1:
-                yield from lines[-self._context_line_count :]  # noqa: E203
+                yield from lines[-self._context_line_count :]
 
     def __strip_ends(self, line: str) -> str:
         return line.rstrip("".join(self._ends.keys()))

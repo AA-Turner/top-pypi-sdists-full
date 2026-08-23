@@ -71,6 +71,7 @@ class TestExecutionDetail(unittest.TestCase):
                 warnings = [
                     ''
                     ],
+                interpretation = { },
                 error = '',
                 optimization_applied = True,
                 optimization_summary = { },

@@ -1,4 +1,9 @@
 import contextlib
+from collections.abc import Iterator
+from typing import (
+    Any,
+    TypeVar,
+)
 
 from eth_utils import (
     to_dict,
@@ -8,7 +13,10 @@ from eth_utils.toolz import (
     valfilter,
 )
 
-DELETED = object()
+KT = TypeVar("KT")
+VT = TypeVar("VT")
+
+DELETED: object = object()
 
 
 class ScratchDB:
@@ -23,15 +31,15 @@ class ScratchDB:
     If any exception occurrs before committing phase, no changes are applied.
     """
 
-    def __init__(self, wrapped_db):
+    def __init__(self, wrapped_db: dict) -> None:
         self.wrapped_db = wrapped_db
-        self.cache = {}
+        self.cache: dict = {}
 
     #
     # Dictionary API
     #
     # if not key is found, return None
-    def __getitem__(self, key):
+    def __getitem__(self, key: bytes) -> Any:
         if key in self.cache:
             val = self.cache[key]
             if val is not DELETED:
@@ -41,25 +49,25 @@ class ScratchDB:
         else:
             return self.wrapped_db[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: bytes, value: Any) -> None:
         self.cache[key] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: bytes) -> None:
         self.cache[key] = DELETED
 
-    def __contains__(self, key):
+    def __contains__(self, key: bytes) -> bool:
         if key in self.cache and self.cache[key] is not DELETED:
             return True
         else:
             return key in self.wrapped_db
 
     @to_dict
-    def copy(self):
+    def copy(self) -> Iterator:
         combined = merge(self.wrapped_db, self.cache)
         return valfilter(lambda val: val is not DELETED, combined)
 
     @contextlib.contextmanager
-    def batch_commit(self, *, do_deletes=False):
+    def batch_commit(self, *, do_deletes: bool = False) -> Iterator[None]:
         """
         Batch and commit and end of context
         """

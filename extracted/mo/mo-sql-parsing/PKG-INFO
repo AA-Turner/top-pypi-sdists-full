@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mo-sql-parsing
-Version: 11.697.25301
+Version: 11.699.26234
 Summary: More SQL Parsing! Parse SQL into JSON parse tree
 Home-page: https://github.com/klahnakoski/mo-sql-parsing
 Author: Kyle Lahnakoski
@@ -21,17 +21,17 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mo-dots==10.685.25166
-Requires-Dist: mo-future==7.685.25166
-Requires-Dist: mo-imports==7.685.25166
-Requires-Dist: mo-parsing==8.694.25301
+Requires-Dist: mo-dots==10.688.26234
+Requires-Dist: mo-future==7.687.26234
+Requires-Dist: mo-imports==7.687.26234
+Requires-Dist: mo-parsing==9.3.26234
 Provides-Extra: tests
 Requires-Dist: mo-testing==8.674.25037; extra == "tests"
 Requires-Dist: mo-threads==6.672.25036; extra == "tests"
 Requires-Dist: mo-files>=6.672.25036; extra == "tests"
 Requires-Dist: mo-streams==1.673.25037; extra == "tests"
 Requires-Dist: zstandard>=0.23.0; extra == "tests"
-Requires-Dist: psutil>=7.1.2; extra == "tests"
+Requires-Dist: psutil>=7.2.2; extra == "tests"
 Requires-Dist: objgraph>=3.6.2; extra == "tests"
 Requires-Dist: pympler; extra == "tests"
 Dynamic: author

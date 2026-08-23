@@ -25,8 +25,8 @@ type _FuncEvent[Inexact64T: np.float64 | np.complex128, *Ts] = (
     | Callable[[float, onp.ArrayND[Inexact64T], *Ts], _Float]
 )  # fmt: skip
 type _Events[Inexact64T: np.float64 | np.complex128, *Ts] = (
-    Sequence[_FuncEvent[Inexact64T, *Ts]]  # ty:ignore[invalid-type-arguments]
-    | _FuncEvent[Inexact64T, *Ts]  # ty:ignore[invalid-type-arguments]
+    Sequence[_FuncEvent[Inexact64T, *Ts]]
+    | _FuncEvent[Inexact64T, *Ts]
 )  # fmt: skip
 
 type _Int1D = onp.Array1D[np.int_]
@@ -65,8 +65,8 @@ class OdeResult(_RichResult[Any], Generic[_Inexact64T_co]):
     t: _Float1D
     y: onp.Array2D[_Inexact64T_co]
     sol: OdeSolution | None
-    t_events: list[_Float1D] | None
-    y_events: list[onp.ArrayND[_Inexact64T_co]] | None
+    t_events: list[_Float1D] | Any
+    y_events: list[onp.ArrayND[_Inexact64T_co]] | Any
     nfev: int
     njev: int
     nlu: int

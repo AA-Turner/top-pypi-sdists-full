@@ -12,7 +12,32 @@
  *            = lut((idx + LUT_QTR) & 0xFFFF) + j·lut(idx)
  *
  * Output is emitted BEFORE the phase is incremented (same convention as NCO).
- * The 16-bit phase truncation gives ~96 dBc SFDR.
+ *
+ * ## Spurious content — what the 16-bit index costs
+ *
+ * The index keeps the top 16 bits of a 32-bit phase, so unless the
+ * increment is a whole number of LUT bins there is a per-sample phase
+ * error, and that error is periodic: its period is set by the LOW 16
+ * bits of phase_inc, NOT by the frequency. Three regimes, measured (see
+ * src/doppler/source/tests/validation/lo/results.md, which regenerates them):
+ *
+ *   phase_inc & 0xFFFF == 0        no truncation at all; spur-free to the
+ *                                  float32 floor, ~146 dBc
+ *   a generic remainder            ~96 dBc, flat -- 400 random rates span
+ *                                  96.32 to 96.33 dBc
+ *   remainder == 0x8000 (half a    92.4 dBc: the error alternates with
+ *   bin), and small-denominator    period 2 and all of it lands in one
+ *   remainders near it             spur. This is the classical
+ *                                  6.02*B - 3.92 phase-truncation bound.
+ *
+ * **The guarantee is SFDR >= 90 dBc at any frequency** (worst measured
+ * 92.40, over 8 carrier positions x 2 capture lengths). The familiar
+ * ~96 dBc is the TYPICAL figure, not a bound -- a design sizing its
+ * spur budget must use 90.
+ *
+ * Amplitude quantization is not a contributor: the table is float32, so
+ * |phasor| - 1 stays under 6e-08, four orders below the half-bin phase
+ * error of 0.5/65536 cycles.
  *
  * The shared LUT is initialised lazily on the first lo_create() call.
  *
@@ -32,7 +57,7 @@
 #include "clib_common.h"
 #include "dp_state.h"
 #include "jm_perf.h"
-#include "nco/nco_core.h" /* nco_norm_to_inc() -- the one shared cycles->phase-delta primitive */
+#include "nco/nco_core.h" /* nco_norm_freq_to_inc() -- the one shared cycles->phase-delta primitive */
 #ifdef __cplusplus
 extern "C"
 {
@@ -147,10 +172,13 @@ extern "C"
     float complex out
         = CMPLXF (lo_sin_lut[(uint16_t)(idx + (uint16_t)LO_LUT_QTR)],
                   lo_sin_lut[idx]);
-    /* nco_norm_to_inc() is the ONE shared cycles->phase-delta primitive
-     * (rounds, not truncates) -- this used to be a private inline copy
-     * of that exact conversion, still truncating, until consolidated. */
-    state->phase += state->phase_inc + nco_norm_to_inc (ctrl);
+    /* nco_norm_freq_to_inc() is the ONE shared cycles->phase-delta
+     * primitive, and it TRUNCATES -- see nco_core.h for why rounding would
+     * make the increment differ by host. This comment claimed the opposite
+     * ("rounds, not truncates") from the consolidation until an audit
+     * caught it; test_lo_core.c section 21 now pins truncation on this
+     * path, so the prose cannot drift away from the code again. */
+    state->phase += state->phase_inc + nco_norm_freq_to_inc (ctrl);
     return out;
   }
 
@@ -277,7 +305,9 @@ extern "C"
    * @brief Generate n CF32 phasors at the current norm_freq.
    * Each sample is cos(θ) + j·sin(θ) where θ is the phase BEFORE
    * the accumulator is advanced, giving a unit-magnitude complex
-   * sinusoid via the 65536-entry LUT.  SFDR ≈ 96 dBc.  Returns n.
+   * sinusoid via the 65536-entry LUT.  SFDR is ≥ 90 dBc at any
+   * frequency and ~96 dBc at a typical one — see the file header for
+   * why those are two different numbers.  Returns n.
    *
    * @param state  LO state returned by lo_create().
    * @param n      Number of phasors to generate.
@@ -313,9 +343,10 @@ extern "C"
    * ctrl_len.
    *
    * @param state     LO state returned by lo_create().
-   * @param ctrl      Float32 array of per-sample normalised-frequency
-   *                  deviations.  Only the fractional part of each element
-   *                  contributes.
+   * @param ctrl      Per-sample normalised-frequency deviations in
+   *                  `double`.  Only the fractional part of each element
+   *                  contributes.  See nco_steps_u32_ctrl() on why the
+   *                  port is `double` and not float32.
    * @param ctrl_len  Number of elements in ctrl; equals output length.
    * @param out       Output buffer; must hold at least ctrl_len float complex
    *                  values.
@@ -326,7 +357,7 @@ extern "C"
    * >>> import numpy as np
    * >>> from doppler.source import LO
    * >>> lo = LO(0.25)
-   * >>> ctrl = np.zeros(4, dtype=np.float32)
+   * >>> ctrl = np.zeros(4, dtype=np.float64)
    * >>> out = lo.steps_ctrl(ctrl)
    * >>> out.dtype
    * dtype('complex64')
@@ -336,7 +367,7 @@ extern "C"
    * [1.0, 1.0, 1.0, 1.0]
    * @endcode
    */
-  size_t lo_steps_ctrl (lo_state_t *state, const float *ctrl, size_t ctrl_len,
+  size_t lo_steps_ctrl (lo_state_t *state, const double *ctrl, size_t ctrl_len,
                         float complex *out, size_t max_out);
 
 #ifdef __cplusplus

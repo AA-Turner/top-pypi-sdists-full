@@ -105,6 +105,50 @@ def test_gsa_nan_coords_filled_at_fit_and_predict():
     assert np.all(np.isfinite(m.predict(X)))
 
 
+def test_gsa_declares_categorical_indices():
+    """tabpfn_gsa must tell the backend TabPFN which columns are categorical,
+    exactly as the plain `tabpfn` branch does.
+
+    Without it, tabpfn treats string columns as suspected FREE TEXT and warns
+    they "usually add noise rather than signal" -- minor for admin_1 Region
+    (~39 states) but material at admin_2 (~919 counties), and it made the
+    tabpfn_gsa-vs-tabpfn comparison unfair since only tabpfn got the hint.
+
+    Index space matters: GSAModel fits on model_columns_ = [*x_cols, *spa_cols],
+    so the indices must be relative to x_cols (lat/lon appended last).
+    """
+    pytest.importorskip("tabpfn_gsa")
+    rng = np.random.default_rng(0)
+    n = 30
+    X = pd.DataFrame({
+        "a": rng.normal(size=n),
+        "Region": pd.Categorical([f"c{i % 7}" for i in range(n)]),
+        "lat": rng.uniform(38, 44, n),
+        "b": rng.normal(size=n),
+        "State": [f"s{i % 3}" for i in range(n)],
+        "lon": rng.uniform(-98, -88, n),
+    })
+    y = pd.Series(2.0 * X["a"] + rng.normal(scale=0.1, size=n))
+
+    m = TabPFNGSARegressor(K=4, s=0.1, device="cpu", seed=0)
+    try:
+        m.fit(X, y)
+    except Exception as exc:
+        pytest.skip(f"TabPFN backend unavailable: {exc}")
+
+    x_cols = [c for c in X.columns if c not in ("lat", "lon")]
+    expected = [i for i, c in enumerate(x_cols)
+                if hasattr(X[c], "cat") or pd.api.types.is_string_dtype(X[c])]
+    got = m._m.model_kwargs.get("categorical_features_indices")
+    assert got == expected, f"{got} != {expected}"
+
+    # the indices must resolve to the categorical names in GSA's own column space
+    mc = list(m._m.model_columns_)
+    assert [mc[i] for i in got] == ["Region", "State"]
+    # and lat/lon must NOT be flagged categorical
+    assert not {mc[i] for i in got} & {"lat", "lon"}
+
+
 def test_auto_train_gsa_branch():
     assert "gsa_params" in inspect.signature(auto_train).parameters
     src = inspect.getsource(auto_train)

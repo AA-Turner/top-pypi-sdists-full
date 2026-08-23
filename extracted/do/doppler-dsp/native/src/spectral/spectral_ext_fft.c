@@ -293,8 +293,8 @@ FFTObj_execute_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
  * pass).  Hand-written: not manifest-declared (jm has no params shape for a
  * fused dtype-convert-on-read execute), so it must be re-added by hand after
  * any delete-and-regenerate of this fragment -- see
- * docs/dev/adding-a-module.md. The result is NumPy-owned (a fresh array per
- * call), matching the generated siblings above; the old
+ * docs/dev/contributing/adding-a-module.md. The result is NumPy-owned (a fresh
+ * array per call), matching the generated siblings above; the old
  * view-onto-a-reused-buffer form was the gh-219 UAF. */
 static PyObject *
 FFTObj_execute_int (FFTObject *self, PyObject *args, int is8)
@@ -809,21 +809,19 @@ static PyMethodDef FFTObj_methods[] = {
   { "__enter__", (PyCFunction)FFTObj_enter, METH_NOARGS,
     "Enter a context manager, returning this object.\n"
     "\n"
-    "Lets a Fft be used in a `with` statement so its C resources are "
-    "released\n"
-    "deterministically on exit rather than at collection time.\n"
+    "Lets a FFT be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
     "\n"
     "Returns\n"
     "-------\n"
-    "Fft\n"
+    "FFT\n"
     "    This same object, not a copy.\n" },
   { "__exit__", (PyCFunction)FFTObj_exit, METH_VARARGS,
-    "Exit a context manager, releasing the Fft.\n"
+    "Exit a context manager, releasing the FFT.\n"
     "\n"
     "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
-    "raised inside the `with` body propagates normally; this never "
-    "suppresses\n"
-    "one.\n"
+    "raised inside the `with` body propagates normally; this never\n"
+    "suppresses one.\n"
     "\n"
     "Parameters\n"
     "----------\n"

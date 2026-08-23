@@ -1,44 +1,35 @@
 #include "corr2d/corr2d_core.h"
+#include "dp_rng_test.h"
 #include "dp_state_test.h"
+#include "dp_test.h"
 #include <complex.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#define CHECK(cond)                                                           \
-  do                                                                          \
-    {                                                                         \
-      if (!(cond))                                                            \
-        {                                                                     \
-          fprintf (stderr, "FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);    \
-          _fails++;                                                           \
-        }                                                                     \
-    }                                                                         \
-  while (0)
-
 #define TOL 1e-4f
-
-static inline int
-ceq (float complex a, float complex b)
-{
-  return fabsf (crealf (a) - crealf (b)) < TOL
-         && fabsf (cimagf (a) - cimagf (b)) < TOL;
-}
-
-static uint32_t
-_xorshift32 (uint32_t *s)
-{
-  *s ^= *s << 13;
-  *s ^= *s >> 17;
-  *s ^= *s << 5;
-  return *s;
-}
 
 static float
 _rand_uniform (uint32_t *s)
 {
-  return ((float)(_xorshift32 (s) % 20001u) - 10000.0f) / 10000.0f;
+  return ((float)(dp_xs32 (s) % 20001u) - 10000.0f) / 10000.0f;
+}
+
+/* One complex sample, drawn in a DEFINED order.
+ *
+ * `_rand_uniform (&s) + _rand_uniform (&s) * I` reads fine and is not: the
+ * two calls are indeterminately sequenced (C11 6.5.2.2p10), and gcc and
+ * clang disagree about which runs first — gcc gives the real part the SECOND
+ * draw, clang the first. doppler builds this file with both (`make test` is
+ * gcc, `make coverage` is clang), so that spelling produced two different
+ * fixtures. gcc's order is preserved here. See dp_rng_test.h. */
+static float complex
+_rand_cplx (uint32_t *s)
+{
+  float im = _rand_uniform (s);
+  float re = _rand_uniform (s);
+  return re + im * I;
 }
 
 /* Hand-written O(n^2) circular cross-correlation, matching corr2d's own
@@ -76,10 +67,9 @@ _brute_corr2d (const float complex *x, const float complex *h, size_t ny,
 int
 main (void)
 {
-  int          _fails = 0;
-  const size_t NY     = 4;
-  const size_t NX     = 4;
-  const size_t N      = NY * NX; /* 16 */
+  const size_t NY = 4;
+  const size_t NX = 4;
+  const size_t N  = NY * NX; /* 16 */
 
   /* ── lifecycle ────────────────────────────────────────────────────── */
   {
@@ -87,17 +77,17 @@ main (void)
     ref[0]                = 1.0f;
 
     corr2d_state_t *obj = corr2d_create (ref, NY, NX, 1, 1, 0, 0);
-    CHECK (obj != NULL);
-    CHECK (obj->ny == NY);
-    CHECK (obj->nx == NX);
-    CHECK (obj->dwell == 1);
-    CHECK (obj->count == 0);
+    DP_CHECK (obj != NULL);
+    DP_CHECK (obj->ny == NY);
+    DP_CHECK (obj->nx == NX);
+    DP_CHECK (obj->dwell == 1);
+    DP_CHECK (obj->count == 0);
     /* A single-row ref with ny_out==ny takes the fast path (see corr2d.h): */
-    CHECK (obj->fast_path == 1);
-    CHECK (obj->fwd == NULL && obj->inv == NULL);
-    CHECK (obj->fwd1d != NULL && obj->inv1d != NULL);
+    DP_CHECK (obj->fast_path == 1);
+    DP_CHECK (obj->fwd == NULL && obj->inv == NULL);
+    DP_CHECK (obj->fwd1d != NULL && obj->inv1d != NULL);
     corr2d_reset (obj);
-    CHECK (obj->count == 0);
+    DP_CHECK (obj->count == 0);
     corr2d_destroy (obj);
     corr2d_destroy (NULL);
   }
@@ -112,10 +102,10 @@ main (void)
     float complex   out[16];
     size_t          n_out = corr2d_execute (obj, ref, N, out, N);
 
-    CHECK (n_out == N);
-    CHECK (ceq (out[0], 1.0f + 0.0f * I));
+    DP_CHECK (n_out == N);
+    DP_CHECK (dp_cnearf (out[0], 1.0f + 0.0f * I, TOL));
     for (size_t k = 1; k < N; k++)
-      CHECK (ceq (out[k], 0.0f + 0.0f * I));
+      DP_CHECK (dp_cnearf (out[k], 0.0f + 0.0f * I, TOL));
 
     corr2d_destroy (obj);
   }
@@ -129,15 +119,15 @@ main (void)
     float complex   out[16];
 
     size_t n1 = corr2d_execute (obj, ref, N, out, N);
-    CHECK (n1 == 0);
-    CHECK (obj->count == 1);
+    DP_CHECK (n1 == 0);
+    DP_CHECK (obj->count == 1);
 
     size_t n2 = corr2d_execute (obj, ref, N, out, N);
-    CHECK (n2 == N); /* dump on second call */
-    CHECK (obj->count == 0);
+    DP_CHECK (n2 == N); /* dump on second call */
+    DP_CHECK (obj->count == 0);
 
     /* Two frames of impulse × impulse = 2.0 at lag (0,0). */
-    CHECK (crealf (out[0]) > 1.9f && crealf (out[0]) < 2.1f);
+    DP_CHECK (crealf (out[0]) > 1.9f && crealf (out[0]) < 2.1f);
 
     corr2d_destroy (obj);
   }
@@ -158,12 +148,12 @@ main (void)
 
     /* Peak should be at row=1, col=0 → flat index = 1*NX + 0 = NX */
     size_t peak_idx = NX;
-    CHECK (ceq (out[peak_idx], 1.0f + 0.0f * I));
+    DP_CHECK (dp_cnearf (out[peak_idx], 1.0f + 0.0f * I, TOL));
 
     /* All other bins zero */
     for (size_t k = 0; k < N; k++)
       if (k != peak_idx)
-        CHECK (ceq (out[k], 0.0f + 0.0f * I));
+        DP_CHECK (dp_cnearf (out[k], 0.0f + 0.0f * I, TOL));
 
     corr2d_destroy (obj);
   }
@@ -173,7 +163,7 @@ main (void)
     float complex ref[16] = { 0 };
     ref[0]                = 1.0f;
     corr2d_state_t *obj   = corr2d_create (ref, NY, NX, 1, 1, 0, 0);
-    CHECK (corr2d_execute_max_out (obj) == N);
+    DP_CHECK (corr2d_execute_max_out (obj) == N);
     corr2d_destroy (obj);
   }
 
@@ -186,22 +176,22 @@ main (void)
     float complex in[16]  = { 0 };
     in[NX]                = 1.0f; /* row 1, col 0 */
     corr2d_state_t *obj   = corr2d_create (ref, NY, NX, 1, 1, 8, 8);
-    CHECK (obj->ny_out == 8 && obj->nx_out == 8);
+    DP_CHECK (obj->ny_out == 8 && obj->nx_out == 8);
     /* ny_out (8) != ny (4) -- Doppler-axis interpolation is requested, so
      * the fast path's identity doesn't apply (see corr2d.h); must fall
      * back to the general 2-D path even though ref is single-row. */
-    CHECK (obj->fast_path == 0);
-    CHECK (obj->fwd != NULL && obj->inv != NULL);
-    CHECK (corr2d_execute_max_out (obj) == 64);
+    DP_CHECK (obj->fast_path == 0);
+    DP_CHECK (obj->fwd != NULL && obj->inv != NULL);
+    DP_CHECK (corr2d_execute_max_out (obj) == 64);
 
     float complex out[64];
     size_t        no = corr2d_execute (obj, in, N, out, 64);
-    CHECK (no == 64);
+    DP_CHECK (no == 64);
     size_t pk = 0;
     for (size_t k = 1; k < 64; k++)
       if (cabsf (out[k]) > cabsf (out[pk]))
         pk = k;
-    CHECK (pk / 8 == 2 && pk % 8 == 0);
+    DP_CHECK (pk / 8 == 2 && pk % 8 == 0);
     corr2d_destroy (obj);
   }
 
@@ -211,30 +201,30 @@ main (void)
     uint32_t      seed          = 12345u;
     float complex dense_ref[35] = { 0 }, dense_in[35], expect[35], out[35];
     for (size_t j = 0; j < nx; j++)
-      dense_ref[j] = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
+      dense_ref[j] = _rand_cplx (&seed);
     for (size_t k = 0; k < n; k++)
-      dense_in[k] = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
+      dense_in[k] = _rand_cplx (&seed);
 
     /* single-row ref -> fast path */
     corr2d_state_t *fast = corr2d_create (dense_ref, ny, nx, 1, 1, 0, 0);
-    CHECK (fast != NULL && fast->fast_path == 1);
+    DP_CHECK (fast != NULL && fast->fast_path == 1);
     corr2d_execute (fast, dense_in, n, out, n);
     _brute_corr2d (dense_in, dense_ref, ny, nx, expect);
     for (size_t k = 0; k < n; k++)
-      CHECK (ceq (out[k], expect[k]));
+      DP_CHECK (dp_cnearf (out[k], expect[k], TOL));
     corr2d_destroy (fast);
 
     /* genuinely multi-row ref -> general path; the pre-existing suite had
      * no non-impulse correctness check for this path either. */
     float complex dense_ref2[35];
     for (size_t k = 0; k < n; k++)
-      dense_ref2[k] = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
+      dense_ref2[k] = _rand_cplx (&seed);
     corr2d_state_t *slow = corr2d_create (dense_ref2, ny, nx, 1, 1, 0, 0);
-    CHECK (slow != NULL && slow->fast_path == 0);
+    DP_CHECK (slow != NULL && slow->fast_path == 0);
     corr2d_execute (slow, dense_in, n, out, n);
     _brute_corr2d (dense_in, dense_ref2, ny, nx, expect);
     for (size_t k = 0; k < n; k++)
-      CHECK (ceq (out[k], expect[k]));
+      DP_CHECK (dp_cnearf (out[k], expect[k], TOL));
     corr2d_destroy (slow);
   }
 
@@ -248,19 +238,20 @@ main (void)
     float complex in[16]  = { 0 };
     in[1]                 = 1.0f; /* row 0, col 1 */
     corr2d_state_t *obj   = corr2d_create (ref, NY, NX, 1, 1, 0, 8);
-    CHECK (obj->fast_path == 1); /* ny_out==ny native; nx_out interpolated */
-    CHECK (obj->ny_out == NY && obj->nx_out == 8);
-    CHECK (corr2d_execute_max_out (obj) == NY * 8);
+    DP_CHECK (obj->fast_path
+              == 1); /* ny_out==ny native; nx_out interpolated */
+    DP_CHECK (obj->ny_out == NY && obj->nx_out == 8);
+    DP_CHECK (corr2d_execute_max_out (obj) == NY * 8);
 
     float complex out[32];
     size_t        no = corr2d_execute (obj, in, N, out, 32);
-    CHECK (no == NY * 8);
+    DP_CHECK (no == NY * 8);
     size_t pk = 0;
     for (size_t k = 1; k < NY * 8; k++)
       if (cabsf (out[k]) > cabsf (out[pk]))
         pk = k;
     /* native peak at (row=0, col=1); interpolated col = 1 * (8/4) = 2 */
-    CHECK (pk / 8 == 0 && pk % 8 == 2);
+    DP_CHECK (pk / 8 == 0 && pk % 8 == 2);
     corr2d_destroy (obj);
   }
 
@@ -272,21 +263,21 @@ main (void)
     bad_ref[NX] = 1.0f; /* row 1 nonzero -- no longer single-row */
 
     corr2d_state_t *obj = corr2d_create (ref1, NY, NX, 1, 1, 0, 0);
-    CHECK (obj->fast_path == 1);
+    DP_CHECK (obj->fast_path == 1);
 
     /* accept: still single-row */
-    CHECK (corr2d_set_ref (obj, ref2) == 0);
+    DP_CHECK (corr2d_set_ref (obj, ref2) == 0);
     float complex in[16] = { 0 };
     in[1]                = 1.0f; /* row 0, col 1 -- matches ref2's replica */
     float complex out[16];
     corr2d_execute (obj, in, N, out, N);
-    CHECK (ceq (out[0], 1.0f + 0.0f * I));
+    DP_CHECK (dp_cnearf (out[0], 1.0f + 0.0f * I, TOL));
 
     /* reject: no longer single-row -- object's ref/spectrum must be left
      * completely untouched (execute() still reflects ref2, not bad_ref). */
-    CHECK (corr2d_set_ref (obj, bad_ref) == -1);
+    DP_CHECK (corr2d_set_ref (obj, bad_ref) == -1);
     corr2d_execute (obj, in, N, out, N);
-    CHECK (ceq (out[0], 1.0f + 0.0f * I));
+    DP_CHECK (dp_cnearf (out[0], 1.0f + 0.0f * I, TOL));
 
     corr2d_destroy (obj);
   }
@@ -302,11 +293,11 @@ main (void)
     float complex row_ref[35] = { 0 }, full_ref[35], input[35];
     float complex full[35], part[35];
     for (size_t j = 0; j < nx; j++)
-      row_ref[j] = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
+      row_ref[j] = _rand_cplx (&seed);
     for (size_t k = 0; k < n; k++)
       {
-        full_ref[k] = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
-        input[k]    = _rand_uniform (&seed) + _rand_uniform (&seed) * I;
+        full_ref[k] = _rand_cplx (&seed);
+        input[k]    = _rand_cplx (&seed);
       }
 
     for (int which = 0; which < 2; which++)
@@ -314,33 +305,30 @@ main (void)
         const float complex *rf = which ? full_ref : row_ref;
         corr2d_state_t      *a  = corr2d_create (rf, ny, nx, 1, 1, 0, 0);
         corr2d_state_t      *b  = corr2d_create (rf, ny, nx, 1, 1, 0, 0);
-        CHECK (a != NULL && b != NULL);
-        CHECK (a->fast_path == (which ? 0 : 1)); /* both paths covered */
+        DP_CHECK (a != NULL && b != NULL);
+        DP_CHECK (a->fast_path == (which ? 0 : 1)); /* both paths covered */
         for (size_t k = 0; k < n; k++)
           part[k] = 42.0f + 42.0f * I;
 
-        CHECK (corr2d_execute (a, input, n, full, n) == n);
-        CHECK (corr2d_execute (b, input, n, part, 6) == 6);
+        DP_CHECK (corr2d_execute (a, input, n, full, n) == n);
+        DP_CHECK (corr2d_execute (b, input, n, part, 6) == 6);
         for (size_t k = 0; k < 6; k++)
-          CHECK (ceq (part[k], full[k])); /* prefix is the same surface */
+          DP_CHECK (dp_cnearf (part[k], full[k],
+                               TOL)); /* prefix is the same surface */
         for (size_t k = 6; k < n; k++)
-          CHECK (ceq (part[k], 42.0f + 42.0f * I)); /* tail untouched */
+          DP_CHECK (dp_cnearf (part[k], 42.0f + 42.0f * I,
+                               TOL)); /* tail untouched */
 
         for (size_t k = 0; k < n; k++)
           part[k] = 42.0f + 42.0f * I;
-        CHECK (corr2d_execute (b, input, n, part, 0) == 0);
+        DP_CHECK (corr2d_execute (b, input, n, part, 0) == 0);
         for (size_t k = 0; k < n; k++)
-          CHECK (ceq (part[k], 42.0f + 42.0f * I));
+          DP_CHECK (dp_cnearf (part[k], 42.0f + 42.0f * I, TOL));
         corr2d_destroy (a);
         corr2d_destroy (b);
       }
   }
 
-  if (_fails)
-    {
-      fprintf (stderr, "test_corr2d_core FAILED (%d)\n", _fails);
-      return 1;
-    }
   /* serializable state — 2-D accumulator + count resume; plans + ref rebuilt.
    */
   {
@@ -352,10 +340,10 @@ main (void)
       }
     corr2d_state_t *a = corr2d_create (ref, 4, 4, 3, 1, 0, 0);
     corr2d_state_t *b = corr2d_create (ref, 4, 4, 3, 1, 0, 0);
-    CHECK (a != NULL && b != NULL);
+    DP_CHECK (a != NULL && b != NULL);
     (void)corr2d_execute (a, in, 16, out, 16);
     DP_STATE_ROUNDTRIP_TEST (corr2d, a, b);
-    CHECK (b->count == a->count && b->accum[0] == a->accum[0]);
+    DP_CHECK (b->count == a->count && b->accum[0] == a->accum[0]);
     corr2d_destroy (a);
     corr2d_destroy (b);
   }
@@ -371,15 +359,14 @@ main (void)
       in[i] = (float)(i % 3) - 1.0f + 0.2f * I;
     corr2d_state_t *a = corr2d_create (ref, 4, 4, 3, 1, 0, 0);
     corr2d_state_t *b = corr2d_create (ref, 4, 4, 3, 1, 0, 0);
-    CHECK (a != NULL && b != NULL);
-    CHECK (a->fast_path == 1 && b->fast_path == 1);
+    DP_CHECK (a != NULL && b != NULL);
+    DP_CHECK (a->fast_path == 1 && b->fast_path == 1);
     (void)corr2d_execute (a, in, 16, out, 16);
     DP_STATE_ROUNDTRIP_TEST (corr2d, a, b);
-    CHECK (b->count == a->count && b->accum[0] == a->accum[0]);
+    DP_CHECK (b->count == a->count && b->accum[0] == a->accum[0]);
     corr2d_destroy (a);
     corr2d_destroy (b);
   }
 
-  printf ("test_corr2d_core PASSED\n");
-  return 0;
+  DP_TEST_END ("test_corr2d_core");
 }

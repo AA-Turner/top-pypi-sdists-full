@@ -1,5 +1,3 @@
-# mypy: disable-error-code="override"
-import abc
 import types
 from _typeshed import Unused
 from collections.abc import Callable
@@ -47,17 +45,16 @@ type _ResidFunc = (
     | Callable[[onp.ArrayND[np.complex128, Any]], onp.ToFloat]
 )  # fmt: skip
 
-_InexactT = TypeVar("_InexactT", bound=_Inexact, default=_Inexact)
 _InexactT_co = TypeVar("_InexactT_co", bound=_Inexact, default=_Inexact, covariant=True)
 
-type _ArrayOrSparse[_InexactT: _Inexact] = onp.ArrayND[_InexactT] | _spbase[_InexactT]
-type _JacobianLike[_InexactT: _Inexact] = (
-    Jacobian[_InexactT]
-    | type[Jacobian[_InexactT]]
-    | _SupportsJacobian[_InexactT]
-    | _ArrayOrSparse[_InexactT]
-    | Callable[[onp.Array1D[np.float64]], _ArrayOrSparse[_InexactT]]
-    | Callable[[onp.Array1D[np.complex128]], _ArrayOrSparse[_InexactT]]
+type _ArrayOrSparse[ST: _Inexact] = onp.ArrayND[ST] | _spbase[ST]
+type _JacobianLike[ST: _Inexact] = (
+    Jacobian[ST]
+    | type[Jacobian[ST]]
+    | _SupportsJacobian[ST]
+    | _ArrayOrSparse[ST]
+    | Callable[[onp.Array1D[np.float64]], _ArrayOrSparse[ST]]
+    | Callable[[onp.Array1D[np.complex128]], _ArrayOrSparse[ST]]
 )
 
 @type_check_only
@@ -125,11 +122,10 @@ class Jacobian(Generic[_InexactT_co]):  # undocumented
     def __class_getitem__(cls, arg: object, /) -> types.GenericAlias: ...
     def __init__(self, /, **kw: Unpack[_JacobianKwargs[_InexactT_co]]) -> None: ...
     #
-    @abc.abstractmethod
     def solve(self, v: _InexactND, /, tol: float = 0) -> onp.Array2D[_InexactT_co]: ...
     # `x` and `F` are 1-d
-    def setup(self: Jacobian[_InexactT], x: _InexactND, F: onp.ArrayND[_InexactT], func: _ResidFunc, /) -> None: ...
-    def update(self: Jacobian[_InexactT], x: _InexactND, F: onp.ArrayND[_InexactT], /) -> None: ...  # does nothing
+    def setup[ST: _Inexact](self: Jacobian[ST], x: _InexactND, F: onp.ArrayND[ST], func: _ResidFunc, /) -> None: ...
+    def update[ST: _Inexact](self: Jacobian[ST], x: _InexactND, F: onp.ArrayND[ST], /) -> None: ...  # does nothing
     def aspreconditioner(self, /) -> InverseJacobian: ...
 
 class InverseJacobian(Generic[_InexactT_co]):
@@ -150,7 +146,7 @@ class InverseJacobian(Generic[_InexactT_co]):
     def __class_getitem__(cls, arg: object, /) -> types.GenericAlias: ...
     def __init__(self, /, jacobian: Jacobian[_InexactT_co]) -> None: ...
 
-class GenericBroyden(Jacobian[_InexactT_co], Generic[_InexactT_co], metaclass=abc.ABCMeta):
+class GenericBroyden(Jacobian[_InexactT_co], Generic[_InexactT_co]):
     alpha: Final[float | None]
     last_x: _Inexact1D
     last_f: float
@@ -277,7 +273,7 @@ class KrylovJacobian(Jacobian[_InexactT_co], Generic[_InexactT_co]):
 
 # undocumented
 @overload
-def asjacobian(J: _JacobianLike[_InexactT]) -> Jacobian[_InexactT]: ...
+def asjacobian[ST: _Inexact](J: _JacobianLike[ST]) -> Jacobian[ST]: ...
 @overload
 def asjacobian(J: _JacobianMethod) -> Jacobian: ...
 

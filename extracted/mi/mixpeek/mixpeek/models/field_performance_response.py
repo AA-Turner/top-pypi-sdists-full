@@ -19,8 +19,9 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.field_performance_metrics import FieldPerformanceMetrics
+from mixpeek.models.recommendation_coverage import RecommendationCoverage
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,7 +33,8 @@ class FieldPerformanceResponse(BaseModel):
     time_range_days: StrictInt = Field(description="Number of days analyzed")
     fields: List[FieldPerformanceMetrics] = Field(description="Field performance metrics")
     total_fields: StrictInt = Field(description="Total fields analyzed")
-    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "fields", "total_fields"]
+    coverage: Optional[RecommendationCoverage] = Field(default=None, description="Scope of the numbers above: these fields were measured only from queries that filtered on something. Null when the analytics backend could not be read.")
+    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "fields", "total_fields", "coverage"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,9 @@ class FieldPerformanceResponse(BaseModel):
                 if _item_fields:
                     _items.append(_item_fields.to_dict())
             _dict['fields'] = _items
+        # override the default output from pydantic by calling `to_dict()` of coverage
+        if self.coverage:
+            _dict['coverage'] = self.coverage.to_dict()
         return _dict
 
     @classmethod
@@ -95,7 +100,8 @@ class FieldPerformanceResponse(BaseModel):
             "namespace_id": obj.get("namespace_id"),
             "time_range_days": obj.get("time_range_days"),
             "fields": [FieldPerformanceMetrics.from_dict(_item) for _item in obj["fields"]] if obj.get("fields") is not None else None,
-            "total_fields": obj.get("total_fields")
+            "total_fields": obj.get("total_fields"),
+            "coverage": RecommendationCoverage.from_dict(obj["coverage"]) if obj.get("coverage") is not None else None
         })
         return _obj
 

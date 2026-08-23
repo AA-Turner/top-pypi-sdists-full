@@ -57,12 +57,15 @@ class NamespaceModel(BaseModel):
     qdrant_status: Optional[Dict[str, Any]] = Field(default=None, description="Live vector collection status. Populated when retrieving a namespace. Includes: status (green/yellow/red), points_count, indexed_vectors_count, segments_count. None if vector collection does not exist or is unreachable.")
     clone_status: Optional[StrictStr] = Field(default=None, description="Deep-clone / scaffold sample-data progress: 'cloning' (in flight), 'ready' (completed), 'failed' (see clone_error). Null for namespaces that were never cloned. Poll this after a scaffold instantiate with include_sample_data=true.")
     clone_error: Optional[StrictStr] = Field(default=None, description="Error detail when clone_status='failed'; null otherwise.")
+    clone_phase: Optional[StrictStr] = Field(default=None, description="Fine-grained clone progress (BACKE-3452): 'queued' (dispatched, waiting for a worker — a clone can wait many minutes behind tenant heavy-queue backlogs), 'copying' (the clone task is actively running), null once terminal (see clone_status) or for namespaces never cloned. Distinguishes a queue-starved clone from a dead one.")
+    clone_task_id: Optional[StrictStr] = Field(default=None, description="Celery task id of the in-flight or last deep clone, for diagnosing a stalled clone from the namespace record alone.")
+    clone_dispatched_at: Optional[datetime] = Field(default=None, description="When the deep-clone task was dispatched; with clone_phase='queued' this measures time spent waiting for a worker.")
     source_namespace_id: Optional[StrictStr] = Field(default=None, description="For a cloned namespace, the source (golden/sample) namespace id it was cloned from.")
     namespace_ready: Optional[StrictBool] = Field(default=False, description="ALWAYS PRESENT (BACKE-3008). True only after the server CONFIRMED this namespace is usable: its vector collection exists and is reachable (a served live count, the MI-2947 readiness signal) and no clone is in flight. Never a prediction or timestamp. A wizard-created namespace mid-provision reads false (poll the namespace GET; it flips true on the first confirming read and the flip is persisted). Namespaces created before the feature shipped emit true; post-ship namespaces with no stored value emit false (fail toward not-ready).")
     created_at: Optional[datetime] = Field(default=None, description="When the namespace was created")
     updated_at: Optional[datetime] = Field(default=None, description="When the namespace was last updated")
     expires_at: Optional[datetime] = Field(default=None, description="UTC timestamp after which the namespace is auto-deleted by the hourly cleanup_expired_namespaces reaper. Computed at create time from CreateNamespaceRequest.ttl_seconds; null means the namespace never expires.")
-    __properties: ClassVar[List[str]] = ["object", "namespace_id", "namespace_name", "namespace_type", "scope", "infrastructure", "cluster_id", "description", "feature_extractors", "payload_indexes", "payload_index_count", "document_count", "bucket_count", "collection_count", "object_count", "auto_create_indexes", "vector_inference_map", "dynamic_vector_indexes", "mode", "vector_configs", "qdrant_status", "clone_status", "clone_error", "source_namespace_id", "namespace_ready", "created_at", "updated_at", "expires_at"]
+    __properties: ClassVar[List[str]] = ["object", "namespace_id", "namespace_name", "namespace_type", "scope", "infrastructure", "cluster_id", "description", "feature_extractors", "payload_indexes", "payload_index_count", "document_count", "bucket_count", "collection_count", "object_count", "auto_create_indexes", "vector_inference_map", "dynamic_vector_indexes", "mode", "vector_configs", "qdrant_status", "clone_status", "clone_error", "clone_phase", "clone_task_id", "clone_dispatched_at", "source_namespace_id", "namespace_ready", "created_at", "updated_at", "expires_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -157,6 +160,9 @@ class NamespaceModel(BaseModel):
             "qdrant_status": obj.get("qdrant_status"),
             "clone_status": obj.get("clone_status"),
             "clone_error": obj.get("clone_error"),
+            "clone_phase": obj.get("clone_phase"),
+            "clone_task_id": obj.get("clone_task_id"),
+            "clone_dispatched_at": obj.get("clone_dispatched_at"),
             "source_namespace_id": obj.get("source_namespace_id"),
             "namespace_ready": obj.get("namespace_ready") if obj.get("namespace_ready") is not None else False,
             "created_at": obj.get("created_at"),

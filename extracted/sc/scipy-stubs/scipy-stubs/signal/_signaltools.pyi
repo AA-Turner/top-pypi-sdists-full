@@ -54,9 +54,9 @@ __all__ = [
 
 ###
 
-type _1D = tuple[int]  # noqa: PYI042
-type _2D = tuple[int, int]  # noqa: PYI042
-type _3D = tuple[int, int]  # noqa: PYI042
+type _1D = tuple[int]  # ruff: ignore[snake-case-type-alias]
+type _2D = tuple[int, int]  # ruff: ignore[snake-case-type-alias]
+type _3D = tuple[int, int]  # ruff: ignore[snake-case-type-alias]
 
 type _Tuple2[_T] = tuple[_T, _T]
 
@@ -74,6 +74,7 @@ type _FilterType = L["iir", "fir"] | dlti
 
 type _C64_128 = np.complex128 | np.complex64
 
+type _ToWindowOrArray = _ToWindow | onp.ToFloat1D
 type _ToResampleWindow[InexactT: npc.inexact] = Callable[[onp.Array1D[InexactT]], onp.ToFloat1D] | onp.ToFloat1D | _ToWindow
 
 # workaround for a strange bug in pyright's overlapping overload detection with `numpy<2.1`
@@ -935,14 +936,14 @@ def sosfiltfilt(
 #
 @overload
 def order_filter[ShapeT: tuple[int, ...], CoFloat64T: np.float64 | np.float32 | npc.integer](
-    a: nptc.CanArray[ShapeT, np.dtype[CoFloat64T]], domain: int | onp.ToIntND, rank: int
+    a: nptc.CanArray[ShapeT, np.dtype[CoFloat64T]], domain: onp.ToFloatND, rank: int
 ) -> onp.ArrayND[CoFloat64T, ShapeT]: ...
 @overload
-def order_filter(a: onp.ToJustInt64_ND, domain: int | onp.ToIntND, rank: int) -> onp.ArrayND[np.int_]: ...
+def order_filter(a: onp.ToJustInt64_ND, domain: onp.ToFloatND, rank: int) -> onp.ArrayND[np.int_]: ...
 @overload
-def order_filter(a: onp.ToJustFloat64_ND, domain: int | onp.ToIntND, rank: int) -> onp.ArrayND[np.float64]: ...
+def order_filter(a: onp.ToJustFloat64_ND, domain: onp.ToFloatND, rank: int) -> onp.ArrayND[np.float64]: ...
 @overload
-def order_filter(a: onp.ToFloatND, domain: int | onp.ToIntND, rank: int) -> onp.ArrayND[Any, _WorkaroundForPyright]: ...
+def order_filter(a: onp.ToFloatND, domain: onp.ToFloatND, rank: int) -> onp.ArrayND[Any, _WorkaroundForPyright]: ...
 
 #
 @overload
@@ -1290,7 +1291,7 @@ def resample_poly[ShapeT: tuple[int, ...], InexactT2: np.float32 | np.float64 | 
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[InexactT2, ShapeT]: ...
@@ -1300,7 +1301,7 @@ def resample_poly[ShapeT: tuple[int, ...]](
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[np.float64, ShapeT]: ...
@@ -1310,7 +1311,7 @@ def resample_poly[ShapeT: tuple[int, ...]](
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[np.float32, ShapeT]: ...
@@ -1320,7 +1321,7 @@ def resample_poly(
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.Array1D[np.float64]: ...
@@ -1330,7 +1331,7 @@ def resample_poly(
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[np.float64]: ...
@@ -1340,7 +1341,7 @@ def resample_poly(
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.Array1D[np.complex128]: ...
@@ -1350,7 +1351,7 @@ def resample_poly(
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[np.complex128]: ...
@@ -1360,7 +1361,7 @@ def resample_poly(
     up: int,
     down: int,
     axis: int = 0,
-    window: _ToWindow = ("kaiser", 5.0),
+    window: _ToWindowOrArray = ("kaiser", 5.0),
     padtype: _PadType = "constant",
     cval: float | None = None,
 ) -> onp.ArrayND[Any, _WorkaroundForPyright]: ...
@@ -1402,7 +1403,7 @@ def envelope(
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.Array2D[np.float32]: ...
 @overload
@@ -1412,7 +1413,7 @@ def envelope(
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.Array3D[np.float32]: ...
 @overload
@@ -1422,7 +1423,7 @@ def envelope(
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.ArrayND[np.float32]: ...
 @overload
@@ -1432,7 +1433,7 @@ def envelope[InexactT3: np.float32 | np.float64 | npc.floating80 | npc.complexfl
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.Array2D[InexactT3]: ...
 @overload
@@ -1442,7 +1443,7 @@ def envelope[InexactT3: np.float32 | np.float64 | npc.floating80 | npc.complexfl
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.Array3D[InexactT3]: ...
 @overload
@@ -1452,6 +1453,46 @@ def envelope[InexactT3: np.float32 | np.float64 | npc.floating80 | npc.complexfl
     *,
     n_out: int | None = None,
     squared: bool = False,
-    residual: _ResidualKind | None = "lowpass",
+    residual: _ResidualKind = "lowpass",
     axis: int = -1,
 ) -> onp.ArrayND[InexactT3]: ...
+@overload
+def envelope[ShapeT: tuple[int, ...]](
+    z: onp.ArrayND[np.float16 | np.complex64, ShapeT],
+    bp_in: tuple[int | None, int | None] = (1, None),
+    *,
+    n_out: int | None = None,
+    squared: bool = False,
+    residual: None,
+    axis: int = -1,
+) -> onp.ArrayND[np.float32, ShapeT]: ...
+@overload
+def envelope[FloatT: np.float32 | np.float64 | npc.floating80, ShapeT: tuple[int, ...]](
+    z: onp.ArrayND[FloatT, ShapeT],
+    bp_in: tuple[int | None, int | None] = (1, None),
+    *,
+    n_out: int | None = None,
+    squared: bool = False,
+    residual: None,
+    axis: int = -1,
+) -> onp.ArrayND[FloatT, ShapeT]: ...
+@overload
+def envelope[ShapeT: tuple[int, ...]](
+    z: onp.ArrayND[npc.complexfloating128, ShapeT],
+    bp_in: tuple[int | None, int | None] = (1, None),
+    *,
+    n_out: int | None = None,
+    squared: bool = False,
+    residual: None,
+    axis: int = -1,
+) -> onp.ArrayND[np.float64, ShapeT]: ...
+@overload
+def envelope[ShapeT: tuple[int, ...]](
+    z: onp.ArrayND[npc.complexfloating160, ShapeT],
+    bp_in: tuple[int | None, int | None] = (1, None),
+    *,
+    n_out: int | None = None,
+    squared: bool = False,
+    residual: None,
+    axis: int = -1,
+) -> onp.ArrayND[np.longdouble, ShapeT]: ...

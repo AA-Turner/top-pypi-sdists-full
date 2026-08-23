@@ -52,30 +52,25 @@ ISL_SEM_TO_SEM = {
 NON_COPYABLE = ["ctx", "printer", "access_info"]
 NON_COPYABLE_WITH_ISL_PREFIX = [f"isl_{i}" for i in NON_COPYABLE]
 
-PYTHON_RESERVED_WORDS = """
-and       del       from      not       while
-as        elif      global    or        with
-assert    else      if        pass      yield
-break     except    import    print
-class     exec      in        raise
-continue  finally   is        return
-def       for       lambda    try
-""".split()
+PYTHON_RESERVED_WORDS = ["and", "del", "from", "not", "while", "as", "elif", "global",
+"or", "with", "assert", "else", "if", "pass", "yield", "break", "except", "import",
+"print", "class", "exec", "in", "raise", "continue", "finally", "is", "return", "def",
+"for", "lambda", "try"]
 
 
-class Retry(RuntimeError):  # noqa: N818
+class Retry(RuntimeError):  # ruff:ignore[error-suffix-on-exception-name]
     pass
 
 
-class BadArg(ValueError):  # noqa: N818
+class BadArg(ValueError):  # ruff:ignore[error-suffix-on-exception-name]
     pass
 
 
-class Undocumented(ValueError):  # noqa: N818
+class Undocumented(ValueError):  # ruff:ignore[error-suffix-on-exception-name]
     pass
 
 
-class SignatureNotSupported(ValueError):  # noqa: N818
+class SignatureNotSupported(ValueError):  # ruff:ignore[error-suffix-on-exception-name]
     pass
 
 
@@ -86,8 +81,7 @@ def to_py_class(cls: str):
     if cls == "int":
         return cls
 
-    if cls.startswith("isl_"):
-        cls = cls[4:]
+    cls = cls.removeprefix("isl_")
 
     if cls == "ctx":
         return "Context"
@@ -105,9 +99,7 @@ def to_py_class(cls: str):
             else:
                 result += c
 
-    result = result.replace("Qpoly", "QPoly")
-
-    return result
+    return result.replace("Qpoly", "QPoly")
 
 
 # {{{ data model
@@ -503,10 +495,8 @@ class FunctionData:
                 self.get_header_contents(mh)
                 for mh in self.macro_headers]
 
-        prepro_header = preprocess_with_macros(
+        return preprocess_with_macros(
                 macro_header_contents, self.get_header_contents(fname))
-
-        return prepro_header
 
     # {{{ read_header
 
@@ -536,11 +526,8 @@ class FunctionData:
         while i < len(lines):
             line = lines[i].strip()
 
-            if (not line
-                    or line.startswith("extern")
-                    or STRUCT_DECL_RE.search(line)
-                    or line.startswith("typedef")
-                    or line == "}"):
+            if (not line or line.startswith(("extern", "typedef"))
+                    or STRUCT_DECL_RE.search(line) or line == "}"):
                 i += 1
             elif "/*" in line:
                 while True:
@@ -661,7 +648,7 @@ class FunctionData:
             if name.startswith("options_"):
                 class_name = "ctx"
                 name = name[len("options_"):]
-            elif name.startswith("equality_") or name.startswith("inequality_"):
+            elif name.startswith(("equality_", "inequality_")):
                 class_name = "constraint"
             elif name == "ast_op_type_set_print_name":
                 class_name = "printer"
@@ -697,7 +684,7 @@ class FunctionData:
             return
 
         if class_name == "options":
-            assert name.startswith("set_") or name.startswith("get_"), (name, c_name)
+            assert name.startswith(("set_", "get_")), (name, c_name)
             name = f"{name[:4]}option_{name[4:]}"
 
         words = return_base_type.split()
@@ -1479,43 +1466,7 @@ def write_exposer(
             f"       new (t) isl::{wrap_class}(result);"
             "    else"
             f'       isl::handle_isl_error(ctx, "isl_{meth.cls}_read_from_str");'
-            '}, py::arg("s"), py::arg("context").none(true)=py::none());\n')
-
-    # Handle auto-self-downcasts. These are deprecated.
-    if not meth.is_static:
-        for basic_cls in AUTO_DOWNCASTS.get(meth.cls, []):
-            basic_overloads = meth_to_overloads.setdefault((basic_cls, meth.name), [])
-            if any(basic_meth
-                   for basic_meth in basic_overloads
-                   if (basic_meth.is_static
-                       or meth.arg_types()[1:] == basic_meth.arg_types()[1:])
-                   ):
-                continue
-
-            # These are high-traffic APIs that are manually implemented
-            # and not subject to deprecation.
-            if basic_cls == "basic_set":
-                if meth.name in ["is_params", "get_hash"]:
-                    continue
-            elif basic_cls == "basic_map":
-                if meth.name in ["get_hash"]:
-                    continue
-
-            basic_overloads.append(meth)
-
-            downcast_doc_str = (f"{doc_str}\n\nDowncast from "
-                f":class:`{to_py_class(basic_cls)}` to "
-                f":class:`{to_py_class(meth.cls)}`.")
-            escaped_doc_str = downcast_doc_str.replace(newline, escaped_newline)
-            outf.write(f"// automatic downcast to {meth.cls}\n")
-            outf.write(f'wrap_{basic_cls}.def('
-                       # Do not be tempted to pass 'arg_str' here, it will
-                       # prevent implicit conversion.
-                       # https://github.com/wjakob/nanobind/issues/1061
-                       f'"{py_name}", {func_name}'
-                       f', py::sig("def {py_name}{type_sig}")'
-                       f', "{py_name}{type_sig}\\n{escaped_doc_str}"'
-                       ');\n')
+            '}, py::arg("s"), py::arg("context").none()=py::none());\n')
 
 # }}}
 

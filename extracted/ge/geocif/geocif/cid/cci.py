@@ -51,7 +51,8 @@ def get_cci_frame(
 
     Args:
         csv_path: path to the cleaned crop-condition CSV.
-        crop: geocif crop name (``maize`` / ``soybean``).
+        crop: geocif crop name (``maize``, ``soybean``, ``rice``,
+            ``winter_wheat``, ``spring_wheat``, ``sorghum``, ``cotton``).
         years: optional iterable of years to keep (harvest years).
 
     Returns:

@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, Stric
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from mixpeek.models.evaluation_config import EvaluationConfig
 from mixpeek.models.evaluation_status import EvaluationStatus
+from mixpeek.models.query_outcome import QueryOutcome
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -48,7 +49,8 @@ class EvaluationRecord(BaseModel):
     evaluated_queries: Optional[StrictInt] = Field(default=None, description="Number of queries that produced metrics. May be < total_queries when some queries were skipped (skip-and-continue on empty/failing input).")
     skipped_queries: Optional[StrictInt] = Field(default=None, description="Number of queries skipped during evaluation (empty query_input or a per-query execution failure) — these did not fail the whole eval.")
     error_message: Optional[StrictStr] = Field(default=None, description="Error message if failed")
-    __properties: ClassVar[List[str]] = ["evaluation_id", "retriever_id", "dataset_id", "dataset_name", "config", "status", "created_at", "updated_at", "completed_at", "namespace_id", "internal_id", "query_count", "overall_metrics", "metrics_by_k", "total_queries", "evaluated_queries", "skipped_queries", "error_message"]
+    query_results: Optional[List[QueryOutcome]] = Field(default=None, description="Per-query outcomes (BACKE-3453): which branch each attempted query took and the actual error for skips, so an all-skipped run is actionable from the record without worker-log access.")
+    __properties: ClassVar[List[str]] = ["evaluation_id", "retriever_id", "dataset_id", "dataset_name", "config", "status", "created_at", "updated_at", "completed_at", "namespace_id", "internal_id", "query_count", "overall_metrics", "metrics_by_k", "total_queries", "evaluated_queries", "skipped_queries", "error_message", "query_results"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,13 @@ class EvaluationRecord(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of config
         if self.config:
             _dict['config'] = self.config.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in query_results (list)
+        _items = []
+        if self.query_results:
+            for _item_query_results in self.query_results:
+                if _item_query_results:
+                    _items.append(_item_query_results.to_dict())
+            _dict['query_results'] = _items
         return _dict
 
     @classmethod
@@ -121,7 +130,8 @@ class EvaluationRecord(BaseModel):
             "total_queries": obj.get("total_queries"),
             "evaluated_queries": obj.get("evaluated_queries"),
             "skipped_queries": obj.get("skipped_queries"),
-            "error_message": obj.get("error_message")
+            "error_message": obj.get("error_message"),
+            "query_results": [QueryOutcome.from_dict(_item) for _item in obj["query_results"]] if obj.get("query_results") is not None else None
         })
         return _obj
 

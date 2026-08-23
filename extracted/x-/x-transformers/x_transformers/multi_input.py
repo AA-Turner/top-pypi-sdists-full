@@ -17,6 +17,7 @@ from x_transformers.x_transformers import (
     LayerNorm,
     always,
     pad_at_dim,
+    slice_right_at_dim,
     is_empty,
 )
 
@@ -260,7 +261,7 @@ class MultiInputTransformerWrapper(Module):
         if return_mems:
             hiddens = intermediates.hiddens
             new_mems = [torch.cat(pair, dim = -2) for pair in zip(mems, hiddens)] if exists(mems) else hiddens
-            new_mems = [t[..., -self.max_mem_len:, :].detach() for t in new_mems]
+            new_mems = [slice_right_at_dim(t, self.max_mem_len, dim = -2).detach() for t in new_mems]
 
             if not return_intermediates:
                 return out, new_mems

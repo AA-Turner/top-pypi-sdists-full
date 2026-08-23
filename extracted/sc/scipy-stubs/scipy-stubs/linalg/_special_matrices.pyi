@@ -318,16 +318,16 @@ def hankel(c: onp.ToJustComplexStrict1D, r: onp.ToJustComplexStrict1D | None = N
 @overload
 def hankel[ScalarT: np.generic](c: _ToStrict1D[ScalarT], r: _ToStrict1D[ScalarT] | None = None) -> onp.Array2D[ScalarT]: ...
 @overload
-@deprecated("Beginning in SciPy 1.19, multidimensional input will be treated as a batch, not `ravel`ed.")
+@deprecated("Beginning in SciPy 2.0, multidimensional input will be treated as a batch, not `ravel`ed.")
 def hankel(c: onp.ToJustIntND, r: onp.ToJustIntND | None = None) -> _Int2D: ...
 @overload
-@deprecated("Beginning in SciPy 1.19, multidimensional input will be treated as a batch, not `ravel`ed.")
+@deprecated("Beginning in SciPy 2.0, multidimensional input will be treated as a batch, not `ravel`ed.")
 def hankel(c: onp.ToJustFloatND, r: onp.ToJustFloatND | None = None) -> _Float2D: ...
 @overload
-@deprecated("Beginning in SciPy 1.19, multidimensional input will be treated as a batch, not `ravel`ed.")
+@deprecated("Beginning in SciPy 2.0, multidimensional input will be treated as a batch, not `ravel`ed.")
 def hankel(c: onp.ToJustComplexND, r: onp.ToJustComplexND | None = None) -> _Complex2D: ...
 @overload
-@deprecated("Beginning in SciPy 1.19, multidimensional input will be treated as a batch, not `ravel`ed.")
+@deprecated("Beginning in SciPy 2.0, multidimensional input will be treated as a batch, not `ravel`ed.")
 def hankel[ScalarT: np.generic](c: _ToStrict2ND[ScalarT], r: _ToStrict2ND[ScalarT] | None = None) -> onp.Array2D[ScalarT]: ...
 @overload
 def hankel[ScalarT: np.generic](c: _To1D[ScalarT], r: _To1D[ScalarT] | None = None) -> onp.Array2D[ScalarT]: ...
@@ -346,7 +346,7 @@ def invhilbert(n: onp.ToInt, exact: L[True]) -> onp.Array2D[np.int64 | np.object
 
 #
 @overload
-def pascal(n: onp.ToInt, kind: _Kind = "symmetric", exact: L[True] = True) -> onp.Array2D[np.int64 | np.object_]: ...
+def pascal(n: onp.ToInt, kind: _Kind = "symmetric", exact: L[True] = True) -> onp.Array2D[np.uint64 | np.object_]: ...
 @overload
 def pascal(n: onp.ToInt, kind: _Kind, exact: L[False]) -> _Float2D: ...
 @overload

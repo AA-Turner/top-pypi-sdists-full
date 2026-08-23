@@ -3,10 +3,10 @@
  * @brief Shared stimulus and measurement loop for the two M-PSK BER
  *        validators.
  *
- * `mpsk_receiver_ber.c` (complex baseband) and `mpsk_receiver_r_ber.c` (real
- * IF) measure the same thing on the same signal model through two front ends,
- * so the stimulus and the measurement live here once and each validator is
- * just a sweep over it. A second copy would drift, and the two would stop
+ * `mpsk_receiver_ber.c` (complex baseband) and `mpsk_receiver_real_ber.c`
+ * (real IF) measure the same thing on the same signal model through two front
+ * ends, so the stimulus and the measurement live here once and each validator
+ * is just a sweep over it. A second copy would drift, and the two would stop
  * being comparable — which is the entire point of running both.
  *
  * Everything statistical is `native/tests/dp_ber_test.h`: the settled window,
@@ -64,8 +64,8 @@
 #define MPSK_BER_COMMON_H
 
 #include "dp_ber_test.h"
+#include "dp_rng_test.h"
 #include "mpsk_receiver/mpsk_receiver_core.h"
-#include "mpsk_receiver_r/mpsk_receiver_r_core.h"
 #include <complex.h>
 #include <math.h>
 #include <stdint.h>
@@ -88,43 +88,15 @@
 /** @brief One measurement geometry. */
 typedef struct
 {
-  int    real;         /**< 0 = complex baseband, 1 = real IF.            */
-  int    m;            /**< Constellation order.                          */
-  double sps;          /**< Samples per symbol at the receiver's input.   */
-  size_t m_out;        /**< Terminal outputs per symbol.                  */
-  double fc;           /**< Carrier, cycles/sample at the input rate.     */
-  double foff;         /**< Offset the carrier loop must acquire.         */
-  double bn_timing;    /**< Timing loop noise bandwidth, per symbol.      */
-  double bn_carrier;   /**< Carrier loop noise bandwidth, per symbol.     */
-  int    acq_to_track; /**< Two-way NDA -> decision-directed handover.    */
-  int    nda_tap;      /**< MPSK_RX_NDA_TAP_* -- where the M-th power runs. */
+  int    real;       /**< 0 = complex baseband, 1 = real IF.            */
+  int    m;          /**< Constellation order.                          */
+  double sps;        /**< Samples per symbol at the receiver's input.   */
+  size_t m_out;      /**< Terminal outputs per symbol.                  */
+  double fc;         /**< Carrier, cycles/sample at the input rate.     */
+  double foff;       /**< Offset the carrier loop must acquire.         */
+  double bn_timing;  /**< Timing loop noise bandwidth, per symbol.      */
+  double bn_carrier; /**< Carrier loop noise bandwidth, per symbol.     */
 } mpsk_ber_cfg_t;
-
-/* xorshift32 — the same generator the receiver tests use. Adequate for a
- * symbol source and a Box-Muller pair; nothing here is cryptographic. */
-static inline uint32_t
-mpsk_ber_rng (uint32_t *s)
-{
-  uint32_t x = *s;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  *s = x;
-  return x;
-}
-
-static inline double
-mpsk_ber_uni (uint32_t *s)
-{
-  return ((double)mpsk_ber_rng (s) + 1.0) / 4294967297.0;
-}
-
-static inline double
-mpsk_ber_gauss (uint32_t *s)
-{
-  return sqrt (-2.0 * log (mpsk_ber_uni (s)))
-         * cos (2.0 * MPSK_PI * mpsk_ber_uni (s));
-}
 
 /**
  * @brief Run one burst: build the stimulus, demodulate, capture the locks.
@@ -132,10 +104,9 @@ mpsk_ber_gauss (uint32_t *s)
  * Steps SAMPLE BY SAMPLE through the composition API rather than calling
  * `steps()` on the whole block, because the settling gate needs the receiver's
  * own lock indicators PER SYMBOL and the block API only exposes their final
- * value. That is not an optimisation to undo: `max(budget, carrier lock,
- * handover + budget)` is the difference between measuring the steady state and
- * measuring the acquisition transient, and on 8PSK it was worth 5.95x versus
- * 1.68x of the coherent bound.
+ * value. That is not an optimisation to undo: `max(budget, carrier lock)` is
+ * the difference between measuring the steady state and measuring the
+ * acquisition transient.
  *
  * @param c        Geometry.
  * @param esn0_db  Matched-filter-output Es/N0.
@@ -144,14 +115,13 @@ mpsk_ber_gauss (uint32_t *s)
  * @param truth    Out: `nsym` transmitted symbol indices (0..m-1).
  * @param out      Out: recovered symbols, capacity `nsym`.
  * @param lock_c   Out: per-recovered-symbol carrier lock flag.
- * @param track    Out: per-recovered-symbol handover flag.
  * @param clipped  Out: non-zero if the front end clipped.
  * @return         Symbols recovered.
  */
 static inline size_t
 mpsk_ber_burst (const mpsk_ber_cfg_t *c, double esn0_db, uint32_t seed,
                 size_t nsym, uint8_t *truth, float complex *out,
-                unsigned char *lock_c, unsigned char *track, int *clipped)
+                unsigned char *lock_c, int *clipped)
 {
   double   esn0 = pow (10.0, esn0_db / 10.0);
   double   phi0 = mpsk_phi0 (c->m);
@@ -163,21 +133,25 @@ mpsk_ber_burst (const mpsk_ber_cfg_t *c, double esn0_db, uint32_t seed,
   double sigma = c->real ? MPSK_BER_AMP * sqrt (c->sps / (4.0 * esn0))
                          : MPSK_BER_AMP * sqrt (c->sps / (2.0 * esn0));
 
-  void *rx
-      = c->real ? (void *)mpsk_receiver_r_create (
+  /* One type, one set of accessors: the front end is a CONSTRUCTOR choice
+     now, not a second state_t to cast a void* to. Every argument below is
+     identical between the two calls, which is the collapse's thesis stated as
+     code (docs/design/mpsk.md §8). */
+  mpsk_receiver_state_t *rx
+      = c->real ? mpsk_receiver_create_real (
                       c->m, c->sps, c->m_out, MPSK_RX_PULSE_IANDD, 0.35, 8,
-                      c->bn_carrier, 0.707, c->bn_timing, c->acq_to_track, 0.3,
-                      c->fc - c->foff, 300, 0, MPSK_RX_NUM_PHASES, c->nda_tap)
-                : (void *)mpsk_receiver_create (
+                      c->bn_carrier, 0.707, c->bn_timing, 0.3, c->fc - c->foff,
+                      0, MPSK_RX_NUM_PHASES, 1, MPSK_RX_AGC_BW_RATIO)
+                : mpsk_receiver_create (
                       c->m, c->sps, c->m_out, MPSK_RX_PULSE_IANDD, 0.35, 8,
-                      c->bn_carrier, 0.707, c->bn_timing, c->acq_to_track, 0.3,
-                      c->fc - c->foff, 300, 0, MPSK_RX_NUM_PHASES, c->nda_tap);
+                      c->bn_carrier, 0.707, c->bn_timing, 0.3, c->fc - c->foff,
+                      0, MPSK_RX_NUM_PHASES, 1, MPSK_RX_AGC_BW_RATIO);
   if (!rx)
     return 0;
 
   for (size_t k = 0; k < nsym; k++)
     {
-      int    ki = (int)(mpsk_ber_rng (&st) % (uint32_t)c->m);
+      int    ki = (int)(dp_xs32 (&st) % (uint32_t)c->m);
       double th = 2.0 * MPSK_PI * (double)ki / (double)c->m + phi0;
       double sr = MPSK_BER_AMP * cos (th), si = MPSK_BER_AMP * sin (th);
       truth[k] = ki;
@@ -192,48 +166,31 @@ mpsk_ber_burst (const mpsk_ber_cfg_t *c, double esn0_db, uint32_t seed,
               /* Re{(sr + j si) e^{j ph}} — what an ADC behind an analogue
                  mixer actually delivers. */
               float x = (float)(sr * cos (ph) - si * sin (ph)
-                                + sigma * mpsk_ber_gauss (&st));
-              got = mpsk_receiver_r_step_ted ((mpsk_receiver_r_state_t *)rx, x,
-                                              &y, RATESYNC_TED_GARDNER);
+                                + sigma * dp_gauss (&st));
+              got     = mpsk_receiver_step_real_ted (rx, x, &y,
+                                                     RATESYNC_TED_GARDNER);
             }
           else
             {
-              double        re = sr * cos (ph) - si * sin (ph);
-              double        im = sr * sin (ph) + si * cos (ph);
-              float complex x
-                  = (float)(re + sigma * mpsk_ber_gauss (&st))
-                    + (float)(im + sigma * mpsk_ber_gauss (&st)) * I;
-              got = mpsk_receiver_step_ted ((mpsk_receiver_state_t *)rx, x, &y,
-                                            RATESYNC_TED_GARDNER);
+              double        re   = sr * cos (ph) - si * sin (ph);
+              double        im   = sr * sin (ph) + si * cos (ph);
+              double        n_re = dp_gauss (&st);
+              double        n_im = dp_gauss (&st);
+              float complex x    = (float)(re + sigma * n_re)
+                                   + (float)(im + sigma * n_im) * I;
+              got = mpsk_receiver_step_ted (rx, x, &y, RATESYNC_TED_GARDNER);
             }
           if (got && nout < nsym)
             {
-              out[nout] = y;
-              lock_c[nout]
-                  = (unsigned char)(c->real ? mpsk_receiver_r_get_locked ((
-                                                  mpsk_receiver_r_state_t *)rx)
-                                            : mpsk_receiver_get_locked ((
-                                                  mpsk_receiver_state_t *)rx));
-              track[nout]
-                  = (unsigned char)(c->real ? mpsk_receiver_r_get_tracking ((
-                                                  mpsk_receiver_r_state_t *)rx)
-                                            : mpsk_receiver_get_tracking ((
-                                                  mpsk_receiver_state_t *)rx));
+              out[nout]    = y;
+              lock_c[nout] = (unsigned char)mpsk_receiver_get_locked (rx);
               nout++;
             }
         }
     }
 
-  if (c->real)
-    {
-      *clipped = mpsk_receiver_r_get_clipped ((mpsk_receiver_r_state_t *)rx);
-      mpsk_receiver_r_destroy ((mpsk_receiver_r_state_t *)rx);
-    }
-  else
-    {
-      *clipped = mpsk_receiver_get_clipped ((mpsk_receiver_state_t *)rx);
-      mpsk_receiver_destroy ((mpsk_receiver_state_t *)rx);
-    }
+  *clipped = mpsk_receiver_get_clipped (rx);
+  mpsk_receiver_destroy (rx);
   return nout;
 }
 
@@ -277,7 +234,7 @@ mpsk_ber_measure (const mpsk_ber_cfg_t *c, double esn0_db,
   size_t            nsym  = MPSK_BER_NSYM;
   uint8_t          *truth = malloc (nsym);
   float complex    *out   = malloc (nsym * sizeof (*out));
-  unsigned char    *lc = malloc (nsym), *tk = malloc (nsym);
+  unsigned char    *lc    = malloc (nsym);
   size_t            lo = 0, hi = 0;
   int               settled_any = 0;
   /* The alignment of the LAST scored burst, carried out so dp_ber_report()
@@ -293,12 +250,11 @@ mpsk_ber_measure (const mpsk_ber_cfg_t *c, double esn0_db,
   r.clipped   = 0;
   r.unsettled = 0;
   dp_ber_init (&acc, c->m, target_errors);
-  if (!truth || !out || !lc || !tk)
+  if (!truth || !out || !lc)
     {
       free (truth);
       free (out);
       free (lc);
-      free (tk);
       r.rep = dp_ber_report (&acc, esn0_db, NULL, 0, 0, 0, DP_BER_CONF);
       return r;
     }
@@ -308,7 +264,7 @@ mpsk_ber_measure (const mpsk_ber_cfg_t *c, double esn0_db,
       int    clip = 0, ok = 0;
       size_t n
           = mpsk_ber_burst (c, esn0_db, seed0 + 7919u * (uint32_t)r.bursts,
-                            nsym, truth, out, lc, tk, &clip);
+                            nsym, truth, out, lc, &clip);
       r.bursts++;
       r.clipped |= clip;
       if (n < 1000)
@@ -317,8 +273,8 @@ mpsk_ber_measure (const mpsk_ber_cfg_t *c, double esn0_db,
           continue;
         }
       {
-        size_t settle = dp_ber_settle (c->bn_timing, c->bn_carrier, NULL, lc,
-                                       c->acq_to_track ? tk : NULL, n, &ok);
+        size_t settle
+            = dp_ber_settle (c->bn_timing, c->bn_carrier, NULL, lc, n, &ok);
         dp_ber_marker_t mk;
         dp_ber_sync_t   sy;
         if (!ok || settle + DP_BER_LAG_SPAN + DP_BER_SYNC_SYMS + 500 >= n)
@@ -356,7 +312,6 @@ mpsk_ber_measure (const mpsk_ber_cfg_t *c, double esn0_db,
   free (truth);
   free (out);
   free (lc);
-  free (tk);
   r.rep = dp_ber_report (&acc, esn0_db, settled_any ? &last_sync : NULL, lo,
                          hi, settled_any, DP_BER_CONF);
   return r;

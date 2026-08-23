@@ -19,25 +19,40 @@ jobs:
   # ------------------------------------------------------------------
   # Native C build + CTest on Ubuntu and macOS
   # ------------------------------------------------------------------
-  build-and-test:
+  # Split from the macOS leg because `container:` is Linux-only and a
+  # job-level container cannot be switched off for one matrix leg. The STEPS
+  # are not split -- both jobs run .github/actions/build-test-suite -- and
+  # neither are the check NAMES, which branch protection requires by string.
+  build-and-test-linux:
     name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # Windows is intentionally unsupported: signal-processing users on
-        # Windows run under WSL2, a VM, or a container. Dropping it removes the
-        # flaky MSYS2 toolchain setup and the MinGW build/test matrix.
-        os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
+        # Two images, not one, and that is the point: these legs exist to
+        # test two glibcs (2.35 and 2.39). Pointing both at a single image
+        # would leave the matrix naming two environments while testing one.
+        # (The 2.28 FLOOR is a different question, answered by the glibc-228
+        # job below and by manylinux_2_28 wheels at release.)
+        include:
+          - os: ubuntu-22.04
+            image: ghcr.io/doppler-dsp/doppler-ci@sha256:411e1915561464c11c644ffc4201ed0b5420785493084b87a2f3f46c61734c49
+          - os: ubuntu-24.04
+            image: ghcr.io/doppler-dsp/doppler-ci@sha256:63283766a91186a544297ae4b733f701c9d7d734136c37e5495e0f8d8bec8590
+    container:
+      image: ${{ matrix.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
+    # No provisioning step: the toolchain is the image.
 
-    # `make install-deps` is the one dep command a developer also runs: it
-    # self-bootstraps jbx and installs jb.toml's runtime+dev groups, auto-
-    # detecting apt vs brew — so one step covers Ubuntu and macOS both.
-    - name: Install system dependencies
-      run: make install-deps
+    - uses: ./.github/actions/ccache
+      with:
+        key: build-${{ matrix.os }}
 
     - name: Build
       run: make build
@@ -73,6 +88,11 @@ jobs:
     - name: Rust FFI tests
       run: make test-rust
 
+    - name: Compiler-cache statistics
+      # In the log on purpose: a cache that stops hitting has no symptom
+      # other than builds slowly getting longer.
+      run: make ccache-stats
+
     # Early portability signal: the release pipeline already objdumps every
     # wheel .so for leaked AVX (release.yml), but only on tags — too late to
     # catch a flag regression in review. The default `make build` here uses the
@@ -85,10 +105,84 @@ jobs:
       # leaked into the default build -- a wheel that SIGILLs on a user's CPU.
       # The C++ check keeps the library pure C: no libstdc++, no CXXABI, -lm
       # only. Both read ELF, hence Linux only; the link smoke below is not.
-      if: startsWith(matrix.os, 'ubuntu')
       run: make abi-check
 
-    - name: Smoke-test static link (libdoppler.a -lm)
+    - name: Smoke-test static link (libdoppler.a -lm -lpthread)
+      # The question a downstream actually asks, answered on every platform.
+      run: make link-check
+
+    - name: Verify installed headers declare only what the libraries define
+      # `native/inc/` is installed wholesale, so a header there is a
+      # PUBLISHED C API whether or not anything implements it. Two declared
+      # an API that was never built (#801) and a third block survived a
+      # rename; a downstream could read them, include them, and fail at
+      # link time. Reads `nm`, so it needs the build above.
+      run: make installed-headers-check
+
+    - name: Smoke-test the three consumer faces (cc / CMake / pkg-config)
+      # Installs the fresh build to a scratch prefix and builds the
+      # core+stream consumer via all three documented faces, asserting
+      # identical output. The docs' "Compile it — three ways" snippets
+      # are --8<-- included from build-three-ways.sh itself, so this
+      # proves exactly what readers copy. Same target a dev runs;
+      # release-smoke.sh runs the same script against the published
+      # tarball on every release (x86_64, aarch64, macOS).
+      run: make consumer-faces-check
+
+  # Windows is intentionally unsupported: signal-processing users on Windows
+  # run under WSL2, a VM, or a container. Dropping it removed the flaky MSYS2
+  # toolchain setup and the MinGW build/test matrix.
+  #
+  # macOS still provisions with brew, because there is no macOS container to
+  # bake: `make install-deps` is the one dep command a developer also runs and
+  # it auto-detects apt vs brew, so this stays exactly as it was.
+  build-and-test-macos:
+    name: Build on macos-latest
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install system dependencies
+      timeout-minutes: 25
+      run: make install-deps-ci
+
+    - name: Build
+      run: make build
+
+    - name: Test
+      run: make test
+
+    # dp_isotime.h follows just-bashit's `iso-8601-basic` rather than defining
+    # the format itself, so the reference has to be present for the agreement
+    # to be checkable at all. Clone it and set ISOTIME_REQUIRE=1: without the
+    # flag a missing checkout would SKIP, and a gate that skips in CI is a
+    # gate that stopped gating without saying so.
+    - name: Check ISO 8601 parity with just-bashit
+      run: |
+        # macOS ships BSD date, and BOTH sides of this comparison want GNU:
+        # just-bashit's own helper picks `gdate` when it is there, and this
+        # gate needs it to split an instant into the (seconds, nanoseconds)
+        # pair the C API takes. Installing it keeps the check REQUIRED on
+        # every platform doppler ships a wheel for, rather than quietly
+        # Linux-only -- the C side formats through the platform libc's
+        # gmtime_r, so parity on Linux does not prove parity on macOS.
+        if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install coreutils
+        fi
+        git clone --depth 1 https://github.com/just-buildit/just-bashit.git \
+            "$RUNNER_TEMP/just-bashit"
+        make check-isotime-parity ISOTIME_REQUIRE=1 \
+            JUST_BASHIT="$RUNNER_TEMP/just-bashit"
+
+    - name: Example smoke tests
+      run: make test-examples
+
+    - name: Rust FFI tests
+      run: make test-rust
+
+    - name: Smoke-test static link (libdoppler.a -lm -lpthread)
       # The question a downstream actually asks, answered on every platform.
       run: make link-check
 
@@ -108,24 +202,31 @@ jobs:
   python:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # No provisioning step: the toolchain is the image. See
+    # deploy/docker/Dockerfile.ci and .github/ci-images.env.
+    container:
+      image: ghcr.io/doppler-dsp/doppler-ci@sha256:63283766a91186a544297ae4b733f701c9d7d734136c37e5495e0f8d8bec8590
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
-    - name: Install system dependencies
-      run: make install-deps
+    - uses: ./.github/actions/ccache
+      with:
+        key: python
 
     - name: Install uv + Python + package deps
-      uses: astral-sh/setup-uv@v9.0.0
+      uses: ./.github/actions/setup-uv
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Install Python dev deps
-      run: uv sync --group dev
+        sync: --group dev
 
     - name: Start NATS JetStream broker (for nats:// stream tests)
       # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
@@ -134,13 +235,22 @@ jobs:
       # Started here, before any build/test step, because the "Doctest
       # generated stubs" step below now needs a live broker too (stream.pyi's
       # examples create real nats:// Publisher/Push/etc. handles).
-      run: bash scripts/start-nats.sh
+      #
+      # `make nats-up`, not a bare `bash scripts/...`: gates-check only sees
+      # `make <target>`, so as a raw script call the step that decides whether
+      # a whole transport is exercised was invisible to it.
+      run: make nats-up
 
     - name: Build C library
       run: make build
 
     - name: Build Python C extensions
       run: make pyext
+
+    - name: Compiler-cache statistics
+      # In the log on purpose: a cache that stops hitting has no symptom
+      # other than builds slowly getting longer.
+      run: make ccache-stats
 
     - name: Doctest generated stubs
       # The .pyi docstrings are derived from each _core.h's Doxygen by jm.
@@ -163,7 +273,7 @@ jobs:
       # built build/libdoppler.a; every documented CLI line is parsed against the
       # real argparse parser and the safe ones execute end-to-end under bash -e.
       # Backlogs: docs/.doc-snippet-ignore, docs/.c-doc-snippet-ignore. See
-      # docs/dev/doc-examples.md.
+      # docs/dev/contributing/doc-examples.md.
       #
       # All three are version-independent, so they run once rather than on all
       # six interpreters. One target rather than three steps because they fail
@@ -173,11 +283,22 @@ jobs:
       if: matrix.python-version == '3.12'
       run: make test-snippets
 
-    - name: Test with coverage
+    - name: Test
       # The fence gates are version-independent and have their own step above
       # (3.12 only); `make test-python` excludes those markers by definition, so
-      # local and CI select exactly the same tests. PYTEST_ARGS adds only the
-      # coverage REPORTING, which is CI's business, not a different test run.
+      # local and CI select exactly the same tests.
+      #
+      # No PYTEST_ARGS here: this is every version except the one that keeps a
+      # report, and coverage that is computed and discarded is just a slower
+      # test run. The Python line coverage is uploaded from 3.12 (below), and
+      # the number the patch gate actually reads comes from the `coverage` job,
+      # which measures C ∪ Python ∪ Rust against one instrumented build.
+      if: matrix.python-version != '3.12'
+      run: make test-python
+
+    - name: Test with coverage
+      # 3.12 only -- the version whose coverage.xml is uploaded.
+      if: matrix.python-version == '3.12'
       run: |
         make test-python PYTEST_ARGS="--cov \
           --cov-report=term-missing \
@@ -185,13 +306,37 @@ jobs:
 
     - name: Stop NATS broker
       if: always()
-      run: docker rm -f nats || true
+      run: make nats-down
 
     - name: Python example smoke tests
       run: make test-examples-python
 
+    - name: Validation reports are not stale
+      # `results.md` is the deliverable -- committed on purpose, linked from
+      # the validation log, and what a caller reads instead of running the
+      # sweep. Nothing noticed a committed one drifting from the `validate.py`
+      # that produced it: this target sat in GATES_DEPS with no CI home, and
+      # no job runs `make gates` (#816).
+      #
+      # The first attempt at this step failed, and usefully: four reports came
+      # back STALE here while all eleven were up to date locally. The reports
+      # had never been reproducible off the machine that generated them,
+      # because `--check` byte-compared MEASUREMENTS -- error counts move
+      # between toolchains, and SER, loss and EVM move with them, all well
+      # inside the measurement's own ~7% standard error. `--check` now gates
+      # STRUCTURE (sections, prose, claim wording, verdicts, citations) and
+      # leaves the numbers to each object's limits test, which asserts them
+      # with per-quantity thresholds in the units they belong to (#820).
+      #
+      # Verified against the toolchain that broke it -- gcc 13.3 / glibc 2.39
+      # in a container, against this box's 15.2 / 2.43 -- where all eleven now
+      # pass. Version-independent, so once, like the fence gates; 23 s for all
+      # eleven.
+      if: matrix.python-version == '3.12'
+      run: make validate-check
+
     - name: Upload coverage report
-      uses: actions/upload-artifact@v7.0.1
+      uses: actions/upload-artifact@v7
       if: matrix.python-version == '3.12'
       with:
         name: coverage-report
@@ -203,42 +348,22 @@ jobs:
   # ------------------------------------------------------------------
   glibc-228:
     name: glibc 2.28 (Debian 10)
+    # No `container:` any more, and no provisioning inline. The Debian 10
+    # environment this job needs is deploy/docker/Dockerfile.glibc228, and
+    # `glibc-gate` drives it -- so the gate is one definition a dev box runs
+    # too, instead of a hand-rolled apt/cmake bootstrap that only ever
+    # executed here and could only be debugged by pushing.
     runs-on: ubuntu-latest
-    container: debian:buster-slim
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
-    - name: Install build deps + cmake ≥ 3.16
-      run: |
-        # Debian Buster reached EOL; packages are on the archive mirror.
-        printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive.debian.org/debian-security buster/updates main\n' \
-          > /etc/apt/sources.list
-        apt-get -o Acquire::Check-Valid-Until=false update
-        apt-get install -y --no-install-recommends \
-          build-essential \
-          pkg-config \
-          ca-certificates \
-          wget
-        # Kitware's Buster apt repo is also EOL; use the statically-linked
-        # cmake binary from the GitHub release instead.
-        CMAKE_VER=3.28.6
-        wget -q "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-linux-x86_64.sh" \
-          -O /tmp/cmake-install.sh
-        sh /tmp/cmake-install.sh --skip-license --prefix=/usr/local
-        rm /tmp/cmake-install.sh
-
-    - name: Build
-      run: make build
-
-    - name: Test examples
-      run: make test-examples
-
-    - name: Verify no glibc symbols > 2.28
-      # Built in the Debian 10 container above, so this asserts the floor a
-      # released .so must hold. On a modern distro it fails on the local
-      # build's newer symbols -- that is the check working, not a bug.
-      run: make glibc-check
+    - name: Build on glibc 2.28 and verify no newer symbols
+      # Builds this checkout inside the Debian 10 image, smoke-runs the C
+      # examples against it, then asserts the symbol floor a released .so
+      # must hold. Identical to `make glibc-gate` on a laptop.
+      run: make glibc-gate
 
   # ------------------------------------------------------------------
   # Doxygen C API docs — zero warnings required
@@ -246,12 +371,27 @@ jobs:
   doxygen:
     name: Doxygen
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # doxygen + graphviz come from the image's `docs` group, which is the
+    # same bootstrap.toml group `make install-docs-deps` installs.
+    container:
+      image: ghcr.io/doppler-dsp/doppler-ci@sha256:63283766a91186a544297ae4b733f701c9d7d734136c37e5495e0f8d8bec8590
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
-    - name: Install doxygen
-      run: make install-docs-deps
+    # gen-c-api-check needs the docs Python group (mkdoxy) as well as doxygen.
+    # It lives in THIS job rather than in `docs` because doxygen is already
+    # here at CI's pinned version -- running it in `docs` would fall back to
+    # the container shim and rebuild a pinned doxygen image every run.
+    - name: Install uv
+      uses: ./.github/actions/setup-uv
+      with:
+        python-version: '3.12'
+        sync: --group dev --group docs
 
     - name: Run doxygen (zero warnings)
       # `make doxygen-check`, never an inline doxygen invocation: the Makefile
@@ -264,15 +404,21 @@ jobs:
       # DOXYGEN_VERSION in the Makefile when this runner image changes.
       run: make doxygen-check
 
+    - name: Committed docs/c-api matches the headers
+      # The generated C API tree is committed, so it can go stale silently --
+      # and had, by 22 pages. `make gen-c-api` locally is this step.
+      run: make gen-c-api-check
+
   # ------------------------------------------------------------------
   # Specan demo frames staleness check
   # ------------------------------------------------------------------
   specan-demo:
     name: Specan demo frames
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -287,17 +433,16 @@ jobs:
   docs:
     name: Docs
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v9.0.0
+      uses: ./.github/actions/setup-uv
       with:
         python-version: '3.12'
-
-    - name: Install dev deps
-      run: uv sync --group dev --group docs
+        sync: --group dev --group docs
 
     - name: Docs gate
       # Every gate the local `make docs-check` runs, in one step. The target
@@ -319,9 +464,10 @@ jobs:
   docker:
     name: Docker
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
     - name: Build + smoke the build-on-doppler images
       run: make docker-examples
@@ -347,9 +493,30 @@ jobs:
   pre-commit:
     name: pre-commit (lint + format)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
+      with:
+        # `changelog-check` asks what THIS BRANCH changed, which needs a MERGE
+        # BASE -- and a merge base needs history on both sides. The depth=1
+        # baseline fetch below is enough for the tests-ssot ratchet, which
+        # reads a tree at one commit, but it can never produce a common
+        # ancestor. The gate fails closed rather than guessing, so without this
+        # it would be red on every PR.
+        fetch-depth: 0
+
+    # NB there is no longer an explicit `git fetch --depth=1 origin main` step
+    # here. It existed because a default checkout fetches only the PR ref, so
+    # `origin/main` was absent and the tests-ssot ratchet failed closed on the
+    # runner while passing on every developer's clone. `fetch-depth: 0` above
+    # supersedes it -- actions/checkout fetches every branch, the full history
+    # and the tags -- and keeping both was actively harmful, not merely
+    # redundant: `--depth=1 --no-tags` RE-shallowed the repo after the deep
+    # checkout, which left `git describe --tags` with nothing to find. Measured
+    # on the first CI run of this gate, which reported "1 code commit(s) since
+    # repo start" where a developer's clone says "113 since v0.42.0" -- the
+    # repo-state half of changelog-check reduced to nonsense by its own setup.
 
     # uv, not bare setup-python: the hooks now DISPATCH into the Makefile
     # (`make -s lint-ruff`), which invokes `$(DEV_RUN) <tool>` so the version
@@ -358,28 +525,37 @@ jobs:
     # local cache and a fresh runner holding different mdformat plugins and
     # disagreeing about the same file.
     - name: Install uv
-      uses: astral-sh/setup-uv@v9.0.0
+      uses: ./.github/actions/setup-uv
       with:
         python-version: '3.12'
-
-    - name: Install dev deps
-      run: uv sync --group dev --no-install-project
+        sync: --group dev --no-install-project
 
     # `make lint` and nothing else: it runs the standard's three consistency
     # gates (standard drift, help completeness, no ghost targets) and then the
     # hooks, so CI enforces exactly what a developer runs.
     - name: Run make lint
+      # The PR's base SHA, not `origin/main`: a `pull_request` checkout builds a
+      # merge commit and has no local main, so the base the PR is actually
+      # against is the honest comparison. On a `push` event there is no PR to
+      # read it from, and `origin/main` is correct there -- HEAD is an ancestor
+      # of it, so the branch half goes inert exactly as it should.
+      # `issue-link-check` takes the same base by way of CHANGELOG_BASE (the
+      # Makefile passes it through), so both per-branch gates measure against
+      # the same commit rather than two subtly different ones.
+      env:
+        CHANGELOG_BASE: ${{ github.event.pull_request.base.sha || 'origin/main' }}
       run: make lint
 
   manifest-drift:
     name: jm manifest drift gate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v9.0.0
+      uses: ./.github/actions/setup-uv
 
     - name: Check manifest drift
       # --refresh: ignore setup-uv's cached PyPI index so a just-published jm
@@ -399,39 +575,56 @@ jobs:
   coverage:
     name: coverage (C + Python + Rust)
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # clang, llvm-profdata/llvm-cov, cargo and the profile runtime all come
+    # from the image -- including libclang-rt, which bootstrap.toml cannot
+    # name because the package is per-release and that file is not.
+    container:
+      image: ghcr.io/doppler-dsp/doppler-ci@sha256:63283766a91186a544297ae4b733f701c9d7d734136c37e5495e0f8d8bec8590
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v7.0.1
+    - uses: actions/checkout@v7
       with:
         # Full history so the patch gate can diff against origin/main.
         fetch-depth: 0
 
-    - name: Install system deps
-      run: |
-        make install-deps
-        # clang + the matching llvm tools (llvm-profdata / llvm-cov) — coverage
-        # tooling, not build deps, so it stays out of jb.toml's dev group.
-        sudo apt-get install -y clang llvm
+    - uses: ./.github/actions/ccache
+      with:
+        key: coverage
 
     - name: Install uv + Python + package deps
-      uses: astral-sh/setup-uv@v9.0.0
+      uses: ./.github/actions/setup-uv
       with:
         python-version: '3.13'
-
-    - name: Install Python dev deps
-      run: uv sync --group dev
+        sync: --group dev
 
     - name: Start NATS JetStream broker (covers the nats:// stream path)
       # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
       # unreachable; start a JetStream broker so stream_nats.c is exercised.
-      run: bash scripts/start-nats.sh
+      run: make nats-up
 
     - name: Coverage (clang source-based; C ∪ Python ∪ Rust)
+      # `shell: bash` for the `-o pipefail` it carries. The default shell is
+      # `bash -e`, where a pipeline's status is the LAST command's -- so `make
+      # coverage | tee` reported tee's 0 and this step went green over a recipe
+      # that had failed. It did: the install of the instrumented wfmgen died on
+      # a missing directory, no report was ever written, and the failure only
+      # surfaced one step later as `coverage-gate` opening a coverage.lcov that
+      # did not exist. Same shape as the leading `-` this branch removed from
+      # pytest, one layer out: the exit code was produced and then discarded.
+      shell: bash
       run: make coverage | tee coverage.txt
 
+    - name: Compiler-cache statistics
+      # In the log on purpose: a cache that stops hitting has no symptom
+      # other than builds slowly getting longer.
+      run: make ccache-stats
     - name: Stop NATS broker
       if: always()
-      run: docker rm -f nats 2>/dev/null || true
+      run: make nats-down
 
     - name: Patch-coverage gate (changed C lines must be >= 90%)
       # diff-cover fails the job (→ blocks ci-passed) when a PR's added/changed
@@ -451,7 +644,7 @@ jobs:
 
     - name: Upload coverage report
       if: always()
-      uses: actions/upload-artifact@v7.0.1
+      uses: actions/upload-artifact@v7
       with:
         name: coverage-report
         path: |
@@ -467,7 +660,8 @@ jobs:
   ci-passed:
     name: CI passed
     needs:
-      - build-and-test
+      - build-and-test-linux
+      - build-and-test-macos
       - python
       - glibc-228
       - doxygen
@@ -478,6 +672,7 @@ jobs:
       - manifest-drift
       - coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     if: always()
     steps:
       - name: Require all jobs to have succeeded

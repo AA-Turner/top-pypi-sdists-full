@@ -1,0 +1,224 @@
+[project]
+name    = "doppler"
+version = "0.3.7"
+
+[tools.install-deps]
+source = "just-bashit:install-deps"
+groups = ["runtime", "dev"]
+
+[tools.just-makeit]
+source = "just-bashit:just-makeit"
+config = "just-makeit.toml"
+
+# Package NAMES below are architecture-agnostic per package manager (e.g.
+# apt's "build-essential"/"cmake" resolve on amd64 and arm64 alike) --
+# exercised on both via CI (manylinux_2_28_x86_64) and arm64 builds of
+# deploy/docker/Dockerfile.cli's linux/arm64 source-build path. If a
+# future dependency needs an arch-specific package name/version, add it
+# here rather than special-casing it downstream — this file stays the one
+# place every consumer (CI, both Dockerfiles) reads from.
+
+# No [runtime.*] sections: doppler's FFT is fully vendored (pocketfft +
+# PFFFT, both in vendor/) and the rest of the core is pure C99 + libm, so
+# there is nothing to install at runtime on any platform. (Historically
+# listed libfftw3/fftw here before the FFT was vendored in-tree; removed
+# once confirmed dead — zero references to fftw3.h/fftw_* anywhere in
+# native/ or CMakeLists.txt.)
+
+# A dev group has to provision what `make gates` runs, because `gates` is the
+# claim that a dev box checks what CI checks (see the Makefile's own comment on
+# GATES_DEPS). Two of those gates needed a toolchain no list here carried, so
+# the documented Ubuntu path installed its deps and then died at `test-rust`
+# with `cargo: command not found`, and again at `coverage` with clang missing:
+#
+#   * a Rust toolchain -- `make test-rust` builds ffi/rust, and `coverage`
+#     merges its .profraw with the C and Python ones. [dev.pacman] already
+#     listed `rust`; every other manager was simply missing it.
+#   * clang + the matching llvm tools (llvm-profdata / llvm-cov) -- `coverage`
+#     builds a dedicated clang-instrumented tree, so gcc cannot answer for it.
+#     ci.yml carried these as an inline `sudo apt-get install -y clang llvm`
+#     with a comment calling them "coverage tooling, not build deps, so it
+#     stays out of bootstrap.toml's dev group". That distinction does not survive
+#     `gates` running `coverage`: it made this file no longer the one place a
+#     consumer reads from, which is the exact invariant stated above.
+# NOT listed: compiler-rt. `coverage` needs clang's profile runtime
+# (libclang_rt.profile.a), and whether `clang` already provides it is a
+# property of the DISTRO RELEASE, which one package list cannot express:
+#
+#   Ubuntu 22.04 (clang 14)   ships it inside clang's own packages, and has
+#                             no libclang-rt package at all -- naming one
+#                             fails apt outright with "Unable to locate".
+#   Ubuntu 26.04 (clang 21)   splits it into libclang-rt-21-dev, which
+#                             `clang` does NOT depend on.
+#
+# Both measured, the first in a jammy container. Listing the newer name
+# broke the 22.04 CI job at install-deps; listing a versioned one pins the
+# clang major. So `make coverage` DERIVES it instead: it probes whether the
+# toolchain can link -fprofile-instr-generate and, if not, names the
+# package for the distro at hand. A check beats an enumeration here because
+# the enumeration is per-release and this file is not.
+#
+# All of it is excluded from the build-from-source docs projection
+# (gen_install_scripts.py's DOCS_EXCLUDE), alongside the `rust` entry that was
+# already excluded there -- the walkthrough builds the library, it does not run
+# the Rust FFI tests or a coverage report.
+#
+# One cosmetic side effect on WSL2, recorded so the next person does not chase
+# it: `llvm` ships /usr/lib/binfmt.d/llvm-*-runtime.binfmt.conf, so installing
+# it restarts systemd-binfmt, which fails there with "Failed to flush
+# binfmt_misc rules: Read-only file system" -- WSL mounts
+# /proc/sys/fs/binfmt_misc/status read-only. The registration itself succeeds
+# (WSLInterop and the new entry are both present afterwards) and Windows
+# interop keeps working; only the unit's exit status is red.
+
+# patchelf is only exercised when `pip install .`/`python -m build` runs the
+# full wheel build+repair path (auditwheel) from a bare Linux image, as
+# opposed to `make build`/`make pyext`'s local cmake+extension loop, which
+# never touches it. The manylinux containers release.yml's build-python job
+# uses already bundle it; deploy/docker/Dockerfile.cli's linux/arm64
+# source-build path (no manylinux wheel exists for that arch) is the other
+# consumer, on a bare python:3.12-slim + jbx dev group. Not listed for brew
+# (macOS wheel repair uses delocate-wheel, not auditwheel/patchelf) or
+# msys2 (Windows isn't a wheel-building target here).
+# valgrind: the leak detector. `make test-ubsan` is UBSan only, so before this
+# there was NO leak detector in the tree at all -- gh-723's five unix.Malloc
+# findings in wfmgen had to be confirmed by hand-rolling an -fsanitize=address
+# build in a scratch directory, because the box had neither. It is listed for
+# the four Linux managers only; see the brew and msys2 notes below for why they
+# are excluded rather than forgotten.
+# ccache: the C core is compiled ~7 times per CI run with the SAME compiler
+# and the SAME flags -- once per Python job (only the extension differs per
+# ABI), plus the ubuntu-24.04 build leg. Measured on one run: 59-80s of "Build
+# C library" x6, ~7 minutes of identical work. The rebuilds that are NOT
+# duplicated stay that way and must: the 22.04 leg is a different glibc, the
+# coverage tree is clang with -fprofile-instr-generate, glibc-228 is the
+# floor's toolchain. ccache tells them apart by hashing the compiler and the
+# flags, so it shares what is genuinely shared and nothing else.
+#
+# It is here rather than in the CI image alone because a dev box rebuilds the
+# same tree far more often than CI does.
+[dev.apt]
+packages = [
+    "build-essential",
+    "ccache",
+    "cmake",
+    "pkg-config",
+    "python3-dev",
+    "python3-numpy",
+    "patchelf",
+    "cargo",
+    "clang",
+    "llvm",
+    "valgrind",
+]
+
+[dev.pacman]
+packages = [
+    "base-devel",
+    "ccache",
+    "cmake",
+    "pkgconf",
+    "python",
+    "python-numpy",
+    "rust",
+    "patchelf",
+    "clang",
+    "llvm",
+    "valgrind",
+]
+
+# python/numpy: the docs' build-from-source path needs a NumPy-equipped
+# Python; CI runners and dev machines that already manage Python another
+# way just get a no-op (brew skips what's installed).
+#
+# rust, but not clang/llvm: `make test-rust` runs on macOS in CI, so a macOS
+# dev needs the toolchain to reproduce it. `coverage` does not -- it is a
+# Linux-only job (ubuntu-latest), and macOS clang arrives with Xcode rather
+# than from a formula, so listing llvm here would buy a large build nothing
+# reaches.
+#
+# NO valgrind either, and not by oversight: upstream has never supported Apple
+# Silicon, so the formula is unavailable on every arm64 Mac. Listing it would
+# fail `install-deps` outright on the machines most likely to run it -- the
+# same shape of mistake as naming libclang-rt on 22.04. A macOS developer
+# chasing a leak uses `-fsanitize=address`, which Xcode's clang has built in.
+[dev.brew]
+packages = [
+    "cmake",
+    "ccache",
+    "pkg-config",
+    "python",
+    "numpy",
+    "rust",
+]
+
+[dev.dnf]
+packages = [
+    "gcc",
+    "make",
+    "ccache",
+    "cmake",
+    "pkgconf-pkg-config",
+    "python3-devel",
+    "python3-numpy",
+    "patchelf",
+    "cargo",
+    "clang",
+    "llvm",
+    "valgrind",
+]
+
+[dev.zypper]
+packages = [
+    "gcc",
+    "make",
+    "ccache",
+    "cmake",
+    "pkg-config",
+    "python3-devel",
+    "python3-numpy",
+    "patchelf",
+    "cargo",
+    "clang",
+    "llvm",
+    "valgrind",
+]
+
+# NO valgrind: it does not exist on Windows at all -- valgrind has never had a
+# Windows port, MSYS2 packages none, and doppler does not target Windows for
+# development anyway ([project] platforms = ["linux", "macos"], jm gh-213).
+[dev.msys2]
+packages = [
+    "mingw-w64-ucrt-x86_64-gcc",
+    "mingw-w64-ucrt-x86_64-cmake",
+    "mingw-w64-ucrt-x86_64-python",
+    "mingw-w64-ucrt-x86_64-python-numpy",
+    "make",
+    "pkg-config",
+]
+
+# Consumed by `make install-docs-deps`, which docs.yml and ci.yml's doxygen job
+# both run — so anything here is paid for twice per PR.
+#
+# NO LaTeX, deliberately. `texlive-base`, `texlive-latex-extra` and `dvipng`
+# were here and pulled 22 of 48 packages and the bulk of a 116 MB download,
+# for a step that took 66-75s and was the longest in the docs build. Nothing
+# reached any of it:
+#
+#   * `GENERATE_LATEX = NO` in the Doxyfile, so no LaTeX output is produced;
+#   * there is not one `\f$` formula under native/inc/, which is the OTHER
+#     reason doxygen shells out to latex and dvipng;
+#   * doppler's own tooling already proves it. `gen-c-api`'s pinned image is
+#     `--no-install-recommends doxygen graphviz`, and that image generates the
+#     whole of docs/c-api/; `doxygen-check` runs the zero-warning gate with
+#     `doxygen make` alone.
+#
+# If a `\f$` formula is ever added, doxygen cannot render it and says so, and
+# the zero-warning `doxygen-check` gate turns red — so this cannot rot
+# silently. Re-add the LaTeX set THEN, with that failure in hand, rather than
+# speculatively.
+[docs.apt]
+packages = [
+    "doxygen",
+    "graphviz",
+]

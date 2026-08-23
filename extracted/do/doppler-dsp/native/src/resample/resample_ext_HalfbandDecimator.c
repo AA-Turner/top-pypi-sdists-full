@@ -61,9 +61,10 @@ HalfbandDecimatorObj_init (HalfbandDecimatorObject *self, PyObject *args,
       return -1;
     }
   size_t h_len = (size_t)PyArray_SIZE (h_arr);
-  /* HalfbandDecimator_create(num_taps, h) — num_taps first */
+  /* HalfbandDecimator_create(h, h_len) — the array first, matching every
+     other create in the tree and the manifest jm renders from */
   self->handle
-      = HalfbandDecimator_create (h_len, (const float *)PyArray_DATA (h_arr));
+      = HalfbandDecimator_create ((const float *)PyArray_DATA (h_arr), h_len);
   Py_DECREF (h_arr);
   if (!self->handle)
     {
@@ -243,7 +244,7 @@ static PyMethodDef HalfbandDecimatorObj_methods[] = {
     "construction), so read it from the instance rather than assuming a\n"
     "constant.\n"
     "\n"
-    "Raises ``RuntimeError`` if the HalfbandDecimatorObj has already been\n"
+    "Raises ``RuntimeError`` if the HalfbandDecimator has already been\n"
     "destroyed.\n"
     "\n"
     "Returns\n"
@@ -261,7 +262,7 @@ static PyMethodDef HalfbandDecimatorObj_methods[] = {
     "implementation detail of the C core and is not a stable format across\n"
     "builds.\n"
     "\n"
-    "Raises ``RuntimeError`` if the HalfbandDecimatorObj has already been\n"
+    "Raises ``RuntimeError`` if the HalfbandDecimator has already been\n"
     "destroyed.\n"
     "\n"
     "Returns\n"
@@ -272,14 +273,13 @@ static PyMethodDef HalfbandDecimatorObj_methods[] = {
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
     "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()` "
-    "before\n"
-    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "was constructed with. Length is validated against `state_bytes()`\n"
+    "before the blob is handed to the C core, and the core may reject it as\n"
+    "well.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"
-    "``RuntimeError`` if the HalfbandDecimatorObj has already been "
-    "destroyed.\n"
+    "``RuntimeError`` if the HalfbandDecimator has already been destroyed.\n"
     "\n"
     "Parameters\n"
     "----------\n"

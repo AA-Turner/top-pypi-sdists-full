@@ -1,4 +1,5 @@
 import collections
+import dataclasses
 import inspect
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -93,7 +94,6 @@ class AmberDataSerializerPlugin(ABC):
         """
         Determine if this plugin can serialize the given data.
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -101,7 +101,6 @@ class AmberDataSerializerPlugin(ABC):
         """
         Return the serialization method for the given data.
         """
-        pass
 
 
 class AmberDataSerializer:
@@ -125,12 +124,42 @@ class AmberDataSerializer:
         Divider = "---"
 
     @classmethod
-    def snapshot_sort_key(cls, snapshot: "Snapshot") -> Any:
+    def _default_snapshot_sort_key(cls, snapshot: "Snapshot") -> Any:
         return snapshot.name
 
     @classmethod
+    def _snapshot_name_for_order_lookup(cls, name: str) -> str:
+        """Strip trailing numeric assertion suffixes (``.1``, ``.2``, …)."""
+        if "." not in name:
+            return name
+        base, maybe_index = name.rsplit(".", 1)
+        if maybe_index.isdigit():
+            return base
+        return name
+
+    @classmethod
+    def snapshot_sort_key(
+        cls,
+        snapshot: "Snapshot",
+        name_order: dict[str, int] | None = None,
+    ) -> Any:
+        if name_order:
+            lookup = cls._snapshot_name_for_order_lookup(snapshot.name)
+            if lookup in name_order:
+                # Collection index, then full name for assertion-index siblings
+                # (e.g. test_foo vs test_foo.1).
+                return (name_order[lookup], snapshot.name)
+            # Snapshots not in the current collection (e.g. orphans during merge)
+            # sort after known names, still alphabetically among themselves.
+            return (len(name_order), snapshot.name)
+        return cls._default_snapshot_sort_key(snapshot)
+
+    @classmethod
     def write_file(
-        cls, snapshot_collection: "SnapshotCollection", merge: bool = False
+        cls,
+        snapshot_collection: "SnapshotCollection",
+        merge: bool = False,
+        name_order: dict[str, int] | None = None,
     ) -> None:
         """
         Writes the snapshot data into the snapshot file that can be read later.
@@ -145,7 +174,7 @@ class AmberDataSerializer:
             f.write(f"{cls._marker_prefix}{cls.Marker.Version}: {cls.VERSION}\n")
             for snapshot in sorted(
                 snapshot_collection,
-                key=cls.snapshot_sort_key,  # noqa: E501
+                key=lambda s: cls.snapshot_sort_key(s, name_order),
             ):
                 snapshot_data = str(snapshot.data)
                 if snapshot_data is not None:
@@ -315,6 +344,8 @@ class AmberDataSerializer:
             return cls.serialize_dict
         elif cls.__is_namedtuple(data):
             return cls.serialize_namedtuple
+        elif dataclasses.is_dataclass(data) and not isinstance(data, type):
+            return cls.serialize_dataclass
         elif isinstance(data, (list, tuple, GeneratorType)):
             return cls.serialize_iterable
         elif isinstance(data, FunctionType):
@@ -324,7 +355,7 @@ class AmberDataSerializer:
     @classmethod
     def serialize_number(
         cls,
-        data: int | float,
+        data: float,
         *,
         depth: int = 0,
         exclude: Optional["PropertyFilter"] = None,
@@ -443,6 +474,31 @@ class AmberDataSerializer:
         )
 
     @classmethod
+    def serialize_dataclass(
+        cls,
+        data: Any,
+        *,
+        depth: int = 0,
+        exclude: Optional["PropertyFilter"] = None,
+        include: Optional["PropertyFilter"] = None,
+        matcher: Optional["PropertyMatcher"] = None,
+        path: "PropertyPath" = (),
+        visited: set[Any] | None = None,
+    ) -> str:
+        keys = sorted(f.name for f in dataclasses.fields(data))
+        return cls.serialize_custom_iterable(
+            data=data,
+            resolve_entries=(keys, attr_getter, None),
+            separator="=",
+            depth=depth,
+            exclude=exclude,
+            include=include,
+            matcher=matcher,
+            path=path,
+            visited=visited,
+        )
+
+    @classmethod
     def serialize_dict(
         cls,
         data: dict["PropertyName", "SerializableData"],
@@ -486,7 +542,7 @@ class AmberDataSerializer:
         visited: set[Any] | None = None,
     ) -> str:
         return cls.__serialize_plain(
-            data=f"{data.__qualname__}{str(inspect.signature(data))}", depth=depth
+            data=f"{data.__qualname__}{inspect.signature(data)!s}", depth=depth
         )
 
     @classmethod
@@ -537,10 +593,17 @@ class AmberDataSerializer:
 
     @classmethod
     def sort(cls, iterable: Iterable[Any]) -> Iterable[Any]:
+        # Pre-sort by the serialized form so a natural ordering that is only
+        # partial keeps a deterministic order for incomparable elements. E.g.
+        # frozensets order by the subset relation, so two distinct frozensets
+        # where neither is a subset of the other compare as neither < nor >;
+        # the stable sort below would then leave them in hash-seeded set
+        # iteration order. Totally-ordered values keep their natural order.
+        values = sorted(iterable, key=cls._serialize)
         try:
-            return sorted(iterable)
+            return sorted(values)
         except TypeError:
-            return sorted(iterable, key=cls._serialize)
+            return values
 
     @classmethod
     def object_type(cls, data: "SerializableData") -> str:
@@ -672,5 +735,5 @@ class AmberDataSerializerSorted(AmberDataSerializer):
             return (0, part)
 
     @classmethod
-    def snapshot_sort_key(cls, snapshot: "Snapshot") -> Any:
+    def _default_snapshot_sort_key(cls, snapshot: "Snapshot") -> Any:
         return [cls.__maybe_int(part) for part in snapshot.name.split(".")]

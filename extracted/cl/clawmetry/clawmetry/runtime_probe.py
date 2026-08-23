@@ -25,7 +25,16 @@ import os
 from dataclasses import dataclass
 
 # Runtimes the free tier watches (FLYWHEEL: free on every plan).
-FREE_RUNTIMES = frozenset({"openclaw", "nemoclaw"})
+#
+# Sourced from the entitlement catalogue rather than duplicated: this module
+# only labels a probe row ``free``, and a stale copy here would show a free
+# runtime as locked in onboarding while the gate happily allowed it. The
+# literal is kept solely as an import-failure fallback (this module is
+# imported by the installer path, which must never hard-fail on an import).
+try:  # pragma: no cover - trivial import shim
+    from clawmetry.entitlements import FREE_RUNTIMES
+except Exception:  # pragma: no cover - defensive; keep onboarding alive
+    FREE_RUNTIMES = frozenset({"openclaw", "nemoclaw", "goose"})
 
 
 @dataclass
@@ -101,6 +110,29 @@ RUNTIME_PROBES: tuple = (
     RuntimeProbe("kimi", "Kimi CLI",
                  ("~/.kimi/sessions", "~/.kimi-code/sessions"),
                  env="KIMI_SHARE_DIR"),
+    # Google Gemini CLI keeps per-project chat recordings under
+    # <home>/.gemini/tmp/<project-basename>/chats/. NOTE the env var names the
+    # dir CONTAINING .gemini (unlike KIMI_SHARE_DIR/QWEN_HOME, which name the
+    # data dir itself), so the probe globs both the plain ~/.gemini tree and
+    # the CLAWMETRY override that points straight at a data dir.
+    RuntimeProbe("gemini_cli", "Gemini CLI",
+                 ("~/.gemini/tmp/*/chats", "~/.gemini/projects.json"),
+                 env="CLAWMETRY_GEMINI_CLI_HOME"),
+    # Cline CLI keeps sessions under the DATA leaf of its home -- ~/.cline
+    # itself only holds hooks/ and worktrees/, which our own installer creates,
+    # so probing the bare ~/.cline would false-positive on every machine that
+    # has ClawMetry's hooks installed and no Cline at all.
+    RuntimeProbe("cline", "Cline",
+                 ("~/.cline/data/db/sessions.db", "~/.cline/data/sessions"),
+                 env="CLAWMETRY_CLINE_DATA_DIR"),
+    # OpenHands persists one directory per conversation. The probe requires the
+    # conversations dir rather than the ~/.openhands root, because the CLI
+    # creates ~/.openhands/profiles and ~/.openhands/cache on first launch even
+    # when the persistence dir points elsewhere -- so the root existing is not
+    # evidence that any conversation was ever recorded.
+    RuntimeProbe("openhands", "OpenHands",
+                 ("~/.openhands/conversations/*/base_state.json",),
+                 env="CLAWMETRY_OPENHANDS_HOME"),
     # qm (github.com/yc-software/qm) has no on-disk session store — it's a
     # Node service backed by Postgres — so the probe looks for the npm
     # install artefacts (typical install layouts) plus a CLAWMETRY_QM_HOME
@@ -110,6 +142,19 @@ RUNTIME_PROBES: tuple = (
                   "~/.qm", "~/qm/package.json",
                   "/opt/qm/package.json"),
                  env="CLAWMETRY_QM_HOME"),
+    # Devin CLI (cli.devin.ai) keeps every session in ONE XDG-anchored SQLite
+    # store; ~/.config/devin/config.json is the other half of a real install
+    # (it exists even when the CLI has only ever run in ACP mode under an
+    # IDE, which never creates sessions.db). Devin Cloud sessions are
+    # API-only and cannot be probed from disk at all.
+    RuntimeProbe("devin", "Devin",
+                 ("~/.local/share/devin/cli/sessions.db",
+                  "~/.local/share/cognition/cli/sessions.db",
+                  "~/.local/share/chisel/cli/sessions.db",
+                  "~/.config/devin/config.json",
+                  "~/AppData/Local/devin/cli/sessions.db",
+                  "~/AppData/Roaming/devin/config.json"),
+                 env="CLAWMETRY_DEVIN_DB"),
 )
 
 

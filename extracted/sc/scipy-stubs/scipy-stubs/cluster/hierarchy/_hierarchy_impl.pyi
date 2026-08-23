@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from typing import Final, Literal, TypedDict, overload, override, type_check_only
-from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
@@ -45,8 +44,6 @@ __all__ = [
     "weighted",
 ]
 
-_T = TypeVar("_T")
-
 type _LinkageMethod = Literal["single", "complete", "average", "weighted", "centroid", "median", "ward"]
 type _ClusterCriterion = Literal["inconsistent", "distance", "maxclust", "monocrit", "maxclust_monocrit"]
 type _SortOrder = Literal["ascending", "descending"]
@@ -58,7 +55,7 @@ class _DendrogramResult(TypedDict):
     icoord: list[list[float]]
     dcoord: list[list[float]]
     ivl: list[str]
-    leaves: list[int] | None
+    leaves: list[int]
     color_list: list[str]
     leaves_color_list: list[str]
 
@@ -102,7 +99,7 @@ class ClusterNode:
     @overload
     def pre_order(self, /, func: Callable[[ClusterNode], int] = ...) -> list[int]: ...
     @overload
-    def pre_order(self, /, func: Callable[[ClusterNode], _T]) -> list[_T]: ...
+    def pre_order[T](self, /, func: Callable[[ClusterNode], T]) -> list[T]: ...
 
 #
 def linkage(

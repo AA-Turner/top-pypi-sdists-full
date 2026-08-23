@@ -43,6 +43,13 @@
  * failure mode that once made a healthy eye read -17 dB. For where a settled
  * window may START, use dp_test_settle_syms() below rather than a fraction of
  * the record; a fraction is the other half of that same failure mode.
+ *
+ * And for what the loops are given to ACQUIRE in the first place, use
+ * dp_test_freq_offset_inside_bw() / dp_test_clock_offset_inside_bw(). A bare
+ * cycles-per-sample literal states an offset in units nothing checks: seeded
+ * on truth the loop never moves and the measurement is of nothing, seeded past
+ * the bound it is of the dice. Both are stated in units of the loop's own
+ * acquisition bound so the seed can be read against the rule.
  */
 #ifndef DP_SYM_TEST_H
 #define DP_SYM_TEST_H
@@ -108,6 +115,14 @@ dp_test_evm_db_hard_range (const float complex *syms, size_t lo, size_t hi,
  * @param n_syms  How many; the back half is scored.
  * @param m       Constellation order (2, 4, 8, ...); < 2 is treated as 2.
  * @return        EVM in dB, or 0.0 ("no lock") if the stream is too short.
+ *
+ * @note "Too short" is **39 symbols, not the 20 the guard below names.** The
+ *       scored window is `n_syms - n_syms/2`, i.e. `ceil(n_syms/2)`, and
+ *       ber_evm_db() needs 20 of those — so a 30-symbol stream clears this
+ *       function's own check and returns the sentinel from the layer beneath
+ *       it. The range form's floor is the honest 20, because it scores
+ *       exactly the window it is handed, which is one more reason to prefer
+ *       it. Pinned in test_dp_sym.c.
  */
 static inline double
 dp_test_evm_db_hard_m (const float complex *syms, size_t n_syms, int m)
@@ -140,7 +155,9 @@ dp_test_evm_db_hard (const float complex *syms, size_t n_syms)
  * **Any fixed EVM threshold MUST be stated against this, never against 0 dB.**
  * A `< -12.0` assertion is meaningless at 8PSK — a stream with no carrier
  * recovery at all passes it — and that is not hypothetical: it was live in
- * test_mpsk_receiver_r_core.c's every-M loop until 2026-07-27. The room
+ * the real receiver's every-M loop until 2026-07-27 (then
+ * test_mpsk_receiver_r_core.c, since folded into
+ * test_mpsk_receiver_core.c section 16). The room
  * between "on the bound at the SER=1e-3 anchor" and "completely broken"
  * shrinks fast with M:
  *
@@ -173,7 +190,9 @@ dp_test_m2m4_snr_db_range (const float complex *syms, size_t lo, size_t hi)
   return snr_m2m4_db (syms + lo, hi - lo);
 }
 
-/* Blind M2M4 Es/N0 (dB) over the back half. */
+/* Blind M2M4 Es/N0 (dB) over the back half. Same doubling as the EVM twin:
+ * the effective floor is 39 symbols, not the 20 named below, because only
+ * `ceil(n_syms/2)` of them are scored. */
 static inline double
 dp_test_m2m4_snr_db (const float complex *syms, size_t n_syms)
 {
@@ -215,6 +234,91 @@ static inline size_t
 dp_test_settle_syms (double bn_timing, double bn_carrier)
 {
   return ber_settle_syms (bn_timing, bn_carrier);
+}
+
+/**
+ * @brief A carrier offset inside the loop's acquisition bound, in cycles per
+ * SYMBOL.
+ *
+ * The only kind of offset a lock-time or BER assertion may seed. Seeded on
+ * truth the carrier loop never leaves its initial state, so anything the test
+ * then says about acquisition is void; seeded outside the bound the test
+ * measures which way the transient happened to push the integrator, so a pass
+ * means the dice fell well and a failure means nothing was broken.
+ *
+ * **Returned in the same units the loop bandwidth is stated in, and there is
+ * no @c sps in it.** `bn_carrier` is normalised to the symbol rate, so the
+ * bound is `bn_carrier / m` cycles per symbol and this returns a fraction of
+ * it. Converting to cycles per SAMPLE happens once, at the constructor that
+ * wants it — `dp_rx_mpsk.h` states why: *"foff is cycles per SYMBOL (so one
+ * value means one thing at every rate); the ctor wants cycles per SAMPLE.
+ * Mixing them is an sps-sized error, and at sps=8 it asked the loop for 8x
+ * its design envelope."*
+ *
+ * **The @p m is the part that was missing everywhere before this existed.**
+ * The NDA discriminator is an M-th power, so it sees @p m times the offset and
+ * the bound carries the divide (docs/design/mpsk.md §8). A
+ * site that wrote `0.5 * bn / sps` was seeding half the bound at BPSK and
+ * twice it at 8PSK, while reading identically at every order.
+ *
+ * @p frac is the fraction of the bound: 1.0 seeds exactly at
+ * `bn_carrier / m`. **Tests seed at or under the bound.**
+ *
+ * **The envelope is measured, not quoted here.** The Python subject
+ * `doppler.track.tests.characterization.pull_in` sweeps the success fraction
+ * against multiples of this bound across every order and two oversampling
+ * ratios, and `make characterize` re-derives it. As it stands the carrier
+ * loop is reliable out to 4x the bound (3x at 8PSK) and dead by 5x, so
+ * seeding AT the bound keeps a 3-4x margin. The figures live in that sweep
+ * rather than in this comment because a number nothing re-runs is prose, and
+ * two findings were once filed against the receiver on the strength of one
+ * (doppler#843, doppler#849).
+ *
+ * Pull-in BEYOND the bound is a real property and worth measuring — as a
+ * characterization sweep with a reported success fraction,
+ * never as a pass/fail assertion.
+ *
+ * The Python twin is `freq_offset_inside_bw()` in
+ * `src/doppler/track/tests/_mpsk_rx_harness.py`; keep them in step.
+ *
+ * @param bn_carrier  Carrier loop noise bandwidth, per symbol.
+ * @param m           Constellation order — the discriminator's power.
+ * @param frac        Fraction of the bound. Use <= 1.0.
+ * @return            Carrier offset, cycles per SYMBOL.
+ */
+static inline double
+dp_test_freq_offset_inside_bw (double bn_carrier, int m, double frac)
+{
+  return frac * bn_carrier / (double)m;
+}
+
+/**
+ * @brief A fractional sample-clock error inside the timing loop's bandwidth,
+ * dimensionless.
+ *
+ * Applied by telling the receiver a nominal @c sps that differs from the
+ * stimulus by this fraction — what a free-running ADC clock looks like.
+ * `bn_timing` is symbol-rate normalised, so the error is already in symbols
+ * per symbol: no @c sps scaling, and no @p m either.
+ *
+ * **The absent @p m is measured rather than assumed**: the timing
+ * discriminator is not an M-th power, and the same subject that establishes
+ * the carrier envelope establishes this one. It is the tighter of the two —
+ * reliable to about 1.6-1.8x its bound and dead by 2.5x, against the
+ * carrier's 3-4x — which is why the two are stated separately rather than
+ * sharing one fraction.
+ *
+ * The Python twin is `clock_offset_inside_bw()` in
+ * `src/doppler/track/tests/_mpsk_rx_harness.py`; keep them in step.
+ *
+ * @param bn_timing  Timing loop noise bandwidth, per symbol.
+ * @param frac       Fraction of the bound. Use <= 1.0.
+ * @return           Fractional clock error, dimensionless.
+ */
+static inline double
+dp_test_clock_offset_inside_bw (double bn_timing, double frac)
+{
+  return frac * bn_timing;
 }
 
 #endif /* DP_SYM_TEST_H */

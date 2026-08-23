@@ -65,14 +65,21 @@ watch_topic_tool = types.Tool(
 
 check_alerts_tool = types.Tool(
     name="check_alerts",
-    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, idempotentHint=False, openWorldHint=True
+    ),
     description=(
         "Check all saved topic watches for newly published papers since the last check. "
         "Omitting the topic parameter runs ALL saved watches and returns new papers for each. "
         "Passing a topic string checks only that specific watch. "
-        "Updates each watch's last_checked timestamp after running, so subsequent calls only return newer papers. "
+        "Advances each watch's drain cursor after running: when a page is truncated by "
+        "max_results, has_more=true and check_start advances so later calls return the next "
+        "papers in the same window (Atom date bounds alone are day-granular and would otherwise "
+        "re-hit the boundary); last_checked tracks the newest returned paper. When the page is "
+        "not full, last_checked becomes now and the drain cursor resets. "
         "Use watch_topic to register topics before calling this. "
-        "Returns a summary with new paper counts and full paper metadata per topic."
+        "Returns a clear not-found error if a topic is provided but no matching watch exists. "
+        "Returns a summary with new paper counts, has_more, and full paper metadata per topic."
     ),
     inputSchema={
         "type": "object",
@@ -85,6 +92,50 @@ check_alerts_tool = types.Tool(
                 ),
             }
         },
+        "additionalProperties": False,
+    },
+)
+
+
+list_watches_tool = types.Tool(
+    name="list_watches",
+    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
+    description=(
+        "List all saved topic watches without checking for new papers. "
+        "Returns each watch's topic, categories, last_checked timestamp, and other stored fields. "
+        "Does not update last_checked — use this to inspect what is saved. "
+        "Use unwatch_topic to remove a watch, or check_alerts to poll for new papers."
+    ),
+    inputSchema={
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False,
+    },
+)
+
+unwatch_topic_tool = types.Tool(
+    name="unwatch_topic",
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=True, openWorldHint=False
+    ),
+    description=(
+        "Delete a saved topic watch by exact topic string. "
+        "The topic must match the stored watch_topic value exactly. "
+        "Returns a clear not-found error if no matching watch exists. "
+        "Use list_watches to inspect saved watches before deleting."
+    ),
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "topic": {
+                "type": "string",
+                "description": (
+                    "Exact topic string of the watch to remove. "
+                    "Must match the topic used in watch_topic."
+                ),
+            },
+        },
+        "required": ["topic"],
         "additionalProperties": False,
     },
 )
@@ -138,6 +189,51 @@ def _is_new_paper(published_value: str, last_checked: Optional[str]) -> bool:
         return True
 
 
+def _newest_published(papers: List[Dict[str, Any]]) -> Optional[str]:
+    """Return the published timestamp of the newest paper in the list."""
+    newest_value: Optional[str] = None
+    newest_dt: Optional[datetime] = None
+    for paper in papers:
+        published = paper.get("published") or ""
+        try:
+            published_dt = parser.parse(published)
+        except (ValueError, TypeError):
+            continue
+        if newest_dt is None or published_dt > newest_dt:
+            newest_dt = published_dt
+            newest_value = published
+    return newest_value
+
+
+def _page_is_truncated(
+    returned: int,
+    max_results: int,
+    total_results: Optional[int],
+    new_count: Optional[int] = None,
+    start: int = 0,
+) -> bool:
+    """True when max_results or OpenSearch total indicates more papers remain.
+
+    When OpenSearch reports a total, trust start+returned vs total. Otherwise a
+    full page (returned/new_count == max_results) is treated as truncated so we
+    never jump the watermark to wall-clock now and skip the rest of the window.
+    """
+    start = max(0, int(start or 0))
+    if total_results is not None:
+        return total_results > (start + returned)
+    if returned >= max_results > 0:
+        return True
+    if new_count is not None and new_count >= max_results > 0:
+        return True
+    return False
+
+
+def _clear_drain_cursor(topic: Dict[str, Any]) -> None:
+    """Reset pagination fields used while draining a truncated watch window."""
+    topic.pop("drain_from", None)
+    topic.pop("check_start", None)
+
+
 async def handle_watch_topic(arguments: Dict[str, Any]) -> List[types.TextContent]:
     """Save or update a watched topic definition."""
     try:
@@ -145,7 +241,6 @@ async def handle_watch_topic(arguments: Dict[str, Any]) -> List[types.TextConten
         if not topic:
             return [types.TextContent(type="text", text="Error: topic is required")]
 
-        categories = arguments.get("categories") or []
         max_results = min(int(arguments.get("max_results", 10)), settings.MAX_RESULTS)
 
         payload = _load_watches()
@@ -153,6 +248,15 @@ async def handle_watch_topic(arguments: Dict[str, Any]) -> List[types.TextConten
         existing_index = next(
             (idx for idx, item in enumerate(topics) if item.get("topic") == topic), None
         )
+
+        # On update, only replace categories when the key is present so omitted
+        # categories preserve the stored filters. Explicit [] still clears.
+        if "categories" in arguments:
+            categories = arguments.get("categories") or []
+        elif existing_index is not None:
+            categories = topics[existing_index].get("categories") or []
+        else:
+            categories = []
 
         record = {
             "topic": topic,
@@ -200,6 +304,20 @@ async def handle_check_alerts(arguments: Dict[str, Any]) -> List[types.TextConte
         all_topics = payload.get("topics", [])
         topics = _filter_by_topic(all_topics, selected_topic)
 
+        # A specific topic that matches nothing must not look like "no new papers".
+        if selected_topic is not None and not topics:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "status": "error",
+                            "message": f"Watch not found: {selected_topic}",
+                        }
+                    ),
+                )
+            ]
+
         now_iso = _now_iso()
         alerts: List[Dict[str, Any]] = []
 
@@ -209,14 +327,25 @@ async def handle_check_alerts(arguments: Dict[str, Any]) -> List[types.TextConte
                 continue
 
             last_checked = topic.get("last_checked")
-            search_results = await _raw_arxiv_search(
+            max_results = min(int(topic.get("max_results", 10)), settings.MAX_RESULTS)
+            # Freeze the Atom date lower-bound for this drain. submittedDate is
+            # day-granular, so bumping last_checked to a paper's published time
+            # would re-fetch the same boundary hit at start=0. Paginate with
+            # check_start against drain_from instead.
+            drain_from = topic.get("drain_from")
+            if drain_from is None:
+                drain_from = last_checked
+            check_start = max(0, int(topic.get("check_start") or 0))
+
+            # Oldest-first so start offsets walk forward through the window.
+            search_results, total_results = await _raw_arxiv_search(
                 query=topic_query,
-                max_results=min(
-                    int(topic.get("max_results", 10)), settings.MAX_RESULTS
-                ),
+                max_results=max_results,
                 sort_by="date",
-                date_from=last_checked,
+                sort_order="ascending",
+                date_from=drain_from,
                 categories=topic.get("categories") or None,
+                start=check_start,
             )
 
             new_papers = [
@@ -225,17 +354,43 @@ async def handle_check_alerts(arguments: Dict[str, Any]) -> List[types.TextConte
                 if _is_new_paper(paper.get("published", ""), last_checked)
             ]
 
+            has_more = _page_is_truncated(
+                len(search_results),
+                max_results,
+                total_results,
+                new_count=len(new_papers),
+                start=check_start,
+            )
+
+            if has_more:
+                if search_results:
+                    # Advance start past this raw page so a day-granular Atom
+                    # re-hit of the boundary paper cannot freeze the drain
+                    # (empty new_papers + has_more + frozen cursor).
+                    topic["drain_from"] = drain_from
+                    topic["check_start"] = check_start + len(search_results)
+                    if new_papers:
+                        topic["last_checked"] = _newest_published(new_papers)
+                else:
+                    # has_more with zero raw hits cannot progress — stop.
+                    has_more = False
+                    topic["last_checked"] = now_iso
+                    _clear_drain_cursor(topic)
+            else:
+                topic["last_checked"] = now_iso
+                _clear_drain_cursor(topic)
+
+            topic["updated_at"] = now_iso
+
             alerts.append(
                 {
                     "topic": topic_query,
                     "last_checked": last_checked,
                     "new_paper_count": len(new_papers),
                     "new_papers": new_papers,
+                    "has_more": has_more,
                 }
             )
-
-            topic["last_checked"] = now_iso
-            topic["updated_at"] = now_iso
 
         payload["topics"] = all_topics
         _save_watches(payload)
@@ -248,4 +403,71 @@ async def handle_check_alerts(arguments: Dict[str, Any]) -> List[types.TextConte
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
     except Exception as exc:
         logger.error("check_alerts error: %s", exc)
+        return [types.TextContent(type="text", text=f"Error: {str(exc)}")]
+
+
+async def handle_list_watches(arguments: Dict[str, Any]) -> List[types.TextContent]:
+    """Return saved watches without updating last_checked."""
+    try:
+        payload = _load_watches()
+        watches = list(payload.get("topics", []))
+        result = {
+            "status": "success",
+            "watch_count": len(watches),
+            "watches": watches,
+        }
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+    except Exception as exc:
+        logger.error("list_watches error: %s", exc)
+        return [types.TextContent(type="text", text=f"Error: {str(exc)}")]
+
+
+async def handle_unwatch_topic(arguments: Dict[str, Any]) -> List[types.TextContent]:
+    """Delete a watched topic by exact topic string."""
+    try:
+        topic = (arguments.get("topic") or "").strip()
+        if not topic:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {"status": "error", "message": "topic is required"}
+                    ),
+                )
+            ]
+
+        payload = _load_watches()
+        topics = payload.get("topics", [])
+        remaining = [item for item in topics if item.get("topic") != topic]
+        if len(remaining) == len(topics):
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "status": "error",
+                            "message": f"Watch not found: {topic}",
+                        }
+                    ),
+                )
+            ]
+
+        payload["topics"] = remaining
+        _save_watches(payload)
+
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "status": "success",
+                        "message": "Topic watch removed",
+                        "topic": topic,
+                    },
+                    indent=2,
+                ),
+            )
+        ]
+    except Exception as exc:
+        logger.error("unwatch_topic error: %s", exc)
         return [types.TextContent(type="text", text=f"Error: {str(exc)}")]

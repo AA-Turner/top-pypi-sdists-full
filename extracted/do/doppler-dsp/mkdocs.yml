@@ -144,6 +144,8 @@ nav:
           - Composing a Scene: gallery/wfm-composition.md
           - Waveform I/O: gallery/wfm-io.md
           - Waveform JSON Round-Trip: gallery/wfm-json.md
+          - A CCSDS CADU: gallery/ccsds-link.md
+          - Name Your Own Code: gallery/coding.md
           - Waveform Write: gallery/wfm-write.md
           - WCDMA Carriers: gallery/wcdma-carriers.md
           - "Prepare Once, Sweep Many (Plan)": gallery/plan.md
@@ -187,6 +189,7 @@ nav:
           - M-PSK Constellation: gallery/mpsk.md
           - M-PSK Receiver: gallery/mpsk-receiver.md
           - "M-PSK Receiver: Performance": gallery/mpsk-receiver-performance.md
+          - "M-PSK Receiver: Doppler Profile": gallery/mpsk-doppler-profile.md
       - Measurement:
           - Measurement Suite: gallery/measure.md
           - "Measurement Suite: IMD & NPR": gallery/measure-imd-npr.md
@@ -197,6 +200,7 @@ nav:
           - cvt Quantization: gallery/cvt-quantization.md
       - Gain Control:
           - AGC: gallery/agc.md
+          - AGC Settling Design: gallery/agc-settling-design.md
       - Telemetry:
           - "Many Emitters, One Consumer": gallery/telemetry-fanin.md
           - "Capturing All Receiver Telemetry": gallery/mpsk-telemetry-capture.md
@@ -213,6 +217,7 @@ nav:
       - "Python: Spectrum Analyzer (Specan)": api/python-analyzer.md
       - "Python: Detection Statistics": api/python-detection.md
       - "Python: Error-Rate Measurement": api/python-ber.md
+      - "Python: Channel Coding": api/python-coding.md
       - "Python: M-PSK Constellation": api/python-mpsk.md
       - "Python: Source (NCO / LO / AWGN)": api/python-nco.md
       - "Python: Impairment (DopplerChannel)": api/python-impairment.md
@@ -251,15 +256,26 @@ nav:
   - Design:
       - Design: design/index.md
       - API Taxonomy: design/api-taxonomy.md
+      - The NCO: design/nco.md
+      - Exponential Moving Average: design/ema.md
+      - The Loop Filter: design/loop-filter.md
       - Quantization: design/QUANTIZATION.md
+      - CIC Decimator: design/cic.md
       - Measurement Suite: design/measurement-suite.md
       - State Serialization: design/state-serialization.md
       - Telemetry: design/telemetry.md
       - DSSS Acquisition: design/dsss-acquisition.md
       - Async DSSS Receiver Spec: design/async-dsss-spec.md
       - Async Symbol Despreader: design/async-symbol-despreader.md
+      - Automatic Gain Control: design/agc.md
       - Timing Lock Detector: design/timing_lock_detector.md
+      - Symbol Timing on a Rate Cascade: design/ratesync-timing.md
       - MPSK Receiver: design/mpsk.md
+      - The Viterbi Decoder: design/viterbi.md
+      - Reed-Solomon: design/reed-solomon.md
+      - The FEC Receive Half: design/fec-receive.md
+      - Receiver Test Harness: design/rx-test.md
+      - A Frame as a Description: design/frame-description.md
       - Corr2D Interpolated Inverse: design/corr2d-interpolated-inverse.md
       - Spectral & Measurement API Map: design/spectral-api-map.md
       - Waveform Amplitude & Composition: design/wfmgen-composition.md
@@ -286,16 +302,23 @@ nav:
       - Dopplerfile: cli/dopplerfile.md
   - Contributing:
       - Contributing: dev/index.md
-      - Repository Map: dev/repository-map.md
-      - Module Layout: dev/module-layout.md
-      - Adding a Module: dev/adding-a-module.md
-      - Error Convention: dev/error-convention.md
-      - "DSSS acquisition use cases": dev/dsss-use-cases.md
-      - Benchmarking: dev/benchmarking.md
-      - Doc Examples (tested): dev/doc-examples.md
-      - Docstring Authoring: dev/docstring-authoring.md
-      - Docs Conventions: dev/docs-conventions.md
+      - Contributing guide:
+          - Adding an Algorithm: dev/contributing/adding-algorithms.md
+          - Repository Map: dev/contributing/repository-map.md
+          - Module Layout: dev/contributing/module-layout.md
+          - Adding a Module: dev/contributing/adding-a-module.md
+          - Error Convention: dev/contributing/error-convention.md
+          - "DSSS acquisition use cases": dev/contributing/dsss-use-cases.md
+          - Benchmarking: dev/contributing/benchmarking.md
+          - Measuring a Receiver: dev/contributing/measuring-a-receiver.md
+          - Object Validation: dev/contributing/validation.md
+          - Validation Log: dev/contributing/validation-log.md
+          - Doc Examples (tested): dev/contributing/doc-examples.md
+          - Docstring Authoring: dev/contributing/docstring-authoring.md
+          - Docs Conventions: dev/contributing/docs-conventions.md
       - Maintainer internals:
+          - Open Issues: dev/issues.md
+          - Continuous Integration: dev/ci.md
           - Release: dev/release.md
           - Build Internals: dev/build-internals.md
           - Coverage: dev/coverage.md

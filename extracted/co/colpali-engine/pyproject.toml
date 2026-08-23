@@ -34,11 +34,11 @@ classifiers = [
 
 dependencies = [
     "numpy",
-    "peft>=0.18.0,<0.20.0",
+    "peft>=0.18.0,<0.21.0",
     "pillow>=10.0.0",
     "requests",
     "scipy",
-    "torch>=2.2.0,<2.12.0",
+    "torch>=2.2.0,<2.14.0",
     "torchvision",
     "transformers>=5.3.0,<6.0.0",
 ]
@@ -50,7 +50,7 @@ train = [
     "configue>=5.0.0",
     "datasets>=2.19.1",
     "mteb>=1.16.3,<3",
-    "pillow>=10.0.0,<12.3.0",
+    "pillow>=10.0.0,<12.4.0",
     "typer>=0.15.1",
 ]
 
@@ -62,12 +62,15 @@ interpretability = [
 
 lik = ["late-interaction-kernels>=0.4.1,<0.5.0"]
 
+plaid = ["fast-plaid>=1.4.7,<2.0.0", "fastkmeans"]
+
 dev = ["pytest>=8.0.0", "ruff>=0.4.0"]
 
 all = [
     "colpali-engine[dev]",
     "colpali-engine[interpretability]",
     "colpali-engine[lik]",
+    "colpali-engine[plaid]",
     "colpali-engine[train]",
 ]
 

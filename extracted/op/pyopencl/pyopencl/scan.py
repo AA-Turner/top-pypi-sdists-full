@@ -29,11 +29,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+from typing_extensions import override
 
 from pytools.persistent_dict import WriteOncePersistentDict
 
 import pyopencl as cl
-import pyopencl._mymako as mako
 import pyopencl.array as cl_array
 from pyopencl._cluda import CLUDA_PREAMBLE
 from pyopencl.tools import (
@@ -50,8 +50,14 @@ from pyopencl.tools import (
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Hashable, Sequence
 
+    import mako
+    from numpy.typing import DTypeLike
+
+    from pyopencl.typing import Allocator, KernelArg
+else:
+    import pyopencl._mymako as mako
 
 logger = logging.getLogger(__name__)
 
@@ -764,96 +770,69 @@ def _round_down_to_power_of_2(val: int) -> int:
     return result
 
 
-_PREFIX_WORDS = set("""
-        ldata partial_scan_buffer global scan_offset
-        segment_start_in_k_group carry
-        g_first_segment_start_in_interval IS_SEG_START tmp Z
-        val l_first_segment_start_in_subtree unit_size
-        index_type interval_begin interval_size offset_end K
-        SCAN_EXPR do_update WG_SIZE
-        first_segment_start_in_k_group scan_type
-        segment_start_in_subtree offset interval_results interval_end
-        first_segment_start_in_subtree unit_base
-        first_segment_start_in_interval k INPUT_EXPR
-        prev_group_sum prev pv value partial_val pgs
-        is_seg_start update_i scan_item_at_i seq_i read_i
-        l_ o_mod_k o_div_k l_segment_start_flags scan_value sum
-        first_seg_start_in_interval g_segment_start_flags
-        group_base seg_end my_val DEBUG ARGS
-        ints_to_store ints_per_wg scan_types_per_int linear_index
-        linear_scan_data_idx dest src store_base wrapped_scan_type
-        dummy scan_tmp tmp_aux
+_PREFIX_WORDS = {"ldata", "partial_scan_buffer", "global", "scan_offset",
+"segment_start_in_k_group", "carry", "g_first_segment_start_in_interval",
+"IS_SEG_START", "tmp", "Z", "val", "l_first_segment_start_in_subtree",
+"unit_size", "index_type", "interval_begin", "interval_size", "offset_end", "K",
+"SCAN_EXPR", "do_update", "WG_SIZE", "first_segment_start_in_k_group", "scan_type",
+"segment_start_in_subtree", "offset", "interval_results", "interval_end",
+"first_segment_start_in_subtree", "unit_base", "first_segment_start_in_interval",
+"k", "INPUT_EXPR", "prev_group_sum", "prev", "pv", "value", "partial_val", "pgs",
+"is_seg_start", "update_i", "scan_item_at_i", "seq_i", "read_i", "l_", "o_mod_k",
+"o_div_k", "l_segment_start_flags", "scan_value", "sum", "first_seg_start_in_interval",
+"g_segment_start_flags", "group_base", "seg_end", "my_val", "DEBUG", "ARGS",
+"ints_to_store", "ints_per_wg", "scan_types_per_int", "linear_index",
+"linear_scan_data_idx", "dest", "src", "store_base", "wrapped_scan_type", "dummy",
+"scan_tmp", "tmp_aux", "LID_2", "LID_1", "LID_0", "LDIM_0", "LDIM_1", "LDIM_2",
+"GDIM_0", "GDIM_1", "GDIM_2", "GID_0", "GID_1", "GID_2"}
 
-        LID_2 LID_1 LID_0
-        LDIM_0 LDIM_1 LDIM_2
-        GDIM_0 GDIM_1 GDIM_2
-        GID_0 GID_1 GID_2
-        """.split())
-
-_IGNORED_WORDS = set("""
-        4 8 32
-
-        typedef for endfor if void while endwhile endfor endif else const printf
-        None return bool n char true false ifdef pycl_printf str range assert
-        np iinfo max itemsize __packed__ struct restrict ptrdiff_t
-
-        set iteritems len setdefault
-
-        GLOBAL_MEM LOCAL_MEM_ARG WITHIN_KERNEL LOCAL_MEM KERNEL REQD_WG_SIZE
-        local_barrier
-        CLK_LOCAL_MEM_FENCE OPENCL EXTENSION
-        pragma __attribute__ __global __kernel __local
-        get_local_size get_local_id cl_khr_fp64 reqd_work_group_size
-        get_num_groups barrier get_group_id
-        CL_VERSION_1_1 __OPENCL_C_VERSION__ 120
-
-        _final_update _debug_scan kernel_name
-
-        positions all padded integer its previous write based writes 0
-        has local worth scan_expr to read cannot not X items False bank
-        four beginning follows applicable item min each indices works side
-        scanning right summed relative used id out index avoid current state
-        boundary True across be This reads groups along Otherwise undetermined
-        store of times prior s update first regardless Each number because
-        array unit from segment conflicts two parallel 2 empty define direction
-        CL padding work tree bounds values and adds
-        scan is allowed thus it an as enable at in occur sequentially end no
-        storage data 1 largest may representable uses entry Y meaningful
-        computations interval At the left dimension know d
-        A load B group perform shift tail see last OR
-        this add fetched into are directly need
-        gets them stenciled that undefined
-        there up any ones or name only relevant populated
-        even wide we Prepare int seg Note re below place take variable must
-        intra Therefore find code assumption
-        branch workgroup complicated granularity phase remainder than simpler
-        We smaller look ifs lots self behind allow barriers whole loop
-        after already Observe achieve contiguous stores hard go with by math
-        size won t way divisible bit so Avoid declare adding single type
-
-        is_tail is_first_level input_expr argument_signature preamble
-        double_support neutral output_statement
-        k_group_size name_prefix is_segmented index_dtype scan_dtype
-        wg_size is_segment_start_expr fetch_expr_offsets
-        arg_ctypes ife_offsets input_fetch_exprs def
-        ife_offset arg_name local_fetch_expr_args update_body
-        update_loop_lookbehind update_loop_plain update_loop
-        use_lookbehind_update store_segment_start_flags
-        update_loop first_seg scan_dtype dtype_to_ctype
-        is_gpu use_bank_conflict_avoidance
-
-        a b prev_item i last_item prev_value
-        N NO_SEG_BOUNDARY across_seg_boundary
-
-        arg_offset_adjustment
-        """.split())
+_IGNORED_WORDS = {"4", "8", "32", "typedef", "for", "endfor", "if", "void", "while",
+"endwhile", "endif", "else", "const", "printf", "None", "return", "bool", "n", "char",
+"true", "false", "ifdef", "pycl_printf", "str", "range", "assert", "np", "iinfo",
+"max", "itemsize", "__packed__", "struct", "restrict", "ptrdiff_t", "set", "iteritems",
+"len", "setdefault", "GLOBAL_MEM", "LOCAL_MEM_ARG", "WITHIN_KERNEL", "LOCAL_MEM",
+"KERNEL", "REQD_WG_SIZE", "local_barrier", "CLK_LOCAL_MEM_FENCE", "OPENCL", "EXTENSION",
+"pragma", "__attribute__", "__global", "__kernel", "__local", "get_local_size",
+"get_local_id", "cl_khr_fp64", "reqd_work_group_size", "get_num_groups", "barrier",
+"get_group_id", "CL_VERSION_1_1", "__OPENCL_C_VERSION__", "120", "_final_update",
+"_debug_scan", "kernel_name", "positions", "all", "padded", "integer", "its",
+"previous", "write", "based", "writes", "0", "has", "local", "worth", "scan_expr", "to",
+"read", "cannot", "not", "X", "items", "False", "bank", "four", "beginning", "follows",
+"applicable", "item", "min", "each", "indices", "works", "side", "scanning", "right",
+"summed", "relative", "used", "id", "out", "index", "avoid", "current", "state",
+"boundary", "True", "across", "be", "This", "reads", "groups", "along", "Otherwise",
+"undetermined", "store", "of", "times", "prior", "s", "update", "first", "regardless",
+"Each", "number", "because", "array", "unit", "from", "segment", "conflicts", "two",
+"parallel", "2", "empty", "define", "direction", "CL", "padding", "work", "tree",
+"bounds", "values", "and", "adds", "scan", "is", "allowed", "thus", "it", "an", "as",
+"enable", "at", "in", "occur", "sequentially", "end", "no", "storage", "data", "1",
+"largest", "may", "representable", "uses", "entry", "Y", "meaningful", "computations",
+"interval", "At", "the", "left", "dimension", "know", "d", "A", "load", "B", "group",
+"perform", "shift", "tail", "see", "last", "OR", "this", "add", "fetched", "into",
+"are", "directly", "need", "gets", "them", "stenciled", "that", "undefined", "there",
+"up", "any", "ones", "or", "name", "only", "relevant", "populated", "even", "wide",
+"we", "Prepare", "int", "seg", "Note", "re", "below", "place", "take", "variable",
+"must", "intra", "Therefore", "find", "code", "assumption", "branch", "workgroup",
+"complicated", "granularity", "phase", "remainder", "than", "simpler", "We", "smaller",
+"look", "ifs", "lots", "self", "behind", "allow", "barriers", "whole", "loop",
+"after", "already", "Observe", "achieve", "contiguous", "stores", "hard", "go",
+"with", "by", "math", "size", "won", "t", "way", "divisible", "bit", "so", "Avoid",
+"declare", "adding", "single", "type", "is_tail", "is_first_level", "input_expr",
+"argument_signature", "preamble", "double_support", "neutral", "output_statement",
+"k_group_size", "name_prefix", "is_segmented", "index_dtype", "scan_dtype",
+"wg_size", "is_segment_start_expr", "fetch_expr_offsets", "arg_ctypes", "ife_offsets",
+"input_fetch_exprs", "def", "ife_offset", "arg_name", "local_fetch_expr_args",
+"update_body", "update_loop_lookbehind", "update_loop_plain", "update_loop",
+"use_lookbehind_update", "store_segment_start_flags", "first_seg", "dtype_to_ctype",
+"is_gpu", "use_bank_conflict_avoidance", "a", "b", "prev_item", "i", "last_item",
+"prev_value", "N", "NO_SEG_BOUNDARY", "across_seg_boundary", "arg_offset_adjustment"}
 
 
-def _make_template(s: str):
+def _make_template(s: str) -> mako.template.Template:
     import re
-    leftovers = set()
+    leftovers: set[str] = set()
 
-    def replace_id(match: re.Match) -> str:
+    def replace_id(match: re.Match[str]) -> str:
         # avoid name clashes with user code by adding 'psc_' prefix to
         # identifiers.
 
@@ -879,7 +858,7 @@ def _make_template(s: str):
 class _GeneratedScanKernelInfo:
     scan_src: str
     kernel_name: str
-    scalar_arg_dtypes: list[np.dtype | None]
+    scalar_arg_dtypes: tuple[np.dtype[Any] | None, ...]
     wg_size: int
     k_group_size: int
 
@@ -904,7 +883,7 @@ class _BuiltScanKernelInfo:
 class _GeneratedFinalUpdateKernelInfo:
     source: str
     kernel_name: str
-    scalar_arg_dtypes: Sequence[np.dtype | None]
+    scalar_arg_dtypes: Sequence[np.dtype[Any] | None]
     update_wg_size: int
 
     def build(self,
@@ -929,19 +908,44 @@ class ScanPerformanceWarning(UserWarning):
 
 
 class GenericScanKernelBase(ABC):
+    context: cl.Context
+    devices: Sequence[cl.Device]
+
+    dtype: np.dtype[Any]
+    index_dtype: np.dtype[np.integer[Any]]
+
+    parsed_args: Sequence[DtypedArgument]
+    first_array_idx: int
+
+    input_expr: str
+    is_segment_start_expr: str | None
+    is_segmented: bool
+    output_statement: str
+    input_fetch_exprs: Sequence[tuple[str, str, int]]
+
+    name_prefix: str
+
+    code_variables: dict[str, Any]
+    kernel_key: tuple[Hashable, ...]
+
+    use_lookbehind_update: bool
+    store_segment_start_flags: bool
+
+    options: Any
+
     # {{{ constructor, argument processing
 
     def __init__(
             self,
             ctx: cl.Context,
             dtype: Any,
-            arguments: str | list[DtypedArgument],
+            arguments: str | Sequence[DtypedArgument],
             input_expr: str,
             scan_expr: str,
             neutral: str | None,
             output_statement: str,
             is_segment_start_expr: str | None = None,
-            input_fetch_exprs: list[tuple[str, str, int]] | None = None,
+            input_fetch_exprs: Sequence[tuple[str, str, int]] | None = None,
             index_dtype: Any = None,
             name_prefix: str = "scan",
             options: Any = None,
@@ -1035,49 +1039,48 @@ class GenericScanKernelBase(ABC):
         if input_fetch_exprs is None:
             input_fetch_exprs = []
 
-        self.context: cl.Context = ctx
-        self.dtype: np.dtype[Any]
-        dtype = self.dtype = np.dtype(dtype)
+        dtype = np.dtype(dtype)
+
+        self.context = ctx
+        self.dtype = dtype
 
         if neutral is None:
-            from warnings import warn
-            warn("not specifying 'neutral' is deprecated and will lead to "
-                    "wrong results if your scan is not in-place or your "
-                    "'output_statement' does something otherwise non-trivial",
-                    stacklevel=2)
+            raise ValueError("must provide a 'neutral' element in scan")
 
         if dtype.itemsize % 4 != 0:
             raise TypeError("scan value type must have size divisible by 4 bytes")
 
-        self.index_dtype: np.dtype[np.integer] = np.dtype(index_dtype)
+        self.index_dtype = np.dtype(index_dtype)
         if np.iinfo(self.index_dtype).min >= 0:
             raise TypeError("index_dtype must be signed")
 
         if devices is None:
             devices = ctx.devices
-        self.devices: Sequence[cl.Device] = devices
+
+        self.devices = devices
         self.options = options
 
         from pyopencl.tools import parse_arg_list
-        self.parsed_args: Sequence[DtypedArgument] = parse_arg_list(arguments)
+        self.parsed_args = parse_arg_list(arguments)
+
         from pyopencl.tools import VectorArg
-        self.first_array_idx: int = next(
+        self.first_array_idx = next(
                 i for i, arg in enumerate(self.parsed_args)
                 if isinstance(arg, VectorArg))
 
-        self.input_expr: str = input_expr
+        self.input_expr = input_expr
 
-        self.is_segment_start_expr: str | None = is_segment_start_expr
-        self.is_segmented: bool = is_segment_start_expr is not None
+        self.is_segment_start_expr = is_segment_start_expr
+        self.is_segmented = is_segment_start_expr is not None
         if is_segment_start_expr is not None:
             is_segment_start_expr = _process_code_for_macro(is_segment_start_expr)
 
-        self.output_statement: str = output_statement
+        self.output_statement = output_statement
 
         for _name, _arg_name, ife_offset in input_fetch_exprs:
             if ife_offset not in [0, -1]:
                 raise RuntimeError("input_fetch_expr offsets must either be 0 or -1")
-        self.input_fetch_exprs: Sequence[tuple[str, str, int]] = input_fetch_exprs
+        self.input_fetch_exprs = input_fetch_exprs
 
         arg_dtypes = {}
         arg_ctypes = {}
@@ -1085,7 +1088,7 @@ class GenericScanKernelBase(ABC):
             arg_dtypes[arg.name] = arg.dtype
             arg_ctypes[arg.name] = dtype_to_ctype(arg.dtype)
 
-        self.name_prefix: str = name_prefix
+        self.name_prefix = name_prefix
 
         # {{{ set up shared code dict
 
@@ -1133,8 +1136,8 @@ class GenericScanKernelBase(ABC):
 
         # }}}
 
-        self.use_lookbehind_update: bool = "prev_item" in self.output_statement
-        self.store_segment_start_flags: bool = (
+        self.use_lookbehind_update = "prev_item" in self.output_statement
+        self.store_segment_start_flags = (
                 self.is_segmented and self.use_lookbehind_update)
 
         self.finish_setup()
@@ -1143,6 +1146,16 @@ class GenericScanKernelBase(ABC):
 
     @abstractmethod
     def finish_setup(self) -> None:
+        pass
+
+    @abstractmethod
+    def __call__(self,
+                 *args: Any,
+                 queue: cl.CommandQueue | None = None,
+                 allocator: Allocator | None = None,
+                 size: int | None = None,
+                 wait_for: cl.WaitList | None = None,
+                 **kwargs: Any) -> cl.Event:
         pass
 
 
@@ -1178,11 +1191,19 @@ class GenericScanKernel(GenericScanKernelBase):
     .. automethod:: __call__
     """
 
+    first_level_scan_gen_info: _GeneratedScanKernelInfo
+    second_level_scan_gen_info: _GeneratedScanKernelInfo
+    final_update_gen_info: _GeneratedFinalUpdateKernelInfo
+
+    first_level_scan_info: _BuiltScanKernelInfo
+    second_level_scan_info: _BuiltScanKernelInfo
+    final_update_info: _BuiltFinalUpdateKernelInfo
+
+    @override
     def finish_setup(self) -> None:
         # Before generating the kernel, see if it's cached.
         from pyopencl.cache import get_device_cache_id
-        devices_key = tuple(get_device_cache_id(device)
-                for device in self.devices)
+        devices_key = tuple(get_device_cache_id(device) for device in self.devices)
 
         cache_key = (self.kernel_key, devices_key)
         from_cache = False
@@ -1266,7 +1287,7 @@ class GenericScanKernel(GenericScanKernelBase):
         # division by that number.
 
         solutions: list[tuple[int, int, int]] = []
-        for k_exp in range(0, 9):
+        for k_exp in range(9):
             for wg_size in range(wg_size_multiples, max_scan_wg_size+1,
                     wg_size_multiples):
 
@@ -1441,7 +1462,7 @@ class GenericScanKernel(GenericScanKernelBase):
             store_segment_start_flags: bool,
             k_group_size: int,
             use_bank_conflict_avoidance: bool) -> _GeneratedScanKernelInfo:
-        scalar_arg_dtypes = get_arg_list_scalar_arg_dtypes(arguments)
+        scalar_arg_dtypes = list(get_arg_list_scalar_arg_dtypes(arguments))
 
         # Empirically found on Nv hardware: no need to be bigger than this size
         wg_size = _round_down_to_power_of_2(
@@ -1468,8 +1489,7 @@ class GenericScanKernel(GenericScanKernelBase):
             kernel_name=kernel_name,
             **self.code_variables))
 
-        scalar_arg_dtypes.extend(
-                (None, self.index_dtype, self.index_dtype))
+        scalar_arg_dtypes.extend((None, self.index_dtype, self.index_dtype))
         if is_first_level:
             scalar_arg_dtypes.append(None)  # interval_results
         if self.is_segmented and is_first_level:
@@ -1480,13 +1500,20 @@ class GenericScanKernel(GenericScanKernelBase):
         return _GeneratedScanKernelInfo(
                 scan_src=scan_src,
                 kernel_name=kernel_name,
-                scalar_arg_dtypes=scalar_arg_dtypes,
+                scalar_arg_dtypes=tuple(scalar_arg_dtypes),
                 wg_size=wg_size,
                 k_group_size=k_group_size)
 
     # }}}
 
-    def __call__(self, *args: Any, **kwargs: Any) -> cl.Event:
+    @override
+    def __call__(self,
+                 *args: Any,
+                 queue: cl.CommandQueue | None = None,
+                 allocator: Allocator | None = None,
+                 size: int | None = None,
+                 wait_for: cl.WaitList | None = None,
+                 **kwargs: Any) -> cl.Event:
         """
         |std-enqueue-blurb|
 
@@ -1507,11 +1534,6 @@ class GenericScanKernel(GenericScanKernelBase):
 
         # {{{ argument processing
 
-        allocator = kwargs.get("allocator")
-        queue = kwargs.get("queue")
-        n = kwargs.get("size")
-        wait_for = kwargs.get("wait_for")
-
         if wait_for is None:
             wait_for = []
         else:
@@ -1524,7 +1546,9 @@ class GenericScanKernel(GenericScanKernelBase):
         first_array = args[self.first_array_idx]
         allocator = allocator or first_array.allocator
         queue = queue or first_array.queue
+        assert queue is not None
 
+        n = size
         if n is None:
             n, = first_array.shape
 
@@ -1532,7 +1556,7 @@ class GenericScanKernel(GenericScanKernelBase):
             # We're done here. (But pretend to return an event.)
             return cl.enqueue_marker(queue, wait_for=wait_for)
 
-        data_args = []
+        data_args: list[KernelArg] = []
         for arg_descr, arg_val in zip(self.parsed_args, args, strict=True):
             from pyopencl.tools import VectorArg
             if isinstance(arg_descr, VectorArg):
@@ -1712,6 +1736,9 @@ class GenericDebugScanKernel(GenericScanKernelBase):
     .. automethod:: __call__
     """
 
+    kernel: cl.Kernel
+
+    @override
     def finish_setup(self) -> None:
         scan_tpl = _make_template(DEBUG_SCAN_TEMPLATE)
         scan_src = str(scan_tpl.render(
@@ -1726,23 +1753,29 @@ class GenericDebugScanKernel(GenericScanKernelBase):
             **self.code_variables))
 
         scan_prg = cl.Program(self.context, scan_src).build(self.options)
-        self.kernel = getattr(scan_prg, f"{self.name_prefix}_debug_scan")
+        kernel = getattr(scan_prg, f"{self.name_prefix}_debug_scan")
+        assert kernel is not None
+
         scalar_arg_dtypes = [
                 None,
                 *get_arg_list_scalar_arg_dtypes(self.parsed_args),
                 self.index_dtype,
                 ]
+
+        self.kernel = kernel
         self.kernel.set_scalar_arg_dtypes(scalar_arg_dtypes)
 
-    def __call__(self, *args: Any, **kwargs: Any) -> cl.Event:
+    @override
+    def __call__(self,
+                 *args: Any,
+                 queue: cl.CommandQueue | None = None,
+                 allocator: Allocator | None = None,
+                 size: int | None = None,
+                 wait_for: cl.WaitList | None = None,
+                 **kwargs: Any) -> cl.Event:
         """See :meth:`GenericScanKernel.__call__`."""
 
         # {{{ argument processing
-
-        allocator = kwargs.get("allocator")
-        queue = kwargs.get("queue")
-        n = kwargs.get("size")
-        wait_for = kwargs.get("wait_for")
 
         if wait_for is None:
             wait_for = []
@@ -1757,7 +1790,9 @@ class GenericDebugScanKernel(GenericScanKernelBase):
         first_array = args[self.first_array_idx]
         allocator = allocator or first_array.allocator
         queue = queue or first_array.queue
+        assert queue is not None
 
+        n = size
         if n is None:
             n, = first_array.shape
 
@@ -1778,7 +1813,7 @@ class GenericDebugScanKernel(GenericScanKernelBase):
 
         # }}}
 
-        return self.kernel(queue, (1,), (1,), *([*data_args, n]), wait_for=wait_for)
+        return self.kernel(queue, (1,), (1,), *data_args, n, wait_for=wait_for)
 
 # }}}
 
@@ -1786,9 +1821,15 @@ class GenericDebugScanKernel(GenericScanKernelBase):
 # {{{ compatibility interface
 
 class _LegacyScanKernelBase(GenericScanKernel):
-    def __init__(self, ctx, dtype,
-            scan_expr, neutral=None,
-            name_prefix="scan", options=None, preamble="", devices=None):
+    def __init__(self,
+                 ctx: cl.Context,
+                 dtype: np.dtype[Any],
+                 scan_expr: str,
+                 neutral: str | None = None,
+                 name_prefix: str = "scan",
+                 options: Any = None,
+                 preamble: str = "",
+                 devices: Sequence[cl.Device] | None = None) -> None:
         scan_ctype = dtype_to_ctype(dtype)
         GenericScanKernel.__init__(self,
                 ctx, dtype,
@@ -1801,10 +1842,14 @@ class _LegacyScanKernelBase(GenericScanKernel):
                 options=options, preamble=preamble, devices=devices)
 
     @property
-    def ary_output_statement(self):
+    def ary_output_statement(self) -> str:
         raise NotImplementedError
 
-    def __call__(self, input_ary, output_ary=None, allocator=None, queue=None):
+    def __call__(self,
+                 input_ary: cl_array.Array,
+                 output_ary: cl_array.Array | None = None,
+                 allocator: Allocator | None = None,
+                 queue: cl.CommandQueue | None = None) -> cl_array.Array:
         allocator = allocator or input_ary.allocator
         queue = queue or input_ary.queue or output_ary.queue
 
@@ -1818,8 +1863,7 @@ class _LegacyScanKernelBase(GenericScanKernel):
             raise ValueError("input and output must have the same shape")
 
         if not input_ary.flags.forc:
-            raise RuntimeError("ScanKernel cannot "
-                    "deal with non-contiguous arrays")
+            raise RuntimeError(f"{type(self)} cannot handle non-contiguous arrays")
 
         n, = input_ary.shape
 
@@ -1833,11 +1877,17 @@ class _LegacyScanKernelBase(GenericScanKernel):
 
 
 class InclusiveScanKernel(_LegacyScanKernelBase):
-    ary_output_statement = "output_ary[i] = item;"
+    @property
+    @override
+    def ary_output_statement(self) -> str:
+        return "output_ary[i] = item;"
 
 
 class ExclusiveScanKernel(_LegacyScanKernelBase):
-    ary_output_statement = "output_ary[i] = prev_item;"
+    @property
+    @override
+    def ary_output_statement(self) -> str:
+        return "output_ary[i] = prev_item;"
 
 # }}}
 
@@ -1845,6 +1895,16 @@ class ExclusiveScanKernel(_LegacyScanKernelBase):
 # {{{ template
 
 class ScanTemplate(KernelTemplateBase):
+    arguments: str | Sequence[DtypedArgument]
+    input_expr: str
+    scan_expr: str
+    neutral: str | None
+    output_statement: str
+    is_segment_start_expr: str | None
+    input_fetch_exprs: Sequence[tuple[str, str, int]]
+    name_prefix: str
+    preamble: str
+
     def __init__(
             self,
             arguments: str | list[DtypedArgument],
@@ -1872,9 +1932,20 @@ class ScanTemplate(KernelTemplateBase):
         self.name_prefix = name_prefix
         self.preamble = preamble
 
-    def build_inner(self, context, type_aliases=(), var_values=(),
-            more_preamble="", more_arguments=(), declare_types=(),
-            options=None, devices=None, scan_cls=GenericScanKernel):
+    @override
+    def build_inner(self,
+                    context: cl.Context,
+                    type_aliases: (
+                        dict[str, np.dtype[Any]]
+                        | Sequence[tuple[str, np.dtype[Any]]]) = (),
+                    var_values: dict[str, str] | Sequence[tuple[str, str]] = (),
+                    more_preamble: str = "",
+                    more_arguments: str | Sequence[Any] = (),
+                    declare_types: Sequence[DTypeLike] = (),
+                    options: Any = None,
+                    devices: Sequence[cl.Device] | None = None,
+                    scan_cls: type[GenericScanKernelBase] = GenericScanKernel
+                    ) -> GenericScanKernelBase:
         renderer = self.get_renderer(type_aliases, var_values, context, options)
 
         arg_list = renderer.render_argument_list(self.arguments, more_arguments)
@@ -1902,7 +1973,9 @@ class ScanTemplate(KernelTemplateBase):
 # {{{ 'canned' scan kernels
 
 @context_dependent_memoize
-def get_cumsum_kernel(context, input_dtype, output_dtype):
+def get_cumsum_kernel(context: cl.Context,
+                      input_dtype: np.dtype[Any],
+                      output_dtype: np.dtype[Any]) -> GenericScanKernelBase:
     from pyopencl.tools import VectorArg
     return GenericScanKernel(
         context, output_dtype,

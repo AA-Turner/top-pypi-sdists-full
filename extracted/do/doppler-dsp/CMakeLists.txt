@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.42.0 LANGUAGES C)
+project(doppler VERSION 0.43.2 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # doppler is pure C: every first-party source is C99 and the core libdoppler
-# links only -lm.  The vendored nats.c (the optional libdoppler_stream
+# links -lm and -lpthread.  The vendored nats.c (the optional libdoppler_stream
 # component's transport) is also pure C, so the whole build needs only a C
 # compiler — the top-level project declares no CXX.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -151,19 +151,29 @@ endforeach()
 # generates fully relocatable imported targets (no hand-rolled paths in the
 # package config). The objects each archive folds in (pocketfft, wfmcompose)
 # are baked into the .a/.so via target_sources — they are NOT export-time
-# dependencies, so the static lib exports cleanly; its only interface dep is
-# m — pocketfft is pure C99 and the networking/stream layer is split into the
-# optional libdoppler_stream component.
+# dependencies, so the static lib exports cleanly; its interface deps are m
+# and Threads — pocketfft is pure C99 and the networking/stream layer is split
+# into the optional libdoppler_stream component.
 set_target_properties(doppler_lib PROPERTIES EXPORT_NAME doppler)
 set_target_properties(doppler_lib_static PROPERTIES EXPORT_NAME doppler-static)
 # pocketfft (pure C99) is compiled into fft_core, which is folded into both libs
 # below with every other component — so no separate pocketfft target to wire here.
-# The core is pure C and links only -lm (the stream layer lives in the
-# optional libdoppler_stream component below). Threads is still located here
-# for that component and the examples.
+# The core is pure C and links -lm and -lpthread (the stream layer lives in
+# the optional libdoppler_stream component below).
+#
+# Threads::Threads is PUBLIC on the ARCHIVE and must stay that way. A component
+# that needs pthread carries it PUBLIC on its own target (ccsds_tm_core for
+# rs.c's `pthread_once`, wfm_compose_core for dp_parallel), but every component
+# is folded in here as $<TARGET_OBJECTS:...> — objects, not a link edge — and
+# that drops the usage requirement on the floor. Nothing else re-stated it, so
+# the archive's link interface carried no pthread and a consumer that pulled a
+# pthread-using member out of libdoppler.a failed to link: on glibc < 2.34
+# pthread is a separate library, so `examples/c/ccsds_link_demo` died on
+# `undefined reference to pthread_once` in CI's Debian 10 job while every
+# glibc >= 2.34 box linked it clean, pthread being folded into libc there.
 find_package(Threads REQUIRED)
-target_link_libraries(doppler_lib        PRIVATE m)
-target_link_libraries(doppler_lib_static PUBLIC  m)
+target_link_libraries(doppler_lib        PRIVATE m Threads::Threads)
+target_link_libraries(doppler_lib_static PUBLIC  m Threads::Threads)
 
 # The core ships weak no-op stubs for the wfm_stream_sink_* symbols wfmgen
 # uses (native/src/wfm/wfm_sink_stub.c, folded in via the wfmcompose subdir),
@@ -176,6 +186,12 @@ enable_testing()
 add_subdirectory(native/src/hbdecim)
 add_subdirectory(native/src/resamp)
 add_subdirectory(native/src/wfmcompose)
+add_subdirectory(native/src/ccsds_tm)
+add_subdirectory(native/src/conv)
+add_subdirectory(native/src/rs)
+add_subdirectory(native/src/frame_meter)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:frame_meter_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:frame_meter_core>)
 add_subdirectory(native/src/ber_meter)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ber_meter_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ber_meter_core>)
@@ -186,8 +202,6 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:carrier_acq_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:async_dsss_receiver_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:async_dsss_receiver_core>)
 add_subdirectory(native/src/dsss_receiver)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:snr_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:snr_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dsss_receiver_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dsss_receiver_core>)
 add_subdirectory(native/src/burst_demod)
@@ -208,12 +222,16 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:burst_despreader_core
 add_subdirectory(native/src/despreader)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:despreader_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:despreader_core>)
-add_subdirectory(native/src/mpsk_receiver_r)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:mpsk_receiver_r_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:mpsk_receiver_r_core>)
+add_subdirectory(native/src/rs_codec)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:rs_codec_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:rs_codec_core>)
+add_subdirectory(native/src/viterbi)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:viterbi_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:viterbi_core>)
+add_subdirectory(native/src/conv_enc)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:conv_enc_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:conv_enc_core>)
 add_subdirectory(native/src/mpsk_receiver)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ber_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ber_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:mpsk_receiver_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:mpsk_receiver_core>)
 add_subdirectory(native/src/carrier_nda)
@@ -229,8 +247,6 @@ add_subdirectory(native/src/symsync)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:symsync_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:symsync_core>)
 add_subdirectory(native/src/dll)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:detection_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:detection_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dll_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dll_core>)
 add_subdirectory(native/src/costas)
@@ -251,6 +267,9 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:acc_q15_core>)
 add_subdirectory(native/src/doppler_channel)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:doppler_channel_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:doppler_channel_core>)
+add_subdirectory(native/src/syncword)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:syncword_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:syncword_core>)
 add_subdirectory(native/src/lockdet)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:lockdet_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:lockdet_core>)
@@ -292,8 +311,6 @@ add_subdirectory(native/src/tonemeas)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:tonemeas_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:tonemeas_core>)
 add_subdirectory(native/src/psd)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:spectral_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:spectral_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:psd_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:psd_core>)
 add_subdirectory(native/src/detector2d)
@@ -314,14 +331,25 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:fft2d_core>)
 add_subdirectory(native/src/fft)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:fft_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:fft_core>)
+add_subdirectory(native/src/frame)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ccsds_tm_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ccsds_tm_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:conv_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:conv_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:rs_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:rs_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:frame_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:frame_core>)
 add_subdirectory(native/src/gold)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:gold_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:gold_core>)
 add_subdirectory(native/src/wfm_synth)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:resamp_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:resamp_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_dsp_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_dsp_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_frame_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_frame_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:gold_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:gold_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_synth_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_synth_core>)
 add_subdirectory(native/src/pn)
@@ -392,21 +420,50 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:f32_to_i16_core>)
 
 # ── Modules (add_subdirectory lines appended here by just-makeit) ─────────────
 add_subdirectory(native/src/ber)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ber_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ber_core>)
 add_subdirectory(native/src/acquire)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:acquire_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:acquire_core>)
 add_subdirectory(native/src/dsss)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dsss_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dsss_core>)
+add_subdirectory(native/src/coding)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:coding_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:coding_core>)
 add_subdirectory(native/src/track)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:track_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:track_core>)
 add_subdirectory(native/src/interp)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:interp_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:interp_core>)
 add_subdirectory(native/src/arith)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:arith_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:arith_core>)
 add_subdirectory(native/src/util)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:util_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:util_core>)
 add_subdirectory(native/src/impairment)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:impairment_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:impairment_core>)
 add_subdirectory(native/src/agc)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:agc_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:agc_core>)
 add_subdirectory(native/src/mpsk)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:mpsk_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:mpsk_core>)
 add_subdirectory(native/src/snr)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:snr_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:snr_core>)
 add_subdirectory(native/src/detection)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:detection_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:detection_core>)
 add_subdirectory(native/src/resample)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:resample_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:resample_core>)
 add_subdirectory(native/src/analyzer)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:analyzer_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:analyzer_core>)
 add_subdirectory(native/src/ddc)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:RateConverter_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:RateConverter_core>)
@@ -416,24 +473,40 @@ target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:hbdecim_r2c_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:hbdecim_r2c_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:cic_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:cic_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:resample_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:resample_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ddc_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ddc_core>)
 add_subdirectory(native/src/telemetry)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:telemetry_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:telemetry_core>)
 add_subdirectory(native/src/measure)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:measure_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:measure_core>)
 add_subdirectory(native/src/spectral)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:spectral_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:spectral_core>)
 add_subdirectory(native/src/delay)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:delay_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:delay_core>)
 add_subdirectory(native/src/wfm_compose)
 add_subdirectory(native/src/wfm)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_core>)
 add_subdirectory(native/src/source)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:source_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:source_core>)
 add_subdirectory(native/src/filter)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:filter_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:filter_core>)
 add_subdirectory(native/src/accumulator)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:accumulator_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:accumulator_core>)
 add_subdirectory(native/src/cvt)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:cvt_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:cvt_core>)
 add_subdirectory(native/src/wfm_sink)
 add_subdirectory(native/src/wfm_writer)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_writer_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_writer_core>)
 add_subdirectory(native/src/sample_clock)
 add_subdirectory(native/src/wfm_plan)
 add_subdirectory(native/src/wfm_reader)
@@ -441,14 +514,46 @@ target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_cjson_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_cjson_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_keywords_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_keywords_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_writer_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_writer_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_draw_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_draw_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_reader_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_reader_core>)
 add_subdirectory(native/src/buffer)
 add_subdirectory(native/src/stream)
+
+# ccsds_tm is a hand-owned c_dep, so jm knows its core exists (and says so
+# when it reaches no library) but generates no wiring for it — that line is
+# ours, and it goes HERE rather than beside
+# `add_subdirectory(native/src/ccsds_tm)` because the block above is jm's
+# splice region and an extra line inside it reads as drift.
+#
+# It has to reach both libraries: native/inc/ccsds_tm/*.h are installed
+# headers, and every function they declare is out-of-line. Measured rather than
+# assumed, which is the standard `status_allow` sets for the three exempted
+# wfmcompose cores — `nm` over ccsds_tm_core's objects lists 13 defined `T`
+# symbols against zero occurrences of the component's prefix in libdoppler.a,
+# so before this
+# line a C consumer could include the header and link none of it. Python was
+# unaffected throughout, since the extension links each core directly, which
+# is exactly why it went unnoticed until jm 0.62.0's wiring check.
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:ccsds_tm_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ccsds_tm_core>)
+
+# conv_core for the same reason, and it is the stronger case: native/inc/conv
+# is an installed header whose every function is out-of-line, and `ccsds_tm`
+# now reaches the encoder THROUGH it -- so without this line ccsds_tm's own
+# symbols resolve inside the archive and the codec they call does not.
+# jm 0.62.0's wiring check is what named it; the line is ours.
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:conv_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:conv_core>)
+
+# rs_core, the outer code, on the same argument as conv_core: native/inc/rs
+# is an installed header whose every function is out-of-line, and `ccsds_tm`
+# holds only the CCSDS configuration of it -- so without this line
+# ccsds_tm_rs_* resolve inside the archive and the field operations do not.
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:rs_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:rs_core>)
+
 # The capture's block bound is claimed from a code audit of every emit site.
 # This drives a REAL object -- carrier_nda, the only unconditional per-input
 # emitter -- and measures what it actually emits, so the audit is checked
@@ -475,6 +580,305 @@ target_include_directories(test_detection_core
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
 add_test(NAME test_detection_core COMMAND test_detection_core)
 
+# util is function-only too: the EMA primitive and the saturate/square_clip
+# pair are module-level, so their test is registered here for the same
+# reason. It links util_core for the out-of-line definitions, though every
+# assertion inlines the header copy — which is the point, since the header
+# is what every C caller in the library actually compiles against.
+add_executable(test_util_core native/tests/test_util_core.c)
+target_link_libraries(test_util_core PRIVATE util_core m)
+target_include_directories(test_util_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+add_test(NAME test_util_core COMMAND test_util_core)
+
+# mpsk is function-only in the same sense: the constellation map/demap pair
+# and the differential variants are module-level TUs, and the decision rule
+# itself (mpsk_slice, mpsk_phi0, the Gray helpers) is inline in the header
+# with no TU at all. jm emits no C test target, so it is registered here.
+# Links mpsk_core for the out-of-line array functions; the slicer assertions
+# compile the header copy, which is what mpsk_receiver and mpsk_rx_loops.h
+# actually decide through.
+add_executable(test_mpsk_core native/tests/test_mpsk_core.c)
+target_link_libraries(test_mpsk_core PRIVATE mpsk_core m)
+target_include_directories(test_mpsk_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_mpsk_core COMMAND test_mpsk_core)
+
+# snr is function-only as well — the two stateless estimators and their
+# sliding-window forms are module-level TUs, so jm emits no C test target and
+# the module had NO C test at all. Both estimators are called by
+# test_async_dsss_receiver_core.c and by two harness headers, which exercises
+# them as tools without pinning a single claim they make.
+add_executable(test_snr_core native/tests/test_snr_core.c)
+target_link_libraries(test_snr_core PRIVATE snr_core m)
+target_include_directories(test_snr_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_snr_core COMMAND test_snr_core)
+
+# ber is function-only in the same sense: the theory curves, the settled
+# window and the self-referenced EVM are module-level TUs (ber_meter is the
+# object, and has its own generated target). ber_evm_db is the harness's
+# quality metric and was likewise never asserted directly.
+add_executable(test_ber_core native/tests/test_ber_core.c)
+target_link_libraries(test_ber_core PRIVATE ber_core detection_core mpsk_core m)
+target_include_directories(test_ber_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_ber_core COMMAND test_ber_core)
+
+# mpsk, ber and snr: function-only modules, so jm generates no bench target
+# for them and `jm bench` cannot run one either (just-makeit#1023 -- run them
+# by hand meanwhile). Same reason the EMA primitive's benchmark below is
+# registered by hand. scripts/check_bench_coverage.py fails `make lint` if a
+# tested component loses its benchmark, if a benchmark records nothing, or if
+# it writes its JSON under a name no collector opens.
+add_executable(bench_mpsk_core native/benchmarks/bench_mpsk_core.c)
+target_link_libraries(bench_mpsk_core PRIVATE mpsk_core m)
+target_include_directories(bench_mpsk_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_ber_core native/benchmarks/bench_ber_core.c)
+target_link_libraries(bench_ber_core PRIVATE ber_core detection_core mpsk_core m)
+target_include_directories(bench_ber_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_snr_core native/benchmarks/bench_snr_core.c)
+target_link_libraries(bench_snr_core PRIVATE snr_core m)
+target_include_directories(bench_snr_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+# The EMA primitive's benchmark, registered here for the same reason its
+# test is: util is function-only, so jm generates no bench target for it.
+# It is a COMPARISON against the bodies the migrated call sites used to
+# contain — the question is whether routing them through a shared inline
+# cost anything, not how fast an EMA is.
+add_executable(bench_util_core native/benchmarks/bench_util_core.c)
+target_link_libraries(bench_util_core PRIVATE util_core m)
+target_include_directories(bench_util_core
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+
+# ── function-only modules: benchmarks jm does not generate (yet) ─────────
+# arith, detection, filter, measure, resample, spectral and wfm carry their
+# surface as free functions in <module>_core.c with no object of their own,
+# so jm generates neither a bench source nor a bench target for them -- the
+# same hole mpsk, ber, snr and util above sit in.
+#
+# DELETE THIS WHOLE BLOCK when the jm pin moves to a release containing
+# just-buildit/just-makeit#1034, which generates these targets itself. The
+# .c files stay either way: jm creates a bench source only when one is
+# missing, so a filled-in benchmark survives the bump and an empty
+# scaffold never lands on top of it.
+#
+# What happens if the block is NOT deleted depends on one more jm fix, so
+# do not rely on a loud failure to remind you:
+#   - without jm#1046, two add_executable calls share a name and the
+#     configure dies -- loud, immediate, unmissable;
+#   - with jm#1046 (in jm main, unreleased at the time of writing), jm
+#     skips emitting a target the project already declares, per target,
+#     and the build is silently fine with the workaround still in place.
+# That fix exists BECAUSE gh-1034 collided with this very block, so the
+# likely release contains both and the deletion is cleanup rather than a
+# repair. Do it anyway: one place should own a target name.
+#
+# Written out one target at a time rather than looped, deliberately. A
+# `foreach(_m ...)` is shorter and it makes the target name INVISIBLE:
+# scripts/check_bench_coverage.py reads `add_executable(<name>` out of the
+# CMake source to answer "can anything build this", and a name assembled
+# from a loop variable is not there to be read. Measured -- the loop
+# version failed rule 2 for all four of its targets while building them
+# perfectly. Anything else grepping for a target has the same problem.
+add_executable(bench_arith_core native/benchmarks/bench_arith_core.c)
+target_link_libraries(bench_arith_core PRIVATE arith_core m)
+target_include_directories(
+  bench_arith_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                               ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_detection_core native/benchmarks/bench_detection_core.c)
+target_link_libraries(bench_detection_core PRIVATE detection_core m)
+target_include_directories(
+  bench_detection_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_resample_core native/benchmarks/bench_resample_core.c)
+target_link_libraries(bench_resample_core PRIVATE resample_core m)
+target_include_directories(
+  bench_resample_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                  ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_spectral_core native/benchmarks/bench_spectral_core.c)
+target_link_libraries(bench_spectral_core PRIVATE spectral_core m)
+target_include_directories(
+  bench_spectral_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                  ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+# The three that are not self-contained, each for the reason its module
+# composes rather than reimplements -- which is the doctrine working, and
+# is why the link line is longer than the header suggests:
+#   filter   design_lowpass is SIZED by resample's kaiser_num_taps and
+#            SHAPED by spectral's kaiser_window
+#   measure  measure_min_samples picks a window via spectral's
+#            kaiser_beta_for_sidelobe
+#   wfm      wfm_core is an OBJECT library, so every TU in it arrives
+#            whether the benchmark calls it or not, and four of them
+#            delegate: rrc_taps/dsss_spread to wfm_dsp_core,
+#            wfm_awgn_amplitude to awgn_core, ccsds_asm_bits to
+#            ccsds_tm_core. Not one of those is reimplemented here, which
+#            is the whole reason the link line is longer than the header
+add_executable(bench_measure_core native/benchmarks/bench_measure_core.c)
+target_link_libraries(bench_measure_core PRIVATE measure_core spectral_core m)
+target_include_directories(
+  bench_measure_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                             ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_wfm_core native/benchmarks/bench_wfm_core.c)
+target_link_libraries(
+  bench_wfm_core PRIVATE wfm_core wfm_dsp_core awgn_core ccsds_tm_core
+                         conv_core rs_core m)
+target_include_directories(
+  bench_wfm_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                         ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+add_executable(bench_filter_core native/benchmarks/bench_filter_core.c)
+target_link_libraries(bench_filter_core PRIVATE filter_core spectral_core
+                                                resample_core m)
+target_include_directories(
+  bench_filter_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                            ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+# native/tests/dp_mf_test.h supplies the down-converter suites' stimulus AND
+# their verdict. Its mf_evm_db() takes a MIN over strobe alignment -- the shape
+# dp_ber_test.h calls "the historic footgun", legitimate here because the loop
+# is open and the strobe phase is arbitrary, but exposed to the false-PASS the
+# footgun names. The self-test measures that: a stream carrying the WRONG
+# sequence must read badly at every alignment the search tries.
+add_executable(test_dp_mf native/tests/test_dp_mf.c)
+target_link_libraries(test_dp_mf PRIVATE m)
+target_include_directories(test_dp_mf
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_mf PRIVATE -O2)
+add_test(NAME test_dp_mf COMMAND test_dp_mf)
+
+# native/tests/dp_dsss_test.h carries a KNOWN DEFECT in its own docstring
+# (doppler#689): the noise is scaled for the wrong complex-Gaussian
+# convention, so every capture is 3.01 dB quieter than it claims. It is
+# deliberately unfixed -- correcting it makes an async BER sweep go
+# non-monotonic, which is a receiver investigation rather than a constant --
+# and until now it was held in place by prose alone. The self-test makes it a
+# CHARACTERIZATION: the 3.01 dB is measured and asserted, so the magnitude is
+# a fact, the level cannot drift further unnoticed, and a one-character "fix"
+# turns the test red ON PURPOSE rather than quietly re-tuning two BER sweeps.
+add_executable(test_dp_dsss native/tests/test_dp_dsss.c)
+target_link_libraries(test_dp_dsss PRIVATE m)
+target_include_directories(test_dp_dsss
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_dsss PRIVATE -O2)
+add_test(NAME test_dp_dsss COMMAND test_dp_dsss)
+
+# native/tests/dp_state_test.h is 12 lines and 31 test files call it -- the
+# highest leverage per line in the family, and the only evidence most
+# serializable objects have that their state interface works. Its macro pastes
+# a PREFIX, so it cannot be tested against a real object without also testing
+# that object; the self-test defines a fake one over the real dp_state.h
+# envelope whose set_state can be switched between correct and three broken
+# implementations, and reads whether the macro noticed from dp_test.h's
+# counters rather than from an exit status.
+#
+# That is how the missing FIDELITY half was found: the macro asserted what
+# set_state RETURNS and never that the restored object carries the state, so a
+# set_state that validated the envelope and restored nothing passed at all 31
+# sites.
+add_executable(test_dp_state native/tests/test_dp_state.c)
+target_include_directories(test_dp_state
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_state PRIVATE -O2)
+add_test(NAME test_dp_state COMMAND test_dp_state)
+
+# native/tests/dp_tx_test.h is the harness STIMULUS SSOT, and docs/design/
+# rx-test.md section 5.4 records it as the ONE place the stimulus rule cannot
+# reach: check_stimulus_sources.py requires every test, validator and example
+# to source stimulus from the library, and this file IS the test layer's
+# stimulus. The gate that polices everyone else is structurally blind to it,
+# and has nowhere to point -- so the conventions it would have checked are
+# asserted here instead.
+#
+# The conventions are the product, not the loop: three C copies and four
+# Python ones differed only in amplitude and level convention, and since a
+# TED's slope goes as A^2 two of them were measuring loop bandwidths ~16x
+# apart while both read as "the RRC BPSK test".
+add_executable(test_dp_tx native/tests/test_dp_tx.c)
+target_link_libraries(test_dp_tx PRIVATE pn_core wfm_dsp_core m)
+target_include_directories(test_dp_tx
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_tx PRIVATE -O2)
+add_test(NAME test_dp_tx COMMAND test_dp_tx)
+
+# native/tests/dp_sym_test.h is the truth-free symbol-quality layer five test
+# files score every receiver through. It is thin -- most entries forward to
+# ber_core/snr_core -- so what is load-bearing is not its arithmetic but the
+# NUMBERS its docstrings state: the -1.4/-7.0/-12.9 dB scatter floors, the
+# EVM ~ -(Es/N0) anchor with no factor of two, and the 2*(5/bn_t + 5/bn_c)
+# settling budget. Other files write fixed thresholds against those, so a
+# drift keeps them passing and changes what they mean.
+#
+# The Monte-Carlo half is the part a closed form cannot establish: a stream at
+# uniformly random phase is generated and measured against the floor, and then
+# against the `< -12.0 dB` assertion the header records as live in
+# the real receiver's every-M loop until 2026-07-27 -- which a fully scattered 8PSK
+# stream passes.
+add_executable(test_dp_sym native/tests/test_dp_sym.c)
+target_link_libraries(test_dp_sym PRIVATE ber_core snr_core mpsk_core m)
+target_include_directories(test_dp_sym
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_sym PRIVATE -O2)
+add_test(NAME test_dp_sym COMMAND test_dp_sym)
+
+# native/tests/dp_test.h is the assertion foundation 97 C test files include.
+# It is the worst place in the tree for an untested thing to sit: a DP_CHECK
+# that stops recording failures does not turn the suite red, it turns it
+# GREEN, and ctest reports 100%. The header replaced 90 hand-rolled CHECK
+# macros in six variants -- one with its condition inverted, twenty whose
+# failure gate had drifted so 75 checks printed FAIL and still exited 0 --
+# and nothing had been watching the replacement.
+#
+# The self-test observes dp_test.h's own counters rather than its exit status,
+# which is how it can assert that a check FAILS without failing itself, and it
+# captures stderr so a deliberate failure never puts a fake FAIL line in a
+# passing test's log.
+add_executable(test_dp_test native/tests/test_dp_test.c)
+# `cabs` on the component-wise-vs-magnitude assertion. gcc at -O2 folds it and
+# needs no libm; the coverage build is clang at -O0 and emits the call, so the
+# omission was invisible to `make test` and red only in `make coverage`.
+target_link_libraries(test_dp_test PRIVATE m)
+target_include_directories(test_dp_test
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_test PRIVATE -O2)
+add_test(NAME test_dp_test COMMAND test_dp_test)
+
+# DP_TEST_END returns, so its three exit paths cannot be tested in-process.
+# Each gets a process, and CTest asserts the status. `nothing` is the one that
+# matters: the zero-assertion floor is the only guard between this suite and a
+# test whose body never ran reading as a pass forever, and nothing had ever
+# run a zero-assertion program to check that the floor fires.
+add_executable(test_dp_test_end native/tests/test_dp_test_end.c)
+target_include_directories(test_dp_test_end
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_test_end PRIVATE -O2)
+add_test(NAME test_dp_test_end_nothing COMMAND test_dp_test_end nothing)
+add_test(NAME test_dp_test_end_fail COMMAND test_dp_test_end fail)
+add_test(NAME test_dp_test_end_pass COMMAND test_dp_test_end pass)
+set_tests_properties(test_dp_test_end_nothing test_dp_test_end_fail
+                     PROPERTIES WILL_FAIL TRUE)
+
 # native/tests/dp_ber_test.h is the error-rate measurement harness every
 # receiver test scores through -- the settling window, the Pfa-gated alignment,
 # inverse binomial sampling and the exact confidence interval. It is header-
@@ -490,6 +894,21 @@ target_include_directories(test_dp_ber
                                    ${CMAKE_SOURCE_DIR}/native/tests)
 target_compile_options(test_dp_ber PRIVATE -O2)
 add_test(NAME test_dp_ber COMMAND test_dp_ber)
+
+# native/tests/dp_rng_test.h is the suite's ONE random source: the data bits
+# every modulated test transmits and the AWGN every receiver test is scored
+# under. It is the single point where one edit moves every BER, EVM and
+# lock-metric number at once -- plausibly, since noise that is slightly wrong
+# still looks like noise. Header-only and owned by no object, so its self-test
+# is registered here alongside the other two. It pins the integer streams
+# exactly and the distributions statistically; the header says why the
+# Gaussians cannot be pinned bit-for-bit across libm implementations.
+add_executable(test_dp_rng native/tests/test_dp_rng.c)
+target_link_libraries(test_dp_rng PRIVATE m)
+target_include_directories(test_dp_rng
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/tests)
+target_compile_options(test_dp_rng PRIVATE -O2)
+add_test(NAME test_dp_rng COMMAND test_dp_rng)
 
 # native/inc/dp_isotime.h formats filename-safe basic-format UTC timestamps.
 # The format is NOT defined there -- it is just-bashit's `iso-8601-basic`, and
@@ -609,7 +1028,7 @@ install(TARGETS doppler_lib
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 # Static lib is a first-class export member → find_package gives consumers
-# `doppler::doppler-static` (pure C, self-contained: only -lm).
+# `doppler::doppler-static` (pure C, self-contained: -lm and -lpthread).
 install(TARGETS doppler_lib_static
     EXPORT doppler-targets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

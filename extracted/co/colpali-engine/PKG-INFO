@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: colpali_engine
-Version: 0.3.17
+Version: 0.3.18
 Summary: The code used to train and run inference with the ColPali architecture.
 Project-URL: homepage, https://github.com/illuin-tech/colpali
 Author-email: Manuel Faysse <manuel.faysse@illuin.tech>, Hugues Sibille <hugues.sibille@illuin.tech>, Tony Wu <tony.wu@illuin.tech>
@@ -14,11 +14,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <3.15,>=3.10
 Requires-Dist: numpy
-Requires-Dist: peft<0.20.0,>=0.18.0
+Requires-Dist: peft<0.21.0,>=0.18.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: requests
 Requires-Dist: scipy
-Requires-Dist: torch<2.12.0,>=2.2.0
+Requires-Dist: torch<2.14.0,>=2.2.0
 Requires-Dist: torchvision
 Requires-Dist: transformers<6.0.0,>=5.3.0
 Provides-Extra: all
@@ -27,10 +27,12 @@ Requires-Dist: bitsandbytes; extra == 'all'
 Requires-Dist: configue>=5.0.0; extra == 'all'
 Requires-Dist: datasets>=2.19.1; extra == 'all'
 Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'all'
+Requires-Dist: fast-plaid<2.0.0,>=1.4.7; extra == 'all'
+Requires-Dist: fastkmeans; extra == 'all'
 Requires-Dist: late-interaction-kernels<0.5.0,>=0.4.1; extra == 'all'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'all'
 Requires-Dist: mteb<3,>=1.16.3; extra == 'all'
-Requires-Dist: pillow<12.3.0,>=10.0.0; extra == 'all'
+Requires-Dist: pillow<12.4.0,>=10.0.0; extra == 'all'
 Requires-Dist: pytest>=8.0.0; extra == 'all'
 Requires-Dist: ruff>=0.4.0; extra == 'all'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'all'
@@ -44,13 +46,16 @@ Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'interpretability'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'interpretability'
 Provides-Extra: lik
 Requires-Dist: late-interaction-kernels<0.5.0,>=0.4.1; extra == 'lik'
+Provides-Extra: plaid
+Requires-Dist: fast-plaid<2.0.0,>=1.4.7; extra == 'plaid'
+Requires-Dist: fastkmeans; extra == 'plaid'
 Provides-Extra: train
 Requires-Dist: accelerate<2.0.0,>=1.1.0; extra == 'train'
 Requires-Dist: bitsandbytes; extra == 'train'
 Requires-Dist: configue>=5.0.0; extra == 'train'
 Requires-Dist: datasets>=2.19.1; extra == 'train'
 Requires-Dist: mteb<3,>=1.16.3; extra == 'train'
-Requires-Dist: pillow<12.3.0,>=10.0.0; extra == 'train'
+Requires-Dist: pillow<12.4.0,>=10.0.0; extra == 'train'
 Requires-Dist: typer>=0.15.1; extra == 'train'
 Description-Content-Type: text/markdown
 
@@ -175,10 +180,10 @@ with torch.no_grad():
 scores = processor.score_multi_vector(query_embeddings, image_embeddings)
 ```
 
-We now support `fast-plaid` experimentally to make matching quicker for larger corpus sizes:
+We support `fast-plaid` to make matching quicker for larger corpus sizes. Install it with the `plaid` extra:
 
 ```python
-# !pip install --no-deps fast-plaid fastkmeans
+# !pip install "colpali-engine[plaid]"
 
 # Process the inputs by batches of 4
 dataloader = DataLoader(

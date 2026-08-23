@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wemake-python-styleguide
-Version: 1.7.1
+Version: 1.8.0
 Summary: The strictest and most opinionated python linter ever
 License: MIT
 License-File: LICENSE
@@ -23,8 +23,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
+Provides-Extra: mcp
 Requires-Dist: attrs
 Requires-Dist: flake8 (>=7.3,<8.0)
+Requires-Dist: mcp[cli] (>=2.0,<3.0) ; extra == "mcp"
 Requires-Dist: pygments (>=2.19,<3.0)
 Project-URL: Funding, https://opencollective.com/wemake-python-styleguide
 Project-URL: Homepage, https://wemake-python-styleguide.rtfd.io
@@ -72,9 +74,22 @@ We highly recommend to also use:
 
 - [ondivi](https://wemake-python-styleguide.rtfd.io/en/latest/pages/usage/integrations/ondivi.html) for easy integration into a **legacy** codebase
 
+
+## AI Features
+
+`wemake-python-styleguide` works natively with AI tools,
+it is great for improving agents' code quality.
+
+Skills:
+- [`/wps`](https://github.com/wemake-services/wemake-python-styleguide/blob/master/.agents/skills/wps.md) to run better Python code that passes `wemake-python-styleguide`
+
+MCPs:
+- [wps](https://wemake-python-styleguide.readthedocs.io/en/latest/pages/usage/cli.html#mcp-server) MCP helps with explaining violations and provide context on how to fix them
+
 Additional contexts for LLMs:
-- https://wemake-python-styleguide.readthedocs.io/llms.txt
-- https://wemake-python-styleguide.readthedocs.io/llms-full.txt
+- [Context7](https://context7.com/wemake-services/wemake-python-styleguide)
+- [`llms.txt`](https://wemake-python-styleguide.readthedocs.io/llms.txt)
+- [`llms-full.txt`](https://wemake-python-styleguide.readthedocs.io/llms-full.txt)
 
 
 ## Running

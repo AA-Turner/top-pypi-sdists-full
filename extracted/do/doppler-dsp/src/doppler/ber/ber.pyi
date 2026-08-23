@@ -19,11 +19,11 @@ class BerInterval(tuple[float, float, float, float, float, int, int]):
     rel : float
         Relative standard error `1/sqrt(r)`.
     conf : float
-        Two-sided confidence level.
+        config: confidence level for the interval
     errors : int
-        Symbol errors counted.
+        running: frames not delivered
     symbols : int
-        Symbols scored.
+        `N` (or bits, for a BER).
     """
 
     @property
@@ -44,15 +44,15 @@ class BerInterval(tuple[float, float, float, float, float, int, int]):
 
     @property
     def conf(self) -> float:
-        """Two-sided confidence level."""
+        """config: confidence level for the interval"""
 
     @property
     def errors(self) -> int:
-        """Symbol errors counted."""
+        """running: frames not delivered"""
 
     @property
     def symbols(self) -> int:
-        """Symbols scored."""
+        """`N` (or bits, for a BER)."""
 
 @final
 class BerMeter:
@@ -66,6 +66,12 @@ class BerMeter:
         Inverse-binomial stop condition; 0 selects 200.
     conf : float, default 0.99
         Two-sided confidence level; 0 selects 0.99.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``m must be 2, 4 or 8
+        and conf must lie in (0, 1)``.
 
     Examples
     --------
@@ -129,6 +135,12 @@ class BerMeter:
         ----------
         truth : NDArray[np.uint8]
             Transmitted symbol indices, each in `0..m-1`.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_truth failed``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -586,6 +598,283 @@ class BerMeter:
             Traceback object, or None. Ignored.
         """
 
+@final
+class FrameMeter:
+    """Create an accumulator.
+
+    Parameters
+    ----------
+    target_errors : int, default 200
+        frame errors to accumulate before `enough`; 0 is taken as
+        BER_TARGET_ERRORS.
+    conf : float, default 0.99
+        confidence level in (0, 1); 0 is taken as BER_CONF.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``conf must lie in (0,
+        1)``.
+
+    Examples
+    --------
+    Create with defaults:
+
+    >>> from doppler.ber import FrameMeter
+    >>> obj = FrameMeter(target_errors=200, conf=0.99)
+
+    """
+    def __init__(
+        self,
+        target_errors: int = ...,
+        conf: float = ...,
+    ) -> None: ...
+
+    def reset(self) -> None:
+        """Clear every counter; the configuration is untouched.
+
+        The target and the confidence level are what the caller asked for, so
+        resetting the accumulation must not silently re-negotiate them. Use it
+        between records, or to discard a run that turned out to be measuring
+        the wrong thing.
+
+        Examples
+        --------
+        >>> from doppler.ber import FrameMeter
+        >>> met = FrameMeter(target_errors=10)
+        >>> met.add(1, 0)
+        >>> met.frames, met.errors
+        (1, 1)
+        >>> met.reset()
+        >>> met.frames, met.errors
+        (0, 0)
+
+        """
+
+    def add(self, sync_ok: int, crc: int) -> None:
+        """Record one frame's outcome. `sync_ok` is the DETECTOR's own decision
+        (ber_align_t.ok, or burst_demod's frame offset validity) -- never a
+        threshold applied afterwards to a statistic. `crc` is
+        wfm_frame_crc_ok()'s return passed straight through: 1 pass, 0 fail, -1
+        the frame carries no CRC. A frame is an error when its sync was not
+        detected, or when it was and the CRC failed; with no CRC carried, a
+        detected frame counts as delivered, because counting it as an error
+        would measure the frame format rather than the receiver.
+
+        Parameters
+        ----------
+        sync_ok : int
+            non-zero when the frame's sync word was detected. Pass the
+            detector's own decision — `ber_align_t::ok`, or `burst_demod`'s
+            frame_offset validity — never a threshold applied afterwards to a
+            statistic.
+        crc : int
+            `wfm_frame_crc_ok()`'s return, passed straight through: 1 pass, 0
+            fail, -1 the frame carries no CRC. A frame counts as an error when
+            its sync was not detected, or when it was and the CRC failed. With
+            `crc = -1` a detected frame counts as delivered, because nothing
+            about it can be checked.
+
+        Examples
+        --------
+        >>> from doppler.ber import FrameMeter
+        >>> met = FrameMeter(target_errors=10)
+        >>> met.add(1, 1)    # found, and it checked
+        >>> met.add(1, 0)    # found, and the CRC failed
+        >>> met.add(0, 0)    # never found: still a frame you did not deliver
+        >>> met.add(1, -1)   # found, no CRC: delivered but not CHECKED
+        >>> met.frames, met.sync_detected, met.crc_passed, met.errors
+        (4, 3, 1, 2)
+
+        """
+
+    def fer(self) -> BerInterval:
+        """Frame error rate with its exact interval, as a BerInterval. Assert
+        on `lo`, never on `p_hat`: comparing the lower limit against a spec is
+        the form that cannot flake on counting noise. A frame that was never
+        detected counts as an error -- a frame you did not detect is a frame
+        you did not deliver.
+
+        `ber_confidence(errors, frames, conf)` — the same interval `ber_meter`
+        reports, which is generic over trials and therefore applies to frames
+        unchanged. Assert on `lo`, never on `p_hat`.
+
+        Returns
+        -------
+        BerInterval
+            the rate with its exact interval.
+
+        Examples
+        --------
+        >>> from doppler.ber import FrameMeter
+        >>> met = FrameMeter(target_errors=4)
+        >>> for i in range(20):
+        ...     met.add(1, 0 if i % 5 == 0 else 1)
+        >>> met.enough
+        1
+        >>> fer = met.fer()
+        >>> round(fer.p_hat, 3), fer.lo < fer.p_hat < fer.hi
+        (0.158, True)
+
+        """
+
+    def sync_miss(self) -> BerInterval:
+        """Sync MISS rate with its exact interval, as a BerInterval. Reported
+        as a miss rather than a detection rate so it is an ERROR rate like
+        every other number in this module and the same interval applies
+        unchanged. This is what turns 'is this sync word long enough at this
+        Es/N0' into a measurement rather than a judgement.
+
+        Reported as a miss rate rather than a detection rate so it is an ERROR
+        rate like every other number here, and so the same interval applies
+        without reinterpretation. **This is what turns "is this sync word long
+        enough at this Es/N0" into a measurement** — `ber_align_detect()`
+        already returns `margin_db` and `runner_db` per attempt, and
+        accumulating the decisions is what answers the question with a number.
+
+        Returns
+        -------
+        BerInterval
+            the miss rate with its exact interval.
+
+        Examples
+        --------
+        >>> from doppler.ber import FrameMeter
+        >>> met = FrameMeter()
+        >>> for i in range(50):
+        ...     met.add(0 if i % 10 == 0 else 1, 1)
+        >>> met.frames, met.sync_detected
+        (50, 45)
+        >>> miss = met.sync_miss()
+        >>> round(miss.p_hat, 3), miss.hi > miss.p_hat
+        (0.082, True)
+
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the FrameMeter has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the FrameMeter has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the FrameMeter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def frames(self) -> int:
+        """Frames attempted."""
+
+    @property
+    def sync_detected(self) -> int:
+        """Frames whose sync word was detected."""
+
+    @property
+    def crc_passed(self) -> int:
+        """Frames whose CRC checked."""
+
+    @property
+    def errors(self) -> int:
+        """Frames not delivered: no sync detected, or a failed CRC."""
+
+    @property
+    def enough(self) -> int:
+        """True once `target_errors` frame errors have accumulated -- the
+        stopping condition, so a caller loops records until the measurement has
+        the precision it asked for rather than until a frame count someone
+        guessed.
+        """
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "FrameMeter":
+        """Enter a context manager, returning this object.
+
+        Lets a FrameMeter be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        FrameMeter
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
+        """Exit a context manager, releasing the FrameMeter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
 def ber_theory_ser(m: int, esn0: float) -> float:
     """Coherent M-PSK symbol error rate at matched-filter Es/N0 (LINEAR,
     not dB). BPSK Q(sqrt(2 Es/N0)); QPSK 2Q(sqrt(Es/N0)); 8PSK 2Q(sqrt(2
@@ -707,8 +996,7 @@ def ber_settle_syms(bn_timing: float, bn_carrier: float) -> int:
     carrier discriminator reads the on-time strobe, so it cannot converge
     until timing has); and the sum DOUBLES for joint tracking. This is a
     FLOOR, not the answer: take the max of it and every lock indicator the
-    receiver publishes, plus the handover instant again if one is enabled.
-    Pass a loop's bn as 0 if it is not running.
+    receiver publishes. Pass a loop's bn as 0 if it is not running.
 
     `2 * (5/bn_timing + 5/bn_carrier)`. Three factors, and skipping any of
     them produces a confident wrong number: 5/Bn per loop is the standard
@@ -830,41 +1118,41 @@ def ber_settle_from(
     budget: int,
     timing_lock: int = -1,
     carrier_lock: int = -1,
-    handover: int = -1,
 ) -> int:
     """Where a steady-state measurement may start: max(budget, timing lock,
-    carrier lock, handover + budget). The analytic budget and the
-    receiver's own indicators are both fallible in the SAME direction, so
-    whichever settles last decides. A handover settles last of all -- it
-    fires on carrier lock plus a warmup, strictly after every other term,
-    and the decision-directed loop then has its own transient, so it
-    contributes its instant PLUS the budget again (measured on 8PSK:
-    handover at symbol 2525 against a 2000-symbol budget, SER 5.95x the
-    coherent bound from 2000 versus 1.68x from 4525). Pass -1 for an
-    indicator the receiver does not publish, which is what
-    ber_lock_symbol() returns for 'never locked'. A -1 timing or carrier
-    lock means there is NO valid steady-state window -- check that yourself
-    before trusting the return; a -1 handover is not a failure, since a
-    pure-NDA receiver never publishes one.
+    carrier lock). The analytic budget and the receiver's own indicators
+    are both fallible in the SAME direction, so whichever settles last
+    decides. There was a fourth term until doppler#877: a receiver that
+    handed the carrier from an NDA discriminator to a decision-directed one
+    settled last of all, contributing its instant PLUS the budget again
+    (measured on 8PSK: handover at symbol 2525 against a 2000-symbol
+    budget, and 5.95x the coherent bound if the window started at 2000
+    rather than 4525). No receiver in this library hands over any more, so
+    the term went with the handover rather than remaining as an argument
+    that could only be passed -1. Pass -1 for an indicator the receiver
+    does not publish, which is what ber_lock_symbol() returns for 'never
+    locked'. A -1 timing or carrier lock means there is NO valid
+    steady-state window -- check that yourself before trusting the return.
 
     The POLICY for where a steady-state window may start, in one place:
-    `max(budget, timing lock, carrier lock, handover + budget)`. The
-    analytic budget and the receiver's own indicators are both fallible in
-    the SAME direction, so whichever settles last decides.
+    `max(budget, timing lock, carrier lock)`. The analytic budget and the
+    receiver's own indicators are both fallible in the SAME direction, so
+    whichever settles last decides.
 
-    **A handover settles last of all.** With `acq_to_track` on it fires on
-    carrier lock plus a warmup — strictly after the budget and after every
-    lock indicator — and the decision-directed loop then has its own
-    transient, so it contributes `its instant + the budget again`. Measured
-    on 8PSK at its SER=1e-3 anchor: handover at symbol 2525 against a
-    2000-symbol budget, SER 5.95x the coherent bound measured from 2000 and
-    1.68x from 4525.
+    There was a fourth term until doppler#877. A receiver that handed the
+    carrier from an NDA discriminator to a decision-directed one settled
+    last of all — the handover fired after every lock indicator and the new
+    loop then had its own transient, so it contributed `its instant + the
+    budget again` (measured on 8PSK at its SER=1e-3 anchor: handover at
+    symbol 2525 against a 2000-symbol budget, and 5.95x the coherent bound
+    if the window started at 2000 rather than 4525). No receiver in this
+    library hands over any more, so the term went with the handover rather
+    than remaining as an argument that could only be passed -1.
 
     Pass -1 for any indicator the receiver does not publish (which is what
     ber_lock_symbol() returns for "never locked"). **A -1 timing or carrier
     lock means there is NO valid steady-state window** — check that
-    yourself before trusting the return; a -1 handover is not a failure,
-    because a pure-NDA receiver never publishes one.
+    yourself before trusting the return.
 
     Parameters
     ----------
@@ -874,8 +1162,6 @@ def ber_settle_from(
         ber_lock_symbol() of the timing flag, or -1.
     carrier_lock : int
         ber_lock_symbol() of the carrier flag, or -1.
-    handover : int
-        ber_lock_symbol() of the tracking flag, or -1.
 
     Returns
     -------

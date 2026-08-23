@@ -377,7 +377,22 @@ static PyMethodDef CaptureObj_methods[] = {
     "    Upper bound on the output length; the actual call may return "
     "fewer.\n" },
   { "summary", (PyCFunction)CaptureObj_summary, METH_VARARGS,
-    "summary() -> CaptureSummary record (num_samples, fs_hz, fc_hz)." },
+    "summary() -> CaptureSummary record (num_samples, fs_hz, fc_hz)\n"
+    "\n"
+    "Returns one CaptureSummary record.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "CaptureSummary\n"
+    "    Output.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    "    >>> from iqtools import Capture\n"
+    "    >>> obj = Capture(path=...)\n"
+    "    >>> rec = obj.summary()\n"
+    "    >>> rec.num_samples is not None\n"
+    "    True\n" },
   { "destroy", (PyCFunction)CaptureObj_destroy, METH_NOARGS,
     "Release the underlying C resources immediately.\n"
     "\n"
@@ -423,7 +438,19 @@ static PyTypeObject CaptureObjType = {
   .tp_basicsize                           = sizeof (CaptureObject),
   .tp_dealloc                             = (destructor)CaptureObj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc                                 = "Capture type.\n",
+  .tp_doc                                 = "Capture component.\n"
+                                            "\n"
+                                            "Parameters\n"
+                                            "----------\n"
+                                            "path : str | os.PathLike\n"
+                                            "    path constructor parameter (required).\n"
+                                            "\n"
+                                            "Raises\n"
+                                            "------\n"
+                                            "ValueError\n"
+                                            "    If construction fails. The exception message is ``cannot "
+                                            "open capture:\n"
+                                            "    no such file, or an unrecognised file type``.\n",
   .tp_methods                             = CaptureObj_methods,
   .tp_getset                              = Capture_getset,
   .tp_new                                 = CaptureObj_new,

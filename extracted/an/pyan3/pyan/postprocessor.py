@@ -272,7 +272,7 @@ def cull_subsumed(visitor):
     defined in its own file also uses ``T``, or ``T`` is a module and ``S``
     also uses something anywhere under it.
 
-    Only modules widen. An edge whose target is a module came from an
+    Only a module narrows. An edge whose target is a module came from an
     ``import``, and says nothing a finer edge into that module does not
     already say; an edge whose target is a class is a constructor call, and
     stands on its own. The same asymmetry holds on the source side: a module's
@@ -311,19 +311,19 @@ def cull_subsumed(visitor):
     def is_subsumed(from_node, to_node):
         """Is there a finer edge carrying the same dependency?
 
-        Exactly one end widens per test. Widening both at once would let an
-        edge between two unrelated nodes stand in for this one: for a package
-        importing its own subpackage, ``S`` contains ``T``, so a module inside
-        the subpackage importing its neighbour would qualify — an edge that is
-        not ``S``'s code and does not reach ``T``.
+        Exactly one end narrows per test. Narrowing both at once would accept
+        an edge between two unrelated nodes as evidence for this one: for a
+        package importing its own subpackage, ``S`` contains ``T``, so a
+        module inside the subpackage importing its neighbour would qualify —
+        an edge that is not ``S``'s code and does not reach ``T``.
         """
-        widened_sources = members[from_node.get_name()] if from_node.flavor == Flavor.MODULE else ()
-        widened_targets = within[to_node.get_name()] if to_node.flavor == Flavor.MODULE else ()
+        narrower_sources = members[from_node.get_name()] if from_node.flavor == Flavor.MODULE else ()
+        narrower_targets = within[to_node.get_name()] if to_node.flavor == Flavor.MODULE else ()
         return (
             # something in the module's own file reaches the same target
-            any(to_node in visitor.uses_edges.get(s, ()) for s in widened_sources) or
+            any(to_node in visitor.uses_edges.get(s, ()) for s in narrower_sources) or
             # this same source reaches somewhere inside the module
-            any(t in widened_targets for t in visitor.uses_edges.get(from_node, ()))
+            any(t in narrower_targets for t in visitor.uses_edges.get(from_node, ()))
         )
 
     # Decide against the original graph, then remove; culling as we go would

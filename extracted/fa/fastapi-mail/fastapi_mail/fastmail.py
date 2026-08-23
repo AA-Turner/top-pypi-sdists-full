@@ -71,9 +71,8 @@ class FastMail(_MailMixin):
         self, message: MessageSchema, template: Optional[Template] = None
     ) -> Union[EmailMessage, Message]:
         if template and message.template_body is not None:
-            message.template_body = await self._template_message_builder(
-                message, template
-            )
+            rendered = await self._template_message_builder(message, template)
+            message = message.model_copy(update={"template_body": rendered})
         msg = MailMsg(message)
         sender = await self._sender(message)
         return await msg._message(sender)
@@ -88,13 +87,13 @@ class FastMail(_MailMixin):
         html = html_template.render(**template_data)
         plain = plain_template.render(**template_data)
 
-        message.multipart_subtype = MultipartSubtypeEnum.alternative
-        if message.subtype == MessageType.html:
-            message.template_body = html
-            message.alternative_body = plain
-        else:
-            message.template_body = plain
-            message.alternative_body = html
+        template_body = html if message.subtype == MessageType.html else plain
+        alternative_body = plain if message.subtype == MessageType.html else html
+        message = message.model_copy(update={
+            "multipart_subtype": MultipartSubtypeEnum.alternative,
+            "template_body": template_body,
+            "alternative_body": alternative_body,
+        })
 
         msg = MailMsg(message)
         sender = await self._sender(message)
@@ -112,7 +111,7 @@ class FastMail(_MailMixin):
     async def _sender(self, message: MessageSchema) -> Union[EmailStr, str]:
         sender = message.from_email or self.config.MAIL_FROM
         if (from_name := message.from_name or self.config.MAIL_FROM_NAME) is not None:
-            return formataddr((from_name, sender))
+            return formataddr((from_name, sender), charset="utf-8")
         return sender
 
     async def send_message(
@@ -127,6 +126,36 @@ class FastMail(_MailMixin):
             messages, template_name, html_template, plain_template
         )
         await self.__send_prepared_messages(prepared_messages)
+
+    async def get_message(
+        self,
+        message: Union[MessageSchema, list[MessageSchema]],
+        template_name: Optional[str] = None,
+        html_template: Optional[str] = None,
+        plain_template: Optional[str] = None,
+    ) -> Union[EmailMessage, Message, list[Union[EmailMessage, Message]]]:
+        """
+        Build and return the prepared email message(s) without sending them.
+
+        This runs the exact same preparation pipeline as ``send_message``
+        (template rendering, sender resolution and MIME construction), but
+        returns the resulting ``email.message.Message`` object(s) instead of
+        delivering them. It lets callers sign the message (e.g. S/MIME or DKIM)
+        or otherwise post-process it before sending it through their own
+        transport.
+
+        A single ``MessageSchema`` returns a single message; a list of
+        ``MessageSchema`` returns a list of messages in the same order.
+
+        See https://github.com/sabuhish/fastapi-mail/issues/234
+        """
+        messages = self.__normalize_messages(message)
+        prepared_messages = await self.__prepare_messages_for_sending(
+            messages, template_name, html_template, plain_template
+        )
+        if isinstance(message, list):
+            return prepared_messages
+        return prepared_messages[0]
 
     def __normalize_messages(
         self, message: Union[MessageSchema, list[MessageSchema]]
