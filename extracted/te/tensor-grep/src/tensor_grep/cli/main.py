@@ -24,11 +24,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
-# Rich's legacy Windows renderer can raise EINVAL when long help is piped through
-# PowerShell. Disable Typer/Rich help before Typer imports when stdout is not a TTY.
-if sys.platform.startswith("win") and not sys.stdout.isatty():
-    os.environ.setdefault("TYPER_USE_RICH", "0")
-
 import click
 import typer
 from typer.core import TyperGroup
@@ -1758,6 +1753,27 @@ def _execute_find(
     return result
 
 
+def _deadline_option(help_text: str) -> Any:
+    """The `--deadline` option, declared once.
+
+    This flag was declared **20 separate times** in this file, each an identical 10-line
+    `typer.Option(None, "--deadline", min=0.1, help=...)` differing only in its help string --
+    204 lines of pure duplication in a module the file-size ratchet forbids from growing. That
+    duplication is what made adding the flag to a 21st command (`blast-radius-render`, PR #1102)
+    impossible: the ratchet was correctly refusing a file whose bulk was copy-paste, and the
+    honest fix was to delete the duplication rather than shave the new declaration until it fit.
+
+    `help_text` is a REQUIRED parameter, not a shared default. Each command's wording is
+    user-facing and pinned by contract tests; collapsing 12 distinct explanations into one generic
+    sentence would be a behaviour change wearing a refactor's name. The duplication worth removing
+    was the option MACHINERY -- the wording is not duplication, it is content.
+
+    Keeping `min=0.1` here makes the floor uniform by construction instead of by 20 people
+    remembering it.
+    """
+    return typer.Option(None, "--deadline", min=0.1, help=help_text)
+
+
 @app.command()
 def find(
     query: str = typer.Argument(..., help="Natural-language or keyword query to search for."),
@@ -1778,15 +1794,8 @@ def find(
             "(0 = unbounded)."
         ),
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the repo walk/chunk phase after N seconds and return ranked results over the "
-            "partial corpus scanned so far (result_incomplete=true, exit 2) instead of running "
-            "unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the repo walk/chunk phase after N seconds and return ranked results over the partial corpus scanned so far (result_incomplete=true, exit 2) instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     ndjson: bool = typer.Option(
@@ -4700,15 +4709,8 @@ def map(
         min=1,
         help="Maximum repo files to scan before returning. Defaults to the agent-safe 512-file cap.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return a partial map "
-            "(partial=true, deadline_limit) with whatever was found so far, instead of running "
-            "unbounded. Unlike `codemap`, no bound is applied by default -- pass --deadline to opt in."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return a partial map (partial=true, deadline_limit) with whatever was found so far, instead of running unbounded. Unlike `codemap`, no bound is applied by default -- pass --deadline to opt in."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -4769,15 +4771,8 @@ def inventory(
         min=1,
         help="Maximum repo files to scan before truncating (walk-only; defaults to 50000).",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the inventory scan after N seconds and return a partial manifest labeled "
-            "scan_limit.truncation_cause='deadline' (counts are a floor), instead of running unbounded "
-            "on a huge tree."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the inventory scan after N seconds and return a partial manifest labeled scan_limit.truncation_cause='deadline' (counts are a floor), instead of running unbounded on a huge tree."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
@@ -4874,14 +4869,8 @@ def docs_coverage(
         help="Exit non-zero when any file is uncovered (or, with --stale, any reference is stale) "
         "-- turns docs-coverage into a CI doc-drift gate. Respects --ignore.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
 ) -> None:
     """List source files not referenced by any governing doc (CLAUDE.md/README/AGENTS.md)."""
@@ -4999,19 +4988,8 @@ def orient(
             "a hard exclude."
         ),
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry (not just the underlying repo "
-            "scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this "
-            "command body runs), and return a partial capsule with whatever was found so far, "
-            "instead of running unbounded. `tg orient` has NO exit-2 "
-            "contract: a truncated scan still exits 0, surfacing partial/deadline_limit as "
-            "informational fields only (never a retry signal). Pass --no-deadline to keep the "
-            "(already default) unbounded behavior explicit."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop after N seconds, measured from CLI command entry (not just the underlying repo scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this command body runs), and return a partial capsule with whatever was found so far, instead of running unbounded. `tg orient` has NO exit-2 contract: a truncated scan still exits 0, surfacing partial/deadline_limit as informational fields only (never a retry signal). Pass --no-deadline to keep the (already default) unbounded behavior explicit."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -5264,15 +5242,8 @@ def context(
         min=0,
         help="Bound the context pack to ~N tokens for prompt injection (0 = unbounded).",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return a partial pack "
-            "(partial=true, deadline_limit) with whatever was found so far, instead of running "
-            "unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return a partial pack (partial=true, deadline_limit) with whatever was found so far, instead of running unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -5689,17 +5660,8 @@ def context_render(
     profile: bool = typer.Option(
         False, "--profile", help="Include per-phase profiling in JSON output."
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry (not just the underlying repo "
-            "scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this "
-            "command body runs), and return a partial bundle "
-            "(partial=true, deadline_limit) with whatever was found so far, instead of running "
-            "unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop after N seconds, measured from CLI command entry (not just the underlying repo scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this command body runs), and return a partial bundle (partial=true, deadline_limit) with whatever was found so far, instead of running unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -5938,18 +5900,8 @@ def agent(
             "otherwise rank as the primary target on a harness repo. Repeatable."
         ),
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry (not just the underlying repo "
-            "scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this "
-            "command body runs), and return a partial capsule "
-            "(partial=true, deadline_limit) with whatever was found so far, instead of running "
-            "unbounded. The cold path (no running session daemon) defaults to 60s so a huge repo "
-            "can't hang an agent loop; pass --no-deadline to disable the bound."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop after N seconds, measured from CLI command entry (not just the underlying repo scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this command body runs), and return a partial capsule (partial=true, deadline_limit) with whatever was found so far, instead of running unbounded. The cold path (no running session daemon) defaults to 60s so a huge repo can't hang an agent loop; pass --no-deadline to disable the bound."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -6175,17 +6127,8 @@ def edit_plan(
     profile: bool = typer.Option(
         False, "--profile", help="Include per-phase profiling in JSON output."
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry (not just the underlying repo "
-            "scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this "
-            "command body runs), and return a partial plan "
-            "(partial=true, deadline_limit) with whatever was found so far, instead of running "
-            "unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop after N seconds, measured from CLI command entry (not just the underlying repo scan -- excludes only the ~100-200ms interpreter-startup/dispatch prefix before this command body runs), and return a partial plan (partial=true, deadline_limit) with whatever was found so far, instead of running unbounded. Pass --no-deadline to keep the (already default) unbounded behavior explicit."
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -6589,18 +6532,8 @@ def route_test(
     profile: bool = typer.Option(
         False, "--profile", help="Include per-route profiling in the compared builders."
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry, and mark the result partial "
-            '(partial=true, agreement_basis="partial") with whatever was found so far instead '
-            "of running unbounded. route-test runs the FULL context-render AND edit-plan builds "
-            "back to back, so -- unlike context-render/edit-plan, which stay unbounded by default "
-            "-- it defaults to 60s (mirrors tg agent's cold-path default) rather than running "
-            "unbounded. Pass --no-deadline to disable the bound."
-        ),
+    deadline: float | None = _deadline_option(
+        'Stop after N seconds, measured from CLI command entry, and mark the result partial (partial=true, agreement_basis="partial") with whatever was found so far instead of running unbounded. route-test runs the FULL context-render AND edit-plan builds back to back, so -- unlike context-render/edit-plan, which stay unbounded by default -- it defaults to 60s (mirrors tg agent\'s cold-path default) rather than running unbounded. Pass --no-deadline to disable the bound.'
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -6716,18 +6649,8 @@ def prepare(
             "coordination.claim.submitted stays false and nothing is written."
         ),
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop after N seconds, measured from CLI command entry, and mark the result partial "
-            '(partial=true, partial_reason="deadline") with whatever was found so far instead of '
-            "running unbounded. prepare runs the full agent capsule build PLUS a blast-radius "
-            "floor scan, so -- like route-test -- it defaults to 60s (mirrors tg agent's "
-            "cold-path default) rather than running unbounded. Pass --no-deadline to disable the "
-            "bound."
-        ),
+    deadline: float | None = _deadline_option(
+        'Stop after N seconds, measured from CLI command entry, and mark the result partial (partial=true, partial_reason="deadline") with whatever was found so far instead of running unbounded. prepare runs the full agent capsule build PLUS a blast-radius floor scan, so -- like route-test -- it defaults to 60s (mirrors tg agent\'s cold-path default) rather than running unbounded. Pass --no-deadline to disable the bound.'
     ),
     no_deadline: bool = typer.Option(
         False,
@@ -7517,14 +7440,8 @@ def defs(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
@@ -7618,14 +7535,8 @@ def source(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
@@ -7685,14 +7596,8 @@ def impact(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     max_tests: int | None = typer.Option(
         _DEFAULT_SYMBOL_MAX_TESTS,
@@ -7890,14 +7795,8 @@ def refs(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     max_tests: int | None = typer.Option(
         _DEFAULT_SYMBOL_MAX_TESTS,
@@ -7997,14 +7896,8 @@ def callers(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     max_tests: int | None = typer.Option(
         _DEFAULT_SYMBOL_MAX_TESTS,
@@ -8091,11 +7984,8 @@ def callers(
 @app.command()
 def imports(
     file: str = typer.Argument(..., help="File to inspect for its own imports."),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help="Accepted for interface parity; single-file dependency read, no repo scan to bound.",
+    deadline: float | None = _deadline_option(
+        "Accepted for interface parity; single-file dependency read, no repo scan to bound."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
@@ -8163,14 +8053,8 @@ def importers(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
@@ -8401,14 +8285,8 @@ def blast_radius(
         min=1,
         help="Maximum impacted files to include in output; raise for fuller broad impact analysis.",
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     mermaid_output: bool = typer.Option(
@@ -8589,6 +8467,15 @@ def blast_radius_render(
     profile: bool = typer.Option(
         False, "--profile", help="Include per-phase profiling in JSON output."
     ),
+    deadline: float | None = typer.Option(
+        None,
+        "--deadline",
+        min=0.1,
+        help=(
+            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
+            "whatever was found so far, instead of running unbounded."
+        ),
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a prompt-ready blast-radius bundle for a symbol.
@@ -8597,7 +8484,10 @@ def blast_radius_render(
     (callers/caller_tree/affected_files/blast_radius_score), use
     `tg blast-radius SYMBOL --json` instead -- it is faster and agent-consumable.
     """
-    from tensor_grep.cli.repo_map import build_symbol_blast_radius_render
+    from tensor_grep.cli.repo_map import (
+        _deadline_monotonic_from_seconds,
+        build_symbol_blast_radius_render,
+    )
 
     try:
         resolved_path, resolved_symbol = _resolve_path_and_symbol(
@@ -8608,6 +8498,7 @@ def blast_radius_render(
         )
         resolved_render_profile = render_profile or ("llm" if json_output else "full")
         resolved_optimize_context = optimize_context or (json_output and render_profile is None)
+        deadline_monotonic = _deadline_monotonic_from_seconds(deadline)
 
         payload = build_symbol_blast_radius_render(
             resolved_symbol,
@@ -8622,6 +8513,7 @@ def blast_radius_render(
             profile=profile,
             semantic_provider=provider,
             max_repo_files=max_repo_files,
+            deadline_monotonic=deadline_monotonic,
         )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)
@@ -8672,14 +8564,8 @@ def blast_radius_plan(
     max_symbols: int = typer.Option(
         5, "--max-symbols", min=1, help="Maximum ranked symbols to retain in the plan payload."
     ),
-    deadline: float | None = typer.Option(
-        None,
-        "--deadline",
-        min=0.1,
-        help=(
-            "Stop the underlying repo scan after N seconds and return partial:true JSON with "
-            "whatever was found so far, instead of running unbounded."
-        ),
+    deadline: float | None = _deadline_option(
+        "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:

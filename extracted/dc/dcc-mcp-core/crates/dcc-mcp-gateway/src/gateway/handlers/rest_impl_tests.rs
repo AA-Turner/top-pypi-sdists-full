@@ -37,7 +37,7 @@ impl crate::gateway::middleware::BeforeCallMiddleware for ReplaceArgs {
     }
 }
 
-pub(super) fn test_gateway_state(server_version: &str) -> GatewayState {
+pub(crate) fn test_gateway_state(server_version: &str) -> GatewayState {
     test_gateway_state_with_debug_routes(server_version, false)
 }
 
@@ -46,10 +46,12 @@ fn test_gateway_state_with_debug_routes(
     debug_routes_enabled: bool,
 ) -> GatewayState {
     let dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
     let (yield_tx, _) = watch::channel(false);
     let (events_tx, _) = broadcast::channel::<String>(8);
     GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -118,7 +120,7 @@ fn test_gateway_state_with_lifecycle(
     state
 }
 
-pub(super) async fn response_json(resp: Response) -> (StatusCode, Value) {
+pub(crate) async fn response_json(resp: Response) -> (StatusCode, Value) {
     let status = resp.status();
     let headers = resp.headers().clone();
     let bytes = to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
@@ -324,7 +326,7 @@ async fn seed_policy_records(gs: &GatewayState) -> (String, String, String, Stri
     let maya = uuid::Uuid::parse_str("abcdef01-2345-6789-abcd-ef0123456789").unwrap();
     let custom = uuid::Uuid::parse_str("12345678-1234-5678-9abc-123456789abc").unwrap();
     {
-        let registry = gs.registry.read().await;
+        let registry = &gs.registry;
         let mut maya_entry = ServiceEntry::new("maya", "127.0.0.1", 18801);
         maya_entry.instance_id = maya;
         registry.register(maya_entry).unwrap();
@@ -456,7 +458,7 @@ async fn gateway_readyz_summarises_instance_readiness_bits() {
         .metadata
         .insert("gateway_runtime_mode".into(), "embedded-fallback".into());
     {
-        let registry = gs.registry.read().await;
+        let registry = &gs.registry;
         registry.register(entry.clone()).unwrap();
         registry.register(unavailable_dispatch).unwrap();
     }
@@ -685,7 +687,7 @@ async fn gateway_update_check_and_download_use_configured_manifest() {
         "dcc-mcp-server": {
             "version": "0.19.0",
             "url": "https://example.invalid/dcc-mcp-server.zip",
-            "sha256": "abc123",
+            "sha256": "a".repeat(64),
             "release_notes": "Server update"
         }
     }))
@@ -715,7 +717,7 @@ async fn gateway_update_check_and_download_use_configured_manifest() {
         body["download_url"],
         "https://example.invalid/dcc-mcp-server.zip"
     );
-    assert_eq!(body["sha256"], "abc123");
+    assert_eq!(body["sha256"], "a".repeat(64));
     assert_eq!(body["release_notes"], "Server update");
 
     let response = app
@@ -736,10 +738,11 @@ async fn gateway_update_check_and_download_use_configured_manifest() {
         body["download_url"],
         "https://example.invalid/dcc-mcp-server.zip"
     );
+    assert_eq!(body["sha256"], "a".repeat(64));
 }
 
 #[tokio::test]
-async fn gateway_update_download_reports_missing_url_as_structured_payload() {
+async fn gateway_update_download_rejects_manifest_without_verified_asset() {
     let (manifest_url, shutdown) = spawn_update_manifest(json!({
         "dcc-mcp-server": {
             "version": "0.19.0",
@@ -766,12 +769,12 @@ async fn gateway_update_download_reports_missing_url_as_structured_payload() {
     let (status, body) = response_json(response).await;
     let _ = shutdown.send(());
 
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body["status"], "download_url_not_configured");
-    assert_eq!(body["error"], "download_url_not_configured");
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(body["status"], "manifest_error");
+    assert_eq!(body["error"], "invalid_update_manifest");
     assert_eq!(body["binary_name"], "dcc-mcp-server");
-    assert_eq!(body["latest_version"], "0.19.0");
     assert_eq!(body["update_available"], false);
+    assert!(body["message"].as_str().unwrap().contains("download URL"));
 }
 
 #[tokio::test]
@@ -1318,7 +1321,7 @@ async fn gateway_yield_broadcasts_handoff_and_marks_sentinel_shutting_down() {
     let sentinel_key = sentinel.key();
     let sentinel_id = sentinel.instance_id.to_string();
     {
-        let registry = gs.registry.read().await;
+        let registry = &gs.registry;
         registry.register(sentinel).unwrap();
     }
 
@@ -1351,7 +1354,7 @@ async fn gateway_yield_broadcasts_handoff_and_marks_sentinel_shutting_down() {
     assert!(event["params"]["deadline_unix_secs"].as_f64().unwrap() > 0.0);
 
     {
-        let registry = gs.registry.read().await;
+        let registry = &gs.registry;
         let updated = registry.get(&sentinel_key).unwrap();
         assert_eq!(updated.status, ServiceStatus::ShuttingDown);
     }
@@ -1750,7 +1753,7 @@ async fn rest_load_skill_is_denied_in_read_only_gateway_policy() {
     });
     let iid = uuid::Uuid::parse_str("abcdef01-2345-6789-abcd-ef0123456789").unwrap();
     {
-        let registry = gs.registry.read().await;
+        let registry = &gs.registry;
         let mut entry = ServiceEntry::new("maya", "127.0.0.1", 18801);
         entry.instance_id = iid;
         registry.register(entry).unwrap();

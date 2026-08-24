@@ -1413,3 +1413,141 @@ def test_a_route_template_without_names_is_left_alone():
         name="Сервис.yaml",
     )
     assert "Template: /ping" in out
+
+
+def test_a_new_dictionary_file_gets_a_neutral_head_line(tmp_path: Path):
+    """The writer must not sign the file for a surface it knows nothing about.
+
+    A file written from the MCP tool used to arrive announcing that it came from the editor
+    panel, and the line was corrected by hand after every such batch.
+    """
+    from xbsl.translation import entries
+
+    folder = tmp_path / "xbsl-translation"
+    folder.mkdir()
+    entries.write_entries(folder, [{"key": "Шаги", "value": "Steps", "kind": "token"}],
+                          target="046-icons.yaml")
+
+    head = (folder / "046-icons.yaml").read_text(encoding="utf-8")
+    assert entries.DEFAULT_COMMENT in head
+    assert "редактор" not in head
+
+
+def test_the_caller_names_the_head_line_of_a_new_file(tmp_path: Path):
+    from xbsl.translation import entries
+
+    folder = tmp_path / "xbsl-translation"
+    folder.mkdir()
+    entries.write_entries(folder, [{"key": "Шаги", "value": "Steps", "kind": "token"}],
+                          target="046-icons.yaml", comment="Имена значков возможностей.")
+
+    head = (folder / "046-icons.yaml").read_text(encoding="utf-8")
+    assert "# Имена значков возможностей." in head
+    assert entries.DEFAULT_COMMENT not in head
+
+
+def test_the_head_line_is_written_only_when_the_file_is_new(tmp_path: Path):
+    """An existing file keeps its own head line - a second batch must not restamp it."""
+    from xbsl.translation import entries
+
+    folder = tmp_path / "xbsl-translation"
+    folder.mkdir()
+    entries.write_entries(folder, [{"key": "Шаги", "value": "Steps", "kind": "token"}],
+                          target="046-icons.yaml", comment="Первая порция.")
+    entries.write_entries(folder, [{"key": "Отбор", "value": "Filter", "kind": "token"}],
+                          target="046-icons.yaml", comment="Вторая порция.")
+
+    head = (folder / "046-icons.yaml").read_text(encoding="utf-8")
+    assert "# Первая порция." in head
+    assert "Вторая порция" not in head
+
+
+def test_the_kind_of_a_dispatched_block_is_translated():
+    """A schedule kind is neither a type, nor a property, nor an enumeration value: no term
+    dictionary pairs it, and the value used to stay Russian while the report called it a gap
+    of the platform data. The metamodel annotation states both spellings."""
+    text = (
+        "ВидЭлемента: ЗапланированноеЗадание\n"
+        "Ид: cf45e060-3049-480b-9cea-fb780a2a8ef9\n"
+        "Имя: Обновление\n"
+        "Расписание:\n"
+        "    -\n"
+        "        Вид: Ежедневно\n"
+        "        ЗапуститьВ: 04:00\n"
+        "ПовторыПриОшибке:\n"
+        "    Вид: Интервал\n"
+        "    Попытки: 3\n"
+    )
+
+    out, report = _yaml(text, tokens={"Обновление": "Refresh"}, name="Обновление.yaml")
+
+    assert "Kind: Daily" in out and "Kind: Interval" in out
+    assert "Ежедневно" not in out and "Интервал" not in out
+    # And the run no longer reports what it has just translated.
+    assert not report.platform_tokens
+
+
+def test_a_method_name_collision_is_reported_by_the_project_pass(tmp_path: Path):
+    """Two methods of one module under one English name is a module the compiler refuses.
+
+    Met live: two Russian words that English spells alike, and the translated tree went out
+    with two handlers named the same while every check called the translation complete.
+    """
+    from xbsl.translation import project as project_module
+
+    root = tmp_path / "acme" / "Проба"
+    root.mkdir(parents=True)
+    (root / "Проект.yaml").write_text(
+        "Ид: 11111111-2222-3333-4444-555555555555\nИмя: Проба\nВерсия: 1.0\nПоставщик: acme\n",
+        encoding="utf-8",
+    )
+    (root / "Форма.yaml").write_text(
+        "ВидЭлемента: ОбщийМодуль\nИд: 66666666-2222-3333-4444-555555555555\nИмя: Форма\n",
+        encoding="utf-8",
+    )
+    (root / "Форма.xbsl").write_text(
+        "метод УслугаИзменена()\n;\n\nметод СервисИзменен()\n;\n", encoding="utf-8",
+    )
+    dictionary = _dictionary({
+        "Проба": "Trial", "Форма": "Form",
+        "УслугаИзменена": "ServiceChanged", "СервисИзменен": "ServiceChanged",
+    })
+
+    report = project_module.translate_project(root, dictionary, None)
+
+    assert any("ServiceChanged" in problem for problem in report.problems), report.problems
+
+
+def test_writing_a_value_already_taken_is_reported(tmp_path: Path):
+    """The same answer at the moment a person types the word, one lookup instead of a project pass."""
+    from xbsl.translation import entries
+
+    folder = tmp_path / "xbsl-translation"
+    folder.mkdir()
+    (folder / "010.yaml").write_text(
+        "version: 1\nlanguage: en\n\ntokens:\n    Услуга: Service\n", encoding="utf-8",
+    )
+
+    taken = entries.write_entries(folder, [{"key": "Сервис", "value": "Service", "kind": "token"}])
+    free = entries.write_entries(folder, [{"key": "Прочее", "value": "Other", "kind": "token"}])
+
+    assert taken["collisions"] == [{"key": "Сервис", "value": "Service", "taken": ["Услуга"]}]
+    assert free["collisions"] == []
+    # The entry is written all the same: a qualified key is how one word serves two owners.
+    assert taken["added"] == 1
+
+
+def test_query_literal_undefined_is_not_null():
+    """`!= НЕОПРЕДЕЛЕНО` of a query is `UNDEFINED`; `NULL` is a reserved word of its own.
+
+    The compiler takes both, so nothing fails at build time - a condition against `NULL` is
+    simply never true, and the query comes back empty on the running application. Met live:
+    a translated site stopped recalculating a register and stopped showing a whole page block.
+    """
+    out, _report = _code(
+        "пер Выборка = Запрос{ ВЫБРАТЬ Ссылка ИЗ Задачи КАК Т ГДЕ Т.Родитель != НЕОПРЕДЕЛЕНО }\n",
+        tokens={"Задачи": "Tasks", "Родитель": "Parent", "Выборка": "Selection"},
+    )
+
+    assert "T.Parent != UNDEFINED" in out
+    assert "NULL" not in out

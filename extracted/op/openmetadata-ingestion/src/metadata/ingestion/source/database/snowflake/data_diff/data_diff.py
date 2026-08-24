@@ -36,9 +36,7 @@ class SnowflakeTableParameter(BaseTableParameter):
             case_sensitive_columns,
             service_url,
         )
-        connection_config = cast(
-            SnowflakeConnection, service.connection.config
-        )  # noqa: TC006
+        connection_config = cast(SnowflakeConnection, service.connection.config)  # noqa: TC006
         table_param.privateKey = connection_config.privateKey
         table_param.passPhrase = connection_config.snowflakePrivatekeyPassphrase
         if table_param.privateKey and isinstance(table_param.serviceUrl, str):

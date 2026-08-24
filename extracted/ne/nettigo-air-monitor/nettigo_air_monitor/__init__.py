@@ -8,7 +8,7 @@ from http import HTTPStatus
 from typing import Any
 
 from aiohttp import (
-    ClientConnectorError,
+    ClientConnectionError,
     ClientResponse,
     ClientResponseError,
     ClientSession,
@@ -109,13 +109,17 @@ class NettigoAirMonitor:
 
     async def _async_http_request(self, method: str, url: str) -> ClientResponse:
         """Retrieve data from the device."""
+        headers = None
+        if auth_header := self._options.auth_header:
+            headers = {"Authorization": auth_header}
+
         try:
             _LOGGER.debug("Requesting %s, method: %s", url, method)
             resp = await self._session.request(
                 method,
                 url,
                 raise_for_status=True,
-                auth=self._options.auth,
+                headers=headers,
                 timeout=DEFAULT_TIMEOUT,
             )
         except ClientResponseError as error:
@@ -124,7 +128,7 @@ class NettigoAirMonitor:
             raise ApiError(
                 f"Invalid response from device {self.host}: {error.status}"
             ) from error
-        except (TimeoutError, ClientConnectorError) as error:
+        except (TimeoutError, ClientConnectionError) as error:
             _LOGGER.info("Invalid response from device: %s", self.host)
             raise NotRespondingError(
                 f"The device {self.host} is not responding"
@@ -171,11 +175,12 @@ class NettigoAirMonitor:
             sensors[ATTR_UPTIME] = int(data[ATTR_UPTIME])
 
         for sensor in ("pms", "sds011", "sps30"):
-            value, data = caqi_eu.get_caqi(
-                pm10_1h=sensors.get(f"{sensor}_p1"),
-                pm25_1h=sensors.get(f"{sensor}_p2"),
-                with_level=True,
-            )
+            pm_args: dict[str, float] = {}
+            if (pm10 := sensors.get(f"{sensor}_p1")) is not None:
+                pm_args["pm10_1h"] = pm10
+            if (pm25 := sensors.get(f"{sensor}_p2")) is not None:
+                pm_args["pm25_1h"] = pm25
+            value, data = caqi_eu.get_caqi(with_level=True, **pm_args)
             if value is not None and value > -1:
                 sensors[f"{sensor}_caqi"] = value
                 sensors[f"{sensor}_caqi_level"] = data["level"].replace(" ", "_")

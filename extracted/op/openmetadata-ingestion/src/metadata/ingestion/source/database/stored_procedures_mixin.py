@@ -16,7 +16,7 @@ import json
 import traceback
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Iterator, Union
+from typing import Iterator, Union  # noqa: UP035
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -102,9 +102,7 @@ class StoredProcedureLineageMixin(ABC):
                     # return None. Assigning str | None is tolerated at runtime by pydantic.
                     query_by_procedure.procedure_name = (  # pyright: ignore[reportAttributeAccessIssue]
                         query_by_procedure.procedure_name
-                        or get_procedure_name_from_call(
-                            query_text=query_by_procedure.procedure_text
-                        )
+                        or get_procedure_name_from_call(query_text=query_by_procedure.procedure_text)
                     )
                     yield query_by_procedure
                 except Exception as exc:
@@ -118,9 +116,7 @@ class StoredProcedureLineageMixin(ABC):
 
     @staticmethod
     def _reference_name(reference: EntityReference | None) -> str:
-        return (
-            reference.name.lower() if reference is not None and reference.name else ""
-        )
+        return reference.name.lower() if reference is not None and reference.name else ""
 
     @staticmethod
     def _disambiguate_procedure(
@@ -131,16 +127,8 @@ class StoredProcedureLineageMixin(ABC):
         scoped = [
             candidate
             for candidate in candidates
-            if (
-                not database
-                or StoredProcedureLineageMixin._reference_name(candidate.database)
-                == database
-            )
-            and (
-                not schema
-                or StoredProcedureLineageMixin._reference_name(candidate.databaseSchema)
-                == schema
-            )
+            if (not database or StoredProcedureLineageMixin._reference_name(candidate.database) == database)
+            and (not schema or StoredProcedureLineageMixin._reference_name(candidate.databaseSchema) == schema)
         ]
         return scoped[0] if len(scoped) == 1 else None
 
@@ -160,9 +148,7 @@ class StoredProcedureLineageMixin(ABC):
         elif len(candidates) == 1:
             matched = candidates[0]
         else:
-            matched = StoredProcedureLineageMixin._disambiguate_procedure(
-                candidates, query_by_procedure
-            )
+            matched = StoredProcedureLineageMixin._disambiguate_procedure(candidates, query_by_procedure)
         return matched
 
     def procedure_lineage_producer(self) -> Iterator[ProcedureAndQuery]:
@@ -173,17 +159,7 @@ class StoredProcedureLineageMixin(ABC):
             "query": {
                 "bool": {
                     "must": [
-                        {
-                            "bool": {
-                                "should": [
-                                    {
-                                        "term": {
-                                            "service.name.keyword": self.service_name
-                                        }
-                                    }
-                                ]
-                            }
-                        },
+                        {"bool": {"should": [{"term": {"service.name.keyword": self.service_name}}]}},
                         {"bool": {"should": [{"term": {"deleted": False}}]}},
                     ]
                 }
@@ -201,12 +177,7 @@ class StoredProcedureLineageMixin(ABC):
         queries_count_per_procedure = defaultdict(int)
 
         # Get the filtered list of stored procedure to process
-        for procedure in (
-            self.metadata.paginate_es(
-                entity=StoredProcedure, query_filter=query_filter, size=10
-            )
-            or []
-        ):
+        for procedure in self.metadata.paginate_es(entity=StoredProcedure, query_filter=query_filter, size=10) or []:
             if procedure:
                 if (
                     filter_by_database(
@@ -238,32 +209,24 @@ class StoredProcedureLineageMixin(ABC):
             procedure_name = query_by_procedure.procedure_name.lower()
             queries_count_per_procedure[procedure_name] += 1
 
-            procedure = self._match_procedure(
-                procedures_by_name.get(procedure_name), query_by_procedure
-            )
+            procedure = self._match_procedure(procedures_by_name.get(procedure_name), query_by_procedure)
             if procedure is not None:
                 yield ProcedureAndQuery(
                     procedure=procedure,
                     query_by_procedure=query_by_procedure,
                 )
 
-        logger.info(
-            f"Count of queries executed for stored procedures: {sum(queries_count_per_procedure.values())}"
-        )
-        logger.info(
-            f"Count of queries per stored procedure: {pprint_format_object(dict(queries_count_per_procedure))}"
-        )
+        logger.info(f"Count of queries executed for stored procedures: {sum(queries_count_per_procedure.values())}")
+        logger.info(f"Count of queries per stored procedure: {pprint_format_object(dict(queries_count_per_procedure))}")
 
     def yield_procedure_lineage(
         self,
-    ) -> Iterator[Either[Union[AddLineageRequest, CreateQueryRequest]]]:
+    ) -> Iterator[Either[Union[AddLineageRequest, CreateQueryRequest]]]:  # noqa: UP007
         """Get all the queries and procedures list and yield them"""
         logger.info("Processing Lineage for Stored Procedures")
         producer_fn = self.procedure_lineage_producer
         processor_fn = procedure_lineage_processor
-        dialect = ConnectionTypeDialectMapper.dialect_of(
-            self.service_connection.type.value
-        )
+        dialect = ConnectionTypeDialectMapper.dialect_of(self.service_connection.type.value)
         args = (
             self.metadata,
             self.service_name,

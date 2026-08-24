@@ -76,7 +76,7 @@ from xpander_sdk.modules.tasks.models.task import (
     PendingECARequest,
     TaskReportRequest,
 )
-from xpander_sdk.modules.tasks.utils.files import (
+from xpander_sdk.media.files import (
     AttachmentPlan,
     DOC_UNREADABLE_NOTE,
     categorize_files,
@@ -90,12 +90,15 @@ from xpander_sdk.modules.tasks.utils.files import (
     _MAX_INLINE_TEXT_CHARS,
     _MAX_INLINE_TOTAL_CHARS,
 )
-from xpander_sdk.modules.tasks.utils.media import (
+from xpander_sdk.media.extract_client import aextract_media_text
+from xpander_sdk.media.prepare import (
+    prepare_audio,
+    prepare_video,
     NO_INJECTION_NOTE,
     prepare_image,
     prepare_pdf,
 )
-from xpander_sdk.modules.tasks.utils.model_capabilities import (
+from xpander_sdk.media.caps import (
     DEFAULT_CAPABILITIES,
     ModelCapabilities,
     media_pipeline_disabled,
@@ -297,6 +300,9 @@ class Task(XPanderSharedModel):
     _attachment_images: Optional[List[Any]] = PrivateAttr(default=None)
     _attachment_files: Optional[List[Any]] = PrivateAttr(default=None)
     _attachment_pdf_texts: Optional[List[Dict]] = PrivateAttr(default=None)
+    _attachment_audios: Optional[List[Any]] = PrivateAttr(default=None)
+    _attachment_videos: Optional[List[Any]] = PrivateAttr(default=None)
+    _attachment_media_texts: Optional[List[Dict]] = PrivateAttr(default=None)
 
     def model_post_init(self, context):
         """
@@ -574,7 +580,9 @@ class Task(XPanderSharedModel):
 
     def _attachment_refs_map(self) -> dict:
         """{url: AttachmentRef} from the task input, for mime/size-aware classification (empty when none)."""
-        return {a.url: a for a in (self.input.attachments or []) if getattr(a, "url", None)}
+        return {
+            a.url: a for a in (self.input.attachments or []) if getattr(a, "url", None)
+        }
 
     def _file_urls(self) -> list:
         """The attachment URL list: from attachments when present, else the bare files.
@@ -588,7 +596,7 @@ class Task(XPanderSharedModel):
         """Per-URL attachment decisions for this task's resolved model capabilities (built once, cached)."""
         if self._attachment_plan is None:
             self._attachment_plan = plan_attachments(
-                self.input.files or [],
+                self._file_urls(),
                 self._attachment_caps(),
                 refs=self._attachment_refs_map(),
             )
@@ -603,6 +611,9 @@ class Task(XPanderSharedModel):
         images: List[Any] = []
         files: List[Any] = []
         pdf_texts: List[Dict] = []
+        audios: List[Any] = []
+        videos: List[Any] = []
+        media_texts: List[Dict] = []
 
         try:
             from agno.media import File, Image  # noqa: F401 - availability probe
@@ -694,12 +705,113 @@ class Task(XPanderSharedModel):
                 if note:
                     plan.notes.append(f"{item.url}: {note}")
 
+        self._materialize_media(plan, caps, audios, videos, media_texts)
+
         self._attachment_images = images
         self._attachment_files = files
         self._attachment_pdf_texts = pdf_texts
+        self._attachment_audios = audios
+        self._attachment_videos = videos
+        self._attachment_media_texts = media_texts
+
+    def _materialize_media(
+        self,
+        plan: AttachmentPlan,
+        caps: ModelCapabilities,
+        audios: List[Any],
+        videos: List[Any],
+        media_texts: List[Dict],
+    ) -> None:
+        """Deliver audio/video: native bytes where the model takes them, transcript otherwise."""
+        refs = self._attachment_refs_map()
+        for category in ("audio", "video"):
+            for item in plan.by_category(category):
+                ref = refs.get(item.url)
+                if self.disable_attachment_injection:
+                    # The caller asked for no content in the window; a transcript is
+                    # content, and so are the bytes. Name the file, deliver neither.
+                    item.action = "url_only"
+                    item.reason = "injection disabled"
+                    plan.notes.append(f"{item.url}: {NO_INJECTION_NOTE}")
+                    continue
+                if item.action == "transcript_cached":
+                    media_texts.append(
+                        {
+                            "url": item.url,
+                            "content": getattr(ref, "transcript", "") or "",
+                        }
+                    )
+                    continue
+                if item.action in ("native_audio", "native_video"):
+                    try:
+                        prepared = (
+                            prepare_audio(
+                                item.url,
+                                caps,
+                                item.size,
+                                mime=getattr(ref, "mime", None),
+                                transcript=getattr(ref, "transcript", None),
+                            )
+                            if category == "audio"
+                            else prepare_video(
+                                item.url,
+                                caps,
+                                item.size,
+                                mime=getattr(ref, "mime", None),
+                            )
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"dropping unreadable {category}: {type(e).__name__}"
+                        )
+                        prepared = None
+                    if prepared is not None:
+                        (audios if category == "audio" else videos).append(prepared)
+                        continue
+                    # Too large to inline: fall through and let the transcript carry it.
+                    item.action = "transcribe"
+                    item.reason = "huge"
+                if item.action == "transcribe":
+                    text = self._transcribe_media(item, ref)
+                    if text:
+                        media_texts.append({"url": item.url, "content": text})
+                    else:
+                        item.action = "url_only"
+                        plan.notes.append(
+                            f"{item.url}: could not be converted to text; "
+                            "fetch it via your tools/workspace using the URL"
+                        )
+
+    def _transcribe_media(self, item: Any, ref: Any) -> Optional[str]:
+        """Convert one a/v attachment through the controller; writes the text back onto the ref."""
+        try:
+            result = run_sync(
+                aextract_media_text(
+                    self.configuration,
+                    url=item.url,
+                    op="transcribe",
+                    mime=getattr(ref, "mime", None),
+                    kind=item.category,
+                    sha256=getattr(ref, "sha256", None),
+                )
+            )
+        except Exception as e:
+            logger.debug(f"media transcription skipped: {type(e).__name__}")
+            return None
+        if result is None or not result.text:
+            return None
+        # Write back so the activity row carries it and a later turn never reconverts.
+        if ref is not None and hasattr(ref, "transcript"):
+            try:
+                ref.transcript = result.text
+            except Exception:
+                pass
+        return result.text
 
     def _legacy_get_files(self) -> list[Any]:
-        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
+        categorized_files = categorize_files(
+            file_urls=self._file_urls(), refs=self._attachment_refs_map()
+        )
         if not categorized_files.pdfs:
             return []
         try:
@@ -717,7 +829,9 @@ class Task(XPanderSharedModel):
         return files
 
     def _legacy_get_images(self) -> list[Any]:
-        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
+        categorized_files = categorize_files(
+            file_urls=self._file_urls(), refs=self._attachment_refs_map()
+        )
         if not categorized_files.images:
             return []
         try:
@@ -776,6 +890,31 @@ class Task(XPanderSharedModel):
         self._materialize_attachments()
         return list(self._attachment_images or [])
 
+    def get_audios(self) -> list[Any]:
+        """Agno Audio parts for models that take audio natively; [] for everyone else.
+
+        A model without native audio gets the transcript inlined into the message instead,
+        so nothing is lost - it just arrives as text.
+        """
+        if not self._file_urls() or media_pipeline_disabled():
+            return []
+        self._materialize_attachments()
+        return list(self._attachment_audios or [])
+
+    def get_videos(self) -> list[Any]:
+        """Agno Video parts for models that take video natively; [] for everyone else."""
+        if not self._file_urls() or media_pipeline_disabled():
+            return []
+        self._materialize_attachments()
+        return list(self._attachment_videos or [])
+
+    def get_media_texts(self) -> list[Any]:
+        """Transcripts for a/v that could not be delivered natively ({url, content})."""
+        if not self._file_urls() or media_pipeline_disabled():
+            return []
+        self._materialize_attachments()
+        return list(self._attachment_media_texts or [])
+
     def get_human_readable_files(self) -> list[Any]:
         """
         Get human-readable files from task input with their content.
@@ -797,7 +936,9 @@ class Task(XPanderSharedModel):
         if not self._file_urls():
             return []
 
-        categorized_files = categorize_files(file_urls=self._file_urls(), refs=self._attachment_refs_map())
+        categorized_files = categorize_files(
+            file_urls=self._file_urls(), refs=self._attachment_refs_map()
+        )
 
         raw_results: list[Any] = []
         if categorized_files.files:
@@ -875,6 +1016,7 @@ class Task(XPanderSharedModel):
         # JSON payloads so get_images()/get_files() are populated - only the text
         # blocks below are suppressed.
         pdf_texts: List[Dict] = []
+        media_texts: List[Dict] = []
         attachment_notes: List[str] = []
         if self._file_urls() and not media_pipeline_disabled():
             self._materialize_attachments()
@@ -897,11 +1039,20 @@ class Task(XPanderSharedModel):
                     )
                     remaining -= len(content)
                     pdf_texts.append({"url": item["url"], "content": content})
+                # a/v that could not go native arrives as text, sharing the same budget.
+                for item in self._attachment_media_texts or []:
+                    if remaining <= 0:
+                        break
+                    content = truncate_inline_text(
+                        item["content"], item["url"], remaining
+                    )
+                    remaining -= len(content)
+                    media_texts.append({"url": item["url"], "content": content})
                 attachment_notes = list(self.get_attachment_plan().notes)
 
-        if readable_files or pdf_texts:
+        if readable_files or pdf_texts or media_texts:
             message += "\nFiles contents:"
-            for f in list(readable_files or []) + pdf_texts:
+            for f in list(readable_files or []) + pdf_texts + media_texts:
                 message += f"\n{json.dumps(f)}"
 
         if attachment_notes:

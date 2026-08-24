@@ -36,9 +36,7 @@ SLOW_OPS_CAP = 50
 
 # Structural/wrapper ops whose span is a whole phase, not a unit of work — excluded
 # from slow_ops so they don't crowd out the actual slow I/O calls (db/http/sink).
-_NON_LEAF_OPS = frozenset(
-    {"workflow.execute", "source.iter", "stage.run", "processor.run", "bulksink.run"}
-)
+_NON_LEAF_OPS = frozenset({"workflow.execute", "source.iter", "stage.run", "processor.run", "bulksink.run"})
 
 
 class OperationRegistry:
@@ -105,9 +103,7 @@ class OperationRegistry:
         outliers are rare, so the per-call cost stays a duration compare. Wrapper
         ops (whole-phase spans) are skipped so they don't bury the real slow
         work. Caller holds the lock."""
-        if name not in _NON_LEAF_OPS and (
-            len(self._slow) < SLOW_OPS_CAP or duration > self._slow[0][0]
-        ):
+        if name not in _NON_LEAF_OPS and (len(self._slow) < SLOW_OPS_CAP or duration > self._slow[0][0]):
             identity = op_identity(name, kwargs, sys._getframe())
             self._slow_seq += 1
             entry = (duration, self._slow_seq, name, identity)
@@ -122,10 +118,7 @@ class OperationRegistry:
         out: dict[int, list[tuple[str, dict[str, Any], float]]] = {}
         with self._lock:
             for tid, stack in self._stacks.items():
-                out[tid] = [
-                    (name, kwargs, now - started)
-                    for (name, kwargs, started, _) in stack
-                ]
+                out[tid] = [(name, kwargs, now - started) for (name, kwargs, started, _) in stack]
         return out
 
     def deepest_per_thread(self) -> dict[int, tuple[str, dict[str, Any], float]]:
@@ -182,10 +175,7 @@ def _truncate_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     for key, value in kwargs.items():
         if isinstance(value, str):
             if len(value) > KWARGS_TRUNCATION_CHARS:
-                out[key] = (
-                    value[:KWARGS_TRUNCATION_CHARS]
-                    + f"...(+{len(value) - KWARGS_TRUNCATION_CHARS} chars)"
-                )
+                out[key] = value[:KWARGS_TRUNCATION_CHARS] + f"...(+{len(value) - KWARGS_TRUNCATION_CHARS} chars)"
             else:
                 out[key] = value
         else:
@@ -194,10 +184,7 @@ def _truncate_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 s = "<unreprable>"
             if len(s) > KWARGS_TRUNCATION_CHARS:
-                s = (
-                    s[:KWARGS_TRUNCATION_CHARS]
-                    + f"...(+{len(s) - KWARGS_TRUNCATION_CHARS} chars)"
-                )
+                s = s[:KWARGS_TRUNCATION_CHARS] + f"...(+{len(s) - KWARGS_TRUNCATION_CHARS} chars)"
             out[key] = s
     return out
 

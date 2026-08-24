@@ -27,9 +27,7 @@ logger = ingestion_logger()
 CDC_ENVELOPE_FIELDS = {"after", "before", "op"}
 
 
-def get_topic_field_fqn(
-    topic_entity: Topic, field_name: str
-) -> Optional[str]:  # noqa: C901, UP045
+def get_topic_field_fqn(topic_entity: Topic, field_name: str) -> Optional[str]:  # noqa: C901, UP045
     """
     Get the fully qualified name for a field in a Topic's schema.
     Handles nested structures where fields may be children of a parent RECORD.
@@ -56,32 +54,20 @@ def get_topic_field_fqn(
                 elif child_name == "before":
                     before_child = child
                 if child_name == field_name:
-                    return (
-                        child.fullyQualifiedName.root
-                        if child.fullyQualifiedName
-                        else None
-                    )
+                    return child.fullyQualifiedName.root if child.fullyQualifiedName else None
 
             # Debezium: 'after' holds post-change state, prefer it over 'before'
             for cdc_child in [after_child, before_child]:
                 if cdc_child and cdc_child.children:
                     for grandchild in cdc_child.children:
                         if model_str(grandchild.name) == field_name:
-                            return (
-                                grandchild.fullyQualifiedName.root
-                                if grandchild.fullyQualifiedName
-                                else None
-                            )
+                            return grandchild.fullyQualifiedName.root if grandchild.fullyQualifiedName else None
 
             for child in field.children:
                 if child not in [after_child, before_child] and child.children:
                     for grandchild in child.children:
                         if model_str(grandchild.name) == field_name:
-                            return (
-                                grandchild.fullyQualifiedName.root
-                                if grandchild.fullyQualifiedName
-                                else None
-                            )
+                            return grandchild.fullyQualifiedName.root if grandchild.fullyQualifiedName else None
 
     # CDC columns may exist only in schemaText, not as field objects
     for field in topic_entity.messageSchema.schemaFields:
@@ -90,7 +76,5 @@ def get_topic_field_fqn(
             envelope_fqn = field.fullyQualifiedName.root
             return f"{envelope_fqn}.{field_name}"
 
-    logger.debug(
-        f"Field {field_name} not found in topic {model_str(topic_entity.name)} schema"
-    )
+    logger.debug(f"Field {field_name} not found in topic {model_str(topic_entity.name)} schema")
     return None

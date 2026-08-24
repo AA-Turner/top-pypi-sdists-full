@@ -45,6 +45,7 @@ class TestAuditEventResponse(unittest.TestCase):
                 actor_type = 'user',
                 status = 'success',
                 changes = None,
+                reason = '',
                 ip_address = '',
                 user_agent = '',
                 actor_name = '',

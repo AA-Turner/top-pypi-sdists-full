@@ -73,10 +73,12 @@ impl crate::gateway::middleware::AfterCallMiddleware for RejectAfter {
 
 fn test_gateway_state() -> GatewayState {
     let dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
     let (yield_tx, _) = watch::channel(false);
     let (events_tx, _) = broadcast::channel::<String>(8);
     GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -167,9 +169,13 @@ async fn rich_image_gateway_state() -> (
         )
         .route(
             "/v1/call",
-            axum::routing::post(|| async {
+            axum::routing::post(|headers: axum::http::HeaderMap| async move {
+                let request_id = headers
+                    .get("x-request-id")
+                    .and_then(|value| value.to_str().ok());
                 axum::Json(json!({
                     "success": true,
+                    "request_id": request_id,
                     "output": {
                         "success": true,
                         "context": {
@@ -196,10 +202,10 @@ async fn rich_image_gateway_state() -> (
     });
 
     let registry_dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(registry_dir.path()).unwrap()));
+    let registry = Arc::new(FileRegistry::new(registry_dir.path()).unwrap());
     let instance_id = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     {
-        let registry = registry.read().await;
+        let registry = &registry;
         let mut entry = dcc_mcp_transport::discovery::types::ServiceEntry::new(
             "maya",
             "127.0.0.1",

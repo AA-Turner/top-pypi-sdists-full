@@ -19,8 +19,13 @@ import dcc_mcp_core._install_lifecycle_readiness as readiness_lifecycle
 import dcc_mcp_core._install_lifecycle_runtime as runtime_lifecycle
 import dcc_mcp_core._install_lifecycle_sidecar as sidecar_lifecycle
 import dcc_mcp_core.install_lifecycle as lifecycle
+import dcc_mcp_core.install_lifecycle_cli as lifecycle_cli
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_install_lifecycle_library_does_not_own_cli_parser() -> None:
+    assert not hasattr(lifecycle, "main")
 
 
 def _start_probe_server(response_payload: dict) -> tuple[HTTPServer, str, list[dict]]:
@@ -97,6 +102,11 @@ print(json.dumps({"after_lifecycle": "dcc_mcp_core._core" in sys.modules}))
     )
     rows = [json.loads(line) for line in result.stdout.splitlines()]
     assert rows == [{"after_package": False}, {"after_lifecycle": False}]
+
+
+def test_default_registry_dir_has_one_runtime_owner() -> None:
+    assert lifecycle.default_registry_dir is runtime_lifecycle.default_registry_dir
+    assert sidecar_lifecycle.default_registry_dir is runtime_lifecycle.default_registry_dir
 
 
 def test_top_level_lifecycle_export_does_not_load_core_in_fresh_process() -> None:
@@ -1619,9 +1629,9 @@ def test_cli_launch_sidecar_passes_readiness_and_extra_args(
         seen.update(kwargs)
         return {"success": True, "status": "started", "pid": 4242}
 
-    monkeypatch.setattr(lifecycle, "launch_sidecar", fake_launch)
+    monkeypatch.setattr(lifecycle_cli, "launch_sidecar", fake_launch)
 
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "launch-sidecar",
             "--dcc",
@@ -1676,9 +1686,9 @@ def test_cli_launch_sidecar_defaults_to_liveness_check(
         seen.update(kwargs)
         return {"success": True, "status": "started", "pid": 4242}
 
-    monkeypatch.setattr(lifecycle, "launch_sidecar", fake_launch)
+    monkeypatch.setattr(lifecycle_cli, "launch_sidecar", fake_launch)
 
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "launch-sidecar",
             "--dcc",
@@ -1694,12 +1704,12 @@ def test_cli_launch_sidecar_defaults_to_liveness_check(
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["pid"] == 4242
-    assert seen["liveness_check_secs"] == lifecycle.DEFAULT_CLI_SIDECAR_LIVENESS_CHECK_SECS
+    assert seen["liveness_check_secs"] == lifecycle_cli.DEFAULT_SIDECAR_LIVENESS_CHECK_SECS
 
 
 def test_cli_launch_sidecar_requires_explicit_watch_pid(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        lifecycle.main(
+        lifecycle_cli.main(
             [
                 "launch-sidecar",
                 "--dcc",
@@ -1716,7 +1726,7 @@ def test_cli_launch_sidecar_requires_explicit_watch_pid(capsys: pytest.CaptureFi
 
 
 def test_cli_sidecar_command_can_require_dispatch_capable(capsys: pytest.CaptureFixture[str]) -> None:
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "sidecar-command",
             "--dcc",
@@ -1738,7 +1748,7 @@ def test_cli_sidecar_command_can_require_dispatch_capable(capsys: pytest.Capture
 def test_cli_sidecar_command_forwards_discovery_mcp_url(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "sidecar-command",
             "--dcc",
@@ -1773,9 +1783,9 @@ def test_cli_sidecar_ready_passes_probe_arguments(
         seen.update(kwargs)
         return {"success": True, "status": "ready", "ready": True}
 
-    monkeypatch.setattr(lifecycle, "sidecar_readiness_status", fake_status)
+    monkeypatch.setattr(lifecycle_cli, "sidecar_readiness_status", fake_status)
 
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "sidecar-ready",
             "--dcc",
@@ -1799,7 +1809,7 @@ def test_cli_sidecar_ready_passes_probe_arguments(
 
 
 def test_cli_sidecar_ready_rejects_non_object_probe_arguments(capsys: pytest.CaptureFixture[str]) -> None:
-    code = lifecycle.main(
+    code = lifecycle_cli.main(
         [
             "sidecar-ready",
             "--probe-tool",
@@ -1891,6 +1901,11 @@ def test_plan_runtime_updates_does_not_treat_dcc_version_as_core_version() -> No
     assert row["unknown_components"] == ["core"]
     assert row["action"] == "verify_runtime_metadata"
     assert plan["verification_required_count"] == 1
+
+
+def test_compare_version_reports_malformed_numeric_core_as_unknown() -> None:
+    assert lifecycle._compare_version("release", "0.17.21") == "unknown"
+    assert lifecycle._compare_version("0.17.20", "1.two.3") == "unknown"
 
 
 def test_plan_runtime_updates_marks_host_only_runtime_manual() -> None:

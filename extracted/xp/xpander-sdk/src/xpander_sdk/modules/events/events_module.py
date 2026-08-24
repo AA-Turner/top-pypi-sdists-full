@@ -22,7 +22,10 @@ from httpx_sse import aconnect_sse
 from loguru import logger
 from pydantic import BaseModel
 
-from xpander_sdk.utils.answer_guards import PROMISE_CONTINUATION_NUDGE, is_promise_only_answer
+from xpander_sdk.utils.answer_guards import (
+    PROMISE_CONTINUATION_NUDGE,
+    is_promise_only_answer,
+)
 
 from xpander_sdk.core.module_base import ModuleBase
 from xpander_sdk.exceptions.module_exception import ModuleException
@@ -601,7 +604,9 @@ class Events(ModuleBase):
                 )
             ):
                 task.additional_context = (
-                    (task.additional_context or "") + "\n\n" + PROMISE_CONTINUATION_NUDGE
+                    (task.additional_context or "")
+                    + "\n\n"
+                    + PROMISE_CONTINUATION_NUDGE
                 )
                 logger.warning(
                     f"[promise-guard] task {task.id} ended on a promise with no "
@@ -773,6 +778,7 @@ class Events(ModuleBase):
                         agent_id=self.agent_id,
                         prompt=self.test_task.input.text,
                         file_urls=self.test_task.input.files,
+                        attachments=self.test_task.input.attachments or [],
                         user_details=self.test_task.input.user,
                         agent_version=self.test_task.agent_version,
                         worker_id=self.worker.id,

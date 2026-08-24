@@ -40,7 +40,8 @@ class TestListAnnotationsRequest(unittest.TestCase):
                 collection_id = '',
                 label = '',
                 actor_id = '',
-                retriever_id = ''
+                retriever_id = '',
+                as_of = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return ListAnnotationsRequest(

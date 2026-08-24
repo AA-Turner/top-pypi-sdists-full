@@ -59,12 +59,12 @@ class ConfigureRepositoryConfigFile(ShellConfigFile):
     def scripts(self) -> tuple[str, ...]:
         """Return the shell function definitions that make up the script."""
         return (
-            self.apply_repository_settings_script(),
-            self.apply_rulesets_script(),
-            self.enable_vulnerability_reporting_script(),
+            self.repository_settings_script(),
+            self.rulesets_script(),
+            self.vulnerability_reporting_script(),
         )
 
-    def apply_repository_settings_script(self) -> str:
+    def repository_settings_script(self) -> str:
         """Return the `settings` shell function as a multi-line string.
 
         Returns:
@@ -74,15 +74,15 @@ class ConfigureRepositoryConfigFile(ShellConfigFile):
         settings_path = RepositorySettingsConfigFile.I.path().as_posix()
         repository_key = RepositorySettingsConfigFile.I.repository_key()
         endpoint = f"repos/${{{self.repo_variable()}}}"
-        return f"""{self.apply_repository_settings_function()}() {{
+        return f"""{self.repository_settings_function()}() {{
   jq '.{repository_key}' {settings_path} | gh api "{endpoint}" --method=PATCH --input=-
 }}"""
 
-    def apply_repository_settings_function(self) -> str:
+    def repository_settings_function(self) -> str:
         """Return `"settings"`, the function name."""
         return "settings"
 
-    def apply_rulesets_script(self) -> str:
+    def rulesets_script(self) -> str:
         """Return the `rulesets` shell function as a multi-line string.
 
         Returns:
@@ -98,7 +98,7 @@ class ConfigureRepositoryConfigFile(ShellConfigFile):
         ruleset_ref = "${ruleset}"
         ruleset_filter = ".[] | select(.name==$r.name) | .id"
         method_ref = "${method}"
-        return rf"""{self.apply_rulesets_function()}() {{
+        return rf"""{self.rulesets_function()}() {{
   local endpoint="repos/{repo_ref}/rulesets"
   jq --compact-output '.{rulesets_key}[]' {settings_path} | while read -r ruleset; do
     id=$(gh api "{endpoint_ref}" \
@@ -109,11 +109,11 @@ class ConfigureRepositoryConfigFile(ShellConfigFile):
   done
 }}"""
 
-    def apply_rulesets_function(self) -> str:
+    def rulesets_function(self) -> str:
         """Return `"rulesets"`, the function name."""
         return "rulesets"
 
-    def enable_vulnerability_reporting_script(self) -> str:
+    def vulnerability_reporting_script(self) -> str:
         """Return the `vulnerability_reporting` shell function.
 
         Returns:
@@ -121,11 +121,11 @@ class ConfigureRepositoryConfigFile(ShellConfigFile):
             enables private vulnerability reporting for the repository.
         """
         endpoint = f"repos/${{{self.repo_variable()}}}/private-vulnerability-reporting"
-        return f"""{self.enable_vulnerability_reporting_function()}() {{
+        return f"""{self.vulnerability_reporting_function()}() {{
   gh api "{endpoint}" --method=PUT
 }}"""
 
-    def enable_vulnerability_reporting_function(self) -> str:
+    def vulnerability_reporting_function(self) -> str:
         """Return `"vulnerability_reporting"`, the function name."""
         return "vulnerability_reporting"
 

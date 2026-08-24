@@ -174,6 +174,65 @@ def test_cleaner_clean_content_tags_overlap():
         nh3.Cleaner(tags={"a"}, clean_content_tags={"a"})
 
 
+def test_clean_tag_attribute_values_conflict():
+    # Whitelisting an attribute in both ``attributes`` and ``tag_attribute_values``
+    # is a footgun: ammonia treats them as alternates, so ``attributes`` lets every
+    # value through and the ``tag_attribute_values`` whitelist is silently ignored.
+    with pytest.raises(ValueError, match="tag_attribute_values"):
+        nh3.clean(
+            "<p style='color: #fff'>text</p>",
+            tags={"p"},
+            attributes={"p": {"style"}},
+            tag_attribute_values={"p": {"style": {"text-align"}}},
+        )
+
+    # The generic ``*`` entry collides in the same way.
+    with pytest.raises(ValueError, match="tag_attribute_values"):
+        nh3.clean(
+            "<p style='color: #fff'>text</p>",
+            tags={"p"},
+            attributes={"*": {"style"}},
+            tag_attribute_values={"p": {"style": {"text-align"}}},
+        )
+
+    # No overlap (the attribute lives only in tag_attribute_values) stays valid.
+    nh3.clean(
+        "<my-tag my-attr='val'>",
+        tags={"my-tag"},
+        tag_attribute_values={"my-tag": {"my-attr": {"val"}}},
+    )
+
+
+def test_cleaner_tag_attribute_values_conflict():
+    with pytest.raises(ValueError, match="tag_attribute_values"):
+        nh3.Cleaner(
+            tags={"p"},
+            attributes={"p": {"style"}},
+            tag_attribute_values={"p": {"style": {"text-align"}}},
+        )
+
+
+def test_tag_attribute_values_filters_non_matching_values():
+    # The correct way to restrict a value: whitelist the tag but leave the attribute
+    # out of ``attributes``. A matching value is kept, anything else is stripped.
+    assert (
+        nh3.clean(
+            "<my-tag my-attr='val'>",
+            tags={"my-tag"},
+            tag_attribute_values={"my-tag": {"my-attr": {"val"}}},
+        )
+        == '<my-tag my-attr="val"></my-tag>'
+    )
+    assert (
+        nh3.clean(
+            "<my-tag my-attr='nope'>",
+            tags={"my-tag"},
+            tag_attribute_values={"my-tag": {"my-attr": {"val"}}},
+        )
+        == "<my-tag></my-tag>"
+    )
+
+
 def test_clean_text():
     res = nh3.clean_text('Robert"); abuse();//')
     assert res == "Robert&quot;);&#32;abuse();&#47;&#47;"
@@ -312,6 +371,33 @@ def test_cleaner_url_relative_reusable():
         cleaner.clean('<a href="https://example.com">y</a>')
         == '<a href="https://example.com" rel="noopener noreferrer">y</a>'
     )
+
+
+def test_clean_id_prefix():
+    # id_prefix prepends the given string to every allowed `id` value.
+    assert (
+        nh3.clean("<b id='a'>x</b>", attributes={"b": {"id"}}, id_prefix="safe-")
+        == '<b id="safe-a">x</b>'
+    )
+    # Values already carrying the prefix are left untouched (no double prefix).
+    assert (
+        nh3.clean("<b id='safe-a'>x</b>", attributes={"b": {"id"}}, id_prefix="safe-")
+        == '<b id="safe-a">x</b>'
+    )
+    # The `id` attribute must still be whitelisted; otherwise it is stripped and
+    # the prefix is irrelevant.
+    assert nh3.clean("<b id='a'>x</b>", id_prefix="safe-") == "<b>x</b>"
+    # Omitting id_prefix keeps `id` values unchanged (ammonia default).
+    assert (
+        nh3.clean("<b id='a'>x</b>", attributes={"b": {"id"}})
+        == '<b id="a">x</b>'
+    )
+
+
+def test_cleaner_id_prefix_reusable():
+    cleaner = nh3.Cleaner(attributes={"b": {"id"}}, id_prefix="safe-")
+    assert cleaner.clean("<b id='a'>x</b>") == '<b id="safe-a">x</b>'
+    assert cleaner.clean("<b id='b'>y</b>") == '<b id="safe-b">y</b>'
 
 
 def test_is_html():

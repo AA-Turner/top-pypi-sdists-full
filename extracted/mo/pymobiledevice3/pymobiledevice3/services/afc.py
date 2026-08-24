@@ -33,7 +33,7 @@ import parameter_decorators
 import xonsh.cli_utils
 import xonsh.main
 import xonsh.tools
-from construct import Bytes, CString, GreedyRange, Int64ul, Tell
+from construct import Bytes, CString, GreedyRange, Int64sl, Int64ul, Tell
 from construct_typed import DataclassMixin, EnumBase, TEnum, TStruct, csfield
 from pygments import formatters, highlight, lexers
 
@@ -273,6 +273,13 @@ class AfcLockRequest(DataclassMixin):
     op: int = csfield(Int64ul)
 
 
+@dataclass
+class AfcFileSeekRequest(DataclassMixin):
+    handle: int = csfield(Int64ul)
+    whence: int = csfield(Int64ul)
+    offset: int = csfield(Int64sl)
+
+
 afc_header_t = TStruct(AfcHeader)
 afc_read_dir_req_t = TStruct(AfcReadDirRequest)
 afc_read_dir_resp_t = TStruct(AfcReadDirResponse)
@@ -286,6 +293,7 @@ afc_rm_req_t = TStruct(AfcRmRequest)
 afc_rename_req_t = TStruct(AfcRenameRequest)
 afc_fread_req_t = TStruct(AfcFreadRequest)
 afc_lock_t = TStruct(AfcLockRequest)
+afc_fseek_req_t = TStruct(AfcFileSeekRequest)
 
 
 def list_to_dict(raw: bytes) -> dict[str, str]:
@@ -339,6 +347,9 @@ class AfcService(LockdownService):
         self._afc_pending: dict[int, asyncio.Future[Any]] = {}
         self._afc_write_lock = asyncio.Lock()
         self._afc_reader_task: Optional[asyncio.Task[None]] = None
+        # Set (and never cleared) once the connection terminates; the reader task handle
+        # itself is not a stable signal because _send_and_wait restarts exited readers.
+        self._afc_terminated = asyncio.Event()
 
     async def __aenter__(self):
         await super().__aenter__()
@@ -366,6 +377,18 @@ class AfcService(LockdownService):
         exc_tb: Optional[TracebackType],
     ):
         await self.aclose()
+
+    async def wait_terminated(self) -> None:
+        """Block until the AFC connection terminates (e.g. the device disconnects).
+
+        Ensures the background reader is running so termination is detected even when no
+        AFC operation is in flight. Returns immediately if the connection already died.
+        """
+        if not self._afc_terminated.is_set():
+            await self.connect()
+            if self._afc_reader_task is None or self._afc_reader_task.done():
+                self._afc_reader_task = asyncio.create_task(self._afc_reader_loop(), name="afc-reader")
+        await self._afc_terminated.wait()
 
     async def _afc_reader_loop(self) -> None:
         """Background task: read AFC response packets and route them to waiting callers."""
@@ -400,6 +423,8 @@ class AfcService(LockdownService):
                 if not fut.done():
                     fut.set_exception(e)
             self._afc_pending.clear()
+        finally:
+            self._afc_terminated.set()
 
     async def pull(
         self,
@@ -953,6 +978,20 @@ class AfcService(LockdownService):
             sz -= to_read
             data += chunk
         return data
+
+    async def fseek(self, handle: int, offset: int, whence: int = os.SEEK_SET) -> None:
+        """
+        Seek within an open file handle.
+
+        :param handle: Handle returned by `fopen`.
+        :param offset: Byte offset relative to ``whence``.
+        :param whence: One of ``os.SEEK_SET`` (0), ``os.SEEK_CUR`` (1), ``os.SEEK_END`` (2).
+        :raises AfcException: if the seek operation fails.
+        """
+        await self._do_operation(
+            AfcOpcode.FILE_SEEK,
+            afc_fseek_req_t.build(AfcFileSeekRequest(handle=handle, whence=whence, offset=offset)),
+        )
 
     async def fwrite(self, handle: int, data: bytes, chunk_size: int = MAXIMUM_WRITE_SIZE) -> None:
         """

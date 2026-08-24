@@ -40,11 +40,12 @@ fn is_registry_row_eligible_for_resources(entry: &ServiceEntry) -> bool {
 async fn fetch_resources_for_entries(
     entries: &[ServiceEntry],
     client: &reqwest::Client,
+    resilience: &crate::gateway::resilience::GatewayResilienceState,
     backend_timeout: Duration,
 ) -> Vec<(uuid::Uuid, String, Vec<Value>)> {
     let futs = entries.iter().map(|entry| async move {
         let url = backend_mcp_url(entry);
-        let resources = fetch_resources(client, &url, backend_timeout).await;
+        let resources = fetch_resources(client, resilience, &url, backend_timeout).await;
         (entry.instance_id, entry.dcc_type.clone(), resources)
     });
     join_all(futs).await
@@ -61,7 +62,13 @@ pub(crate) async fn fetch_backend_resources(
     // respects the `allow_unknown_tools` toggle — no further filter is
     // needed here.
     let instances = live_backends(gs).await;
-    fetch_resources_for_entries(&instances, &gs.http_client, gs.backend_timeout).await
+    fetch_resources_for_entries(
+        &instances,
+        &gs.http_client,
+        &gs.resilience,
+        gs.backend_timeout,
+    )
+    .await
 }
 
 /// Build the unified `resources/list` result.
@@ -81,8 +88,8 @@ pub async fn aggregate_resources_list(gs: &GatewayState) -> Value {
     // Tier 1: admin instance pointers — same payload the handler used
     // before #732, kept as an operator affordance.
     let admin_pointers: Vec<Value> = {
-        let registry = gs.registry.read().await;
-        gs.live_instances(&registry)
+        gs.live_instances_async()
+            .await
             .into_iter()
             .filter(|entry| entry.dcc_type != GATEWAY_SENTINEL_DCC_TYPE)
             .map(|entry| {
@@ -110,11 +117,11 @@ pub async fn aggregate_resources_list(gs: &GatewayState) -> Value {
     };
 
     // Tier 0: gateway-internal event log (issue #766).
-    // Always visible so operators and agents can request the contention log.
+    // Always visible so operators and agents can request the operational log.
     let events_pointer = json!({
         "uri":         GATEWAY_EVENTS_URI,
-        "name":        "Gateway contention events",
-        "description": "Append-only JSONL stream of gateway election, eviction, and probe events (ring buffer, last 1000 entries).",
+        "name":        "Gateway operational events",
+        "description": "Append-only JSONL stream of gateway election, lifecycle, health, and feedback events (ring buffer, last 1000 entries).",
         "mimeType":    "application/x-ndjson"
     });
 
@@ -180,18 +187,19 @@ pub async fn aggregate_resources_list(gs: &GatewayState) -> Value {
 /// so emitting a list_changed for a pure description edit would be
 /// wasteful churn).
 pub(crate) async fn compute_resources_fingerprint_with_own(
-    registry: &std::sync::Arc<
-        tokio::sync::RwLock<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
-    >,
+    registry: &std::sync::Arc<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
     stale_timeout: Duration,
     http_client: &reqwest::Client,
+    resilience: &crate::gateway::resilience::GatewayResilienceState,
     backend_timeout: Duration,
     own_host: Option<&str>,
     own_port: u16,
 ) -> String {
     let instances: Vec<ServiceEntry> = {
-        let reg = registry.read().await;
-        reg.list_all()
+        registry
+            .list_all_async()
+            .await
+            .unwrap_or_default()
             .into_iter()
             .filter(|e| {
                 !e.is_stale(stale_timeout)
@@ -204,7 +212,8 @@ pub(crate) async fn compute_resources_fingerprint_with_own(
             .collect()
     };
 
-    let results = fetch_resources_for_entries(&instances, http_client, backend_timeout).await;
+    let results =
+        fetch_resources_for_entries(&instances, http_client, resilience, backend_timeout).await;
 
     let mut parts: Vec<String> = results
         .into_iter()

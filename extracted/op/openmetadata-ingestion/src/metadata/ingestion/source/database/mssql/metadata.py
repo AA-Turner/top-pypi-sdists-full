@@ -9,8 +9,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """MSSQL source module"""
+
 import traceback
-from typing import Iterable, Optional
+from typing import Iterable, Optional  # noqa: UP035
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mssql.base import MSDialect, ischema_names
@@ -111,19 +112,15 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
         self.encrypted_procedures_cache: dict[tuple[str, str], set[str]] = {}
 
     @classmethod
-    def create(
-        cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None
-    ):
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
         """Create class instance"""
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: MssqlConnection = config.serviceConnection.root.config
         if not isinstance(connection, MssqlConnection):
-            raise InvalidSourceException(
-                f"Expected MssqlConnection, but got {connection}"
-            )
+            raise InvalidSourceException(f"Expected MssqlConnection, but got {connection}")
         return cls(config, metadata)
 
-    def get_configured_database(self) -> Optional[str]:
+    def get_configured_database(self) -> Optional[str]:  # noqa: UP045
         if not self.service_connection.ingestAllDatabases:
             return self.service_connection.database
         return None
@@ -132,9 +129,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
         self.schema_desc_map.clear()
         with self.engine.connect() as conn:
             results = conn.execute(text(MSSQL_GET_SCHEMA_COMMENTS)).all()
-        self.schema_desc_map = {
-            (row.DATABASE_NAME, row.SCHEMA_NAME): row.COMMENT for row in results
-        }
+        self.schema_desc_map = {(row.DATABASE_NAME, row.SCHEMA_NAME): row.COMMENT for row in results}
 
     def set_database_description_map(self) -> None:
         self.database_desc_map.clear()
@@ -147,25 +142,22 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
         with self.engine.connect() as conn:
             results = conn.execute(text(MSSQL_GET_STORED_PROCEDURE_COMMENTS)).all()
         self.stored_procedure_desc_map = {
-            (row.DATABASE_NAME, row.SCHEMA_NAME, row.STORED_PROCEDURE): row.COMMENT
-            for row in results
+            (row.DATABASE_NAME, row.SCHEMA_NAME, row.STORED_PROCEDURE): row.COMMENT for row in results
         }
 
-    def get_schema_description(self, schema_name: str) -> Optional[str]:
+    def get_schema_description(self, schema_name: str) -> Optional[str]:  # noqa: UP045
         """
         Method to fetch the schema description
         """
         return self.schema_desc_map.get((self.context.get().database, schema_name))
 
-    def get_database_description(self, database_name: str) -> Optional[str]:
+    def get_database_description(self, database_name: str) -> Optional[str]:  # noqa: UP045
         """
         Method to fetch the database description
         """
         return self.database_desc_map.get(database_name)
 
-    def _get_encrypted_procedures(
-        self, database_name: str, schema_name: str
-    ) -> set[str]:
+    def _get_encrypted_procedures(self, database_name: str, schema_name: str) -> set[str]:
         """Fetch and cache encrypted stored procedure names for a database and schema"""
         cache_key = (database_name, schema_name)
         if cache_key not in self.encrypted_procedures_cache:
@@ -175,9 +167,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                         text(MSSQL_GET_ENCRYPTED_STORED_PROCEDURES),
                         {"schema_name": schema_name},
                     ).all()
-                self.encrypted_procedures_cache[cache_key] = {
-                    row.procedure_name for row in results
-                }
+                self.encrypted_procedures_cache[cache_key] = {row.procedure_name for row in results}
             except Exception as exc:
                 logger.debug(traceback.format_exc())
                 logger.warning(
@@ -187,7 +177,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                 self.encrypted_procedures_cache[cache_key] = set()
         return self.encrypted_procedures_cache[cache_key]
 
-    def get_stored_procedure_description(self, stored_procedure: str) -> Optional[str]:
+    def get_stored_procedure_description(self, stored_procedure: str) -> Optional[str]:  # noqa: UP045
         """
         Method to fetch the stored procedure description
         """
@@ -220,17 +210,11 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                 load_description_map()
             except Exception as exc:
                 logger.debug(traceback.format_exc())
-                logger.debug(
-                    f"Could not load MSSQL {description_type} descriptions, continuing without them: {exc}"
-                )
+                logger.debug(f"Could not load MSSQL {description_type} descriptions, continuing without them: {exc}")
 
     def get_database_names(self) -> Iterable[str]:
-        if (
-            not self.config.serviceConnection.root.config.ingestAllDatabases
-        ):  # pyright: ignore[reportAttributeAccessIssue]
-            configured_db = (
-                self.config.serviceConnection.root.config.database
-            )  # pyright: ignore[reportAttributeAccessIssue]
+        if not self.config.serviceConnection.root.config.ingestAllDatabases:  # pyright: ignore[reportAttributeAccessIssue]
+            configured_db = self.config.serviceConnection.root.config.database  # pyright: ignore[reportAttributeAccessIssue]
             self._load_description_maps()
             self.set_inspector(database_name=configured_db)
             yield configured_db
@@ -245,11 +229,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
 
                 if filter_by_database(
                     self.source_config.databaseFilterPattern,
-                    (
-                        database_fqn
-                        if self.source_config.useFqnForFiltering
-                        else new_database
-                    ),
+                    (database_fqn if self.source_config.useFqnForFiltering else new_database),
                 ):
                     self.status.filter(database_fqn, "Database Filtered Out")
                     continue
@@ -260,9 +240,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                     yield new_database
                 except Exception as exc:
                     logger.debug(traceback.format_exc())
-                    logger.error(
-                        f"Error trying to connect to database {new_database}: {exc}"
-                    )
+                    logger.error(f"Error trying to connect to database {new_database}: {exc}")
                     self.status.failed(
                         error=StackTraceError(
                             name=new_database,
@@ -285,9 +263,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                 ).all()
             for row in results:
                 try:
-                    stored_procedure = MssqlStoredProcedure.model_validate(
-                        row._asdict()
-                    )
+                    stored_procedure = MssqlStoredProcedure.model_validate(row._asdict())
                     if self.is_stored_procedure_filtered(stored_procedure.name):
                         continue
                     yield stored_procedure
@@ -318,9 +294,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
 
             stored_procedure_request = CreateStoredProcedureRequest(
                 name=EntityName(stored_procedure.name),
-                description=self.get_stored_procedure_description(
-                    stored_procedure.name
-                ),
+                description=self.get_stored_procedure_description(stored_procedure.name),
                 storedProcedureCode=StoredProcedureCode(
                     language=STORED_PROC_LANGUAGE_MAP.get(stored_procedure.language),
                     code=proc_definition,

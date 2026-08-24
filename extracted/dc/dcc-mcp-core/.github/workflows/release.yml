@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing release tag to rebuild and publish, for example v0.15.4"
+        description: "Existing release tag for an immutable dcc-mcp-core-only PyPI backfill"
         required: false
         type: string
         default: ""
       release_version:
-        description: "Version for release_tag without the v prefix, for example 0.15.4"
+        description: "Core version for release_tag without the v prefix, for example 0.15.4"
         required: false
         type: string
         default: ""
@@ -108,7 +108,9 @@ jobs:
 
   build-admin-ui:
     needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: |
+      needs.release-please.outputs.release_created == 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -140,7 +142,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-ui-bundle
-          path: crates/dcc-mcp-gateway/src/gateway/admin/generated/index.html
+          path: crates/dcc-mcp-gateway-admin/src/generated/index.html
 
   # ── Build standalone binaries (raw Release assets + server PyPI wheel) ──
   #
@@ -166,7 +168,9 @@ jobs:
   # at the same workspace.package.version as `dcc-mcp-core`.
   build-binaries:
     needs: [release-please, build-admin-ui]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: |
+      needs.release-please.outputs.release_created == 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     strategy:
       fail-fast: false
       matrix:
@@ -229,7 +233,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: admin-ui-bundle
-          path: crates/dcc-mcp-gateway/src/gateway/admin/generated
+          path: crates/dcc-mcp-gateway-admin/src/generated
 
       - name: Use pre-built admin UI for Linux builds
         if: matrix.os == 'ubuntu-latest'
@@ -363,6 +367,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
+          overwrite_files: false
+          fail_on_unmatched_files: true
           files: |
             ${{ matrix.artifact_name }}
             ${{ matrix.cli_artifact_name }}
@@ -390,7 +396,9 @@ jobs:
   # invocation.
   build-semantic-wheels:
     needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: |
+      needs.release-please.outputs.release_created == 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     strategy:
       fail-fast: false
       matrix:
@@ -546,6 +554,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
+          overwrite_files: false
+          fail_on_unmatched_files: true
           files: pkg/dcc-mcp-core-semantic/wheels/*.whl
 
   # ── Build and validate wheels when release-please creates a release ──
@@ -556,6 +566,7 @@ jobs:
     with:
       checkout-ref: ${{ needs.release-please.outputs.tag_name }}
       release-tag-name: ${{ needs.release-please.outputs.tag_name }}
+      reuse-release-assets: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' }}
 
   # ── Validate release metadata once before publishing artefacts ──
   validate-release-version:
@@ -796,6 +807,8 @@ jobs:
     permissions:
       actions: read
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download dcc-mcp-core wheel artefacts
         uses: actions/download-artifact@v8
@@ -825,6 +838,34 @@ jobs:
           path: dist-semantic
           merge-multiple: true
 
+      - name: Attest Linux update manifest
+        id: attest-update-linux
+        uses: actions/attest@v4
+        with:
+          subject-path: dist-binaries/dcc-mcp-update-manifest-linux-x86_64.json
+
+      - name: Attest Windows update manifest
+        id: attest-update-windows
+        uses: actions/attest@v4
+        with:
+          subject-path: dist-binaries/dcc-mcp-update-manifest-windows-x86_64.json
+
+      - name: Attest macOS update manifest
+        id: attest-update-macos
+        uses: actions/attest@v4
+        with:
+          subject-path: dist-binaries/dcc-mcp-update-manifest-macos-universal2.json
+
+      - name: Publish detached update-manifest bundles
+        shell: bash
+        run: |
+          cp "${{ steps.attest-update-linux.outputs.bundle-path }}" \
+            dist-binaries/dcc-mcp-update-manifest-linux-x86_64.sigstore.json
+          cp "${{ steps.attest-update-windows.outputs.bundle-path }}" \
+            dist-binaries/dcc-mcp-update-manifest-windows-x86_64.sigstore.json
+          cp "${{ steps.attest-update-macos.outputs.bundle-path }}" \
+            dist-binaries/dcc-mcp-update-manifest-macos-universal2.sigstore.json
+
       - name: List artefacts
         run: |
           echo "dcc-mcp-core wheels:"
@@ -845,6 +886,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
+          overwrite_files: false
+          fail_on_unmatched_files: true
           files: |
             dist/*
             dist-server/*
@@ -870,20 +913,33 @@ jobs:
           server="${{ needs.publish-server-pypi.result }}"
           semantic="${{ needs.publish-semantic-pypi.result }}"
           release_assets="${{ needs.publish-github-release-assets.result }}"
+          core_backfill="${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' }}"
 
           echo "PyPI dcc-mcp-core: ${core}"
           echo "PyPI dcc-mcp-server: ${server}"
           echo "PyPI dcc-mcp-core-semantic: ${semantic}"
           echo "GitHub Release assets: ${release_assets}"
+          echo "Core-only immutable backfill: ${core_backfill}"
 
           failed=0
-          if [ "$core" != "success" ] || [ "$server" != "success" ] || [ "$semantic" != "success" ]; then
-            echo "::error::PyPI upload failed (core=${core} server=${server} semantic=${semantic})."
-            failed=1
-          fi
-          if [ "$release_assets" != "success" ]; then
-            echo "::error::GitHub Release safety-net upload did not complete (result=${release_assets})."
-            failed=1
+          if [ "$core_backfill" = "true" ]; then
+            if [ "$core" != "success" ]; then
+              echo "::error::Core PyPI backfill failed (result=${core})."
+              failed=1
+            fi
+            if [ "$server" != "skipped" ] || [ "$semantic" != "skipped" ] || [ "$release_assets" != "skipped" ]; then
+              echo "::error::Core-only backfill unexpectedly ran another publication route."
+              failed=1
+            fi
+          else
+            if [ "$core" != "success" ] || [ "$server" != "success" ] || [ "$semantic" != "success" ]; then
+              echo "::error::PyPI upload failed (core=${core} server=${server} semantic=${semantic})."
+              failed=1
+            fi
+            if [ "$release_assets" != "success" ]; then
+              echo "::error::GitHub Release safety-net upload did not complete (result=${release_assets})."
+              failed=1
+            fi
           fi
           exit "$failed"
 
@@ -912,6 +968,7 @@ jobs:
             '^dcc-mcp-server-[0-9A-Za-z.+-]+-(linux-x86_64|windows-x86_64|macos-universal2)\.zip$'
             '^dcc-mcp-cli-[0-9A-Za-z.+-]+-(linux-x86_64|windows-x86_64|macos-universal2)\.zip$'
             '^dcc-mcp-update-manifest-(linux-x86_64|windows-x86_64|macos-universal2)\.json$'
+            '^dcc-mcp-update-manifest-(linux-x86_64|windows-x86_64|macos-universal2)\.sigstore\.json$'
           )
 
           release_json=""

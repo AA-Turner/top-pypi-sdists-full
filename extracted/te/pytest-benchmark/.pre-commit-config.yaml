@@ -1,30 +1,34 @@
 # To install the git pre-commit hooks run:
-#   pre-commit install --install-hooks
+#   prek install --install-hooks --overwrite
 # To update the versions:
-#   pre-commit autoupdate
+#   prek autoupdate
 exclude: '^(\.tox|ci/templates|\.bumpversion\.cfg)(/|$)'
 # Note the order is intentional to avoid multiple passes of the hooks
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.4
+    rev: aab412d509121cb5f7533134b7e67f9fab59c682  # frozen: v0.16.4
     hooks:
-      - id: ruff
+      - id: ruff-check
+        # Using --unsafe-fixes can change code behavior
         args: [--fix, --exit-non-zero-on-fix, --show-fixes, --unsafe-fixes]
       - id: ruff-format
-  - repo: https://github.com/ComPWA/taplo-pre-commit
-    rev: v0.9.3
+  - repo: https://github.com/tombi-toml/tombi-pre-commit
+    rev: dd68bbd8cdd8891c942fb6f33a6e87a477b2c375  # frozen: v1.4.1
     hooks:
-      - id: taplo-format
-      - id: taplo-lint
+      - id: tombi-format
+        # args: [ "--offline" ]
+      - id: tombi-lint
+        # args: [ "--offline" ]
+    # Should you use this offline, uncomment those args
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: debug-statements
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
+    rev: 7ff8d35ae36a7d2b968f2f90b4c723e292e594ee  # frozen: v2.3.1
     hooks:
       - id: mypy
         args: ["."]
@@ -32,7 +36,7 @@ repos:
         additional_dependencies:
           - pytest
           - freezegun
-          - py-cpuinfo
+          - py-cpuinfo2
           - jinja2
           - types-setuptools
           - elasticsearch
@@ -40,3 +44,7 @@ repos:
           - pygaljs
           - aspectlib
           - statistics
+  - repo: https://github.com/crate-ci/typos
+    rev: 8a48f81b6c64dcfea44b3633223084c4be58ac5f  # frozen: v1.49.0
+    hooks:
+      - id: typos

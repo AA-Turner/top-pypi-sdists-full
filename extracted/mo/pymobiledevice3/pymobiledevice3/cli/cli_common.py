@@ -32,7 +32,7 @@ from pymobiledevice3.lockdown import LockdownClient, TcpLockdownClient, create_u
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, get_tunneld_devices
+from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, TunneldAddress, get_tunneld_devices
 from pymobiledevice3.utils import ask_prompt, get_asyncio_loop
 
 UDID_ENV_VAR = "PYMOBILEDEVICE3_UDID"
@@ -193,6 +193,25 @@ def is_invoked_for_completion() -> bool:
     return any(env.startswith("_") and env.endswith("_COMPLETE") for env in os.environ)
 
 
+# UDID of the device the running command actually resolved to (explicit --udid, auto-pick, or
+# interactive prompt). The global --reconnect machinery in __main__ reads it to wait for and
+# re-target that same device — the selection would otherwise be lost when it came from a prompt.
+_resolved_udid: Optional[str] = None
+
+
+def resolved_udid() -> Optional[str]:
+    """The UDID the current command's device dependency resolved to, if any."""
+    return _resolved_udid
+
+
+def _record_resolved(provider: LockdownServiceProvider) -> LockdownServiceProvider:
+    """Remember which device a service-provider dependency picked (see ``resolved_udid``)."""
+    global _resolved_udid
+    if provider.udid is not None:
+        _resolved_udid = provider.udid
+    return provider
+
+
 cli_loop = get_asyncio_loop()
 
 
@@ -257,16 +276,24 @@ async def get_mobdev2_devices(udid: Optional[str] = None) -> list[TcpLockdownCli
     return [lockdown async for _, lockdown in get_mobdev2_lockdowns(udid=udid)]
 
 
+def _parse_tunnel_spec(tunnel: str) -> tuple[str, TunneldAddress]:
+    """Split a --tunnel value (``UDID``, ``UDID:PORT`` or ``UDID:UDS_PATH``) into
+    (udid, tunneld address). A numeric suffix is a TCP port on the default host;
+    anything else after the ``:`` is a unix domain socket path."""
+    udid, sep, address = tunnel.strip().partition(":")
+    if not sep:
+        return udid, TUNNELD_DEFAULT_ADDRESS
+    if address.isdigit():
+        return udid, (TUNNELD_DEFAULT_ADDRESS[0], int(address))
+    return udid, address
+
+
 async def _tunneld(udid: Optional[str] = None) -> Optional[RemoteServiceDiscoveryService]:
     if udid is None:
         return
 
-    udid = udid.strip()
-    port = TUNNELD_DEFAULT_ADDRESS[1]
-    if ":" in udid:
-        udid, port = udid.split(":")
-
-    rsds = await get_tunneld_devices((TUNNELD_DEFAULT_ADDRESS[0], int(port)))
+    udid, tunneld_address = _parse_tunnel_spec(udid)
+    rsds = await get_tunneld_devices(tunneld_address)
     if len(rsds) == 0:
         raise NoDeviceConnectedError()
 
@@ -387,8 +414,9 @@ def make_rsd_dependency(*, allow_none: bool) -> Callable[..., Optional[RemoteSer
             typer.Option(
                 envvar=TUNNEL_ENV_VAR,
                 help=dedent("""\
-                    Use a device discovered via tunneld. Provide a UDID (optionally with :PORT) or leave empty to pick
-                    interactively. Mutually exclusive with --rsd.
+                    Use a device discovered via tunneld. Provide a UDID (optionally with :PORT or :UDS_PATH for a
+                    tunneld bound to a unix domain socket) or leave empty to pick interactively. Mutually exclusive
+                    with --rsd.
                 """),
                 rich_help_panel=DEVICE_OPTIONS_PANEL_TITLE,
             ),
@@ -505,7 +533,7 @@ def any_service_provider_dependency(
         return  # type: ignore[return-value]
 
     if rsd_service_provider is not None:
-        return rsd_service_provider
+        return _record_resolved(rsd_service_provider)
 
     if mobdev2:
         devices = cli_loop.run_until_complete(get_mobdev2_devices(udid=udid))
@@ -513,24 +541,24 @@ def any_service_provider_dependency(
             raise NoDeviceConnectedError()
 
         if len(devices) == 1:
-            return devices[0]
+            return _record_resolved(devices[0])
 
-        return prompt_device_list(devices)
+        return _record_resolved(prompt_device_list(devices))
 
     if udid is not None:
-        return cli_loop.run_until_complete(create_using_usbmux(serial=udid, usbmux_address=usbmux))
+        return _record_resolved(cli_loop.run_until_complete(create_using_usbmux(serial=udid, usbmux_address=usbmux)))
 
     devices = cli_loop.run_until_complete(
         usbmuxd.select_devices_by_connection_type(connection_type="USB", usbmux_address=usbmux)
     )
     if len(devices) <= 1:
-        return cli_loop.run_until_complete(create_using_usbmux(usbmux_address=usbmux))
+        return _record_resolved(cli_loop.run_until_complete(create_using_usbmux(usbmux_address=usbmux)))
 
     lockdownds = [
         cli_loop.run_until_complete(create_using_usbmux(serial=device.serial, usbmux_address=usbmux))
         for device in devices
     ]
-    return prompt_device_list(lockdownds)
+    return _record_resolved(prompt_device_list(lockdownds))
 
 
 def no_autopair_service_provider_dependency(
@@ -552,9 +580,9 @@ def no_autopair_service_provider_dependency(
         return  # type: ignore[return-value]
 
     if rsd_service_provider is not None:
-        return rsd_service_provider
+        return _record_resolved(rsd_service_provider)
 
-    return cli_loop.run_until_complete(create_using_usbmux(serial=udid, autopair=False))
+    return _record_resolved(cli_loop.run_until_complete(create_using_usbmux(serial=udid, autopair=False)))
 
 
 def _narrow_to_lockdown_client(ctx: typer.Context, service_provider: LockdownServiceProvider) -> LockdownClient:

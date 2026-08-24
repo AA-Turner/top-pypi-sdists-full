@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nettigo_air_monitor"
-version = "5.0.0"
+version = "5.1.0"
 license = "Apache-2.0"
 description = "Python wrapper for getting air quality data from Nettigo Air Monitor devices."
 readme = "README.md"
@@ -14,34 +14,33 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Typing :: Typed",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies    = [
-    "aiohttp>=3.9.4",
-    "aqipy-atmotech",
+    "aiohttp>=3.14.1",
+    "aqipy-atmotech==0.1.5",
     "dacite>=1.7.0",
     "tenacity"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
+dev = [
+  "prek==0.4.14",
+  "ruff==0.16.3",
+  "ty==0.0.72",
+]
 test = [
-  "aioresponses==0.7.8",
-  "coverage==7.9.1",
-  "mypy==1.16.1",
-  "pytest-asyncio==1.0.0",
-  "pytest-cov>=2.12.1",
+  "aiointercept==0.1.9",
+  "pytest-asyncio==1.4.0",
+  "pytest-cov==7.1.0",
   "pytest-error-for-skips==2.0.2",
   "pytest-timeout==2.4.0",
-  "pytest==8.4.1",
-  "ruff==0.12.1",
-  "syrupy==4.9.1",
-]
-dev = [
-  "pre-commit==4.2.0",
+  "pytest==9.1.1",
+  "syrupy==5.5.3",
 ]
 
 [project.urls]
@@ -53,26 +52,6 @@ include = ["nettigo_air_monitor*"]
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "session"
 
-[tool.mypy]
-python_version = "3.13"
-show_error_codes = true
-follow_imports = "silent"
-ignore_missing_imports = true
-warn_incomplete_stub = true
-warn_redundant_casts = true
-warn_unused_configs = true
-check_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = false
-disallow_untyped_defs = true
-no_implicit_optional = true
-strict_equality = true
-warn_return_any = true
-warn_unused_ignores = true
-warn_unreachable = true
-
 [tool.ruff]
 target-version = "py313"
 
@@ -81,6 +60,7 @@ lint.select = ["ALL"]
 lint.ignore = [
     "ANN401",   # Dynamically typed expressions (typing.Any) are disallowed
     "COM812",   # Trailing comma missing
+    "CPY001",   # Missing copyright notice at top of file
     "D203",     # 1 blank line required before class docstring
     "D213",     # Multi-line docstring summary should start at the second line
     "EM101",    # Exception must not use a string literal, assign to variable first
@@ -104,51 +84,5 @@ lint.ignore = [
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
-[tool.coverage.run]
-source = ["nettigo_air_monitor"]
-
-[tool.tox]
-legacy_tox_ini = """
-
-[tox]
-envlist = py312, py313, lint, typing, coverage
-skip_missing_interpreters = True
-
-[gh-actions]
-python =
-  3.12: py312, lint, typing, coverage
-  3.13: py313
-
-[testenv]
-commands =
-  pytest --timeout=30 --cov=nettigo_air_monitor --cov-report=xml {posargs} --error-for-skips
-deps =
-  .[test]
-
-[testenv:lint]
-basepython = python3
-depends = py312
-ignore_errors = True
-skip_install = True
-usedevelop = False
-commands =
-  ruff check .
-  ruff format --check .
-
-[testenv:typing]
-basepython = python3
-depends = py312
-ignore_errors = True
-skip_install = True
-usedevelop = False
-commands =
-  mypy nettigo_air_monitor
-
-[testenv:coverage]
-basepython = python3
-depends = py312
-skip_install = True
-usedevelop = False
-commands =
-  coverage report --fail-under=79
-"""
+[tool.ty.environment]
+python-version = "3.13"

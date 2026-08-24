@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gunicorn_h1c
-Version: 0.6.8
+Version: 0.6.9
 Summary: Fast HTTP/1.1 parser for Gunicorn using picohttpparser
 Author-email: Benoit Chesneau <benoitc@gunicorn.org>
 License: MIT
@@ -422,7 +422,10 @@ Notes:
   to report.
 - The tail is measured from the end of the message, not the end of the
   headers. For a body, that means past the last body byte or past the
-  terminating chunk and its trailers.
+  terminating chunk and its trailers. This holds for a request carrying an
+  `Upgrade` header too: its body is parsed and delivered through `on_body`
+  like any other, so the tail starts after it. `CONNECT` is different, since
+  it carries no body and everything after its headers is tunnel traffic.
 - A tail split over several `feed()` calls is accumulated, so you can keep
   feeding until you are ready to read it.
 - `reset()` drops the tail. For pipelining, read it first and feed it back:

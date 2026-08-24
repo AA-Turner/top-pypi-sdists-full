@@ -18,6 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
@@ -32,7 +33,8 @@ class ListAnnotationsRequest(BaseModel):
     label: Optional[StrictStr] = Field(default=None, description="Filter by label.")
     actor_id: Optional[StrictStr] = Field(default=None, description="Filter by who annotated.")
     retriever_id: Optional[StrictStr] = Field(default=None, description="Filter by retriever.")
-    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "label", "actor_id", "retriever_id"]
+    as_of: Optional[datetime] = Field(default=None, description="ADM-15: return the judgment set AS IT STOOD at this instant — annotations created later are excluded, and each remaining annotation is reconstructed to its state at that time from its revision chain. This is the reproducible-evaluation handle: an evaluation pins its as_of and re-reads the identical set later.")
+    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "label", "actor_id", "retriever_id", "as_of"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +91,8 @@ class ListAnnotationsRequest(BaseModel):
             "collection_id": obj.get("collection_id"),
             "label": obj.get("label"),
             "actor_id": obj.get("actor_id"),
-            "retriever_id": obj.get("retriever_id")
+            "retriever_id": obj.get("retriever_id"),
+            "as_of": obj.get("as_of")
         })
         return _obj
 

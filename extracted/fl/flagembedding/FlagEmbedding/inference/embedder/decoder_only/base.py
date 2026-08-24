@@ -6,6 +6,7 @@ import numpy as np
 from transformers import AutoModel, AutoTokenizer
 
 from FlagEmbedding.abc.inference import AbsEmbedder
+from FlagEmbedding.utils.tokenizer_compat import pad_with_compat
 
 
 # Pooling function for LLM-based embedding models
@@ -251,7 +252,8 @@ class BaseLLMEmbedder(AbsEmbedder):
         flag = False
         while flag is False:
             try:
-                inputs_batch = self.tokenizer.pad(
+                inputs_batch = pad_with_compat(
+                    self.tokenizer,
                     all_inputs_sorted[: batch_size],
                     padding=True,
                     return_tensors='pt',
@@ -270,7 +272,8 @@ class BaseLLMEmbedder(AbsEmbedder):
         for start_index in tqdm(range(0, len(sentences), batch_size), desc="Inference Embeddings",
                                 disable=len(sentences) < batch_size):
             inputs_batch = all_inputs_sorted[start_index:start_index + batch_size]
-            inputs_batch = self.tokenizer.pad(
+            inputs_batch = pad_with_compat(
+                self.tokenizer,
                 inputs_batch,
                 padding=True,
                 return_tensors='pt',

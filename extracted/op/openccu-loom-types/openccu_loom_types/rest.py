@@ -689,6 +689,10 @@ class DataPointSummary(BaseModel):
         description='Ready-to-display caption for the parameter row: the\nlocale-aware channel-typed translation when one exists,\notherwise the title-cased parameter (`RSSI_DEVICE` →\n`Rssi Device`). Always non-empty; clients render it\nverbatim instead of deriving their own fallback. Unlike\n`translated_name` it carries text even when\n`label_omitted` is true — the "primary parameter"\ncollapse is an entity-naming concern, row captions keep\ntheir label.\n',
     )
     value: Any | None = None
+    display_value: float | None = Field(
+        None,
+        description="`value` expressed in the unit `unit` names, i.e. `value * multiplier`. Present only when that projection is non-trivial; absent means `value` already is the displayable number.\nIt exists because `value` is the raw CCU wire value and has to stay that: the write path sends it back unchanged. A LEVEL data point reads 0.42 with unit `%`, so rendering the pair without multiplying shows a dimmer at 0.42 %. Render `display_value` when present and `value` otherwise — that is always correct and needs no arithmetic on the client. Writes always carry `value`.",
+    )
     observed: bool
     modified_at: AwareDatetime | None = Field(
         None,
@@ -964,6 +968,10 @@ class HistoryBucket(BaseModel):
     max: float = Field(..., description="Maximum raw sample in this bucket.")
     count: int = Field(
         ..., description="Number of raw samples aggregated into this bucket."
+    )
+    covered_ms: int | None = Field(
+        None,
+        description="The millisecond span `avg` is weighted over. Omitted (or zero) when the span is unknown — a bucket built entirely from rows the daemon recorded before it stored the span — in which case `avg` is the plain mean over `count`.\n",
     )
 
 
@@ -1821,6 +1829,10 @@ class DataPointValueChangedPayload(BaseModel):
         ...,
         description="New value in its native CCU type (bool/int/float/string/list/null).",
     )
+    display_value: float | None = Field(
+        None,
+        description="`value` expressed in the unit the data point names, i.e.\n`value * multiplier`. Present only when that projection is\nnon-trivial; absent means `value` already is the displayable\nnumber.\n\nCarries the same meaning as `display_value` on the REST\ndata-point summary and must agree with it: a client seeds a\nreading from REST and updates it from here, so a value scaled on\none plane and raw on the other makes the reading jump on the\nfirst push. Render `display_value` when present and `value`\notherwise; writes always carry `value`, which stays the raw CCU\nwire value.\n",
+    )
     previous: Any | None = Field(
         None,
         description='Prior value. Omitted when no prior value was tracked (initial\npush). Future revisions may surface a `kind: "initial"|"change"|"refresh"`\ndiscriminator on the envelope.\n',
@@ -2356,15 +2368,28 @@ class HubInstallModeDataPoint(BaseModel):
     )
 
 
-class HubDataPoints(BaseModel):
-    central: str | None = None
-    alarm_messages: HubCountDataPoint
-    service_messages: HubCountDataPoint
-    inbox: HubCountDataPoint
-    update: HubUpdateDataPoint
-    metrics: list[HubMetricDataPoint] | None = None
-    connectivity: list[HubConnectivityDataPoint] | None = None
-    install_mode: list[HubInstallModeDataPoint] | None = None
+class HubDaemonConnectionDataPoint(BaseModel):
+    legacy_name: str = Field(
+        ..., description="Stable singleton name; always `daemon_connection`."
+    )
+    connected: bool
+
+
+class Status1(StrEnum):
+    online = "online"
+    offline = "offline"
+
+
+class DaemonStatusPayload(BaseModel):
+    status: Status1 = Field(
+        ...,
+        description="The same two words the MQTT bridge retains on `<base>/bridge/status`, so a client bridging both planes needs no translation.",
+    )
+    reason: str | None = Field(
+        None,
+        description="Short machine-readable cause of an offline announcement (`shutdown`); absent otherwise.",
+    )
+    event_at: AwareDatetime
 
 
 class DeviceCreatedPayload(BaseModel):
@@ -2388,6 +2413,19 @@ class DeviceAvailabilityChangedPayload(BaseModel):
     interface_id: str
     device_address: str
     available: bool
+
+
+class DeviceMetadataChangedPayload(BaseModel):
+    central: str
+    interface_id: str
+    device_address: str
+
+
+class ScheduleChangedPayload(BaseModel):
+    central: str
+    interface_id: str
+    device_address: str
+    channel: int
 
 
 class OptimisticRollbackPayload(BaseModel):
@@ -3048,6 +3086,19 @@ class BackupEntry(BaseModel):
         None,
         description="The archive's name in the CCU's own convention, `<hostname>-<CCU firmware version>-<YYYY-MM-DD-HHMM>.sbk`, recorded when the archive was taken. This is what the download is served as; show or store this rather than rebuilding a name, because the id is a storage key and carries no firmware version. Absent for archives taken before this field existed, or when the CCU had not reported its system information yet — fall back to `<id>.sbk`.",
     )
+
+
+class BackupStorageInfo(BaseModel):
+    dir: str | None = Field(
+        None,
+        description="Absolute path the archives are read from and written to. Absent when no storage is configured, or when the storage backend has no location to report.",
+    )
+    available: bool = Field(
+        ...,
+        description="Whether a storage backend is wired at all. False means the daemon could not create its archive directory (read-only mount, missing permissions) — the backup list is then empty for a reason that has nothing to do with the CCU.",
+    )
+    count: int
+    bytes: int
 
 
 class EditSessionRequest(BaseModel):
@@ -3999,6 +4050,18 @@ class SecurityNotificationPayload(BaseModel):
     )
 
 
+class HubDataPoints(BaseModel):
+    central: str | None = None
+    alarm_messages: HubCountDataPoint
+    service_messages: HubCountDataPoint
+    inbox: HubCountDataPoint
+    update: HubUpdateDataPoint
+    daemon_connection: HubDaemonConnectionDataPoint
+    metrics: list[HubMetricDataPoint] | None = None
+    connectivity: list[HubConnectivityDataPoint] | None = None
+    install_mode: list[HubInstallModeDataPoint] | None = None
+
+
 class CentralRow(BaseModel):
     name: str = Field(
         ...,
@@ -4236,6 +4299,10 @@ class SecuritySnapshot(BaseModel):
     engine_healthy: bool = Field(
         ...,
         description="The alarm engine's verdict about itself, distinct from a transport outage.\n",
+    )
+    index_healthy: bool | None = Field(
+        None,
+        description="Whether the classification index still reflects the model behind this snapshot. False means the classes and zones were folded from an index the daemon knows to be stale — a source may be missing or attributed to the wrong class. Render the view as degraded rather than trusting a quiet result.\n",
     )
     last_alarm: SecurityNotification | None = None
     last_fault: SecurityNotification | None = None

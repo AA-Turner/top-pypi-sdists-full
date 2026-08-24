@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.7.12 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.7.14 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -840,7 +840,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.12) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.14) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -3529,13 +3529,14 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
 
     torch.set_default_device('cpu')
 
+    ignored_models = getattr(pipe_or_dict_of_modules, "_mmgp_ignore_models", ())
     if hasattr(pipe_or_dict_of_modules, "components"):
         # create a fake Accelerate parameter so that lora loading doesn't change the device
         pipe_or_dict_of_modules.hf_device_map = torch.device("cuda")
         pipe_or_dict_of_modules= pipe_or_dict_of_modules.components 
 
     
-    models = {k: _remove_model_wrapper(v) for k, v in pipe_or_dict_of_modules.items() if isinstance(v, torch.nn.Module)}
+    models = {k: _remove_model_wrapper(v) for k, v in pipe_or_dict_of_modules.items() if isinstance(v, torch.nn.Module) and k not in ignored_models}
 
     
     verboseLevel = _compute_verbose_level(verboseLevel)
@@ -3818,11 +3819,12 @@ def profile(pipe_or_dict_of_modules, profile_no: profile_type =  profile_type.Ve
     verboseLevel = _compute_verbose_level(verboseLevel)
 
     modules = pipe_or_dict_of_modules
+    ignored_models = getattr(modules, "_mmgp_ignore_models", ())
 
     if hasattr(modules, "components"):
         modules= modules.components 
 
-    modules = {k: _remove_model_wrapper(v) for k, v in modules.items() if isinstance(v, torch.nn.Module)}
+    modules = {k: _remove_model_wrapper(v) for k, v in modules.items() if isinstance(v, torch.nn.Module) and k not in ignored_models}
     module_names = {k: _get_module_name(v) for k, v in modules.items() }
 
     default_extraModelsToQuantize = []

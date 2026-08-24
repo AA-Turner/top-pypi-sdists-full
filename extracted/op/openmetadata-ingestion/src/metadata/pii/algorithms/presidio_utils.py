@@ -14,6 +14,7 @@ Utilities for working with the Presidio Library.
 
 import inspect
 import logging
+import re
 import types
 from collections.abc import Callable, Iterable
 from functools import cache, wraps
@@ -58,6 +59,34 @@ logger = pii_logger()
 
 MIN_SCORE_FOR_ENHANCEMENT = 0.3
 
+_CONTEXT_TOKEN_SEPARATORS = re.compile(r"[^0-9a-z]+")
+
+
+def context_matches(recognizer_context: Iterable[str], context: list[str]) -> bool:
+    """
+    Whether any of the recognizer's context words is present in the given context
+    (the column name, split into its parts by `split_column_name`).
+
+    Single-word context entries are matched against whole tokens, never as substrings.
+    A plain `"cid" in "acid level"` test is true, which would boost the CVV recognizer on
+    any column whose name merely contains the letters of a context word -- `acid_level`,
+    `incident_count`, `decoder_ring` -- turning a 0.5 "3-4 digits" regex into a 1.0 match.
+    Multi-word entries keep substring semantics; they have no single token to compare against.
+    """
+    context_lower = " ".join(context).lower()
+    tokens = {token for token in _CONTEXT_TOKEN_SEPARATORS.split(context_lower) if token}
+
+    for ctx_word in recognizer_context:
+        word = ctx_word.lower()
+        parts = [part for part in _CONTEXT_TOKEN_SEPARATORS.split(word) if part]
+        if len(parts) == 1:
+            if parts[0] in tokens:
+                return True
+        elif word in context_lower:
+            return True
+
+    return False
+
 
 @cache
 def load_nlp_engine(
@@ -95,9 +124,7 @@ def build_analyzer_engine(
     model_name = get_model_for_language(language)
     supported_language = language.value
 
-    nlp_engine = load_nlp_engine(
-        model_name=model_name, supported_language=supported_language
-    )
+    nlp_engine = load_nlp_engine(model_name=model_name, supported_language=supported_language)
     recognizer_registry = RecognizerRegistry(
         recognizers=list(_get_all_pattern_recognizers()),
         supported_languages=[supported_language],
@@ -336,10 +363,10 @@ class ContextAwareUsBankRecognizer(UsBankRecognizer):
                               accuracy of the context enhancement process
         :param context: list of context words
         """
-        if context is None:
+        # The match depends only on the recognizer and the column, not on the individual
+        # result, so resolve it once instead of re-tokenizing the context for every result.
+        if not context or not self.context or not context_matches(self.context, context):
             return raw_recognizer_results
-
-        context_lower = " ".join(context).lower()
 
         for result in raw_recognizer_results:
             # if previously enhanced, then ignore
@@ -348,17 +375,16 @@ class ContextAwareUsBankRecognizer(UsBankRecognizer):
             ):
                 continue
 
-            if any(ctx_word.lower() in context_lower for ctx_word in self.context):
-                original_score = result.score
-                result.score = self.MAX_SCORE
+            original_score = result.score
+            result.score = self.MAX_SCORE
 
-                result.recognition_metadata[  # pyright: ignore[reportUnknownMemberType]
-                    RecognizerResult.IS_SCORE_ENHANCED_BY_CONTEXT_KEY
-                ] = True
+            result.recognition_metadata[  # pyright: ignore[reportUnknownMemberType]
+                RecognizerResult.IS_SCORE_ENHANCED_BY_CONTEXT_KEY
+            ] = True
 
-                logger.debug(
-                    f"Enhanced {result.entity_type} score: {original_score:.2f} → {result.score:.2f} (context: {self.context})"
-                )
+            logger.debug(
+                f"Enhanced {result.entity_type} score: {original_score:.2f} → {result.score:.2f} (context: {self.context})"
+            )
 
         return raw_recognizer_results
 
@@ -439,12 +465,12 @@ def enhance_using_context(recognizer: EntityRecognizer) -> EntityRecognizer:
             context,
         )
 
-        if not rec.context or not context:
-            # If no context is given or the recognizer does not support it,
-            # then ignore this
+        # The match depends only on the recognizer and the column, not on the individual
+        # result, so resolve it once instead of re-tokenizing the context for every result.
+        if not rec.context or not context or not context_matches(rec.context, context):
+            # If no context is given, the recognizer does not support it, or none of its
+            # context words match the column, then ignore this
             return results
-
-        context_lower = " ".join(context).lower()
 
         for result in results:
             # if previously enhanced, then ignore
@@ -457,17 +483,16 @@ def enhance_using_context(recognizer: EntityRecognizer) -> EntityRecognizer:
             if result.score < MIN_SCORE_FOR_ENHANCEMENT:
                 continue
 
-            if any(ctx_word.lower() in context_lower for ctx_word in rec.context):
-                original_score = result.score
-                result.score = rec.MAX_SCORE
+            original_score = result.score
+            result.score = rec.MAX_SCORE
 
-                result.recognition_metadata[  # pyright: ignore[reportUnknownMemberType]
-                    RecognizerResult.IS_SCORE_ENHANCED_BY_CONTEXT_KEY
-                ] = True
+            result.recognition_metadata[  # pyright: ignore[reportUnknownMemberType]
+                RecognizerResult.IS_SCORE_ENHANCED_BY_CONTEXT_KEY
+            ] = True
 
-                logger.debug(
-                    f"Enhanced {result.entity_type} score: {original_score:.2f} → {result.score:.2f} (context: {rec.context})"
-                )
+            logger.debug(
+                f"Enhanced {result.entity_type} score: {original_score:.2f} → {result.score:.2f} (context: {rec.context})"
+            )
 
         return results
 
@@ -537,9 +562,9 @@ def explain_recognition_results(results: list[RecognizerResult]) -> str:
     for recognizer_identifier, group in grouped_results:
         group_list = list(group)
 
-        recognizer_name: str = cast(
-            "dict[str, str]", group_list[0].recognition_metadata
-        ).get(presidio_constants.RECOGNIZER_METADATA_NAME, recognizer_identifier)
+        recognizer_name: str = cast("dict[str, str]", group_list[0].recognition_metadata).get(
+            presidio_constants.RECOGNIZER_METADATA_NAME, recognizer_identifier
+        )
         results_count = len(group_list)
         results_score = sum(r.score for r in group_list) / results_count
         maybe_plural_time = "time" if results_count == 1 else "times"
@@ -557,28 +582,18 @@ def explain_recognition_results(results: list[RecognizerResult]) -> str:
         patterns_matched: set[tuple[str, float]] = set()
         for result in group_list:
             if (
-                result.analysis_explanation
-                is None  # pyright: ignore[reportUnnecessaryComparison]
-                or result.analysis_explanation.pattern
-                is None  # pyright: ignore[reportUnnecessaryComparison]
+                result.analysis_explanation is None  # pyright: ignore[reportUnnecessaryComparison]
+                or result.analysis_explanation.pattern is None  # pyright: ignore[reportUnnecessaryComparison]
             ):
                 continue
 
-            patterns_matched.add(
-                (result.analysis_explanation.pattern, result.analysis_explanation.score)
-            )
+            patterns_matched.add((result.analysis_explanation.pattern, result.analysis_explanation.score))
 
         if patterns_matched:
-            textual_explanation += (
-                presidio_constants.TEXTUAL_EXPLANATION_PATTERN_HEADER_TEMPLATE + "\n"
-            )
-            for pattern, score in sorted(
-                patterns_matched, key=lambda o: o[1], reverse=True
-            ):
+            textual_explanation += presidio_constants.TEXTUAL_EXPLANATION_PATTERN_HEADER_TEMPLATE + "\n"
+            for pattern, score in sorted(patterns_matched, key=lambda o: o[1], reverse=True):
                 textual_explanation += (
-                    presidio_constants.TEXTUAL_EXPLANATION_PATTERN_ITEM_TEMPLATE.format(
-                        pattern=pattern, score=score
-                    )
+                    presidio_constants.TEXTUAL_EXPLANATION_PATTERN_ITEM_TEMPLATE.format(pattern=pattern, score=score)
                     + "\n"
                 )
 

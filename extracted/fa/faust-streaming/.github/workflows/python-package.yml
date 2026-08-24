@@ -79,6 +79,35 @@ jobs:
         # a missing confluent_kafka -- actually run.
         kafka-driver: ['aiokafka']
         include:
+          # Python 3.15.  `allow-prereleases` below resolves this to whatever
+          # pre-release the runner image publishes -- 3.15.0rc1 at the time of
+          # writing, and 3.15.0 final once it ships, with no change needed
+          # here.  Same shape as a stable row: Cython on and off, plus a
+          # confluent leg.
+          #
+          # Advisory (`experimental: true` -> `continue-on-error`) for two
+          # reasons.  The pre-release one is the same as everywhere else: rc2
+          # and final are still to come.  The specific one is that faust does
+          # not import at all on 3.15 until mode-streaming ships the fix for
+          # `typing._eval_type`, whose `type_params` argument became a required
+          # positional in 3.15 -- every faust Record model resolves its
+          # annotations through `mode.utils.objects.annotations`, so collection
+          # dies before the first test runs.  The fix is on mode's master; this
+          # leg goes green once a mode-streaming release carries it (bump the
+          # floor in requirements/requirements.txt then, and move these entries
+          # into the matrix above to make 3.15 required).
+          - python-version: '3.15'
+            use-cython: 'true'
+            experimental: true
+            kafka-driver: 'aiokafka'
+          - python-version: '3.15'
+            use-cython: 'false'
+            experimental: true
+            kafka-driver: 'aiokafka'
+          - python-version: '3.15'
+            use-cython: 'false'
+            experimental: true
+            kafka-driver: 'confluent'
           # confluent driver: broker-less unit tests over a pure-Python
           # wrapper, so one leg per Python version (Cython off) is enough.
           - python-version: '3.10'
@@ -111,6 +140,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          # Required by the 3.15 rows: a bare `3.15` matches stable releases
+          # only and fails with "Version 3.15 was not found in the local
+          # cache".  Safe for every other row -- it widens `3.X` to
+          # `~3.X.0-0`, and a pre-release only wins when no stable release
+          # satisfies the spec, so 3.10-3.14 still resolve to their newest
+          # stable patch.
+          allow-prereleases: true
           cache: pip
           # See the lint job: test.txt alone leaves the key unchanged when the
           # transitively-included pins move, and the confluent legs below
@@ -125,7 +161,26 @@ jobs:
           if [ "${{ matrix.kafka-driver }}" = "confluent" ]; then
             pip install -r requirements/extras/ckafka.txt
           fi
+      - name: Build the Cython extensions in place
+        # `pip install .` above compiles the extensions into site-packages,
+        # where the tests never see them: pytest runs from the repository
+        # root, so `import faust` resolves to the source tree, and every
+        # accelerated import sits behind `try: ... except ImportError`.  The
+        # fallback engaged silently, so these legs differed from the
+        # `use-cython: false` ones only in whether the build step succeeded --
+        # the compiled code itself was never executed by a single test.
+        #
+        # Building in place puts the .so files next to the .pyx files, which
+        # is what the source-tree import actually picks up.
+        if: matrix.use-cython == 'true'
+        run: USE_CYTHON=1 python setup.py build_ext --inplace
       - name: Run tests
+        # FAUST_REQUIRE_CYTHON turns a silent fallback into a failure, so this
+        # leg cannot quietly go back to testing pure Python if the build stops
+        # producing importable extensions.  See
+        # tests/unit/test_cython_parity.py.
+        env:
+          FAUST_REQUIRE_CYTHON: ${{ matrix.use-cython == 'true' && '1' || '' }}
         run: |
           if [ "${{ matrix.kafka-driver }}" = "confluent" ]; then
             # Dedicated confluent leg: run just the confluent driver's unit
@@ -138,6 +193,69 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+  test-freethreading:
+    name: 'Python ${{ matrix.python-version }} (free-threaded)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two interpreters `[tool.cibuildwheel]` publishes free-threaded
+        # wheels for.  Keep the two lists in step: a version we ship a wheel
+        # for is a version this job has to cover.
+        python-version: ['3.13t', '3.14t']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements/*.txt
+            requirements/extras/*.txt
+      - name: Install dependencies
+        # Not requirements/test.txt: parts of it cannot be built on a
+        # free-threaded interpreter at all (twine -> cffi, and hypothesis'
+        # PyO3 extension on 3.13t).  freethreading.txt is that list minus the
+        # ones that fail, and documents each omission.
+        run: |
+          pip install -r requirements/freethreading.txt
+          pip install 'Cython>=3.1' setuptools setuptools_scm
+          # Editable, unlike the other jobs' `pip install .`.  pytest runs from
+          # the repo root, so `import faust` resolves to the source tree either
+          # way -- but the suite also needs the distribution *metadata* to
+          # exist, because `faust/__init__.py` does
+          # `version("faust-streaming")` at import time.  An editable install
+          # registers that metadata against the tree the tests actually import,
+          # instead of a second copy in site-packages that nothing loads.
+          USE_CYTHON=1 pip install -e . --no-build-isolation
+      - name: Build the Cython extensions in place
+        # The extensions have to sit next to the .pyx files or they are never
+        # imported: `faust/streams.py` and friends pull their accelerated
+        # implementation in behind `try: ... except ImportError`, so a missing
+        # .so silently falls back to pure Python and the job would test
+        # something other than what it thinks.  This is also what lets
+        # tests/unit/test_free_threading.py import the extensions rather than
+        # skipping.
+        run: USE_CYTHON=1 python setup.py build_ext --inplace
+      - name: Verify the extensions did not silently re-enable the GIL
+        # Fails loudly if an extension is missing `freethreading_compatible`,
+        # rather than leaving it to a RuntimeWarning nobody reads.  Runs
+        # before the suite so the cause is obvious when it breaks.
+        run: python -m pytest tests/unit/test_free_threading.py -v --no-cov
+      - name: Run tests
+        # PYTHON_GIL=0 keeps the GIL off for the whole run even if some
+        # *dependency* re-enables it (aiokafka's _crecords does, today), so
+        # the suite really is exercised without a GIL rather than quietly
+        # falling back to one.
+        env:
+          PYTHON_GIL: '0'
+          # As in the main matrix: fail rather than silently fall back to pure
+          # Python if the extensions stop being importable from the tree.
+          FAUST_REQUIRE_CYTHON: '1'
+        run: python -m pytest tests/unit tests/functional -q --no-cov
   test-pypy:
     name: 'Python pypy3.11/Cython: false'
     runs-on: ubuntu-latest
@@ -167,12 +285,13 @@ jobs:
           pip install .
       - name: Run tests
         if: steps.install.outcome == 'success'
-        run: scripts/tests
-      - name: Enforce coverage
-        if: steps.install.outcome == 'success'
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+        # `scripts/tests` also runs bandit after pytest, and pytest coverage on
+        # PyPy is expensive enough to push this advisory leg into the timeout.
+        # Run pytest directly without coverage, and stop at the first failure so
+        # a red job reports the real test error instead of a timeout.
+        run: >
+          python -m pytest tests/unit tests/functional tests/integration
+          tests/meticulous tests/regression -x --no-cov
   test-integration:
     name: 'Integration (Kafka ${{ matrix.kafka-version }})'
     runs-on: ubuntu-latest
@@ -290,7 +409,10 @@ jobs:
   check:  # This job does nothing and is only used for the branch protection
     name: ✅ Ensure the required checks passing
     if: always()
-    needs: [lint, test-pytest]
+    # test-freethreading gates too: `[tool.cibuildwheel]` publishes cp313t and
+    # cp314t wheels, and a wheel we ship should not be able to go out on a red
+    # run.  (The integration jobs stay out of this list -- they are advisory.)
+    needs: [lint, test-pytest, test-freethreading]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -305,10 +427,17 @@ jobs:
     strategy:
       matrix:
         # Modern, supported runner images (ubuntu-20.04 was retired in 2025).
-        # macos-15-intel -> x86_64 wheels, macos-14 -> arm64 wheels,
-        # windows-2022 -> AMD64 wheels. Build config lives in
-        # pyproject.toml's [tool.cibuildwheel] (cp3*, auto64, Cython).
-        os: [ubuntu-latest, macos-15-intel, macos-14, windows-2022]
+        # macos-15-intel -> x86_64 wheels, macos-14 -> arm64 wheels. Build
+        # config lives in pyproject.toml's [tool.cibuildwheel] (cp3*, auto64,
+        # Cython).
+        #
+        # windows-2022 is deliberately not in this list: a failure on that leg
+        # fails the whole `build_wheels` job (matrix legs are ANDed together
+        # for job success, independent of fail-fast), and `publish` needs
+        # `build_wheels` -- so one broken Windows build blocks every
+        # platform's release, not just Windows' (see #790). Re-add it once
+        # Windows wheel builds have proven stable again.
+        os: [ubuntu-latest, macos-15-intel, macos-14]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -317,7 +446,15 @@ jobs:
         # cibuildwheel 2.21.3 predates CPython 3.14, so `build = "cp3*"`
         # stopped at cp313 and no 3.14 wheels were published (issue #715).
         # 4.x builds 3.14 by default and still supports cp310-cp313.
-        uses: pypa/cibuildwheel@v4.1.0
+        #
+        # 4.2.0 is the first pin that knows about CPython 3.15, and it builds
+        # cp315 by default -- no `CIBW_ENABLE: cpython-prerelease` needed,
+        # because cibuildwheel gates a Python behind that group only until its
+        # first release candidate (the ABI is frozen at rc1, so a wheel built
+        # against 3.15.0rc1 is forward-compatible with 3.15.0 final).  The
+        # `cp31?t-*` skip in pyproject.toml's [tool.cibuildwheel] keeps this
+        # to cp315, without cp315t, matching the other versions.
+        uses: pypa/cibuildwheel@v4.2.0
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}

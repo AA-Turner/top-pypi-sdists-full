@@ -341,7 +341,7 @@ __all__ = [
     "EvalStats",
 ]
 
-__version__ = "0.4.4"
+__version__ = "0.4.5"
 
 
 # Lazy imports for performance
@@ -483,22 +483,22 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return wrap_gemini
 
     if name == "wrap_bedrock":
-        from aigie.wrappers_bedrock import wrap_bedrock
+        from aigie.wrappers import wrap_bedrock
 
         return wrap_bedrock
 
     if name == "create_traced_bedrock":
-        from aigie.wrappers_bedrock import create_traced_bedrock
+        from aigie.wrappers import create_traced_bedrock
 
         return create_traced_bedrock
 
     if name == "wrap_cohere":
-        from aigie.wrappers_cohere import wrap_cohere
+        from aigie.wrappers import wrap_cohere
 
         return wrap_cohere
 
     if name == "create_traced_cohere":
-        from aigie.wrappers_cohere import create_traced_cohere
+        from aigie.wrappers import create_traced_cohere
 
         return create_traced_cohere
 
@@ -1971,9 +1971,15 @@ if TYPE_CHECKING:
         uuidv7_with_timestamp,
     )
     from aigie.workflows import WorkflowDefinition, WorkflowExecution, WorkflowsClient
-    from aigie.wrappers import wrap_anthropic, wrap_gemini, wrap_openai
-    from aigie.wrappers_bedrock import create_traced_bedrock, wrap_bedrock
-    from aigie.wrappers_cohere import create_traced_cohere, wrap_cohere
+    from aigie.wrappers import (
+        create_traced_bedrock,
+        create_traced_cohere,
+        wrap_anthropic,
+        wrap_bedrock,
+        wrap_cohere,
+        wrap_gemini,
+        wrap_openai,
+    )
 
 
 # ============================================================================

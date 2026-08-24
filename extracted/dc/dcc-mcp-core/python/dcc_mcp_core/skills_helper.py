@@ -13,15 +13,19 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-import json as _json
 from pathlib import Path
+import traceback as _traceback
 from typing import Any
 
+from dcc_mcp_core._json_codec import _stdlib_json_loads
+from dcc_mcp_core._json_codec import json_dumps
+from dcc_mcp_core._json_codec import json_loads
 from dcc_mcp_core._lazy import lazy_dir
 from dcc_mcp_core._lazy import resolve_lazy_symbol
+from dcc_mcp_core.errors import DccMcpError
 
 
-class SkillHelperError(Exception):
+class SkillHelperError(DccMcpError):
     """Base exception for skill-helper failures raised by future helpers."""
 
 
@@ -119,7 +123,7 @@ class HttpResponse:
         return self._body.decode("utf-8", errors="replace")
 
     def json(self) -> Any:
-        """Parse the response body using the Rust-backed JSON codec."""
+        """Parse the response body using the selected native-first JSON backend."""
         if self.truncated:
             raise SkillHttpError(
                 f"response exceeded max_bytes and was truncated at {len(self._body)} bytes",
@@ -158,31 +162,6 @@ def _core_symbol(name: str) -> Any:
         raise ModuleNotFoundError("No module named 'dcc_mcp_core._core'", name="dcc_mcp_core._core") from exc
 
     return getattr(_core, name)
-
-
-def _optional_core_symbol(name: str) -> Any:
-    try:
-        return _core_symbol(name)
-    except ModuleNotFoundError as exc:
-        if exc.name == "dcc_mcp_core._core":
-            return None
-        raise
-
-
-def json_dumps(obj: Any, *, ensure_ascii: bool = True, indent: int | None = None) -> str:
-    """Serialize *obj* to JSON, preferring the Rust-backed codec when available."""
-    dumps = _optional_core_symbol("json_dumps")
-    if dumps is not None:
-        return dumps(obj, ensure_ascii=ensure_ascii, indent=indent)
-    return _json.dumps(obj, ensure_ascii=ensure_ascii, indent=indent)
-
-
-def json_loads(s: str) -> Any:
-    """Deserialize JSON text, preferring the Rust-backed codec when available."""
-    loads = _optional_core_symbol("json_loads")
-    if loads is not None:
-        return loads(s)
-    return _json.loads(s)
 
 
 def yaml_dumps(obj: Any) -> str:
@@ -607,15 +586,27 @@ def skill_error_from_exception(
     message: str | None = None,
     error: str | None = None,
     prompt: str | None = None,
+    _meta: Mapping[str, Any] | None = None,
     **context: Any,
 ) -> dict[str, Any]:
-    """Convert an exception into the standard skill error dictionary shape."""
+    """Convert an exception into the standard skill error dictionary shape.
+
+    The exception type and message are preserved under ``_meta["dcc.error"]``.
+    Caller metadata is retained, but cannot override those canonical details.
+    """
     from dcc_mcp_core.skill import skill_error
 
+    meta = dict(_meta or {})
+    meta["dcc.error"] = {
+        "type": type(exc).__name__,
+        "message": str(exc),
+        "traceback": "".join(_traceback.format_exception(type(exc), exc, exc.__traceback__)),
+    }
     return skill_error(
         message or str(exc) or type(exc).__name__,
         error or type(exc).__name__,
         prompt=prompt,
+        _meta=meta,
         **context,
     )
 
@@ -629,7 +620,7 @@ class ToolValidator:
     @staticmethod
     def from_schema_json(schema_json: str) -> ToolValidator:
         try:
-            schema = _json.loads(schema_json)
+            schema = _stdlib_json_loads(schema_json)
         except Exception as exc:
             raise ValueError(str(exc)) from exc
         if not isinstance(schema, Mapping):
@@ -652,7 +643,7 @@ class ToolValidator:
 
     def validate(self, params_json: str) -> tuple[bool, list[str]]:
         try:
-            params = _json.loads(params_json)
+            params = _stdlib_json_loads(params_json)
         except Exception as exc:
             raise ValueError(str(exc)) from exc
         errors: list[str] = []
@@ -765,8 +756,8 @@ _LAZY_EXPORTS: dict[str, str] = {
     "ToolValidator": "dcc_mcp_core.skills_helper",
     "validate_action_result": "dcc_mcp_core._core",
     # Shared MCP/REST call envelope normalization.
-    "normalize_tool_arguments": "dcc_mcp_core.host",
-    "normalize_tool_meta": "dcc_mcp_core.host",
+    "normalize_tool_arguments": "dcc_mcp_core.wire",
+    "normalize_tool_meta": "dcc_mcp_core.wire",
     # Schema derivation helpers.
     "derive_parameters_schema": "dcc_mcp_core.schema",
     "derive_schema": "dcc_mcp_core.schema",
@@ -775,6 +766,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     # Cooperative cancellation.
     "CancellationProbe": "dcc_mcp_core.cancellation",
     "CancelledError": "dcc_mcp_core.cancellation",
+    "DccMcpCancelledError": "dcc_mcp_core.cancellation",
     "check_cancelled": "dcc_mcp_core.cancellation",
     "check_dcc_cancelled": "dcc_mcp_core.cancellation",
     "current_job_id": "dcc_mcp_core.cancellation",

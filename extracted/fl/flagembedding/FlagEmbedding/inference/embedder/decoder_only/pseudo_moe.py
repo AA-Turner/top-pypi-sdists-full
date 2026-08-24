@@ -4,6 +4,7 @@ import torch
 import numpy as np
 
 from .base import BaseLLMEmbedder, last_token_pool
+from FlagEmbedding.utils.tokenizer_compat import pad_with_compat
 
 
 class PseudoMoELLMEmbedder(BaseLLMEmbedder):
@@ -139,7 +140,8 @@ class PseudoMoELLMEmbedder(BaseLLMEmbedder):
         flag = False
         while flag is False:
             try:
-                inputs_batch = self.tokenizer.pad(
+                inputs_batch = pad_with_compat(
+                    self.tokenizer,
                     all_inputs_sorted[: batch_size],
                     padding=True,
                     return_tensors='pt',
@@ -160,7 +162,8 @@ class PseudoMoELLMEmbedder(BaseLLMEmbedder):
         all_embeddings = []
         for start_index in range(0, len(sentences), batch_size):
             inputs_batch = all_inputs_sorted[start_index:start_index + batch_size]
-            inputs_batch = self.tokenizer.pad(
+            inputs_batch = pad_with_compat(
+                self.tokenizer,
                 inputs_batch,
                 padding=True,
                 return_tensors='pt',

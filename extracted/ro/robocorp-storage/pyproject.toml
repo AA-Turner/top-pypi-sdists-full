@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "robocorp-storage"
-version = "1.1.0"
+version = "1.1.1"
 description = "Robocorp Asset Storage library"
 authors = ["Sema4.ai <dev@sema4.ai>"]
 readme = "README.md"
@@ -11,9 +11,6 @@ packages = [{ include = "robocorp", from = "src" }]
 [tool.black]
 skip-string-normalization = false
 skip-magic-trailing-comma = false
-
-[tool.isort]
-profile = "black"
 
 [tool.poetry.dependencies]
 python = "^3.10"

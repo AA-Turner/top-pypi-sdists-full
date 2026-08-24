@@ -3336,10 +3336,16 @@ def _cmd_status(args) -> None:
             # Mirroring the live plan here makes the gate reflect the real plan
             # immediately and seeds the entitlement resolver so paid runtimes
             # flip on without waiting for the daemon. Best-effort; never raises.
+            # ``allow_provision=False``: mirroring the plan must stay a local
+            # file write. Without it this line reached auto_provision_pro and
+            # a plain `clawmetry status` spent ~80s downloading the pro wheel
+            # (20s entitlement probe + 60s wheel GET) whenever the first
+            # resolved address was unreachable — the daemon, not a status
+            # read, owns provisioning.
             if _acct_plan:
                 try:
                     from clawmetry.sync import _persist_cloud_plan_to_disk as _pcp
-                    _pcp(_acct_plan)
+                    _pcp(_acct_plan, allow_provision=False)
                 except Exception:
                     pass
             if _acct_email:
@@ -4550,6 +4556,281 @@ def _cmd_reports(args) -> None:
     print(f"Opening {url} …")
     print("(Make sure `clawmetry` is running. Write .md files to ~/.clawmetry/reports/.)")
     webbrowser.open(url)
+
+
+def _trace_capture(rest) -> int:
+    """`clawmetry trace capture` — build a publishable bundle (PRD §4b).
+
+    Local half only. Upload lives in clawmetry-cloud (§4j); until it exists
+    this writes the bundle and a self-contained HTML page you can open, which
+    is also the review artefact §4f requires before any publish.
+    """
+    import json as _json
+    import os as _os
+    from clawmetry import trace_capture, trace_viewer
+
+    def _opt(name, default=None):
+        return rest[rest.index(name) + 1] if name in rest[:-1] else default
+
+    repo = _opt("--repo") or _os.getcwd()
+    out_dir = _opt("--out") or "."
+
+    # Zero-arg by default. CLAUDE.md: "users should never need to configure
+    # anything manually." A revision range is the most manual thing there is,
+    # and the first person to run this hit exactly that -- they were on a
+    # branch where `origin/main..HEAD` meant something they did not intend.
+    commit_range = _opt("--range")
+    if not commit_range:
+        commit_range = trace_capture.infer_range(repo)
+        if not commit_range:
+            print("Nothing to trace: this branch has no commits of its own yet.")
+            print("Commit something, then run `clawmetry trace capture` again.")
+            return 1
+        print(f"  branch       {trace_capture._git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()}"
+              f"  (vs {trace_capture.default_branch(repo)})")
+
+    pr = _opt("--pr")
+    if not pr and "--no-pr" not in rest:
+        pr = trace_capture.infer_pr(repo)
+
+    commits = trace_capture.read_commits(repo, commit_range)
+    if not commits:
+        print(f"No commits in range {commit_range!r}.")
+        return 1
+
+    try:
+        from clawmetry.cli_cmds._common import get_read_store
+        store, source = get_read_store()
+    except Exception as exc:
+        print(f"Cannot read the local store: {exc}")
+        print("Run `clawmetry sync` (or start the dashboard) and retry.")
+        return 1
+
+    try:
+        sessions = store.query_sessions(limit=1000) or []
+    except Exception as exc:
+        print(f"Session query failed: {exc}")
+        return 1
+    sessions = [dict(r) for r in sessions]
+
+    session_ids, attribution = trace_capture.resolve_sessions(commits, sessions)
+    if not session_ids:
+        stamped = sum(1 for c in commits if c.get("session_id"))
+        branch = trace_capture._git(repo, "rev-parse", "--abbrev-ref", "HEAD").strip()
+        print(f"No sessions resolved for {commit_range}.")
+        print(f"  examined {len(commits)} commit(s) on {branch}; "
+              f"{stamped} carried a Clawmetry-Session trailer")
+        if stamped == 0:
+            print("  Those commits were made before `clawmetry trace init` ran here.")
+            print("  Coverage starts at install and cannot be backfilled: transcripts")
+            print("  rotate and the store keeps only recent sessions (PRD 3a).")
+        else:
+            print("  The trailers name sessions the local store no longer has.")
+        return 1
+
+    meta = {s["session_id"]: s for s in sessions if s.get("session_id")}
+    events = {}
+    for sid in session_ids:
+        try:
+            # shape "transcript" -> LocalStore.query_events (routes/local_query
+            # _SHAPES is the source of truth). A wrong method name here does
+            # NOT raise on the proxy store -- it returns [] -- so the guard
+            # below is what catches a rename.
+            events[sid] = [dict(r) for r in (store.query_events(
+                session_id=sid, limit=5000) or [])]
+        except Exception as exc:
+            print(f"  ! transcript unavailable for {sid}: {exc}")
+            events[sid] = []
+
+    if not any(events.values()):
+        print(f"Resolved {len(session_ids)} session(s) but no events came back.")
+        print("Nothing to publish. This usually means the sessions aged out of")
+        print("the local store (CLAWMETRY_FAMILY_SESSION_LIMIT, PRD 3a).")
+        return 1
+
+    bundle = trace_capture.build_bundle(
+        repo=repo, commit_range=commit_range, commits=commits,
+        session_ids=session_ids, attribution=attribution,
+        events_by_session=events, sessions_meta=meta, pr=pr,
+    )
+
+    stem = f"trace-{pr or commits[-1]['short_sha']}"
+    json_path = _os.path.join(out_dir, stem + ".json")
+    html_path = _os.path.join(out_dir, stem + ".html")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        fh.write(trace_viewer.render_json(bundle))
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(trace_viewer.render_html(bundle))
+
+    sm = bundle["summary"]
+    print(f"  project      {bundle.get('project') or '(no remote)'}"
+          + (f"  #{pr}" if pr else ""))
+    print(f"  range        {commit_range}  ({len(commits)} commits, source={source})")
+    print(f"  sessions     {len(session_ids)}  attribution={bundle['attribution']}")
+    print(f"  captured     {sm['prompts']} prompts · {sm['turns']} turns · "
+          f"{sm['tools']} tools")
+    print(f"  cost         ${sm['cost_usd']:.2f}"
+          + ("  (upper bound)" if sm["cost_is_upper_bound"] else "")
+          + f" · {sm['tokens']:,} tokens")
+    print()
+    print(f"  bundle  {json_path}")
+    print(f"  review  {html_path}")
+    print()
+
+    if "--publish" not in rest:
+        print("  Nothing was published. Open the review page, confirm it is safe")
+        print("  to share, then re-run with --publish.")
+        print()
+        print("  Redaction removed: API keys and tokens, private keys, home paths,")
+        print("  email addresses, IP addresses, and provider ids (Stripe and the")
+        print("  like). It does NOT know what is commercially sensitive. An agent")
+        print("  session sees everything your terminal saw, so read the page for:")
+        print("    - pricing, revenue or roadmap discussion")
+        print("    - internal hostnames, ticket ids, customer names")
+        print("    - anything you would not put in the repository itself")
+        return 0
+
+    # Publication is a separate, explicit step: the thing being written is a
+    # public web page containing the contents of somebody's terminal.
+    if not pr:
+        print("  --publish needs --pr <number> so the trace has a URL.")
+        return 1
+    print("  Publishing…")
+    res = trace_capture.publish(bundle)
+    if res.get("ok"):
+        print(f"  LIVE  {res.get('url')}")
+        print()
+        print("  Anyone with the link can read it, with no account.")
+        print("  Re-running capture --publish for the same PR replaces it.")
+        return 0
+    print(f"  Publish failed: {res.get('error')}")
+    if res.get("detail"):
+        print(f"  {res['detail']}")
+    print("  The bundle is still on disk; nothing was sent.")
+    return 1
+
+
+def trace_main(argv) -> int:
+    """`clawmetry trace …` — commit stamping for PR-trace attribution.
+
+    Stdlib-only and dispatched from the FAST PATH in :func:`main`, for the
+    same reason `hooks` is: ``trace stamp`` runs on EVERY commit, and paying
+    the ~300ms dashboard import there would be felt on every `git commit`.
+
+    ``stamp`` always exits 0 — a stamping failure must never block a commit.
+    See PRD-pr-trace.md §4a.
+    """
+    from clawmetry import trace_stamp
+
+    sub = argv[0] if argv else "status"
+    rest = argv[1:]
+
+    def _opt(name):
+        return rest[rest.index(name) + 1] if name in rest[:-1] else None
+
+    if sub == "capture":
+        return _trace_capture(rest)
+
+    if sub == "autopublish":
+        # Driven by the pre-push hook. ALWAYS exits 0: an observability tool
+        # must never be the reason a push fails.
+        from clawmetry import trace_auto
+        res = trace_auto.run(_opt("--repo"))
+        if res.get("skipped"):
+            return 0
+        if res.get("url"):
+            print(f"  ClawMetry trace: {res['url']}")
+        elif res.get("bundle") and not res.get("published"):
+            print("  ClawMetry captured a trace but did not publish it.")
+            print(f"  {res.get('hint', '')}")
+        elif res.get("error"):
+            print(f"  ClawMetry trace failed: {res['error']}")
+        return 0
+
+    if sub == "stamp":
+        if rest:
+            trace_stamp.stamp_file(rest[0])
+        return 0  # always
+
+    repo = _opt("--repo")
+
+    if sub == "init":
+        # Automatic by DEFAULT. `trace init` is itself the explicit act, and
+        # requiring a second flag on top of it was the same mistake as asking
+        # for a revision range: a manual step the product's own conventions
+        # say should not exist. --no-publish is the escape hatch.
+        auto = "--no-publish" not in rest
+        res = trace_stamp.install(repo)
+        status = res.get("status")
+        if status == "installed":
+            print(f"Installed commit stamping -> {res['path']}")
+            print("Agent commits from now on carry a Clawmetry-Session trailer.")
+            print("Earlier commits cannot be backfilled (PRD-pr-trace.md §3a).")
+        elif status == "already-installed":
+            print(f"Already installed -> {res['path']}")
+        elif status == "stale-binary":
+            print("Not installing: the `clawmetry` on your PATH has no `trace`")
+            print("command, so the hook would be written and then silently do")
+            print("nothing on every commit.")
+            print(f"  {res.get('hint', '')}")
+            return 1
+        elif status == "foreign-hook":
+            print(f"A different prepare-commit-msg hook exists: {res['path']}")
+            print(f"Hint: {res.get('hint', '')}")
+            return 1
+        else:
+            print(f"Could not install: {res.get('error')}")
+            return 1
+
+        from clawmetry import trace_auto
+        pp = trace_stamp.install_prepush(repo)
+        if pp.get("status") == "foreign-hook":
+            print()
+            print(f"A different pre-push hook exists: {pp['path']}")
+            print(f"Hint: {pp.get('hint', '')}")
+            print("Commit stamping is on; automatic publishing is not.")
+            return 0
+        trace_auto.set_policy(repo, publish=auto, comment=auto)
+        print()
+        if auto:
+            print("That is the only setup step. From now on, `git push` will:")
+            print("  1. capture what the agent was asked to do")
+            print("  2. publish it to trace.clawmetry.com")
+            print("  3. comment on the pull request with the link")
+            print()
+            print("Published pages are PUBLIC and contain the prompts and tool")
+            print("output the agent saw. Removed automatically: API keys and")
+            print("tokens, private keys, home paths, emails, IP addresses and")
+            print("provider ids. NOT removed, because no pattern can find it:")
+            print("pricing, roadmap or anything else you would not put in the")
+            print("repository itself.")
+            print()
+            print("  publish only when you ask :  clawmetry trace init --no-publish")
+            print("  stop publishing entirely  :  git config clawmetry.autopublish false")
+        else:
+            print("Commit stamping is on; nothing will be published.")
+            print("Capture a trace yourself with `clawmetry trace capture`.")
+        return 0
+
+    if sub == "uninstall":
+        res = trace_stamp.uninstall(repo)
+        print(res.get("status", "unknown"))
+        return 0 if res.get("ok") else 1
+
+    if sub in ("status", "--help", "-h", "help"):
+        if sub in ("--help", "-h", "help"):
+            print("usage: clawmetry trace [init|status|uninstall|stamp <file>|\n                    capture --range A..B [--pr N] [--out DIR]] [--repo PATH]")
+            return 0
+        st = trace_stamp.status(repo)
+        print(f"hook installed : {'yes' if st['hook_installed'] else 'no'}")
+        print(f"hook path      : {st['hook_path']}")
+        print(f"session now    : {st['session_id'] or '(no agent runtime detected)'}")
+        if not st["hook_installed"]:
+            print("\nRun `clawmetry trace init` to start stamping commits.")
+        return 0
+
+    print(f"unknown: trace {sub}")
+    return 2
 
 
 def _cmd_eval(args) -> None:
@@ -6920,6 +7201,11 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "hooks":
         from clawmetry.hooks_claude_code import cli_main as _hooks_cli
         raise SystemExit(_hooks_cli(sys.argv[2:]))
+    # FAST PATH — `clawmetry trace …`: `trace stamp` is invoked by the
+    # prepare-commit-msg hook on EVERY commit, so it must not pay the
+    # dashboard import. Stdlib-only; `stamp` always exits 0 (fail-open).
+    if len(sys.argv) > 1 and sys.argv[1] == "trace":
+        raise SystemExit(trace_main(sys.argv[2:]))
     # FAST PATH — `clawmetry hook claude-code --base <url>`: the LOCAL-first
     # PreToolUse gate client (auto-installed by the policy watcher — see
     # clawmetry/claude_code_gate.py). Runs on every gated Claude Code tool

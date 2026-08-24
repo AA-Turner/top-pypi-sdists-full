@@ -26,12 +26,20 @@ from metadata.generated.schema.type.basic import ProfileSampleType
 from metadata.sampler.config import resolve_static_sampling_config
 from metadata.sampler.pandas.sampler import DatalakeSampler
 from metadata.utils.datalake.datalake_utils import DatalakeColumnWrapper
+from metadata.utils.helpers import is_safe_pandas_query
+from metadata.utils.logger import profiler_logger
 from metadata.utils.sqa_like_column import SQALikeColumn
 
 if TYPE_CHECKING:
     from metadata.ingestion.source.database.burstiq.client import BurstIQClient
 
+logger = profiler_logger()
+
 _PAGE_SIZE = 5_000
+
+# Cap rows pulled when no profileSample is set, so an unbounded chain can't OOM
+# the worker. Set profileSample on the table to profile more.
+_MAX_PROFILE_ROWS = 1_000_000
 
 _NUMERIC_TYPES = {
     DataType.INT,
@@ -67,9 +75,7 @@ class BurstIQSampler(DatalakeSampler):
         super().__init__(*args, **kwargs)
         self.client: BurstIQClient = cast("BurstIQClient", self.get_client())  # type: ignore[assignment]
 
-    def get_dataframes(
-        self, service_connection_config, client, table
-    ) -> DatalakeColumnWrapper:
+    def get_dataframes(self, service_connection_config, client, table) -> DatalakeColumnWrapper:
         """Get the dataframes for burstIQ sampler.
 
         The pandas profiler re-iterates the dataset once per metric. For file
@@ -89,9 +95,7 @@ class BurstIQSampler(DatalakeSampler):
         frames: list[pd.DataFrame] = []
         skip = 0
         while True:
-            page_size = (
-                min(_PAGE_SIZE, total_limit - skip) if total_limit else _PAGE_SIZE
-            )
+            page_size = min(_PAGE_SIZE, total_limit - skip) if total_limit else _PAGE_SIZE
             records = self.client.get_records_by_tql(chain, limit=page_size, skip=skip)
             if not records:
                 break
@@ -124,6 +128,8 @@ class BurstIQSampler(DatalakeSampler):
         """Override to filter columns to those present in the DataFrame.
         BurstIQ TQL responses can omit columns that exist in entity metadata."""
         cols = [col.name for col in columns] if columns else None
+        if sample_query is not None and not is_safe_pandas_query(sample_query):
+            raise RuntimeError(f"Unsafe sample query expression\n\n{sample_query}")
         available: list[str] = []
         rows = []
         for chunk in df_iterator():
@@ -143,11 +149,17 @@ class BurstIQSampler(DatalakeSampler):
         The base sampler uses ``dropna()`` which drops a row if *any* column is
         null. BurstIQ omits absent fields per record, so nearly every row has a
         gap — that would drop all rows and return an empty sample. ``how="all"``
-        keeps partially-filled rows (blanks show as empty cells)."""
-        return [
-            [self._truncate_cell(cell) for cell in row]
-            for row in data_frame.dropna(how="all").values.tolist()
-        ]
+        keeps partially-filled rows.
+
+        Reindexed gaps arrive as NaN/NaT; normalize them to None so the upload
+        sanitizer emits JSON null instead of the strings "nan"/"NaT". The
+        ``is_scalar`` guard skips list/dict cells, where ``pd.isna`` returns an
+        array and would raise on truthiness."""
+
+        def to_null(value):
+            return None if pd.api.types.is_scalar(value) and pd.isna(value) else self._truncate_cell(value)
+
+        return [[to_null(value) for value in row] for row in data_frame.dropna(how="all").values.tolist()]
 
     def _compute_total_limit(self, chain: str) -> Optional[int]:  # noqa: UP045
         """Compute the total record limit based on the sampling config.
@@ -159,7 +171,13 @@ class BurstIQSampler(DatalakeSampler):
         """
         static = resolve_static_sampling_config(self.sample_config.profileSampleConfig)
         if not static or not static.profileSample:
-            return None
+            logger.warning(
+                "No profileSample set for chain '%s'; capping profile at %d rows "
+                "to bound memory. Set profileSample on the table to profile more.",
+                chain,
+                _MAX_PROFILE_ROWS,
+            )
+            return _MAX_PROFILE_ROWS
         if static.profileSampleType == ProfileSampleType.ROWS:
             return int(static.profileSample)
         if static.profileSampleType == ProfileSampleType.PERCENTAGE:
@@ -176,9 +194,9 @@ class BurstIQSampler(DatalakeSampler):
         unparseable values to NaN instead of raising, so the profiler degrades
         gracefully rather than hard-failing.
         """
-        if df.empty or not self.entity.columns:
+        if df.empty or not self.entity.columns:  # pyright: ignore[reportAttributeAccessIssue]
             return df
-        for col in self.entity.columns:
+        for col in self.entity.columns:  # pyright: ignore[reportAttributeAccessIssue]
             col_name = col.name.root
             if col_name not in df.columns:
                 continue

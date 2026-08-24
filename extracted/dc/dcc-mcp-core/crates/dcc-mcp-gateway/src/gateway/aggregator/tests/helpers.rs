@@ -64,13 +64,13 @@ pub(crate) async fn spawn_prompts_backend(
 
 /// Build a GatewayState with the supplied registry.
 pub(crate) async fn make_gateway_state(
-    registry: std::sync::Arc<
-        tokio::sync::RwLock<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
-    >,
+    registry: std::sync::Arc<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
 ) -> crate::gateway::GatewayState {
     let (yield_tx, _) = tokio::sync::watch::channel(false);
     let (events_tx, _) = tokio::sync::broadcast::channel::<String>(8);
     crate::gateway::GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: std::sync::Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -224,19 +224,25 @@ pub(crate) async fn spawn_canonical_workflow_backend() -> (
         )
         .route(
             "/v1/call",
-            axum::routing::post(|axum::Json(body): axum::Json<Value>| async move {
-                axum::Json(json!({
-                    "content": [{
-                        "type": "text",
-                        "text": format!(
-                            "called {} with {}",
-                            body.get("tool_slug").and_then(Value::as_str).unwrap_or(""),
-                            body.get("arguments").cloned().unwrap_or_else(|| json!({}))
-                        )
-                    }],
-                    "isError": false
-                }))
-            }),
+            axum::routing::post(
+                |headers: axum::http::HeaderMap, axum::Json(body): axum::Json<Value>| async move {
+                    let request_id = headers
+                        .get("x-request-id")
+                        .and_then(|value| value.to_str().ok());
+                    axum::Json(json!({
+                        "content": [{
+                            "type": "text",
+                            "text": format!(
+                                "called {} with {}",
+                                body.get("tool_slug").and_then(Value::as_str).unwrap_or(""),
+                                body.get("arguments").cloned().unwrap_or_else(|| json!({}))
+                            )
+                        }],
+                        "isError": false,
+                        "request_id": request_id
+                    }))
+                },
+            ),
         )
         .route(
             "/mcp",
@@ -383,12 +389,12 @@ pub(crate) async fn gateway_state_with_instances(
     Vec<uuid::Uuid>,
 ) {
     let dir = tempfile::tempdir().unwrap();
-    let registry = std::sync::Arc::new(tokio::sync::RwLock::new(
+    let registry = std::sync::Arc::new(
         dcc_mcp_transport::discovery::file_registry::FileRegistry::new(dir.path()).unwrap(),
-    ));
+    );
     let mut ids = Vec::new();
     {
-        let r = registry.read().await;
+        let r = &registry;
         for (dcc_type, port) in instances {
             let entry = dcc_mcp_transport::discovery::types::ServiceEntry::new(
                 *dcc_type,
@@ -402,6 +408,8 @@ pub(crate) async fn gateway_state_with_instances(
     let (yield_tx, _) = tokio::sync::watch::channel(false);
     let (events_tx, _) = tokio::sync::broadcast::channel::<String>(8);
     let state = crate::gateway::GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: std::sync::Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),

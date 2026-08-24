@@ -36,7 +36,7 @@ def get_handler() -> DiagnosticsHandler | None:
 
 def set_handler(handler: DiagnosticsHandler | None) -> None:
     """Install or clear the singleton. Only ``install()`` / ``shutdown()`` should call this."""
-    global _handler
+    global _handler  # noqa: PLW0603
     _handler = handler
 
 

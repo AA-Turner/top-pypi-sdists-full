@@ -12,7 +12,7 @@
 MSSQL SQLAlchemy Helper Methods
 """
 
-from typing import Optional
+from typing import Optional  # noqa: I001
 
 from sqlalchemy import Column, Integer, MetaData, String, Table, alias, sql, text
 from sqlalchemy import types as sqltypes
@@ -54,9 +54,7 @@ logger = ingestion_logger()
 
 
 @reflection.cache
-def get_table_comment(
-    self, connection, table_name, schema=None, **kw
-):  # pylint: disable=unused-argument
+def get_table_comment(self, connection, table_name, schema=None, **kw):  # pylint: disable=unused-argument
     return get_table_comment_wrapper(
         self,
         connection,
@@ -70,9 +68,7 @@ def db_plus_owner_listing(fn):
     def wrap(dialect, connection, schema=None, **kw):
         schema = f"[{schema}]" if schema and "." in schema else schema
         dbname, owner = _owner_plus_db(dialect, schema)
-        return _switch_db(
-            dbname, connection, fn, dialect, connection, dbname, owner, schema, **kw
-        )
+        return _switch_db(dbname, connection, fn, dialect, connection, dbname, owner, schema, **kw)
 
     return update_wrapper(wrap, fn)
 
@@ -114,9 +110,7 @@ def get_identity_values(coltype, identity_start, identity_increment):
 
 @reflection.cache
 @db_plus_owner
-def get_columns(
-    self, connection, tablename, dbname, owner, schema, **kw
-):  # pylint: disable=unused-argument, too-many-locals, disable=too-many-branches, too-many-statements
+def get_columns(self, connection, tablename, dbname, owner, schema, **kw):  # pylint: disable=unused-argument, too-many-locals, disable=too-many-branches, too-many-statements
     """
     This function overrides to add support for column comments
     """
@@ -153,7 +147,6 @@ def get_columns(
             Column("object_id", Integer, primary_key=True),
             Column("name", String, primary_key=True),
             Column("column_id", Integer, primary_key=True),
-            Column("generated_always_type", Integer),
             schema="sys",
         )
     )
@@ -175,8 +168,7 @@ def get_columns(
             computed_cols,
             onclause=sql.and_(
                 computed_cols.c.object_id == func.object_id(full_name),
-                computed_cols.c.name
-                == columns.c.column_name.collate("DATABASE_DEFAULT"),
+                computed_cols.c.name == columns.c.column_name.collate("DATABASE_DEFAULT"),
             ),
             isouter=True,
         )
@@ -184,8 +176,7 @@ def get_columns(
             identity_cols,
             onclause=sql.and_(
                 identity_cols.c.object_id == func.object_id(full_name),
-                identity_cols.c.name
-                == columns.c.column_name.collate("DATABASE_DEFAULT"),
+                identity_cols.c.name == columns.c.column_name.collate("DATABASE_DEFAULT"),
             ),
             isouter=True,
         )
@@ -224,7 +215,6 @@ def get_columns(
             identity_cols.c.seed_value,
             identity_cols.c.increment_value,
             sql.cast(extended_properties.c.value, NVARCHAR(4000)).label("comment"),
-            sys_columns.c.generated_always_type,
         )
         .where(whereclause)
         .select_from(join)
@@ -236,9 +226,6 @@ def get_columns(
     cols = []
     for row in cursr.mappings():
         name = row[columns.c.column_name]
-        generated_always_type = row[sys_columns.c.generated_always_type]
-        if generated_always_type in (1, 2):
-            continue
         type_ = row[columns.c.data_type]
         nullable = row[columns.c.is_nullable] == "YES"
         charlen = row[columns.c.character_maximum_length]
@@ -288,9 +275,7 @@ def get_columns(
                     scale = numericscale
 
             coltype = coltype(**kwargs)
-        raw_data_type = get_display_datatype(
-            type_, char_len=charlen, precision=precision, scale=scale
-        )
+        raw_data_type = get_display_datatype(type_, char_len=charlen, precision=precision, scale=scale)
         cdict = {
             "name": name,
             "type": coltype,
@@ -308,9 +293,7 @@ def get_columns(
             }
 
         if is_identity is not None:
-            cdict["identity"] = get_identity_values(
-                coltype, identity_start, identity_increment
-            )
+            cdict["identity"] = get_identity_values(coltype, identity_start, identity_increment)
 
         cols.append(cdict)
     return cols
@@ -318,9 +301,7 @@ def get_columns(
 
 @reflection.cache
 @db_plus_owner
-def get_view_definition(
-    self, connection, viewname, dbname, owner, schema, **kw
-):  # pylint: disable=unused-argument
+def get_view_definition(self, connection, viewname, dbname, owner, schema, **kw):  # pylint: disable=unused-argument
     return get_view_definition_wrapper(
         self,
         connection,
@@ -332,9 +313,7 @@ def get_view_definition(
 
 @reflection.cache
 @db_plus_owner
-def get_pk_constraint(
-    self, connection, tablename, dbname, owner=None, schema=None, **kw
-):  # pylint: disable=unused-argument
+def get_pk_constraint(self, connection, tablename, dbname, owner=None, schema=None, **kw):  # pylint: disable=unused-argument
     """
     This function overrides to get pk constraint
     """
@@ -376,9 +355,7 @@ def get_unique_constraints(self, connection, table_name, schema=None, **kw):
 
 @reflection.cache
 @db_plus_owner
-def get_foreign_keys(
-    self, connection, tablename, dbname, owner=None, schema=None, **kw
-):  # pylint: disable=unused-argument, too-many-locals
+def get_foreign_keys(self, connection, tablename, dbname, owner=None, schema=None, **kw):  # pylint: disable=unused-argument, too-many-locals
     """
     This function overrides to get foreign key constraint
     """
@@ -397,6 +374,7 @@ def get_foreign_keys(
             referred_table_schema=sqltypes.Unicode(),
             referred_table_name=sqltypes.Unicode(),
             referred_column=sqltypes.Unicode(),
+            referred_database=sqltypes.Unicode(),
         )
     )
 
@@ -407,6 +385,7 @@ def get_foreign_keys(
         return {
             "name": None,
             "constrained_columns": [],
+            "referred_database": None,
             "referred_schema": None,
             "referred_table": None,
             "referred_columns": [],
@@ -430,10 +409,12 @@ def get_foreign_keys(
             _,  # match rule
             fkuprule,
             fkdelrule,
+            rdbname,
         ) = row_
 
         rec = fkeys[rfknm]
         rec["name"] = rfknm
+        rec["referred_database"] = rdbname
 
         if fkuprule != "NO ACTION":
             rec["options"]["onupdate"] = fkuprule
@@ -461,9 +442,7 @@ def get_foreign_keys(
 
 @reflection.cache
 @db_plus_owner_listing
-def get_table_names(
-    self, connection, dbname, owner, schema, **kw
-):  # pylint: disable=unused-argument
+def get_table_names(self, connection, dbname, owner, schema, **kw):  # pylint: disable=unused-argument
     tables = ischema.tables
     query_ = (
         sql.select(tables.c.table_name)
@@ -476,14 +455,12 @@ def get_table_names(
         .order_by(tables.c.table_name)
     )
     table_names = [r[0] for r in connection.execute(query_)]
-    return table_names
+    return table_names  # noqa: RET504
 
 
 @reflection.cache
 @db_plus_owner_listing
-def get_view_names(
-    self, connection, dbname, owner, schema, **kw
-):  # pylint: disable=unused-argument
+def get_view_names(self, connection, dbname, owner, schema, **kw):  # pylint: disable=unused-argument
     tables = ischema.tables
     query_ = (
         sql.select(tables.c.table_name)
@@ -496,10 +473,10 @@ def get_view_names(
         .order_by(tables.c.table_name)
     )
     view_names = [r[0] for r in connection.execute(query_)]
-    return view_names
+    return view_names  # noqa: RET504
 
 
-def get_sqlalchemy_engine_dateformat(engine: Engine) -> Optional[str]:
+def get_sqlalchemy_engine_dateformat(engine: Engine) -> Optional[str]:  # noqa: UP045
     """
     returns sqlaclhemdy engine date format by running config query
     """
@@ -519,14 +496,7 @@ def is_query_store_enabled(engine: Optional[Engine]) -> bool:  # noqa: UP045
         try:
             with engine.connect() as conn:
                 actual_state = conn.execute(text(MSSQL_GET_QUERY_STORE_STATE)).scalar()
-            enabled = actual_state in (
-                QueryStoreState.READ_ONLY,
-                QueryStoreState.READ_WRITE,
-            )
+            enabled = actual_state in (QueryStoreState.READ_ONLY, QueryStoreState.READ_WRITE)
         except Exception as exc:
-            logger.debug(
-                "Query Store availability probe failed, using plan-cache DMVs: %s",
-                exc,
-                exc_info=True,
-            )
+            logger.debug("Query Store availability probe failed, using plan-cache DMVs: %s", exc, exc_info=True)
     return enabled

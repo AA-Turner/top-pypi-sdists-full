@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use serde_json::{Map, Value, json};
 
 use dcc_mcp_actions::registry::{ToolMeta, ToolRegistry};
-use dcc_mcp_gateway_core::naming::{
+use dcc_mcp_gateway_core::capability_naming::{
     decode_skill_tool_name, extract_bare_tool_name, skill_tool_name,
 };
 use dcc_mcp_jsonrpc::{McpTool, McpToolAnnotations};
@@ -479,7 +479,7 @@ pub fn build_group_stub(group: &str, tool_names: &[String]) -> McpTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dcc_mcp_models::ToolAnnotations;
+    use dcc_mcp_models::SkillToolAnnotations;
 
     #[test]
     fn simplify_mcp_input_schema_removes_composition_but_keeps_shape() {
@@ -544,7 +544,7 @@ mod tests {
                     "calls": {"type": "array", "maxItems": 25}
                 }
             }),
-            annotations: ToolAnnotations {
+            annotations: SkillToolAnnotations {
                 destructive_hint: Some(true),
                 ..Default::default()
             },

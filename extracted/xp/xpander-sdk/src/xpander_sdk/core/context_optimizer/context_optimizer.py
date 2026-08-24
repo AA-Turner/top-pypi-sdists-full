@@ -2660,7 +2660,12 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
             # them, the URLs from task.input.files survive in additional_context
             # so the retry agent can still locate the original attachments.
             try:
-                input_files = getattr(getattr(task, "input", None), "files", None)
+                from xpander_sdk.modules.tasks.models.task import files_from_attachments
+
+                _inp = getattr(task, "input", None)
+                input_files = files_from_attachments(
+                    getattr(_inp, "attachments", None), getattr(_inp, "files", None)
+                )
                 if input_files and "<task_input_files>" not in (
                     task.additional_context or ""
                 ):

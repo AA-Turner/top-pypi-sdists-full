@@ -16,7 +16,7 @@
 
 use serde_json::{Value, json};
 
-use dcc_mcp_transport::discovery::types::{InstanceStatus, ServiceEntry};
+use dcc_mcp_transport::discovery::types::{ServiceEntry, instance_status_from_entry};
 
 use super::super::state::GatewayState;
 use super::util::{parse_bool, parse_query, split_uri};
@@ -188,18 +188,21 @@ pub async fn build_payload(gs: &GatewayState, query: &Query) -> Result<Value, St
             offset,
             verbose,
         } => {
-            let reg = gs.registry.read().await;
-
             // ── Fetch raw entries ──────────────────────────────────────
             let (raw, evicted_dead) = if *include_dead {
-                (gs.all_instances(&reg), 0usize)
+                (gs.all_instances_async().await, 0usize)
             } else if *include_stale {
-                gs.read_alive_instances(&reg).map_err(|e| e.to_string())?
+                gs.read_alive_instances_async()
+                    .await
+                    .map_err(|e| e.to_string())?
             } else {
                 // Prune owner/host-dead file rows before projecting the same
                 // live+routable view used by REST routing and dispatch.
-                let (_, evicted) = gs.read_alive_instances(&reg).map_err(|e| e.to_string())?;
-                (gs.live_instances(&reg), evicted)
+                let (_, evicted) = gs
+                    .read_alive_instances_async()
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (gs.live_instances_async().await, evicted)
             };
 
             // ── Compute index health before filtering ──────────────────
@@ -303,11 +306,10 @@ pub async fn build_payload(gs: &GatewayState, query: &Query) -> Result<Value, St
             Ok(resp)
         }
         Query::Single { instance_id } => {
-            let reg = gs.registry.read().await;
             let entry = gs
-                .resolve_instance(&reg, Some(instance_id.as_str()), None)
+                .resolve_instance_async(Some(instance_id.as_str()), None)
+                .await
                 .map_err(|err| err.to_string())?;
-            drop(reg);
             Ok(super::super::instance_context::build_payload(gs, entry).await)
         }
     }
@@ -353,15 +355,11 @@ pub fn compact_instance_json(e: &ServiceEntry, stale_timeout: std::time::Duratio
     };
 
     // ADR 018: unified instance_status block (canonical status representation).
-    let instance_status = InstanceStatus::from_entry(
-        e,
-        stale,
-        super::super::http_registration::entry_uses_sidecar_dispatch(e),
-    );
+    let instance_status = instance_status_from_entry(e, stale);
 
     json!({
         "instance_id":    e.instance_id.to_string(),
-        "instance_short": dcc_mcp_gateway_core::naming::instance_short(&e.instance_id),
+        "instance_short": dcc_mcp_gateway_core::capability_naming::instance_short(&e.instance_id),
         "display_id":     e.display_id(),
         "dcc_type":       e.dcc_type,
         "version":        e.version,
@@ -395,7 +393,7 @@ pub fn instance_matches_query(e: &ServiceEntry, query_lower: &str) -> bool {
         || e.version
             .as_ref()
             .is_some_and(|v| v.to_ascii_lowercase().contains(query_lower))
-        || dcc_mcp_gateway_core::naming::instance_short(&e.instance_id)
+        || dcc_mcp_gateway_core::capability_naming::instance_short(&e.instance_id)
             .to_ascii_lowercase()
             .contains(query_lower)
         || e.scene

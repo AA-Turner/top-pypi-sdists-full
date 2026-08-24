@@ -1,6 +1,6 @@
 import copy
 from itertools import groupby
-from typing import List, Optional, Sequence, Union, final
+from typing import List, Optional, Sequence, final  # noqa: UP035
 
 from presidio_analyzer import (
     AnalyzerEngine,
@@ -40,9 +40,9 @@ TARGET_MAP = {
 class TagAnalysis(BaseModel):
     tag: Tag
     score: float
-    explanation: Optional[str]
-    recognizer_results: List[RecognizerResult] = []
-    target: Optional[recognizer.Target] = None
+    explanation: Optional[str]  # noqa: UP045
+    recognizer_results: List[RecognizerResult] = []  # noqa: UP006
+    target: Optional[recognizer.Target] = None  # noqa: UP045
     column_name_matched: bool = False
 
     @final
@@ -78,21 +78,14 @@ class TagAnalyzer:
             FQN_SEPARATOR
         )
         return (
-            get_entity_link(
-                Table, FQN_SEPARATOR.join(table_fqn_parts), column_name=column_name
-            )
-            in blacklisted_entities
+            get_entity_link(Table, FQN_SEPARATOR.join(table_fqn_parts), column_name=column_name) in blacklisted_entities
         )
 
     def _supports_language(self, created: EntityRecognizer) -> bool:
-        return (
-            self._language is ClassificationLanguage.any
-            or created.supported_language
-            in {
-                ClassificationLanguage.any.value,
-                self._language.value,
-            }
-        )
+        return self._language is ClassificationLanguage.any or created.supported_language in {
+            ClassificationLanguage.any.value,
+            self._language.value,
+        }
 
     def get_recognizers_by(self, target: recognizer.Target) -> list[EntityRecognizer]:
         if self.tag.autoClassificationEnabled is False:
@@ -100,7 +93,7 @@ class TagAnalyzer:
 
         recognizers: list[EntityRecognizer] = []
 
-        for recognizer in self.tag.recognizers or []:
+        for recognizer in self.tag.recognizers or []:  # noqa: F402
             if (
                 recognizer.target is not target
                 or recognizer.enabled is False
@@ -129,7 +122,12 @@ class TagAnalyzer:
     def _normalize_recognizer_language(
         self, recognizer_obj: EntityRecognizer, effective_language: str
     ) -> EntityRecognizer:
-        """Return a recognizer compatible with the effective language."""
+        """Normalize recognizer with 'any' language replaced by effective_language.
+
+        Presidio's RecognizerRegistry uses strict equality on supported_language,
+        so 'any' will not match specific language codes like 'en'. This method
+        translates 'any' to a concrete language for Presidio's filter to work.
+        """
         if recognizer_obj.supported_language != ClassificationLanguage.any.value:
             return recognizer_obj
         recognizer_copy = copy.copy(recognizer_obj)
@@ -139,8 +137,8 @@ class TagAnalyzer:
     def build_analyzer_with(
         self,
         recognizers: list[EntityRecognizer],
-        nlp_engine: Optional[NlpEngine] = None,
-        effective_language: Optional[str] = None,
+        nlp_engine: Optional[NlpEngine] = None,  # noqa: UP045
+        effective_language: Optional[str] = None,  # noqa: UP045
     ) -> AnalyzerEngine:
         effective_lang = effective_language or self._language.value
         if effective_lang == ClassificationLanguage.any.value:
@@ -148,14 +146,9 @@ class TagAnalyzer:
                 "build_analyzer_with requires a concrete language when the analyzer language is 'any'. "
                 "Pass effective_language explicitly."
             )
-        normalized_recs = [
-            self._normalize_recognizer_language(rec, effective_lang)
-            for rec in recognizers
-        ]
+        normalized_recs = [self._normalize_recognizer_language(rec, effective_lang) for rec in recognizers]
         supported_languages = [rec.supported_language for rec in normalized_recs]
-        recognizer_registry = RecognizerRegistry(
-            recognizers=normalized_recs, supported_languages=supported_languages
-        )
+        recognizer_registry = RecognizerRegistry(recognizers=normalized_recs, supported_languages=supported_languages)
         effective_nlp = nlp_engine if nlp_engine is not None else self._nlp_engine
         return AnalyzerEngine(
             registry=recognizer_registry,
@@ -165,15 +158,11 @@ class TagAnalyzer:
 
     def _analyze_with(
         self,
-        text_or_values: Union[str, Sequence[str]],
+        text_or_values: str | Sequence[str],
         recognizers: list[EntityRecognizer],
-        context: Optional[list[str]] = None,
+        context: Optional[list[str]] = None,  # noqa: UP045
     ) -> list[RecognizerResult]:
-        values = (
-            [text_or_values]
-            if isinstance(text_or_values, str)
-            else list(text_or_values)
-        )
+        values = [text_or_values] if isinstance(text_or_values, str) else list(text_or_values)
         results: list[RecognizerResult] = []
 
         if self._language is not ClassificationLanguage.any:
@@ -194,14 +183,10 @@ class TagAnalyzer:
             lang_recognizers = list(group)
             if lang == ClassificationLanguage.any.value:
                 effective_lang = ClassificationLanguage.en.value
-                effective_nlp = load_nlp_engine(
-                    classification_language=ClassificationLanguage.en
-                )
+                effective_nlp = load_nlp_engine(classification_language=ClassificationLanguage.en)
             else:
                 effective_lang = lang
-                effective_nlp = load_nlp_engine(
-                    classification_language=ClassificationLanguage(lang)
-                )
+                effective_nlp = load_nlp_engine(classification_language=ClassificationLanguage(lang))
 
             analyzer = self.build_analyzer_with(
                 lang_recognizers,
@@ -230,41 +215,27 @@ class TagAnalyzer:
             content_recognizers = self.content_recognizers
             if content_recognizers:
                 context = split_column_name(self._column_name)
-                content_results = self._analyze_with(
-                    str_values, content_recognizers, context=context
-                )
-                content_score = min(
-                    sum(r.score for r in content_results) / len(str_values), 1.0
-                )
+                content_results = self._analyze_with(str_values, content_recognizers, context=context)
+                content_score = min(sum(r.score for r in content_results) / len(str_values), 1.0)
 
         column_results: list[RecognizerResult] = []
         column_score = 0.0
         if run_column_analysis:
             column_recognizers = self.column_recognizers
             if column_recognizers:
-                column_results = self._analyze_with(
-                    self._column_name, column_recognizers
-                )
+                column_results = self._analyze_with(self._column_name, column_recognizers)
                 column_score = min(sum(r.score for r in column_results), 1.0)
 
         column_wins = column_score >= content_score and bool(column_results)
         score = max(content_score, column_score)
-        target = (
-            recognizer.Target.column_name if column_wins else recognizer.Target.content
-        )
+        target = recognizer.Target.column_name if column_wins else recognizer.Target.content
         winning_results = column_results if column_wins else content_results
-        all_results = (
-            (column_results + content_results)
-            if column_wins
-            else (content_results + column_results)
-        )
+        all_results = (column_results + content_results) if column_wins else (content_results + column_results)
 
         return TagAnalysis(
             tag=self.tag,
             score=score,
-            explanation=explain_recognition_results(all_results)
-            if all_results
-            else None,
+            explanation=explain_recognition_results(all_results) if all_results else None,
             recognizer_results=winning_results,
             target=target if winning_results else None,
             column_name_matched=bool(column_results),

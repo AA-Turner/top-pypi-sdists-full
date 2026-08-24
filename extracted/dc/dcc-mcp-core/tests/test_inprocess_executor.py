@@ -475,9 +475,9 @@ def test_executor_dispatcher_exception_becomes_error_envelope(tmp_path: Path) ->
     assert isinstance(result, dict)
     assert result["success"] is False
     assert "UI thread shutdown" in result["message"]
-    assert result["error"]["type"] == "RuntimeError"
-    assert result["error"]["message"] == "UI thread shutdown"
-    assert "Traceback" in result["error"]["traceback"]
+    assert result["error"] == "RuntimeError"
+    assert result["_meta"]["dcc.error"]["message"] == "UI thread shutdown"
+    assert "Traceback" in result["_meta"]["dcc.error"]["traceback"]
 
 
 def test_executor_inline_exception_becomes_error_envelope(tmp_path: Path) -> None:
@@ -489,9 +489,9 @@ def test_executor_inline_exception_becomes_error_envelope(tmp_path: Path) -> Non
     result = executor(str(p), {})
     assert isinstance(result, dict)
     assert result["success"] is False
-    assert result["error"]["type"] == "ValueError"
-    assert result["error"]["message"] == "bad input"
-    assert "Traceback" in result["error"]["traceback"]
+    assert result["error"] == "ValueError"
+    assert result["_meta"]["dcc.error"]["message"] == "bad input"
+    assert "Traceback" in result["_meta"]["dcc.error"]["traceback"]
 
 
 def test_exception_to_error_envelope_overrides_message() -> None:
@@ -502,13 +502,16 @@ def test_exception_to_error_envelope_overrides_message() -> None:
     assert envelope == {
         "success": False,
         "message": "custom summary",
-        "error": {
-            "type": "KeyError",
-            "message": "'missing'",
-            "traceback": envelope["error"]["traceback"],
+        "error": "KeyError",
+        "_meta": {
+            "dcc.error": {
+                "type": "KeyError",
+                "message": "'missing'",
+                "traceback": envelope["_meta"]["dcc.error"]["traceback"],
+            }
         },
     }
-    assert "KeyError" in envelope["error"]["traceback"]
+    assert "KeyError" in envelope["_meta"]["dcc.error"]["traceback"]
 
 
 def test_executor_uses_custom_runner() -> None:
@@ -522,6 +525,24 @@ def test_executor_uses_custom_runner() -> None:
     out = executor("/tmp/skill.py", {"k": "v"})
     assert seen == [("/tmp/skill.py", {"k": "v"})]
     assert out == "/tmp/skill.py|{'k': 'v'}"
+
+
+def test_executor_accepts_trusted_adapter_scope_only_from_private_metadata() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def _fake_runner(_script_path: str, params: Mapping[str, Any]) -> dict[str, Any]:
+        seen.append(dict(params))
+        return {"ok": True}
+
+    executor = build_inprocess_executor(None, runner=_fake_runner)
+    executor("/tmp/public.py", {"trusted_adapter_scope": {"process_id": 9}})
+    executor(
+        "/tmp/trusted.py",
+        {"trusted_adapter_scope": {"process_id": 9}},
+        trusted_adapter_scope={"process_id": 4242},
+    )
+
+    assert seen == [{}, {"trusted_adapter_scope": {"process_id": 4242}}]
 
 
 def test_executor_passes_execution_context_to_dispatcher() -> None:
@@ -645,7 +666,7 @@ def test_host_execution_bridge_connects_cooperative_cancel_token(tmp_path: Path)
         result = call.result(timeout=2)
 
     assert result["success"] is False
-    assert result["error"]["type"] == "CancelledError"
+    assert result["error"] == "DccMcpCancelledError"
     assert current_job_id() is None
 
 
@@ -776,7 +797,7 @@ def test_hot_reload_invalidates_an_already_dispatched_call(
         result = call.result(timeout=1)
 
     assert result["success"] is False
-    assert result["error"]["type"] == "RuntimeError"
+    assert result["error"] == "RuntimeError"
     assert not cleaned.exists()
     assert bridge.shutdown_script_execution() == 0
     assert not cleaned.exists()
@@ -1048,7 +1069,7 @@ def test_deferred_tool_result_timeout_becomes_error_envelope() -> None:
     )
 
     assert result["success"] is False
-    assert result["error"]["type"] == "TimeoutError"
+    assert result["error"] == "TimeoutError"
     assert result["_meta"]["dcc.deferred"]["stderr"] == "still rendering"
 
 
@@ -1068,6 +1089,41 @@ def test_deferred_tool_result_non_serialisable_result_is_error() -> None:
 
 
 # ── DccServerBase.register_inprocess_executor integration ───────────────────
+
+
+def test_execution_binder_injects_trusted_adapter_scope_only_for_ui_control() -> None:
+    from dcc_mcp_core._server.execution_bridge import ExecutionBridgeBinder
+
+    owner = SimpleNamespace(
+        _dcc_name="houdini",
+        _dcc_pid=4242,
+        _dcc_window_handle=700,
+        _dcc_window_title="Houdini FX",
+    )
+    seen: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+
+    def executor(script_path: str, params: Mapping[str, Any], **metadata: Any) -> dict[str, Any]:
+        seen.append((script_path, dict(params), metadata))
+        return {"success": True}
+
+    wrapped = ExecutionBridgeBinder(owner)._with_adapter_context(executor)
+    wrapped(
+        "snapshot.py",
+        {"trusted_adapter_scope": {"process_id": 9}},
+        action_name="ui_control__snapshot",
+        skill_name="ui-control",
+    )
+    wrapped("create.py", {"radius": 2}, action_name="modeling__create", skill_name="modeling")
+
+    assert seen[0][1] == {"trusted_adapter_scope": {"process_id": 9}}
+    assert seen[0][2]["trusted_adapter_scope"] == {
+        "dcc_type": "houdini",
+        "process_id": 4242,
+        "window_handle": 700,
+        "window_title": "Houdini FX",
+    }
+    assert seen[1][1] == {"radius": 2}
+    assert "trusted_adapter_scope" not in seen[1][2]
 
 
 def _patch_set_in_process_executor(server_base: Any, sink: list[Callable[..., Any]]) -> None:
@@ -1234,7 +1290,7 @@ def test_register_inprocess_executor_with_dispatcher_routes(tmp_path: Path) -> N
 
 
 def test_bridge_cleans_on_skill_unload_and_every_server_stop(tmp_path: Path) -> None:
-    from dcc_mcp_core._testing import make_test_server
+    from _support import make_test_server
 
     class _EventBus:
         def __init__(self) -> None:

@@ -336,7 +336,10 @@ def render_tool(tool: Any, full_schema: bool = False) -> str:
             if getattr(tool, "is_mcp_proxy", False):
                 # MCP tools carry a raw JSON-schema dict (no pydantic class) and
                 # take FLAT args — the example falls out of the raw inputSchema.
-                schema_json = tool.raw_json_schema or {"type": "object", "properties": {}}
+                schema_json = tool.raw_json_schema or {
+                    "type": "object",
+                    "properties": {},
+                }
             else:
                 schema_json = cached_tool_json_schema(tool.schema, "serialization")
             # Show the actual xp_execute_tool call shape so the model passes the
@@ -364,7 +367,7 @@ class _MetaToolReasoning(BaseModel):
         ...,
         description=(
             "The concrete action this call performs (max 5 words). If you cannot "
-            'name one, you already have what you need — answer now. Example: '
+            "name one, you already have what you need — answer now. Example: "
             '"Find an issue-tracker tool".'
         ),
     )
@@ -666,8 +669,8 @@ async def _execute_impl(repo: Any, data: Dict[str, Any], inspected: set) -> Any:
     # path), take flat args (no workspace_path/body_params envelope), and the
     # meta-tool path bypasses the agno hook — so report activity ourselves.
     if getattr(tool, "is_mcp_proxy", False):
-        result, is_error = await _execute_mcp_proxy(tool, arguments, task)
-        return await _maybe_save_result(
+        result, is_error, media = await _execute_mcp_proxy(tool, arguments, task)
+        saved = await _maybe_save_result(
             result=result,
             is_error=is_error,
             save_to_file=save_to_file,
@@ -675,6 +678,7 @@ async def _execute_impl(repo: Any, data: Dict[str, Any], inspected: set) -> Any:
             agent=agent,
             configuration=cfg,
         )
+        return _with_tool_media(saved, media, task)
 
     # Parity with the agno-hook path: resolve workspace_path offloads here too,
     # otherwise schema validation rejects the empty inline body_params.
@@ -757,14 +761,37 @@ async def _maybe_save_result(
     return build_saved_result_pointer(tool_id=tool_id, path=path, content=content)
 
 
-async def _execute_mcp_proxy(
-    tool: Any, arguments: Dict[str, Any], task: Any
-) -> tuple:
+def _with_tool_media(content: Any, media: Dict[str, Any], task: Any) -> Any:
+    """Hand tool-produced media back to agno so the model sees it, not a placeholder line.
+
+    Media the running model cannot perceive is dropped here rather than sent - a provider
+    that rejects it would fail the whole turn over a tool's decoration.
+    """
+    if not media:
+        return content
+    caps = getattr(task, "_model_capabilities", None) if task is not None else None
+    allowed = {
+        "images": getattr(caps, "supports_vision", True) if caps else True,
+        "videos": getattr(caps, "supports_video", False) if caps else False,
+        "audios": getattr(caps, "supports_audio", False) if caps else False,
+    }
+    kept = {k: v for k, v in media.items() if v and allowed.get(k)}
+    if not kept:
+        return content
+    try:
+        from agno.tools.function import ToolResult
+
+        return ToolResult(content=str(content), **kept)
+    except Exception:
+        return content
+
+
+async def _execute_mcp_proxy(tool: Any, arguments: Dict[str, Any], task: Any) -> tuple:
     """Run an MCP proxy via its live agno session, surfacing the real MCP tool in
     the activity log (the meta-tool path bypasses the agno hook, so nothing else
     reports it). Reporting is best-effort and never blocks the tool result.
 
-    Returns ``(result, is_error)``; activity always carries the full result."""
+    Returns ``(result, is_error, media)``; activity always carries the full result."""
     report_request = report_result = None
     if task is not None and getattr(task, "id", None):
         try:
@@ -794,14 +821,20 @@ async def _execute_mcp_proxy(
             pass
 
     is_error = False
+    media: Dict[str, Any] = {}
     try:
-        result = await tool.ainvoke(arguments)
+        if hasattr(tool, "ainvoke_with_media"):
+            result, media = await tool.ainvoke_with_media(arguments)
+        else:
+            result = await tool.ainvoke(arguments)
     except Exception as exc:
         is_error = True
         result = f"Error executing MCP tool '{tool.id}': {exc}"
     else:
         # agno reports MCP failures in-band as content prefixed "Error from MCP tool".
-        if isinstance(result, str) and result.lstrip().startswith("Error from MCP tool"):
+        if isinstance(result, str) and result.lstrip().startswith(
+            "Error from MCP tool"
+        ):
             is_error = True
 
     if report_result:
@@ -818,7 +851,7 @@ async def _execute_mcp_proxy(
         except Exception:
             pass
 
-    return result, is_error
+    return result, is_error, media
 
 
 # --- Meta-tool callable assembly -------------------------------------------- #

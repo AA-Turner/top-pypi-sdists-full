@@ -36,12 +36,13 @@ class AuditEventResponse(BaseModel):
     actor_type: Optional[StrictStr] = Field(default='user', description="Type of actor")
     status: Optional[StrictStr] = Field(default='success', description="Status of the action")
     changes: Optional[Any] = None
+    reason: Optional[StrictStr] = Field(default=None, description="Caller-supplied reason for the change (the WHY), captured from the X-Change-Reason request header when present.")
     ip_address: Optional[StrictStr] = Field(default=None, description="Request IP address")
     user_agent: Optional[StrictStr] = Field(default=None, description="Request user agent")
     actor_name: Optional[StrictStr] = Field(default=None, description="Resolved actor display name")
     actor_email: Optional[StrictStr] = Field(default=None, description="Resolved actor email")
     actor_key_name: Optional[StrictStr] = Field(default=None, description="API key name used")
-    __properties: ClassVar[List[str]] = ["audit_id", "timestamp", "resource_type", "resource_id", "action", "actor_id", "actor_type", "status", "changes", "ip_address", "user_agent", "actor_name", "actor_email", "actor_key_name"]
+    __properties: ClassVar[List[str]] = ["audit_id", "timestamp", "resource_type", "resource_id", "action", "actor_id", "actor_type", "status", "changes", "reason", "ip_address", "user_agent", "actor_name", "actor_email", "actor_key_name"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -113,6 +114,7 @@ class AuditEventResponse(BaseModel):
             "actor_type": obj.get("actor_type") if obj.get("actor_type") is not None else 'user',
             "status": obj.get("status") if obj.get("status") is not None else 'success',
             "changes": obj.get("changes"),
+            "reason": obj.get("reason"),
             "ip_address": obj.get("ip_address"),
             "user_agent": obj.get("user_agent"),
             "actor_name": obj.get("actor_name"),

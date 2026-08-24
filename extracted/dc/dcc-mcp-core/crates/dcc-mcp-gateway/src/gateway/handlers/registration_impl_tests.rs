@@ -13,10 +13,12 @@ use uuid::Uuid;
 
 fn test_gateway_state() -> GatewayState {
     let dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
     let (yield_tx, _) = watch::channel(false);
     let (events_tx, _) = broadcast::channel::<String>(8);
     GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -183,7 +185,7 @@ async fn http_registration_wins_over_file_row_for_same_instance_id() {
     let state = test_gateway_state();
     let instance_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
     {
-        let registry = state.registry.read().await;
+        let registry = &state.registry;
         let mut file_entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
         file_entry.instance_id = instance_id;
         file_entry.acquire_lease(
@@ -212,8 +214,8 @@ async fn http_registration_wins_over_file_row_for_same_instance_id() {
             .unwrap();
     }
 
-    let registry = state.registry.read().await;
-    let live = state.live_instances(&registry);
+    let registry = &state.registry;
+    let live = state.live_instances(registry);
     assert_eq!(live.len(), 1);
     let row = state.instance_json(&live[0]);
     assert_eq!(row["source"], "http");
@@ -229,7 +231,7 @@ async fn http_registration_wins_over_file_row_for_same_instance_id() {
     let mut expired = registry.get(&key).unwrap();
     expired.lease_expires_at = Some(std::time::SystemTime::now() - Duration::from_secs(1));
     registry.register(expired).unwrap();
-    let live = state.live_instances(&registry);
+    let live = state.live_instances(registry);
     let row = state.instance_json(&live[0]);
     assert_eq!(row["pool"]["lease_owner"], Value::Null);
     assert_eq!(row["pool"]["available"], true);

@@ -32,11 +32,12 @@
 #include <stdint.h>
 #include <string.h>
 
-#define VERSION "6.1.0"
+#define VERSION "6.2.0"
 
 enum {
     XXTEA_PADDING_NONE = 0,
     XXTEA_PADDING_LENGTH_WORD_SUFFIX = 1,
+    XXTEA_PADDING_LENGTH_WORD_PREFIX = 2,
     XXTEA_PADDING_PKCS7_4_MIN8 = 4,
     XXTEA_PADDING_PKCS7_8 = 8,
 };
@@ -100,27 +101,36 @@ static void bytes2longs(const char *in, Py_ssize_t inlen, uint32_t *out, int pad
     Py_ssize_t i, nwords;
     int pad;
     const unsigned char *s = (const unsigned char *)in;
+    uint32_t *dst = out;
+
+    if (padding == XXTEA_PADDING_LENGTH_WORD_PREFIX) {
+        /* Numeric uint32, not memcpy(&inlen): 64-bit big-endian would
+         * copy the high half.  Ciphertext length word is little-endian. */
+        out[0] = (uint32_t)inlen;
+        dst = out + 1;
+    }
 
     /* Fast path: process 4 bytes at a time */
     nwords = inlen >> 2;
     for (i = 0; i < nwords; i++) {
 #if PY_LITTLE_ENDIAN
-        memcpy(&out[i], s + 4 * i, 4);
+        memcpy(&dst[i], s + 4 * i, 4);
 #else
         const unsigned char *p = s + 4 * i;
-        out[i] = (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+        dst[i] = (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
                  ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 #endif
     }
 
     i = nwords << 2;
 
-    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX) {
+    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX ||
+        padding == XXTEA_PADDING_LENGTH_WORD_PREFIX) {
         /*
-         * Length-word suffix, the layout used by Cocos Creator JSC
-         * files: zero-pad the final partial word, then append one word
-         * holding the original byte length.  XXTEA needs two words, so
-         * empty input gets an extra zero word before the length word.
+         * Length-word padding: zero-pad the final partial word, then
+         * store one word holding the original byte length (suffix: last
+         * word; prefix: first word).  XXTEA needs two words, so empty
+         * input gets an extra zero word.
          */
         uint32_t w = 0;
         int shift = 0;
@@ -128,15 +138,15 @@ static void bytes2longs(const char *in, Py_ssize_t inlen, uint32_t *out, int pad
             w |= (uint32_t)s[i] << shift;
         }
         if ((inlen & 3) != 0) {
-            out[nwords] = w;
+            dst[nwords] = w;
             nwords++;
         }
         if (nwords < 1) {
-            out[nwords++] = 0;
+            dst[nwords++] = 0;
         }
-        /* Numeric uint32, not memcpy(&inlen): 64-bit big-endian would
-         * copy the high half.  Ciphertext length word is little-endian. */
-        out[nwords] = (uint32_t)inlen;
+        if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX) {
+            dst[nwords] = (uint32_t)inlen;
+        }
         return;
     }
 
@@ -214,24 +224,38 @@ static Py_ssize_t longs2bytes(const uint32_t *in, Py_ssize_t inlen, char *out, i
 
     outlen = inlen * 4;
 
-    /* Length-word suffix: the last word is the original byte length. */
-    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX) {
+    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX ||
+        padding == XXTEA_PADDING_LENGTH_WORD_PREFIX) {
+        int prefix = padding == XXTEA_PADDING_LENGTH_WORD_PREFIX;
         Py_ssize_t n = outlen - 4;
-        Py_ssize_t leftover;
-        uint32_t m32 = (uint32_t)s[n] | ((uint32_t)s[n + 1] << 8) |
-                       ((uint32_t)s[n + 2] << 16) | ((uint32_t)s[n + 3] << 24);
+        Py_ssize_t leftover, pad_from, pad_to;
+        uint32_t m32;
+        if (prefix) {
+            m32 = (uint32_t)s[0] | ((uint32_t)s[1] << 8) |
+                  ((uint32_t)s[2] << 16) | ((uint32_t)s[3] << 24);
+            pad_from = 4 + (Py_ssize_t)m32;
+            pad_to = outlen;
+        }
+        else {
+            m32 = (uint32_t)s[n] | ((uint32_t)s[n + 1] << 8) |
+                  ((uint32_t)s[n + 2] << 16) | ((uint32_t)s[n + 3] << 24);
+            pad_from = (Py_ssize_t)m32;
+            pad_to = n;
+        }
         leftover = n - (Py_ssize_t)m32;
         /* 0-3 zero-pad bytes, or 4 zero bytes when empty input was
          * padded to the XXTEA 2-word minimum. */
         if (m32 > (uint32_t)n || leftover < 0 ||
             (leftover > 3 && !(m32 == 0 && leftover == 4))) {
-            /* invalid padding */
             return -1;
         }
-        for (i = (Py_ssize_t)m32; i < n; i++) {
+        for (i = pad_from; i < pad_to; i++) {
             if (s[i] != 0) {
                 return -1;
             }
+        }
+        if (prefix && m32 != 0) {
+            memmove(s, s + 4, (size_t)m32);
         }
         outlen = (Py_ssize_t)m32;
     }
@@ -288,7 +312,7 @@ _warn_legacy_padding(PyObject *obj)
     return PyErr_WarnFormat(
         PyExc_DeprecationWarning, 1,
         "padding=%R is deprecated; use True, False, None, or xxtea.Padding "
-        "(PKCS7_4_MIN8, PKCS7_8, LENGTH_WORD_SUFFIX, NONE). "
+        "(PKCS7_4_MIN8, PKCS7_8, LENGTH_WORD_PREFIX, LENGTH_WORD_SUFFIX, NONE). "
         "This will be removed in the next major version.",
         obj);
 }
@@ -314,13 +338,18 @@ _parse_padding_name(PyObject *name, int *padding)
         *padding = XXTEA_PADDING_LENGTH_WORD_SUFFIX;
         return 0;
     }
+    if (PyUnicode_CompareWithASCIIString(name, "length_word_prefix") == 0) {
+        *padding = XXTEA_PADDING_LENGTH_WORD_PREFIX;
+        return 0;
+    }
     if (PyUnicode_CompareWithASCIIString(name, "none") == 0) {
         *padding = XXTEA_PADDING_NONE;
         return 0;
     }
     PyErr_Format(PyExc_ValueError,
         "unknown padding %R (expected Padding.NONE, Padding.PKCS7_4_MIN8, "
-        "Padding.PKCS7_8, or Padding.LENGTH_WORD_SUFFIX)",
+        "Padding.PKCS7_8, Padding.LENGTH_WORD_PREFIX, or "
+        "Padding.LENGTH_WORD_SUFFIX)",
         name);
     return -1;
 }
@@ -526,7 +555,8 @@ _encrypt_impl(const char *data_buf, Py_ssize_t data_len,
     }
 
     Py_ssize_t alen;
-    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX) {
+    if (padding == XXTEA_PADDING_LENGTH_WORD_SUFFIX ||
+        padding == XXTEA_PADDING_LENGTH_WORD_PREFIX) {
         /* Length word is uint32.  Compiled out on 32-bit, where
          * Py_ssize_t cannot exceed UINT32_MAX (the comparison would
          * warn as always false). */
@@ -650,7 +680,8 @@ PyDoc_STRVAR(
     "encrypt(data, key, padding=True, rounds=0)\n\n"
     "Encrypt bytes-like data with a 16-byte key and return bytes.\n"
     "padding: True/Padding.PKCS7_4_MIN8 (default), Padding.PKCS7_8, "
-    "Padding.LENGTH_WORD_SUFFIX, or False/None/Padding.NONE.");
+    "Padding.LENGTH_WORD_PREFIX, Padding.LENGTH_WORD_SUFFIX, "
+    "or False/None/Padding.NONE.");
 
 static PyObject *
 xxtea_encrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -664,7 +695,8 @@ PyDoc_STRVAR(
     "encrypt_hex(data, key, padding=True, rounds=0)\n\n"
     "Encrypt bytes-like data with a 16-byte key and return hex-encoded bytes.\n"
     "padding: True/Padding.PKCS7_4_MIN8 (default), Padding.PKCS7_8, "
-    "Padding.LENGTH_WORD_SUFFIX, or False/None/Padding.NONE.");
+    "Padding.LENGTH_WORD_PREFIX, Padding.LENGTH_WORD_SUFFIX, "
+    "or False/None/Padding.NONE.");
 
 static PyObject *
 xxtea_encrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -685,7 +717,8 @@ PyDoc_STRVAR(
     "decrypt(data, key, padding=True, rounds=0)\n\n"
     "Decrypt bytes-like data with a 16-byte key and return bytes.\n"
     "padding: True/Padding.PKCS7_4_MIN8 (default), Padding.PKCS7_8, "
-    "Padding.LENGTH_WORD_SUFFIX, or False/None/Padding.NONE.");
+    "Padding.LENGTH_WORD_PREFIX, Padding.LENGTH_WORD_SUFFIX, "
+    "or False/None/Padding.NONE.");
 
 static PyObject *
 xxtea_decrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -699,7 +732,8 @@ PyDoc_STRVAR(
     "decrypt_hex(data, key, padding=True, rounds=0)\n\n"
     "Decrypt hex-encoded data with a 16-byte key and return bytes.\n"
     "padding: True/Padding.PKCS7_4_MIN8 (default), Padding.PKCS7_8, "
-    "Padding.LENGTH_WORD_SUFFIX, or False/None/Padding.NONE.");
+    "Padding.LENGTH_WORD_PREFIX, Padding.LENGTH_WORD_SUFFIX, "
+    "or False/None/Padding.NONE.");
 
 static PyObject *
 xxtea_decrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -1014,7 +1048,8 @@ static PyType_Slot xxtea_type_slots[] = {
                 "XXTEA cipher object.  rounds=0 means auto: 6 + 52 / n, "
                 "where n is the number of 32-bit words in the data.\n"
                 "padding: True/Padding.PKCS7_4_MIN8 (default), Padding.PKCS7_8, "
-                "Padding.LENGTH_WORD_SUFFIX, or False/None/Padding.NONE.\n"
+                "Padding.LENGTH_WORD_PREFIX, Padding.LENGTH_WORD_SUFFIX, "
+                "or False/None/Padding.NONE.\n"
                 "Methods: encrypt(data), decrypt(data), "
                 "encrypt_hex(data), decrypt_hex(data)."},
     {Py_tp_methods, xxtea_object_methods},
@@ -1046,9 +1081,10 @@ _make_padding_enum(void)
     Enum = PyObject_GetAttrString(enum_mod, "Enum");
     if (Enum == NULL)
         goto done;
-    members = Py_BuildValue("{s:s,s:s,s:s,s:s}",
+    members = Py_BuildValue("{s:s,s:s,s:s,s:s,s:s}",
                             "PKCS7_4_MIN8", "pkcs7_4_min8",
                             "PKCS7_8", "pkcs7_8",
+                            "LENGTH_WORD_PREFIX", "length_word_prefix",
                             "LENGTH_WORD_SUFFIX", "length_word_suffix",
                             "NONE", "none");
     if (members == NULL)
@@ -1139,6 +1175,10 @@ static int _exec(PyObject *module)
         return -1;
     }
     if (_add_padding_member(module, xxtea_type, padding_enum, "PKCS7_8") < 0) {
+        Py_DECREF(xxtea_type);
+        return -1;
+    }
+    if (_add_padding_member(module, xxtea_type, padding_enum, "LENGTH_WORD_PREFIX") < 0) {
         Py_DECREF(xxtea_type);
         return -1;
     }

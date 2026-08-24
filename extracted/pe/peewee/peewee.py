@@ -4,6 +4,7 @@ from collections.abc import Callable
 from collections.abc import Mapping
 from contextlib import contextmanager
 from copy import deepcopy
+from functools import partial
 from functools import reduce
 from functools import wraps
 from inspect import isclass
@@ -68,7 +69,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.3.0'
+__version__ = '4.4.0'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -283,6 +284,14 @@ def _sqlite_json_contains(haystack, needle):
 
 def __deprecated__(s):
     warnings.warn(s, DeprecationWarning)
+
+class classmethod_only(object):
+    def __init__(self, fn): self.fn = fn
+    def __get__(self, instance, instance_type=None):
+        if instance is not None:
+            raise TypeError('%s cannot be called from an instance.' %
+                            self.fn.__name__)
+        return partial(self.fn, instance_type)
 
 
 class attrdict(dict):
@@ -1639,6 +1648,8 @@ class Entity(ColumnBase):
         self._path = [p for p in path if p]
 
     def __getattr__(self, attr):
+        if attr.startswith('__') and attr.endswith('__'):
+            return super(Entity, self).__getattr__(attr)
         return Entity(*self._path + [attr])
 
     def get_sort_key(self, ctx):
@@ -2046,6 +2057,9 @@ class OnConflict(Node):
         self._conflict_constraint = conflict_constraint
 
     def get_conflict_statement(self, ctx, query):
+        if ctx.state.conflict_statement is None:
+            raise InterfaceError('ON CONFLICT clause requires the query be '
+                                 'bound to a database.')
         return ctx.state.conflict_statement(self, query)
 
     def get_conflict_update(self, ctx, query):
@@ -2352,8 +2366,8 @@ class SelectBase(_HashableSource, Source, SelectQuery):
     @database_required
     def scalar(self, database, as_tuple=False, as_dict=False):
         if as_dict:
-            return self.dicts().peek(database)
-        row = self.tuples().peek(database)
+            return self.dicts().first(database)
+        row = self.tuples().first(database)
         return row[0] if row and not as_tuple else row
 
     @database_required
@@ -2641,6 +2655,10 @@ class Select(SelectBase):
 
     @Node.copy
     def window(self, *windows):
+        aliases = [window._alias for window in windows]
+        if len(set(aliases)) != len(aliases):
+            raise ValueError('Window definitions must have unique aliases. '
+                             'Use alias= to name each window.')
         self._windows = windows if windows else None
 
     @Node.copy
@@ -3035,15 +3053,20 @@ class Insert(_WriteQuery):
 
             return self.apply_returning(ctx)
 
+    def _pk_returning(self):
+        if self.table._primary_key:
+            return (self.table.primary_key,)
+
     def _execute(self, database):
         if self._as_rowcount:
             # Strip implicit pk-returning, which breaks rowcount on sqlite.
             if not self._return_cursor:
                 self._returning = None
-        elif self._returning is None and database.returning_clause \
-             and self.table._primary_key:
-            self._returning = (self.table.primary_key,)
-            self._row_type = ROW.TUPLE
+        elif self._returning is None and database.returning_clause:
+            returning = self._pk_returning()
+            if returning:
+                self._returning = returning
+                self._row_type = ROW.TUPLE
         try:
             return super(Insert, self)._execute(database)
         except self.DefaultValuesException:
@@ -3771,8 +3794,9 @@ class Database(_callable_context_manager):
         if self.is_closed():
             self.connect()
         ctx = self.atomic()
-        self._state.ctx.append(ctx)
+        # Track the context only once entered, an aborted entry is never popped.
         ctx.__enter__()
+        self._state.ctx.append(ctx)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -4026,10 +4050,16 @@ class Database(_callable_context_manager):
             self.cursor().execute('BEGIN')
 
     def rollback(self):
+        if self.is_closed():
+            raise InterfaceError('Cannot rollback, database connection not '
+                                 'open.')
         with __exception_wrapper__:
             self.cursor().execute('ROLLBACK')
 
     def commit(self):
+        if self.is_closed():
+            raise InterfaceError('Cannot commit, database connection not '
+                                 'open.')
         with __exception_wrapper__:
             self.cursor().execute('COMMIT')
 
@@ -4371,10 +4401,16 @@ class SqliteDatabase(Database):
         self.execute_sql(statement)
 
     def commit(self):
+        if self.is_closed():
+            raise InterfaceError('Cannot commit, database connection not '
+                                 'open.')
         with __exception_wrapper__:
             return self.execute_sql('COMMIT')
 
     def rollback(self):
+        if self.is_closed():
+            raise InterfaceError('Cannot rollback, database connection not '
+                                 'open.')
         with __exception_wrapper__:
             return self.execute_sql('ROLLBACK')
 
@@ -4518,12 +4554,6 @@ class _BasePsycopgAdapter(object):
             return self.isolation_levels[isolation_level]
         return isolation_level
 
-    def server_side_cursor(self, conn):
-        # psycopg2/3 do not allow us to use these in autocommit, even if we ARE
-        # inside a transaction - so specify withhold (not desirable!).
-        return conn.cursor(name=str(uuid.uuid1()), withhold=True)
-
-
 class Psycopg2Adapter(_BasePsycopgAdapter):
     isolation_levels = {
         1: 'READ COMMITTED',
@@ -4597,6 +4627,11 @@ class Psycopg2Adapter(_BasePsycopgAdapter):
             return True
         return False
 
+    def server_side_cursor(self, conn):
+        # psycopg2 does not allow named cursors in autocommit, even if we ARE
+        # inside a transaction - so specify withhold (not desirable!).
+        return conn.cursor(name=str(uuid.uuid1()), withhold=True)
+
 
 class Psycopg3Adapter(_BasePsycopgAdapter):
     isolation_levels = {
@@ -4664,6 +4699,12 @@ class Psycopg3Adapter(_BasePsycopgAdapter):
             return True
         return False
 
+    def server_side_cursor(self, conn):
+        # In a transaction a plain named cursor streams and is scoped to it.
+        # Otherwise the server requires withhold, which spools at declare.
+        in_txn = conn.pgconn.transaction_status == TransactionStatus.INTRANS
+        return conn.cursor(name=str(uuid.uuid1()), withhold=not in_txn)
+
 
 class PostgresqlDatabase(Database):
     field_types = {
@@ -4707,6 +4748,11 @@ class PostgresqlDatabase(Database):
             isolation_level)
 
         super(PostgresqlDatabase, self).init(database, **kwargs)
+
+    @property
+    def index_value_literals(self):
+        # Index DDL cannot take psycopg3's server-side bound parameters.
+        return isinstance(self._adapter, Psycopg3Adapter)
 
     def _connect(self):
         self._adapter.check_driver()
@@ -5826,18 +5872,15 @@ class FieldDatabaseHook(object):
         raise NotImplementedError('Subclasses must implement')
 
     def bind(self, model, name, set_attribute=True):
-        if model._meta.database is not None:
-            if isinstance(model._meta.database, Proxy):
-                model._meta.database.attach_callback(self._db_hook)
-                self._db_hook(None)
-            else:
-                self._db_hook(model._meta.database)
-        else:
-            self._db_hook(None)
+        database = model._meta.database
+        if isinstance(database, Proxy):
+            database.attach_callback(self._db_hook)
+            if database.obj is None:
+                database = None
 
-        # Attach a hook to the model metadata; in the event the database is
-        # changed or set at run-time, we will be sure to apply our callback and
-        # use the proper data-type for our database driver.
+        self._db_hook(database)
+
+        # Attach a hook in case model's database is changed at run-time.
         model._meta._db_hooks.append(self._db_hook)
         return super(FieldDatabaseHook, self).bind(model, name, set_attribute)
 
@@ -7521,6 +7564,14 @@ class Metadata(object):
         self.table_name = table_name
         del self.table
 
+    def get_database_instance(self):
+        db = self.database
+        if db is None:
+            return
+        if isinstance(db, Proxy):
+            return db.obj if db.obj is not None else None
+        return db
+
 
 class SubclassAwareMetadata(Metadata):
     models = []
@@ -7777,7 +7828,7 @@ class Model(Node, metaclass=ModelBase):
     def raw(cls, sql, *params):
         return ModelRaw(cls, sql, params)
 
-    @classmethod
+    @classmethod_only
     def delete(cls):
         return ModelDelete(cls)
 
@@ -8784,9 +8835,13 @@ class ModelInsert(_ModelWriteQueryHelper, Insert):
 
     def __init__(self, *args, **kwargs):
         super(ModelInsert, self).__init__(*args, **kwargs)
-        if self._returning is None and self.model._meta.database is not None:
-            if self.model._meta.database.returning_clause:
-                self._returning = self.model._meta.get_primary_keys()
+        if self._returning is None:
+            db = self.model._meta.get_database_instance()
+            if db is not None and db.returning_clause:
+                self._returning = self._pk_returning()
+
+    def _pk_returning(self):
+        return self.model._meta.get_primary_keys() or None
 
     def returning(self, *returning):
         # By default ModelInsert will yield a `tuple` containing the

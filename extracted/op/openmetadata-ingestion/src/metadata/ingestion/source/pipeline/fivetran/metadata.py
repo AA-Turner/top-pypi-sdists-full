@@ -11,11 +11,12 @@
 """
 Fivetran source to extract metadata
 """
+
 import traceback
 from collections import Counter
 from datetime import datetime
 from itertools import dropwhile
-from typing import Iterable, List, Optional, TypeVar, Union, cast
+from typing import Iterable, List, Optional, TypeVar, Union, cast  # noqa: UP035
 
 from metadata.generated.schema.api.data.createPipeline import CreatePipelineRequest
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
@@ -112,9 +113,7 @@ ACTIONABLE_SKIP_REASONS = frozenset(
 EntityT = TypeVar("EntityT", Table, Topic)
 
 
-def _resolve_field_fqn(
-    entity: Union[Table, Topic], name: str
-) -> Optional[str]:  # noqa: UP007, UP045
+def _resolve_field_fqn(entity: Union[Table, Topic], name: str) -> Optional[str]:  # noqa: UP007, UP045
     if isinstance(entity, Topic):
         return get_topic_field_fqn(entity, name)
     return get_column_fqn(table_entity=entity, column=name)
@@ -128,28 +127,26 @@ class FivetranSource(PipelineServiceSource):
 
     @property
     def fivetran_client(self) -> FivetranClient:
-        return cast(FivetranClient, self.client)
+        return cast(FivetranClient, self.client)  # noqa: TC006
 
     @classmethod
     def create(
         cls,
         config_dict: dict,
         metadata: OpenMetadata,
-        pipeline_name: Optional[str] = None,
+        pipeline_name: Optional[str] = None,  # noqa: UP045
     ) -> "FivetranSource":
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: FivetranConnection = config.serviceConnection.root.config
         if not isinstance(connection, FivetranConnection):
-            raise InvalidSourceException(
-                f"Expected FivetranConnection, but got {connection}"
-            )
+            raise InvalidSourceException(f"Expected FivetranConnection, but got {connection}")
         return cls(config, metadata)
 
     def get_connections_jobs(
         self,
         pipeline_details: FivetranPipelineDetails,
-        source_url: Optional[SourceUrl] = None,
-    ) -> List[Task]:
+        source_url: Optional[SourceUrl] = None,  # noqa: UP045
+    ) -> List[Task]:  # noqa: UP006
         """Returns the three ELT phase tasks for a Fivetran connector."""
         return [
             Task(
@@ -175,9 +172,7 @@ class FivetranSource(PipelineServiceSource):
             ),  # type: ignore
         ]
 
-    def yield_pipeline(
-        self, pipeline_details: FivetranPipelineDetails
-    ) -> Iterable[Either[CreatePipelineRequest]]:
+    def yield_pipeline(self, pipeline_details: FivetranPipelineDetails) -> Iterable[Either[CreatePipelineRequest]]:
         """Convert a Fivetran Connection into a Pipeline Entity."""
         source_url = self.get_source_url(
             connector_id=pipeline_details.source.get("id"),
@@ -187,9 +182,7 @@ class FivetranSource(PipelineServiceSource):
         pipeline_request = CreatePipelineRequest(
             name=EntityName(pipeline_details.pipeline_name),
             displayName=pipeline_details.pipeline_display_name,
-            tasks=self.get_connections_jobs(
-                pipeline_details=pipeline_details, source_url=source_url
-            ),
+            tasks=self.get_connections_jobs(pipeline_details=pipeline_details, source_url=source_url),
             service=FullyQualifiedEntityName(self.context.get().pipeline_service),
             sourceUrl=source_url,
             scheduleInterval=self._get_schedule_interval(pipeline_details),
@@ -202,9 +195,7 @@ class FivetranSource(PipelineServiceSource):
     # Pipeline status
     # ------------------------------------------------------------------
 
-    def yield_pipeline_status(
-        self, pipeline_details: FivetranPipelineDetails
-    ) -> Iterable[Either[OMetaPipelineStatus]]:
+    def yield_pipeline_status(self, pipeline_details: FivetranPipelineDetails) -> Iterable[Either[OMetaPipelineStatus]]:
         """Get task & pipeline status.
 
         Strategy: warehouse DB logs -> REST sync-history -> historical fields.
@@ -224,7 +215,7 @@ class FivetranSource(PipelineServiceSource):
 
         yield from self._get_status_from_rest(pipeline_details, pipeline_fqn)
 
-    def _resolve_log_source(self, log_service_type: str) -> Optional[DatabaseService]:
+    def _resolve_log_source(self, log_service_type: str) -> Optional[DatabaseService]:  # noqa: UP045
         """Resolve the warehouse DatabaseService that holds fivetran_metadata.log.
 
         Fivetran calls this warehouse the "destination" but from OM's
@@ -237,18 +228,11 @@ class FivetranSource(PipelineServiceSource):
                     fqn=service_name,
                     fields=["connection"],
                 )
-                if (
-                    not service
-                    or not service.connection
-                    or not service.connection.config
-                ):
+                if not service or not service.connection or not service.connection.config:
                     continue
-                if (
-                    log_service_type
-                    and service.serviceType.value.lower() != log_service_type.lower()
-                ):
+                if log_service_type and service.serviceType.value.lower() != log_service_type.lower():
                     continue
-                return service
+                return service  # noqa: TRY300
             except Exception as exc:
                 logger.debug(f"Could not resolve service [{service_name}]: {exc}")
         return None
@@ -257,7 +241,7 @@ class FivetranSource(PipelineServiceSource):
         self,
         pipeline_details: FivetranPipelineDetails,
         pipeline_fqn: str,
-    ) -> Optional[List[OMetaPipelineStatus]]:
+    ) -> Optional[List[OMetaPipelineStatus]]:  # noqa: UP006, UP045
         # Fivetran's "destination" config holds the warehouse where logs live
         log_database = self._get_database_name(pipeline_details.destination)
         if not log_database:
@@ -275,18 +259,12 @@ class FivetranSource(PipelineServiceSource):
         statuses = []
         for sync in sort_and_limit_syncs(syncs):
             task_statuses = build_task_statuses(sync)
-            overall_failed = any(
-                ts.executionStatus == StatusType.Failed for ts in task_statuses
-            )
+            overall_failed = any(ts.executionStatus == StatusType.Failed for ts in task_statuses)
             statuses.append(
                 OMetaPipelineStatus(
                     pipeline_fqn=pipeline_fqn,
                     pipeline_status=PipelineStatus(
-                        executionStatus=(
-                            StatusType.Failed
-                            if overall_failed
-                            else StatusType.Successful
-                        ),
+                        executionStatus=(StatusType.Failed if overall_failed else StatusType.Successful),
                         taskStatus=task_statuses,
                         timestamp=Timestamp(datetime_to_ts(sync["sync_start_ts"])),
                     ),
@@ -300,12 +278,8 @@ class FivetranSource(PipelineServiceSource):
         pipeline_fqn: str,
     ) -> Iterable[Either[OMetaPipelineStatus]]:
         seen_timestamps: set = set()
-        yield from self._yield_sync_history_statuses(
-            pipeline_details, pipeline_fqn, seen_timestamps
-        )
-        yield from self._yield_historical_field_statuses(
-            pipeline_details, pipeline_fqn, seen_timestamps
-        )
+        yield from self._yield_sync_history_statuses(pipeline_details, pipeline_fqn, seen_timestamps)
+        yield from self._yield_historical_field_statuses(pipeline_details, pipeline_fqn, seen_timestamps)
 
     def _yield_sync_history_statuses(
         self,
@@ -313,9 +287,7 @@ class FivetranSource(PipelineServiceSource):
         pipeline_fqn: str,
         seen_timestamps: set,
     ) -> Iterable[Either[OMetaPipelineStatus]]:
-        for sync in self.fivetran_client.get_connector_sync_history(
-            pipeline_details.connector_id
-        ):
+        for sync in self.fivetran_client.get_connector_sync_history(pipeline_details.connector_id):
             try:
                 start_dt = datetime.fromisoformat(sync["start"].replace("Z", "+00:00"))
                 start_ms = datetime_to_ts(start_dt)
@@ -328,17 +300,13 @@ class FivetranSource(PipelineServiceSource):
                     end_dt = datetime.fromisoformat(sync["end"].replace("Z", "+00:00"))
                     end_ms = datetime_to_ts(end_dt)
 
-                status_type = FIVETRAN_STATUS_MAP.get(
-                    sync.get("status", ""), StatusType.Pending
-                )
+                status_type = FIVETRAN_STATUS_MAP.get(sync.get("status", ""), StatusType.Pending)
                 yield Either(
                     right=OMetaPipelineStatus(
                         pipeline_fqn=pipeline_fqn,
                         pipeline_status=PipelineStatus(
                             executionStatus=status_type,
-                            taskStatus=build_fallback_task_statuses(
-                                status_type, start_ms, end_ms
-                            ),
+                            taskStatus=build_fallback_task_statuses(status_type, start_ms, end_ms),
                             timestamp=Timestamp(start_ms),
                         ),
                     )
@@ -372,9 +340,7 @@ class FivetranSource(PipelineServiceSource):
                         pipeline_fqn=pipeline_fqn,
                         pipeline_status=PipelineStatus(
                             executionStatus=status_type,
-                            taskStatus=build_fallback_task_statuses(
-                                status_type, ts_ms, None
-                            ),
+                            taskStatus=build_fallback_task_statuses(status_type, ts_ms, None),
                             timestamp=Timestamp(ts_ms),
                         ),
                     )
@@ -399,14 +365,10 @@ class FivetranSource(PipelineServiceSource):
 
         source_connector_type = pipeline_details.source.get("service")
         is_messaging_source = source_connector_type in MESSAGING_CONNECTOR_TYPES
-        is_messaging_destination = (
-            pipeline_details.destination.get("service") in MESSAGING_CONNECTOR_TYPES
-        )
+        is_messaging_destination = pipeline_details.destination.get("service") in MESSAGING_CONNECTOR_TYPES
 
         source_database_name = self._get_database_name(pipeline_details.source)
-        destination_database_name = self._get_database_name(
-            pipeline_details.destination
-        )
+        destination_database_name = self._get_database_name(pipeline_details.destination)
 
         pipeline_entity = None
         edge_count = 0
@@ -415,13 +377,10 @@ class FivetranSource(PipelineServiceSource):
         for (
             schema_name,
             schema_data,
-        ) in self.fivetran_client.get_connector_schema_details(
-            connector_id=pipeline_details.source.get("id")
-        ).items():
+        ) in self.fivetran_client.get_connector_schema_details(connector_id=pipeline_details.source.get("id")).items():
             if not schema_data.get("enabled"):
                 logger.debug(
-                    f"Skipping schema [{schema_name}] for pipeline [{pipeline_name}]"
-                    " lineage - schema is disabled"
+                    f"Skipping schema [{schema_name}] for pipeline [{pipeline_name}] lineage - schema is disabled"
                 )
                 skip_reasons["schema disabled in Fivetran"] += 1
                 continue
@@ -486,8 +445,7 @@ class FivetranSource(PipelineServiceSource):
 
                 if from_entity.id == to_entity.id:
                     logger.debug(
-                        f"Lineage skipped for pipeline [{pipeline_name}]"
-                        f" - self-referencing lineage is not allowed."
+                        f"Lineage skipped for pipeline [{pipeline_name}] - self-referencing lineage is not allowed."
                     )
                     skip_reasons["self-referencing edge"] += 1
                     continue
@@ -513,10 +471,7 @@ class FivetranSource(PipelineServiceSource):
                 if pipeline_entity is None:
                     pipeline_entity = self._get_pipeline_entity()
                     if not pipeline_entity:
-                        logger.warning(
-                            f"Pipeline entity not found for [{pipeline_name}],"
-                            " skipping lineage."
-                        )
+                        logger.warning(f"Pipeline entity not found for [{pipeline_name}], skipping lineage.")
                         return
 
                 edge_count += 1
@@ -525,20 +480,14 @@ class FivetranSource(PipelineServiceSource):
                         edge=EntitiesEdge(
                             fromEntity=EntityReference(  # type: ignore
                                 id=from_entity.id,
-                                type=ENTITY_REFERENCE_TYPE_MAP[
-                                    from_entity.__class__.__name__
-                                ],
+                                type=ENTITY_REFERENCE_TYPE_MAP[from_entity.__class__.__name__],
                             ),
                             toEntity=EntityReference(  # type: ignore
                                 id=to_entity.id,
-                                type=ENTITY_REFERENCE_TYPE_MAP[
-                                    to_entity.__class__.__name__
-                                ],
+                                type=ENTITY_REFERENCE_TYPE_MAP[to_entity.__class__.__name__],
                             ),
                             lineageDetails=LineageDetails(
-                                pipeline=EntityReference(
-                                    id=pipeline_entity.id.root, type="pipeline"
-                                ),  # type: ignore
+                                pipeline=EntityReference(id=pipeline_entity.id.root, type="pipeline"),  # type: ignore
                                 source=LineageSource.PipelineLineage,
                                 columnsLineage=col_lineage or None,
                             ),
@@ -547,30 +496,24 @@ class FivetranSource(PipelineServiceSource):
                 )  # type: ignore
 
         actionable_reasons = Counter(
-            {
-                reason: count
-                for reason, count in skip_reasons.items()
-                if reason in ACTIONABLE_SKIP_REASONS
-            }
+            {reason: count for reason, count in skip_reasons.items() if reason in ACTIONABLE_SKIP_REASONS}
         )
         if not edge_count and actionable_reasons:
             reason, count = actionable_reasons.most_common(1)[0]
             logger.warning(
                 f"Pipeline [{pipeline_name}] produced no lineage."
-                f" Most common actionable reason: {reason}"
-                f" ({count} of {sum(skip_reasons.values())} candidates)."
-                " If dbServiceNames/messagingServiceNames are unset, entities are"
-                " matched across all services; if they are set, verify the names"
-                " match the services holding these entities."
+                f" Most common actionable reason: {reason} ({count} of {sum(skip_reasons.values())} candidates)."
+                " If dbServiceNames/messagingServiceNames are unset, entities are matched across all"
+                " services; if they are set, verify the names match the services holding these entities."
             )
 
     def _resolve_table(
         self,
         *,
         table_name: str,
-        schema_name: Optional[str],
-        database_name: Optional[str],
-    ) -> Optional[Table]:
+        schema_name: Optional[str],  # noqa: UP045
+        database_name: Optional[str],  # noqa: UP045
+    ) -> Optional[Table]:  # noqa: UP045
         service_names = self.get_db_service_names()
         for service_name in service_names or []:
             entity_fqn = fqn.build(
@@ -621,9 +564,7 @@ class FivetranSource(PipelineServiceSource):
         if not parts or not parts[-1]:
             return None
         known_parts = list(dropwhile(lambda part: not part, parts))
-        search_string = fqn.FQN_SEPARATOR.join(
-            fqn.quote_name(part) if part else "*" for part in known_parts
-        )
+        search_string = fqn.FQN_SEPARATOR.join(fqn.quote_name(part) if part else "*" for part in known_parts)
         result = self.metadata.search_in_any_service(
             entity_type=entity_type,
             fqn_search_string=search_string,
@@ -638,7 +579,7 @@ class FivetranSource(PipelineServiceSource):
         )
         return result
 
-    def _get_pipeline_entity(self) -> Optional[Pipeline]:
+    def _get_pipeline_entity(self) -> Optional[Pipeline]:  # noqa: UP045
         pipeline_fqn = fqn.build(
             metadata=self.metadata,
             entity_type=Pipeline,
@@ -653,9 +594,9 @@ class FivetranSource(PipelineServiceSource):
         pipeline_name: str,
         schema_name: str,
         table_name: str,
-        from_entity: Union[Table, Topic],
-        to_entity: Union[Table, Topic],
-    ) -> List[ColumnLineage]:
+        from_entity: Union[Table, Topic],  # noqa: UP007
+        to_entity: Union[Table, Topic],  # noqa: UP007
+    ) -> List[ColumnLineage]:  # noqa: UP006
         col_lineage = []
         for (
             column_name,
@@ -697,32 +638,21 @@ class FivetranSource(PipelineServiceSource):
         for group in self.fivetran_client.list_groups():
             group_id: str = group.get("id", "")
             try:
-                destination = self.fivetran_client.get_destination_details(
-                    destination_id=group_id
-                )
+                destination = self.fivetran_client.get_destination_details(destination_id=group_id)
             except Exception as exc:
-                logger.warning(
-                    f"Failed to get destination for group [{group_id}]: {exc}"
-                )
+                logger.warning(f"Failed to get destination for group [{group_id}]: {exc}")
                 continue
-            for connector in self.fivetran_client.list_group_connectors(
-                group_id=group_id
-            ):
+            for connector in self.fivetran_client.list_group_connectors(group_id=group_id):
                 connector_id: str = connector.get("id", "")
                 try:
                     yield FivetranPipelineDetails(
                         destination=destination,
-                        source=self.fivetran_client.get_connector_details(
-                            connector_id=connector_id
-                        ),
+                        source=self.fivetran_client.get_connector_details(connector_id=connector_id),
                         group=group,
                         connector_id=connector_id,
                     )
                 except Exception as exc:
-                    logger.warning(
-                        f"Failed to get details for connector [{connector_id}]"
-                        f" in group [{group_id}]: {exc}"
-                    )
+                    logger.warning(f"Failed to get details for connector [{connector_id}] in group [{group_id}]: {exc}")
 
     def get_pipeline_name(self, pipeline_details: FivetranPipelineDetails) -> str:
         return pipeline_details.pipeline_display_name or pipeline_details.pipeline_name
@@ -732,7 +662,7 @@ class FivetranSource(PipelineServiceSource):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _get_database_name(details: dict) -> Optional[str]:
+    def _get_database_name(details: dict) -> Optional[str]:  # noqa: UP045
         """Extract database name from a Fivetran source or destination config.
 
         Different connector types store the database/catalog/project name
@@ -749,7 +679,7 @@ class FivetranSource(PipelineServiceSource):
     @staticmethod
     def _get_schedule_interval(
         pipeline_details: FivetranPipelineDetails,
-    ) -> Optional[str]:
+    ) -> Optional[str]:  # noqa: UP045
         sync_freq = pipeline_details.source.get("sync_frequency")
         if not sync_freq:
             return None
@@ -778,10 +708,10 @@ class FivetranSource(PipelineServiceSource):
 
     def get_source_url(
         self,
-        connector_id: Optional[str],
-        group_id: Optional[str],
-        source_name: Optional[str],
-    ) -> Optional[SourceUrl]:
+        connector_id: Optional[str],  # noqa: UP045
+        group_id: Optional[str],  # noqa: UP045
+        source_name: Optional[str],  # noqa: UP045
+    ) -> Optional[SourceUrl]:  # noqa: UP045
         try:
             if connector_id and group_id and source_name:
                 return SourceUrl(

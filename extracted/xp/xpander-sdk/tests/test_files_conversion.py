@@ -7,7 +7,7 @@ from typing import Optional
 
 import pytest
 
-from xpander_sdk.modules.tasks.utils.files import (
+from xpander_sdk.media.files import (
     _DOCUMENT_EXTS,
     PDF_INLINE_MIN_CHARS,
     _document_markdown,
@@ -112,7 +112,7 @@ def test_plain_text_variants_route_to_readable():
 
 def test_unreadable_format_gets_explicit_note_not_silence():
     from types import SimpleNamespace
-    from xpander_sdk.modules.tasks.utils.files import plan_attachments
+    from xpander_sdk.media.files import plan_attachments
 
     caps = SimpleNamespace(
         supports_vision=True, supports_native_pdf=True,
@@ -141,8 +141,8 @@ def _iwork_bytes(
 def test_iwork_pages_extracts_via_preview_pdf():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     pdf = _minimal_text_pdf([f"Board meeting agenda item {i}" for i in range(40)])
     data = _iwork_bytes(preview_pdf=pdf)
@@ -153,8 +153,8 @@ def test_iwork_pages_extracts_via_preview_pdf():
 
 def test_iwork_without_preview_reports_unreadable():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     data = _iwork_bytes(preview_pdf=None)
     with patch.object(files_mod, "_download", return_value=(data, "application/octet-stream")):
@@ -172,9 +172,9 @@ def test_iwork_files_route_to_documents_bucket():
 def test_prepare_pdf_routes_text_dense_pdf_to_markdown():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _minimal_text_pdf([f"Quarterly revenue line item number {i}" for i in range(60)])
     with patch.object(media_mod, "_download", return_value=(pdf, "application/pdf")):
@@ -186,9 +186,9 @@ def test_prepare_pdf_routes_text_dense_pdf_to_markdown():
 def test_prepare_pdf_keeps_native_for_sparse_pdf():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _minimal_text_pdf(["scan artifact"])
     with patch.object(media_mod, "_download", return_value=(pdf, "application/pdf")):
@@ -198,8 +198,8 @@ def test_prepare_pdf_keeps_native_for_sparse_pdf():
 
 def test_iwork_corrupt_preview_gets_conversion_error_not_no_preview():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     data = _iwork_bytes(preview_pdf=b"corrupt-not-a-pdf")
     with patch.object(files_mod, "_download", return_value=(data, "application/octet-stream")):
@@ -209,8 +209,8 @@ def test_iwork_corrupt_preview_gets_conversion_error_not_no_preview():
 
 def test_pem_key_file_gets_generic_error_not_iwork_guidance():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     pem = b"-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----\n"
     with patch.object(files_mod, "_download", return_value=(pem, "application/octet-stream")):
@@ -223,8 +223,8 @@ def test_zip_bomb_preview_is_skipped():
     import io
     import zipfile
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import _iwork_preview_pdf
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import _iwork_preview_pdf
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
@@ -239,8 +239,8 @@ def test_oversized_first_candidate_falls_through_to_next_preview():
     import io
     import zipfile
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import _iwork_preview_pdf
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import _iwork_preview_pdf
 
     small_pdf = b"%PDF-tiny"
     buf = io.BytesIO()
@@ -265,10 +265,10 @@ def _long_text_pdf() -> bytes:
 def test_long_pdf_markdown_keeps_native_attachment_for_native_model():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.files import _MAX_INLINE_TEXT_CHARS
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.files import _MAX_INLINE_TEXT_CHARS
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _long_text_pdf()
     with patch.object(media_mod, "_download", return_value=(pdf, "application/pdf")):
@@ -281,9 +281,9 @@ def test_long_pdf_markdown_keeps_native_attachment_for_native_model():
 def test_long_pdf_markdown_still_inlines_when_provider_rejects_file_blobs():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _long_text_pdf()
     caps = ModelCapabilities(supports_native_pdf=False)
@@ -295,9 +295,9 @@ def test_long_pdf_markdown_still_inlines_when_provider_rejects_file_blobs():
 def test_pdf_too_large_for_native_still_inlines_markdown():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _long_text_pdf()
     caps = ModelCapabilities(max_pdf_bytes=len(pdf) - 1)
@@ -309,9 +309,9 @@ def test_pdf_too_large_for_native_still_inlines_markdown():
 def test_disabled_injection_keeps_native_pdf_instead_of_dropping_it():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _minimal_text_pdf([f"Quarterly revenue line item number {i}" for i in range(60)])
     with patch.object(media_mod, "_download", return_value=(pdf, "application/pdf")):
@@ -324,9 +324,9 @@ def test_disabled_injection_keeps_native_pdf_instead_of_dropping_it():
 def test_disabled_injection_without_native_pdf_says_content_is_absent():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import NO_INJECTION_NOTE, prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import NO_INJECTION_NOTE, prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _minimal_text_pdf([f"Quarterly revenue line item number {i}" for i in range(60)])
     caps = ModelCapabilities(supports_native_pdf=False)
@@ -337,8 +337,8 @@ def test_disabled_injection_without_native_pdf_says_content_is_absent():
 
 def test_empty_conversion_falls_back_to_the_plain_text_extractor():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
     from tests.unit.test_files_inline import _docx_bytes
 
     data = _docx_bytes("hello from docx")
@@ -350,8 +350,8 @@ def test_empty_conversion_falls_back_to_the_plain_text_extractor():
 
 def test_raising_fallback_extractor_reports_unreadable_not_silence():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import DOC_UNREADABLE_NOTE, extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import DOC_UNREADABLE_NOTE, extract_document_text
 
     # anydoc declines and python-docx then chokes: the note is exactly this case.
     with patch.object(files_mod, "_download", return_value=(b"not-a-zip", "application/octet-stream")), \
@@ -362,8 +362,8 @@ def test_raising_fallback_extractor_reports_unreadable_not_silence():
 
 def test_document_without_fallback_extractor_reports_unreadable_not_silence():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import DOC_UNREADABLE_NOTE, extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import DOC_UNREADABLE_NOTE, extract_document_text
 
     with patch.object(files_mod, "_download", return_value=(b"whatever", "application/octet-stream")), \
          patch.object(files_mod, "_document_markdown", return_value=None):
@@ -374,7 +374,7 @@ def test_document_without_fallback_extractor_reports_unreadable_not_silence():
 def test_converted_markdown_is_capped_before_it_leaves_the_converter():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
+    from xpander_sdk.media import files as files_mod
 
     with patch.object(files_mod, "_MAX_DOC_MARKDOWN_CHARS", 5):
         md = _document_markdown(rb"{\rtf1\ansi Hello \b world\b0}", ".rtf")
@@ -385,8 +385,8 @@ def test_converted_markdown_is_capped_before_it_leaves_the_converter():
 
 def test_documents_are_extracted_concurrently_in_order():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_documents_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_documents_text
 
     urls = [f"https://x/doc{i}.docx" for i in range(4)]
     with patch.object(files_mod, "extract_document_text", side_effect=lambda url: f"text of {url}"):
@@ -396,7 +396,7 @@ def test_documents_are_extracted_concurrently_in_order():
 
 def test_unreadable_attachments_share_one_note():
     from types import SimpleNamespace
-    from xpander_sdk.modules.tasks.utils.files import plan_attachments
+    from xpander_sdk.media.files import plan_attachments
 
     caps = SimpleNamespace(
         supports_vision=True, supports_native_pdf=True,
@@ -419,9 +419,9 @@ def test_pdf_markdown_route_has_an_env_kill_switch(monkeypatch):
 def test_text_routed_pdf_tells_a_vision_model_the_visuals_are_missing():
     pytest.importorskip("anydoc")
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import media as media_mod
-    from xpander_sdk.modules.tasks.utils.media import PDF_AS_TEXT_NOTE, prepare_pdf
-    from xpander_sdk.modules.tasks.utils.model_capabilities import ModelCapabilities
+    from xpander_sdk.media import prepare as media_mod
+    from xpander_sdk.media.prepare import PDF_AS_TEXT_NOTE, prepare_pdf
+    from xpander_sdk.media.caps import ModelCapabilities
 
     pdf = _minimal_text_pdf([f"Quarterly revenue line item number {i}" for i in range(60)])
     with patch.object(media_mod, "_download", return_value=(pdf, "application/pdf")):
@@ -436,8 +436,8 @@ def test_text_routed_pdf_tells_a_vision_model_the_visuals_are_missing():
 
 def test_iwork_preview_cap_follows_the_callers_max_bytes():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     data = _iwork_bytes(preview_pdf=b"x" * 64)
     with patch.object(files_mod, "_download", return_value=(data, "application/octet-stream")):
@@ -447,8 +447,8 @@ def test_iwork_preview_cap_follows_the_callers_max_bytes():
 
 def test_oversized_preview_reports_size_limit_not_missing_preview():
     from unittest.mock import patch
-    from xpander_sdk.modules.tasks.utils import files as files_mod
-    from xpander_sdk.modules.tasks.utils.files import extract_document_text
+    from xpander_sdk.media import files as files_mod
+    from xpander_sdk.media.files import extract_document_text
 
     data = _iwork_bytes(preview_pdf=b"x" * 64)
     with patch.object(files_mod, "_download", return_value=(data, "application/octet-stream")), \

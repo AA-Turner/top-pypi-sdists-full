@@ -13,7 +13,7 @@ Abstract definition of each step
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional  # noqa: UP035
 
 from metadata.ingestion import diagnostics
 from metadata.ingestion.api.models import Entity
@@ -24,7 +24,7 @@ from metadata.utils.logger import get_log_name, ingestion_logger
 logger = ingestion_logger()
 
 
-class InvalidSourceException(Exception):
+class InvalidSourceException(Exception):  # noqa: N818
     """
     The source config is not getting the expected
     service connection
@@ -53,7 +53,7 @@ class Source(IterStep, ABC):
     def name(self) -> str:
         return "Source"
 
-    def run(self) -> Iterable[Optional[Entity]]:
+    def run(self) -> Iterable[Optional[Entity]]:  # noqa: UP045
         with diagnostics.operation("source.iter"):
             yield from super().run()
 
@@ -65,7 +65,7 @@ class Sink(ReturnStep, ABC):
     def name(self) -> str:
         return "Sink"
 
-    def run(self, record: Entity) -> Optional[Entity]:
+    def run(self, record: Entity) -> Optional[Entity]:  # noqa: UP045
         with diagnostics.operation("sink.write", entity=get_log_name(record)):
             return super().run(record)
 
@@ -77,7 +77,7 @@ class Processor(ReturnStep, ABC):
     def name(self) -> str:
         return "Processor"
 
-    def run(self, record: Entity) -> Optional[Entity]:
+    def run(self, record: Entity) -> Optional[Entity]:  # noqa: UP045
         with diagnostics.operation("processor.run", entity=get_log_name(record)):
             return super().run(record)
 

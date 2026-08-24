@@ -83,6 +83,13 @@ class TestCollectionDocumentsApi(unittest.TestCase):
         """
         pass
 
+    def test_download_document_media(self) -> None:
+        """Test case for download_document_media
+
+        Download frame-accurate scene media for this document.
+        """
+        pass
+
     def test_get_document(self) -> None:
         """Test case for get_document
 

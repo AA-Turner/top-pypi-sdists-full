@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable, Sequence
+import logging
+from typing import Any, Iterable, Sequence, TypeGuard
 
 from azure.ai.agentserver.responses.models import (
     FunctionCallOutputItemParam,
@@ -24,6 +25,10 @@ from langchain_core.messages import (
 )
 from langchain_core.messages.tool import ToolCall
 
+from ._hitl import hitl_call_ids
+
+logger = logging.getLogger(__name__)
+
 _ROLE_TO_MESSAGE_CLS: dict[
     str, type[HumanMessage] | type[SystemMessage] | type[AIMessage]
 ] = {
@@ -32,6 +37,27 @@ _ROLE_TO_MESSAGE_CLS: dict[
     "developer": SystemMessage,
     "assistant": AIMessage,
 }
+
+
+def _is_function_call(item: Any) -> TypeGuard[ItemFunctionToolCall]:
+    return isinstance(item, dict) and item.get("type") == "function_call"
+
+
+def _is_function_call_output(item: Any) -> TypeGuard[FunctionCallOutputItemParam]:
+    return isinstance(item, dict) and item.get("type") == "function_call_output"
+
+
+def _is_message(item: Any) -> TypeGuard[ItemMessage]:
+    return isinstance(item, dict) and item.get("type") == "message"
+
+
+def _is_text_content(
+    part: Any,
+) -> TypeGuard[MessageContentInputTextContent | MessageContentOutputTextContent]:
+    return isinstance(part, dict) and part.get("type") in {
+        "input_text",
+        "output_text",
+    }
 
 
 def items_to_messages(
@@ -45,6 +71,13 @@ def items_to_messages(
     :meth:`ResponseContext.get_input_items`. Items that do not map cleanly
     to a LangChain message type are skipped.
 
+    HITL wire-protocol items are *always* dropped, whether or not the
+    caller lists them in *skip_call_ids*: the ``function_call`` sentinel
+    this host emits for a pending interrupt and the
+    ``function_call_output`` answering it are transport plumbing, and
+    replaying them as a tool-call round trip would put a reserved internal
+    function name into the model's context. See :func:`.hitl_call_ids`.
+
     Args:
         items: Resolved input items from the request.
         skip_call_ids: ``function_call`` / ``function_call_output`` items
@@ -55,16 +88,23 @@ def items_to_messages(
     Returns:
         A list of LangChain messages suitable for a ``MessagesState`` graph.
     """
-    skip = frozenset(skip_call_ids)
+    reserved = hitl_call_ids(items)
+    if reserved:
+        logger.debug(
+            "Dropping %d HITL sentinel call id(s) from graph input.", len(reserved)
+        )
+    skip = frozenset(skip_call_ids) | reserved
     messages: list[AnyMessage] = []
     index = 0
     while index < len(items):
         item = items[index]
-        if isinstance(item, ItemFunctionToolCall):
+        if _is_function_call(item):
             tool_calls: list[ToolCall] = []
-            while index < len(items) and isinstance(items[index], ItemFunctionToolCall):
+            while index < len(items):
                 function_call = items[index]
-                if not skip or function_call.call_id not in skip:
+                if not _is_function_call(function_call):
+                    break
+                if not skip or function_call["call_id"] not in skip:
                     tool_calls.append(_function_call_to_tool_call(function_call))
                 index += 1
             if tool_calls:
@@ -82,41 +122,45 @@ def items_to_messages(
 
 
 def _item_call_id(item: Any) -> str | None:
-    if isinstance(item, (ItemFunctionToolCall, FunctionCallOutputItemParam)):
-        return item.call_id
+    if _is_function_call(item):
+        return item["call_id"]
+    if _is_function_call_output(item):
+        return item["call_id"]
     return None
 
 
 def _item_to_message(item: Any) -> AnyMessage | None:
-    if isinstance(item, ItemMessage):
-        text = _content_to_text(item.content)
-        role_value = getattr(item.role, "value", item.role)
+    if _is_message(item):
+        text = _content_to_text(item["content"])
+        role = item["role"]
+        role_value = getattr(role, "value", role)
         cls = _ROLE_TO_MESSAGE_CLS.get(str(role_value))
         if cls is None:
             return None
         return cls(content=text)
 
-    if isinstance(item, ItemFunctionToolCall):
+    if _is_function_call(item):
         return AIMessage(
             content="",
             tool_calls=[_function_call_to_tool_call(item)],
         )
 
-    if isinstance(item, FunctionCallOutputItemParam):
-        output = item.output
+    if _is_function_call_output(item):
+        output = item["output"]
         if isinstance(output, list):
             output = _content_to_text(output)
-        return ToolMessage(content=output or "", tool_call_id=item.call_id)
+        return ToolMessage(content=output or "", tool_call_id=item["call_id"])
 
     return None
 
 
 def _function_call_to_tool_call(item: ItemFunctionToolCall) -> ToolCall:
+    arguments = item["arguments"]
     try:
-        args = json.loads(item.arguments) if item.arguments else {}
+        args = json.loads(arguments) if arguments else {}
     except json.JSONDecodeError:
         args = {}
-    return ToolCall(id=item.call_id, name=item.name, args=args)
+    return ToolCall(id=item["call_id"], name=item["name"], args=args)
 
 
 def _content_to_text(content: Any) -> str:
@@ -125,16 +169,14 @@ def _content_to_text(content: Any) -> str:
     if isinstance(content, list):
         parts: list[str] = []
         for part in content:
-            if isinstance(
-                part,
-                (MessageContentInputTextContent, MessageContentOutputTextContent),
-            ):
-                if part.text:
-                    parts.append(part.text)
-            elif isinstance(part, dict):
-                text = part.get("text")
-                if isinstance(text, str):
+            if _is_text_content(part):
+                text = part["text"]
+                if text:
                     parts.append(text)
+            elif isinstance(part, dict):
+                dict_text = part.get("text")
+                if isinstance(dict_text, str):
+                    parts.append(dict_text)
             elif isinstance(part, str):
                 parts.append(part)
         return "".join(parts)

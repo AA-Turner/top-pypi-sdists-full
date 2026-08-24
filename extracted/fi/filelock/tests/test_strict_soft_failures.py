@@ -1180,6 +1180,33 @@ def test_strict_soft_private_inspection_failure_unlinks_vanished_record(tmp_path
     assert lock.is_locked is False
 
 
+def test_strict_soft_private_record_reclaimed_after_close_is_tolerated(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "resource.lock"
+    _initialize_protocol(lock_path)
+    real_close = os.close
+    real_open_relative = filelock._strict._open_relative
+    private_records: dict[int, Path] = {}
+
+    def capture_private_record(directory_ref: tuple[str, int | None], name: str, flags: int, mode: int) -> int:
+        fd = real_open_relative(directory_ref, name, flags, mode)
+        private_records[fd] = Path(directory_ref[0], name)
+        return fd
+
+    def reclaim_on_close(fd: int) -> None:
+        real_close(fd)
+        if (record := private_records.pop(fd, None)) is not None:
+            record.unlink()
+
+    mocker.patch("filelock._strict._open_relative", side_effect=capture_private_record)
+    mocker.patch("filelock._strict.os.close", side_effect=reclaim_on_close)
+    lock = StrictSoftFileLock(lock_path, timeout=0)
+
+    lock.acquire()
+    assert lock.is_locked is True
+    lock.release()
+    assert lock.is_locked is False
+
+
 def test_strict_soft_record_finalization_close_and_unlink_failures_group(tmp_path: Path, mocker: MockerFixture) -> None:
     lock_path = tmp_path / "resource.lock"
     _initialize_protocol(lock_path)
@@ -1290,6 +1317,28 @@ def test_strict_soft_permission_denied_claim_read_fails_closed(tmp_path: Path, m
 
     with pytest.raises(SoftFileLockProtocolError, match="cannot read claim"):
         _ = StrictSoftFileLock(lock_path).claims
+
+
+def test_strict_soft_claim_read_retries_after_a_slow_denied_attempt(tmp_path: Path, mocker: MockerFixture) -> None:
+    # The grace window opens at the first pending result, so a first attempt that itself outlasts the window still
+    # gets a retry rather than failing closed on a transient denial.
+    lock_path = tmp_path / "resource.lock"
+    claim = _write_held_claim(Path(f"{lock_path}.filelock") / "claims")
+    mocker.patch("filelock._strict._CLAIM_READ_GRACE", 0.02)
+    real_open = os.open
+    denied = False
+
+    def deny_slowly_once(path: _PathValue, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        nonlocal denied
+        if not denied and os.fsdecode(path) == str(claim):
+            denied = True
+            time.sleep(0.05)
+            raise PermissionError(EACCES, "sharing violation")
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("filelock._strict.os.open", side_effect=deny_slowly_once)
+
+    assert ([found.name for found in StrictSoftFileLock(lock_path).claims], denied) == ([claim.name], True)
 
 
 def test_strict_soft_ignores_malformed_private_record_name(tmp_path: Path) -> None:

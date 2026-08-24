@@ -1,6 +1,6 @@
 [package]
 name = "piot-fixture-zzz-python-maturin"
-version = "0.0.1787327460"
+version = "0.0.1787521461"
 edition = "2021"
 
 [lib]

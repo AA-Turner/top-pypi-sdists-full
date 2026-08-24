@@ -38,7 +38,8 @@ class SyncDeadLetterObjectModel(BaseModel):
     error_message: StrictStr = Field(description="Human-readable error message")
     error_stack_trace: Optional[StrictStr] = Field(default=None, description="Full stack trace for debugging")
     first_seen_at: Optional[datetime] = Field(default=None, description="When object first failed")
-    last_seen_at: Optional[datetime] = Field(default=None, description="When object last failed")
+    last_seen_at: Optional[datetime] = Field(default=None, description="When the object last failed BEFORE quarantine. BACKE-3488: once max_retries_reached is set this stops being refreshed by the sweep's healing re-attempts (those stamp last_reattempt_at instead), so it freezes at the moment of quarantine and drives the 7-day disposal clock (_dispose_stale_dlq_entries)")
+    last_reattempt_at: Optional[datetime] = Field(default=None, description="BACKE-3488: timestamp of the most recent post-quarantine healing re-attempt. Separate from last_seen_at so the back-off timer (how long to wait before re-attempting a quarantined object) and the disposal clock (how long since quarantine) do not share one field — sharing it let the once/24h re-attempt reset the disposal clock forever, so a permanently-failing object was never retired")
     retry_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of retry attempts")
     max_retries_reached: Optional[StrictBool] = Field(default=False, description="Whether max retries have been exhausted")
     requeued_at: Optional[datetime] = Field(default=None, description="When user manually requeued this object")
@@ -47,7 +48,7 @@ class SyncDeadLetterObjectModel(BaseModel):
     internal_id: StrictStr = Field(description="Organization internal identifier (multi-tenancy scope)")
     namespace_id: StrictStr = Field(description="Namespace identifier")
     bucket_id: StrictStr = Field(description="Target bucket identifier")
-    __properties: ClassVar[List[str]] = ["dlq_id", "sync_config_id", "sync_job_id", "source_object_id", "source_path", "error_type", "error_message", "error_stack_trace", "first_seen_at", "last_seen_at", "retry_count", "max_retries_reached", "requeued_at", "resolved_at", "disposal_reason", "internal_id", "namespace_id", "bucket_id"]
+    __properties: ClassVar[List[str]] = ["dlq_id", "sync_config_id", "sync_job_id", "source_object_id", "source_path", "error_type", "error_message", "error_stack_trace", "first_seen_at", "last_seen_at", "last_reattempt_at", "retry_count", "max_retries_reached", "requeued_at", "resolved_at", "disposal_reason", "internal_id", "namespace_id", "bucket_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -110,6 +111,7 @@ class SyncDeadLetterObjectModel(BaseModel):
             "error_stack_trace": obj.get("error_stack_trace"),
             "first_seen_at": obj.get("first_seen_at"),
             "last_seen_at": obj.get("last_seen_at"),
+            "last_reattempt_at": obj.get("last_reattempt_at"),
             "retry_count": obj.get("retry_count") if obj.get("retry_count") is not None else 0,
             "max_retries_reached": obj.get("max_retries_reached") if obj.get("max_retries_reached") is not None else False,
             "requeued_at": obj.get("requeued_at"),

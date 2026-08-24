@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from dcc_mcp_core._server.diagnostic_state import DiagnosticRuntimeState
+from dcc_mcp_core.feedback import FeedbackStore
 from dcc_mcp_core.skills import builtin
 
 
@@ -26,6 +28,8 @@ def test_register_all_builtin_skills_runs_every_step(monkeypatch):
     """All six built-in steps must run; recipes must receive ``skills``."""
     calls: list[str] = []
     recipes_kwargs: dict = {}
+    diagnostics_kwargs: dict = {}
+    feedback_kwargs: dict = {}
 
     def _recorder(name):
         def _inner(*_args, **_kwargs):
@@ -37,15 +41,37 @@ def test_register_all_builtin_skills_runs_every_step(monkeypatch):
         calls.append("recipes")
         recipes_kwargs.update(kwargs)
 
-    monkeypatch.setattr(builtin, "register_diagnostic_mcp_tools", _recorder("diagnostics"))
+    def _diagnostics(*_args, **kwargs):
+        calls.append("diagnostics")
+        diagnostics_kwargs.update(kwargs)
+
+    def _feedback(*_args, **kwargs):
+        calls.append("feedback")
+        feedback_kwargs.update(kwargs)
+
+    monkeypatch.setattr(builtin, "register_diagnostic_mcp_tools", _diagnostics)
     monkeypatch.setattr(builtin, "register_admin_tools", _recorder("admin"))
     monkeypatch.setattr(builtin, "register_introspect_tools", _recorder("introspect"))
-    monkeypatch.setattr(builtin, "register_feedback_tool", _recorder("feedback"))
+    monkeypatch.setattr(builtin, "register_feedback_tool", _feedback)
     monkeypatch.setattr(builtin, "register_recipes_tools", _recipes)
     monkeypatch.setattr(builtin, "register_qt_ui_inspector", _recorder("qt"))
     monkeypatch.setattr(builtin, "register_script_materialization_tools", _recorder("materialize"))
 
-    builtin.register_all_builtin_skills(_make_server(), dcc_name="maya", reload_skills=lambda: 0)
+    diagnostic_state = DiagnosticRuntimeState("maya")
+    feedback_store = FeedbackStore()
+
+    def instance_id_provider():
+        return "maya-instance-1"
+
+    builtin.register_all_builtin_skills(
+        _make_server(),
+        dcc_name="maya",
+        reload_skills=lambda: 0,
+        diagnostic_state=diagnostic_state,
+        feedback_store=feedback_store,
+        gateway_endpoint="http://127.0.0.1:19765/v1/feedback",
+        instance_id_provider=instance_id_provider,
+    )
 
     # Every step, including the two that previously got skipped after the
     # TypeError, must have executed in order.
@@ -53,6 +79,10 @@ def test_register_all_builtin_skills_runs_every_step(monkeypatch):
     # recipes must be invoked with an (empty) skills list, never omitted.
     assert "skills" in recipes_kwargs
     assert recipes_kwargs["skills"] == []
+    assert diagnostics_kwargs["diagnostic_state"] is diagnostic_state
+    assert feedback_kwargs["store"] is feedback_store
+    assert feedback_kwargs["gateway_endpoint"] == "http://127.0.0.1:19765/v1/feedback"
+    assert feedback_kwargs["instance_id_provider"] is instance_id_provider
 
 
 def test_register_all_builtin_skills_forwards_skills(monkeypatch):

@@ -17,7 +17,6 @@
 
 use std::sync::Arc;
 
-use axum::Router;
 use axum_test::TestServer;
 use serde_json::{Value, json};
 
@@ -36,6 +35,7 @@ use super::service::{
     CallOutcome, CatalogSource, DispatcherInvoker, PendingCall, SkillRestService, ToolInvoker,
     ToolSlug,
 };
+use super::testing::SkillRestTestHarness;
 
 // ── Fixture ──────────────────────────────────────────────────────────
 
@@ -91,14 +91,8 @@ fn fixture_loaded_spheres() -> (SkillRestService, Arc<ToolRegistry>, Arc<ToolDis
 }
 
 fn build_server(service: SkillRestService) -> (TestServer, Arc<VecAuditSink>) {
-    let sink = Arc::new(VecAuditSink::new());
-    let cfg = SkillRestConfig::new(service)
-        .with_audit(sink.clone())
-        .with_readiness(Arc::new(StaticReadiness::fully_ready()))
-        .with_auth(Arc::new(AllowLocalhostGate::new()));
-    let app: Router = build_skill_rest_router(cfg);
-    let server = TestServer::new(app);
-    (server, sink)
+    let harness = SkillRestTestHarness::new(service);
+    (harness.server, harness.audit)
 }
 
 // ── High-value scenarios ─────────────────────────────────────────────
@@ -152,14 +146,15 @@ struct ImmediatePendingInvoker {
     inner: DispatcherInvoker,
 }
 
+#[async_trait::async_trait]
 impl ToolInvoker for ImmediatePendingInvoker {
-    fn invoke(
+    async fn invoke(
         &self,
         action_name: &str,
         params: Value,
         meta: Option<Value>,
     ) -> Result<CallOutcome, ServiceError> {
-        self.inner.invoke(action_name, params, meta)
+        self.inner.invoke(action_name, params, meta).await
     }
 
     fn invoke_async(
@@ -251,6 +246,7 @@ async fn mcp_wrapper_and_rest_agree_on_call_output() {
             params: json!({"radius": 3.0}),
             meta: None,
         })
+        .await
         .expect("mcp call ok");
 
     // REST path.
@@ -419,8 +415,32 @@ async fn bearer_auth_gate_accepts_valid_token_and_echoes_request_id() {
         .add_header("x-request-id", "req-42")
         .await;
     resp.assert_status_ok();
+    assert_eq!(
+        resp.header("x-request-id").to_str().unwrap_or_default(),
+        "req-42"
+    );
     let body: Value = resp.json();
     assert_eq!(body["request_id"], "req-42");
+}
+
+#[tokio::test]
+async fn request_id_is_generated_once_and_echoed_in_error_header_and_body() {
+    let (svc, _, _) = fixture_loaded_spheres();
+    let gate = Arc::new(BearerTokenGate::new(vec!["s3cret".into()]).unwrap());
+    let cfg = SkillRestConfig::new(svc).with_auth(gate);
+    let server = TestServer::new(build_skill_rest_router(cfg));
+
+    let resp = server.get("/v1/skills").await;
+
+    assert_eq!(resp.status_code().as_u16(), 401);
+    let echoed = resp
+        .header("x-request-id")
+        .to_str()
+        .expect("generated request id must be a response header")
+        .to_owned();
+    assert!(!echoed.is_empty());
+    let body: Value = resp.json();
+    assert_eq!(body["request_id"], echoed);
 }
 
 /// OpenAPI document lists every documented route and parses as JSON.
@@ -1670,8 +1690,8 @@ async fn meta_passthrough_with_strict_schema_additional_properties_false() {
 
 // ── Scenario 6: service-layer meta passthrough ─────────────
 
-#[test]
-fn service_layer_call_passes_meta_through_to_invoker() {
+#[tokio::test]
+async fn service_layer_call_passes_meta_through_to_invoker() {
     let (svc, _, _) = fixture_meta_aware_tools();
 
     // Service-layer call (bypasses HTTP) — the same path the gateway
@@ -1685,6 +1705,7 @@ fn service_layer_call_passes_meta_through_to_invoker() {
                 "agent_context": {"actor_id": "svc-caller"}
             })),
         })
+        .await
         .expect("service call");
     let output = &outcome.output;
     assert_eq!(output["profile"], "staging");
@@ -1694,8 +1715,8 @@ fn service_layer_call_passes_meta_through_to_invoker() {
     );
 }
 
-#[test]
-fn service_layer_call_without_meta_is_backward_compatible() {
+#[tokio::test]
+async fn service_layer_call_without_meta_is_backward_compatible() {
     let (svc, _, _) = fixture_meta_aware_tools();
 
     let outcome = svc
@@ -1704,6 +1725,7 @@ fn service_layer_call_without_meta_is_backward_compatible() {
             params: json!({"service": "fpt"}),
             meta: None,
         })
+        .await
         .expect("service call");
     assert_eq!(outcome.output["profile"], "default");
 }

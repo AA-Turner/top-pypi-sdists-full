@@ -92,9 +92,7 @@ def _http_key(kwargs: dict[str, Any]) -> str:
     """
     method = str(kwargs.get("method", "")).upper()
     segments = urlsplit(str(kwargs.get("url", ""))).path.split("/")
-    template = "/".join(
-        _template_segment(segments, index) for index in range(len(segments))
-    )
+    template = "/".join(_template_segment(segments, index) for index in range(len(segments)))
     return f"{method} {template}".strip() or HTTP_OP
 
 

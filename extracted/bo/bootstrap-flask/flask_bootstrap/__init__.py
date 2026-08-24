@@ -240,12 +240,12 @@ class Bootstrap4(_Bootstrap):
        Move common logic to base class ``_Bootstrap``.
     """
 
-    bootstrap_version = '4.6.1'
+    bootstrap_version = '4.6.2'
     jquery_version = '3.5.1'
     popper_version = '1.16.1'
-    icons_version = '1.11.3'
-    bootstrap_css_integrity = 'sha384-zCbKRCUGaJDkqS1kPbPd7TveP5iyJE0EjAuZQTgFLD2ylzuqKfdKlfG/eSrtxUkn'
-    bootstrap_js_integrity = 'sha384-VHvPCCyXqtD5DqJeNxl2dtTyhF78xXNXdkwX1CZeRusQfRKp+tA7hAShOK/B/fQ2'
+    icons_version = '1.13.1'
+    bootstrap_css_integrity = 'sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N'
+    bootstrap_js_integrity = 'sha384-+sLIOodYLS7CIrQpBjl+C7nPvqq+FbNUBDunl/OZv93DB7Ln/533i8e/mZXLi/P+'
     jquery_integrity = 'sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0='
     popper_integrity = 'sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN'
     popper_name = 'popper.js'
@@ -277,11 +277,11 @@ class Bootstrap5(_Bootstrap):
 
     .. versionadded:: 2.0.0
     """
-    bootstrap_version = '5.3.5'
+    bootstrap_version = '5.3.8'
     popper_version = '2.11.8'
-    icons_version = '1.11.3'
-    bootstrap_css_integrity = 'sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7'
-    bootstrap_js_integrity = 'sha384-VQqxDN0EQCkWoxt/0vsQvZswzTHUVOImccYmSyhJTp7kGtPed0Qcx8rK9h9YEgx+'
+    icons_version = '1.13.1'
+    bootstrap_css_integrity = 'sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB'
+    bootstrap_js_integrity = 'sha384-G/EV+4j2dNv+tEPo3++6LCgdCROaejBqfUeNjuKAiuXbjrxilcCdDz6ZAVfHWe1Y'
     popper_integrity = 'sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r'
     popper_name = '@popperjs/core'
     static_folder = 'bootstrap5'

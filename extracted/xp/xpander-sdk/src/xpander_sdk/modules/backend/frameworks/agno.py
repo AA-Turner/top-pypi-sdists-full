@@ -1496,6 +1496,10 @@ _NO_PROGRESS_MARKERS = (
     "Rejected: finalize-only mode is NOT active",
     "Tool disabled:",
     "This step is waiting for a person to approve it",
+    # vault-binding access refusal (agent-controller vault_binding_gate.py - byte-matched)
+    "This tool's credential is no longer shared",
+    # vault-binding person-only credential in an unattended run (same module, byte-matched)
+    "This credential is set to run as the person asking",
     "Org-wide sharing is turned off for this agent",
     # always-on communication builtins' validation refusals (controller builtin_methods)
     "Provide at least one recipient address in `to`",
@@ -2549,6 +2553,11 @@ async def build_agent_args(
             base_state = xpander_agent.configuration.state.model_copy()
             for sub_agent in sub_agents:
                 sub_agent.configuration.state.task = base_state.task
+        # Members run the LEADER's model (member["model"] = model below), but each
+        # recursive build re-stamps task._model_capabilities from the member's own
+        # configured model - restore the leader's caps after, or the shared task
+        # plans attachments against a model that never runs.
+        leader_caps = getattr(task, "_model_capabilities", None) if task else None
         # convert to members. is_member=True keeps the task's structured-output
         # contract on the root manager alone — members report prose upward and the
         # root renders the envelope once, instead of every agent writing the full
@@ -2579,6 +2588,8 @@ async def build_agent_args(
                     args.setdefault("_xpander_hidden_mcp_toolkits", []).extend(
                         member_hidden
                     )
+            if task is not None and leader_caps is not None:
+                task._model_capabilities = leader_caps
 
         args.update(
             {
@@ -4778,17 +4789,21 @@ def _load_llm_model(
         # Attachment pipeline becomes capability-aware: to_message/get_images/
         # get_files plan against the model actually running this task.
         try:
-            from xpander_sdk.modules.tasks.utils.model_capabilities import (
-                get_model_capabilities,
+            from xpander_sdk.media.caps import (
+                resolve_task_capabilities,
             )
 
-            task._model_capabilities = get_model_capabilities(
-                llm_model_provider, llm_model_name
+            # Controller-stamped catalog capabilities ride payload_extension; the
+            # resolver ignores them unless they name this exact provider/model.
+            _pe = getattr(task, "payload_extension", None)
+            _media_caps = _pe.get("media_caps") if isinstance(_pe, dict) else None
+            task._model_capabilities = resolve_task_capabilities(
+                llm_model_provider, llm_model_name, _media_caps
             )
         except Exception as caps_exc:
             # Fail closed, not open: an unresolved model must not be assumed to
             # accept images/PDFs (the permissive default would 400 the provider).
-            from xpander_sdk.modules.tasks.utils.model_capabilities import (
+            from xpander_sdk.media.caps import (
                 ModelCapabilities,
             )
 

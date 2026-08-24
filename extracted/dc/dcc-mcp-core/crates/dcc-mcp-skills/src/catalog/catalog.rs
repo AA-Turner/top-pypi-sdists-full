@@ -1,4 +1,80 @@
 use super::*;
+use dcc_mcp_gateway_search::{SearchQuery as RankingQuery, SearchRecord, rank_all};
+
+#[derive(Clone)]
+struct SkillSearchRecord<'a> {
+    index: usize,
+    metadata: &'a SkillMetadata,
+    scope: SkillScope,
+    path_source: scoring::SkillPathSource,
+    search_tokens: Vec<String>,
+}
+
+impl SearchRecord for SkillSearchRecord<'_> {
+    fn tool_slug(&self) -> &str {
+        &self.metadata.name
+    }
+
+    fn backend_tool(&self) -> &str {
+        &self.metadata.name
+    }
+
+    fn summary(&self) -> &str {
+        &self.metadata.description
+    }
+
+    fn skill_name(&self) -> Option<&str> {
+        Some(&self.metadata.name)
+    }
+
+    fn tags(&self) -> &[String] {
+        &self.metadata.tags
+    }
+
+    fn search_tokens(&self) -> &[String] {
+        &self.search_tokens
+    }
+
+    fn search_aliases(&self) -> &[String] {
+        &self.metadata.search_aliases
+    }
+
+    fn dcc_type(&self) -> &str {
+        &self.metadata.dcc
+    }
+
+    fn instance_id(&self) -> uuid::Uuid {
+        uuid::Uuid::nil()
+    }
+
+    fn loaded(&self) -> bool {
+        true
+    }
+
+    fn rank_layer(&self) -> Option<&str> {
+        self.metadata.layer.as_deref()
+    }
+
+    fn rank_path_source(&self) -> Option<&str> {
+        Some(self.path_source.label())
+    }
+
+    fn rank_scope(&self) -> u8 {
+        self.scope as u8
+    }
+}
+
+fn ranking_tokens(metadata: &SkillMetadata, fields: &scoring::FieldTokens) -> Vec<String> {
+    fields
+        .hint
+        .iter()
+        .chain(&fields.tool_names)
+        .chain(&fields.tool_aliases)
+        .chain(&fields.tool_descriptions)
+        .cloned()
+        .chain(std::iter::once(metadata.dcc.clone()))
+        .collect()
+}
 
 #[path = "catalog_discovery.rs"]
 mod discovery_impl;
@@ -9,7 +85,7 @@ impl SkillCatalog {
     /// Unified skill discovery (issue #340).
     ///
     /// Behaviour:
-    /// - `query` / `tags` / `dcc` are AND-ed through a BM25-lite scorer that
+    /// - `query` / `tags` / `dcc` are AND-ed through the shared fuzzy scorer that
     ///   tokenises name, tags, search_hint, description, sibling `tools.yaml`
     ///   entries (tool names + descriptions) and `dcc`.
     ///   See [`scoring`] for weights, tie-breaks and the exact-name fast path.
@@ -37,130 +113,111 @@ impl SkillCatalog {
             .filter(|d| !d.is_empty())
             .map(|d| d.to_ascii_lowercase());
 
-        // ── 1. Pre-filter by tags/dcc (AND semantics) ──
-        let mut prefiltered: Vec<SkillEntry> = match &dcc_key {
-            Some(key) => {
-                let shard = self.dcc_shards.get(key);
-                let Some(shard) = shard else {
-                    return Vec::new();
-                };
-                self.entries
-                    .iter()
-                    .filter(|entry| {
-                        // Fast shard membership check before inspecting metadata.
-                        if !shard.contains(entry.key()) {
-                            return false;
-                        }
-                        let meta = &entry.value().metadata;
-
-                        if !tags.is_empty() {
-                            for tag in tags {
-                                if !meta.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
-                                    return false;
-                                }
-                            }
-                        }
-
-                        // dcc filter already satisfied by shard membership.
-                        true
-                    })
-                    .map(|entry| entry.value().clone())
-                    .collect()
-            }
-            None => {
-                // No dcc filter: scan all entries (existing path).
-                self.entries
-                    .iter()
-                    .filter(|entry| {
-                        let meta = &entry.value().metadata;
-
-                        if !tags.is_empty() {
-                            for tag in tags {
-                                if !meta.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
-                                    return false;
-                                }
-                            }
-                        }
-
-                        true
-                    })
-                    .map(|entry| entry.value().clone())
-                    .collect()
-            }
-        };
-
-        // ── 2. No query → deterministic order, no ranking ──
         let q_trim = query.map(str::trim).unwrap_or("");
-        let ranked: Vec<SkillSummary> = if q_trim.is_empty() {
-            prefiltered.sort_by(|a, b| {
-                b.scope
-                    .cmp(&a.scope)
-                    .then_with(|| a.metadata.name.cmp(&b.metadata.name))
-            });
-            prefiltered
-                .iter()
-                .map(helpers::skill_entry_to_summary)
-                .collect()
-        } else {
-            // ── 3. BM25-lite scoring (with layer-based rank penalty, #1398) ──
-            //
-            // When the caller filters by a known layer name through `tags`,
-            // they have explicitly asked to browse that layer — bypass the
-            // penalty so the raw BM25 order is honoured inside the filtered
-            // slice. Otherwise apply the penalty so infrastructure / example
-            // skills behave as the documented "fallback" tier.
-            let layer_filter_explicit = tags.iter().any(|t| {
-                let l = t.to_ascii_lowercase();
-                matches!(
-                    l.as_str(),
-                    scoring::LAYER_DOMAIN
-                        | scoring::LAYER_THIN_HARNESS
-                        | scoring::LAYER_INFRASTRUCTURE
-                        | scoring::LAYER_EXAMPLE
-                )
-            });
-
-            // ── 3a. Inverted-index candidate pruning (PIP-2469) ──
-            //
-            // Build or rebuild the inverted index if stale. When the index
-            // is available, extract only the subset of prefiltered entries
-            // that intersect the query's posting lists — BM25 scoring then
-            // only visits those candidates instead of the full prefiltered
-            // set. If the index is not available (first call or after a
-            // mutation that hasn't been rebuilt yet), fall back to the
-            // existing linear scan.
-            let (candidate_entries, _candidate_indices): (Vec<&SkillEntry>, Vec<usize>) =
-                self.prune_with_index(q_trim, &prefiltered);
-            let candidate_count = candidate_entries.len();
-            let total_count = prefiltered.len();
-            if candidate_count < total_count {
-                tracing::debug!(
-                    "search_skills inverted index pruned {total_count} → {candidate_count} entries"
-                );
-            }
-
-            let metas: Vec<&SkillMetadata> =
-                candidate_entries.iter().map(|e| &e.metadata).collect();
-            let scopes: Vec<SkillScope> = candidate_entries.iter().map(|e| e.scope).collect();
-            let path_sources: Vec<scoring::SkillPathSource> =
-                candidate_entries.iter().map(|e| e.path_source).collect();
-            let fields: Vec<&scoring::FieldTokens> =
-                candidate_entries.iter().map(|e| &e.field_tokens).collect();
-            let doc_lens: Vec<usize> = candidate_entries.iter().map(|e| e.doc_len).collect();
-            let scored = scoring::score_skills_with_tokens(
-                q_trim,
-                &metas,
-                &scopes,
-                layer_filter_explicit,
-                Some(&path_sources),
-                &fields,
-                &doc_lens,
-            );
-            scored
-                .into_iter()
-                .map(|s| helpers::skill_entry_to_summary(candidate_entries[s.index]))
-                .collect()
+        let shard = match &dcc_key {
+            Some(key) => match self.dcc_shards.get(key) {
+                Some(shard) => Some(shard),
+                None => return Vec::new(),
+            },
+            None => None,
         };
+
+        let matches_filters = |name: &str, meta: &SkillMetadata| {
+            if shard.as_ref().is_some_and(|names| !names.contains(name)) {
+                return false;
+            }
+            !tags.iter().any(|tag| {
+                !meta
+                    .tags
+                    .iter()
+                    .any(|value| value.eq_ignore_ascii_case(tag))
+            })
+        };
+
+        // ── 1. No query → project summaries directly, then sort ──
+        if q_trim.is_empty() {
+            let mut summaries: Vec<_> = self
+                .entries
+                .iter()
+                .filter(|entry| matches_filters(entry.key(), &entry.value().metadata))
+                .filter(|entry| scope.is_none_or(|value| value == entry.value().scope))
+                .map(|entry| {
+                    (
+                        entry.value().scope,
+                        helpers::skill_entry_to_summary(entry.value()),
+                    )
+                })
+                .collect();
+            summaries.sort_by(|(scope_a, summary_a), (scope_b, summary_b)| {
+                scope_b
+                    .cmp(scope_a)
+                    .then_with(|| summary_a.name.cmp(&summary_b.name))
+            });
+            return summaries
+                .into_iter()
+                .map(|(_, summary)| summary)
+                .take(limit.unwrap_or(usize::MAX))
+                .collect();
+        }
+
+        // ── 2. Pre-filter by tags/dcc ──
+        // Fuzzy matching cannot safely use the exact-token inverted index:
+        // pruning first would discard the typo/prefix candidates that the
+        // shared scorer is specifically responsible for recalling.
+        let mut prefiltered = Vec::new();
+        for entry in self.entries.iter() {
+            let meta = &entry.value().metadata;
+            if !matches_filters(entry.key(), meta) {
+                continue;
+            }
+            // Retain the DashMap guard instead of deep-cloning SkillEntry.
+            prefiltered.push(entry);
+        }
+
+        // ── 3. Shared scoring (with central rank policy, #1398/#2184) ──
+        //
+        // When the caller filters by a known layer name through `tags`,
+        // they have explicitly asked to browse that layer — bypass the
+        // policy so the raw scorer order is honoured inside the filtered
+        // slice. Otherwise apply the penalty so infrastructure / example
+        // skills behave as the documented "fallback" tier.
+        let layer_filter_explicit = tags.iter().any(|t| {
+            let l = t.to_ascii_lowercase();
+            matches!(
+                l.as_str(),
+                scoring::LAYER_DOMAIN
+                    | scoring::LAYER_THIN_HARNESS
+                    | scoring::LAYER_INFRASTRUCTURE
+                    | scoring::LAYER_EXAMPLE
+            )
+        });
+
+        let records: Vec<SkillSearchRecord<'_>> = prefiltered
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| SkillSearchRecord {
+                index,
+                metadata: &entry.value().metadata,
+                scope: entry.value().scope,
+                path_source: entry.value().path_source,
+                search_tokens: ranking_tokens(&entry.value().metadata, &entry.value().field_tokens),
+            })
+            .collect();
+        let ranked: Vec<SkillSummary> = rank_all(
+            &records,
+            &RankingQuery {
+                query: q_trim.to_string(),
+                tags: if layer_filter_explicit {
+                    tags.iter().map(|tag| (*tag).to_string()).collect()
+                } else {
+                    Vec::new()
+                },
+                ..RankingQuery::default()
+            },
+        )
+        .into_iter()
+        .map(|hit| helpers::skill_entry_to_summary(prefiltered[hit.record.index].value()))
+        .collect();
 
         // ── 4. Scope filter (post-ranking) ──
         let filtered: Vec<SkillSummary> = match scope {

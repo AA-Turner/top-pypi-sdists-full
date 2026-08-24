@@ -1,12 +1,15 @@
 import asyncio
 import pathlib
 from datetime import datetime
+from typing import cast
 
 import pytest
 import pytest_asyncio
 
-from pymobiledevice3.exceptions import AfcException, AfcFileNotFoundError
+from pymobiledevice3.exceptions import AfcException, AfcFileNotFoundError, ConnectionTerminatedError
 from pymobiledevice3.lockdown import LockdownClient
+from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
+from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.services.afc import MAXIMUM_READ_SIZE, AfcError, AfcService
 
 TEST_FILENAME = "test"
@@ -188,6 +191,24 @@ async def test_stat_file(afc: AfcService) -> None:
     assert stat["st_size"] == len(data)
     assert stat["st_ifmt"] == "S_IFREG"
     assert stat["st_mtime"] >= timestamp
+
+
+async def test_fseek_reads_from_offset(afc: AfcService) -> None:
+    import os
+
+    data = bytes(range(256)) * 8  # 2 KiB with distinct byte values
+    await afc.set_file_contents(TEST_FILENAME, data)
+    try:
+        handle = await afc.fopen(TEST_FILENAME)
+        try:
+            await afc.fseek(handle, 300, os.SEEK_SET)
+            assert await afc.fread(handle, 100) == data[300:400]
+            await afc.fseek(handle, -10, os.SEEK_END)
+            assert await afc.fread(handle, 10) == data[-10:]
+        finally:
+            await afc.fclose(handle)
+    finally:
+        await afc.rm(TEST_FILENAME)
 
 
 async def test_stat_folder(afc: AfcService) -> None:
@@ -387,3 +408,30 @@ async def test_concurrent_operations(lockdown: LockdownClient) -> None:
         assert all(sorted(r) == sorted(listings[0]) for r in listings), (
             f"Expected all concurrent listdir results to be identical, got {listings}"
         )
+
+
+class _DisconnectingConnection:
+    """A fake service connection: ``recvall`` blocks until ``dropped``, then dies."""
+
+    def __init__(self) -> None:
+        self.dropped = asyncio.Event()
+
+    async def recvall(self, size: int) -> bytes:
+        await self.dropped.wait()
+        raise ConnectionTerminatedError()
+
+    async def close(self) -> None:
+        pass
+
+
+async def test_wait_terminated_unblocks_on_connection_drop() -> None:
+    """``wait_terminated`` must return once the underlying connection dies (device disconnect)."""
+    afc = AfcService(cast(LockdownServiceProvider, object()), service_name="com.apple.afc")
+    connection = _DisconnectingConnection()
+    afc._service = cast(ServiceConnection, connection)  # pre-injected connection: no real device needed
+    waiter = asyncio.create_task(afc.wait_terminated())
+    await asyncio.sleep(0.05)
+    assert not waiter.done()
+
+    connection.dropped.set()
+    await asyncio.wait_for(waiter, timeout=5)

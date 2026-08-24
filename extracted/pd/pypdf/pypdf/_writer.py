@@ -34,7 +34,7 @@ import re
 import struct
 import sys
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from io import BytesIO, FileIO, IOBase
 from itertools import compress
 from pathlib import Path
@@ -44,6 +44,7 @@ from typing import (
     IO,
     Any,
     Callable,
+    Literal,
     Optional,
     Union,
     cast,
@@ -215,7 +216,7 @@ class PdfWriter(PdfDocCommon):
         This is used for compression.
         """
 
-        self._id_translated: dict[int, dict[int, int]] = {}
+        self._id_translated: dict[int, dict[Union[int, Literal["PreventGC"]], Any]] = {}
         """List of already translated IDs.
            dict[id(pdf)][(idnum, generation)]
         """
@@ -2070,7 +2071,7 @@ class PdfWriter(PdfDocCommon):
                 text_filters=text_filters
             )
             page.replace_contents(content)
-        return [], []  # type: ignore[return-value]
+        return None
 
     def _remove_objects_from_page__clean(
             self,
@@ -2284,7 +2285,7 @@ class PdfWriter(PdfDocCommon):
         page_number: int,
         uri: str,
         rect: RectangleObject,
-        border: Optional[ArrayObject] = None,
+        border: Optional[Sequence[Any]] = None,
     ) -> None:
         """
         Add an URI from a rectangular area to the specified page.
@@ -3013,7 +3014,7 @@ class PdfWriter(PdfDocCommon):
 
     def _insert_filtered_annotations(
         self,
-        annots: Union[IndirectObject, list[DictionaryObject], None],
+        annots: Union[IndirectObject, list[PdfObject], None],
         page: PageObject,
         pages: dict[int, PageObject],
         reader: PdfReader,
@@ -3236,7 +3237,7 @@ class PdfWriter(PdfDocCommon):
             except Exception:
                 pass
         else:
-            raise Exception("invalid parameter {reader}")
+            raise TypeError(f"Invalid parameter {reader}")
 
     def set_page_label(
         self,

@@ -42,6 +42,7 @@ from schemathesis.transport.serialization import Binary
 
 if TYPE_CHECKING:
     import httpx
+    import httpx2
     import requests
     import requests.auth
     from requests.structures import CaseInsensitiveDict
@@ -454,7 +455,7 @@ class Case(Generic[OperationT]):
 
     def validate_response(
         self,
-        response: Response | httpx.Response | requests.Response | TestResponse,
+        response: Response | httpx.Response | httpx2.Response | requests.Response | TestResponse,
         checks: list[CheckFunction] | None = None,
         additional_checks: list[CheckFunction] | None = None,
         excluded_checks: list[CheckFunction] | None = None,

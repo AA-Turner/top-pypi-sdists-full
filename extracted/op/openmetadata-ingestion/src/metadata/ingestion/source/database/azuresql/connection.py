@@ -12,6 +12,7 @@
 """
 Source connection handler
 """
+
 from typing import Optional, Union
 from urllib.parse import quote_plus
 
@@ -23,12 +24,10 @@ from metadata.generated.schema.entity.automations.workflow import (
 from metadata.generated.schema.entity.services.connections.database.azureSQLConnection import (
     Authentication,
     AuthenticationMode,
+    AzureSQLScheme,
 )
 from metadata.generated.schema.entity.services.connections.database.azureSQLConnection import (
     AzureSQLConnection as AzureSQLConnectionConfig,
-)
-from metadata.generated.schema.entity.services.connections.database.azureSQLConnection import (
-    AzureSQLScheme,
 )
 from metadata.generated.schema.entity.services.connections.database.mssqlConnection import (
     MssqlConnection,
@@ -49,9 +48,7 @@ from metadata.utils.constants import THREE_MIN
 DEFAULT_SQL_SERVER_PORT = 1433
 
 
-def get_connection_url(
-    connection: Union[AzureSQLConnectionConfig, MssqlConnection]
-) -> str:
+def get_connection_url(connection: Union[AzureSQLConnectionConfig, MssqlConnection]) -> str:  # noqa: UP007
     """
     Build the connection URL
     """
@@ -63,28 +60,19 @@ def get_connection_url(
     ):
         connection_string = f"Driver={connection.driver};Server={connection.hostPort};Database={connection.database};"
         connection_string += f"Uid={connection.username};"
-        if (
-            connection.authenticationMode.authentication
-            == Authentication.ActiveDirectoryPassword
-        ):
+        if connection.authenticationMode.authentication == Authentication.ActiveDirectoryPassword:
             connection_string += f"Pwd={connection.password.get_secret_value()};"
 
         connection_string += f"Encrypt={'yes' if connection.authenticationMode.encrypt else 'no'};TrustServerCertificate={'yes' if connection.authenticationMode.trustServerCertificate else 'no'};"
         connection_string += f"Connection Timeout={connection.authenticationMode.connectionTimeout or 30};Authentication={connection.authenticationMode.authentication.value};"
 
-        connection_url = URL.create(
-            "mssql+pyodbc", query={"odbc_connect": connection_string}
-        )
-        return connection_url
+        connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": connection_string})
+        return connection_url  # noqa: RET504
     url = f"{connection.scheme.value}://"
 
     if connection.username:
         url += f"{quote_plus(connection.username)}"
-        url += (
-            f":{quote_plus(connection.password.get_secret_value())}"
-            if connection.password
-            else ""
-        )
+        url += f":{quote_plus(connection.password.get_secret_value())}" if connection.password else ""
         url += "@"
 
     url += f"{connection.hostPort}"
@@ -95,51 +83,19 @@ def get_connection_url(
     if options:
         if not connection.database:
             url += "/"
-        params = "&".join(
-            f"{key}={quote_plus(value)}" for key, value in options.items() if value
-        )
+        params = "&".join(f"{key}={quote_plus(value)}" for key, value in options.items() if value)
         url = f"{url}&{params}"
 
     return url
 
 
-def get_connection(connection: AzureSQLConnectionConfig) -> Engine:
-    """
-    Create connection
-    """
-    return create_generic_db_connection(
-        connection=connection,
-        get_connection_url_fn=get_connection_url,
-        get_connection_args_fn=get_connection_args_common,
-    )
-
-
-def test_connection(
-    metadata: OpenMetadata,
-    engine: Engine,
-    service_connection: AzureSQLConnectionConfig,
-    automation_workflow: Optional[AutomationWorkflow] = None,
-    timeout_seconds: Optional[int] = THREE_MIN,
-) -> TestConnectionResult:
-    """
-    Test connection. This can be executed either as part
-    of a metadata workflow or during an Automation Workflow
-    """
-    return test_connection_db_common(
-        metadata=metadata,
-        engine=engine,
-        service_connection=service_connection,
-        automation_workflow=automation_workflow,
-        timeout_seconds=timeout_seconds,
-    )
-
-
 class AzureSQLConnection(BaseConnection[AzureSQLConnectionConfig, Engine]):
-    def __init__(self, connection: AzureSQLConnectionConfig):
-        super().__init__(connection)
-
     def _get_client(self) -> Engine:
-        return get_connection(self.service_connection)
+        return create_generic_db_connection(
+            connection=self.service_connection,
+            get_connection_url_fn=get_connection_url,
+            get_connection_args_fn=get_connection_args_common,
+        )
 
     def get_connection_dict(self) -> dict:
         """Return the connection parameters for data-diff."""
@@ -154,17 +110,12 @@ class AzureSQLConnection(BaseConnection[AzureSQLConnectionConfig, Engine]):
             "host": host,
             "port": int(port) if port else DEFAULT_SQL_SERVER_PORT,
             "user": connection.username,
-            "password": connection.password.get_secret_value()
-            if connection.password
-            else None,
+            "password": connection.password.get_secret_value() if connection.password else None,
             "database": connection.database,
         }
 
         authentication_mode = connection.authenticationMode
-        if (
-            isinstance(authentication_mode, AuthenticationMode)
-            and authentication_mode.authentication is not None
-        ):
+        if isinstance(authentication_mode, AuthenticationMode) and authentication_mode.authentication is not None:
             connection_dict["Authentication"] = authentication_mode.authentication.value
             connection_dict["Encrypt"] = "yes" if authentication_mode.encrypt else "no"
 
@@ -173,14 +124,14 @@ class AzureSQLConnection(BaseConnection[AzureSQLConnectionConfig, Engine]):
     def test_connection(
         self,
         metadata: OpenMetadata,
-        automation_workflow: Optional[AutomationWorkflow] = None,
-        timeout_seconds: Optional[int] = THREE_MIN,
+        automation_workflow: Optional[AutomationWorkflow] = None,  # noqa: UP045
+        timeout_seconds: Optional[int] = THREE_MIN,  # noqa: UP045
     ) -> TestConnectionResult:
         """
         Test connection. This can be executed either as part
         of a metadata workflow or during an Automation Workflow
         """
-        return test_connection(
+        return test_connection_db_common(
             metadata=metadata,
             engine=self.client,
             service_connection=self.service_connection,

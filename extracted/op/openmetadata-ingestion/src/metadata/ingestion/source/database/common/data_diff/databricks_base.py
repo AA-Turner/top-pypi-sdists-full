@@ -6,28 +6,16 @@ from metadata.data_quality.validations.runtime_param_setter.base_diff_params_set
     BaseTableParameter,
 )
 from metadata.generated.schema.entity.services.databaseService import DatabaseService
-from metadata.ingestion.source.database.databricks.auth import (
-    get_data_diff_connection_dict,
-)
 from metadata.utils import fqn
 
 
 class DatabricksBaseTableParameter(BaseTableParameter):
     """Base class for Databricks-based table parameter setters.
 
-    data_diff resolves a two-part ``schema.table`` path against the connection's
-    catalog, so each side needs the catalog and schema of its own table.
+    The connection class builds a service-level dict; data_diff resolves a two-part
+    ``schema.table`` path against the connection's catalog, so each side of the diff
+    needs the catalog and schema of its own table.
     """
-
-    @classmethod
-    def _get_service_connection_config(
-        cls,
-        service_connection_config,
-    ) -> Optional[Union[str, dict]]:
-        """Build a data-diff connection dict from the connector auth config."""
-        if not service_connection_config:
-            return None
-        return get_data_diff_connection_dict(service_connection_config)
 
     def get_data_diff_url(
         self,

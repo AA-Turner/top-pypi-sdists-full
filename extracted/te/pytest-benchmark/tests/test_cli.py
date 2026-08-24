@@ -93,13 +93,14 @@ def test_help_compare(testdir, args):
             '                                 [--columns LABELS] [--name FORMAT]',
             '                                 [--time-unit COLUMN]',
             '                                 [--histogram [FILENAME-PREFIX]]',
-            '                                 [--csv [FILENAME]]',
+            '                                 [--between COLUMNS] [--csv [FILENAME]]',
+            '                                 [-k EXPR]',
             '                                 [[]glob_or_file *[]]',
             '',
             'Compare saved runs.',
             '',
             'positional arguments:',
-            '  glob_or_file          Glob or exact path for json files. If not specified',
+            '  glob_or_file          Glob or exact path for JSON files. If not specified',
             '                        all runs are loaded.',
             '',
             'option*:',
@@ -122,9 +123,15 @@ def test_help_compare(testdir, args):
             '                        FILENAME-PREFIX-test_name.svg. If FILENAME-PREFIX',
             "                        contains slashes ('/') then directories will be",
             "                        created. Default: 'benchmark_*'",
+            '  --between COLUMNS     Compare same-named benchmarks across different source',
+            '                        files. Takes a comma-separated list of metric columns',
+            '                        to compare (e.g. min,mean,ops).',
             "  --csv [FILENAME]      Save a csv report. If FILENAME contains slashes ('/')",
             '                        then directories will be created. Default:',
             "                        'benchmark_*'",
+            '  -k EXPR               Only show benchmarks matching the given expression.',
+            "                        Uses the same syntax as pytest's -k option (e.g. 'foo",
+            "                        and not bar').",
             '',
             'examples:',
             '',
@@ -287,6 +294,74 @@ def test_compare(testdir, name, name_pattern_generator):
     assert result.ret == 0
 
 
+def test_compare_between(testdir):
+    common_args = [
+        'py.test-benchmark',
+        '--storage',
+        STORAGE,
+        'compare',
+        '--between=min,max',
+        '--sort=min',
+        '--name=short',
+    ]
+    # 2-source case: per-metric grouping with ref + delta
+    result = testdir.run(*common_args, '0001', '0002')
+    result.stdout.fnmatch_lines(
+        [
+            '---*--- benchmark: 1 tests, 2 sources ---*---',
+            'Name (time in ns) *0001 Min*0002 Min*\u0394Min*0001 Max*0002 Max*\u0394Max',
+            '---*---',
+            'xfast_parametrized[[]0[]] *217.3145*216.9028*-0.2%*11*447.3891*7*739.2997*-32.4%',
+            '---*---',
+        ]
+    )
+    assert result.ret == 0
+
+    # 3-source case: each non-reference source followed by its deltas, per metric
+    result = testdir.run(*common_args, '0001', '0002', '0003')
+    result.stdout.fnmatch_lines(
+        [
+            '---*--- benchmark: 1 tests, 3 sources ---*---',
+            'Name (time in ns) *0001 Min*0002 Min*\u0394Min*0003 Min*\u0394Min*0001 Max*0002 Max*\u0394Max*0003 Max*\u0394Max',
+            '---*---',
+            'xfast_parametrized[[]0[]] *217.3145*216.9028*-0.2%*215.6286*-0.8%*11*447.3891*7*739.2997*-32.4%*10*318.6159*-9.9%',
+            '---*---',
+        ]
+    )
+    assert result.ret == 0
+
+
+def test_compare_between_histogram_error(testdir):
+    result = testdir.run(
+        'py.test-benchmark',
+        '--storage',
+        STORAGE,
+        'compare',
+        '--between=min',
+        '--histogram',
+        'foobar',
+        '0001',
+        '0002',
+    )
+    result.stderr.fnmatch_lines(['*error: --between is not compatible with --histogram*'])
+    assert result.ret != 0
+
+
+def test_compare_between_columns_error(testdir):
+    result = testdir.run(
+        'py.test-benchmark',
+        '--storage',
+        STORAGE,
+        'compare',
+        '--between=min',
+        '--columns=min,max',
+        '0001',
+        '0002',
+    )
+    result.stderr.fnmatch_lines(['*error: --between is not compatible with --columns*'])
+    assert result.ret != 0
+
+
 @pytest.mark.parametrize(
     ('name', 'name_pattern_generator', 'unit'),
     [
@@ -358,3 +433,35 @@ def test_compare_csv(testdir):
     )
     result = testdir.run('py.test-benchmark', 'compare', '--csv')
     result.stderr.fnmatch_lines(['Generated csv: *.csv'])
+
+
+def test_compare_filter(testdir):
+    test = testdir.makepyfile("""
+    import pytest
+    @pytest.mark.parametrize("arg", ["foo", "bar"])
+    def test_alpha(benchmark, arg):
+        benchmark(lambda: None)
+    def test_beta(benchmark):
+        benchmark(lambda: None)
+    """)
+    result = testdir.runpytest_subprocess('--benchmark-autosave', test)
+    result.stderr.fnmatch_lines(['Saved benchmark data in: *'])
+
+    # Filter to only test_alpha benchmarks
+    result = testdir.run('py.test-benchmark', 'compare', '-k', 'alpha', '--columns', 'min,max')
+    result.stdout.fnmatch_lines(['*benchmark: 2 tests*'])
+    assert 'test_beta' not in result.stdout.str()
+
+    # Filter with "not" expression
+    result = testdir.run('py.test-benchmark', 'compare', '-k', 'not alpha', '--columns', 'min,max')
+    result.stdout.fnmatch_lines(['*benchmark: 1 tests*'])
+    assert 'test_alpha' not in result.stdout.str()
+
+    # Filter with "and" expression
+    result = testdir.run('py.test-benchmark', 'compare', '-k', 'alpha and foo', '--columns', 'min,max')
+    result.stdout.fnmatch_lines(['*benchmark: 1 tests*'])
+    assert 'bar' not in result.stdout.str()
+
+    # No filter shows all
+    result = testdir.run('py.test-benchmark', 'compare', '--columns', 'min,max')
+    result.stdout.fnmatch_lines(['*benchmark: 3 tests*'])

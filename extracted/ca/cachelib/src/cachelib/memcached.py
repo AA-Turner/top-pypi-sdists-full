@@ -1,3 +1,4 @@
+import datetime as dt
 import re
 import typing as _t
 from contextlib import contextmanager
@@ -8,6 +9,7 @@ from time import time
 from cachelib.base import BaseCache
 
 _test_memcached_key = re.compile(r"[^\x00-\x21\xff]{1,250}$").match
+_MemcacheClientLib = _t.Literal["pylibmc", "google", "memcache", "libmc"]
 
 
 class MemcachedCache(BaseCache):
@@ -23,7 +25,7 @@ class MemcachedCache(BaseCache):
 
         - ``pylibmc``
         - ``google.appengine.api.memcached``
-        - ``memcached``
+        - ``memcache``
         - ``libmc``
 
     Implementation notes:
@@ -39,8 +41,12 @@ class MemcachedCache(BaseCache):
     :param servers: a list or tuple of server addresses or alternatively
         a ``memcache.Client`` or a compatible client.
     :param default_timeout: the default timeout that is used if no timeout is
-        specified on :meth:`~.BaseCache.set`. A timeout of
+        specified on :meth:`~.BaseCache.set`. Either a number of seconds or a
+        :class:`datetime.timedelta`. A timeout of
         0 indicates that the cache never expires.
+
+        .. versionchanged:: 0.17.0
+            Accepts a :class:`datetime.timedelta`.
     :param key_prefix: a prefix that is added before all keys.  This makes it
         possible to use the same memcached server for different
         applications.  Keep in mind that
@@ -67,17 +73,23 @@ class MemcachedCache(BaseCache):
         and surface on first use.
 
         .. versionadded:: 0.16.1
+    :param memcache_client_lib: Optional. A string indicating which memcache client
+        library to use. Valid values are 'pylibmc', 'google', 'memcache', and 'libmc'.
+        If not provided, the library will be auto-detected based on availability.
+
+        .. versionadded:: 0.17.0
     """
 
     def __init__(
         self,
         servers: _t.Any = None,
-        default_timeout: int = 300,
+        default_timeout: int | dt.timedelta = 300,
         key_prefix: str | None = None,
         pool_size: int = 1,
         pool_blocking: bool = True,
         ignore_delete_many_errors: bool = True,
         check_connection: bool = False,
+        memcache_client_lib: _MemcacheClientLib | None = None,
     ):
         self.check_connection = check_connection
         BaseCache.__init__(
@@ -87,13 +99,9 @@ class MemcachedCache(BaseCache):
         if servers is None or isinstance(servers, (list, tuple)):
             if servers is None:
                 servers = ["127.0.0.1:11211"]
-            client, client_context = self.import_preferred_memcache_lib(
-                servers, pool_size, pool_blocking
+            self._client, self._client_context = self.import_preferred_memcache_lib(
+                servers, pool_size, pool_blocking, memcache_client_lib
             )
-            if client is None or client_context is None:
-                raise RuntimeError("no memcache module found")
-            self._client = client
-            self._client_context = client_context
         else:
             # NOTE: servers is actually an already initialized memcache
             # client.
@@ -107,11 +115,11 @@ class MemcachedCache(BaseCache):
             key = self.key_prefix + key
         return key
 
-    def _normalize_timeout(self, timeout: int | None) -> int:
-        timeout = BaseCache._normalize_timeout(self, timeout)
-        if timeout > 0:
-            timeout = int(time()) + timeout
-        return timeout
+    def _normalize_timeout(self, timeout: int | dt.timedelta | None) -> int:
+        normalized_timeout = BaseCache._normalize_timeout(self, timeout)
+        if normalized_timeout > 0:
+            normalized_timeout = int(time()) + normalized_timeout
+        return normalized_timeout
 
     def get(self, key: str) -> _t.Any:
         key = self._normalize_key(key)
@@ -142,41 +150,47 @@ class MemcachedCache(BaseCache):
                     rv[key] = None
         return rv
 
-    def add(self, key: str, value: _t.Any, timeout: int | None = None) -> bool:
-        key = self._normalize_key(key)
-        timeout = self._normalize_timeout(timeout)
+    def add(
+        self, key: str, value: _t.Any, timeout: int | dt.timedelta | None = None
+    ) -> bool:
+        normalized_key = self._normalize_key(key)
+        normalized_timeout = self._normalize_timeout(timeout)
         with self._client_context() as client:
-            return bool(client.add(key, value, timeout))
+            return bool(client.add(normalized_key, value, normalized_timeout))
 
-    def set(self, key: str, value: _t.Any, timeout: int | None = None) -> bool | None:
-        key = self._normalize_key(key)
-        timeout = self._normalize_timeout(timeout)
+    def set(
+        self, key: str, value: _t.Any, timeout: int | dt.timedelta | None = None
+    ) -> bool | None:
+        normalized_key = self._normalize_key(key)
+        normalized_timeout = self._normalize_timeout(timeout)
         with self._client_context() as client:
-            return bool(client.set(key, value, timeout))
+            return bool(client.set(normalized_key, value, normalized_timeout))
 
     def get_many(self, *keys: str) -> list[_t.Any]:
         d = self.get_dict(*keys)
         return [d[key] for key in keys]
 
     def set_many(
-        self, mapping: dict[str, _t.Any], timeout: int | None = None
+        self, mapping: dict[str, _t.Any], timeout: int | dt.timedelta | None = None
     ) -> list[_t.Any]:
         new_mapping = {}
         for key, value in mapping.items():
             key = self._normalize_key(key)
             new_mapping[key] = value
 
-        timeout = self._normalize_timeout(timeout)
+        normalized_timeout = self._normalize_timeout(timeout)
         with self._client_context() as client:
-            failed_keys: list[_t.Any] = client.set_multi(new_mapping, timeout)
+            failed_keys: list[_t.Any] = client.set_multi(
+                new_mapping, normalized_timeout
+            )
         k_normkey = zip(mapping.keys(), new_mapping.keys(), strict=True)
         return [k for k, nkey in k_normkey if nkey not in failed_keys]
 
     def delete(self, key: str) -> bool:
-        key = self._normalize_key(key)
-        if _test_memcached_key(key):
+        normalized_key = self._normalize_key(key)
+        if _test_memcached_key(normalized_key):
             with self._client_context() as client:
-                return bool(client.delete(key))
+                return bool(client.delete(normalized_key))
         return False
 
     def delete_many(self, *keys: str) -> list[_t.Any]:
@@ -197,10 +211,10 @@ class MemcachedCache(BaseCache):
         return deleted_keys
 
     def has(self, key: str) -> bool:
-        key = self._normalize_key(key)
-        if _test_memcached_key(key):
+        normalized_key = self._normalize_key(key)
+        if _test_memcached_key(normalized_key):
             with self._client_context() as client:
-                return bool(client.append(key, ""))
+                return bool(client.append(normalized_key, ""))
         return False
 
     def clear(self) -> bool:
@@ -221,61 +235,81 @@ class MemcachedCache(BaseCache):
             value = (client.get(normalized_key) or 0) - delta
         return value if self.set(key, value) else None
 
-    def import_preferred_memcache_lib(
+    def _create_pylibmc(
         self, servers: _t.Any, pool_size: int, pool_blocking: bool = True
-    ) -> tuple[_t.Any | None, _t.Callable[[], _t.ContextManager[_t.Any]] | None]:
+    ) -> tuple[_t.Any, _t.Callable[[], _t.ContextManager[_t.Any]]]:
+        import pylibmc  # type: ignore
+
+        client = pylibmc.Client(servers)
+        if self.check_connection:
+            try:
+                client.get_stats()
+            except pylibmc.Error as err:
+                raise RuntimeError(
+                    f"could not connect to memcached server(s): {err}"
+                ) from err
+        pool = pylibmc.ClientPool(client, pool_size)
+        reserve = partial(pool.reserve, block=pool_blocking)
+        return pool, reserve
+
+    def _create_google(
+        self, servers: _t.Any, pool_size: int, pool_blocking: bool = True
+    ) -> tuple[_t.Any, _t.Callable[[], _t.ContextManager[_t.Any]]]:
+        from google.appengine.api import memcache  # type: ignore
+
+        client = memcache.Client()
+        return client, partial(nullcontext, client)
+
+    def _create_memcache(
+        self, servers: _t.Any, pool_size: int, pool_blocking: bool = True
+    ) -> tuple[_t.Any, _t.Callable[[], _t.ContextManager[_t.Any]]]:
+        import memcache  # type: ignore
+
+        client = memcache.Client(servers)
+        return client, partial(nullcontext, client)
+
+    def _create_libmc(
+        self, servers: _t.Any, pool_size: int, pool_blocking: bool = True
+    ) -> tuple[_t.Any, _t.Callable[[], _t.ContextManager[_t.Any]]]:
+        import libmc  # type: ignore
+
+        # libmc.ClientPool doesn't take pool_size as a positional arg,
+        # and its .client() always blocks/auto-grows, no non-blocking mode.
+        pool = libmc.ClientPool(servers)
+        pool.config(libmc.MC_INITIAL_CLIENTS, pool_size)
+        pool.config(libmc.MC_MAX_CLIENTS, pool_size)
+
+        @contextmanager
+        def get_client() -> _t.Generator[_t.Any, None, None]:
+            # flush_all is disabled by default in libmc; enable per connection.
+            with pool.client() as client:
+                client.toggle_flush_all_feature(True)
+                yield client
+
+        return pool, get_client
+
+    def import_preferred_memcache_lib(
+        self,
+        servers: _t.Any,
+        pool_size: int,
+        pool_blocking: bool = True,
+        memcache_client_lib: _MemcacheClientLib | None = None,
+    ) -> tuple[_t.Any, _t.Callable[[], _t.ContextManager[_t.Any]]]:
         """Returns an initialized memcache client.  Used by the constructor."""
-        try:
-            import pylibmc  # type: ignore
-        except ImportError:
-            pass
-        else:
-            client = pylibmc.Client(servers)
-            if self.check_connection:
-                try:
-                    client.get_stats()
-                except pylibmc.Error as err:
-                    raise RuntimeError(
-                        f"could not connect to memcached server(s): {err}"
-                    ) from err
-            pool = pylibmc.ClientPool(client, pool_size)
-            reserve = partial(pool.reserve, block=pool_blocking)
-            return pool, reserve
-
-        try:
-            from google.appengine.api import memcache  # type: ignore
-        except ImportError:
-            pass
-        else:
-            client = memcache.Client()
-            return client, partial(nullcontext, client)
-
-        try:
-            import memcache  # type: ignore
-        except ImportError:
-            pass
-        else:
-            client = memcache.Client(servers)
-            return client, partial(nullcontext, client)
-
-        try:
-            import libmc  # type: ignore
-        except ImportError:
-            pass
-        else:
-            # libmc.ClientPool doesn't take pool_size as a positional arg,
-            # and its .client() always blocks/auto-grows, no non-blocking mode.
-            pool = libmc.ClientPool(servers)
-            pool.config(libmc.MC_INITIAL_CLIENTS, pool_size)
-            pool.config(libmc.MC_MAX_CLIENTS, pool_size)
-
-            @contextmanager
-            def get_client() -> _t.Generator[_t.Any, None, None]:
-                # flush_all is disabled by default in libmc; enable per connection.
-                with pool.client() as client:
-                    client.toggle_flush_all_feature(True)
-                    yield client
-
-            return pool, get_client
-
-        return None, None
+        factories = {
+            "pylibmc": self._create_pylibmc,
+            "google": self._create_google,
+            "memcache": self._create_memcache,
+            "libmc": self._create_libmc,
+        }
+        if memcache_client_lib is not None:
+            factory = factories.get(memcache_client_lib)
+            if factory is None:
+                raise ValueError(f"Invalid memcache_client_lib: {memcache_client_lib}")
+            return factory(servers, pool_size, pool_blocking)
+        for factory in factories.values():
+            try:
+                return factory(servers, pool_size, pool_blocking)
+            except ImportError:
+                continue
+        raise RuntimeError("no memcache module found")

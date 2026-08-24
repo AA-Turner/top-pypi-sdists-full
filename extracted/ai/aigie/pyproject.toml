@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=83.0.0", "wheel"]
+requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 # NOTE: no [project] table on purpose — setup.py owns all build metadata
@@ -11,17 +11,23 @@ build-backend = "setuptools.build_meta"
 
 # uv layered on top of setup.py: setup.py owns the build + integration extras
 # (PyPI release path); uv handles the dev workflow + lockfile. See
-# docs/python-standards.md.
+# docs/guidelines/python-standards.md.
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov",
     "ruff>=0.16.3",
-    "mypy>=1.10.0",
+    "mypy>=2.3.1",
     "pre-commit>=4.6.2",
     # Autonomous v2 build/lint tooling — ADR 0001
-    "grpcio-tools>=1.83.0",
+    # Pinned, not floored: grpcio-tools decides the protobuf gencode version
+    # stamped into sdk/aigie/**/_pb/*.py. 1.80.0 emits 6.31.1 gencode, which is
+    # what the committed stubs contain and what the shipped `protobuf>=6.31`
+    # runtime accepts. 1.83.0 emits 7.35.1 gencode — that both fails the
+    # proto-check stub diff and needs a protobuf 7 runtime. Bump this only
+    # together with the regenerated stubs and the runtime range in setup.py.
+    "grpcio-tools==1.83.0",
     "import-linter>=2.13",
 ]
 

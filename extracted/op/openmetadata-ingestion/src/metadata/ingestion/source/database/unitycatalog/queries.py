@@ -50,10 +50,6 @@ UNITY_CATALOG_SQL_STATEMENT = textwrap.dedent(
     """
 )
 
-UNITY_CATALOG_SQL_STATEMENT_TEST = """
- SELECT statement_text from  system.query.history LIMIT 1
-"""
-
 UNITY_CATALOG_GET_TABLE_DDL = "SHOW CREATE TABLE `{database}`.`{schema}`.`{table}`"
 
 UNITY_CATALOG_TABLE_LINEAGE = textwrap.dedent(
@@ -140,3 +136,15 @@ UNITY_CATALOG_TEST_COLUMN_LINEAGE = textwrap.dedent(
     WHERE 1=0
     """
 )
+
+UNITY_CATALOG_TABLE_CONSTRAINTS = textwrap.dedent(
+    """
+    SELECT DISTINCT table_catalog, table_schema, table_name
+    FROM system.information_schema.table_constraints
+    WHERE 1=1
+    """
+)
+
+UNITY_CATALOG_GET_ALL_SCHEMAS = """
+SELECT catalog_name, schema_name FROM system.information_schema.schemata
+"""

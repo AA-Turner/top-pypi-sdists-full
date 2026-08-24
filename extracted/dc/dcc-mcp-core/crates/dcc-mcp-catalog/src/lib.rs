@@ -1,7 +1,8 @@
 //! Public DCC-MCP catalog for ecosystem discovery.
 //!
-//! Provides [`CatalogEntry`] (a typed YAML/JSON record), and two discovery
-//! functions — [`search`] and [`describe`] — that can be wired up as
+//! Provides [`CatalogEntry`] (a typed YAML/JSON record), lightweight
+//! [`CatalogSearchHit`] results, and two discovery functions — [`search`] and
+//! [`describe`] — that can be wired up as
 //! gateway MCP tools (`dcc_catalog__search` / `dcc_catalog__describe`).
 //!
 //! # YAML format (`dcc-mcp-catalog.yml`)
@@ -24,6 +25,8 @@ use uuid::Uuid;
 
 mod error;
 pub use error::{CatalogError, CatalogValidationError};
+mod validation;
+pub use validation::{validate_catalog_entries, validate_entry};
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -194,10 +197,10 @@ pub struct CatalogInstall {
     /// Source URL or local path.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    /// Git ref, tag, branch, or revision where applicable.
+    /// Full 40-character Git commit object ID for `git` installs.
     #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
     pub ref_: Option<String>,
-    /// Optional content hash for archive installs.
+    /// Required SHA-256 content hash for `zip` and `pip` artifact installs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
     /// Repository-relative roots that contain the skills this package is allowed to install.
@@ -279,12 +282,19 @@ pub fn load_from_str(text: &str) -> Result<Vec<CatalogEntry>, CatalogError> {
 /// Storing indices instead of full [`CatalogEntry`] clones avoids allocating
 /// hundreds of entries before the caller trims to a paginated page.
 #[derive(Debug, Clone, Copy)]
-pub struct SearchHit {
+pub struct CatalogSearchHit {
     /// Index into the source `&[CatalogEntry]` slice.
     pub index: usize,
     /// Match quality score (higher = better match).
     pub score: u32,
 }
+
+/// Deprecated name for [`CatalogSearchHit`].
+///
+/// This catalog-local index reference is intentionally distinct from the
+/// record-bearing `dcc_mcp_gateway_search::SearchHit` ranking result.
+#[deprecated(since = "0.20.9", note = "use CatalogSearchHit")]
+pub type SearchHit = CatalogSearchHit;
 
 #[derive(Clone, Copy)]
 struct CatalogSearchRecord<'a> {
@@ -385,12 +395,12 @@ fn catalog_search_tokens(entry: &CatalogEntry) -> Vec<String> {
 ///
 /// Non-empty results are already ordered by descending relevance. Callers can
 /// paginate the lightweight hits before cloning entries via [`materialise_page`].
-pub fn search_hits(entries: &[CatalogEntry], query: &str) -> Vec<SearchHit> {
+pub fn search_hits(entries: &[CatalogEntry], query: &str) -> Vec<CatalogSearchHit> {
     if query.trim().is_empty() {
         return entries
             .iter()
             .enumerate()
-            .map(|(i, _)| SearchHit { index: i, score: 1 })
+            .map(|(i, _)| CatalogSearchHit { index: i, score: 1 })
             .collect();
     }
 
@@ -415,19 +425,19 @@ pub fn search_hits(entries: &[CatalogEntry], query: &str) -> Vec<SearchHit> {
 
     ranked
         .into_iter()
-        .map(|hit| SearchHit {
+        .map(|hit| CatalogSearchHit {
             index: hit.record.index,
             score: hit.score,
         })
         .collect()
 }
 
-/// Clone entries for a sorted page of [`SearchHit`]s.
+/// Clone entries for a sorted page of [`CatalogSearchHit`]s.
 ///
 /// `hits` is typically the result of [`search_hits`] after sorting and
 /// slicing to `offset..offset+limit`. Only the entries referenced by the
 /// final window are cloned.
-pub fn materialise_page(entries: &[CatalogEntry], hits: &[SearchHit]) -> Vec<CatalogEntry> {
+pub fn materialise_page(entries: &[CatalogEntry], hits: &[CatalogSearchHit]) -> Vec<CatalogEntry> {
     hits.iter().map(|h| entries[h.index].clone()).collect()
 }
 
@@ -443,201 +453,6 @@ pub fn search(entries: &[CatalogEntry], query: &str) -> Vec<CatalogEntry> {
 /// Look up a single entry by exact name.
 pub fn describe(entries: &[CatalogEntry], name: &str) -> Option<CatalogEntry> {
     entries.iter().find(|e| e.name == name).cloned()
-}
-
-// ── schema validation ─────────────────────────────────────────────────────────
-
-/// JSON Schema (Draft 2020-12) for marketplace-v2 catalog entries.
-///
-/// Each entry must declare at least `name` and `description`; all other
-/// fields are optional.  `additionalProperties: false` on both the top-level
-/// document and each entry catches typos early.
-const MARKETPLACE_V2_SCHEMA_JSON: &str = r##"{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dcc-mcp.github.io/schemas/marketplace-v2.schema.json",
-  "title": "DCC-MCP Marketplace Catalog",
-  "description": "Schema for marketplace.json catalog entries",
-  "type": "object",
-  "required": ["entries"],
-  "properties": {
-    "version": { "type": "string" },
-    "entries": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/entry" }
-    }
-  },
-  "additionalProperties": false,
-  "$defs": {
-    "entry": {
-      "type": "object",
-      "required": ["name", "description"],
-      "properties": {
-        "name":        { "type": "string", "minLength": 1 },
-        "description": { "type": "string", "minLength": 1 },
-        "dcc":         { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "targets": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": ["kind", "id"],
-            "properties": {
-              "kind": { "type": "string", "enum": ["dcc", "application", "game", "web"] },
-              "id": { "type": "string", "minLength": 1 }
-            },
-            "additionalProperties": false
-          },
-          "uniqueItems": true
-        },
-        "url":         { "type": "string" },
-        "tags":        { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "version":          { "type": "string" },
-        "min_core_version": { "type": "string" },
-        "maintainer":       { "type": "string" },
-        "category":         { "type": "string" },
-        "policy": {
-          "type": "object",
-          "required": ["installation"],
-          "properties": {
-            "installation": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "requires": {
-          "type": "object",
-          "properties": {
-            "env": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "bins": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "python": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "skills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
-          },
-          "additionalProperties": false
-        },
-        "icon":        { "type": "string" },
-        "showcase": {
-          "type": "string",
-          "pattern": "^(https?://[^\\s]+|[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*\\.(png|jpg|jpeg|webp|avif|gif))$"
-        },
-        "package": {
-          "type": "object",
-          "required": ["format"],
-          "properties": {
-            "format": { "type": "string", "enum": ["skill", "agent-plugin", "skill-bundle", "cua-profile", "composite"] },
-            "skills": {
-              "type": "array",
-              "items": { "type": "string", "minLength": 1 },
-              "uniqueItems": true
-            },
-            "components": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["kind", "id", "root"],
-                "properties": {
-                  "kind": { "type": "string", "enum": ["skill", "cua-profile"] },
-                  "id": { "type": "string", "minLength": 1 },
-                  "root": { "type": "string", "minLength": 1 }
-                },
-                "additionalProperties": false
-              }
-            }
-          },
-          "allOf": [
-            {
-              "if": { "properties": { "format": { "enum": ["skill", "agent-plugin", "skill-bundle"] } } },
-              "then": { "required": ["skills"], "properties": { "skills": { "minItems": 1 } } }
-            },
-            {
-              "if": { "properties": { "format": { "const": "skill-bundle" } } },
-              "then": { "properties": { "skills": { "minItems": 2 } } }
-            },
-            {
-              "if": { "properties": { "format": { "const": "cua-profile" } } },
-              "then": { "required": ["components"], "properties": { "components": { "minItems": 1, "maxItems": 1 } } }
-            }
-          ],
-          "additionalProperties": false
-        },
-        "install": {
-          "type": "object",
-          "required": ["type"],
-          "properties": {
-            "type":        { "type": "string", "enum": ["git", "zip", "path", "pip"] },
-            "url":         { "type": "string" },
-            "ref":         { "type": "string" },
-            "sha256":      { "type": "string" },
-            "skillRoots":  { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "pip_package": { "type": "string" },
-            "pip_extras":  { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "python_path": { "type": "string" },
-            "entry_point": { "type": "string" },
-            "instructions_url": { "type": "string" }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    }
-  }
-}"##;
-
-/// Validate a single [`CatalogEntry`] against the marketplace-v2 JSON Schema.
-///
-/// Returns `Ok(())` if the entry is valid, or a
-/// [`CatalogValidationError::ValidationFailed`] with a human-readable message
-/// describing what failed.
-pub fn validate_entry(entry: &CatalogEntry) -> Result<(), CatalogValidationError> {
-    let value = serde_json::to_value(entry).map_err(|e| {
-        CatalogValidationError::SchemaError(format!(
-            "failed to serialize entry '{}' for validation: {e}",
-            entry.name
-        ))
-    })?;
-
-    let schema = entry_schema()?;
-    let validation = schema.validate(&value);
-    if let Err(err) = validation {
-        return Err(CatalogValidationError::ValidationFailed {
-            name: entry.name.clone(),
-            message: format!("  - {}: {}", err.instance_path, err),
-        });
-    }
-    Ok(())
-}
-
-/// Validate a slice of [`CatalogEntry`] against the marketplace-v2 JSON Schema.
-///
-/// Returns `Ok(())` if all entries pass, or
-/// [`CatalogValidationError::MultipleFailures`] aggregating each failed entry.
-pub fn validate_catalog_entries(entries: &[CatalogEntry]) -> Result<(), CatalogValidationError> {
-    let mut failures = Vec::new();
-    for entry in entries {
-        if let Err(err) = validate_entry(entry) {
-            failures.push(err);
-        }
-    }
-    if failures.is_empty() {
-        Ok(())
-    } else {
-        let count = failures.len();
-        Err(CatalogValidationError::MultipleFailures { count, failures })
-    }
-}
-
-/// Compile the entry sub-schema once from `$defs/entry`.
-fn entry_schema() -> Result<jsonschema::Validator, CatalogValidationError> {
-    let schema_value: serde_json::Value = serde_json::from_str(MARKETPLACE_V2_SCHEMA_JSON)
-        .map_err(|e| {
-            CatalogValidationError::SchemaError(format!("invalid embedded schema: {e}"))
-        })?;
-    let entry_schema_value = schema_value
-        .pointer("/$defs/entry")
-        .cloned()
-        .ok_or_else(|| {
-            CatalogValidationError::SchemaError("missing $defs/entry in schema".into())
-        })?;
-    jsonschema::validator_for(&entry_schema_value)
-        .map_err(|e| CatalogValidationError::SchemaError(format!("failed to compile schema: {e}")))
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -1054,7 +869,7 @@ entries:
                 install_type: "zip".into(),
                 url: Some("https://example.com/skill.zip".into()),
                 ref_: Some("v0.1.0".into()),
-                sha256: Some("abc123".into()),
+                sha256: Some("a".repeat(64)),
                 skill_roots: None,
                 pip_package: None,
                 pip_extras: None,
@@ -1065,6 +880,50 @@ entries:
             icon: None,
             showcase: None,
         };
+        assert!(validate_entry(&entry).is_ok());
+    }
+
+    #[test]
+    fn test_validate_entry_requires_immutable_git_commit() {
+        let mut entry = make_entry("git-skill", "A Git-installed skill");
+        entry.install = Some(CatalogInstall {
+            install_type: "git".into(),
+            url: Some("https://github.com/dcc-mcp/example".into()),
+            ref_: Some("main".into()),
+            sha256: None,
+            skill_roots: None,
+            pip_package: None,
+            pip_extras: None,
+            python_path: None,
+            entry_point: None,
+            instructions_url: None,
+        });
+
+        assert!(validate_entry(&entry).is_err());
+        entry.install.as_mut().unwrap().ref_ = Some("a".repeat(40));
+        assert!(validate_entry(&entry).is_ok());
+    }
+
+    #[test]
+    fn test_validate_entry_requires_well_formed_zip_sha256() {
+        let mut entry = make_entry("zip-skill", "A ZIP-installed skill");
+        entry.install = Some(CatalogInstall {
+            install_type: "zip".into(),
+            url: Some("https://example.com/skill.zip".into()),
+            ref_: None,
+            sha256: None,
+            skill_roots: None,
+            pip_package: None,
+            pip_extras: None,
+            python_path: None,
+            entry_point: None,
+            instructions_url: None,
+        });
+
+        assert!(validate_entry(&entry).is_err());
+        entry.install.as_mut().unwrap().sha256 = Some("abc123".into());
+        assert!(validate_entry(&entry).is_err());
+        entry.install.as_mut().unwrap().sha256 = Some(format!("sha256:{}", "A".repeat(64)));
         assert!(validate_entry(&entry).is_ok());
     }
 
@@ -1086,9 +945,9 @@ entries:
             requires: None,
             install: Some(CatalogInstall {
                 install_type: "pip".into(),
-                url: None,
+                url: Some("https://files.pythonhosted.org/packages/example/dcc_mcp_maya-0.3.0-py3-none-any.whl".into()),
                 ref_: None,
-                sha256: None,
+                sha256: Some("a".repeat(64)),
                 skill_roots: None,
                 pip_package: Some("dcc-mcp-maya".into()),
                 pip_extras: Some(vec!["maya".into()]),
@@ -1151,8 +1010,8 @@ entries:
     }
 
     #[test]
-    fn test_validate_entry_with_minimal_pip_install_passes() {
-        let entry = CatalogEntry {
+    fn test_validate_entry_requires_pinned_pip_artifact() {
+        let mut entry = CatalogEntry {
             name: "minimal-pip".into(),
             description: "A minimal pip-installed adapter".into(),
             dcc: vec![],
@@ -1181,7 +1040,20 @@ entries:
             icon: None,
             showcase: None,
         };
+        assert!(validate_entry(&entry).is_err());
+        let install = entry.install.as_mut().unwrap();
+        install.url = Some(
+            "https://files.pythonhosted.org/packages/example/dcc_mcp_core-0.20.8-py3-none-any.whl"
+                .into(),
+        );
+        install.sha256 = Some("a".repeat(64));
+        entry.version = Some("0.20.8".into());
         assert!(validate_entry(&entry).is_ok());
+        entry.version = Some("0.20.9".into());
+        assert!(validate_entry(&entry).is_err());
+        entry.version = Some("0.20.8".into());
+        entry.install.as_mut().unwrap().pip_package = Some("bad package".into());
+        assert!(validate_entry(&entry).is_err());
     }
 
     #[test]
@@ -1333,8 +1205,28 @@ entries:
     }
 
     #[test]
-    fn bundled_sidecar_adapters_expose_installable_entry_points() {
+    fn bundled_pip_adapters_bind_published_wheels_and_entry_points() {
         let entries = load_from_str(include_str!("../../../dcc-mcp-catalog.yml")).unwrap();
+        validate_catalog_entries(&entries).unwrap();
+
+        let pip_entries = entries
+            .iter()
+            .filter(|entry| {
+                entry
+                    .install
+                    .as_ref()
+                    .is_some_and(|install| install.install_type == "pip")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(pip_entries.len(), 31);
+        assert!(pip_entries.iter().all(|entry| {
+            let install = entry.install.as_ref().unwrap();
+            install
+                .url
+                .as_deref()
+                .is_some_and(|url| url.ends_with(".whl"))
+                && install.sha256.as_deref().is_some_and(|sha| sha.len() == 64)
+        }));
 
         for (name, dcc, entry_point) in [
             (
@@ -1356,13 +1248,6 @@ entries:
             ("dcc-mcp-shogun", "shogun", "dcc_mcp_shogun:ShogunMcpServer"),
             ("dcc-mcp-krita", "krita", "dcc_mcp_krita.server:main"),
             ("dcc-mcp-gimp", "gimp", "dcc_mcp_gimp.server:main"),
-            ("dcc-mcp-tiled", "tiled", "dcc_mcp_tiled.server:main"),
-            (
-                "dcc-mcp-material-maker",
-                "material-maker",
-                "dcc_mcp_material_maker.server:main",
-            ),
-            ("dcc-mcp-wwise", "wwise", "dcc_mcp_wwise.server:main"),
         ] {
             let entry = entries
                 .iter()
@@ -1376,6 +1261,17 @@ entries:
                 .unwrap_or_else(|| panic!("{name} is missing install metadata"));
             assert_eq!(install.pip_package.as_deref(), Some(name));
             assert_eq!(install.entry_point.as_deref(), Some(entry_point));
+        }
+
+        for name in ["dcc-mcp-tiled", "dcc-mcp-material-maker", "dcc-mcp-wwise"] {
+            let entry = entries
+                .iter()
+                .find(|entry| entry.name == name)
+                .unwrap_or_else(|| panic!("bundled catalog is missing {name}"));
+            assert!(
+                entry.install.is_none(),
+                "{name} must not advertise automatic installation before an artifact is published"
+            );
         }
     }
 }

@@ -61,7 +61,7 @@ from tomlrt._scalar import (
     validate_scalar,
 )
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
-from tomlrt._trivia import retarget_newlines
+from tomlrt._trivia import retarget_newlines, split_line
 from tomlrt._typecheck import _validate_key, _validate_mapping
 from tomlrt._values import (
     ArrayItem,
@@ -82,7 +82,6 @@ if TYPE_CHECKING:
     from tomlrt._format import FormatOptions
     from tomlrt._scalar import Scalar
     from tomlrt._slots import AoTEntry, Slot, SlotRef
-    from tomlrt._trivia import EolTrivia
     from tomlrt._values import (
         CommaItem,
         CommaValue,
@@ -661,7 +660,7 @@ class Container(_View, dict[str, Any]):
         emptied = value._host  # noqa: SLF001
         existing_entries: list[Table] = list(value)
         _layout_ops.detach_aot_from_orphan(value)
-        list.clear(value)
+        list.clear(value)  # ty: ignore[invalid-argument-type]
         attached = _layout_ops.attach_empty_aot(self, key, value)
         dict.__setitem__(self, key, attached)
         for entry_table in existing_entries:
@@ -1171,9 +1170,9 @@ class Container(_View, dict[str, Any]):
         )
         last_slot = result[-1]._body_tail  # noqa: SLF001
         assert last_slot is not None
-        if saved_eol.comment and not last_slot.eol.comment:
-            last_slot.eol.comment = saved_eol.comment
-            last_slot.eol.trailing_ws = saved_eol.trailing_ws
+        if "#" in saved_eol and "#" not in last_slot.eol:
+            pre, comment, _term = split_line(saved_eol)
+            last_slot.eol = f"{pre}{comment}{split_line(last_slot.eol)[2]}"
         return result
 
 
@@ -1185,12 +1184,12 @@ def _reorder_dict_storage(c: Container, new_key_order: list[str]) -> None:
     permutation of ``dict.keys(c)``.
     """
     values = [(k, dict.__getitem__(c, k)) for k in new_key_order]
-    dict.clear(c)
+    dict.clear(c)  # ty: ignore[invalid-argument-type]
     for k, v in values:
         dict.__setitem__(c, k, v)
 
 
-def _direct_kv_trivia(c: Container, key: str) -> tuple[str, EolTrivia]:
+def _direct_kv_trivia(c: Container, key: str) -> tuple[str, str]:
     """Return the direct-KV slot's leading/EOL trivia for ``key``.
 
     Both fields are non-Optional on `KVSlot`, so the result is never
@@ -1459,17 +1458,23 @@ class Document(Container):
         ) = None
         self._section_blank_separated = True
         self._layout_root = self
-        if data is not None:
-            validated = _validate_mapping(data, label="Document data argument")
-            # Building from data must not disturb it, so the values are
-            # read out in one go and their documents are presented as
-            # someone else's: an install copies from a live source but
-            # moves out of a private one, and a caller's popped subtree
-            # is theirs to keep.
-            items = list(validated.items())
-            with _sources_kept_intact(v for _, v in items):
-                for k, v in items:
-                    self[k] = _coerce_for_document_init(v)
+        if data is None:
+            return
+        if _has_extractable_layout(data):
+            from tomlrt._build import populate_extracted_document  # noqa: PLC0415
+
+            populate_extracted_document(self, data)
+            return
+        validated = _validate_mapping(data, label="Document data argument")
+        # Building from data must not disturb it, so the values are
+        # read out in one go and their documents are presented as
+        # someone else's: an install copies from a live source but
+        # moves out of a private one, and a caller's popped subtree
+        # is theirs to keep.
+        items = list(validated.items())
+        with _sources_kept_intact(v for _, v in items):
+            for k, v in items:
+                self[k] = _coerce_for_document_init(v)
 
     @property
     @override
@@ -1824,6 +1829,21 @@ def _sources_kept_intact(values: Iterable[Any]) -> Iterator[None]:
     finally:
         for root in roots.values():
             root._is_private = True  # noqa: SLF001
+
+
+def _has_extractable_layout(data: Mapping[str, Any]) -> TypeGuard[Table]:
+    """True when ``data`` is a `Table` that owns section layout.
+
+    A section-backed table — implicit ones and ``[[aot]]`` entries
+    included — owns slots that can be cloned and re-rooted at a document
+    of their own. An inline table has no section layout, and a detached
+    factory table has none yet.
+    """
+    return (
+        isinstance(data, Table)
+        and data._layout_root is not None  # noqa: SLF001
+        and data._kind in {_Kind.SECTION, _Kind.IMPLICIT_SECTION}  # noqa: SLF001
+    )
 
 
 def _coerce_for_document_init(v: Any) -> Any:

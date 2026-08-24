@@ -45,9 +45,12 @@ class EventsApi:
     def list_events(
         self,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.")] = None,
-        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace.")] = None,
+        next_cursor: Annotated[Optional[StrictStr], Field(description="Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.")] = None,
+        after: Annotated[Optional[StrictStr], Field(description="Alias for `cursor`. If both are given, `cursor` wins.")] = None,
+        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.")] = None,
         event_type: Annotated[Optional[WebhookEventType], Field(description="Filter to one event type.")] = None,
-        limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Page size (default 100).")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Alias for `limit`. If both are given, `limit` wins.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -63,16 +66,22 @@ class EventsApi:
     ) -> ListEventsResponse:
         """List change feed events
 
-        List this organization's change feed, ordered and resumable by cursor.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.
+        List this organization's change feed, ordered and resumable by cursor.  **Scope**: org-global by default — one ordered sequence across every namespace and resource type. An `X-Namespace` header (or `namespace_id` query param) narrows it to one namespace's events. Events recorded before namespace stamping shipped (2026-08) carry no namespace and are excluded by ANY namespace filter — a namespace-filtered read is not a replay of history older than that.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.  High-churn event types (`object.*` under active storage syncs) can bury sparse ones thousands of pages deep in the unfiltered walk — a consumer looking for one type should pass `event_type` rather than walking everything.
 
         :param cursor: Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.
         :type cursor: str
-        :param namespace_id: Filter to events scoped to one namespace.
+        :param next_cursor: Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.
+        :type next_cursor: str
+        :param after: Alias for `cursor`. If both are given, `cursor` wins.
+        :type after: str
+        :param namespace_id: Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.
         :type namespace_id: str
         :param event_type: Filter to one event type.
         :type event_type: WebhookEventType
-        :param limit:
+        :param limit: Page size (default 100).
         :type limit: int
+        :param page_size: Alias for `limit`. If both are given, `limit` wins.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -97,9 +106,12 @@ class EventsApi:
 
         _param = self._list_events_serialize(
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             namespace_id=namespace_id,
             event_type=event_type,
             limit=limit,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -130,9 +142,12 @@ class EventsApi:
     def list_events_with_http_info(
         self,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.")] = None,
-        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace.")] = None,
+        next_cursor: Annotated[Optional[StrictStr], Field(description="Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.")] = None,
+        after: Annotated[Optional[StrictStr], Field(description="Alias for `cursor`. If both are given, `cursor` wins.")] = None,
+        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.")] = None,
         event_type: Annotated[Optional[WebhookEventType], Field(description="Filter to one event type.")] = None,
-        limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Page size (default 100).")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Alias for `limit`. If both are given, `limit` wins.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -148,16 +163,22 @@ class EventsApi:
     ) -> ApiResponse[ListEventsResponse]:
         """List change feed events
 
-        List this organization's change feed, ordered and resumable by cursor.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.
+        List this organization's change feed, ordered and resumable by cursor.  **Scope**: org-global by default — one ordered sequence across every namespace and resource type. An `X-Namespace` header (or `namespace_id` query param) narrows it to one namespace's events. Events recorded before namespace stamping shipped (2026-08) carry no namespace and are excluded by ANY namespace filter — a namespace-filtered read is not a replay of history older than that.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.  High-churn event types (`object.*` under active storage syncs) can bury sparse ones thousands of pages deep in the unfiltered walk — a consumer looking for one type should pass `event_type` rather than walking everything.
 
         :param cursor: Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.
         :type cursor: str
-        :param namespace_id: Filter to events scoped to one namespace.
+        :param next_cursor: Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.
+        :type next_cursor: str
+        :param after: Alias for `cursor`. If both are given, `cursor` wins.
+        :type after: str
+        :param namespace_id: Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.
         :type namespace_id: str
         :param event_type: Filter to one event type.
         :type event_type: WebhookEventType
-        :param limit:
+        :param limit: Page size (default 100).
         :type limit: int
+        :param page_size: Alias for `limit`. If both are given, `limit` wins.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -182,9 +203,12 @@ class EventsApi:
 
         _param = self._list_events_serialize(
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             namespace_id=namespace_id,
             event_type=event_type,
             limit=limit,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -215,9 +239,12 @@ class EventsApi:
     def list_events_without_preload_content(
         self,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.")] = None,
-        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace.")] = None,
+        next_cursor: Annotated[Optional[StrictStr], Field(description="Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.")] = None,
+        after: Annotated[Optional[StrictStr], Field(description="Alias for `cursor`. If both are given, `cursor` wins.")] = None,
+        namespace_id: Annotated[Optional[StrictStr], Field(description="Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.")] = None,
         event_type: Annotated[Optional[WebhookEventType], Field(description="Filter to one event type.")] = None,
-        limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Page size (default 100).")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Alias for `limit`. If both are given, `limit` wins.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -233,16 +260,22 @@ class EventsApi:
     ) -> RESTResponseType:
         """List change feed events
 
-        List this organization's change feed, ordered and resumable by cursor.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.
+        List this organization's change feed, ordered and resumable by cursor.  **Scope**: org-global by default — one ordered sequence across every namespace and resource type. An `X-Namespace` header (or `namespace_id` query param) narrows it to one namespace's events. Events recorded before namespace stamping shipped (2026-08) carry no namespace and are excluded by ANY namespace filter — a namespace-filtered read is not a replay of history older than that.  A consumer can be killed mid-stream and resume from its last stored `next_cursor` without re-reading or missing anything, **as long as it resumes within the 90-day retention window** — events older than that are permanently expired, not archived. A consumer that has been down longer than 90 days must resync current state instead of resuming.  A cursor is only meaningful for a FIXED filter set: it encodes a position in this organization's overall sequence, not a position within any particular `namespace_id`/`event_type` filter. Changing either filter mid-stream while reusing an old cursor silently skips whatever the previous filter combination would have matched in between — start a fresh cursor (or none) whenever the filters change.  High-churn event types (`object.*` under active storage syncs) can bury sparse ones thousands of pages deep in the unfiltered walk — a consumer looking for one type should pass `event_type` rather than walking everything.
 
         :param cursor: Opaque cursor from a prior response's next_cursor. Omit to start from the beginning of the 90-day retention window.
         :type cursor: str
-        :param namespace_id: Filter to events scoped to one namespace.
+        :param next_cursor: Alias for `cursor` — the response surfaces this name, so feeding it back must work. If both are given, `cursor` wins.
+        :type next_cursor: str
+        :param after: Alias for `cursor`. If both are given, `cursor` wins.
+        :type after: str
+        :param namespace_id: Filter to events scoped to one namespace (ns_ id or name). The X-Namespace header does the same; if both are present they must agree.
         :type namespace_id: str
         :param event_type: Filter to one event type.
         :type event_type: WebhookEventType
-        :param limit:
+        :param limit: Page size (default 100).
         :type limit: int
+        :param page_size: Alias for `limit`. If both are given, `limit` wins.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -267,9 +300,12 @@ class EventsApi:
 
         _param = self._list_events_serialize(
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             namespace_id=namespace_id,
             event_type=event_type,
             limit=limit,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -295,9 +331,12 @@ class EventsApi:
     def _list_events_serialize(
         self,
         cursor,
+        next_cursor,
+        after,
         namespace_id,
         event_type,
         limit,
+        page_size,
         _request_auth,
         _content_type,
         _headers,
@@ -324,6 +363,14 @@ class EventsApi:
             
             _query_params.append(('cursor', cursor))
             
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
+            
         if namespace_id is not None:
             
             _query_params.append(('namespace_id', namespace_id))
@@ -335,6 +382,10 @@ class EventsApi:
         if limit is not None:
             
             _query_params.append(('limit', limit))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
             
         # process the header parameters
         # process the form parameters
@@ -352,6 +403,7 @@ class EventsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
             'BearerAuth'
         ]
 

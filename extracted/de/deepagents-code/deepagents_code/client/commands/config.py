@@ -252,6 +252,7 @@ def _resolve(
         resolve_auto_classifier_model_with_source,
         resolve_auto_classifier_timeout_with_source,
         resolve_scalar,
+        resolve_startup_mode_with_source,
     )
     from deepagents_code.model_config import ProviderAuthSource
 
@@ -293,6 +294,17 @@ def _resolve(
             managed_toml_data=managed_toml_data,
         )
         return source != "default", source, timeout
+
+    if option.key == "startup.mode":
+        # The manifest default that `resolve_scalar` returns ignores the
+        # app-managed `[startup].recent` fallback that `load_startup_mode`
+        # restores on a bare launch. Report the effective mode instead, so
+        # introspection matches what the next bare launch reads from the file.
+        mode, source = resolve_startup_mode_with_source(
+            toml_data=toml_data,
+            managed_toml_data=managed_toml_data,
+        )
+        return source != "default", source, mode
 
     value, source = resolve_scalar(
         option,
@@ -1037,13 +1049,17 @@ def _config_path_status(
     *,
     exists: bool,
     health: ManagedHealth | None = None,
+    project_dotenv_enabled: bool = True,
 ) -> str:
     """Return a diagnostic status for one config-path row.
 
     The managed row reports parse health rather than mere existence, so a
     corrupt file is not shown as present and fine. A file that parses but
     declares an unenforceable key is reported as rejected, because it is the
-    other half of exit 78 and read as `ok` before.
+    other half of exit 78 and read as `ok` before. The project `.env` row is
+    reported as `disabled` when `startup.read_project_dotenv` is off: the file
+    exists on disk but is skipped at bootstrap, and `ok` would wrongly imply it
+    is a live config source.
 
     Returns:
         A short status word for the row.
@@ -1056,6 +1072,8 @@ def _config_path_status(
         if health.status.usable and health.violations:
             return "rejected"
         return health.status.health.value.lower()
+    if label == "project .env" and not project_dotenv_enabled:
+        return "disabled"
     return "ok" if exists else "missing"
 
 
@@ -1067,6 +1085,12 @@ def _run_path(output_format: OutputFormat) -> int:
     """
     paths = _config_paths()
     _, health = _load_managed_generation()
+    # The project `.env` is listed whether or not it is loaded; when
+    # `startup.read_project_dotenv` is off the file exists on disk but is skipped
+    # at bootstrap, so its row is reported as disabled rather than a live source.
+    from deepagents_code.config_manifest import resolve_read_project_dotenv
+
+    project_dotenv_enabled = resolve_read_project_dotenv()
 
     if output_format == "json":
         write_json(
@@ -1080,6 +1104,7 @@ def _run_path(output_format: OutputFormat) -> int:
                         label,
                         exists=exists,
                         health=health,
+                        project_dotenv_enabled=project_dotenv_enabled,
                     ),
                 }
                 for label, path, exists in paths
@@ -1092,9 +1117,16 @@ def _run_path(output_format: OutputFormat) -> int:
     console.print()
     console.print("[bold]Config locations[/bold]")
     for label, path, exists in paths:
-        status = _config_path_status(label, exists=exists, health=health)
+        status = _config_path_status(
+            label,
+            exists=exists,
+            health=health,
+            project_dotenv_enabled=project_dotenv_enabled,
+        )
         if status in {"ok", "missing"}:
             marker = "[green]ok[/green]" if status == "ok" else "[dim]missing[/dim]"
+        elif status == "disabled":
+            marker = "[yellow]disabled[/yellow]"
         else:
             marker = f"[red]{status}[/red]"
         console.print(f"  {label:<22} {path}  ({marker})", highlight=False)

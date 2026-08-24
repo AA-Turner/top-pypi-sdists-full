@@ -61,6 +61,7 @@ from mixpeek.api.namespace_templates_api import NamespaceTemplatesApi
 from mixpeek.api.namespaces_api import NamespacesApi
 from mixpeek.api.notifications_api import NotificationsApi
 from mixpeek.api.onboarding_api import OnboardingApi
+from mixpeek.api.ops_api import OpsApi
 from mixpeek.api.organization_api_keys_api import OrganizationAPIKeysApi
 from mixpeek.api.organization_audit_api import OrganizationAuditApi
 from mixpeek.api.organization_billing_api import OrganizationBillingApi

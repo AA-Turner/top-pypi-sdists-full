@@ -24,7 +24,7 @@
 //! | Sub-state         | Responsibility                                            |
 //! |-------------------|-----------------------------------------------------------|
 //! | [`DiscoveryState`]| File registry + staleness / visibility policy             |
-//! | [`RoutingState`]  | In-flight backend calls + timeouts + HTTP client          |
+//! | [`RoutingState`]  | Backend HTTP, timeout, retry, circuit, and in-flight state |
 //! | [`EventState`]    | Event fan-out (broadcast, SSE, subscriptions, event log)  |
 //! | [`ServerState`]   | Server identity, protocol negotiation, adapter metadata   |
 //!
@@ -49,19 +49,23 @@ use serde_json::{Value, json};
 use tokio::sync::{RwLock, broadcast, watch};
 use uuid::Uuid;
 
-use dcc_mcp_gateway_core::naming::instance_short;
+use dcc_mcp_gateway_core::capability_naming::instance_short;
 use dcc_mcp_gateway_core::policy::GatewayPolicy;
 
 use super::event_log::EventLog;
+use super::http_limits::GatewayIngressState;
 use super::http_registration::{
     HttpInstanceRegistry, entry_discovery_mcp_url, entry_mcp_url, entry_registry_source,
 };
 use super::instance_diagnostics::{InstanceDiagnostics, InstanceDiagnosticsStore};
 use super::mdns_registration::MdnsInstanceRegistry;
 use super::relay_registration::RelayInstanceRegistry;
+use super::resilience::GatewayResilienceState;
 
 use dcc_mcp_transport::discovery::file_registry::FileRegistry;
-use dcc_mcp_transport::discovery::types::{InstanceStatus, ServiceEntry, ServiceStatus};
+use dcc_mcp_transport::discovery::types::{
+    ServiceEntry, ServiceStatus, instance_status_from_entry,
+};
 
 use super::middleware::MiddlewareChain;
 
@@ -139,7 +143,10 @@ impl fmt::Display for ResolveInstanceError {
 /// (issue #839 — backwards-compatible SRP split).
 #[derive(Clone)]
 pub struct GatewayState {
-    pub registry: Arc<RwLock<FileRegistry>>,
+    pub registry: Arc<FileRegistry>,
+    pub ingress: Arc<GatewayIngressState>,
+    /// Gateway-scoped outbound retry policy and per-backend circuit table.
+    pub resilience: Arc<GatewayResilienceState>,
     pub http_instance_registry: Arc<parking_lot::RwLock<HttpInstanceRegistry>>,
     pub mdns_instance_registry: Arc<parking_lot::RwLock<MdnsInstanceRegistry>>,
     pub relay_instance_registry: Arc<parking_lot::RwLock<RelayInstanceRegistry>>,
@@ -301,10 +308,9 @@ pub struct GatewayState {
     pub gateway_persist: bool,
     pub gateway_idle_timeout_secs: u64,
 
-    /// Whether semantic search boosting is enabled for `mode=hybrid` queries.
+    /// Reserved semantic-search configuration compatibility flag.
     ///
-    /// Default: `false`. When `false`, `mode=hybrid` silently falls back to
-    /// `mode=fuzzy`.  Mirrors [`GatewayConfig::semantic_search_enabled`].
+    /// `mode=hybrid` currently always falls back to the canonical fuzzy scorer.
     pub semantic_search_enabled: bool,
 
     /// SQLite persistence lane for tool-call events, sessions, and
@@ -342,6 +348,7 @@ impl GatewayState {
     pub fn routing(&self) -> RoutingState<'_> {
         RoutingState {
             http_client: &self.http_client,
+            resilience: &self.resilience,
             backend_timeout: self.backend_timeout,
             async_dispatch_timeout: self.async_dispatch_timeout,
             wait_terminal_timeout: self.wait_terminal_timeout,
@@ -411,6 +418,11 @@ impl GatewayState {
         self.discovery().live_instances(registry)
     }
 
+    pub async fn live_instances_async(&self) -> Vec<ServiceEntry> {
+        self.prune_expired_http_instances();
+        self.discovery().live_instances_async().await
+    }
+
     /// Return every parseable registry row that an operator-facing tool
     /// (e.g. `list_dcc_instances`) should expose, regardless of liveness.
     ///
@@ -427,6 +439,11 @@ impl GatewayState {
         self.discovery().all_instances(registry)
     }
 
+    pub async fn all_instances_async(&self) -> Vec<ServiceEntry> {
+        self.prune_expired_http_instances();
+        self.discovery().all_instances_async().await
+    }
+
     /// Resolve a user-provided instance hint against the shared live-instance view.
     pub fn resolve_instance(
         &self,
@@ -434,59 +451,26 @@ impl GatewayState {
         instance_hint: Option<&str>,
         dcc_filter: Option<&str>,
     ) -> Result<ServiceEntry, ResolveInstanceError> {
-        const MIN_PREFIX_LEN: usize = 4;
-
         let candidates: Vec<ServiceEntry> = self
             .live_instances(registry)
             .into_iter()
             .filter(|e| dcc_filter.is_none_or(|f| e.dcc_type.eq_ignore_ascii_case(f)))
             .collect();
+        resolve_instance_candidates(candidates, instance_hint, dcc_filter)
+    }
 
-        if let Some(raw_hint) = instance_hint.map(str::trim).filter(|hint| !hint.is_empty()) {
-            if let Ok(uuid) = Uuid::parse_str(raw_hint) {
-                return candidates
-                    .into_iter()
-                    .find(|e| e.instance_id == uuid)
-                    .ok_or_else(|| ResolveInstanceError::NoMatch {
-                        hint: Some(raw_hint.to_string()),
-                        dcc: dcc_filter.map(str::to_string),
-                    });
-            }
-
-            let hint = raw_hint.to_ascii_lowercase();
-            if hint.len() < MIN_PREFIX_LEN {
-                return Err(ResolveInstanceError::PrefixTooShort {
-                    prefix: raw_hint.to_string(),
-                    min_len: MIN_PREFIX_LEN,
-                });
-            }
-
-            let matches: Vec<ServiceEntry> = candidates
-                .into_iter()
-                .filter(|e| e.instance_id.simple().to_string().starts_with(&hint))
-                .collect();
-            return match matches.as_slice() {
-                [] => Err(ResolveInstanceError::NoMatch {
-                    hint: Some(raw_hint.to_string()),
-                    dcc: dcc_filter.map(str::to_string),
-                }),
-                [entry] => Ok(entry.clone()),
-                _ => Err(ResolveInstanceError::MultipleMatches {
-                    candidates: matches.iter().map(instance_candidate).collect(),
-                }),
-            };
-        }
-
-        match candidates.as_slice() {
-            [] => Err(ResolveInstanceError::NoMatch {
-                hint: None,
-                dcc: dcc_filter.map(str::to_string),
-            }),
-            [entry] => Ok(entry.clone()),
-            _ => Err(ResolveInstanceError::MultipleMatches {
-                candidates: candidates.iter().map(instance_candidate).collect(),
-            }),
-        }
+    pub async fn resolve_instance_async(
+        &self,
+        instance_hint: Option<&str>,
+        dcc_filter: Option<&str>,
+    ) -> Result<ServiceEntry, ResolveInstanceError> {
+        let candidates = self
+            .live_instances_async()
+            .await
+            .into_iter()
+            .filter(|e| dcc_filter.is_none_or(|f| e.dcc_type.eq_ignore_ascii_case(f)))
+            .collect();
+        resolve_instance_candidates(candidates, instance_hint, dcc_filter)
     }
 
     /// Return operator-facing registry rows with dead owner/host entries pruned.
@@ -526,6 +510,13 @@ impl GatewayState {
         self.discovery().read_alive_instances(registry)
     }
 
+    pub async fn read_alive_instances_async(
+        &self,
+    ) -> dcc_mcp_transport::TransportResult<(Vec<ServiceEntry>, usize)> {
+        self.prune_expired_http_instances();
+        self.discovery().read_alive_instances_async().await
+    }
+
     fn prune_expired_http_instances(&self) {
         let expired = self
             .http_instance_registry
@@ -535,6 +526,56 @@ impl GatewayState {
             self.capability_index
                 .remove_instance_with_status(instance_id, "heartbeat-timeout");
         }
+    }
+}
+
+fn resolve_instance_candidates(
+    candidates: Vec<ServiceEntry>,
+    instance_hint: Option<&str>,
+    dcc_filter: Option<&str>,
+) -> Result<ServiceEntry, ResolveInstanceError> {
+    const MIN_PREFIX_LEN: usize = 4;
+    if let Some(raw_hint) = instance_hint.map(str::trim).filter(|hint| !hint.is_empty()) {
+        if let Ok(uuid) = Uuid::parse_str(raw_hint) {
+            return candidates
+                .into_iter()
+                .find(|e| e.instance_id == uuid)
+                .ok_or_else(|| ResolveInstanceError::NoMatch {
+                    hint: Some(raw_hint.to_string()),
+                    dcc: dcc_filter.map(str::to_string),
+                });
+        }
+        let hint = raw_hint.to_ascii_lowercase();
+        if hint.len() < MIN_PREFIX_LEN {
+            return Err(ResolveInstanceError::PrefixTooShort {
+                prefix: raw_hint.to_string(),
+                min_len: MIN_PREFIX_LEN,
+            });
+        }
+        let matches: Vec<ServiceEntry> = candidates
+            .into_iter()
+            .filter(|e| e.instance_id.simple().to_string().starts_with(&hint))
+            .collect();
+        return match matches.as_slice() {
+            [] => Err(ResolveInstanceError::NoMatch {
+                hint: Some(raw_hint.to_string()),
+                dcc: dcc_filter.map(str::to_string),
+            }),
+            [entry] => Ok(entry.clone()),
+            _ => Err(ResolveInstanceError::MultipleMatches {
+                candidates: matches.iter().map(instance_candidate).collect(),
+            }),
+        };
+    }
+    match candidates.as_slice() {
+        [] => Err(ResolveInstanceError::NoMatch {
+            hint: None,
+            dcc: dcc_filter.map(str::to_string),
+        }),
+        [entry] => Ok(entry.clone()),
+        _ => Err(ResolveInstanceError::MultipleMatches {
+            candidates: candidates.iter().map(instance_candidate).collect(),
+        }),
     }
 }
 
@@ -716,11 +757,7 @@ fn dispatch_json(e: &ServiceEntry, stale: bool) -> Value {
 /// is kept alongside it for backward compatibility and will be removed in a
 /// future release.
 fn instance_status_json(e: &ServiceEntry, stale: bool) -> Value {
-    let is = InstanceStatus::from_entry(
-        e,
-        stale,
-        super::http_registration::entry_uses_sidecar_dispatch(e),
-    );
+    let is = instance_status_from_entry(e, stale);
     json!({
         "status": is.status.to_string(),
         "dispatch_status": is.dispatch_status.to_string(),

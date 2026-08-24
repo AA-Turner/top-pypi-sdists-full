@@ -27,6 +27,13 @@ class TestOrganizationAuditApi(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_export_audit_logs_organizations(self) -> None:
+        """Test case for export_audit_logs_organizations
+
+        Export Audit Logs
+        """
+        pass
+
     def test_get_audit_log_organizations(self) -> None:
         """Test case for get_audit_log_organizations
 

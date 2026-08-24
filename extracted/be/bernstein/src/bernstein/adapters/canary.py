@@ -45,6 +45,7 @@ from bernstein.core.security.path_containment import (
     PathContainmentError,
     PathTooLongError,
     contained_path,
+    slug_identifier,
 )
 
 from .base import VERSION_TOKEN_RE
@@ -132,7 +133,6 @@ LAST_GREEN_JSON_PATH = Path(__file__).parent / "last_green.json"
 #: Docs page carrying the rendered last-green table (dev checkout path).
 LAST_GREEN_DOC_PATH = Path(__file__).parents[3] / "docs" / "adapters" / "conformance-canary.md"
 
-_ADAPTER_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 _VERSION_TIMEOUT_SECONDS = 10
 
@@ -513,11 +513,10 @@ def write_canary_receipt(base_dir: Path, receipt: dict[str, Any]) -> Path:
             path escapes ``base_dir``.
     """
     adapter = str(receipt.get("adapter") or "")
-    if not _ADAPTER_NAME_RE.match(adapter):
-        raise ValueError(f"invalid adapter name for receipt filename: {adapter!r}")
+    adapter_key = slug_identifier(adapter, label="adapter name")
     sha = receipt_sha256(receipt)
     base_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"{adapter}-{sha[:16]}"
+    stem = f"{adapter_key}-{sha[:16]}"
     try:
         candidate = contained_path(base_dir, f"{stem}.json", label="receipt path")
         # The temporary sibling is opened *before* the rename, so it needs the
@@ -1128,7 +1127,12 @@ def last_green_is_stale(
     return (now - recorded).days > max_age_days
 
 
-def render_last_green_table(entries: dict[str, LastGreenEntry], *, now: datetime | None = None) -> str:
+def render_last_green_table(
+    entries: dict[str, LastGreenEntry],
+    *,
+    now: datetime | None = None,
+    absent: set[str] | None = None,
+) -> str:
     """Render the per-adapter last-green table as Markdown.
 
     Rows sort by adapter name so regeneration is deterministic; each row
@@ -1137,8 +1141,18 @@ def render_last_green_table(entries: dict[str, LastGreenEntry], *, now: datetime
     ``now``) is annotated ``(stale)`` so a frozen row stops reading as
     automation-fresh. ``now`` is injected for deterministic tests and set to
     the run timestamp by the canary; it defaults to the current UTC time.
+
+    An adapter named in ``absent`` (probed ``absent`` on the run that
+    regenerated the table) renders ``(not probed)`` instead of ``(stale)``:
+    a binary that was never on ``PATH`` was not a candidate for freshness,
+    so its row is *unverified because the probe could not run*, not
+    *unverified because the adapter stopped passing* (#4387). The last
+    known good version and receipt are still shown -- dropping them would
+    discard the one attested fact the projection is for -- but the
+    annotation tells the reader no evidence was sought this run.
     """
     current = now if now is not None else datetime.now(UTC)
+    absent_names = absent if absent is not None else frozenset()
     lines = [
         "| Adapter | Binary | Last-green version | Verified | Receipt |",
         "|---|---|---|---|---|",
@@ -1148,7 +1162,9 @@ def render_last_green_table(entries: dict[str, LastGreenEntry], *, now: datetime
     for name in sorted(entries):
         entry = entries[name]
         verified = entry.recorded_at
-        if last_green_is_stale(entry.recorded_at, now=current):
+        if name in absent_names:
+            verified = f"{entry.recorded_at} (not probed)"
+        elif last_green_is_stale(entry.recorded_at, now=current):
             verified = f"{entry.recorded_at} (stale)"
         lines.append(
             f"| {entry.adapter} | `{entry.binary}` | {entry.version} | {verified} | `{entry.receipt_sha256[:12]}` |"
@@ -1156,13 +1172,20 @@ def render_last_green_table(entries: dict[str, LastGreenEntry], *, now: datetime
     return "\n".join(lines)
 
 
-def write_last_green_doc(doc_path: Path, entries: dict[str, LastGreenEntry], *, now: datetime | None = None) -> None:
+def write_last_green_doc(
+    doc_path: Path,
+    entries: dict[str, LastGreenEntry],
+    *,
+    now: datetime | None = None,
+    absent: set[str] | None = None,
+) -> None:
     """Regenerate the last-green table between the doc's markers.
 
     Idempotent for a fixed ``now``: regenerating with the same entries and
     timestamp leaves the file byte-identical. Content outside the markers is
     preserved verbatim. ``now`` is threaded into the staleness annotation so
-    the regenerated table is a deterministic function of ``(entries, now)``.
+    the regenerated table is a deterministic function of ``(entries, now)``;
+    ``absent`` is threaded into the not-probed annotation the same way.
 
     Raises:
         ValueError: If the doc is missing either marker.
@@ -1174,7 +1197,7 @@ def write_last_green_doc(doc_path: Path, entries: dict[str, LastGreenEntry], *, 
         raise ValueError(f"{doc_path} is missing the last-green table markers")
     head = text[: begin + len(LAST_GREEN_BEGIN)]
     tail = text[end:]
-    table = render_last_green_table(entries, now=now)
+    table = render_last_green_table(entries, now=now, absent=absent)
     doc_path.write_text(f"{head}\n{table}\n{tail}", encoding="utf-8")
 
 
@@ -1261,6 +1284,9 @@ def run_matrix(
     save_last_green(last_green_path, last_green)
     if docs_path is not None:
         # Evaluate staleness as-of the run timestamp so the regenerated table
-        # is a deterministic function of the run inputs.
-        write_last_green_doc(docs_path, last_green, now=_parse_recorded_at(generated_at))
+        # is a deterministic function of the run inputs. Adapters that probed
+        # ``absent`` this run render ``(not probed)`` rather than ``(stale)``:
+        # the probe never ran, so the row must not read as a quiet regression.
+        absent_this_run = {o.adapter for o in result.outcomes if o.verdict == "absent"}
+        write_last_green_doc(docs_path, last_green, now=_parse_recorded_at(generated_at), absent=absent_this_run)
     return result

@@ -14,8 +14,8 @@ Python SSE Client wrapper and helpers
 
 import time
 from datetime import datetime, timezone
-from logging import Logger
-from typing import Any, Generator
+from logging import Logger  # noqa: TC003
+from typing import Any, Generator  # noqa: UP035
 
 import requests
 
@@ -62,9 +62,7 @@ class SSEClient:
         self.stream_completed = False
         retries = 0
 
-        url: URL = URL(
-            self.config.base_url + "/" + (self.config.api_version or "v1") + path
-        )
+        url: URL = URL(self.config.base_url + "/" + (self.config.api_version or "v1") + path)
         method = method.upper()
         headers = {
             "Accept": "text/event-stream",
@@ -110,20 +108,14 @@ class SSEClient:
                     "params": opts.get("params"),
                     "stream": True,
                     "timeout": timeout,
-                    "verify": (
-                        self.config.verify if self.config.verify is not None else True
-                    ),
+                    "verify": (self.config.verify if self.config.verify is not None else True),
                     "allow_redirects": (
-                        self.config.allow_redirects
-                        if self.config.allow_redirects is not None
-                        else True
+                        self.config.allow_redirects if self.config.allow_redirects is not None else True
                     ),
                     "cookies": self.config.cookies,
                     "cert": self.config.cert,
                 }
-                with requests.Session() as session, session.request(
-                    **request_kwargs
-                ) as response:
+                with requests.Session() as session, session.request(**request_kwargs) as response:
                     response.raise_for_status()
                     self.logger.info("Connected to SSE stream")
 
@@ -138,9 +130,7 @@ class SSEClient:
                     response.encoding = "utf-8"
 
                     event_buffer = []
-                    for raw_line in response.iter_lines(
-                        decode_unicode=True, delimiter="\n"
-                    ):
+                    for raw_line in response.iter_lines(decode_unicode=True, delimiter="\n"):
                         line = raw_line.rstrip("\r")
                         if not line:
                             if event_buffer:
@@ -162,9 +152,7 @@ class SSEClient:
                 raise
             except Exception as e:
                 retries += 1
-                self.logger.error(
-                    f"Connection error (retry {retries}/{self.max_retries}): {e}"
-                )
+                self.logger.error(f"Connection error (retry {retries}/{self.max_retries}): {e}")
 
                 if retries >= self.max_retries:
                     raise
@@ -208,15 +196,13 @@ class SSEClient:
             None
         """
         if (
-            self.config.expires_in
+            self.config.expires_in  # noqa: RUF021
             and datetime.now(timezone.utc).timestamp() >= self.config.expires_in
             or not self.config.access_token
         ):
             self.config.access_token, expiry = self.config.auth_token()
-            if not self.config.access_token == "no_token":
+            if not self.config.access_token == "no_token":  # noqa: SIM201
                 if isinstance(expiry, datetime):
                     self.config.expires_in = expiry.timestamp() - 120
                 else:
-                    self.config.expires_in = (
-                        datetime.now(timezone.utc).timestamp() + expiry - 120
-                    )
+                    self.config.expires_in = datetime.now(timezone.utc).timestamp() + expiry - 120

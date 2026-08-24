@@ -3,16 +3,16 @@
 mod handlers;
 mod helpers;
 mod thread_route;
-mod wire;
 
-pub(crate) use thread_route::dispatch_action_with_thread_routing_cancellable;
 pub use thread_route::{ThreadRoutingDispatch, dispatch_action_with_thread_routing};
-pub(crate) use wire::{decode_dispatch_output, encode_dispatch_wire, use_main_thread_route};
+pub(crate) use thread_route::{
+    dispatch_action_with_thread_routing_cancellable, use_main_thread_route,
+};
 
 use serde_json::Value;
 
 use dcc_mcp_jsonrpc::{CallToolMeta, CallToolResult, coerce_tool_arguments_object};
-use dcc_mcp_protocols::error_envelope::DccMcpError;
+use dcc_mcp_protocols::error_envelope::ToolCallErrorEnvelope;
 
 use crate::dynamic_tools::DYNAMIC_TOOL_PREFIX;
 use crate::rmcp_registry_context::RegistryContext;
@@ -48,7 +48,7 @@ pub async fn dispatch_rmcp_tool_call(
 ) -> Result<CallToolResult, String> {
     let arguments_value = coerce_tool_arguments_object(arguments)?;
 
-    if tool_name == "call_action" && state.lazy_actions {
+    if tool_name == "call_action" && state.features.lazy_actions {
         return handle_call_action_async(
             state,
             registry_ctx,
@@ -100,8 +100,10 @@ pub async fn dispatch_rmcp_tool_call(
             &arguments_value,
         )),
         "list_dynamic_tools" => Ok(handle_list_dynamic_tools_dynamic(state, session_id)),
-        "list_actions" if state.lazy_actions => Ok(handle_list_actions(state, &arguments_value)),
-        "describe_action" if state.lazy_actions => {
+        "list_actions" if state.features.lazy_actions => {
+            Ok(handle_list_actions(state, &arguments_value))
+        }
+        "describe_action" if state.features.lazy_actions => {
             Ok(handle_describe_action(state, &arguments_value, session_id))
         }
         name => {
@@ -163,7 +165,7 @@ async fn handle_call_action_async(
         id.as_str(),
         "list_actions" | "describe_action" | "call_action"
     ) {
-        let envelope = DccMcpError::new(
+        let envelope = ToolCallErrorEnvelope::new(
             "registry",
             "RECURSIVE_META_CALL",
             format!("`call_action` refuses to dispatch meta-tool `{id}`."),
@@ -197,7 +199,7 @@ async fn dispatch_registry_tool(
     let action_meta = match state.registry.get_action(&resolved_name, None) {
         Some(meta) => meta,
         None => {
-            let envelope = DccMcpError::new(
+            let envelope = ToolCallErrorEnvelope::new(
                 "registry",
                 "ACTION_NOT_FOUND",
                 format!("Unknown tool: {tool_name}"),
@@ -260,7 +262,7 @@ mod tests {
     use dcc_mcp_job::job::JobStatus;
     use dcc_mcp_jsonrpc::ToolContent;
     use dcc_mcp_models::{
-        ExecutionMode, SkillGroup, SkillMetadata, SkillScope, ThreadAffinity, ToolAnnotations,
+        ExecutionMode, SkillGroup, SkillMetadata, SkillScope, SkillToolAnnotations, ThreadAffinity,
         ToolDeclaration,
     };
     use dcc_mcp_skill_rest::StaticReadiness;
@@ -374,7 +376,7 @@ mod tests {
                 ToolDeclaration {
                     name: "inspect_selection".to_string(),
                     group: "inspection".to_string(),
-                    annotations: ToolAnnotations {
+                    annotations: SkillToolAnnotations {
                         read_only_hint: Some(true),
                         destructive_hint: Some(false),
                         open_world_hint: Some(false),
@@ -1227,7 +1229,49 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn async_main_thread_job_decodes_deferred_dispatch_wire() {
+    async fn sync_tool_with_timeout_hint_returns_result_payload() {
+        let registry = ToolRegistry::new();
+        let dispatcher = Arc::new(ToolDispatcher::new(registry.clone()));
+
+        registry.register_action(ToolMeta {
+            name: "sync_probe".to_string(),
+            description: "sync execution contract probe".to_string(),
+            dcc: "blender".to_string(),
+            input_schema: json!({"type": "object"}),
+            execution: ExecutionMode::Sync,
+            timeout_hint_secs: Some(5),
+            thread_affinity: ThreadAffinity::Any,
+            ..Default::default()
+        });
+        dispatcher.register_handler("sync_probe", |_| Ok(json!({"ok": true})));
+
+        let registry = Arc::new(registry);
+        let catalog = Arc::new(SkillCatalog::new_with_dispatcher(
+            Arc::clone(&registry),
+            Arc::clone(&dispatcher),
+        ));
+        let state = ServerState::builder(registry, dispatcher, catalog).build();
+
+        let result = dispatch_rmcp_tool_call(
+            &state,
+            &ready_context(),
+            None,
+            "sync_probe",
+            Some(json!({})),
+            None,
+        )
+        .await
+        .expect("sync probe should dispatch");
+
+        assert_eq!(result.structured_content, Some(json!({"ok": true})));
+        assert!(
+            state.jobs.list().is_empty(),
+            "sync tools must not create jobs"
+        );
+    }
+
+    #[tokio::test]
+    async fn async_main_thread_job_preserves_typed_dispatch_result() {
         let registry = ToolRegistry::new();
         let dispatcher = Arc::new(ToolDispatcher::new(registry.clone()));
         let seen_meta = Arc::new(parking_lot::Mutex::new(None::<Value>));
@@ -1237,7 +1281,7 @@ mod tests {
             description: "main-thread async job".to_string(),
             dcc: "maya".to_string(),
             input_schema: json!({"type": "object"}),
-            execution: ExecutionMode::Sync,
+            execution: ExecutionMode::Async,
             timeout_hint_secs: Some(5),
             thread_affinity: ThreadAffinity::Main,
             ..Default::default()

@@ -55,6 +55,10 @@ pub enum TransportError {
     #[error("registry file error: {0}")]
     RegistryFile(String),
 
+    /// A registry row uses a schema newer than this build understands.
+    #[error("unsupported service-entry schema version {received} (supported: {supported})")]
+    UnsupportedServiceEntrySchemaVersion { received: u64, supported: u16 },
+
     /// Transport is already shut down.
     #[error("transport is shut down")]
     Shutdown,
@@ -90,6 +94,10 @@ pub enum TransportError {
     /// Frame exceeds the maximum allowed size.
     #[error("frame too large: {size} bytes (max: {max_size} bytes)")]
     FrameTooLarge { size: usize, max_size: usize },
+
+    /// The peer used a DCC-Link wire version this build cannot decode.
+    #[error("unsupported DCC-Link protocol version {received} (supported: {supported})")]
+    UnsupportedDccLinkVersion { received: u8, supported: u8 },
 
     /// Peer closed the connection.
     #[error("connection closed by peer")]
@@ -245,6 +253,18 @@ mod tests {
             let err = TransportError::RegistryFile("no such file".to_string());
             let s = err.to_string();
             assert!(s.contains("no such file"), "{s}");
+        }
+
+        #[test]
+        fn unsupported_service_entry_schema_version_display() {
+            let err = TransportError::UnsupportedServiceEntrySchemaVersion {
+                received: 7,
+                supported: 1,
+            };
+            let s = err.to_string();
+            assert!(s.contains('7'), "{s}");
+            assert!(s.contains('1'), "{s}");
+            assert!(s.contains("service-entry schema"), "{s}");
         }
 
         #[test]
@@ -435,6 +455,10 @@ mod tests {
                 TransportError::Serialization("e".to_string()),
                 TransportError::Io(std::io::Error::other("test")),
                 TransportError::RegistryFile("f".to_string()),
+                TransportError::UnsupportedServiceEntrySchemaVersion {
+                    received: 2,
+                    supported: 1,
+                },
                 TransportError::Shutdown,
                 TransportError::SessionNotFound {
                     session_id: "s".to_string(),

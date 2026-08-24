@@ -30,8 +30,7 @@ class EncoderOnlyRerankerTrainer(AbsRerankerTrainer):
             raise NotImplementedError(f'MODEL {self.model.__class__.__name__} ' f'does not support save_pretrained interface')
         else:
             self.model.save_pretrained(output_dir)
-        if self.tokenizer is not None and self.is_world_process_zero():
-            self.tokenizer.save_pretrained(output_dir)
+        self._save_processing_class(output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))

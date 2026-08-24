@@ -8,7 +8,7 @@ Usage:
 Flags:
     -w, --wrapper string    Wrapper element name (default "all")
     -r, --root              Include root element (default true)
-    -p, --pretty            Pretty print output (default true)
+    -p, --pretty            Pretty print output (default false)
     -t, --type              Include type attributes (default true)
     -i, --item-wrap         Wrap list items in <item> elements (default true)
     -x, --xpath             Use XPath 3.1 json-to-xml format
@@ -39,6 +39,7 @@ Examples:
     # Use XPath 3.1 format
     json2xml-py -x data.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -81,7 +82,7 @@ class CLIConversionOptions:
     list_headers: bool
 
     @classmethod
-    def from_namespace(cls, args: argparse.Namespace) -> "CLIConversionOptions":
+    def from_namespace(cls, args: argparse.Namespace) -> CLIConversionOptions:
         return cls(
             input_file=args.input_file,
             url=args.url,
@@ -144,8 +145,7 @@ class CLIApplication:
             return read_from_stdin()
 
         exit_with_error(
-            "Error: No input provided. Pass a JSON file, use - for stdin, "
-            "or provide --string/--url."
+            "Error: No input provided. Pass a JSON file, use - for stdin, or provide --string/--url."
         )
         raise AssertionError("unreachable")
 
@@ -159,8 +159,7 @@ class CLIApplication:
             return readfromstring(json_str)
         except StringReadError as error:
             exit_with_error(
-                "Error: Invalid JSON from stdin. Pipe valid JSON into stdin "
-                f"or pass a file/--string. ({error})"
+                f"Error: Invalid JSON from stdin. Pipe valid JSON into stdin or pass a file/--string. ({error})"
             )
 
     def convert(self, data: JSONValue, options: CLIConversionOptions) -> str | bytes:
@@ -295,8 +294,8 @@ Examples:
         "--pretty",
         dest="pretty",
         action="store_true",
-        default=True,
-        help="Pretty print output (default: true)",
+        default=False,
+        help="Pretty print output (default: false)",
     )
     conv_group.add_argument(
         "--no-pretty",
@@ -371,7 +370,11 @@ Examples:
 # @lat: [[behavior#Input readers]]
 def read_input(args: argparse.Namespace | CLIConversionOptions) -> JSONValue:
     """Read JSON input from the specified source."""
-    options = args if isinstance(args, CLIConversionOptions) else CLIConversionOptions.from_namespace(args)
+    options = (
+        args
+        if isinstance(args, CLIConversionOptions)
+        else CLIConversionOptions.from_namespace(args)
+    )
     return _APP.read_input(options)
 
 

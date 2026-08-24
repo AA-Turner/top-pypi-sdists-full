@@ -2,7 +2,7 @@ import datetime
 import functools
 import os
 import re
-import urllib
+from urllib.parse import urlencode
 
 from flask import (Flask, flash, redirect, render_template, request,
                    Response, session, url_for)
@@ -173,8 +173,7 @@ def index():
 
     # The `object_list` helper will take a base query and then handle
     # paginating the results if there are more than 20. For more info see
-    # the docs:
-    # http://docs.peewee-orm.com/en/latest/peewee/playhouse.html#object_list
+    # the docs: https://docs.peewee-orm.com/
     return object_list(
         'index.html',
         query,
@@ -242,7 +241,7 @@ def clean_querystring(request_args, *keys_to_remove, **new_values):
     for key in keys_to_remove:
         querystring.pop(key, None)
     querystring.update(new_values)
-    return urllib.urlencode(querystring)
+    return urlencode(querystring)
 
 @app.errorhandler(404)
 def not_found(exc):

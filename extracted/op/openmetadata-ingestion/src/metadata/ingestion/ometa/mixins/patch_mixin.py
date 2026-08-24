@@ -14,7 +14,6 @@ Mixin class containing PATCH specific methods
 To be used by OpenMetadata class
 """
 
-import hashlib
 import json
 import traceback
 from copy import deepcopy
@@ -30,7 +29,6 @@ from metadata.generated.schema.entity.automations.workflow import (
     Workflow as AutomationWorkflow,
 )
 from metadata.generated.schema.entity.automations.workflow import WorkflowStatus
-from metadata.generated.schema.entity.data.container import Container
 from metadata.generated.schema.entity.data.table import Column, Table, TableConstraint
 from metadata.generated.schema.entity.services.connections.testConnectionResult import (
     TestConnectionResult,
@@ -56,6 +54,7 @@ from metadata.ingestion.ometa.mixins.patch_mixin_utils import (
 )
 from metadata.ingestion.ometa.utils import model_str
 from metadata.pii.types import ClassifiableEntityType
+from metadata.sampler.entity_adapters import EntityAdapter, adapter_for
 from metadata.utils.deprecation import deprecated
 from metadata.utils.logger import get_log_name, ometa_logger
 
@@ -74,27 +73,42 @@ MAX_OPTIMISTIC_LOCK_RETRIES = 3
 
 def _is_precondition_failed(exc: Exception) -> bool:
     """True if `exc` is a 412 Precondition Failed raised by a stale If-Match."""
-    return isinstance(exc, APIError) and (
-        getattr(exc, "status_code", None) == 412 or getattr(exc, "code", None) == 412
-    )
+    return isinstance(exc, APIError) and (getattr(exc, "status_code", None) == 412 or getattr(exc, "code", None) == 412)
 
 
 def _entity_etag(entity: BaseModel) -> Optional[str]:  # noqa: UP045
-    """Strong ETag the server derives for an entity, for optimistic-concurrency writes.
+    """Weak ``If-Match`` validator for optimistic-concurrency writes: ``W/"<version>"``.
 
-    Mirrors the server's ``EntityETag.generateETag``: SHA-256 of ``"<version>-<updatedAt>"``,
-    first 16 hex chars, quoted. Computing it from the already-fetched instance lets the column
-    patch helpers send ``If-Match`` without a second GET, and ties the precondition to the exact
-    instance the patch is built from. Returns ``None`` when version/updatedAt are absent so the
-    caller falls back to a non-conditional write. (Jetty strips any inbound ``--gzip`` suffix from
-    ``If-Match``, so the bare value matches the server's stored ETag.)
+    Mirrors the server's ``EntityETag.generateWeakETag`` — the form ``validateETag`` accepts via
+    ``isWeakMatch`` — and deliberately NOT the strong ``generateETag``. The strong ETag hashes the
+    serialized entity, and a PATCH validates it against the repository's own ``patchFields``
+    projection while the GET that publishes it serializes the caller's ``fields``. Those two
+    projections differ, so a strong ETag can never match on a conditional write and every patch
+    would 412 into a non-conditional fallback.
+
+    The version is projection-independent, is bumped on every update, and is what the server's own
+    row-level compare-and-swap keys on — exactly the optimistic-lock semantics wanted here: reject
+    the write if the entity moved between our read and our write. Weak-match support predates every
+    server release that honours ``If-Match`` at all, so older servers either accept this or ignore
+    the header entirely.
+
+    The rendering must byte-match Java's ``Double.toString``, and does so *without* depending on
+    the ``multipleOf: 0.1`` invariant on ``entityVersion``: both sides emit the shortest string that
+    round-trips to the same double (Python since 3.1, Java since JDK 19), so they agree for any
+    number of decimal places. Do not reformat this with a fixed precision — ``:.1f`` would render a
+    hypothetical ``1.25`` as ``1.2`` and silently degrade every conditional write to the
+    non-conditional fallback. The one divergence left is unreachable: Java switches to scientific
+    notation at ``1e7`` (``1.0E7``) where Python does not, which an entity would need ~10^8 updates
+    to reach.
+
+    Returns ``None`` when ``version`` is absent so the caller falls back to a non-conditional
+    write. (Jetty strips any inbound ``--gzip`` suffix from ``If-Match``, so the bare value
+    matches the server's validator.)
     """
     version = getattr(entity, "version", None)
-    updated_at = getattr(entity, "updatedAt", None)
-    if version is None or updated_at is None:
+    if version is None:
         return None
-    raw = f"{model_str(version)}-{model_str(updated_at)}"
-    return '"' + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16] + '"'
+    return f'W/"{model_str(version)}"'
 
 
 def _summarize_patch(patch: Any) -> str:
@@ -111,11 +125,7 @@ def _summarize_patch(patch: Any) -> str:
         return "<unparsable patch>"
     if not isinstance(ops, list):
         return "<patch is not a list>"
-    op_paths = [
-        f"{op.get('op', '?')}:{op.get('path', '?')}"
-        for op in ops
-        if isinstance(op, dict)
-    ]
+    op_paths = [f"{op.get('op', '?')}:{op.get('path', '?')}" for op in ops if isinstance(op, dict)]
     return f"{len(ops)} op(s) [{', '.join(op_paths)}]"
 
 
@@ -303,9 +313,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                     fields=["testDefinition", "testSuite"],
                 )
             else:
-                instance: Optional[T] = self._fetch_entity_if_exists(
-                    entity=entity, entity_id=source.id
-                )  # noqa: UP045
+                instance: Optional[T] = self._fetch_entity_if_exists(entity=entity, entity_id=source.id)  # noqa: UP045
 
             if not instance:
                 return None
@@ -351,9 +359,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         Returns
             Updated Entity
         """
-        instance: Table = self._fetch_entity_if_exists(
-            entity=Table, entity_id=table.id, fields=["tableConstraints"]
-        )
+        instance: Table = self._fetch_entity_if_exists(entity=Table, entity_id=table.id, fields=["tableConstraints"])
 
         if not instance:
             return None
@@ -369,9 +375,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         self,
         test_case: TestCase,
         entity_link: str,
-        test_case_parameter_values: Optional[
-            List[TestCaseParameterValue]
-        ] = None,  # noqa: UP006, UP045
+        test_case_parameter_values: Optional[List[TestCaseParameterValue]] = None,  # noqa: UP006, UP045
         compute_passed_failed_row_count: Optional[bool] = False,  # noqa: UP045
     ) -> Optional[TestCase]:  # noqa: UP045
         """Given a test case and a test case definition JSON PATCH the test case
@@ -404,9 +408,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         entity: Type[T],  # noqa: UP006
         source: T,
         tag_labels: List[TagLabel],  # noqa: UP006
-        operation: Union[
-            PatchOperation.ADD, PatchOperation.REMOVE
-        ] = PatchOperation.ADD,  # noqa: UP007
+        operation: Union[PatchOperation.ADD, PatchOperation.REMOVE] = PatchOperation.ADD,  # noqa: UP007
         skip_on_failure: bool = True,
     ) -> Optional[T]:  # noqa: UP045
         """
@@ -422,9 +424,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
             Updated Entity
         """
         try:
-            instance: Optional[T] = self._fetch_entity_if_exists(
-                entity=entity, entity_id=source.id, fields=["tags"]
-            )  # noqa: UP045
+            instance: Optional[T] = self._fetch_entity_if_exists(entity=entity, entity_id=source.id, fields=["tags"])  # noqa: UP045
             if not instance:
                 return None
 
@@ -463,9 +463,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         entity: Type[T],  # noqa: UP006
         source: T,
         tag_label: TagLabel,
-        operation: Union[
-            PatchOperation.ADD, PatchOperation.REMOVE
-        ] = PatchOperation.ADD,  # noqa: UP007
+        operation: Union[PatchOperation.ADD, PatchOperation.REMOVE] = PatchOperation.ADD,  # noqa: UP007
         skip_on_failure: bool = True,
     ) -> Optional[T]:  # noqa: UP045
         """Will be deprecated in 1.3"""
@@ -498,9 +496,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         Returns
             Updated Entity
         """
-        instance: Optional[T] = self._fetch_entity_if_exists(
-            entity=entity, entity_id=source.id, fields=["owners"]
-        )  # noqa: UP045
+        instance: Optional[T] = self._fetch_entity_if_exists(entity=entity, entity_id=source.id, fields=["owners"])  # noqa: UP045
 
         if not instance:
             return None
@@ -518,107 +514,63 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
 
     def _prepare_destination_for_column_tags(
         self,
+        entity: ClassifiableEntityType,
         instance: ClassifiableEntityType,
         column_tags: List[ColumnTag],  # noqa: UP006
         operation: PatchOperation,
+        adapter: "EntityAdapter",
     ) -> ClassifiableEntityType | None:
-        patch_info = self._column_tag_patch_info(instance)
-        if patch_info is None:
-            return None
-        _, columns = patch_info
-
+        columns = adapter.get_columns(instance)
         if columns is None:
             logger.warning(
                 "Entity %s has no columns, skipping column tag patch",
-                instance.fullyQualifiedName.root
-                if instance.fullyQualifiedName
-                else type(instance).__name__,
+                entity.fullyQualifiedName.root if entity.fullyQualifiedName else type(entity).__name__,
             )
             return None
-
-        destination = instance.model_copy(deep=True)
-        destination_info = self._column_tag_patch_info(destination)
-        if destination_info is None:
-            return None
-        _, destination_columns = destination_info
-        if destination_columns is None:
-            logger.warning(
-                "Entity %s has no columns, skipping column tag patch",
-                destination.fullyQualifiedName.root
-                if destination.fullyQualifiedName
-                else type(destination).__name__,
-            )
-            return None
-
-        for column_tag in column_tags or []:
-            update_column_tags(destination_columns, column_tag, operation)
+        adapter.set_columns(entity, columns)
+        destination = entity.model_copy(deep=True)
+        dest_columns = adapter.get_columns(destination)
+        if dest_columns is not None:
+            for column_tag in column_tags or []:
+                update_column_tags(dest_columns, column_tag, operation)
         return destination
-
-    def _column_tag_patch_info(
-        self, entity: ClassifiableEntityType
-    ) -> tuple[List[str], Optional[List[Column]]] | None:  # noqa: UP006, UP045
-        if isinstance(entity, Table):
-            return ["tags", "columns"], entity.columns
-        if isinstance(entity, Container):
-            return [
-                "tags",
-                "dataModel",
-            ], entity.dataModel.columns if entity.dataModel else None
-
-        logger.warning(
-            "Unsupported entity type for column tag patching: %s",
-            type(entity).__name__,
-        )
-        return None
 
     def patch_column_tags(
         self,
-        table: Optional[ClassifiableEntityType] = None,  # noqa: UP045
-        column_tags: Optional[List[ColumnTag]] = None,  # noqa: UP006, UP045
-        operation: Union[
-            PatchOperation.ADD, PatchOperation.REMOVE
-        ] = PatchOperation.ADD,  # noqa: UP007
-        entity: Optional[ClassifiableEntityType] = None,  # noqa: UP045
+        entity: ClassifiableEntityType,
+        column_tags: List[ColumnTag],  # noqa: UP006
+        operation: Union[PatchOperation.ADD, PatchOperation.REMOVE] = PatchOperation.ADD,  # noqa: UP007
     ) -> Optional[T]:  # noqa: UP045
         """Given an Entity ID, JSON PATCH the tag of the column
 
         Args
-            table: Classifiable entity (Table, Container, …) to update
+            entity: Classifiable entity (Table, Container, …) to update
             column_tags: List of ColumnTag to add or remove
             operation: Patch Operation to add or remove
-            entity: Backward-compatible alias for table
         Returns
             Updated Entity
         """
 
-        table = table if table is not None else entity
-        if table is None:
-            logger.warning("No entity provided for column tag patching")
+        adapter = adapter_for(entity)
+        if adapter is None:
+            logger.warning(
+                "Unsupported entity type for column tag patching: %s",
+                type(entity).__name__,
+            )
             return None
 
-        patch_info = self._column_tag_patch_info(table)
-        if patch_info is None:
-            return None
-        fields, _ = patch_info
-
-        entity_type = type(table)
-        entity_label = (
-            table.fullyQualifiedName.root
-            if table.fullyQualifiedName
-            else entity_type.__name__
-        )
+        entity_type = type(entity)
+        entity_label = entity.fullyQualifiedName.root if entity.fullyQualifiedName else entity_type.__name__
         last_error: Optional[APIError] = None  # noqa: UP045
         last_rejected_etag: Optional[str] = None  # noqa: UP045
         for attempt in range(MAX_OPTIMISTIC_LOCK_RETRIES):
             instance = self._fetch_entity_if_exists(
-                entity=entity_type, entity_id=table.id, fields=fields
+                entity=entity_type, entity_id=entity.id, fields=adapter.patch_fields
             )
             if not instance:
                 return None
 
-            destination = self._prepare_destination_for_column_tags(
-                instance, column_tags, operation
-            )
+            destination = self._prepare_destination_for_column_tags(entity, instance, column_tags, operation, adapter)
             if destination is None:
                 return None
 
@@ -628,19 +580,19 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
             # unusable (e.g. client/server ETag-format drift) and would loop to a silent drop;
             # fall back to a non-conditional write so the change is not lost (last-write-wins).
             instance_etag = _entity_etag(instance)
-            falling_back = (
-                instance_etag is not None and instance_etag == last_rejected_etag
-            )
+            falling_back = instance_etag is not None and instance_etag == last_rejected_etag
             if falling_back:
                 logger.warning(
-                    "If-Match was rejected for an unchanged [%s] (client/server ETag mismatch); "
-                    "writing without optimistic locking so the column tag change is not dropped.",
+                    "If-Match [%s] was rejected for [%s] even though its version did not move, so the "
+                    "precondition cannot be satisfied (client/server validator mismatch); writing "
+                    "without optimistic locking so the column tag change is not dropped.",
+                    instance_etag,
                     entity_label,
                 )
             try:
                 patched_entity = self.patch(
                     entity=entity_type,
-                    source=instance,
+                    source=entity,
                     destination=destination,
                     if_match=None if falling_back else instance_etag,
                 )
@@ -650,8 +602,9 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                     last_rejected_etag = instance_etag
                     if attempt < MAX_OPTIMISTIC_LOCK_RETRIES - 1:
                         logger.info(
-                            "Concurrent modification while patching column tags on [%s]; "
-                            "refetching and retrying (attempt %d/%d)",
+                            "If-Match [%s] rejected while patching column tags on [%s]; refetching "
+                            "against the current version and retrying (attempt %d/%d)",
+                            instance_etag,
                             entity_label,
                             attempt + 1,
                             MAX_OPTIMISTIC_LOCK_RETRIES,
@@ -682,20 +635,16 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         table: Table,
         column_fqn: str,
         tag_label: TagLabel,
-        operation: Union[
-            PatchOperation.ADD, PatchOperation.REMOVE
-        ] = PatchOperation.ADD,  # noqa: UP007
+        operation: Union[PatchOperation.ADD, PatchOperation.REMOVE] = PatchOperation.ADD,  # noqa: UP007
     ) -> Optional[T]:  # noqa: UP045
         """Will be deprecated in 1.3"""
         return self.patch_column_tags(
-            table=table,
+            entity=table,
             column_tags=[ColumnTag(column_fqn=column_fqn, tag_label=tag_label)],
             operation=operation,
         )
 
-    @deprecated(
-        message="Use metadata.patch_column_descriptions instead", release="1.3.1"
-    )
+    @deprecated(message="Use metadata.patch_column_descriptions instead", release="1.3.1")
     def patch_column_description(
         self,
         table: Table,
@@ -716,11 +665,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         """
         return self.patch_column_descriptions(
             table=table,
-            column_descriptions=[
-                ColumnDescription(
-                    column_fqn=column_fqn, description=Markdown(description)
-                )
-            ],
+            column_descriptions=[ColumnDescription(column_fqn=column_fqn, description=Markdown(description))],
             force=force,
         )
 
@@ -743,11 +688,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         if not column_descriptions:
             return None
 
-        table_label = (
-            table.fullyQualifiedName.root
-            if table.fullyQualifiedName
-            else Table.__name__
-        )
+        table_label = table.fullyQualifiedName.root if table.fullyQualifiedName else Table.__name__
         last_error: Optional[APIError] = None  # noqa: UP045
         last_rejected_etag: Optional[str] = None  # noqa: UP045
         for attempt in range(MAX_OPTIMISTIC_LOCK_RETRIES):
@@ -769,13 +710,13 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
             # (e.g. client/server ETag-format drift) and would loop to a silent drop; fall back
             # to a non-conditional write so the change is not lost (last-write-wins).
             instance_etag = _entity_etag(instance)
-            falling_back = (
-                instance_etag is not None and instance_etag == last_rejected_etag
-            )
+            falling_back = instance_etag is not None and instance_etag == last_rejected_etag
             if falling_back:
                 logger.warning(
-                    "If-Match was rejected for an unchanged [%s] (client/server ETag mismatch); "
-                    "writing without optimistic locking so the column description change is not dropped.",
+                    "If-Match [%s] was rejected for [%s] even though its version did not move, so the "
+                    "precondition cannot be satisfied (client/server validator mismatch); writing "
+                    "without optimistic locking so the column description change is not dropped.",
+                    instance_etag,
                     table_label,
                 )
             try:
@@ -791,8 +732,9 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                     last_rejected_etag = instance_etag
                     if attempt < MAX_OPTIMISTIC_LOCK_RETRIES - 1:
                         logger.info(
-                            "Concurrent modification while patching column descriptions on [%s]; "
-                            "refetching and retrying (attempt %d/%d)",
+                            "If-Match [%s] rejected while patching column descriptions on [%s]; "
+                            "refetching against the current version and retrying (attempt %d/%d)",
+                            instance_etag,
                             table_label,
                             attempt + 1,
                             MAX_OPTIMISTIC_LOCK_RETRIES,
@@ -820,9 +762,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
     def patch_automation_workflow_response(
         self,
         automation_workflow: AutomationWorkflow,
-        result: Union[
-            TestConnectionResult, ReverseIngestionResponse, QueryRunnerResponse
-        ],  # noqa: UP007
+        result: Union[TestConnectionResult, ReverseIngestionResponse, QueryRunnerResponse],  # noqa: UP007
         workflow_status: WorkflowStatus,
     ) -> None:
         """
@@ -858,9 +798,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                 f"Error trying to PATCH status for automation workflow [{model_str(automation_workflow)}]: {exc}"
             )
 
-    def patch_life_cycle(
-        self, entity: Entity, life_cycle: LifeCycle
-    ) -> Optional[Entity]:  # noqa: UP045
+    def patch_life_cycle(self, entity: Entity, life_cycle: LifeCycle) -> Optional[Entity]:  # noqa: UP045
         """
         Patch life cycle data for a entity
 
@@ -870,14 +808,10 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         try:
             destination = entity.model_copy(deep=True)
             destination.lifeCycle = life_cycle
-            return self.patch(
-                entity=type(entity), source=entity, destination=destination
-            )
+            return self.patch(entity=type(entity), source=entity, destination=destination)
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(
-                f"Error trying to Patch life cycle data for {entity.fullyQualifiedName.root}: {exc}"
-            )
+            logger.warning(f"Error trying to Patch life cycle data for {entity.fullyQualifiedName.root}: {exc}")
             return None
 
     def patch_domain(
@@ -896,9 +830,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         Returns
             Updated Entity
         """
-        instance: Optional[T] = self._fetch_entity_if_exists(
-            entity=entity, entity_id=source.id, fields=["domains"]
-        )  # noqa: UP045
+        instance: Optional[T] = self._fetch_entity_if_exists(entity=entity, entity_id=source.id, fields=["domains"])  # noqa: UP045
 
         if not instance:
             return None
@@ -937,17 +869,13 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         instance = self.get_by_id(entity=entity, entity_id=entity_id)
 
         if not instance:
-            logger.warning(
-                f"Cannot find an instance of {entity.__name__} with the given ID."
-            )
+            logger.warning(f"Cannot find an instance of {entity.__name__} with the given ID.")
             return None
 
         # Get existing custom properties from extension
         existing_custom_properties = {}
         if hasattr(instance, "extension") and instance.extension:  # noqa: SIM102
-            if hasattr(instance.extension, "root") and isinstance(
-                instance.extension.root, dict
-            ):
+            if hasattr(instance.extension, "root") and isinstance(instance.extension.root, dict):
                 existing_custom_properties = instance.extension.root.copy()
 
         # Merge with new properties if not forcing
@@ -967,9 +895,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                     [
                         {
                             PatchField.OPERATION: (
-                                PatchOperation.REPLACE
-                                if existing_custom_properties
-                                else PatchOperation.ADD
+                                PatchOperation.REPLACE if existing_custom_properties else PatchOperation.ADD
                             ),
                             PatchField.PATH: "/extension",
                             PatchField.VALUE: final_properties,
@@ -980,8 +906,6 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
             return entity(**res)
 
         except Exception as exc:
-            logger.error(
-                f"Error trying to PATCH custom properties for {entity.__name__}: {entity_id} - {exc}"
-            )
+            logger.error(f"Error trying to PATCH custom properties for {entity.__name__}: {entity_id} - {exc}")
             logger.debug(traceback.format_exc())
             return None

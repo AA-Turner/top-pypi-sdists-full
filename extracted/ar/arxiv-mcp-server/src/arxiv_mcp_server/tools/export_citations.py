@@ -3,7 +3,9 @@
 Scoped per maintainer request in issue #41: BibTeX only (RIS/CSL-JSON are follow-up
 work), one ``export_citations`` tool over one or more validated arXiv IDs, metadata
 taken from the arXiv API (never model-generated), version suffixes preserved where the
-caller supplies them, deterministic citation keys, and no heavy formatting dependency.
+caller supplies them, bare+versioned forms of the same paper collapsed to one entry
+(preferring the versioned id), identical normalized IDs collapsed to one entry,
+deterministic citation keys, and no heavy formatting dependency.
 """
 
 import json
@@ -67,6 +69,11 @@ def _ascii_token(value: str) -> str:
 def _base_id(paper_id: str) -> str:
     """Strip a trailing version suffix, keeping the bare arXiv identifier."""
     return bare_arxiv_id(paper_id)
+
+
+def _bares_with_versioned_sibling(ids: List[str]) -> set:
+    """Bare ids that also appear versioned in *ids* (for #241 collapse)."""
+    return {_base_id(i) for i in ids if _VERSION_SUFFIX.search(i)}
 
 
 def _year_of(published: str) -> str:
@@ -228,9 +235,14 @@ async def handle_export_citations(arguments: Dict[str, Any]) -> List[types.TextC
             if is_valid_arxiv_id(candidate):
                 valid_ids.append(candidate)
         metadata = await _fetch_metadata(valid_ids) if valid_ids else {}
+        # Drop bare ids when a versioned form of the same paper is also
+        # requested so we emit one BibTeX entry (prefer versioned) (#241).
+        # Distinct versioned ids (v1 + v7) are kept separately (#212).
+        bare_superseded = _bares_with_versioned_sibling(valid_ids)
 
         results: List[Dict[str, Any]] = []
         used_keys: set = set()
+        seen_normalized: set = set()
         for pid in raw_ids:
             candidate = normalize_arxiv_id(pid) if isinstance(pid, str) else ""
             if not candidate or not is_valid_arxiv_id(candidate):
@@ -242,6 +254,16 @@ async def handle_export_citations(arguments: Dict[str, Any]) -> List[types.TextC
                     }
                 )
                 continue
+            if (
+                not _VERSION_SUFFIX.search(candidate)
+                and _base_id(candidate) in bare_superseded
+            ):
+                continue
+            # Collapse exact-duplicate normalized IDs to one BibTeX entry (#259).
+            # Bare↔versioned sibling collapse remains prefer-versioned (#241).
+            if candidate in seen_normalized:
+                continue
+            seen_normalized.add(candidate)
             # Prefer the exact versioned key so batching multiple versions of
             # one paper does not collapse to a single bare-id entry (#212).
             # Bare ids fall through to the latest-version mapping.

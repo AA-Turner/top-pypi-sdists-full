@@ -52,7 +52,16 @@ class TestListAnnotationsResponse(unittest.TestCase):
                         actor_id = 'system', 
                         actor_type = 'system', 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
+                        updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        version = 56, 
+                        revisions = [
+                            mixpeek.models.annotation_revision.AnnotationRevision(
+                                version = 56, 
+                                prior = { }, 
+                                edited_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                edited_by = '', 
+                                edited_by_type = '', )
+                            ], )
                     ],
                 total_count = 56
             )

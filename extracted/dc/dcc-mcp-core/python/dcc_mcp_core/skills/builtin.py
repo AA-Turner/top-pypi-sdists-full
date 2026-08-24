@@ -11,8 +11,10 @@ import logging
 from typing import Any
 from typing import Callable
 
+from dcc_mcp_core._server.diagnostic_state import DiagnosticRuntimeState
 from dcc_mcp_core.admin_tools import register_admin_tools
 from dcc_mcp_core.dcc_server import register_diagnostic_mcp_tools
+from dcc_mcp_core.feedback import FeedbackStore
 from dcc_mcp_core.feedback import register_feedback_tool
 from dcc_mcp_core.introspect import register_introspect_tools
 from dcc_mcp_core.recipes import register_recipes_tools
@@ -32,6 +34,11 @@ def register_all_builtin_skills(
     gateway_failover_resolver: Callable[[], dict[str, Any]] | None = None,
     reload_skills: Callable[[], int] | None = None,
     skills: list[Any] | None = None,
+    diagnostic_state: DiagnosticRuntimeState | None = None,
+    feedback_store: FeedbackStore | None = None,
+    gateway_endpoint: str | None = None,
+    gateway_port: int | None = None,
+    instance_id_provider: Callable[[], str | None] | None = None,
 ) -> None:
     """Register all standard built-in tools on *server*.
 
@@ -66,13 +73,21 @@ def register_all_builtin_skills(
         dcc_window_handle=dcc_window_handle,
         dcc_window_title=dcc_window_title,
         gateway_failover_resolver=gateway_failover_resolver,
+        diagnostic_state=diagnostic_state,
     )
 
     # 2. Introspection (signature, search, eval)
     register_introspect_tools(server, dcc_name=dcc_name)
 
     # 3. Agent feedback
-    register_feedback_tool(server, dcc_name=dcc_name)
+    register_feedback_tool(
+        server,
+        dcc_name=dcc_name,
+        store=feedback_store,
+        gateway_endpoint=gateway_endpoint,
+        gateway_port=gateway_port,
+        instance_id_provider=instance_id_provider,
+    )
 
     # 4. Recipes (skills default to empty at base init; adapters re-register
     #    with the scanned skill set later — registration is idempotent).

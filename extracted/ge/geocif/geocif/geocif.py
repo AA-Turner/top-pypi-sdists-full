@@ -2416,9 +2416,46 @@ class Geocif:
             how="outer",
         )
 
-        centroids = self.dg_country.to_crs(epsg=6933).centroid.to_crs(epsg=4326)
-        self.dg_country["lat"] = centroids.y
-        self.dg_country["lon"] = centroids.x
+        # Repair invalid rings before reprojecting. A single malformed polygon
+        # in the boundary file makes GEOS abort the WHOLE to_crs with
+        # "Points of LinearRing do not form a closed linestring", killing the
+        # run — seen on usa_admin2 with the full 10-state county set (the
+        # 3-state subset happened to miss the bad county). Only the offending
+        # geometries should degrade, not the entire country.
+        _g = self.dg_country.geometry
+        _bad = ~_g.is_valid & _g.notna()
+        if _bad.any():
+            self.logger.warning(
+                f"boundary geometry: repairing {int(_bad.sum())} invalid "
+                f"polygon(s) before centroid reprojection "
+                f"(make_valid; e.g. unclosed LinearRing)"
+            )
+            try:
+                self.dg_country = self.dg_country.assign(
+                    geometry=_g.make_valid()
+                )
+            except AttributeError:  # shapely < 2.1 / older geopandas
+                self.dg_country = self.dg_country.assign(geometry=_g.buffer(0))
+        try:
+            centroids = self.dg_country.to_crs(epsg=6933).centroid.to_crs(epsg=4326)
+        except Exception as exc:
+            # Last resort: per-geometry so one unfixable polygon costs its own
+            # region's centroid (NaN -> handled downstream) instead of the run.
+            self.logger.warning(
+                f"centroid reprojection failed wholesale ({type(exc).__name__}: "
+                f"{exc}); falling back to per-geometry centroids"
+            )
+            import geopandas as _gpd
+            _rows = []
+            for _geom in self.dg_country.geometry:
+                try:
+                    _c = _gpd.GeoSeries([_geom], crs=self.dg_country.crs)                         .to_crs(epsg=6933).centroid.to_crs(epsg=4326).iloc[0]
+                except Exception:
+                    _c = None
+                _rows.append(_c)
+            centroids = _gpd.GeoSeries(_rows, crs="EPSG:4326")
+        self.dg_country["lat"] = centroids.y.to_numpy()
+        self.dg_country["lon"] = centroids.x.to_numpy()
 
         df = df.merge(
             self.dg_country[["Country Region", "lat", "lon"]].drop_duplicates(),

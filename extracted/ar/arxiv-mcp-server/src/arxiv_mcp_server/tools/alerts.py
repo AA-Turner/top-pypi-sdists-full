@@ -14,7 +14,11 @@ from mcp.types import ToolAnnotations
 from dateutil import parser
 
 from ..config import Settings
-from .search import _raw_arxiv_search
+from .search import (
+    ArxivRateLimitError,
+    _rate_limited_response,
+    _raw_arxiv_search,
+)
 
 logger = logging.getLogger("arxiv-mcp-server")
 settings = Settings()
@@ -30,9 +34,11 @@ watch_topic_tool = types.Tool(
         "Save or update a persistent research topic watch. "
         "When checked via check_alerts, returns only papers published since the last check — "
         "acting as a standing alert for new work on a topic. "
+        "New watches seed last_checked to creation time so the first check does not dump historical matches. "
         "The topic string uses the same query syntax as search_papers (quoted phrases, field specifiers, boolean operators). "
         'Examples: \'"diffusion models" AND ti:"video generation"\', \'au:"LeCun" AND cs.LG\'. '
         "Calling watch_topic with the same topic string updates the existing watch rather than creating a duplicate. "
+        "On update, omit categories to preserve existing filters; pass categories: [] to clear them. "
         "Pair with check_alerts to poll for new papers."
     ),
     inputSchema={
@@ -50,7 +56,12 @@ watch_topic_tool = types.Tool(
             "categories": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Optional arXiv category filter (e.g. ['cs.LG', 'cs.AI']). Narrows results to specific fields.",
+                "description": (
+                    "Optional arXiv category filter (e.g. ['cs.LG', 'cs.AI']). "
+                    "Narrows results to specific fields. "
+                    "On update, omit this field to preserve existing categories; "
+                    "pass an empty array [] to clear them."
+                ),
             },
             "max_results": {
                 "type": "integer",
@@ -258,13 +269,17 @@ async def handle_watch_topic(arguments: Dict[str, Any]) -> List[types.TextConten
         else:
             categories = []
 
+        # Seed last_checked=now on create so the first check_alerts only
+        # surfaces papers published after the watch was registered (#227).
+        # Updates preserve the existing watermark (including an intentional None).
+        now = _now_iso()
         record = {
             "topic": topic,
             "categories": categories,
             "max_results": max_results,
-            "last_checked": None,
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
+            "last_checked": now,
+            "created_at": now,
+            "updated_at": now,
         }
 
         if existing_index is not None:
@@ -401,6 +416,14 @@ async def handle_check_alerts(arguments: Dict[str, Any]) -> List[types.TextConte
             "alerts": alerts,
         }
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+    except ArxivRateLimitError as exc:
+        # Parity with search_papers (#238): structured rate_limited JSON, not bare Error:
+        logger.warning("check_alerts rate limited after retries: %s", exc)
+        return _rate_limited_response(
+            str(exc),
+            retry_after_seconds=exc.retry_after_seconds,
+            status_code=exc.status_code,
+        )
     except Exception as exc:
         logger.error("check_alerts error: %s", exc)
         return [types.TextContent(type="text", text=f"Error: {str(exc)}")]

@@ -1,9 +1,11 @@
 //! Service discovery — unified registry supporting file-based and future mDNS strategies.
 
 pub mod file_registry;
+mod file_registry_async;
 mod liveness;
 #[cfg(feature = "mdns")]
 pub mod mdns;
+mod registry_format;
 pub mod types;
 
 use std::time::Duration;

@@ -100,7 +100,6 @@ impl SkillCatalog {
             after_group_change_hook: RwLock::new(None),
             after_scoped_group_change_hook: RwLock::new(None),
             active_groups: DashSet::new(),
-            inverted_index: RwLock::new(IndexGuard::default()),
             dcc_shards: DashMap::new(),
         }
     }
@@ -125,7 +124,6 @@ impl SkillCatalog {
             after_group_change_hook: RwLock::new(None),
             after_scoped_group_change_hook: RwLock::new(None),
             active_groups: DashSet::new(),
-            inverted_index: RwLock::new(IndexGuard::default()),
             dcc_shards: DashMap::new(),
         }
     }
@@ -316,9 +314,6 @@ impl SkillCatalog {
             }
         }
         self.refresh_dependency_states();
-        if new_count > 0 {
-            self.inverted_index.write().invalidate();
-        }
 
         if !result.skipped.is_empty() {
             self.record_skipped_diagnostics(&result.skipped, SkillScope::Repo);
@@ -419,10 +414,6 @@ impl SkillCatalog {
             }
         }
 
-        if added + updated + removed > 0 {
-            self.inverted_index.write().invalidate();
-        }
-
         if !result.skipped.is_empty() {
             self.record_skipped_diagnostics(&result.skipped, SkillScope::Repo);
             tracing::warn!(
@@ -470,7 +461,6 @@ impl SkillCatalog {
             self.shard_insert(&name, &dcc);
         }
         self.refresh_dependency_states();
-        self.inverted_index.write().invalidate();
     }
 
     /// Discover skills from paths grouped by [`SkillScope`].
@@ -523,9 +513,6 @@ impl SkillCatalog {
             }
         }
         self.refresh_dependency_states();
-        if total_new > 0 {
-            self.inverted_index.write().invalidate();
-        }
         tracing::info!(
             "SkillCatalog::discover_scoped: {} new skill(s) across {} scope(s)",
             total_new,

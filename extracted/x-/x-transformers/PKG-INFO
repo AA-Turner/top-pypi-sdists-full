@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x-transformers
-Version: 2.27.0
+Version: 2.27.2
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -2849,6 +2849,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.CL},
     url     = {https://arxiv.org/abs/2608.11805},
+}
+```
+
+```bibtex
+@misc{mozer2026recirculation,
+    title   = {Recirculation},
+    author  = {Michael C. Mozer and Shoaib Ahmed Siddiqui and Danny Sawyer and Sunny Sanyal and Rosanne Liu},
+    year    = {2026},
+    eprint  = {2608.17981},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2608.17981},
 }
 ```
 

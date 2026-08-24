@@ -23,9 +23,12 @@
 //!
 //! # Architecture
 //!
-//! The entire UI is a single inline HTML string (`admin/html.rs`) bundled into
-//! the binary via a Rust `const`.  No `npm`, no CDN, no `build.rs`.
-//! Vanilla JS polls the JSON API endpoints every 5 seconds.
+//! The runtime UI asset is exported by `dcc-mcp-gateway-admin`. That crate owns
+//! the trace domain, compact, link,
+//! issue-report, statistics, analytics, governance, artifact, activity, task-outcome,
+//! debug-bundle, postmortem, agent-trace packet, memory-summary, experiment, skill-path, and traffic projections,
+//! Vite/npm build boundary, and embedded asset; this module owns the
+//! gateway-specific data-source/HTTP adapters and API handlers.
 //!
 //! # Module layout (PIP-687 split)
 //!
@@ -33,8 +36,7 @@
 //! admin/
 //! ├── domain/       # pure types, no I/O (trace types)
 //! ├── application/  # orchestration/handler routing
-//! ├── infra/        # SQLite reads, log reads, activity projection, integration config
-//! ├── html.rs       # standalone asset module (feature-gated)
+//! ├── infra/        # SQLite reads, log reads, projection adapters, integration config
 //! └── mod.rs        # re-exports only
 //! ```
 //!
@@ -62,75 +64,21 @@ pub mod domain;
 /// Application layer: handler routing and orchestration.
 pub mod application;
 
-/// Infrastructure layer: SQLite, logs, activity projection, integration config.
+/// Infrastructure layer: SQLite, logs, projection adapters, integration config.
 pub mod infra;
 
-// ── Backward-compat shim modules (content moved to domain/application/infra) ──
+// ── Gateway adapters retained at the admin boundary ───────────────────────
 
 #[cfg(feature = "admin")]
 pub mod activity;
 #[cfg(feature = "admin")]
-pub(crate) mod integrations;
-
 // ── Remaining top-level modules ───────────────────────────────────────────
-
 #[cfg(feature = "admin")]
-mod agent_trace;
-#[cfg(feature = "admin")]
-pub mod analytics;
-#[cfg(feature = "admin")]
-pub mod artifacts;
-#[cfg(feature = "admin")]
-mod compact;
-#[cfg(feature = "admin")]
-mod debug_response;
-#[cfg(feature = "admin")]
-mod events;
-#[cfg(feature = "admin")]
-pub(crate) mod experiments;
-#[cfg(feature = "admin")]
-mod general;
-#[cfg(feature = "admin")]
-pub mod governance;
-#[cfg(feature = "admin")]
-mod html;
-#[cfg(feature = "admin")]
-mod issue_report;
-#[cfg(feature = "admin")]
-mod links;
 #[cfg(all(test, feature = "admin"))]
 mod logs_tests;
-#[cfg(feature = "admin")]
-pub mod marketplace;
-#[cfg(feature = "admin")]
-mod memory;
-#[cfg(feature = "admin")]
-mod recordings;
-#[cfg(feature = "admin")]
-pub mod sessions;
-#[cfg(feature = "admin")]
-mod skill_health;
-#[cfg(feature = "admin")]
-mod skill_paths;
-#[cfg(feature = "admin")]
-pub mod skill_reload;
 pub mod sqlite_lane;
 pub mod state;
-pub mod stats;
 pub mod trace;
-mod trace_log;
-#[cfg(feature = "admin")]
-mod traffic;
-#[cfg(feature = "admin")]
-mod update;
-#[cfg(feature = "admin")]
-mod wecom_response;
-#[cfg(feature = "admin")]
-mod wecom_url;
-#[cfg(feature = "admin")]
-pub mod workers;
-#[cfg(feature = "admin")]
-pub mod workflows;
 
 #[cfg(all(test, feature = "admin"))]
 mod analytics_tests;
@@ -139,15 +87,12 @@ mod basic_endpoint_tests;
 #[cfg(all(test, feature = "admin-persist-sqlite"))]
 mod experiments_tests;
 #[cfg(feature = "admin")]
-mod handlers;
 #[cfg(all(test, feature = "admin"))]
 mod instance_update_tests;
 #[cfg(all(test, feature = "admin"))]
 mod integration_tests;
 #[cfg(all(test, feature = "admin-persist-sqlite"))]
 mod recordings_tests;
-#[cfg(feature = "admin")]
-mod router;
 #[cfg(all(test, feature = "admin"))]
 mod skill_paths_tests;
 #[cfg(all(test, feature = "admin"))]
@@ -160,25 +105,32 @@ mod workflows_tests;
 // ── Backward-compatible re-exports ────────────────────────────────────────
 
 // DB helpers.
+#[cfg(feature = "admin")]
+pub(crate) use application::experiments;
+#[cfg(feature = "admin")]
+pub use application::{
+    analytics, artifacts, governance, marketplace, sessions, skill_reload, workers, workflows,
+};
 pub use dcc_mcp_db::{
     default_gateway_admin_sqlite_path as default_admin_db_path,
     resolve_gateway_admin_sqlite_path as resolve_admin_db_path,
 };
-pub use sqlite_lane::{AdminSqliteLane, AdminSqliteReader, read_custom_skill_paths_for_startup};
-pub use state::{AdminAuditRecord, AdminAuditSink, AdminState, AuditLog, DurableAuditStore};
-pub use stats::{
-    GatewayStats, LatencyStats, StatsAggregator, StatsFilter, StatsRange, StatsStatus, TopEntry,
+pub use infra::stats;
+pub use infra::{
+    AdminAuditSink, GatewayStats, LatencyStats, StatsAggregator, StatsFilter, StatsRange,
+    StatsStatus, TopEntry,
 };
-
+pub use sqlite_lane::{AdminSqliteLane, AdminSqliteReader, read_custom_skill_paths_for_startup};
+pub use state::{AdminAuditRecord, AdminState, AuditLog, DurableAuditStore};
 pub use trace::{DispatchTrace, TraceContext, TraceLog, TracePayload, TraceSpan};
 
 #[cfg(feature = "admin")]
-pub use workers::build_workers_payload;
+pub use application::workers::build_workers_payload;
 #[cfg(feature = "admin")]
-pub use workflows::{WorkflowDiscoverySummary, WorkflowStep, WorkflowView};
+pub use application::workflows::{WorkflowDiscoverySummary, WorkflowStep, WorkflowView};
 
 #[cfg(feature = "admin")]
-pub use router::{build_admin_router, build_v1_debug_router};
+pub use application::router::{build_admin_router, build_v1_debug_router};
 
 #[cfg(all(test, feature = "admin"))]
 mod marketplace_tests;
@@ -186,3 +138,5 @@ mod marketplace_tests;
 mod raw_proxy_lease_tests;
 #[cfg(all(test, feature = "admin"))]
 mod tests;
+#[cfg(all(test, feature = "admin"))]
+mod ui_control_dispatch_tests;

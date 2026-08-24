@@ -90,9 +90,7 @@ class Watchdog:
             return None
         key = (tid, op_name)
         thread_name = name_by_ident.get(tid, f"tid-{tid}")
-        if age >= self._config.auto_dump_seconds and self._should_fire(
-            self._last_dumped, key, now
-        ):
+        if age >= self._config.auto_dump_seconds and self._should_fire(self._last_dumped, key, now):
             self._last_dumped[key] = now
             self._last_warned[key] = now
             return self._auto_dump_verdict(thread_name, op_name, age)
@@ -101,9 +99,7 @@ class Watchdog:
             return self._stuck_verdict(thread_name, op_name, kwargs, age)
         return None
 
-    def _stuck_verdict(
-        self, thread_name: str, op_name: str, kwargs: dict, age: float
-    ) -> Verdict:
+    def _stuck_verdict(self, thread_name: str, op_name: str, kwargs: dict, age: float) -> Verdict:
         frame = format_op_frame(op_name, kwargs, age)
         return Verdict(
             logging.WARNING,
@@ -121,12 +117,7 @@ class Watchdog:
         try:
             sample = self._memory_tracker.sample()
         except Exception as exc:
-            return [
-                Verdict(
-                    logging.WARNING,
-                    f"{DIAG_LOG_PREFIX}.watchdog.sample_error err={exc!r}",
-                )
-            ]
+            return [Verdict(logging.WARNING, f"{DIAG_LOG_PREFIX}.watchdog.sample_error err={exc!r}")]
         return [
             verdict
             for verdict in (
@@ -157,9 +148,7 @@ class Watchdog:
         if not self._should_fire_pressure("events.high", now):
             return None
         self._last_pressure_dumped["events.high"] = now
-        return self._pressure_verdict(
-            f"memory-pressure-cgroup-high:delta={current - previous}", sample
-        )
+        return self._pressure_verdict(f"memory-pressure-cgroup-high:delta={current - previous}", sample)
 
     def _events_oom_verdict(self, sample: MemorySample, now: float) -> Verdict | None:
         current = sample.cgroup_events_oom
@@ -172,9 +161,7 @@ class Watchdog:
         if not self._should_fire_pressure("events.oom", now):
             return None
         self._last_pressure_dumped["events.oom"] = now
-        return self._pressure_verdict(
-            f"memory-pressure-cgroup-oom:delta={current - previous}", sample
-        )
+        return self._pressure_verdict(f"memory-pressure-cgroup-oom:delta={current - previous}", sample)
 
     def _pressure_verdict(self, reason: str, sample: MemorySample) -> Verdict:
         message = (
@@ -184,17 +171,10 @@ class Watchdog:
         )
         return Verdict(logging.WARNING, message, dump_reason=reason)
 
-    def _should_fire(
-        self, last_map: dict[tuple[int, str], float], key: tuple[int, str], now: float
-    ) -> bool:
+    def _should_fire(self, last_map: dict[tuple[int, str], float], key: tuple[int, str], now: float) -> bool:
         previous = last_map.get(key)
-        return (
-            previous is None or (now - previous) >= self._config.redump_throttle_seconds
-        )
+        return previous is None or (now - previous) >= self._config.redump_throttle_seconds
 
     def _should_fire_pressure(self, key: str, now: float) -> bool:
         previous = self._last_pressure_dumped.get(key)
-        return (
-            previous is None
-            or (now - previous) >= self._config.pressure_dump_throttle_seconds
-        )
+        return previous is None or (now - previous) >= self._config.pressure_dump_throttle_seconds

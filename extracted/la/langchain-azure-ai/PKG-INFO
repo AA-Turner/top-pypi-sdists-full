@@ -1,8 +1,18 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.2.8
+Version: 1.2.9
 Summary: An integration package to support Microsoft Foundry (formerly Azure AI) capabilities in LangChain/LangGraph ecosystem.
+Keywords: azure,langchain,langgraph,llm,ai,microsoft,foundry,agent,hosted agent
 License-Expression: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: aiohttp~=3.14
 Requires-Dist: azure-ai-contentunderstanding>=1.2.0b2,<2.0.0
 Requires-Dist: azure-ai-projects>=2.2.0,<3.0
@@ -16,9 +26,9 @@ Requires-Dist: langgraph>=1.1.1,<3.0
 Requires-Dist: numpy>=1.26.2 ; python_full_version < '3.13'
 Requires-Dist: numpy>=2.1.0 ; python_full_version >= '3.13'
 Requires-Dist: six>=1.17.0,<2.0.0
-Requires-Dist: azure-ai-agentserver-core>=2.0.0b7,<3.0 ; extra == 'hosting'
-Requires-Dist: azure-ai-agentserver-invocations>=1.0.0b6,<2.0 ; extra == 'hosting'
-Requires-Dist: azure-ai-agentserver-responses>=1.0.0b8,<2.0 ; extra == 'hosting'
+Requires-Dist: azure-ai-agentserver-core>=2.1.0b2,<3.0 ; extra == 'hosting'
+Requires-Dist: azure-ai-agentserver-invocations>=1.1.0b1,<2.0 ; extra == 'hosting'
+Requires-Dist: azure-ai-agentserver-responses>=2.1.0b2,<3.0 ; extra == 'hosting'
 Requires-Dist: starlette>=1.3.1 ; extra == 'hosting'
 Requires-Dist: azure-monitor-opentelemetry~=1.8 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-api>=1.37 ; extra == 'opentelemetry'
@@ -35,7 +45,7 @@ Requires-Dist: azure-mgmt-logic>=10.0.0,<11.0.0 ; extra == 'tools'
 Requires-Dist: filetype>=1.2,<2 ; extra == 'tools'
 Requires-Dist: azure-ai-agents==1.2.0b6 ; extra == 'v1'
 Requires-Dist: azure-ai-inference>=1.0.0b9,<2.0 ; extra == 'v1'
-Requires-Python: >=3.10.0, <4.0
+Requires-Python: ~=3.10
 Project-URL: repository, https://github.com/langchain-ai/langchain-azure
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
@@ -67,7 +77,8 @@ For using tracing capabilities with OpenTelemetry, you need to add the extras `o
 pip install -U langchain-azure-ai[opentelemetry]
 ```
 
-For hosting LangGraph agents on Microsoft Foundry with the Responses or Invocations protocols, install the `hosting` extra:
+For hosting LangGraph agents with the Responses protocol, install the
+`hosting` extra:
 
 ```bash
 pip install -U langchain-azure-ai[hosting]
@@ -189,7 +200,9 @@ You're not a genius and you don't love programming!
 
 ### Hosting LangGraph agents on Microsoft Foundry
 
-Install the hosting extra to expose a compiled LangGraph graph through Foundry-compatible protocols:
+For a Responses API host, install the hosting extra. It includes
+the Agent Server version that uses a local file-backed ``FoundryStateStore``
+outside Foundry hosting:
 
 ```bash
 pip install -U langchain-azure-ai[hosting]
@@ -206,14 +219,78 @@ if __name__ == "__main__":
 
 `ResponsesHostServer` serves the OpenAI Responses-style `/responses` endpoint. `InvocationsHostServer` serves the generic `/invocations` endpoint for applications that want to define their own JSON request and response shape.
 
+Both hosts accept `ResponsesServerOptions`. For the Invocations host,
+`resilient_background=True` enables durable background turns and
+`steerable_conversations=True` lets a new turn supersede an active turn in the
+same `agent_session_id`:
+
+```python
+from langchain_azure_ai.agents.hosting import (
+  InvocationsHostServer,
+  ResponsesServerOptions,
+)
+
+graph = build_my_checkpointed_graph()
+server = InvocationsHostServer(
+  graph,
+  options=ResponsesServerOptions(
+    resilient_background=True,
+    steerable_conversations=True,
+  ),
+)
+```
+
+Set `"background": true` in the request body to receive a `202` invocation
+envelope. Poll `GET /invocations/{invocation_id}` for the final `response`, or
+cancel it with `POST /invocations/{invocation_id}/cancel`. Background streaming
+is not supported. Active invocation status does not expire; terminal invocation
+results remain retrievable for 30 days. Resilient background execution requires
+a LangGraph checkpointer; use a durable checkpointer for hosted production deployments.
+Callers can also send `previous_invocation_id` to enforce linear extension of a
+session chain.
+
+When a checkpointed graph calls `interrupt()`, the Invocations host adds an
+`output` array containing the same paired `function_call` and
+`mcp_approval_request` items as `ResponsesHostServer`. Resume the graph by
+sending a matching `function_call_output` or `mcp_approval_response` item as
+the next request's `message` list. Streaming requests emit these as
+`output_item` SSE events. Existing string `message` requests and responses
+without pending interrupts keep their original shape.
+
 The Responses host uses one conversation-state source per graph. The policy depends on whether the hosted graph has a LangGraph checkpointer:
 
 | Graph configuration | Conversation source | Graph input on later turns |
 |---|---|---|
-| Graph compiled with a checkpointer | LangGraph checkpoint state keyed by the conversation/thread id | Current request input only |
+| Graph compiled with a checkpointer | LangGraph checkpoint state keyed by the conversation/thread ID and, when available, the platform-provided user partition key | Current request input only |
 | Graph without a checkpointer | Responses transcript history from the underlying response provider | Prior Responses history plus current input |
 
+Checkpointed multi-turn conversations must use an explicit `conversation.id`
+or run with `steerable_conversations=True`. Both modes are linear and preserve
+the latest LangGraph checkpoint through Agent Server's public
+`conversation_chain_metadata` API. Forking with only `previous_response_id`
+when steering is disabled is not supported for checkpointed graphs.
+
 The Responses transcript provider is selected by the underlying `azure-ai-agentserver-responses` runtime. Local runs and tests use an in-memory provider by default. Foundry-hosted containers use the Foundry-backed storage provider when the platform environment variables are present. This transcript store is separate from the LangGraph checkpointer, which stores graph runtime state.
+
+Use `FoundryCheckpointSaver` to keep LangGraph runtime state in Foundry's
+durable state store:
+
+```python
+from langchain_azure_ai.agents.hosting import (
+  FoundryCheckpointSaver,
+  ResponsesHostServer,
+)
+
+
+async def main() -> None:
+  async with FoundryCheckpointSaver() as checkpointer:
+    graph = builder.compile(checkpointer=checkpointer)
+    await ResponsesHostServer(graph).run_async()
+```
+
+`FoundryCheckpointSaver` is intended for a Foundry-hosted agent using container
+protocol `2.0.0`, which supplies the request context required by the state-store
+API. Use an in-memory or database-backed LangGraph saver for local development.
 
 
 ### Auto tracing to Azure Application Insights

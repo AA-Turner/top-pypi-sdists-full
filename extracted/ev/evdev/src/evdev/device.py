@@ -1,15 +1,15 @@
 import contextlib
 import os
-from typing import Dict, Generic, Iterator, List, Literal, NamedTuple, Tuple, TypeVar, Union, overload
+from typing import Generic, Iterator, Literal, NamedTuple, AnyStr, overload
 
-from . import _input, ecodes, util
+from . import _input, ecodes, ff, util
 
 try:
     from .eventio_async import EvdevError, EventIO
 except ImportError:
     from .eventio import EvdevError, EventIO
 
-_AnyStr = TypeVar("_AnyStr", str, bytes)
+PathLike = AnyStr | os.PathLike[AnyStr]
 
 
 class AbsInfo(NamedTuple):
@@ -58,7 +58,7 @@ class AbsInfo(NamedTuple):
     flat: int
     resolution: int
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "value {}, min {}, max {}, fuzz {}, flat {}, res {}".format(*self)  # pylint: disable=not-an-iterable
 
 
@@ -78,7 +78,7 @@ class KbdInfo(NamedTuple):
     delay: int
     repeat: int
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "delay {}, repeat {}".format(self.delay, self.repeat)
 
 
@@ -102,26 +102,31 @@ class DeviceInfo(NamedTuple):
         return msg.format(*self)  # pylint: disable=not-an-iterable
 
 
-class InputDevice(EventIO, Generic[_AnyStr]):
+class InputDevice(EventIO, Generic[AnyStr]):
     """
     A linux input device from which input events can be read.
     """
 
     __slots__ = ("path", "fd", "info", "name", "phys", "uniq", "_rawcapabilities", "version", "ff_effects_count")
 
-    def __init__(self, dev: Union[_AnyStr, "os.PathLike[_AnyStr]"]):
+    def __init__(self, dev: PathLike, readonly: bool = False):
         """
         Arguments
         ---------
-        dev : str|bytes|PathLike
+        dev :
           Path to input device
+        readonly : bool
+          Open in read-only mode (``O_RDONLY``) without attempting ``O_RDWR`` first.
         """
 
         #: Path to input device.
-        self.path: _AnyStr = dev if not hasattr(dev, "__fspath__") else dev.__fspath__()
+        self.path: str | bytes = dev if not hasattr(dev, "__fspath__") else dev.__fspath__()
 
-        # Certain operations are possible only when the device is opened in read-write mode.
         try:
+            # Certain operations are possible only when the device is opened in read-write mode.
+            # This avoids triggering firmware side-effects (such as LED state re-assertion) on certain hardware.
+            if readonly:
+                raise OSError
             fd = os.open(dev, os.O_RDWR | os.O_NONBLOCK)
         except OSError:
             fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
@@ -133,7 +138,7 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         info_res = _input.ioctl_devinfo(self.fd)
 
         #: A :class:`DeviceInfo <evdev.device.DeviceInfo>` instance.
-        self.info = DeviceInfo(*info_res[:4])
+        self.info: DeviceInfo = DeviceInfo(*info_res[:4])
 
         #: The name of the event device.
         self.name: str = info_res[4]
@@ -179,21 +184,23 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         return res
 
     @overload
-    def capabilities(self, verbose: Literal[False] = ..., absinfo: bool = ...) -> Dict[int, List[int]]:
+    def capabilities(self, verbose: Literal[False] = ..., absinfo: bool = ...) -> dict[int, list[int]]:
         ...
     @overload
-    def capabilities(self, verbose: Literal[True], absinfo: bool = ...) -> Dict[Tuple[str, int], List[Tuple[str, int]]]:
+    def capabilities(self, verbose: Literal[True], absinfo: bool = ...) -> dict[tuple[str, int], list[tuple[str, int]]]:
         ...
-    def capabilities(self, verbose: bool = False, absinfo: bool = True) -> Union[Dict[int, List[int]], Dict[Tuple[str, int], List[Tuple[str, int]]]]:
+    def capabilities(
+        self, verbose: bool = False, absinfo: bool = True
+    ) -> dict[int, list[int]] | dict[tuple[str, int], list[tuple[str, int]]]:
         """
         Return the event types that this device supports as a mapping of
         supported event types to lists of handled event codes.
 
         Example
         --------
+
         >>> device.capabilities()
-        { 1: [272, 273, 274],
-          2: [0, 1, 6, 8] }
+        { 1: [272, 273, 274], 2: [0, 1, 6, 8] }
 
         If ``verbose`` is ``True``, event codes and types will be resolved
         to their names.
@@ -281,7 +288,7 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         """
         self.write(ecodes.EV_LED, led_num, value)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """
         Two devices are equal if their :data:`info` attributes are equal.
         """
@@ -295,7 +302,7 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         msg = (self.__class__.__name__, self.path)
         return "{}({!r})".format(*msg)
 
-    def __fspath__(self):
+    def __fspath__(self) -> AnyStr:
         return self.path
 
     def close(self) -> None:
@@ -341,16 +348,19 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         yield
         self.ungrab()
 
-    def upload_effect(self, effect: "ff.Effect"):
+    def upload_effect(self, effect: "ff.Effect", writeback_id: bool = True) -> int:
         """
-        Upload a force feedback effect to a force feedback device.
+        Upload a force feedback effect to a force feedback device and return its effect id.
+        If ``writeback_id`` is ``True``, the effect id is written back to the ``effect`` struct.
         """
 
         data = memoryview(effect).tobytes()
         ff_id = _input.upload_effect(self.fd, data)
+        if writeback_id:
+            effect.id = ff_id
         return ff_id
 
-    def erase_effect(self, ff_id) -> None:
+    def erase_effect(self, ff_id: int) -> None:
         """
         Erase a force effect from a force feedback device. This also
         stops the effect.
@@ -368,7 +378,7 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         return KbdInfo(*_input.ioctl_EVIOCGREP(self.fd))
 
     @repeat.setter
-    def repeat(self, value: Tuple[int, int]):
+    def repeat(self, value: tuple[int, int]):
         return _input.ioctl_EVIOCSREP(self.fd, *value)
 
     def active_keys(self, verbose: bool = False):
@@ -410,7 +420,16 @@ class InputDevice(EventIO, Generic[_AnyStr]):
         """
         return AbsInfo(*_input.ioctl_EVIOCGABS(self.fd, axis_num))
 
-    def set_absinfo(self, axis_num: int, value=None, min=None, max=None, fuzz=None, flat=None, resolution=None) -> None:
+    def set_absinfo(
+        self,
+        axis_num: int,
+        value: int | None = None,
+        min: int | None = None,
+        max: int | None = None,
+        fuzz: int | None = None,
+        flat: int | None = None,
+        resolution: int | None = None,
+    ) -> None:
         """
         Update :class:`AbsInfo` values. Only specified values will be overwritten.
 

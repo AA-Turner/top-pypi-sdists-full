@@ -1,7 +1,7 @@
 {
-"url": "https://files.pythonhosted.org/packages/8a/e6/d89316bd4052363071689cf804bc2b049c11b8ff96df0a4f3474a149fedd/apache_airflow_providers_apache_iceberg-2.0.3.tar.gz",
-"filename": "apache_airflow_providers_apache_iceberg-2.0.3.tar.gz",
-"upload_time": "2026-06-07T09:43:35.920181Z",
+"url": "https://files.pythonhosted.org/packages/df/f7/17fbf305ab4bf9d1dd2f3c730284fab91d7fc00481af1b33f038ccec8df9/apache_airflow_providers_apache_iceberg-2.1.0.tar.gz",
+"filename": "apache_airflow_providers_apache_iceberg-2.1.0.tar.gz",
+"upload_time": "2026-08-23T20:08:25.473530Z",
 "download_count": 1611773,
 "rank": 3718
 }

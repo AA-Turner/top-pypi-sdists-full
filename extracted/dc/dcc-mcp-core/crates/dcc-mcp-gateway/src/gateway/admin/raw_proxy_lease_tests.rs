@@ -17,10 +17,12 @@ use crate::gateway::state::GatewayState;
 
 fn make_gateway_state() -> GatewayState {
     let dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
     let (yield_tx, _) = watch::channel(false);
     let (events_tx, _) = broadcast::channel::<String>(8);
     GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -80,6 +82,7 @@ fn make_gateway_state() -> GatewayState {
 fn make_service_entry(port: u16) -> ServiceEntry {
     let now = SystemTime::now();
     ServiceEntry {
+        schema_version: dcc_mcp_transport::SERVICE_ENTRY_SCHEMA_VERSION,
         dcc_type: "maya".into(),
         instance_id: uuid::Uuid::new_v4(),
         host: "127.0.0.1".into(),
@@ -172,7 +175,7 @@ async fn raw_mcp_proxy_enforces_active_lease_owner_before_dispatch() {
         Some(SystemTime::now() + Duration::from_secs(60)),
     );
     let instance_id = entry.instance_id;
-    state.registry.write().await.register(entry).unwrap();
+    state.registry.register(entry).unwrap();
     let router = build_gateway_router_with_admin(state, None, "/admin");
     let exact_uri = format!("/mcp/{instance_id}");
 

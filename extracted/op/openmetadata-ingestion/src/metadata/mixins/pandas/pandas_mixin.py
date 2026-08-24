@@ -13,7 +13,8 @@
 Interfaces with database for all database engine
 supporting sqlalchemy abstraction layer
 """
-from typing import Callable, cast
+
+from typing import Callable, cast  # noqa: UP035
 
 from metadata.data_quality.validations.table.pandas.tableRowInsertedCountToBeBetween import (
     TableRowInsertedCountToBeBetweenValidator,
@@ -30,6 +31,7 @@ from metadata.utils.datalake.datalake_utils import (
     DatalakeColumnWrapper,
     fetch_dataframe_generator,
 )
+from metadata.utils.helpers import is_safe_pandas_query
 from metadata.utils.logger import test_suite_logger
 
 logger = test_suite_logger()
@@ -51,9 +53,7 @@ class PandasInterfaceMixin:
             complex_col_name = ".".join(column_name.split(COMPLEX_COLUMN_SEPARATOR)[1:])
         return complex_col_name or column_name
 
-    def get_partitioned_df(
-        self, partition_details: PartitionProfilerConfig, raw_dataset: Callable
-    ) -> Callable:
+    def get_partitioned_df(self, partition_details: PartitionProfilerConfig, raw_dataset: Callable) -> Callable:
         """Get partitioned dataframe
 
         Args:
@@ -65,20 +65,14 @@ class PandasInterfaceMixin:
 
         def yield_df_partitions():
             dfs = raw_dataset
-            if (
-                self.table_partition_config.partitionIntervalType
-                == PartitionIntervalTypes.COLUMN_VALUE
-            ):
+            if self.table_partition_config.partitionIntervalType == PartitionIntervalTypes.COLUMN_VALUE:
                 for df in dfs():
                     yield df[
                         df[self.table_partition_config.partitionColumnName].isin(
                             self.table_partition_config.partitionValues
                         )
                     ]
-            elif (
-                self.table_partition_config.partitionIntervalType
-                == PartitionIntervalTypes.INTEGER_RANGE
-            ):
+            elif self.table_partition_config.partitionIntervalType == PartitionIntervalTypes.INTEGER_RANGE:
                 for df in dfs():
                     yield df[
                         df[self.table_partition_config.partitionColumnName].between(
@@ -114,12 +108,10 @@ class PandasInterfaceMixin:
                 )
                 yield from dfs()
 
-        self.table_partition_config = cast(PartitionProfilerConfig, partition_details)
+        self.table_partition_config = cast(PartitionProfilerConfig, partition_details)  # noqa: TC006
         return yield_df_partitions
 
-    def get_sampled_query_dataframe(
-        self, sample_query: str | None, raw_dataset: Callable
-    ) -> Callable:
+    def get_sampled_query_dataframe(self, sample_query: str | None, raw_dataset: Callable) -> Callable:
         """Get sampled dataframe based on user query
 
         Args:
@@ -128,6 +120,8 @@ class PandasInterfaceMixin:
         Returns:
             Generator of sampled dataframes
         """
+        if not is_safe_pandas_query(sample_query):
+            raise RuntimeError(f"Unsafe sample query expression\n\n{sample_query}")
 
         def yield_sampled_dfs():
             dfs = raw_dataset
@@ -136,9 +130,7 @@ class PandasInterfaceMixin:
 
         return yield_sampled_dfs
 
-    def get_sampled_dataframe(
-        self, raw_dataset: Callable, static: StaticSamplingConfig
-    ) -> Callable:
+    def get_sampled_dataframe(self, raw_dataset: Callable, static: StaticSamplingConfig) -> Callable:
         """Get sampled dataframe based on profiler config
 
         Returns:
@@ -157,9 +149,7 @@ class PandasInterfaceMixin:
                     for df in dfs():
                         yield df.sample(frac=percentage / 100)
                 except Exception as exc:
-                    logger.error(
-                        f"Error sampling dataframes based on percentage {static.profileSample}: {exc}"
-                    )
+                    logger.error(f"Error sampling dataframes based on percentage {static.profileSample}: {exc}")
             elif static and static.profileSampleType == ProfileSampleType.ROWS:
                 try:
                     rows = static.profileSample or 0
@@ -167,26 +157,20 @@ class PandasInterfaceMixin:
                     for df in dfs():
                         n = len(df)
                         if streamed_rows + n > rows:
-                            df = df.head(rows - streamed_rows)
+                            df = df.head(rows - streamed_rows)  # noqa: PLW2901
                         yield df
                         streamed_rows += len(df)
                         if streamed_rows >= rows:
                             break
                 except Exception as exc:
-                    logger.error(
-                        f"Error sampling dataframes based on rows {static.profileSample}: {exc}"
-                    )
+                    logger.error(f"Error sampling dataframes based on rows {static.profileSample}: {exc}")
             else:
-                logger.warning(
-                    "Sample type not recognized. Returning un-sampled dataframes."
-                )
+                logger.warning("Sample type not recognized. Returning un-sampled dataframes.")
                 yield from dfs()
 
         return yield_sampled_dfs
 
-    def get_dataframes(
-        self, service_connection_config, client, table
-    ) -> DatalakeColumnWrapper:
+    def get_dataframes(self, service_connection_config, client, table) -> DatalakeColumnWrapper:
         """
         Return the datalake column wrapper. The object has a dataframes argument which gives access
         to the generator to iterate over the dataframes. The generator will be re create at each call of

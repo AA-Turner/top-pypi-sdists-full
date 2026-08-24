@@ -46,6 +46,390 @@ class OrganizationAuditApi:
 
 
     @validate_call
+    def export_audit_logs_organizations(
+        self,
+        resource_type: Annotated[Optional[ResourceTypeInput], Field(description="Filter by resource type")] = None,
+        resource_id: Annotated[Optional[StrictStr], Field(description="Filter by resource ID")] = None,
+        actor_id: Annotated[Optional[StrictStr], Field(description="Filter by actor ID")] = None,
+        action: Annotated[Optional[AuditAction], Field(description="Filter by action")] = None,
+        start: Annotated[Optional[StrictStr], Field(description="ISO8601 start timestamp")] = None,
+        end: Annotated[Optional[StrictStr], Field(description="ISO8601 end timestamp")] = None,
+        max_events: Annotated[Optional[Annotated[int, Field(le=200000, strict=True, ge=1)]], Field(description="Hard cap on exported events")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> str:
+        """Export Audit Logs
+
+        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+
+        :param resource_type: Filter by resource type
+        :type resource_type: ResourceTypeInput
+        :param resource_id: Filter by resource ID
+        :type resource_id: str
+        :param actor_id: Filter by actor ID
+        :type actor_id: str
+        :param action: Filter by action
+        :type action: AuditAction
+        :param start: ISO8601 start timestamp
+        :type start: str
+        :param end: ISO8601 end timestamp
+        :type end: str
+        :param max_events: Hard cap on exported events
+        :type max_events: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._export_audit_logs_organizations_serialize(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            actor_id=actor_id,
+            action=action,
+            start=start,
+            end=end,
+            max_events=max_events,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def export_audit_logs_organizations_with_http_info(
+        self,
+        resource_type: Annotated[Optional[ResourceTypeInput], Field(description="Filter by resource type")] = None,
+        resource_id: Annotated[Optional[StrictStr], Field(description="Filter by resource ID")] = None,
+        actor_id: Annotated[Optional[StrictStr], Field(description="Filter by actor ID")] = None,
+        action: Annotated[Optional[AuditAction], Field(description="Filter by action")] = None,
+        start: Annotated[Optional[StrictStr], Field(description="ISO8601 start timestamp")] = None,
+        end: Annotated[Optional[StrictStr], Field(description="ISO8601 end timestamp")] = None,
+        max_events: Annotated[Optional[Annotated[int, Field(le=200000, strict=True, ge=1)]], Field(description="Hard cap on exported events")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[str]:
+        """Export Audit Logs
+
+        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+
+        :param resource_type: Filter by resource type
+        :type resource_type: ResourceTypeInput
+        :param resource_id: Filter by resource ID
+        :type resource_id: str
+        :param actor_id: Filter by actor ID
+        :type actor_id: str
+        :param action: Filter by action
+        :type action: AuditAction
+        :param start: ISO8601 start timestamp
+        :type start: str
+        :param end: ISO8601 end timestamp
+        :type end: str
+        :param max_events: Hard cap on exported events
+        :type max_events: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._export_audit_logs_organizations_serialize(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            actor_id=actor_id,
+            action=action,
+            start=start,
+            end=end,
+            max_events=max_events,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def export_audit_logs_organizations_without_preload_content(
+        self,
+        resource_type: Annotated[Optional[ResourceTypeInput], Field(description="Filter by resource type")] = None,
+        resource_id: Annotated[Optional[StrictStr], Field(description="Filter by resource ID")] = None,
+        actor_id: Annotated[Optional[StrictStr], Field(description="Filter by actor ID")] = None,
+        action: Annotated[Optional[AuditAction], Field(description="Filter by action")] = None,
+        start: Annotated[Optional[StrictStr], Field(description="ISO8601 start timestamp")] = None,
+        end: Annotated[Optional[StrictStr], Field(description="ISO8601 end timestamp")] = None,
+        max_events: Annotated[Optional[Annotated[int, Field(le=200000, strict=True, ge=1)]], Field(description="Hard cap on exported events")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Export Audit Logs
+
+        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+
+        :param resource_type: Filter by resource type
+        :type resource_type: ResourceTypeInput
+        :param resource_id: Filter by resource ID
+        :type resource_id: str
+        :param actor_id: Filter by actor ID
+        :type actor_id: str
+        :param action: Filter by action
+        :type action: AuditAction
+        :param start: ISO8601 start timestamp
+        :type start: str
+        :param end: ISO8601 end timestamp
+        :type end: str
+        :param max_events: Hard cap on exported events
+        :type max_events: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._export_audit_logs_organizations_serialize(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            actor_id=actor_id,
+            action=action,
+            start=start,
+            end=end,
+            max_events=max_events,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "str",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _export_audit_logs_organizations_serialize(
+        self,
+        resource_type,
+        resource_id,
+        actor_id,
+        action,
+        start,
+        end,
+        max_events,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if resource_type is not None:
+            
+            _query_params.append(('resource_type', resource_type.value))
+            
+        if resource_id is not None:
+            
+            _query_params.append(('resource_id', resource_id))
+            
+        if actor_id is not None:
+            
+            _query_params.append(('actor_id', actor_id))
+            
+        if action is not None:
+            
+            _query_params.append(('action', action.value))
+            
+        if start is not None:
+            
+            _query_params.append(('start', start))
+            
+        if end is not None:
+            
+            _query_params.append(('end', end))
+            
+        if max_events is not None:
+            
+            _query_params.append(('max_events', max_events))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/x-ndjson', 
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/v1/organizations/audit/logs/export',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_audit_log_organizations(
         self,
         audit_id: StrictStr,

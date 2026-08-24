@@ -15,6 +15,7 @@ use crate::gateway::http_registration::HttpInstanceRegistry;
 use crate::gateway::mdns_registration::MdnsInstanceRegistry;
 use crate::gateway::middleware::MiddlewareChain;
 use crate::gateway::relay_registration::RelayInstanceRegistry;
+use crate::gateway::resilience::GatewayResilienceState;
 use dcc_mcp_gateway_core::PendingCall;
 use dcc_mcp_transport::discovery::file_registry::FileRegistry;
 use dcc_mcp_transport::discovery::types::{GATEWAY_SENTINEL_DCC_TYPE, ServiceEntry, ServiceStatus};
@@ -36,7 +37,7 @@ const ROLE_PER_DCC_SIDECAR: &str = "per-dcc-sidecar";
 #[derive(Clone, Copy)]
 pub struct DiscoveryState<'a> {
     /// Shared read/write handle on the file-backed service registry.
-    pub registry: &'a Arc<RwLock<FileRegistry>>,
+    pub registry: &'a Arc<FileRegistry>,
     /// Shared in-memory registration source for remote HTTP-registered rows.
     pub http_instance_registry: &'a Arc<parking_lot::RwLock<HttpInstanceRegistry>>,
     /// Shared in-memory source for LAN mDNS-discovered rows.
@@ -57,13 +58,15 @@ pub struct DiscoveryState<'a> {
 
 /// Routing / dispatch view over gateway state (issue #839).
 ///
-/// Covers the per-call plumbing: outgoing HTTP, per-backend timeouts, and the
-/// in-flight pending-call table used so `notifications/cancelled` can reach
-/// the correct backend (issue #321 / #314).
+/// Covers the per-call plumbing: outgoing HTTP, per-backend timeouts, retry
+/// and circuit policy, and the in-flight pending-call table used so
+/// `notifications/cancelled` can reach the correct backend (issue #321 / #314).
 #[derive(Clone, Copy)]
 pub struct RoutingState<'a> {
     /// Shared reqwest client reused across all backend calls.
     pub http_client: &'a reqwest::Client,
+    /// Instance-owned retry policy and circuit-breaker observations.
+    pub resilience: &'a Arc<GatewayResilienceState>,
     /// Per-backend request timeout for gateway fan-out calls (issue #314).
     pub backend_timeout: Duration,
     /// Longer timeout applied when the outbound `tools/call` is async-opt-in
@@ -125,7 +128,14 @@ pub struct ServerState<'a> {
 impl<'a> DiscoveryState<'a> {
     /// See [`GatewayState::live_instances`].
     pub fn live_instances(&self, registry: &FileRegistry) -> Vec<ServiceEntry> {
-        let file_entries = registry.list_all();
+        self.live_instances_from(registry.list_all())
+    }
+
+    pub async fn live_instances_async(&self) -> Vec<ServiceEntry> {
+        self.live_instances_from(self.registry.list_all_async().await.unwrap_or_default())
+    }
+
+    fn live_instances_from(&self, file_entries: Vec<ServiceEntry>) -> Vec<ServiceEntry> {
         let filtered: Vec<ServiceEntry> = file_entries
             .iter()
             .filter(|e| {
@@ -149,7 +159,14 @@ impl<'a> DiscoveryState<'a> {
 
     /// See [`GatewayState::all_instances`].
     pub fn all_instances(&self, registry: &FileRegistry) -> Vec<ServiceEntry> {
-        let file_entries = registry.list_all();
+        self.all_instances_from(registry.list_all())
+    }
+
+    pub async fn all_instances_async(&self) -> Vec<ServiceEntry> {
+        self.all_instances_from(self.registry.list_all_async().await.unwrap_or_default())
+    }
+
+    fn all_instances_from(&self, file_entries: Vec<ServiceEntry>) -> Vec<ServiceEntry> {
         let filtered = file_entries
             .iter()
             .filter(|e| {
@@ -175,6 +192,24 @@ impl<'a> DiscoveryState<'a> {
             })
             .collect();
         let file_entries = registry.list_all();
+        Ok((
+            self.merge_remote_entries(filtered, &file_entries, true),
+            evicted,
+        ))
+    }
+
+    pub async fn read_alive_instances_async(
+        &self,
+    ) -> dcc_mcp_transport::TransportResult<(Vec<ServiceEntry>, usize)> {
+        let (raw, evicted) = self.registry.read_alive_async().await?;
+        let file_entries = raw.clone();
+        let filtered = raw
+            .into_iter()
+            .filter(|e| {
+                e.dcc_type != GATEWAY_SENTINEL_DCC_TYPE
+                    && !crate::gateway::is_own_instance(e, self.own_host, self.own_port)
+            })
+            .collect();
         Ok((
             self.merge_remote_entries(filtered, &file_entries, true),
             evicted,

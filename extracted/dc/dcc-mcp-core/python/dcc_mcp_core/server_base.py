@@ -6,7 +6,7 @@ server lifecycle management. Adapters usually only construct
 ``DccServerOptions`` and optionally override ``_version_string`` or
 ``_upgrade_to_gateway``.
 
-The class delegates to four seam controllers (PIP-688):
+The class delegates to seam controllers and instance-owned runtime components (PIP-688):
 - :class:`~dcc_mcp_core._server.skill_discovery.SkillDiscoveryController`
 - :class:`~dcc_mcp_core._server.execution_bridge.ExecutionBridgeBinder`
 - :class:`~dcc_mcp_core._server.lifecycle_controller.LifecycleController`
@@ -15,6 +15,7 @@ The class delegates to four seam controllers (PIP-688):
 
 from __future__ import annotations
 
+from functools import partial
 import logging
 import sys
 from typing import Any
@@ -34,11 +35,16 @@ from dcc_mcp_core._server import collect_context_metadata_from_env
 from dcc_mcp_core._server import resolve_diagnostics_state
 from dcc_mcp_core._server import resolve_execution_binding
 from dcc_mcp_core._server import resolve_observability_flags
+from dcc_mcp_core._server.diagnostic_state import DiagnosticRuntimeState
 from dcc_mcp_core._server.inprocess_executor import BaseDccCallableDispatcher
 from dcc_mcp_core._server.inprocess_executor import HostExecutionBridge
 from dcc_mcp_core._server.minimal_mode import MinimalModeConfig
 from dcc_mcp_core._server.options import DccServerOptions
 from dcc_mcp_core._server.skill_discovery import SkillDiscoveryController
+from dcc_mcp_core._version_util import package_version
+from dcc_mcp_core.checkpoint import CheckpointStore
+from dcc_mcp_core.feedback import FeedbackStore
+from dcc_mcp_core.script_execution import ScriptExecutionContext
 
 try:
     from dcc_mcp_core import _core
@@ -73,34 +79,16 @@ def create_skill_server(
     return server
 
 
-def _package_version() -> str:
-    try:
-        import dcc_mcp_core
-    except Exception:
-        dcc_mcp_core = None
-
-    if is_core_extension_available() and dcc_mcp_core is not None:
-        core = getattr(dcc_mcp_core, "_core", None)
-        version = getattr(core, "__version__", None)
-        if version is not None:
-            return str(version)
-
-    try:
-        from importlib import metadata as importlib_metadata
-    except ImportError:
-        try:
-            import importlib_metadata  # type: ignore[import-not-found]
-        except ImportError:
-            return _PKG_VERSION
-
-    try:
-        return importlib_metadata.version("dcc-mcp-core")
-    except Exception:
-        return _PKG_VERSION
+_package_version = partial(package_version, fallback=_PKG_VERSION, load_core=True)
 
 
 class DccServerBase:
     """Base MCP server for any DCC application.
+
+    The class-level methods are a compatibility facade. New adapter code should
+    compose through :attr:`skill_discovery`, :attr:`execution`,
+    :attr:`lifecycle`, and :attr:`observability` so new capabilities do not
+    expand the inherited surface.
 
     Pass a :class:`~dcc_mcp_core._server.options.DccServerOptions` instance
     (typically from :meth:`DccServerOptions.from_env`). All generic skill
@@ -139,6 +127,10 @@ class DccServerBase:
         self._dcc_pid: int = diag.dcc_pid
         self._dcc_window_title: str | None = diag.window_title
         self._dcc_window_handle: int | None = diag.window_handle
+        self._diagnostic_state = DiagnosticRuntimeState(options.dcc_name)
+        self._feedback_store = FeedbackStore()
+        self._script_execution_context = ScriptExecutionContext()
+        self._checkpoint_store = CheckpointStore()
 
         # Resolve execution mode from the tagged union
         execution = resolve_execution_binding(options.execution.mode)
@@ -244,6 +236,65 @@ class DccServerBase:
             ctrl = ObservabilityFacade(self)
             self._observability = ctrl
         return ctrl
+
+    @property
+    def skill_discovery(self) -> SkillDiscoveryController:
+        """Return the component that owns skill discovery and registration."""
+        return self._get_skill_discovery()
+
+    @property
+    def execution(self) -> ExecutionBridgeBinder:
+        """Return the component that owns host execution bindings."""
+        return self._get_execution()
+
+    @property
+    def lifecycle(self) -> LifecycleController:
+        """Return the component that owns server and gateway lifecycle."""
+        return self._get_lifecycle_ctrl()
+
+    @property
+    def observability(self) -> ObservabilityFacade:
+        """Return the component that owns resources, telemetry, and host errors."""
+        return self._get_observability()
+
+    def _get_diagnostic_state(self) -> DiagnosticRuntimeState:
+        state = self.__dict__.get("_diagnostic_state")
+        if state is None:
+            state = DiagnosticRuntimeState(self._dcc_name)
+            self._diagnostic_state = state
+        return state
+
+    @property
+    def diagnostic_state(self) -> DiagnosticRuntimeState:
+        """Instance-owned state shared by MCP and IPC diagnostic handlers."""
+        return self._get_diagnostic_state()
+
+    @property
+    def feedback_store(self) -> FeedbackStore:
+        """Instance-owned agent feedback store."""
+        store = self.__dict__.get("_feedback_store")
+        if store is None:
+            store = FeedbackStore()
+            self._feedback_store = store
+        return store
+
+    @property
+    def script_execution_context(self) -> ScriptExecutionContext:
+        """Instance-owned persistent namespace for adapter script tools."""
+        context = self.__dict__.get("_script_execution_context")
+        if context is None:
+            context = ScriptExecutionContext()
+            self._script_execution_context = context
+        return context
+
+    @property
+    def checkpoint_store(self) -> CheckpointStore:
+        """Instance-owned checkpoint store for long-running adapter jobs."""
+        store = self.__dict__.get("_checkpoint_store")
+        if store is None:
+            store = CheckpointStore()
+            self._checkpoint_store = store
+        return store
 
     def _register_builtin_skills(self, options: DccServerOptions) -> None:
         """Register standard built-in skills (diagnostics, introspect, etc)."""
@@ -393,84 +444,6 @@ class DccServerBase:
         # Store report for diagnostics
         self._registration_report = report
         return report
-
-    # ── Builtin registration phases (PIP-689) ───────────────────────────
-
-    def _register_core_builtin_actions(self, context: Any) -> None:
-        """Discover skills via the base-class registration path (phase helper)."""
-        self.register_builtin_actions(
-            extra_skill_paths=context.extra_skill_paths,
-            include_bundled=context.include_bundled,
-            minimal_mode=context.minimal_mode,
-        )
-
-    def _run_strict_skill_scan_phase(self, context: Any) -> None:
-        """Run strict skill validation when enabled (phase helper)."""
-        # Default implementation does nothing; adapters override if they support strict scan.
-        pass
-
-    def _register_metadata_driven_tools(self, context: Any) -> None:
-        """Register ``recipes__*`` and ``skill_refs__*`` (phase helper)."""
-        try:
-            from dcc_mcp_core.metadata_registration import register_metadata_driven_tools
-        except ImportError:
-            return
-        paths = self.collect_skill_search_paths(
-            extra_paths=context.extra_skill_paths,
-            include_bundled=context.include_bundled,
-            filter_existing=True,
-        )
-        report = register_metadata_driven_tools(self._server, dcc_name=self._dcc_name, extra_paths=paths)
-        if not report.ok:
-            logger.debug(
-                "[%s] metadata_driven_tools: %d registered, %d skipped, %d failed",
-                self._dcc_name,
-                report.registered_count,
-                report.skipped_count,
-                report.failed_count,
-            )
-
-    def _register_introspect_tools(self, context: Any | None = None) -> None:
-        """Register the four ``dcc_introspect__*`` tools (phase helper)."""
-        try:
-            from dcc_mcp_core.introspect import register_introspect_tools
-        except ImportError:
-            return
-        register_introspect_tools(self._server, dcc_name=self._dcc_name)
-
-    def _register_feedback_tool(self, context: Any | None = None) -> None:
-        """Register the ``dcc_feedback__report`` MCP tool (phase helper)."""
-        try:
-            from dcc_mcp_core.feedback import register_feedback_tool
-        except ImportError:
-            return
-        register_feedback_tool(self._server, dcc_name=self._dcc_name)
-
-    def _register_qt_ui_inspector(self, context: Any | None = None) -> None:
-        """Adopt the shared core ``qt_ui_inspector__*`` tools (phase helper)."""
-        # Default does nothing; adapters override to wire their specific Qt integration.
-        pass
-
-    def _register_capability_manifest_tool(self, context: Any | None = None) -> None:
-        """Register the ``dcc_capability_manifest`` MCP tool (phase helper)."""
-        # Default does nothing; adapters override to wire their specific builder.
-        pass
-
-    def _attach_project_tools(self, context: Any | None = None) -> None:
-        """Register the four ``project_*`` MCP tools (phase helper)."""
-        # Default does nothing; adapters override if they support project tools.
-        pass
-
-    def _attach_resources(self, context: Any | None = None) -> None:
-        """Publish host-specific dynamic resource producers (phase helper)."""
-        # Default does nothing; adapters override if they support resources.
-        pass
-
-    def _mark_skill_catalog_ready(self, context: Any | None = None) -> None:
-        """Signal that the skill catalog has been populated (phase helper)."""
-        readiness = getattr(self, "_readiness", None)
-        if readiness is not None and hasattr(readiness, "mark_skill_catalog_ready"):
-            readiness.mark_skill_catalog_ready()
 
     def reload_skill_paths(
         self,

@@ -5,6 +5,7 @@ from typing import Any, List, Union, Tuple, Optional
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from FlagEmbedding.abc.inference import AbsReranker
+from FlagEmbedding.utils.tokenizer_compat import pad_with_compat, prepare_for_model_compat
 
 
 def sigmoid(x):
@@ -144,7 +145,8 @@ class BaseReranker(AbsReranker):
                 **kwargs
             )['input_ids']
             for q_inp, d_inp in zip(queries_inputs_batch, passages_inputs_batch):
-                item = self.tokenizer.prepare_for_model(
+                item = prepare_for_model_compat(
+                    self.tokenizer,
                     q_inp,
                     d_inp,
                     truncation='only_second',
@@ -160,7 +162,8 @@ class BaseReranker(AbsReranker):
         flag = False
         while flag is False:
             try:
-                test_inputs_batch = self.tokenizer.pad(
+                test_inputs_batch = pad_with_compat(
+                    self.tokenizer,
                     all_inputs_sorted[:min(len(all_inputs_sorted), batch_size)],
                     padding=True,
                     return_tensors='pt',
@@ -177,7 +180,8 @@ class BaseReranker(AbsReranker):
         for start_index in tqdm(range(0, len(all_inputs_sorted), batch_size), desc="Compute Scores",
                                 disable=len(all_inputs_sorted) < batch_size):
             sentences_batch = all_inputs_sorted[start_index:start_index + batch_size]
-            inputs = self.tokenizer.pad(
+            inputs = pad_with_compat(
+                self.tokenizer,
                 sentences_batch,
                 padding=True,
                 return_tensors='pt',

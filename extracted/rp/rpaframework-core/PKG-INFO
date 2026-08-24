@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rpaframework-core
-Version: 13.0.1
+Version: 13.0.3
 Summary: Core utilities used by RPA Framework
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -23,7 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: packaging>=24.0
-Requires-Dist: pillow>=10.2.0
+Requires-Dist: pillow>=12.3.0
 Requires-Dist: psutil>=5.9.0; platform_system == 'Windows'
 Requires-Dist: pywin32<400,>=300; platform_system == 'Windows' and python_version != '3.8.1'
 Requires-Dist: selenium<5.0.0,>=4.0.0

@@ -19,9 +19,10 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from mixpeek.models.annotation_revision import AnnotationRevision
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -44,7 +45,9 @@ class AnnotationResponse(BaseModel):
     actor_type: Optional[StrictStr] = Field(default='system', description="Actor type: 'user', 'api_key', or 'system'.")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["annotation_id", "document_id", "collection_id", "namespace_id", "label", "confidence", "reasoning", "payload", "retriever_id", "execution_id", "stage_name", "actor_id", "actor_type", "created_at", "updated_at"]
+    version: Optional[StrictInt] = Field(default=1, description="Current version; starts at 1, bumps per edit.")
+    revisions: Optional[List[AnnotationRevision]] = Field(default=None, description="Backward deltas preserving every superseded version.")
+    __properties: ClassVar[List[str]] = ["annotation_id", "document_id", "collection_id", "namespace_id", "label", "confidence", "reasoning", "payload", "retriever_id", "execution_id", "stage_name", "actor_id", "actor_type", "created_at", "updated_at", "version", "revisions"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +88,13 @@ class AnnotationResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in revisions (list)
+        _items = []
+        if self.revisions:
+            for _item_revisions in self.revisions:
+                if _item_revisions:
+                    _items.append(_item_revisions.to_dict())
+            _dict['revisions'] = _items
         return _dict
 
     @classmethod
@@ -111,7 +121,9 @@ class AnnotationResponse(BaseModel):
             "actor_id": obj.get("actor_id") if obj.get("actor_id") is not None else 'system',
             "actor_type": obj.get("actor_type") if obj.get("actor_type") is not None else 'system',
             "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at")
+            "updated_at": obj.get("updated_at"),
+            "version": obj.get("version") if obj.get("version") is not None else 1,
+            "revisions": [AnnotationRevision.from_dict(_item) for _item in obj["revisions"]] if obj.get("revisions") is not None else None
         })
         return _obj
 

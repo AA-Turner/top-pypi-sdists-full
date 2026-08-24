@@ -26,7 +26,8 @@ extern crate starlark;
 extern crate starlark_derive;
 extern crate thiserror;
 
-use std::collections::HashMap;
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display};
 use std::sync::Mutex;
 
@@ -58,6 +59,7 @@ use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
+use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
 use starlark_derive::starlark_value;
 use thiserror::Error;
@@ -118,23 +120,108 @@ fn serde_to_starlark(x: serde_json::Value, heap: &Heap) -> anyhow::Result<Value<
 
 // }}}
 
+/// Maximum depth of nested containers while converting a Starlark value
+/// to a Python object. The conversion recurses on the native stack; this
+/// limit keeps pathologically deep (but non-cyclic) structures from
+/// overflowing it.
+const MAX_PY_CONVERSION_DEPTH: usize = 1000;
+
+/// Tracks the containers that :func:`value_to_pyobject` is currently
+/// converting.
+///
+/// Re-entering a container that is already in conversion means the value
+/// is cyclic (e.g. a list that contains itself). Without this guard, the
+/// conversion would recurse until the native stack overflows and crash the
+/// interpreter with SIGSEGV. This mirrors the ``json_stack_push`` guard
+/// that starlark-rust uses for its own JSON serialization.
+struct ConversionContext<'v> {
+    /// Identities of the containers on the active conversion path.
+    active: RefCell<HashSet<ValueIdentity<'v>>>,
+    /// Number of containers currently in conversion.
+    depth: Cell<usize>,
+}
+
+impl<'v> ConversionContext<'v> {
+    fn new() -> Self {
+        ConversionContext {
+            active: RefCell::new(HashSet::new()),
+            depth: Cell::new(0),
+        }
+    }
+}
+
+/// RAII guard that keeps a container marked as in-conversion for the
+/// duration of a scope and unwinds the depth counter on exit,
+/// whether the conversion succeeds or fails.
+struct ContainerGuard<'a, 'v> {
+    context: &'a ConversionContext<'v>,
+    identity: ValueIdentity<'v>,
+}
+
+impl<'a, 'v> Drop for ContainerGuard<'a, 'v> {
+    fn drop(&mut self) {
+        self.context.active.borrow_mut().remove(&self.identity);
+        self.context.depth.set(self.context.depth.get() - 1);
+    }
+}
+
+/// Marks *value* as in-conversion. Fails if the conversion depth would
+/// exceed :const:`MAX_PY_CONVERSION_DEPTH`, or if *value* is already on the
+/// active conversion path (i.e. it is cyclic). The returned guard removes
+/// the mark when dropped.
+fn enter_container<'a, 'v>(
+    value: Value<'v>,
+    context: &'a ConversionContext<'v>,
+) -> PyResult<ContainerGuard<'a, 'v>> {
+    if context.depth.get() >= MAX_PY_CONVERSION_DEPTH {
+        return Err(StarlarkError::new_err(format!(
+            "Maximum depth of {} exceeded while converting Starlark value \
+             of type `{}` to Python object",
+            MAX_PY_CONVERSION_DEPTH,
+            value.get_type()
+        )));
+    }
+    let identity = value.identity();
+    if !context.active.borrow_mut().insert(identity) {
+        return Err(StarlarkError::new_err(format!(
+            "Cycle detected while converting Starlark value of type `{}` \
+             to Python object",
+            value.get_type()
+        )));
+    }
+    context.depth.set(context.depth.get() + 1);
+    Ok(ContainerGuard { context, identity })
+}
+
 // Converts Starlark values to Python objects.
 //
 // For custom types (like RustDecimal) and nested structures (dict/list/tuple), we handle
 // conversion directly rather than going through JSON. This allows custom types to work
 // in nested structures while preserving their semantics (e.g., RustDecimal precision).
 // Primitive types still use the JSON fallback path for simplicity.
-fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
+//
+// *context* carries the cycle and depth guards; see :struct:`ConversionContext`.
+fn value_to_pyobject<'v>(value: Value<'v>, context: &ConversionContext<'v>) -> PyResult<Py<PyAny>> {
+    if context.depth.get() >= MAX_PY_CONVERSION_DEPTH {
+        return Err(StarlarkError::new_err(format!(
+            "Maximum depth of {} exceeded while converting Starlark value \
+             of type `{}` to Python object",
+            MAX_PY_CONVERSION_DEPTH,
+            value.get_type()
+        )));
+    }
+
     if let Some(decimal) = value.downcast_ref::<DecimalValue>() {
         return decimal_to_python(decimal);
     }
 
     if let Some(dict) = DictRef::from_value(value) {
+        let _guard = enter_container(value, context)?;
         return Python::attach(|py| {
             let py_dict = PyDict::new(py);
             for (k, v) in dict.iter() {
-                let py_key = value_to_pyobject(k)?.into_bound(py);
-                let py_val = value_to_pyobject(v)?.into_bound(py);
+                let py_key = value_to_pyobject(k, context)?.into_bound(py);
+                let py_val = value_to_pyobject(v, context)?.into_bound(py);
                 py_dict.set_item(py_key, py_val)?;
             }
             Ok(py_dict.into_any().unbind())
@@ -142,10 +229,11 @@ fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
     }
 
     if let Some(list) = ListRef::from_value(value) {
+        let _guard = enter_container(value, context)?;
         return Python::attach(|py| {
             let mut elements = Vec::with_capacity(list.len());
             for item in list.iter() {
-                elements.push(value_to_pyobject(item)?);
+                elements.push(value_to_pyobject(item, context)?);
             }
             let py_list = PyList::new(py, elements.into_iter().map(|obj| obj.into_bound(py)))?;
             Ok(py_list.into_any().unbind())
@@ -153,10 +241,11 @@ fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
     }
 
     if let Some(tuple) = TupleRef::from_value(value) {
+        let _guard = enter_container(value, context)?;
         return Python::attach(|py| {
             let mut elements = Vec::with_capacity(tuple.len());
             for item in tuple.iter() {
-                elements.push(value_to_pyobject(item)?);
+                elements.push(value_to_pyobject(item, context)?);
             }
             // Convert to list for backwards compatibility with JSON path
             let py_list = PyList::new(py, elements.into_iter().map(|obj| obj.into_bound(py)))?;
@@ -165,11 +254,12 @@ fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
     }
 
     if let Some(struct_ref) = StructRef::from_value(value) {
+        let _guard = enter_container(value, context)?;
         return Python::attach(|py| {
             let py_dict = PyDict::new(py);
             for (key, val) in struct_ref.iter() {
                 let py_key = key.as_str();
-                let py_val = value_to_pyobject(val)?.into_bound(py);
+                let py_val = value_to_pyobject(val, context)?.into_bound(py);
                 py_dict.set_item(py_key, py_val)?;
             }
             Ok(py_dict.into_any().unbind())
@@ -177,10 +267,11 @@ fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
     }
 
     if let Some(record) = Record::from_value(value) {
+        let _guard = enter_container(value, context)?;
         return Python::attach(|py| {
             let py_dict = PyDict::new(py);
             for (key, val) in record.iter() {
-                let py_val = value_to_pyobject(val)?.into_bound(py);
+                let py_val = value_to_pyobject(val, context)?.into_bound(py);
                 py_dict.set_item(key, py_val)?;
             }
             Ok(py_dict.into_any().unbind())
@@ -198,43 +289,121 @@ fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
     })
 }
 
+/// Tracks the Python containers that :func:`pyobject_to_value` is currently
+/// converting.
+///
+/// Same purpose as :struct:`ConversionContext`, but for the Python ->
+/// Starlark direction. Cyclic Python objects (e.g. `l = []; l.append(l)`) used
+/// to overflow the native stack and crash the interpreter when converted; the
+/// list/dict iterators used in the recursion do not trigger CPython's own
+/// recursion checks. Containers are keyed by object address (`id()`), which is
+/// stable for the duration of the conversion because every object on the
+/// active path is still referenced by its ancestors.
+struct PyConversionContext {
+    /// Addresses of the containers on the active conversion path.
+    active: RefCell<HashSet<usize>>,
+    /// Number of containers currently in conversion.
+    depth: Cell<usize>,
+}
+
+impl PyConversionContext {
+    fn new() -> Self {
+        PyConversionContext {
+            active: RefCell::new(HashSet::new()),
+            depth: Cell::new(0),
+        }
+    }
+}
+
+/// RAII guard for :struct:`PyConversionContext`; see :struct:`ContainerGuard`.
+struct PyContainerGuard<'a> {
+    context: &'a PyConversionContext,
+    key: usize,
+}
+
+impl<'a> Drop for PyContainerGuard<'a> {
+    fn drop(&mut self) {
+        self.context.active.borrow_mut().remove(&self.key);
+        self.context.depth.set(self.context.depth.get() - 1);
+    }
+}
+
+/// Marks a Python *obj* as in-conversion for :func:`pyobject_to_value`;
+/// see :func:`enter_container` for the failure modes.
+fn enter_py_container<'a>(
+    obj: &Bound<'_, PyAny>,
+    context: &'a PyConversionContext,
+) -> PyResult<PyContainerGuard<'a>> {
+    let type_name = obj
+        .get_type()
+        .getattr("__name__")
+        .and_then(|name| name.extract::<String>())
+        .unwrap_or_else(|_| "object".to_string());
+    if context.depth.get() >= MAX_PY_CONVERSION_DEPTH {
+        return Err(StarlarkError::new_err(format!(
+            "Maximum depth of {} exceeded while converting Python value \
+             of type `{}` to Starlark value",
+            MAX_PY_CONVERSION_DEPTH, type_name
+        )));
+    }
+    let key = obj.as_ptr() as usize;
+    if !context.active.borrow_mut().insert(key) {
+        return Err(StarlarkError::new_err(format!(
+            "Cycle detected while converting Python value of type `{}` \
+             to Starlark value",
+            type_name
+        )));
+    }
+    context.depth.set(context.depth.get() + 1);
+    Ok(PyContainerGuard { context, key })
+}
+
 // Converts Python objects to Starlark values.
 //
 // Mirrors value_to_pyobject's approach: handle custom types and nested structures
 // directly, falling back to JSON for primitives. This enables custom types like
 // RustDecimal to work correctly in nested structures.
-fn pyobject_to_value<'v>(obj: Bound<PyAny>, heap: &'v Heap) -> PyResult<Value<'v>> {
+//
+// *context* carries the cycle and depth guards; see :struct:`PyConversionContext`.
+fn pyobject_to_value<'v>(
+    obj: Bound<PyAny>,
+    heap: &'v Heap,
+    context: &PyConversionContext,
+) -> PyResult<Value<'v>> {
     if let Some(value) = python_to_decimal(&obj, heap)? {
         return Ok(value);
     }
 
     if let Ok(dict) = obj.downcast::<PyDict>() {
+        let _guard = enter_py_container(&obj, context)?;
         let mut mp = SmallMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
             // Starlark dicts require string keys
             let key_str: String = key.extract()?;
             let hashed_key = heap.alloc_str(&key_str).get_hashed_value();
-            let converted = pyobject_to_value(value, heap)?;
+            let converted = pyobject_to_value(value, heap, context)?;
             mp.insert_hashed(hashed_key, converted);
         }
         return Ok(heap.alloc(Dict::new(mp)));
     }
 
     if let Ok(list) = obj.downcast::<PyList>() {
+        let _guard = enter_py_container(&obj, context)?;
         let elements = list
             .iter()
-            .map(|item| pyobject_to_value(item, heap))
+            .map(|item| pyobject_to_value(item, heap, context))
             .collect::<PyResult<Vec<Value<'v>>>>()?;
         return Ok(heap.alloc(AllocList(elements)));
     }
 
     if let Ok(tuple) = obj.downcast::<PyTuple>() {
+        let _guard = enter_py_container(&obj, context)?;
         // Convert Python tuples to Starlark lists for backwards compatibility.
         // Both Python tuples and lists become Starlark lists, and Starlark tuples
         // also convert to Python lists (matching the old JSON path behavior).
         let elements = tuple
             .iter()
-            .map(|item| pyobject_to_value(item, heap))
+            .map(|item| pyobject_to_value(item, heap, context))
             .collect::<PyResult<Vec<Value<'v>>>>()?;
         return Ok(heap.alloc(AllocList(elements)));
     }
@@ -959,11 +1128,14 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
         eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         Python::attach(|py| -> starlark::Result<Value<'v>> {
+            // One conversion context per call: cycles inside individual
+            // arguments are rejected rather than overflowing the stack.
+            let context = ConversionContext::new();
             // Handle positional arguments
             let py_args: Vec<Py<PyAny>> = convert_to_starlark_err(
                 (args
                     .positions(eval.heap())?
-                    .map(|v| -> PyResult<Py<PyAny>> { value_to_pyobject(v) }))
+                    .map(|v| -> PyResult<Py<PyAny>> { value_to_pyobject(v, &context) }))
                 .collect::<PyResult<Vec<Py<PyAny>>>>(),
             )?;
             let py_args_tuple = convert_to_starlark_err(PyTuple::new(py, py_args))?;
@@ -972,14 +1144,16 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
             let py_kwargs = PyDict::new(py);
             for name in args.names_map()?.iter() {
                 let key = name.0.as_str();
-                let val = convert_to_starlark_err(value_to_pyobject(*name.1))?;
+                let val = convert_to_starlark_err(value_to_pyobject(*name.1, &context))?;
                 convert_to_starlark_err(py_kwargs.set_item(key, val))?;
             }
 
+            let py_context = PyConversionContext::new();
             convert_to_starlark_err(pyobject_to_value(
                 convert_to_starlark_err(self.callable.call(py, py_args_tuple, Some(&py_kwargs)))?
                     .into_bound(py),
                 eval.heap(),
+                &py_context,
             ))
         })
     }
@@ -1015,7 +1189,10 @@ impl Module {
 
     fn __getitem__(slf: &Bound<Self>, name: &str) -> PyResult<Py<PyAny>> {
         Python::attach(|py| match slf.borrow().0.lock().unwrap().get(name) {
-            Some(val) => Ok(value_to_pyobject(val)?),
+            Some(val) => {
+                let context = ConversionContext::new();
+                Ok(value_to_pyobject(val, &context)?)
+            }
             None => Ok(py.None()),
         })
     }
@@ -1023,7 +1200,8 @@ impl Module {
     fn __setitem__(slf: &Bound<Self>, name: &str, obj: Bound<PyAny>) -> PyResult<()> {
         let self_ref = slf.borrow();
         let self_locked = self_ref.0.lock().unwrap();
-        self_locked.set(name, pyobject_to_value(obj, self_locked.heap())?);
+        let context = PyConversionContext::new();
+        self_locked.set(name, pyobject_to_value(obj, self_locked.heap(), &context)?);
         Ok(())
     }
 
@@ -1046,9 +1224,81 @@ impl Module {
 
 // }}}
 
+// {{{ EvalOptions
+
+/// Bundle of per-evaluation options passed to :func:`eval_with` and
+/// :meth:`FrozenModule.call_with`. All fields are keyword-only in the
+/// constructor and read-only afterwards. Instances are safe to share
+/// across evaluations.
+///
+/// .. autoattribute:: check_cancelled
+///
+///     Optional zero-argument callable invoked periodically during
+///     evaluation (roughly every 1000 bytecode instructions). A truthy
+///     return aborts evaluation with :class:`StarlarkError`; a raised
+///     Python exception propagates to the caller. The callback must
+///     not access the *module* passed to :func:`eval_with`: the module
+///     is locked during evaluation and re-entry will deadlock.
+///     Cancellation is scoped to a single :func:`eval_with` /
+///     :meth:`FrozenModule.call_with` call; nested :func:`eval_with`
+///     calls (e.g. from a :class:`FileLoader`) need their own callback.
+/// .. autoattribute:: max_callstack_size
+///
+///     Optional positive integer cap on Starlark call stack depth.
+#[pyclass(frozen)]
+struct EvalOptions {
+    check_cancelled: Option<Py<PyAny>>,
+    max_callstack_size: Option<usize>,
+}
+
+#[pymethods]
+impl EvalOptions {
+    #[new]
+    #[pyo3(
+        signature = (*, check_cancelled=None, max_callstack_size=None),
+        text_signature = "(*, check_cancelled: Callable[[], bool] | None = None, max_callstack_size: int | None = None) -> None"
+    )]
+    fn py_new(
+        py: Python<'_>,
+        check_cancelled: Option<Py<PyAny>>,
+        max_callstack_size: Option<usize>,
+    ) -> PyResult<Self> {
+        if let Some(ref cb) = check_cancelled {
+            if !cb.bind(py).is_callable() {
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "check_cancelled must be callable",
+                ));
+            }
+        }
+        if let Some(sz) = max_callstack_size {
+            if sz == 0 {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "max_callstack_size must be positive",
+                ));
+            }
+        }
+        Ok(Self {
+            check_cancelled,
+            max_callstack_size,
+        })
+    }
+
+    #[getter]
+    fn check_cancelled(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+        self.check_cancelled.as_ref().map(|cb| cb.clone_ref(py))
+    }
+    #[getter]
+    fn max_callstack_size(&self) -> Option<usize> {
+        self.max_callstack_size
+    }
+}
+
+// }}}
+
 // {{{ FrozenModule
 
 /// .. automethod:: call
+/// .. automethod:: call_with
 #[pyclass(frozen)]
 struct FrozenModule(starlark::environment::FrozenModule);
 
@@ -1065,30 +1315,24 @@ impl FrozenModule {
         args: &Bound<'_, PyTuple>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
-        let function = convert_anyhow_err(slf.get().0.get(name))?;
-        let module = starlark::environment::Module::new();
-        let sl_args = args
-            .iter()
-            .map(|item| pyobject_to_value(item, module.heap()))
-            .collect::<PyResult<Vec<Value<'_>>>>()?;
-        let sl_kwargs = match kwargs {
-            Some(kwarg_seq) => kwarg_seq
-                .iter()
-                .map(|(k, v)| Ok((k.extract::<String>()?, pyobject_to_value(v, module.heap())?)))
-                .collect::<PyResult<Vec<(String, Value<'_>)>>>()?,
-            None => Vec::new(),
-        };
-        let mut evaluator = starlark::eval::Evaluator::new(&module);
-        value_to_pyobject(convert_starlark_err(
-            evaluator.eval_function(
-                function.value(),
-                &sl_args,
-                &sl_kwargs
-                    .iter()
-                    .map(|(k, v)| (k.as_str(), v.dupe()))
-                    .collect::<Vec<(&str, Value<'_>)>>(),
-            ),
-        )?)
+        frozen_module_call(slf, name, args, kwargs, None)
+    }
+
+    /// Like :meth:`call`, but takes an :class:`EvalOptions` bundle carrying
+    /// resource limits and cooperative cancellation, and returns an
+    /// :class:`EvalResult`. Because options are explicit, ``**kwargs`` is
+    /// passed through unchanged to the Starlark callee — there are no
+    /// reserved keyword names.
+    #[pyo3(signature = (options, name, /, *args, **kwargs))]
+    fn call_with(
+        slf: &Bound<'_, FrozenModule>,
+        options: &Bound<'_, EvalOptions>,
+        name: &str,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<EvalResult> {
+        let value = frozen_module_call(slf, name, args, kwargs, Some(options.get()))?;
+        Ok(EvalResult { value })
     }
 }
 
@@ -1130,7 +1374,168 @@ impl starlark::eval::FileLoader for FileLoader {
 
 // {{{ eval
 
+// Holds a Python `check_cancelled` callback plus a slot for an exception
+// raised inside it. The closure handed to `Evaluator::set_check_cancelled`
+// must return a `bool`, so a raising callback is reported by storing the
+// `PyErr` here and treating the call as a cancel. The caller pulls the
+// stashed exception out after evaluation and re-raises it in preference
+// to the generic "Evaluation cancelled" error.
+struct CancelledState {
+    callback: Py<PyAny>,
+    captured: RefCell<Option<PyErr>>,
+}
+
+impl CancelledState {
+    fn new(callback: Py<PyAny>) -> Self {
+        Self {
+            callback,
+            captured: RefCell::new(None),
+        }
+    }
+
+    fn check(&self) -> bool {
+        if self.captured.borrow().is_some() {
+            return true;
+        }
+        Python::attach(|py| {
+            match self
+                .callback
+                .call0(py)
+                .and_then(|ret| ret.bind(py).is_truthy())
+            {
+                Ok(b) => b,
+                Err(e) => {
+                    *self.captured.borrow_mut() = Some(e);
+                    true
+                }
+            }
+        })
+    }
+
+    fn take_error(&self) -> Option<PyErr> {
+        self.captured.borrow_mut().take()
+    }
+}
+
+fn apply_eval_opts<'v, 'a, 'e>(
+    evaluator: &mut starlark::eval::Evaluator<'v, 'a, 'e>,
+    options: Option<&EvalOptions>,
+    cancel_state: Option<&'a CancelledState>,
+) -> PyResult<()> {
+    if let Some(opts) = options {
+        if let Some(sz) = opts.max_callstack_size {
+            convert_anyhow_err(evaluator.set_max_callstack_size(sz))?;
+        }
+    }
+    if let Some(state) = cancel_state {
+        evaluator.set_check_cancelled(Box::new(move || state.check()));
+    }
+    Ok(())
+}
+
+fn frozen_module_call(
+    slf: &Bound<'_, FrozenModule>,
+    name: &str,
+    args: &Bound<'_, PyTuple>,
+    kwargs: Option<&Bound<'_, PyDict>>,
+    options: Option<&EvalOptions>,
+) -> PyResult<Py<PyAny>> {
+    let cancel_state = options
+        .and_then(|o| o.check_cancelled.as_ref())
+        .map(|cb| CancelledState::new(cb.clone_ref(slf.py())));
+
+    let function = convert_anyhow_err(slf.get().0.get(name))?;
+    let module = starlark::environment::Module::new();
+    let context = PyConversionContext::new();
+    let sl_args = args
+        .iter()
+        .map(|item| pyobject_to_value(item, module.heap(), &context))
+        .collect::<PyResult<Vec<Value<'_>>>>()?;
+    let sl_kwargs = match kwargs {
+        Some(kwarg_seq) => kwarg_seq
+            .iter()
+            .map(|(k, v)| {
+                Ok((
+                    k.extract::<String>()?,
+                    pyobject_to_value(v, module.heap(), &context)?,
+                ))
+            })
+            .collect::<PyResult<Vec<(String, Value<'_>)>>>()?,
+        None => Vec::new(),
+    };
+    let mut evaluator = starlark::eval::Evaluator::new(&module);
+    apply_eval_opts(&mut evaluator, options, cancel_state.as_ref())?;
+    let result = convert_starlark_err(
+        evaluator.eval_function(
+            function.value(),
+            &sl_args,
+            &sl_kwargs
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.dupe()))
+                .collect::<Vec<(&str, Value<'_>)>>(),
+        ),
+    )
+    .and_then(|val| {
+        let context = ConversionContext::new();
+        value_to_pyobject(val, &context)
+    });
+
+    if let Some(state) = cancel_state.as_ref() {
+        if let Some(err) = state.take_error() {
+            return Err(err);
+        }
+    }
+    result
+}
+
+fn eval_impl(
+    module: &mut Module,
+    ast: &Bound<AstModule>,
+    globals: &Globals,
+    file_loader: Option<&Bound<FileLoader>>,
+    options: Option<&EvalOptions>,
+) -> PyResult<Py<PyAny>> {
+    let cancel_state = options
+        .and_then(|o| o.check_cancelled.as_ref())
+        .map(|cb| CancelledState::new(cb.clone_ref(ast.py())));
+
+    let tail = |evaluator: &mut starlark::eval::Evaluator| {
+        // Stupid: eval_module consumes the AST. Clone it.
+        let context = ConversionContext::new();
+        value_to_pyobject(
+            convert_starlark_err(evaluator.eval_module(ast.borrow().0.clone(), &globals.0))?,
+            &context,
+        )
+    };
+
+    let mod_locked = module.0.lock_py_attached(ast.py()).unwrap();
+    let result = match file_loader {
+        Some(loader_cell) => {
+            let loader_ref = loader_cell.borrow();
+            let mut evaluator = starlark::eval::Evaluator::new(&mod_locked);
+            evaluator.set_loader(&*loader_ref);
+            apply_eval_opts(&mut evaluator, options, cancel_state.as_ref())?;
+            tail(&mut evaluator)
+        }
+        None => {
+            let mut evaluator = starlark::eval::Evaluator::new(&mod_locked);
+            apply_eval_opts(&mut evaluator, options, cancel_state.as_ref())?;
+            tail(&mut evaluator)
+        }
+    };
+
+    if let Some(state) = cancel_state.as_ref() {
+        if let Some(err) = state.take_error() {
+            return Err(err);
+        }
+    }
+    result
+}
+
 /// :returns: the value returned by the evaluation, after :ref:`object-conversion`.
+///
+/// If you need to pass evaluator options (cooperative cancellation,
+/// resource limits), use :func:`eval_with` instead.
 #[pyfunction]
 #[pyo3(
     signature = (module, ast, globals, file_loader=None),
@@ -1142,25 +1547,55 @@ fn eval(
     globals: &Globals,
     file_loader: Option<&Bound<FileLoader>>,
 ) -> PyResult<Py<PyAny>> {
-    let tail = |evaluator: &mut starlark::eval::Evaluator| {
-        // Stupid: eval_module consumes the AST. Clone it.
-        value_to_pyobject(convert_starlark_err(
-            evaluator.eval_module(ast.borrow().0.clone(), &globals.0),
-        )?)
-    };
+    eval_impl(module, ast, globals, file_loader, None)
+}
 
-    let mod_locked = module.0.lock_py_attached(ast.py()).unwrap();
-    match file_loader {
-        Some(loader_cell) => {
-            let loader_ref = loader_cell.borrow();
-            let mut evaluator = starlark::eval::Evaluator::new(&mod_locked);
-            evaluator.set_loader(&*loader_ref);
-            tail(&mut evaluator)
-        }
-        None => {
-            let mut evaluator = starlark::eval::Evaluator::new(&mod_locked);
-            tail(&mut evaluator)
-        }
+/// Like :func:`eval`, but takes an :class:`EvalOptions` bundle carrying
+/// resource limits and cooperative cancellation, and returns an
+/// :class:`EvalResult` wrapping the evaluation's return value.
+///
+/// :arg options: An :class:`EvalOptions` bundle. See :class:`EvalOptions`
+///     for the semantics of each field.
+/// :returns: An :class:`EvalResult` whose :attr:`~EvalResult.value` is
+///     the evaluation's return, after :ref:`object-conversion`.
+#[pyfunction]
+#[pyo3(
+    signature = (options, module, ast, globals, /, file_loader=None),
+    text_signature = "(options: EvalOptions, module: Module, ast: AstModule, globals: Globals, /, file_loader: FileLoader | None = None) -> EvalResult"
+)]
+fn eval_with(
+    options: &Bound<EvalOptions>,
+    module: &mut Module,
+    ast: &Bound<AstModule>,
+    globals: &Globals,
+    file_loader: Option<&Bound<FileLoader>>,
+) -> PyResult<EvalResult> {
+    let value = eval_impl(module, ast, globals, file_loader, Some(options.get()))?;
+    Ok(EvalResult { value })
+}
+
+// }}}
+
+// {{{ EvalResult
+
+/// Rich result of an evaluation returned by :func:`eval_with` and
+/// :meth:`FrozenModule.call_with`. Currently wraps only the return
+/// value; future post-eval readouts (tick counts, profile output,
+/// coverage) will land as additional read-only fields.
+///
+/// .. autoattribute:: value
+///
+///     The value returned by the evaluation, after :ref:`object-conversion`.
+#[pyclass(frozen)]
+struct EvalResult {
+    value: Py<PyAny>,
+}
+
+#[pymethods]
+impl EvalResult {
+    #[getter]
+    fn value(&self, py: Python<'_>) -> Py<PyAny> {
+        self.value.clone_ref(py)
     }
 }
 
@@ -1186,8 +1621,11 @@ fn starlark_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Module>()?;
     m.add_class::<FrozenModule>()?;
     m.add_class::<FileLoader>()?;
+    m.add_class::<EvalOptions>()?;
+    m.add_class::<EvalResult>()?;
     m.add_wrapped(wrap_pyfunction!(parse))?;
     m.add_wrapped(wrap_pyfunction!(eval))?;
+    m.add_wrapped(wrap_pyfunction!(eval_with))?;
     m.add("StarlarkError", m.py().get_type::<StarlarkError>())?;
 
     Ok(())

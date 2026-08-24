@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ouroboros-ai
-Version: 0.51.14
+Version: 0.51.15
 Summary: Pins an acceptance spec and omits any verify command or expected output from the worker's contract. Works with Claude Code, Codex CLI, OpenCode and 10 more runtimes.
 Project-URL: Homepage, https://ouroboros.page/
 Project-URL: Repository, https://github.com/Q00/ouroboros
@@ -17,7 +17,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: >=3.12
@@ -34,18 +33,18 @@ Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
 Requires-Dist: structlog<27.0.0,>=24.0.0
 Requires-Dist: typer<0.28.0,>=0.12.0
 Provides-Extra: all
-Requires-Dist: anthropic==0.120.2; extra == 'all'
-Requires-Dist: claude-agent-sdk==0.2.128; extra == 'all'
+Requires-Dist: anthropic==0.122.0; extra == 'all'
+Requires-Dist: claude-agent-sdk==0.2.139; extra == 'all'
 Requires-Dist: litellm==1.91.0; (python_version < '3.14') and extra == 'all'
 Requires-Dist: textual-serve==1.1.3; extra == 'all'
 Requires-Dist: textual==8.2.8; extra == 'all'
 Provides-Extra: claude
-Requires-Dist: anthropic==0.120.2; extra == 'claude'
-Requires-Dist: claude-agent-sdk==0.2.128; extra == 'claude'
+Requires-Dist: anthropic==0.122.0; extra == 'claude'
+Requires-Dist: claude-agent-sdk==0.2.139; extra == 'claude'
 Provides-Extra: claude-cli
 Provides-Extra: claude-sdk
-Requires-Dist: anthropic==0.120.2; extra == 'claude-sdk'
-Requires-Dist: claude-agent-sdk==0.2.128; extra == 'claude-sdk'
+Requires-Dist: anthropic==0.122.0; extra == 'claude-sdk'
+Requires-Dist: claude-agent-sdk==0.2.139; extra == 'claude-sdk'
 Provides-Extra: copilot
 Provides-Extra: dashboard
 Provides-Extra: litellm
@@ -486,7 +485,7 @@ See the [CLI reference](./docs/cli-reference.md) for full details.
 
 ## The Nine Minds
 
-Nine agents, each a different mode of thinking. Loaded on-demand, never preloaded:
+Nine highlighted agents below, with 12 more specialized agents available (21 total). All loaded on-demand, never preloaded:
 
 | Agent                    | Role                               | Core Question                                       |
 | :----------------------- | :--------------------------------- | :-------------------------------------------------- |
@@ -511,13 +510,13 @@ Nine agents, each a different mode of thinking. Loaded on-demand, never preloade
 src/ouroboros/
 +-- bigbang/        Interview, ambiguity scoring, brownfield explorer
 +-- routing/        PAL Router -- 3-tier cost optimization (1x / 10x / 30x)
-+-- execution/      Double Diamond, hierarchical AC decomposition
++-- execution/      (deprecated — logic moved to orchestrator/ and mcp/tools/)
 +-- evaluation/     Mechanical -> Semantic -> Multi-Model Consensus
 +-- evolution/      Wonder / Reflect cycle, convergence detection
 +-- resilience/     4-pattern stagnation detection, 5 lateral personas
 +-- observability/  3-component drift measurement, auto-retrospective
 +-- persistence/    Event sourcing (SQLAlchemy + aiosqlite), checkpoints
-+-- orchestrator/   Runtime abstraction layer (Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, Pi)
++-- orchestrator/   Runtime abstraction layer (Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, Pi, GJC, Goose, Antigravity, Grok, Zcode)
 +-- core/           Types, errors, seed, ontology, security
 +-- providers/      LiteLLM adapter (100+ models)
 +-- mcp/            MCP client/server integration

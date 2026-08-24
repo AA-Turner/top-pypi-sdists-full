@@ -13,8 +13,7 @@
 Python Dependencies
 """
 
-import sys
-from typing import Dict, List, Set
+from typing import Dict, List, Set  # noqa: UP035
 
 from setuptools import setup
 
@@ -32,8 +31,9 @@ VERSIONS = {
     "google-cloud-monitoring": "google-cloud-monitoring>=2.0.0",
     "google-cloud-storage": "google-cloud-storage>=1.43.0",
     "gcsfs": "gcsfs~=2026.3",
-    "great-expectations": "great-expectations~=0.18.0",
-    "great-expectations-1xx": "great-expectations~=1.0",
+    # 1.3 is the floor: GX only gained the validation-action registry there, so on
+    # 1.0-1.2 `Checkpoint.actions` is a closed union that rejects our action outright.
+    "great-expectations": "great-expectations~=1.3",
     "grpc-tools": "grpcio-tools>=1.47.2",
     "ijson": "ijson~=3.4",
     "msal": "msal~=1.2",
@@ -114,9 +114,7 @@ COMMONS = {
         "fastavro>=1.2.0",
         # Due to https://github.com/grpc/grpc/issues/30843#issuecomment-1303816925
         # use >= v1.47.2 https://github.com/grpc/grpc/blob/v1.47.2/tools/distrib/python/grpcio_tools/grpc_version.py#L17
-        VERSIONS[
-            "grpc-tools"
-        ],  # grpcio-tools already depends on grpcio. No need to add separately
+        VERSIONS["grpc-tools"],  # grpcio-tools already depends on grpcio. No need to add separately
         "protobuf>=5.29.6",  # CVE-2026-0994 JSON recursion depth bypass
     },
     "postgres": {
@@ -177,10 +175,10 @@ base_requirements = {
     "python-dateutil>=2.8.1",
     "python-dotenv>=0.19.0",  # For environment variable support in dbt ingestion
     "PyYAML~=6.0",
-    "requests>=2.23",
+    "requests>=2.32.4",
     "requests-aws4auth~=1.1",  # Only depends on requests as external package. Leaving as base.
     "sqlalchemy>=2.0.0,<3",
-    "collate-sqllineage==2.1.4",
+    "collate-sqllineage==2.1.7",
     "tabulate==0.9.0",
     "tenacity>=8.0,<10",
     "typing-inspect",
@@ -197,7 +195,7 @@ base_requirements = {
     "httpx~=0.28.0",
 }
 
-plugins: Dict[str, Set[str]] = {
+plugins: Dict[str, Set[str]] = {  # noqa: UP006
     "airflow": {
         "opentelemetry-exporter-otlp==1.37.0",
         "attrs",
@@ -304,12 +302,10 @@ plugins: Dict[str, Set[str]] = {
     },  # also requires requests-aws4auth which is in base
     "opensearch": {VERSIONS["opensearch"]},
     "exasol": {
-        "sqlalchemy_exasol>=6,<7",
-        "exasol-integration-test-docker-environment>=3.1.0,<4",
+        "sqlalchemy_exasol>=7.1.1,<8",
     },
     "glue": {VERSIONS["boto3"]},
     "great-expectations": {VERSIONS["great-expectations"]},
-    "great-expectations-1xx": {VERSIONS["great-expectations-1xx"]},
     "greenplum": {*COMMONS["postgres"]},
     "cockroach": {
         VERSIONS["cockroach"],
@@ -348,7 +344,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": {
         VERSIONS["looker-sdk"],
         VERSIONS["lkml"],
-        "gitpython~=3.1.34",
+        "gitpython>=3.1.50",
         VERSIONS["giturlparse"],
         "python-liquid",
     },
@@ -359,7 +355,11 @@ plugins: Dict[str, Set[str]] = {
     "cassandra": {VERSIONS["cassandra"]},
     "couchbase": {"couchbase~=4.1"},
     "mssql": {
-        "sqlalchemy-pytds~=0.3",
+        # 1.0+ moved internal `tds.skipall` calls to `tds_base.skipall`, matching
+        # the python-tds 1.x layout. 0.3.x raises AttributeError on every
+        # server-side cursor fetch (TABNAME / COLINFO tokens) when paired with
+        # python-tds 1.x.
+        "sqlalchemy-pytds~=1.0",
         DATA_DIFF["mssql"],
     },
     "mssql-odbc": {
@@ -384,6 +384,7 @@ plugins: Dict[str, Set[str]] = {
         VERSIONS["azure-storage-blob"],
         VERSIONS["azure-identity"],
     },
+    "prefect": {},  # uses requests
     "qliksense": {"websocket-client~=1.6.1"},
     "presto": {*COMMONS["hive"], DATA_DIFF["presto"]},
     "pymssql": {"pymssql~=2.3.9"},
@@ -410,6 +411,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "sap-hana": {"hdbcli", "sqlalchemy-hana"},
     "sas": {},
+    "sftp": {"paramiko>=3.5,<6"},
     "singlestore": {VERSIONS["pymysql"]},
     "sklearn": {VERSIONS["scikit-learn"]},
     "snowflake": {VERSIONS["snowflake"], DATA_DIFF["snowflake"]},
@@ -433,17 +435,19 @@ plugins: Dict[str, Set[str]] = {
 }
 
 dev = {
-    "black==22.3.0",
+    "ruff~=0.15.12",
     "uvloop==0.21.0",
     "datamodel-code-generator==0.64.0",
     "boto3-stubs",
     "mypy-boto3-glue",
-    "isort",
+    "google-api-python-client-stubs",
+    "google-auth-stubs",
+    "types-requests",
+    "pandas-stubs~=2.1.4",
+    "scipy-stubs",
     "nox",
     "pre-commit",
-    "pycln",
-    "pylint~=3.2.0",  # 3.3.0+ breaks our current linting
-    "basedpyright~=1.39.0",
+    "basedpyright==1.39.3",
     # For publishing
     "twine",
     "build",
@@ -463,6 +467,11 @@ test_unit = {
     VERSIONS["factory-boy"],
     *plugins["exasol"],
     *plugins["teradata"],
+}
+
+exasol_test = {
+    "exasol-integration-test-docker-environment>=6.0.0,<7",
+    "luigi>=2.8.4,<=3.6.0",
 }
 
 test = {
@@ -504,8 +513,8 @@ test = {
     VERSIONS["cockroach"],
     # pydoris-custom pre-installed with --no-deps in Dockerfiles (SA<2 metadata constraint).
     VERSIONS["starrocks"],
-    "testcontainers==3.7.1;python_version<'3.9'",
-    "testcontainers~=4.8.0;python_version>='3.9'",
+    *plugins["vertica"],
+    "testcontainers~=4.8.0",
     "minio==7.2.5",
     *plugins["mlflow"],
     "skops",  # mlflow 3.14 switched the mlflow.sklearn serialization default to skops, which mlflow-skinny does not pull in
@@ -513,7 +522,7 @@ test = {
     *plugins["kafka"],
     "kafka-python==2.0.2",
     *plugins["pii-processor"],
-    "requests>=2.31.0,<3",
+    "requests>=2.32.4,<3",
     f"{DATA_DIFF['mysql']}",
     *plugins["deltalake"],
     *plugins["datalake-gcs"],
@@ -522,18 +531,19 @@ test = {
     *plugins["dagster"],
     *plugins["oracle"],
     *plugins["mssql"],
+    *plugins["sftp"],
     VERSIONS["validators"],
     VERSIONS["pyathena"],
     "python-liquid",
     VERSIONS["google-cloud-bigtable"],
     *plugins["bigquery"],
     "faker==37.1.0",  # The version needs to be fixed to prevent flaky tests!
-    *plugins["exasol"],
     VERSIONS["opensearch"],
     VERSIONS["kafka-connect"],
     VERSIONS["factory-boy"],
     "locust~=2.32.0",
     *plugins["exasol"],
+    *exasol_test,
     *plugins["teradata"],
 }
 
@@ -541,13 +551,12 @@ docs = {
     VERSIONS["griffe2md"],
 }
 
-if sys.version_info >= (3, 9):
-    test.add("locust~=2.32.0")
-
 e2e_test = {
     # playwright dependencies
     "pytest-playwright",
     "pytest-base-url",
+    *plugins["exasol"],
+    *exasol_test,
 }
 
 # Define playwright_dependencies as a set of packages required for Playwright tests
@@ -570,16 +579,10 @@ playwright_dependencies = {
 }
 
 
-def filter_requirements(filtered: Set[str]) -> List[str]:
+def filter_requirements(filtered: Set[str]) -> List[str]:  # noqa: UP006
     """Filter out requirements from base_requirements"""
     return list(
-        base_requirements.union(
-            *[
-                requirements
-                for plugin, requirements in plugins.items()
-                if plugin not in filtered
-            ]
-        )
+        base_requirements.union(*[requirements for plugin, requirements in plugins.items() if plugin not in filtered])
     )
 
 
@@ -590,14 +593,13 @@ setup(
         "test": list(test),
         "test-unit": list(test_unit),
         "e2e_test": list(e2e_test),
+        "exasol-test": list(exasol_test),
         "data-insight": list(plugins["elasticsearch"]),
         **{plugin: list(dependencies) for (plugin, dependencies) in plugins.items()},
         # FIXME: all-dev-env is a temporary solution to install all dependencies except
         #   those that might conflict with each other or cause issues in the dev environment
         #   This covers all development cases where none of the plugins are used
-        "all-dev-env": filter_requirements(
-            {"airflow", "db2", "great-expectations", "pymssql"}
-        ),
+        "all-dev-env": filter_requirements({"airflow", "db2", "great-expectations", "pymssql"}),
         # enf-of-fixme
         "all": filter_requirements({"airflow", "db2", "great-expectations"}),
         "playwright": list(playwright_dependencies),

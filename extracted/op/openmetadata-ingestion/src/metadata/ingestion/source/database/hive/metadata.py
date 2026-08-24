@@ -13,7 +13,6 @@ Hive source methods.
 """
 
 import traceback
-from typing import Optional, Tuple
 
 from pyhive.sqlalchemy_hive import HiveDialect
 from sqlalchemy import text
@@ -30,7 +29,6 @@ from metadata.ingestion.api.steps import InvalidSourceException
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.source.database.common_db_source import CommonDbSourceService
 from metadata.ingestion.source.database.hive.connection import (
-    get_metastore_connection,
     get_validated_metastore_connection,
 )
 from metadata.ingestion.source.database.hive.utils import (
@@ -62,18 +60,14 @@ class HiveSource(CommonDbSourceService):
     service_connection: HiveConnection
 
     @classmethod
-    def create(
-        cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None
-    ):
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         config = WorkflowSource.model_validate(config_dict)
         connection: HiveConnection = config.serviceConnection.root.config
         if not isinstance(connection, HiveConnection):
-            raise InvalidSourceException(
-                f"Expected HiveConnection, but got {connection}"
-            )
+            raise InvalidSourceException(f"Expected HiveConnection, but got {connection}")
         return cls(config, metadata)
 
-    def _parse_version(self, version: str) -> Tuple:
+    def _parse_version(self, version: str) -> tuple:
         if "-" in version:
             version = version.replace("-", ".")
         return tuple(map(int, (version.split(".")[:3])))
@@ -84,32 +78,26 @@ class HiveSource(CommonDbSourceService):
         Fetching views in hive server with query "SHOW VIEWS" was possible
         only after hive 2.2.0 version
         """
-        metastore_conn = get_validated_metastore_connection(
-            self.service_connection.metastoreConnection
-        )
-
-        if not metastore_conn:
+        # The engine is owned by HiveConnection, which already picked the metastore engine when one
+        # is configured. Dialect patching only applies to the HiveServer2 engine.
+        if not get_validated_metastore_connection(self.service_connection.metastoreConnection):
             with self.engine.connect() as conn:
                 result = conn.execute(text("SELECT VERSION()")).fetchone()._asdict()
 
             version = result.get("_c0", "").split()
-            if version and self._parse_version(version[0]) >= self._parse_version(
-                HIVE_VERSION_WITH_VIEW_SUPPORT
-            ):
+            if version and self._parse_version(version[0]) >= self._parse_version(HIVE_VERSION_WITH_VIEW_SUPPORT):
                 HiveDialect.get_table_names = get_table_names
                 HiveDialect.get_view_names = get_view_names
                 HiveDialect.get_view_definition = get_view_definition
             else:
                 HiveDialect.get_table_names = get_table_names_older_versions
                 HiveDialect.get_view_names = get_view_names_older_versions
-        else:
-            self.engine = get_metastore_connection(metastore_conn)
         self._connection_map = {}  # Lazy init as well
         self._inspector_map = {}
 
     def get_schema_definition(  # pylint: disable=unused-argument
         self, table_type: str, table_name: str, schema_name: str, inspector: Inspector
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get the DDL statement or View Definition for a table
         """
@@ -119,15 +107,9 @@ class HiveSource(CommonDbSourceService):
                 TableType.View,
                 TableType.MaterializedView,
             ):
-                schema_definition = inspector.get_view_definition(
-                    table_name, schema_name
-                )
-            schema_definition = (
-                str(schema_definition).strip()
-                if schema_definition is not None
-                else None
-            )
-            return schema_definition
+                schema_definition = inspector.get_view_definition(table_name, schema_name)
+            schema_definition = str(schema_definition).strip() if schema_definition is not None else None
+            return schema_definition  # noqa: RET504, TRY300
 
         except NotImplementedError:
             logger.warning("Schema definition not implemented")

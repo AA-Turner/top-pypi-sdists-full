@@ -216,6 +216,7 @@ def test_ui_control_tool_schema_supports_computer_use_actions() -> None:
         "select_option",
         "focus",
         "keyboard_shortcut",
+        "invoke_menu",
         "get_window_state",
         "restore_window",
         "show_window",
@@ -232,11 +233,14 @@ def test_ui_control_tool_schema_supports_computer_use_actions() -> None:
         "scroll_y",
         "path",
         "keys",
+        "menu_path",
         "snapshot_id",
     }.issubset(schema["properties"])
     assert schema["properties"]["path"]["items"]["required"] == ["x", "y"]
     assert schema["properties"]["path"]["maxItems"] == 256
     assert schema["properties"]["keys"]["maxItems"] == 16
+    assert schema["properties"]["menu_path"]["maxItems"] == 16
+    assert schema["properties"]["menu_path"]["items"]["maxLength"] == 200
     keys_description = schema["properties"]["keys"]["description"]
     assert "pointer actions" in keys_description
     assert "navigation/control/function" in keys_description
@@ -829,6 +833,7 @@ class _FakeHostClient:
         self.kwargs = kwargs
         self.executed: list[dict[str, Any]] = []
         self.window_operations: list[str] = []
+        self.menu_paths: list[list[str]] = []
         self.recordings: list[dict[str, Any]] = []
         self.snapshot_calls = 0
         self.accessibility_snapshot_calls = 0
@@ -966,6 +971,16 @@ class _FakeHostClient:
             },
         }
 
+    def invoke_menu(self, menu_path: list[str]) -> dict[str, Any]:
+        self.menu_paths.append(menu_path)
+        return {
+            "success": True,
+            "effect": "unverifiable",
+            "verification_required": True,
+            "observation_required": True,
+            "target": self.target,
+        }
+
     def resume(self) -> None:
         self.resumed = True
 
@@ -1002,6 +1017,35 @@ def test_ui_control_cua_host_maps_snapshot_and_shared_image(monkeypatch: Any) ->
     assert context["state_delta"]["delta"]["baseline"] is True
     assert base64.b64decode(context["__rich__"]["data"]) == b"png"
     assert _FakeHostClient.instances[0].kwargs["allow_raw_input"] is True
+
+
+def test_ui_control_cua_host_uses_adapter_scope_and_title_to_select_one_window(monkeypatch: Any) -> None:
+    backend = _load_cua_module()
+    _FakeHostClient.instances.clear()
+    monkeypatch.setattr(backend, "_HostClient", _FakeHostClient)
+    monkeypatch.delenv("DCC_MCP_UI_CONTROL_DCC_TYPE", raising=False)
+    monkeypatch.delenv("DCC_MCP_UI_CONTROL_PROCESS_ID", raising=False)
+    monkeypatch.delenv("DCC_MCP_UI_CONTROL_WINDOW_HANDLE", raising=False)
+    monkeypatch.delenv("DCC_MCP_UI_CONTROL_WINDOW_TITLE", raising=False)
+
+    result = backend.snapshot_tool(
+        {
+            "session_id": "designer",
+            "window_title": "Substance Designer - Graph",
+            "trusted_adapter_scope": {
+                "dcc_type": "substance-designer",
+                "process_id": 4321,
+                "window_handle": None,
+                "window_title": "Substance Designer",
+            },
+        }
+    )
+
+    assert result["success"] is True
+    assert _FakeHostClient.instances[0].kwargs["dcc_type"] == "substance-designer"
+    assert _FakeHostClient.instances[0].kwargs["process_id"] == 4321
+    assert _FakeHostClient.instances[0].kwargs["window_handle"] is None
+    assert _FakeHostClient.instances[0].kwargs["window_title"] == "Substance Designer - Graph"
 
 
 def test_ui_control_cua_host_controls_trajectory_recording(tmp_path: Path, monkeypatch: Any) -> None:
@@ -1099,6 +1143,8 @@ def test_ui_control_cua_host_semantic_action_is_thin_proxy(monkeypatch: Any) -> 
     assert payload["element_token"] == "dcc-wuia:snapshot:1"
     assert "control_id" not in payload
     assert payload["intent"] == "external_communication"
+    assert _FakeHostClient.instances[0].snapshot_calls == 1
+    assert len(_FakeHostClient.instances) == 1
     source = (_SCRIPTS / "_cua_backend.py").read_text(encoding="utf-8")
     assert "ComputerUseSession" not in source
     assert "subprocess" not in source
@@ -1153,6 +1199,38 @@ def test_ui_control_cua_host_restores_minimized_exact_window_without_snapshot(mo
     assert _FakeHostClient.instances[0].window_operations == ["restore"]
     assert _FakeHostClient.instances[0].executed == []
     assert state["context"]["audit"]["metadata"]["host_enforced"] is True
+
+
+def test_ui_control_cua_host_invokes_exact_native_menu_without_snapshot(monkeypatch: Any) -> None:
+    backend = _load_cua_module()
+    _configure_fake_host(backend, monkeypatch)
+
+    result = backend.act_tool(
+        {
+            "session_id": "native-menu",
+            "action": "invoke_menu",
+            "menu_path": ["Window", "Arrange", "Left"],
+        }
+    )
+
+    assert result["success"] is True
+    assert result["context"]["menu_path"] == ["Window", "Arrange", "Left"]
+    assert result["context"]["verification_required"] is True
+    assert result["context"]["observation_required"] is True
+    assert "not completion evidence" in result["prompt"]
+    assert _FakeHostClient.instances[0].menu_paths == [["Window", "Arrange", "Left"]]
+    assert _FakeHostClient.instances[0].snapshot_calls == 0
+
+
+def test_ui_control_cua_host_rejects_invalid_native_menu_path_before_opening_session(monkeypatch: Any) -> None:
+    backend = _load_cua_module()
+    _configure_fake_host(backend, monkeypatch)
+
+    result = backend.act_tool({"session_id": "native-menu", "action": "invoke_menu", "menu_path": []})
+
+    assert result["success"] is False
+    assert result["error"] == "invalid_action"
+    assert not _FakeHostClient.instances
 
 
 def test_ui_control_cua_host_reports_closed_target_success_and_requires_explicit_rebind(monkeypatch: Any) -> None:

@@ -51,7 +51,10 @@ from mixpeek.models.alignment_metrics import AlignmentMetrics
 from mixpeek.models.analysis_type import AnalysisType
 from mixpeek.models.and_inner import AndInner
 from mixpeek.models.annotation_response import AnnotationResponse
+from mixpeek.models.annotation_revision import AnnotationRevision
 from mixpeek.models.annotation_stats_response import AnnotationStatsResponse
+from mixpeek.models.annotation_version_descriptor import AnnotationVersionDescriptor
+from mixpeek.models.annotation_versions_response import AnnotationVersionsResponse
 from mixpeek.models.anthropic_model import AnthropicModel
 from mixpeek.models.api_allow_rule import ApiAllowRule
 from mixpeek.models.api_analytics_buckets_models_time_range import ApiAnalyticsBucketsModelsTimeRange
@@ -736,6 +739,8 @@ from mixpeek.models.org_model_list_response import OrgModelListResponse
 from mixpeek.models.organization_model_response import OrganizationModelResponse
 from mixpeek.models.organization_publish_stats_response import OrganizationPublishStatsResponse
 from mixpeek.models.organization_update_request import OrganizationUpdateRequest
+from mixpeek.models.ownership_entry import OwnershipEntry
+from mixpeek.models.ownership_list_response import OwnershipListResponse
 from mixpeek.models.page_meta import PageMeta
 from mixpeek.models.page_tab_input import PageTabInput
 from mixpeek.models.page_tab_output import PageTabOutput
@@ -883,6 +888,7 @@ from mixpeek.models.scaffold_manifest_response import ScaffoldManifestResponse
 from mixpeek.models.scaffold_sample_collection import ScaffoldSampleCollection
 from mixpeek.models.scaffold_sample_data_response import ScaffoldSampleDataResponse
 from mixpeek.models.scaling_config import ScalingConfig
+from mixpeek.models.scene_download_response import SceneDownloadResponse
 from mixpeek.models.schema_inference_request import SchemaInferenceRequest
 from mixpeek.models.schema_inference_result import SchemaInferenceResult
 from mixpeek.models.schema_mapping_input import SchemaMappingInput

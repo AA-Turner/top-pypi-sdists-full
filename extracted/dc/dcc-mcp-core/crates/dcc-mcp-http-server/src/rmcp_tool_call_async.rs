@@ -13,9 +13,7 @@ use dcc_mcp_models::{ExecutionMode, ThreadAffinity};
 use crate::job_aware_invoker::attach_job_id_to_meta;
 use crate::server_state::ServerState;
 
-use crate::rmcp_tool_call_dispatch::{
-    decode_dispatch_output, encode_dispatch_wire, use_main_thread_route,
-};
+use crate::rmcp_tool_call_dispatch::use_main_thread_route;
 
 pub(super) struct AsyncDispatchConfig {
     pub parent_job_id: Option<String>,
@@ -46,8 +44,7 @@ pub(super) fn async_dispatch_config(
     let meta_dcc = call_meta.and_then(|m| m.dcc.as_ref());
     let async_opt_in = meta_dcc.is_some_and(|dcc| dcc.r#async);
     let progress_token = call_meta.and_then(|m| m.progress_token.clone());
-    let action_declares_async = matches!(action_meta.execution, ExecutionMode::Async)
-        || action_meta.timeout_hint_secs.unwrap_or(0) > 0;
+    let action_declares_async = matches!(action_meta.execution, ExecutionMode::Async);
 
     if !(async_opt_in || progress_token.is_some() || action_declares_async) {
         return None;
@@ -124,8 +121,8 @@ async fn run_async_execution_lane(
     let call_meta = attach_job_id_to_meta(call_meta, &job_id);
     let dispatcher = state.dispatcher.as_ref().clone();
     let use_main_thread = use_main_thread_route(thread_affinity, state.executor.is_some());
-    let standalone_main =
-        state.standalone_main_thread_execution && matches!(thread_affinity, ThreadAffinity::Main);
+    let standalone_main = state.features.standalone_main_thread_execution
+        && matches!(thread_affinity, ThreadAffinity::Main);
 
     if matches!(thread_affinity, ThreadAffinity::Main)
         && state.executor.is_none()
@@ -150,23 +147,21 @@ async fn run_async_execution_lane(
         let dispatch_params = call_params.clone();
         let dispatch = dispatcher.clone();
         let job_context = dispatch_job_context(&job_id, &cancel_token);
-        let response = executor.submit_deferred(
+        let response = executor.submit_deferred_typed(
             &resolved_name,
             cancel_token.clone(),
             Box::new(move || {
                 with_dispatch_job_context(job_context, || {
-                    match dcc_mcp_actions::with_thread_affinity(ThreadAffinity::Main, || {
+                    dcc_mcp_actions::with_thread_affinity(ThreadAffinity::Main, || {
                         dispatch.dispatch(&dispatch_name, dispatch_params, call_meta)
-                    }) {
-                        Ok(result) => encode_dispatch_wire(Ok(result)),
-                        Err(err) => encode_dispatch_wire(Err(err)),
-                    }
+                    })
                 })
             }),
         );
 
         let outcome = match response.await {
-            Ok(json_str) => decode_dispatch_output(&json_str),
+            Ok(Ok(result)) => Ok(result.output),
+            Ok(Err(error)) => Err(error.to_string()),
             Err(_) => Err("CANCELLED".to_string()),
         };
         if cancel_token.is_cancelled() {

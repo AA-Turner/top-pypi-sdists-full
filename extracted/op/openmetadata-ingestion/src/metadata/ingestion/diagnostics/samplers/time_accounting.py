@@ -46,9 +46,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from types import FrameType
 
-    from metadata.ingestion.diagnostics.collectors.operation_registry import (
-        OperationRegistry,
-    )
+    from metadata.ingestion.diagnostics.collectors.operation_registry import OperationRegistry
 
 _METHODS_PER_OP = 50
 _TOP_HOTSPOTS = 8
@@ -101,9 +99,7 @@ class TimeAccountingSampler:
         self._last_tick = now
         self.sample(delta, sys._current_frames())
 
-    def sample(
-        self, delta: float, frames: Mapping[int, FrameType] | None = None
-    ) -> None:
+    def sample(self, delta: float, frames: Mapping[int, FrameType] | None = None) -> None:
         """Record one sample worth `delta` seconds.
 
         Public so tests can drive the sampler with deterministic ticks and
@@ -128,12 +124,7 @@ class TimeAccountingSampler:
                 self._idle_walltime += delta
 
     @staticmethod
-    def _method_key(
-        op_name: str,
-        kwargs: dict[str, Any],
-        frames: Mapping[int, FrameType] | None,
-        tid: int,
-    ) -> str:
+    def _method_key(op_name: str, kwargs: dict[str, Any], frames: Mapping[int, FrameType] | None, tid: int) -> str:
         frame = frames.get(tid) if frames is not None else None
         return op_identity(op_name, kwargs, frame)
 
@@ -148,13 +139,8 @@ class TimeAccountingSampler:
         elif len(methods) < _METHODS_PER_OP:
             methods[method] = delta
         else:
-            evicted = min(
-                (key for key in methods if key != _OVERFLOW_KEY),
-                key=lambda key: methods[key],
-            )
-            methods[_OVERFLOW_KEY] = methods.get(_OVERFLOW_KEY, 0.0) + methods.pop(
-                evicted
-            )
+            evicted = min((key for key in methods if key != _OVERFLOW_KEY), key=lambda key: methods[key])
+            methods[_OVERFLOW_KEY] = methods.get(_OVERFLOW_KEY, 0.0) + methods.pop(evicted)
             methods[method] = delta
 
     def snapshot(self) -> dict[str, Any]:
@@ -246,9 +232,7 @@ class TimeAccountingSampler:
         rows = self._aggregate_slow_ops_by_method()
         lines: list[str] = []
         if rows:
-            lines.append(
-                "  slow ops  (slowest single call · count · operation · location)"
-            )
+            lines.append("  slow ops  (slowest single call · count · operation · location)")
             lines.extend(rows)
         return lines
 
@@ -264,9 +248,7 @@ class TimeAccountingSampler:
                 aggregated[method] = (duration, op_name, 1)
             else:
                 aggregated[method] = (previous[0], previous[1], previous[2] + 1)
-        ordered = sorted(aggregated.items(), key=lambda item: -item[1][0])[
-            :_TOP_HOTSPOTS
-        ]
+        ordered = sorted(aggregated.items(), key=lambda item: -item[1][0])[:_TOP_HOTSPOTS]
         return [
             f"    {fmt_age(max_duration):>7}  {'x' + str(count):<4} {_categorize(op_name):<11} {short_method(method)}"
             for method, (max_duration, op_name, count) in ordered

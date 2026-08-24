@@ -53,9 +53,7 @@ def emit_full_dump(
     """Threads + each section's `render_dump` fragment + workflow steps."""
     buf: io.StringIO | None = None if signal_safe else io.StringIO()
     out = sys.stderr if buf is None else buf
-    out.write(
-        f"{DIAG_LOG_PREFIX}.dump.begin reason={reason} pid={os.getpid()} ts={time.time():.0f}\n"
-    )
+    out.write(f"{DIAG_LOG_PREFIX}.dump.begin reason={reason} pid={os.getpid()} ts={time.time():.0f}\n")
     try:
         _emit_thread_dump(out, signal_safe=signal_safe)
         for section in dump_sections:
@@ -70,15 +68,11 @@ def emit_full_dump(
         emit_log(logging.WARNING, buf.getvalue().rstrip("\n"))
 
 
-def emit_incremental_dump(
-    dump_sections: Iterable[HasDump], signal_safe: bool = False
-) -> None:
+def emit_incremental_dump(dump_sections: Iterable[HasDump], signal_safe: bool = False) -> None:
     """Each section's `render_dump` fragment, without thread tracebacks."""
     buf: io.StringIO | None = None if signal_safe else io.StringIO()
     out = sys.stderr if buf is None else buf
-    out.write(
-        f"{DIAG_LOG_PREFIX}.dump.begin reason=sigusr2 pid={os.getpid()} ts={time.time():.0f}\n"
-    )
+    out.write(f"{DIAG_LOG_PREFIX}.dump.begin reason=sigusr2 pid={os.getpid()} ts={time.time():.0f}\n")
     for section in dump_sections:
         section.render_dump(out)
     out.write(f"{DIAG_LOG_PREFIX}.dump.end reason=sigusr2\n")

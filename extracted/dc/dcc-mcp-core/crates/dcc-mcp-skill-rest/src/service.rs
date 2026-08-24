@@ -28,15 +28,17 @@ use dcc_mcp_actions::{
     DispatchExecutionContext, DispatchJobContext, current_execution_context,
     with_dispatch_job_context, with_execution_context,
 };
+use dcc_mcp_gateway_search::{SearchQuery as RankingQuery, SearchRecord, rank_all};
 use dcc_mcp_models::{
-    CallExample, ExecutionMode, NextTools, SkillRuntimeSummary, ThreadAffinity, ToolAnnotations,
+    CallExample, ExecutionMode, NextTools, SkillRuntimeSummary, SkillToolAnnotations,
+    ThreadAffinity,
 };
 use dcc_mcp_skills::SkillCatalog;
 
 use super::errors::{ServiceError, ServiceErrorKind};
 use crate::search_index::{
     action_metadata, merged_search_aliases, normalise_search_values, schema_search_tokens,
-    search_haystack, search_metadata,
+    search_metadata,
 };
 
 // ── Requests / responses ─────────────────────────────────────────────
@@ -133,7 +135,7 @@ pub struct SkillListEntry {
     pub has_schema: bool,
     /// Human-readable scope label (`"repo"`, `"user"`, ...).
     pub scope: String,
-    /// MCP ToolAnnotations-style safety hints. Kept compact and omitted when
+    /// MCP SkillToolAnnotations-style safety hints. Kept compact and omitted when
     /// the backend has no declared hints.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Object>)]
@@ -258,7 +260,7 @@ pub struct DescribeResponse {
     #[schema(value_type = Object)]
     pub annotations: Value,
     /// Execution metadata and risk hints carried outside the MCP
-    /// ToolAnnotations namespace.
+    /// SkillToolAnnotations namespace.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Object>)]
     pub metadata: Option<Value>,
@@ -400,7 +402,9 @@ pub struct CatalogAction {
     pub input_schema: Value,
     pub loaded: bool,
     pub scope: String,
-    pub annotations: ToolAnnotations,
+    pub layer: Option<String>,
+    pub path_source: String,
+    pub annotations: SkillToolAnnotations,
     pub execution: ExecutionMode,
     pub timeout_hint_secs: Option<u32>,
     pub job_strategy: dcc_mcp_models::JobStrategy,
@@ -416,13 +420,72 @@ pub struct CatalogAction {
     pub call_examples: Option<Vec<CallExample>>,
 }
 
+#[derive(Clone)]
+struct SkillInfo {
+    loaded: bool,
+    scope: String,
+    runtime: Option<SkillRuntimeSummary>,
+    layer: Option<String>,
+    path_source: String,
+}
+
+impl SearchRecord for CatalogAction {
+    fn tool_slug(&self) -> &str {
+        &self.action_name
+    }
+    fn backend_tool(&self) -> &str {
+        &self.action_name
+    }
+    fn summary(&self) -> &str {
+        &self.description
+    }
+    fn skill_name(&self) -> Option<&str> {
+        Some(&self.skill_name)
+    }
+    fn tags(&self) -> &[String] {
+        &self.tags
+    }
+    fn search_tokens(&self) -> &[String] {
+        &self.search_tokens
+    }
+    fn search_aliases(&self) -> &[String] {
+        &self.search_aliases
+    }
+    fn dcc_type(&self) -> &str {
+        &self.dcc
+    }
+    fn instance_id(&self) -> uuid::Uuid {
+        uuid::Uuid::nil()
+    }
+    fn loaded(&self) -> bool {
+        self.loaded
+    }
+    fn rank_layer(&self) -> Option<&str> {
+        self.layer.as_deref()
+    }
+    fn rank_path_source(&self) -> Option<&str> {
+        Some(&self.path_source)
+    }
+    fn rank_scope(&self) -> u8 {
+        match self.scope.as_str() {
+            "admin" => 4,
+            "system" => 3,
+            "team" => 2,
+            "user" => 1,
+            _ => 0,
+        }
+    }
+}
+
 /// Anything that can invoke a tool by name and return its output.
 ///
 /// The default [`DispatcherInvoker`] uses [`ToolDispatcher`]
-/// synchronously. Embedders that marshal to a host main thread swap
-/// in their own impl here (e.g. Maya's `DccExecutorHandle`).
+/// without blocking the REST worker. Embedders that marshal to a host main
+/// thread swap in their own async implementation here (for example through a
+/// `DccExecutorHandle`).
+#[async_trait::async_trait]
 pub trait ToolInvoker: Send + Sync {
-    fn invoke(
+    async fn invoke(
         &self,
         action_name: &str,
         params: Value,
@@ -449,14 +512,14 @@ pub trait ToolInvoker: Send + Sync {
     /// cancellation. Host-aware invokers should override this method so a
     /// queued task can be skipped and a running task can observe cooperative
     /// cancellation checkpoints.
-    fn invoke_with_cancellation(
+    async fn invoke_with_cancellation(
         &self,
         action_name: &str,
         params: Value,
         meta: Option<Value>,
         _cancellation: InvocationCancellation,
     ) -> Result<CallOutcome, ServiceError> {
-        self.invoke(action_name, params, meta)
+        self.invoke(action_name, params, meta).await
     }
 }
 
@@ -693,14 +756,18 @@ impl SkillCatalogSource for CatalogSource {
         // Merge with the catalog summary so non-loaded skills show up
         // too (their actions simply won't dispatch until `load_skill`).
         let summaries = self.catalog.list_skills(None);
-        let mut skill_info: std::collections::HashMap<
-            String,
-            (bool, String, String, Option<SkillRuntimeSummary>),
-        > = std::collections::HashMap::new();
+        let mut skill_info: std::collections::HashMap<String, SkillInfo> =
+            std::collections::HashMap::new();
         for s in &summaries {
             skill_info.insert(
                 s.name.clone(),
-                (s.loaded, s.scope.clone(), s.dcc.clone(), s.runtime.clone()),
+                SkillInfo {
+                    loaded: s.loaded,
+                    scope: s.scope.clone(),
+                    runtime: s.runtime.clone(),
+                    layer: s.layer.clone(),
+                    path_source: s.path_source.clone(),
+                },
             );
         }
         let mut active_groups: std::collections::HashMap<(String, String), bool> =
@@ -738,7 +805,7 @@ impl SkillCatalogSource for CatalogSource {
                 .skill_name
                 .clone()
                 .unwrap_or_else(|| "core".to_string());
-            let (loaded, scope, _dcc, runtime) = meta
+            let info = meta
                 .skill_name
                 .as_ref()
                 .and_then(|name| skill_info.get(name).cloned())
@@ -748,7 +815,13 @@ impl SkillCatalogSource for CatalogSource {
                     // dispatcher. Give them a stable slug segment and treat them as
                     // loaded so the REST surface works for plain Python
                     // `registry.register(...)` + `server.register_handler(...)` users.
-                    (true, "core".to_string(), meta.dcc.clone(), None)
+                    SkillInfo {
+                        loaded: true,
+                        scope: "core".to_string(),
+                        runtime: None,
+                        layer: None,
+                        path_source: "unknown".to_string(),
+                    }
                 });
             seen.insert(meta.name.clone());
             let search_tokens = schema_search_tokens(&meta.input_schema);
@@ -768,8 +841,10 @@ impl SkillCatalogSource for CatalogSource {
                 search_aliases: normalise_search_values(meta.search_aliases, 24),
                 search_tokens,
                 input_schema: meta.input_schema,
-                loaded,
-                scope,
+                loaded: info.loaded,
+                scope: info.scope,
+                layer: info.layer,
+                path_source: info.path_source,
                 annotations: meta.annotations,
                 execution: meta.execution,
                 timeout_hint_secs: meta.timeout_hint_secs,
@@ -780,7 +855,7 @@ impl SkillCatalogSource for CatalogSource {
                     .get(&skill_name)
                     .cloned()
                     .unwrap_or_default(),
-                runtime,
+                runtime: info.runtime,
                 next_tools: meta.next_tools,
                 call_examples,
             });
@@ -855,6 +930,8 @@ impl SkillCatalogSource for CatalogSource {
                     input_schema,
                     loaded: false,
                     scope: detail.scope.clone(),
+                    layer: summary.layer.clone(),
+                    path_source: summary.path_source.clone(),
                     annotations: tool_decl.annotations.clone(),
                     execution: tool_decl.execution,
                     timeout_hint_secs: tool_decl.timeout_hint_secs,
@@ -1049,8 +1126,9 @@ fn is_host_busy_dispatch_error(message: &str) -> bool {
         || lower.contains("queue overloaded")
 }
 
+#[async_trait::async_trait]
 impl ToolInvoker for DispatcherInvoker {
-    fn invoke(
+    async fn invoke(
         &self,
         action_name: &str,
         params: Value,
@@ -1059,7 +1137,7 @@ impl ToolInvoker for DispatcherInvoker {
         self.invoke_inner(action_name, params, meta, None)
     }
 
-    fn invoke_with_cancellation(
+    async fn invoke_with_cancellation(
         &self,
         action_name: &str,
         params: Value,
@@ -1186,62 +1264,33 @@ impl SkillRestService {
 
     /// Search + filter the action catalog.
     pub fn search(&self, req: &SearchRequest) -> SearchResponse {
-        let actions = self.catalog.list_actions();
-        let query = req
-            .query
-            .as_deref()
-            .map(str::to_ascii_lowercase)
-            .unwrap_or_default();
-        let tags_lower: Vec<String> = req.tags.iter().map(|t| t.to_ascii_lowercase()).collect();
-
-        let mut hits: Vec<SkillListEntry> = actions
+        let actions: Vec<CatalogAction> = self
+            .catalog
+            .list_actions()
             .into_iter()
-            .filter(|a| {
-                if req.loaded_only && !a.loaded {
-                    return false;
-                }
-                if let Some(d) = &req.dcc_type
-                    && !d.is_empty()
-                    && !a.dcc.eq_ignore_ascii_case(d)
-                {
-                    return false;
-                }
-                if let Some(scope_filter) = &req.scope
-                    && !scope_filter.is_empty()
-                    && !a.scope.eq_ignore_ascii_case(scope_filter)
-                {
-                    return false;
-                }
-                for t in &tags_lower {
-                    if !a.tags.iter().any(|x| x.to_ascii_lowercase() == *t) {
-                        return false;
-                    }
-                }
-                if !query.is_empty() {
-                    let hay = search_haystack(a);
-                    if !hay.contains(&query) {
-                        return false;
-                    }
-                }
-                true
+            .filter(|action| {
+                req.scope.as_deref().is_none_or(|scope| {
+                    scope.is_empty() || action.scope.eq_ignore_ascii_case(scope)
+                })
             })
-            .map(action_to_entry)
             .collect();
-
-        // Deterministic ordering: exact-name prefix matches first,
-        // then alphabetic by slug. Tests rely on this.
-        let q = query.clone();
-        hits.sort_by(|a, b| {
-            let a_prefix = !q.is_empty() && a.action.to_ascii_lowercase().starts_with(&q);
-            let b_prefix = !q.is_empty() && b.action.to_ascii_lowercase().starts_with(&q);
-            b_prefix
-                .cmp(&a_prefix)
-                .then_with(|| a.slug.0.cmp(&b.slug.0))
-        });
-
-        if let Some(lim) = req.limit {
-            hits.truncate(lim);
-        }
+        let ranked = rank_all(
+            &actions,
+            &RankingQuery {
+                query: req.query.clone().unwrap_or_default(),
+                dcc_type: req.dcc_type.clone(),
+                dcc_types: req.dcc_types.clone(),
+                tags: req.tags.clone(),
+                tags_any: req.tags_any.clone(),
+                loaded_only: Some(req.loaded_only),
+                ..RankingQuery::default()
+            },
+        );
+        let hits: Vec<SkillListEntry> = ranked
+            .into_iter()
+            .take(req.limit.unwrap_or(usize::MAX))
+            .map(|hit| action_to_entry(hit.record))
+            .collect();
 
         SearchResponse {
             total: hits.len(),
@@ -1326,9 +1375,9 @@ impl SkillRestService {
     }
 
     /// Invoke a tool by slug.
-    pub fn call(&self, req: &CallRequest) -> Result<CallOutcome, ServiceError> {
+    pub async fn call(&self, req: &CallRequest) -> Result<CallOutcome, ServiceError> {
         let action = self.resolve_callable_action(&req.tool_slug)?;
-        self.invoke_resolved(req, &action)
+        self.invoke_resolved(req, &action).await
     }
 
     /// Dispatch a REST call according to its declared execution contract.
@@ -1337,7 +1386,10 @@ impl SkillRestService {
     /// retain synchronous behavior. Runtimes with a job-aware invoker return
     /// a pending envelope immediately for explicitly asynchronous or
     /// timeout-hinted tools, matching MCP dispatch semantics.
-    pub fn dispatch_call(&self, req: &CallRequest) -> Result<CallDispatchOutcome, ServiceError> {
+    pub async fn dispatch_call(
+        &self,
+        req: &CallRequest,
+    ) -> Result<CallDispatchOutcome, ServiceError> {
         let action = self.resolve_callable_action(&req.tool_slug)?;
         if should_dispatch_async(req.meta.as_ref(), &action)
             && let Some(pending) = self.invoker.invoke_async(
@@ -1354,18 +1406,20 @@ impl SkillRestService {
             }));
         }
         self.invoke_resolved(req, &action)
+            .await
             .map(CallDispatchOutcome::Completed)
     }
 
-    fn invoke_resolved(
+    async fn invoke_resolved(
         &self,
         req: &CallRequest,
         action: &CatalogAction,
     ) -> Result<CallOutcome, ServiceError> {
         // Dispatcher registers under the action name, not the slug.
-        let mut outcome =
-            self.invoker
-                .invoke(&action.action_name, req.params.clone(), req.meta.clone())?;
+        let mut outcome = self
+            .invoker
+            .invoke(&action.action_name, req.params.clone(), req.meta.clone())
+            .await?;
         // Normalise the outcome to report the slug the caller used.
         outcome.slug = req.tool_slug.clone();
         Ok(outcome)
@@ -1391,7 +1445,7 @@ impl SkillRestService {
     ///
     /// Intended for `POST /v1/dcc/{dcc_type}/call` on a single-tenant HTTP server so
     /// non-MCP clients can skip composing the dotted `tool_slug` token.
-    pub fn call_backend_tool_for_dcc(
+    pub async fn call_backend_tool_for_dcc(
         &self,
         dcc_type: &str,
         backend_tool: &str,
@@ -1418,7 +1472,10 @@ impl SkillRestService {
             )
             .with_hint("call load_skill first"));
         }
-        let mut outcome = self.invoker.invoke(&action.action_name, params, None)?;
+        let mut outcome = self
+            .invoker
+            .invoke(&action.action_name, params, None)
+            .await?;
         outcome.slug = ToolSlug::build(&action.dcc, &action.skill_name, &action.action_name);
         Ok(outcome)
     }
@@ -1584,7 +1641,7 @@ fn next_tools_meta_value(next_tools: &NextTools) -> Option<Value> {
     Some(Value::Object(map))
 }
 
-fn safety_annotations(annotations: &ToolAnnotations) -> Option<Value> {
+fn safety_annotations(annotations: &SkillToolAnnotations) -> Option<Value> {
     let mut out = serde_json::Map::new();
     if let Some(title) = &annotations.title {
         out.insert("title".to_string(), Value::String(title.clone()));

@@ -18,17 +18,17 @@ use super::*;
 /// is skipped — see issue #419. Pass `None`/`0` to disable the filter;
 /// tests that do not care about self-exclusion use this form.
 pub async fn compute_tools_fingerprint(
-    registry: &std::sync::Arc<
-        tokio::sync::RwLock<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
-    >,
+    registry: &std::sync::Arc<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
     stale_timeout: Duration,
     http_client: &reqwest::Client,
+    resilience: &crate::gateway::resilience::GatewayResilienceState,
     backend_timeout: Duration,
 ) -> String {
     compute_tools_fingerprint_with_own(
         registry,
         stale_timeout,
         http_client,
+        resilience,
         backend_timeout,
         None,
         0,
@@ -39,18 +39,19 @@ pub async fn compute_tools_fingerprint(
 /// Same as [`compute_tools_fingerprint`] but also filters out the gateway's
 /// own plain-instance row (issue #419).
 pub(crate) async fn compute_tools_fingerprint_with_own(
-    registry: &std::sync::Arc<
-        tokio::sync::RwLock<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
-    >,
+    registry: &std::sync::Arc<dcc_mcp_transport::discovery::file_registry::FileRegistry>,
     stale_timeout: Duration,
     http_client: &reqwest::Client,
+    resilience: &crate::gateway::resilience::GatewayResilienceState,
     backend_timeout: Duration,
     own_host: Option<&str>,
     own_port: u16,
 ) -> String {
     let instances: Vec<ServiceEntry> = {
-        let reg = registry.read().await;
-        reg.list_all()
+        registry
+            .list_all_async()
+            .await
+            .unwrap_or_default()
             .into_iter()
             .filter(|e| {
                 !e.is_stale(stale_timeout)
@@ -65,7 +66,7 @@ pub(crate) async fn compute_tools_fingerprint_with_own(
 
     let futs = instances.iter().map(|entry| async move {
         let url = entry_discovery_mcp_url(entry);
-        let (tools, _unloaded) = fetch_tools(http_client, &url, backend_timeout).await;
+        let (tools, _unloaded) = fetch_tools(http_client, resilience, &url, backend_timeout).await;
         (entry.instance_id, tools)
     });
     let results = join_all(futs).await;

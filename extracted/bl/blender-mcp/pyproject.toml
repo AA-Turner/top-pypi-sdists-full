@@ -1,6 +1,6 @@
 [project]
 name = "blender-mcp"
-version = "1.8.3"
+version = "1.8.4"
 description = "Blender integration through the Model Context Protocol"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,7 @@ blender-mcp = "blender_mcp.server:main"
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["setuptools>=77.0", "wheel"]

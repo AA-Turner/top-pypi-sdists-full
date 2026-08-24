@@ -19,6 +19,16 @@ class TestXXTEA(unittest.TestCase):
         enc = xxtea.encrypt(self.data, self.key)
         self.assertEqual(enc, self.enc)
 
+    def test_bytes_like(self):
+        enc = xxtea.encrypt(self.data, self.key)
+        self.assertEqual(enc, xxtea.encrypt(bytearray(self.data), bytearray(self.key)))
+        self.assertEqual(enc, xxtea.encrypt(memoryview(self.data), memoryview(self.key)))
+        self.assertEqual(self.data, xxtea.decrypt(bytearray(enc), self.key))
+        self.assertEqual(self.data, xxtea.decrypt(memoryview(enc), self.key))
+        cipher = xxtea.XXTEA(bytearray(self.key))
+        self.assertEqual(enc, cipher.encrypt(memoryview(self.data)))
+        self.assertEqual(self.data, cipher.decrypt(bytearray(enc)))
+
     def test_encrypt_hex(self):
         hexenc = xxtea.encrypt_hex(self.data, self.key)
         self.assertEqual(hexenc, self.hexenc)
@@ -30,6 +40,15 @@ class TestXXTEA(unittest.TestCase):
     def test_decrypt_hex(self):
         data = xxtea.decrypt_hex(self.hexenc, self.key)
         self.assertEqual(data, self.data)
+        self.assertEqual(self.data, xxtea.decrypt_hex(self.hexenc.decode(), self.key))
+
+    def test_decrypt_hex_invalid(self):
+        with self.assertRaises(ValueError):
+            xxtea.decrypt_hex(b'abc', self.key)
+        with self.assertRaises(ValueError):
+            xxtea.decrypt_hex(b'zz', self.key)
+        with self.assertRaises(ValueError):
+            xxtea.decrypt_hex('gg', self.key)
 
     def test_urandom(self):
         for i in range(2048):
@@ -668,7 +687,8 @@ class TestXXTEAType(unittest.TestCase):
         for padding in (True, False, 'pkcs7_4_min8', 'pkcs7_8', 'none',
                         xxtea.Padding.PKCS7_4_MIN8, xxtea.Padding.PKCS7_8,
                         xxtea.Padding.NONE, xxtea.PKCS7_8,
-                        xxtea.Padding.LENGTH_WORD_SUFFIX, xxtea.LENGTH_WORD_SUFFIX):
+                        xxtea.Padding.LENGTH_WORD_SUFFIX, xxtea.LENGTH_WORD_SUFFIX,
+                        xxtea.Padding.LENGTH_WORD_PREFIX, xxtea.LENGTH_WORD_PREFIX):
             cipher = xxtea.XXTEA(key, padding=padding)
             self.assertEqual(cipher.decrypt(cipher.encrypt(b'12345678')), b'12345678')
 

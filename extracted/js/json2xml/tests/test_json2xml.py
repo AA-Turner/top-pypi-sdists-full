@@ -3,13 +3,14 @@
 """Tests for `json2xml` package."""
 
 from pyexpat import ExpatError
-from typing import Any
+from typing import Any, TypedDict
 from unittest.mock import Mock
 
 import pytest
 import xmltodict
 
 from json2xml import json2xml
+from json2xml.json2xml import _positive_limit
 from json2xml.utils import (
     InvalidDataError,
     JSONReadError,
@@ -17,6 +18,14 @@ from json2xml.utils import (
     readfromjson,
     readfromstring,
 )
+
+
+class _ConversionLimits(TypedDict, total=False):
+    """Keyword limits accepted by ``Json2xml`` resource-bound tests."""
+
+    max_depth: int
+    max_items: int
+    max_output_bytes: int
 
 
 class TestJson2xml:
@@ -74,6 +83,20 @@ class TestJson2xml:
         dict_from_xml = xmltodict.parse(xmldata)
         assert isinstance(dict_from_xml["all"], dict)
 
+    # @lat: [[tests#Conversion behavior#Compact output is the safe default]]
+    def test_json_to_xml_defaults_to_compact_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Default conversion avoids reparsing attacker-controlled output into a DOM."""
+        parse_string = Mock(side_effect=AssertionError("pretty parser should not run"))
+        monkeypatch.setattr("defusedxml.minidom.parseString", parse_string)
+
+        xmldata = json2xml.Json2xml({"name": "Ada"}).to_xml()
+
+        assert isinstance(xmldata, bytes)
+        assert b'<name type="str">Ada</name>' in xmldata
+        parse_string.assert_not_called()
+
     def test_json_to_xml_empty_data_conversion(self) -> None:
         data = None
         xmldata = json2xml.Json2xml(data).to_xml()
@@ -85,9 +108,9 @@ class TestJson2xml:
         [
             ({}, b"<all></all>"),
             ([], b"<all></all>"),
-            (0, b"<item type=\"int\">0</item>"),
-            (False, b"<item type=\"bool\">false</item>"),
-            ("", b"<item type=\"str\"></item>"),
+            (0, b'<item type="int">0</item>'),
+            (False, b'<item type="bool">false</item>'),
+            ("", b'<item type="str"></item>'),
         ],
     )
     def test_json_to_xml_falsy_values(self, data: Any, expected: bytes) -> None:
@@ -96,7 +119,9 @@ class TestJson2xml:
         assert expected in xmldata
 
     # @lat: [[tests#Conversion behavior#Json2xml uses fast backend selection]]
-    def test_json_to_xml_uses_fast_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_json_to_xml_uses_fast_backend(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Json2xml should delegate through the backend selector used by fast installs."""
         calls: list[dict[str, Any]] = []
 
@@ -106,7 +131,9 @@ class TestJson2xml:
 
         monkeypatch.setattr(json2xml.dicttoxml, "dicttoxml", fake_dicttoxml)
 
-        xmldata = json2xml.Json2xml({"name": "Ada"}, wrapper="all", pretty=False).to_xml()
+        xmldata = json2xml.Json2xml(
+            {"name": "Ada"}, wrapper="all", pretty=False
+        ).to_xml()
 
         assert xmldata == b"<all><name>Ada</name></all>"
         assert calls == [
@@ -119,6 +146,8 @@ class TestJson2xml:
                 "xpath_format": False,
                 "cdata": False,
                 "list_headers": False,
+                "max_output_bytes": 10 * 1024 * 1024,
+                "indent": None,
             }
         ]
 
@@ -149,8 +178,8 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, pretty=False).to_xml()
         old_dict = xmltodict.parse(xmldata)
         # item must be present within my_items
-        assert "item" in old_dict['all']['my_items']
-        assert "item" in old_dict['all']['my_str_items']
+        assert "item" in old_dict["all"]["my_items"]
+        assert "item" in old_dict["all"]["my_str_items"]
 
     def test_no_item_wrap(self) -> None:
         data = readfromstring(
@@ -159,17 +188,15 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, pretty=False, item_wrap=False).to_xml()
         old_dict = xmltodict.parse(xmldata)
         # my_item must be present within my_items
-        assert "my_item" in old_dict['all']['my_items']
-        assert "my_str_items" in old_dict['all']
+        assert "my_item" in old_dict["all"]["my_items"]
+        assert "my_str_items" in old_dict["all"]
 
     def test_empty_array(self) -> None:
-        data = readfromstring(
-            '{"empty_list":[]}'
-        )
+        data = readfromstring('{"empty_list":[]}')
         xmldata = json2xml.Json2xml(data, pretty=False).to_xml()
         old_dict = xmltodict.parse(xmldata)
         # item empty_list be present within all
-        assert "empty_list" in old_dict['all']
+        assert "empty_list" in old_dict["all"]
 
     def test_attrs(self) -> None:
         data = readfromstring(
@@ -178,29 +205,36 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, pretty=False).to_xml()
         old_dict = xmltodict.parse(xmldata)
         # test all attrs
-        assert "str" == old_dict['all']['my_string']['@type']
-        assert "int" == old_dict['all']['my_int']['@type']
-        assert "float" == old_dict['all']['my_float']['@type']
-        assert "bool" == old_dict['all']['my_bool']['@type']
-        assert "null" == old_dict['all']['my_null']['@type']
-        assert "list" == old_dict['all']['empty_list']['@type']
-        assert "dict" == old_dict['all']['empty_dict']['@type']
+        assert "str" == old_dict["all"]["my_string"]["@type"]
+        assert "int" == old_dict["all"]["my_int"]["@type"]
+        assert "float" == old_dict["all"]["my_float"]["@type"]
+        assert "bool" == old_dict["all"]["my_bool"]["@type"]
+        assert "null" == old_dict["all"]["my_null"]["@type"]
+        assert "list" == old_dict["all"]["empty_list"]["@type"]
+        assert "dict" == old_dict["all"]["empty_dict"]["@type"]
 
     def test_dicttoxml_bug(self) -> None:
         input_dict = {
-            'response': {
-                'results': {
-                    'user': [{
-                        'name': 'Ezequiel', 'age': '33', 'city': 'San Isidro'
-                    }, {
-                        'name': 'Belén', 'age': '30', 'city': 'San Isidro'}]}}}
+            "response": {
+                "results": {
+                    "user": [
+                        {"name": "Ezequiel", "age": "33", "city": "San Isidro"},
+                        {"name": "Belén", "age": "30", "city": "San Isidro"},
+                    ]
+                }
+            }
+        }
 
         xmldata = json2xml.Json2xml(
-            input_dict, wrapper='response', pretty=False, attr_type=False, item_wrap=False
+            input_dict,
+            wrapper="response",
+            pretty=False,
+            attr_type=False,
+            item_wrap=False,
         ).to_xml()
 
         old_dict = xmltodict.parse(xmldata)
-        assert 'response' in old_dict.keys()
+        assert "response" in old_dict.keys()
 
     def test_bad_data(self) -> None:
         data = b"!\0a8f"
@@ -209,50 +243,148 @@ class TestJson2xml:
             json2xml.Json2xml({"bad": decoded}).to_xml()
         assert pytest_wrapped_e.type == InvalidDataError
 
-    def test_pretty_print_parser_errors_are_wrapped(
+    # @lat: [[tests#Conversion behavior#Conversion resource limits]]
+    @pytest.mark.parametrize(
+        ("data", "limits"),
+        [
+            ({"a": {"b": {"c": 1}}}, {"max_depth": 2}),
+            ([1, 2, 3], {"max_items": 3}),
+            ({"value": "x" * 100}, {"max_output_bytes": 100}),
+        ],
+    )
+    def test_conversion_resource_limits(
+        self, data: Any, limits: _ConversionLimits
+    ) -> None:
+        """Depth, item, and exact output budgets reject excessive conversions."""
+        with pytest.raises(InvalidDataError):
+            json2xml.Json2xml(data, **limits).to_xml()
+
+    def test_output_limit_accepts_payload_when_generated_xml_fits(self) -> None:
+        """Output limits use generated bytes rather than a conservative estimate."""
+        xml = json2xml.Json2xml(
+            {"nums": list(range(50))}, max_output_bytes=5_000
+        ).to_xml()
+
+        assert isinstance(xml, bytes)
+        assert len(xml) < 5_000
+
+    @pytest.mark.parametrize("value", [0, -1, True, 1.5, "10"])
+    def test_conversion_resource_limits_require_positive_integers(
+        self, value: Any
+    ) -> None:
+        """Every public conversion budget rejects booleans and non-positive/non-integers."""
+        with pytest.raises(ValueError, match="max_depth must be a positive integer"):
+            json2xml.Json2xml({}, max_depth=value)  # type: ignore[arg-type]
+
+    def test_positive_limit_accepts_positive_integer(self) -> None:
+        """The common limit validator returns valid integer budgets unchanged."""
+        assert _positive_limit("limit", 1) == 1
+
+    def test_exact_compact_output_limit_is_enforced_after_backend_render(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Parser failures preserve the public InvalidDataError contract."""
-        parse_string = Mock(side_effect=ExpatError("malformed XML"))
+        """Backend output cannot bypass the exact encoded-byte limit."""
+        monkeypatch.setattr(
+            "json2xml.json2xml.dicttoxml.dicttoxml",
+            Mock(return_value=b"x" * 201),
+        )
+
+        with pytest.raises(InvalidDataError, match="XML output size limit exceeded"):
+            json2xml.Json2xml({}, max_output_bytes=200).to_xml()
+
+    def test_pretty_output_limit_counts_indentation(self) -> None:
+        """Pretty-only whitespace is included in the exact output byte budget."""
+        data = {"outer": {"inner": {"leaf": "value"}}}
+        compact_size = len(json2xml.Json2xml(data).to_xml() or b"")
+
+        with pytest.raises(InvalidDataError, match="XML output size limit exceeded"):
+            json2xml.Json2xml(data, pretty=True, max_output_bytes=compact_size).to_xml()
+
+    # @lat: [[tests#Conversion behavior#Pretty printing avoids DOM reparsing]]
+    def test_pretty_print_does_not_reparse_a_dom(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pretty output is indented during serialization, never by reparsing."""
+        parse_string = Mock(side_effect=AssertionError("DOM parser must not run"))
         monkeypatch.setattr("defusedxml.minidom.parseString", parse_string)
 
-        with pytest.raises(InvalidDataError):
-            json2xml.Json2xml({"valid": "data"}).to_xml()
+        result = json2xml.Json2xml({"name": "Ada"}, pretty=True).to_xml()
+
+        assert isinstance(result, str)
+        assert "\n  <name" in result
+        parse_string.assert_not_called()
+
+    # @lat: [[tests#Conversion behavior#Pretty printing indents during serialization]]
+    def test_pretty_print_keeps_character_data_on_one_line(self) -> None:
+        """Text content suppresses the line break before its closing tag."""
+        result = json2xml.Json2xml(
+            {"a": {"@attrs": {"x": "1"}, "@val": "text"}}, pretty=True
+        ).to_xml()
+
+        assert result == (
+            '<?xml version="1.0" encoding="UTF-8" ?>\n<all>\n  <a x="1">text</a>\n</all>\n'
+        )
+
+    # @lat: [[tests#Conversion behavior#Pretty printing indents during serialization]]
+    def test_pretty_print_indents_nested_containers_during_serialization(self) -> None:
+        """Indentation comes from the writer, so structure and text stay intact."""
+        result = json2xml.Json2xml(
+            {"outer": {"leaf": "value", "items": [1]}}, pretty=True
+        ).to_xml()
+
+        assert result == (
+            '<?xml version="1.0" encoding="UTF-8" ?>\n'
+            "<all>\n"
+            '  <outer type="dict">\n'
+            '    <leaf type="str">value</leaf>\n'
+            '    <items type="list">\n'
+            '      <item type="int">1</item>\n'
+            "    </items>\n"
+            "  </outer>\n"
+            "</all>\n"
+        )
 
     def test_read_boolean_data_from_json(self) -> None:
         """Test correct return for boolean types."""
         data = readfromjson("examples/booleanjson.json")
         result = json2xml.Json2xml(data).to_xml()
         dict_from_xml = xmltodict.parse(result)
-        assert dict_from_xml["all"]["boolean"]["#text"] != 'True'
-        assert dict_from_xml["all"]["boolean"]["#text"] == 'true'
-        assert dict_from_xml["all"]["boolean_dict_list"]["item"][0]["boolean_dict"]["boolean"]["#text"] == 'true'
-        assert dict_from_xml["all"]["boolean_dict_list"]["item"][1]["boolean_dict"]["boolean"]["#text"] == 'false'
-        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] == 'true'
-        assert dict_from_xml["all"]["boolean_list"]["item"][1]["#text"] == 'false'
+        assert dict_from_xml["all"]["boolean"]["#text"] != "True"
+        assert dict_from_xml["all"]["boolean"]["#text"] == "true"
+        assert (
+            dict_from_xml["all"]["boolean_dict_list"]["item"][0]["boolean_dict"][
+                "boolean"
+            ]["#text"]
+            == "true"
+        )
+        assert (
+            dict_from_xml["all"]["boolean_dict_list"]["item"][1]["boolean_dict"][
+                "boolean"
+            ]["#text"]
+            == "false"
+        )
+        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] == "true"
+        assert dict_from_xml["all"]["boolean_list"]["item"][1]["#text"] == "false"
 
     def test_read_boolean_data_from_json2(self) -> None:
         """Test correct return for boolean types."""
         data = readfromjson("examples/booleanjson2.json")
         result = json2xml.Json2xml(data).to_xml()
         dict_from_xml = xmltodict.parse(result)
-        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] != 'True'
-        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] == 'true'
-        assert dict_from_xml["all"]["boolean_list"]["item"][1]["#text"] == 'false'
-        assert dict_from_xml["all"]["number_array"]["item"][0]["#text"] == '1'
-        assert dict_from_xml["all"]["number_array"]["item"][1]["#text"] == '2'
-        assert dict_from_xml["all"]["number_array"]["item"][2]["#text"] == '3'
-        assert dict_from_xml["all"]["string_array"]["item"][0]["#text"] == 'a'
-        assert dict_from_xml["all"]["string_array"]["item"][1]["#text"] == 'b'
-        assert dict_from_xml["all"]["string_array"]["item"][2]["#text"] == 'c'
+        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] != "True"
+        assert dict_from_xml["all"]["boolean_list"]["item"][0]["#text"] == "true"
+        assert dict_from_xml["all"]["boolean_list"]["item"][1]["#text"] == "false"
+        assert dict_from_xml["all"]["number_array"]["item"][0]["#text"] == "1"
+        assert dict_from_xml["all"]["number_array"]["item"][1]["#text"] == "2"
+        assert dict_from_xml["all"]["number_array"]["item"][2]["#text"] == "3"
+        assert dict_from_xml["all"]["string_array"]["item"][0]["#text"] == "a"
+        assert dict_from_xml["all"]["string_array"]["item"][1]["#text"] == "b"
+        assert dict_from_xml["all"]["string_array"]["item"][2]["#text"] == "c"
 
     def test_dict_attr_crash(self) -> None:
         data = {
             "product": {
-                "@attrs": {
-                    "attr_name": "attr_value",
-                    "a": "b"
-                },
+                "@attrs": {"attr_name": "attr_value", "a": "b"},
                 "@val": [],
             },
         }
@@ -304,9 +436,9 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
         assert isinstance(xmldata, bytes)
         assert b'<array key="numbers">' in xmldata
-        assert b'<number>1</number>' in xmldata
-        assert b'<number>2</number>' in xmldata
-        assert b'<number>3</number>' in xmldata
+        assert b"<number>1</number>" in xmldata
+        assert b"<number>2</number>" in xmldata
+        assert b"<number>3</number>" in xmldata
 
     def test_xpath_format_null(self) -> None:
         """Test XPath 3.1 format with null values."""
@@ -321,10 +453,10 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
         assert isinstance(xmldata, bytes)
         assert b'<array key="items">' in xmldata
-        assert b'<string>text</string>' in xmldata
-        assert b'<number>42</number>' in xmldata
-        assert b'<boolean>true</boolean>' in xmldata
-        assert b'<null/>' in xmldata
+        assert b"<string>text</string>" in xmldata
+        assert b"<number>42</number>" in xmldata
+        assert b"<boolean>true</boolean>" in xmldata
+        assert b"<null/>" in xmldata
 
     def test_xpath_format_complex_nested(self) -> None:
         """Test XPath 3.1 format with complex nested structures."""
@@ -339,7 +471,7 @@ class TestJson2xml:
         assert b'<number key="id">70805774</number>' in xmldata
         assert b'<string key="value">1001</string>' in xmldata
         assert b'<array key="position">' in xmldata
-        assert b'<number>1004.0</number>' in xmldata
+        assert b"<number>1004.0</number>" in xmldata
 
     def test_xpath_format_escaping(self) -> None:
         """Test XPath 3.1 format properly escapes special characters."""
@@ -363,4 +495,4 @@ class TestJson2xml:
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
         assert isinstance(xmldata, bytes)
         assert b'<array xmlns="http://www.w3.org/2005/xpath-functions">' in xmldata
-        assert b'<number>1</number>' in xmldata
+        assert b"<number>1</number>" in xmldata

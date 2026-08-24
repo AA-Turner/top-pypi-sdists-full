@@ -5,6 +5,16 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+pub use dcc_mcp_models::{DispatchStatus, InstanceStatus, ServiceStatus};
+
+use crate::error::{TransportError, TransportResult};
+
+/// Schema version emitted for newly written [`ServiceEntry`] rows.
+pub const SERVICE_ENTRY_SCHEMA_VERSION: u16 = 1;
+
+/// Schema version assigned to registry rows written before versioning existed.
+pub const SERVICE_ENTRY_LEGACY_SCHEMA_VERSION: u16 = 0;
+
 /// Custom deserializer for `SystemTime` that accepts both Unix timestamp numbers
 /// (integer or float — as written by Python bridge plugins) and the Rust std serde
 /// struct format `{"secs_since_epoch": N, "nanos_since_epoch": N}`.
@@ -96,182 +106,29 @@ pub const SERVER_BINARY_VERSION_METADATA_KEY: &str = "dcc_mcp_server_version";
 /// preserve unknown values for forward compatibility.
 pub const INSTANCE_TYPE_METADATA_KEY: &str = "dcc_mcp_instance_type";
 
-/// Status of a discovered DCC service instance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ServiceStatus {
-    /// Service is available and accepting connections.
-    #[default]
-    Available,
-    /// Service is busy (processing a request).
-    Busy,
-    /// Service is unreachable (health check failed).
-    Unreachable,
-    /// Service is shutting down.
-    ShuttingDown,
-    /// Service process is alive but its embedded DCC host is still
-    /// initialising (`GET /v1/readyz` returns `503` with `dcc=false`
-    /// or `dispatcher=false`). Introduced in #713 to distinguish the
-    /// "Maya main thread busy with plugin init" window from a truly
-    /// dead backend — the row stays in the registry but no traffic
-    /// should be routed to it until readiness flips green.
-    Booting,
-    /// Service has already been marked stale by a probe or registry owner.
-    /// This is stronger than heartbeat age and must be treated as unroutable
-    /// immediately, even before the gateway's stale timeout elapses.
-    Stale,
-}
-
-/// Application-level dispatch readiness for a DCC instance.
+/// Interpret a discovery entry using application policy from `dcc-mcp-models`.
 ///
-/// ADR 018 replaces the free-form `dispatch_status` metadata string with this
-/// typed enum. Every surface — transport types, gateway output, CLI doctor —
-/// uses the same vocabulary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DispatchStatus {
-    /// Instance has reported dispatch-ready (all readiness bits green).
-    Ready,
-    /// Instance is alive but has not yet reported dispatch-ready (booting,
-    /// sidecar waiting for host, etc.).
-    Pending,
-    /// Instance reported a dispatch failure (failure_stage + failure_reason
-    /// metadata set).
-    Failed,
-    /// Instance has not reported dispatch status (legacy / embedded / pre-sidecar).
-    #[default]
-    Unknown,
-}
-
-impl std::fmt::Display for DispatchStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Ready => write!(f, "ready"),
-            Self::Pending => write!(f, "pending"),
-            Self::Failed => write!(f, "failed"),
-            Self::Unknown => write!(f, "unknown"),
-        }
-    }
-}
-
-/// Unified instance status combining transport-level and application-level state.
-///
-/// ADR 018 defines this as the single source of truth for every surface that
-/// reports instance status: transport types, gateway output, CLI doctor,
-/// gateway resources, and admin UI.
-///
-/// # Discovery health ≠ dispatch availability
-///
-/// `ServiceStatus::Available` means the transport is healthy (TCP port open,
-/// MCP server responding). `DispatchStatus::Ready` means the application is
-/// ready to accept tool calls. Agents can distinguish "server is up but DCC
-/// is still loading" from "everything is ready."
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InstanceStatus {
-    /// Transport-level connection state.
-    pub status: ServiceStatus,
-    /// Application-level dispatch readiness.
-    pub dispatch_status: DispatchStatus,
-    /// Whether the current state is safe to retry.
-    pub retryable: bool,
-    /// Human + machine-readable recommended next step.
-    pub recommended_next_action: String,
-}
-
-impl InstanceStatus {
-    /// Derive `InstanceStatus` from a `ServiceEntry`, its staleness, and
-    /// whether sidecar dispatch is in use.
-    ///
-    /// `dispatch_status` is read from metadata key `"dispatch_status"`.
-    /// `stale` is `true` when the entry has passed the stale timeout or has
-    /// been explicitly marked `ServiceStatus::Stale`.
-    pub fn from_entry(entry: &ServiceEntry, stale: bool, _uses_sidecar: bool) -> Self {
-        let effective_status = if stale {
-            ServiceStatus::Stale
-        } else {
-            entry.status
-        };
-        let dispatch_status = dispatch_status_from_entry(entry);
-        let (retryable, recommended_next_action) = actionability(effective_status, dispatch_status);
-        Self {
-            status: effective_status,
-            dispatch_status,
-            retryable,
-            recommended_next_action: recommended_next_action.to_string(),
-        }
-    }
+/// This boundary keeps registry metadata parsing in transport while the
+/// retry decision and agent-facing guidance remain in the model layer.
+#[must_use]
+pub fn instance_status_from_entry(entry: &ServiceEntry, stale: bool) -> InstanceStatus {
+    let effective_status = if stale {
+        ServiceStatus::Stale
+    } else {
+        entry.status
+    };
+    InstanceStatus::from_states(effective_status, dispatch_status_from_entry(entry))
 }
 
 /// Read `DispatchStatus` from a `ServiceEntry`'s metadata.
-fn dispatch_status_from_entry(entry: &ServiceEntry) -> DispatchStatus {
+#[must_use]
+pub fn dispatch_status_from_entry(entry: &ServiceEntry) -> DispatchStatus {
     match entry.metadata.get("dispatch_status").map(String::as_str) {
         Some("ready") => DispatchStatus::Ready,
         Some("pending") => DispatchStatus::Pending,
         Some("failed") | Some("unavailable") => DispatchStatus::Failed,
         Some(_) => DispatchStatus::Unknown,
         None => DispatchStatus::Unknown,
-    }
-}
-
-/// Derive `retryable` and `recommended_next_action` from the status pairing.
-///
-/// ADR 018 status pairing table — the canonical mapping.
-fn actionability(status: ServiceStatus, dispatch_status: DispatchStatus) -> (bool, &'static str) {
-    match (status, dispatch_status) {
-        (ServiceStatus::Available, DispatchStatus::Ready) => {
-            (true, "Instance is available for dispatch.")
-        }
-        (ServiceStatus::Available, DispatchStatus::Pending) => {
-            (true, "Wait for instance to report dispatch_status=ready.")
-        }
-        (ServiceStatus::Available, DispatchStatus::Failed) => (
-            false,
-            "Inspect instance failure stage/reason; the backend may need a restart.",
-        ),
-        (ServiceStatus::Available, DispatchStatus::Unknown) => (
-            true,
-            "Dispatch status not yet reported; try a direct MCP call.",
-        ),
-        (ServiceStatus::Busy, DispatchStatus::Ready) => {
-            (true, "Instance is busy; retry after current job completes.")
-        }
-        (ServiceStatus::Busy, DispatchStatus::Pending) => (
-            true,
-            "Instance is busy and not yet dispatch-ready; wait and retry.",
-        ),
-        (ServiceStatus::Busy, DispatchStatus::Failed) => (
-            false,
-            "Instance is busy but dispatch has failed; inspect failure details.",
-        ),
-        (ServiceStatus::Busy, DispatchStatus::Unknown) => (true, "Instance is busy; retry later."),
-        (ServiceStatus::Booting, DispatchStatus::Pending) => {
-            (true, "Instance is booting; wait for readiness and retry.")
-        }
-        (ServiceStatus::Booting, _) => (true, "Instance is booting; wait for readiness and retry."),
-        (ServiceStatus::Unreachable, _) => (
-            false,
-            "Instance is unreachable; check logs and restart if needed.",
-        ),
-        (ServiceStatus::ShuttingDown, _) => {
-            (false, "Instance is shutting down; wait for a new instance.")
-        }
-        (ServiceStatus::Stale, _) => (
-            false,
-            "Instance is stale; it will be removed by the registry.",
-        ),
-    }
-}
-
-impl std::fmt::Display for ServiceStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Available => write!(f, "available"),
-            Self::Busy => write!(f, "busy"),
-            Self::Unreachable => write!(f, "unreachable"),
-            Self::ShuttingDown => write!(f, "shutting_down"),
-            Self::Booting => write!(f, "booting"),
-            Self::Stale => write!(f, "stale"),
-        }
     }
 }
 
@@ -346,6 +203,13 @@ pub struct ServiceSnapshot<'a> {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ServiceEntry {
+    /// Version of the serialized registry-row schema.
+    ///
+    /// Rows written before this field existed deserialize as version 0. Registry
+    /// boundaries reject versions newer than [`SERVICE_ENTRY_SCHEMA_VERSION`]
+    /// so an older process cannot silently rewrite an incompatible file.
+    #[serde(default)]
+    pub schema_version: u16,
     /// DCC application type (e.g. "maya", "houdini", "blender").
     pub dcc_type: String,
     /// Unique ID for this running instance.
@@ -472,6 +336,7 @@ impl ServiceEntry {
     pub fn new(dcc_type: impl Into<String>, host: impl Into<String>, port: u16) -> Self {
         let now = SystemTime::now();
         Self {
+            schema_version: SERVICE_ENTRY_SCHEMA_VERSION,
             dcc_type: dcc_type.into(),
             instance_id: Uuid::new_v4(),
             host: host.into(),
@@ -510,6 +375,7 @@ impl ServiceEntry {
         };
         let now = SystemTime::now();
         Self {
+            schema_version: SERVICE_ENTRY_SCHEMA_VERSION,
             dcc_type: dcc_type.into(),
             instance_id: Uuid::new_v4(),
             host,
@@ -533,6 +399,18 @@ impl ServiceEntry {
             lease_owner: None,
             current_job_id: None,
             lease_expires_at: None,
+        }
+    }
+
+    /// Validate that this row uses a schema understood by this build.
+    pub fn validate_schema_version(&self) -> TransportResult<()> {
+        if self.schema_version <= SERVICE_ENTRY_SCHEMA_VERSION {
+            Ok(())
+        } else {
+            Err(TransportError::UnsupportedServiceEntrySchemaVersion {
+                received: u64::from(self.schema_version),
+                supported: SERVICE_ENTRY_SCHEMA_VERSION,
+            })
         }
     }
 
@@ -591,7 +469,7 @@ impl ServiceEntry {
     /// # Stability
     ///
     /// The 8-char hex short ID must match
-    /// `dcc_mcp_gateway_core::naming::instance_short` byte-for-byte
+    /// `dcc_mcp_gateway_core::capability_naming::instance_short` byte-for-byte
     /// so a `display_id` and the cursor-safe tool slug for the same
     /// instance always reference the same 8 hex characters. Tests
     /// pin this in [`tests::display_id_short_matches_gateway_naming`].
@@ -734,24 +612,13 @@ impl std::fmt::Display for ServiceKey {
 }
 
 #[cfg(test)]
+#[path = "service_entry_schema_tests.rs"]
+mod service_entry_schema_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
-
-    #[test]
-    fn test_service_entry_new() {
-        let entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
-        assert_eq!(entry.dcc_type, "maya");
-        assert_eq!(entry.host, "127.0.0.1");
-        assert_eq!(entry.port, 18812);
-        assert_eq!(entry.status, ServiceStatus::Available);
-        assert!(entry.version.is_none());
-        assert!(entry.scene.is_none());
-        assert!(entry.transport_address.is_none());
-        assert!(entry.extras.is_empty());
-        // pid is auto-populated with the current process id (ghost-entry prevention).
-        assert_eq!(entry.pid, Some(std::process::id()));
-    }
 
     #[test]
     fn test_service_entry_with_pid_override() {
@@ -1041,7 +908,7 @@ mod tests {
     #[test]
     fn display_id_short_matches_gateway_naming() {
         // Pinning the 8-char prefix contract — must stay byte-for-byte
-        // aligned with `dcc_mcp_gateway_core::naming::instance_short`
+        // aligned with `dcc_mcp_gateway_core::capability_naming::instance_short`
         // (8 leading hex chars of the simple-form UUID). If
         // `instance_short` ever changes its length or alphabet, this
         // test fails loudly so both surfaces get re-aligned in lock
@@ -1294,7 +1161,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "ready".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Available);
         assert_eq!(status.dispatch_status, DispatchStatus::Ready);
         assert!(status.retryable);
@@ -1306,7 +1173,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "pending".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.dispatch_status, DispatchStatus::Pending);
         assert!(status.retryable);
     }
@@ -1317,7 +1184,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "failed".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.dispatch_status, DispatchStatus::Failed);
         assert!(!status.retryable);
     }
@@ -1328,14 +1195,14 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "unavailable".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.dispatch_status, DispatchStatus::Failed);
     }
 
     #[test]
     fn test_dispatch_status_from_entry_unknown_when_absent() {
         let entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.dispatch_status, DispatchStatus::Unknown);
     }
 
@@ -1345,7 +1212,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "ready".into());
-        let status = InstanceStatus::from_entry(&entry, true, false);
+        let status = instance_status_from_entry(&entry, true);
         assert_eq!(status.status, ServiceStatus::Stale);
         assert!(!status.retryable);
         assert!(status.recommended_next_action.contains("Instance is stale"));
@@ -1355,7 +1222,7 @@ mod tests {
     fn test_instance_status_booting_retryable() {
         let mut entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
         entry.status = ServiceStatus::Booting;
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Booting);
         assert!(status.retryable);
         assert!(
@@ -1369,7 +1236,7 @@ mod tests {
     fn test_instance_status_unreachable_not_retryable() {
         let mut entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
         entry.status = ServiceStatus::Unreachable;
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Unreachable);
         assert!(!status.retryable);
         assert!(
@@ -1383,7 +1250,7 @@ mod tests {
     fn test_instance_status_shutting_down_not_retryable() {
         let mut entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
         entry.status = ServiceStatus::ShuttingDown;
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::ShuttingDown);
         assert!(!status.retryable);
         assert!(
@@ -1399,7 +1266,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "ready".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Available);
         assert_eq!(status.dispatch_status, DispatchStatus::Ready);
         assert!(status.retryable);
@@ -1416,7 +1283,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "ready".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Busy);
         assert_eq!(status.dispatch_status, DispatchStatus::Ready);
         assert!(status.retryable);
@@ -1429,7 +1296,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "ready".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
 
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("\"status\":\"available\""));
@@ -1459,7 +1326,7 @@ mod tests {
         entry
             .metadata
             .insert("dispatch_status".into(), "pending".into());
-        let status = InstanceStatus::from_entry(&entry, false, false);
+        let status = instance_status_from_entry(&entry, false);
         assert_eq!(status.status, ServiceStatus::Available);
         assert_eq!(status.dispatch_status, DispatchStatus::Pending);
         // retryable = true because the instance is still booting, not broken

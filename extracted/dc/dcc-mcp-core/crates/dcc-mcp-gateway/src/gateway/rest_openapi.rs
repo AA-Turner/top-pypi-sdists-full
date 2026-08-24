@@ -24,6 +24,7 @@ pub(crate) const GATEWAY_OPENAPI_ROUTES: &[GatewayOpenApiRoute] = &[
     post("/v1/instances/deregister"),
     get("/v1/healthz"),
     get("/v1/readyz"),
+    post("/v1/feedback"),
     get("/v1/update/check"),
     get("/v1/update/download/{binary_name}"),
     get("/v1/openapi.json"),
@@ -70,6 +71,7 @@ pub(crate) fn build_gateway_openapi_document(server_version: &str) -> Value {
         },
         "tags": [
             {"name": "health", "description": "Gateway liveness and readiness probes."},
+            {"name": "feedback", "description": "Gateway-owned agent feedback that does not require a live DCC."},
             {"name": "instances", "description": "Live DCC instance inventory."},
             {"name": "skills", "description": "Gateway skill discovery and lifecycle operations."},
             {"name": "tools", "description": "Gateway capability describe and invocation operations."},
@@ -157,6 +159,10 @@ pub(crate) fn build_gateway_openapi_document(server_version: &str) -> Value {
             "Aggregates live instance readiness bits; the gateway itself remains reachable even when no DCC instance is ready.",
             json_response_ref("GatewayReadyz"),
         ),
+    );
+    paths.insert(
+        "/v1/feedback".to_string(),
+        super::rest_openapi_feedback::path_operation(),
     );
     paths.insert(
         "/v1/update/check".to_string(),
@@ -502,7 +508,8 @@ fn annotate_response_format_controls(schemas: &mut Map<String, Value>) {
 }
 
 fn gateway_schemas() -> Vec<(&'static str, Value)> {
-    vec![
+    let mut schemas = super::rest_openapi_feedback::schemas();
+    schemas.extend([
         (
             "LoadSkillRequest",
             json!({
@@ -757,13 +764,20 @@ fn gateway_schemas() -> Vec<(&'static str, Value)> {
                     "binary_name": {"type": "string", "description": "Present on CLI-normalized payloads or binary-specific errors."},
                     "latest_version": {"type": "string", "description": "Present when the binary exists in the update manifest."},
                     "download_url": {"type": ["string", "null"], "format": "uri"},
-                    "sha256": {"type": ["string", "null"]},
+                    "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-fA-F]{64}$"},
                     "release_notes": {"type": ["string", "null"]},
                     "status": {"type": "string", "description": "Present on structured error responses."},
                     "error": {"type": "string"},
                     "message": {"type": "string"},
                     "hint": {"type": "string"}
                 },
+                "allOf": [{
+                    "if": {
+                        "properties": {"update_available": {"const": true}},
+                        "required": ["update_available"]
+                    },
+                    "then": {"required": ["download_url", "sha256"]}
+                }],
                 "additionalProperties": true,
             }),
         ),
@@ -773,6 +787,7 @@ fn gateway_schemas() -> Vec<(&'static str, Value)> {
                 "type": "object",
                 "properties": {
                     "download_url": {"type": "string", "format": "uri"},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
                     "status": {"type": "string"},
                     "error": {"type": "string"},
                     "message": {"type": "string"},
@@ -780,6 +795,10 @@ fn gateway_schemas() -> Vec<(&'static str, Value)> {
                     "latest_version": {"type": "string"},
                     "update_available": {"type": "boolean"}
                 },
+                "oneOf": [
+                    {"required": ["download_url", "sha256"]},
+                    {"required": ["error"]}
+                ],
                 "additionalProperties": true,
             }),
         ),
@@ -1004,7 +1023,8 @@ fn gateway_schemas() -> Vec<(&'static str, Value)> {
                 "additionalProperties": true,
             }),
         ),
-    ]
+    ]);
+    schemas
 }
 
 fn get_operation(tags: &[&str], summary: &str, description: &str, response: Value) -> Value {
@@ -1029,7 +1049,7 @@ fn get_operation_with_params(
     )
 }
 
-fn post_operation(
+pub(super) fn post_operation(
     tags: &[&str],
     summary: &str,
     description: &str,
@@ -1097,7 +1117,7 @@ fn operation(
     json!({method: op})
 }
 
-fn request_body_ref(schema: &str) -> Value {
+pub(super) fn request_body_ref(schema: &str) -> Value {
     json!({
         "required": true,
         "content": {
@@ -1108,7 +1128,7 @@ fn request_body_ref(schema: &str) -> Value {
     })
 }
 
-fn json_response_ref(schema: &str) -> Value {
+pub(super) fn json_response_ref(schema: &str) -> Value {
     json!({
         "description": "JSON response",
         "content": {
@@ -1292,38 +1312,6 @@ mod tests {
     }
 
     #[test]
-    fn gateway_openapi_keeps_shared_envelope_schemas() {
-        let doc = build_gateway_openapi_document("1.2.3");
-        let schemas = doc["components"]["schemas"]
-            .as_object()
-            .expect("schemas object");
-        for schema in [
-            "ServiceError",
-            "SearchRequest",
-            "SearchResponse",
-            "LoadSkillRequest",
-            "GatewayLoadSkillResponse",
-            "GatewaySkillLoadResponse",
-            "GatewayGroupActionResponse",
-            "UnloadSkillRequest",
-            "SkillLifecycleResponse",
-            "DescribeRequest",
-            "DescribeResponse",
-            "CallRequest",
-            "CallOutcome",
-            "GatewayDirectCallRequest",
-            "GatewayPolicyDenial",
-            "GatewayBatchCallItem",
-            "GatewayCallBatchRequest",
-        ] {
-            assert!(
-                schemas.contains_key(schema),
-                "gateway OpenAPI schema set missing {schema}"
-            );
-        }
-    }
-
-    #[test]
     fn gateway_openapi_documents_correlated_targeted_skill_load() {
         let doc = build_gateway_openapi_document("1.2.3");
         let schema = &doc["components"]["schemas"]["LoadSkillRequest"];
@@ -1478,3 +1466,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "rest_openapi_contract_tests.rs"]
+mod contract_tests;

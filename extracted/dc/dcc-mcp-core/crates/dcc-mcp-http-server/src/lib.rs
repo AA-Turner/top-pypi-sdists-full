@@ -18,6 +18,7 @@
 #![forbid(unsafe_code)]
 
 pub mod dynamic_tools;
+pub mod execution_contract;
 pub mod executor;
 pub mod handlers;
 pub mod host_bridge;
@@ -47,7 +48,10 @@ pub use dynamic_tools::{
     build_register_tool_descriptor, handle_deregister_tool, handle_list_dynamic_tools,
     handle_register_tool,
 };
-pub use executor::{DccExecutorHandle, DeferredExecutor, ExecutorQueueStats};
+pub use execution_contract::{
+    ExecutionContractIssue, ExecutionContractReport, probe_skill_execution_contracts,
+};
+pub use executor::{DccExecutorHandle, DeferredExecutor, ExecutorError, ExecutorQueueStats};
 pub use handlers::{build_core_tools, build_core_tools_inner};
 pub use host_bridge::{
     DEFAULT_BRIDGE_QUEUE_DEPTH, dispatcher_to_executor_handle,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-microsoft-azure
-Version: 14.1.0
+Version: 15.0.0
 Summary: Provider package apache-airflow-providers-microsoft-azure for Apache Airflow
 Keywords: airflow-provider,microsoft.azure,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,7 +27,7 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.13.0
 Requires-Dist: adlfs>=2023.10.0
 Requires-Dist: aiohttp>=3.14.0
-Requires-Dist: azure-batch>=8.0.0,<15.0.0
+Requires-Dist: azure-batch>=15.0.0
 Requires-Dist: azure-ai-projects>=2.2.0
 Requires-Dist: azure-cosmos>=4.6.0
 Requires-Dist: azure-mgmt-cosmosdb>=3.0.0
@@ -63,8 +63,8 @@ Requires-Dist: apache-airflow-providers-openlineage>=2.3.0 ; extra == "openlinea
 Requires-Dist: apache-airflow-providers-oracle ; extra == "oracle"
 Requires-Dist: apache-airflow-providers-sftp ; extra == "sftp"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/14.1.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/14.1.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/15.0.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/15.0.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -75,6 +75,10 @@ Provides-Extra: google
 Provides-Extra: openlineage
 Provides-Extra: oracle
 Provides-Extra: sftp
+Import-Name: airflow.providers.microsoft.azure
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+Import-Namespace: airflow.providers.microsoft
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -101,7 +105,7 @@ Provides-Extra: sftp
 
 Package ``apache-airflow-providers-microsoft-azure``
 
-Release: ``14.1.0``
+Release: ``15.0.0``
 
 
 `Microsoft Azure <https://azure.microsoft.com/>`__
@@ -114,7 +118,7 @@ This is a provider package for ``microsoft.azure`` provider. All classes for thi
 are in ``airflow.providers.microsoft.azure`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/14.1.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/15.0.0/>`_.
 
 Installation
 ------------
@@ -135,7 +139,7 @@ PIP package                                 Version required
 ``apache-airflow-providers-common-compat``  ``>=1.13.0``
 ``adlfs``                                   ``>=2023.10.0``
 ``aiohttp``                                 ``>=3.14.0``
-``azure-batch``                             ``<15.0.0,>=8.0.0``
+``azure-batch``                             ``>=15.0.0``
 ``azure-ai-projects``                       ``>=2.2.0``
 ``azure-cosmos``                            ``>=4.6.0``
 ``azure-mgmt-cosmosdb``                     ``>=3.0.0``
@@ -205,5 +209,5 @@ Extra                 Dependencies
 ====================  ====================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/14.1.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure/15.0.0/changelog.html>`_.
 

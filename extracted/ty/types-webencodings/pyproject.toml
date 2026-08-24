@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-webencodings"
-version = "0.6.0.20260823"
+version = "0.6.0.20260824"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for webencodings"

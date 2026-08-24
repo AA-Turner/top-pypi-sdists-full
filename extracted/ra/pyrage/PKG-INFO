@@ -1,17 +1,12 @@
 Metadata-Version: 2.4
 Name: pyrage
-Version: 1.3.0
-Classifier: Programming Language :: Rust
+Version: 1.4.0
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Rust
 License-File: LICENSE
-Summary: Python bindings for rage (age in Rust)
 Home-Page: https://github.com/woodruffw/pyrage
-Author: William Woodruff <william@yossarian.net>
-Author-email: William Woodruff <william@yossarian.net>
-License: MIT
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/woodruffw/pyrage
 
 pyrage
 ======

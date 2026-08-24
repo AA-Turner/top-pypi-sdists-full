@@ -26,7 +26,7 @@
 //! | crate root       | [`PendingCall`] (routing primitive)                 |
 //! | [`naming`]       | Pure UUID / alphabet helpers used by slug encoding  |
 //! | [`resource_uri`] | Gateway resource URI prefix encode/decode helpers   |
-//! | [`event`]        | Gateway contention event wire records               |
+//! | [`event`]        | Gateway operational event wire records              |
 //! | [`openapi`]      | OpenAPI mount credential value types                |
 //! | [`capability`]   | [`CapabilityRecord`] + slug encoding (REST wire)    |
 //!
@@ -42,8 +42,13 @@
 #![warn(missing_docs)]
 
 pub mod capability;
+#[path = "naming/mod.rs"]
+pub mod capability_naming;
 pub mod event;
-pub mod naming;
+
+/// Deprecated name for [`capability_naming`].
+#[deprecated(since = "0.20.9", note = "use capability_naming")]
+pub use capability_naming as naming;
 pub mod openapi;
 pub mod policy;
 pub mod resource_uri;

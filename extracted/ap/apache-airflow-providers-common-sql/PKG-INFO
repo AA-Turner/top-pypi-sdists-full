@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-common-sql
-Version: 2.1.0
+Version: 2.1.1
 Summary: Provider package apache-airflow-providers-common-sql for Apache Airflow
 Keywords: airflow-provider,common.sql,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -39,8 +39,8 @@ Requires-Dist: polars>=1.26.0 ; extra == "polars"
 Requires-Dist: pyiceberg-core>=0.8.0 ; extra == "pyiceberg-core"
 Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -53,6 +53,10 @@ Provides-Extra: pandas
 Provides-Extra: polars
 Provides-Extra: pyiceberg-core
 Provides-Extra: sqlalchemy
+Import-Name: airflow.providers.common.sql
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+Import-Namespace: airflow.providers.common
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -79,7 +83,7 @@ Provides-Extra: sqlalchemy
 
 Package ``apache-airflow-providers-common-sql``
 
-Release: ``2.1.0``
+Release: ``2.1.1``
 
 
 `Common SQL Provider <https://en.wikipedia.org/wiki/SQL>`__
@@ -92,7 +96,7 @@ This is a provider package for ``common.sql`` provider. All classes for this pro
 are in ``airflow.providers.common.sql`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.1/>`_.
 
 Installation
 ------------
@@ -154,5 +158,5 @@ Extra               Dependencies
 ==================  =======================================================================================================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-common-sql/2.1.1/changelog.html>`_.
 

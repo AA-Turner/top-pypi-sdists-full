@@ -31,7 +31,7 @@
 
 """Unittests for the tifffile package.
 
-:Version: 2026.8.16
+:Version: 2026.8.23
 
 """
 
@@ -4996,6 +4996,186 @@ def test_class_tiffseries():
         arr = imread(filename, squeeze=True)
         assert arr.shape == (3, 32, 33)
         assert_array_equal(arr, numpy.squeeze(data))
+
+
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_pages_delete_single(bigtiff):
+    """Test deleting single middle page from IFD chain."""
+    data = random_data(numpy.uint8, (5, 32, 32))
+    with TempFileName(f'pages_delete_single_{bigtiff}') as filename:
+        imwrite(
+            filename, data, photometric=PHOTOMETRIC.MINISBLACK, bigtiff=bigtiff
+        )
+        with TiffFile(filename, mode='r+') as tif:
+            assert len(tif.pages) == 5
+            tif.pages.delete(2)
+            assert len(tif.pages) == 4
+            assert tif.pages[0].asarray()[0, 0] == data[0, 0, 0]
+            assert tif.pages[1].asarray()[0, 0] == data[1, 0, 0]
+            assert tif.pages[2].asarray()[0, 0] == data[3, 0, 0]  # old 3
+            assert tif.pages[3].asarray()[0, 0] == data[4, 0, 0]  # old 4
+        # re-read from disk and verify chain
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 4
+            assert tif.pages[2].asarray()[0, 0] == data[3, 0, 0]
+
+
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_pages_delete_multiple(bigtiff):
+    """Test deleting multiple non-contiguous pages."""
+    data = random_data(numpy.uint8, (6, 32, 32))
+    with TempFileName(f'pages_delete_multiple_{bigtiff}') as filename:
+        imwrite(
+            filename, data, photometric=PHOTOMETRIC.MINISBLACK, bigtiff=bigtiff
+        )
+        with TiffFile(filename, mode='r+') as tif:
+            tif.pages.delete([1, 3, 5])
+            assert len(tif.pages) == 3
+            assert tif.pages[0].asarray()[0, 0] == data[0, 0, 0]
+            assert tif.pages[1].asarray()[0, 0] == data[2, 0, 0]
+            assert tif.pages[2].asarray()[0, 0] == data[4, 0, 0]
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 3
+
+
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_pages_delete_first(bigtiff):
+    """Test deleting first page resets keyframe and series cache."""
+    data = random_data(numpy.uint8, (4, 32, 32))
+    with TempFileName(f'pages_delete_first_{bigtiff}') as filename:
+        imwrite(
+            filename, data, photometric=PHOTOMETRIC.MINISBLACK, bigtiff=bigtiff
+        )
+        with TiffFile(filename, mode='r+') as tif:
+            _ = tif.series  # populate series cache
+            tif.pages.delete(0)
+            assert len(tif.pages) == 3
+            assert tif.pages.keyframe is not None
+            assert tif.pages.keyframe.index == 0
+            # series cache must have been cleared
+            assert tif._series == {}
+            assert tif.pages[0].asarray()[0, 0] == data[1, 0, 0]
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 3
+            assert tif.pages[0].asarray()[0, 0] == data[1, 0, 0]
+
+
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_pages_delete_last(bigtiff):
+    """Test deleting last page updates next_page_offset."""
+    data = random_data(numpy.uint8, (4, 32, 32))
+    with TempFileName(f'pages_delete_last_{bigtiff}') as filename:
+        imwrite(
+            filename, data, photometric=PHOTOMETRIC.MINISBLACK, bigtiff=bigtiff
+        )
+        with TiffFile(filename, mode='r+') as tif:
+            old_next = tif.pages.next_page_offset
+            tif.pages.delete(3)
+            assert len(tif.pages) == 3
+            new_next = tif.pages.next_page_offset
+            assert new_next != old_next
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 3
+
+
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_pages_delete_all(bigtiff):
+    """Test deleting all pages leaves empty chain."""
+    data = random_data(numpy.uint8, (3, 32, 32))
+    with TempFileName(f'pages_delete_all_{bigtiff}') as filename:
+        imwrite(
+            filename, data, photometric=PHOTOMETRIC.MINISBLACK, bigtiff=bigtiff
+        )
+        with TiffFile(filename, mode='r+') as tif:
+            tif.pages.delete([0, 1, 2])
+            assert len(tif.pages) == 0
+            assert tif.pages.next_page_offset is None
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 0
+
+
+def test_pages_delete_page():
+    """Test deleting pages via TiffPage.delete."""
+    data = random_data(numpy.uint8, (4, 32, 32))
+    with TempFileName('pages_delete_via_page') as filename:
+        imwrite(filename, data, photometric=PHOTOMETRIC.MINISBLACK)
+        with TiffFile(filename, mode='r+') as tif:
+            tif.pages[2].delete()
+            assert len(tif.pages) == 3
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 3
+
+
+def test_pages_delete_readonly():
+    """Test deleting pages from read-only file updates only memory."""
+    data = random_data(numpy.uint8, (3, 32, 32))
+    with TempFileName('pages_delete_readonly') as filename:
+        imwrite(filename, data, photometric=PHOTOMETRIC.MINISBLACK)
+        with TiffFile(filename) as tif:  # default read-only
+            assert len(tif.pages) == 3
+            tif.pages.delete(1)
+            # in-memory view has 2 pages
+            assert len(tif.pages) == 2
+        # re-read: file is unchanged, still has 3 pages
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 3
+
+
+def test_pages_delete_ome(caplog):
+    """Test deleting pages from OME-TIFF (metadata becomes invalid)."""
+    data = random_data(numpy.uint8, (3, 32, 32))
+    with TempFileName('pages_delete_ome', ext='.ome.tif') as filename:
+        imwrite(filename, data)
+        with TiffFile(filename, mode='r+') as tif:
+            assert tif.is_ome
+            assert len(tif.pages) == 3
+            tif.pages.delete(1)
+            assert len(tif.pages) == 2
+
+            # OME metadata is invalid
+            series = tif.series[0]
+            assert 'index out of range' in caplog.text
+            assert series.shape == (3, 32, 32)
+            im = series.asarray()
+            assert_array_equal(im[0], data[0])
+            assert_array_equal(im[1], data[2])
+            assert_array_equal(im[2], numpy.zeros_like(data[2]))
+
+
+def test_pages_delete_erase():
+    """Test deleting pages with erase=True zeros image data and IFD."""
+    data = random_data(numpy.uint8, (3, 32, 32))
+    with TempFileName('pages_delete_erase') as filename:
+        imwrite(filename, data, photometric=PHOTOMETRIC.MINISBLACK)
+        page1_offset = None
+        page1_data_offset = None
+        with TiffFile(filename, mode='r+') as tif:
+            page = tif.pages[1].aspage()
+            page1_offset = page.offset
+            page1_data_offset = page.dataoffsets[0]
+            tif.pages.delete(1, erase=True)
+            assert len(tif.pages) == 2
+        # verify IFD and image data at deleted page locations are zeroed
+        with open(filename, 'rb') as fh:
+            fh.seek(page1_offset)
+            assert fh.read(4) == b'\x00\x00\x00\x00'
+            fh.seek(page1_data_offset)
+            assert fh.read(32 * 32) == b'\x00' * (32 * 32)
+        # remaining pages are intact
+        with TiffFile(filename) as tif:
+            assert len(tif.pages) == 2
+            assert_array_equal(tif.pages[0].asarray(), data[0])
+            assert_array_equal(tif.pages[1].asarray(), data[2])
+
+
+def test_pages_delete_erase_readonly_error():
+    """Test that erase=True raises PermissionError on read-only file."""
+    data = random_data(numpy.uint8, (3, 32, 32))
+    with TempFileName('pages_delete_erase_readonly_error') as filename:
+        imwrite(filename, data, photometric=PHOTOMETRIC.MINISBLACK)
+        with TiffFile(filename) as tif:  # noqa: SIM117
+            with pytest.raises(PermissionError):
+                tif.pages.first.delete(erase=True)
 
 
 def test_parse_kwargs():

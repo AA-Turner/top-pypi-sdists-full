@@ -8,7 +8,6 @@ if sys.version_info[1] > 5:
 else:
 	from typing.io import TextIO
 
-
 def serializedATN():
     with StringIO() as buf:
         buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\7")
@@ -55,7 +54,6 @@ class FqnParser ( Parser ):
         self.checkVersion("4.9.2")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
-
 
 
 
@@ -126,7 +124,6 @@ class FqnParser ( Parser ):
         finally:
             self.exitRule()
         return localctx
-
 
     class NameContext(ParserRuleContext):
         __slots__ = 'parser'

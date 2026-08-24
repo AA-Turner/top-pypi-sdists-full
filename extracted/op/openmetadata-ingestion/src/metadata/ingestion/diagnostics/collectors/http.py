@@ -72,10 +72,7 @@ class HttpTracker:
         """List of `(thread_id, method, url, age_seconds)` for all active requests."""
         now = time.monotonic()
         with self._lock:
-            return [
-                (tid, method, url, now - started)
-                for (tid, _rid), (method, url, started) in self._active.items()
-            ]
+            return [(tid, method, url, now - started) for (tid, _rid), (method, url, started) in self._active.items()]
 
     def active_count(self) -> int:
         with self._lock:
@@ -93,9 +90,7 @@ class HttpTracker:
         name_by_ident = {t.ident: t.name for t in threading.enumerate() if t.ident}
         for tid, method, url, age in sorted(active, key=lambda r: -r[3]):
             thread_name = name_by_ident.get(tid, f"tid-{tid}")
-            out.write(
-                f"  thread={thread_name} method={method} url={url} age={age:.1f}s\n"
-            )
+            out.write(f"  thread={thread_name} method={method} url={url} age={age:.1f}s\n")
 
 
 def get_global_tracker() -> Any:

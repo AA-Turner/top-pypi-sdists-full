@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aigie
-Version: 0.4.4
+Version: 0.4.5
 Summary: Enterprise-grade AI agent reliability monitoring and autonomous remediation
 Home-page: https://kytte.ai/
 Author: Aigie
@@ -26,7 +26,7 @@ Requires-Dist: httpx>=0.25.0
 Requires-Dist: websockets>=11.0
 Requires-Dist: redis>=5.0.0
 Requires-Dist: grpcio>=1.60
-Requires-Dist: protobuf<7,>=6.31
+Requires-Dist: protobuf<8,>=6.31
 Requires-Dist: prometheus-client>=0.20.0
 Requires-Dist: opentelemetry-api>=1.20.0
 Requires-Dist: opentelemetry-sdk>=1.20.0
@@ -92,7 +92,7 @@ Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-repeat>=0.9.3; extra == "dev"
 Requires-Dist: tenacity>=8.2.0; extra == "dev"
-Requires-Dist: grpcio-tools>=1.60; extra == "dev"
+Requires-Dist: grpcio-tools==1.80.0; extra == "dev"
 Requires-Dist: import-linter>=2.0; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx>=7.0.0; extra == "docs"

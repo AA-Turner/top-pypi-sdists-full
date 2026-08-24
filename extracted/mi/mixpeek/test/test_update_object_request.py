@@ -44,6 +44,7 @@ class TestUpdateObjectRequest(unittest.TestCase):
                         type = 'string', 
                         data = null, 
                         upload_id = 'upl_z', 
+                        checksum = '', 
                         metadata = { }, 
                         canonicalize_source = True, 
                         force_remirror = True, )

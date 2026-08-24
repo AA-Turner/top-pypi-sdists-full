@@ -1,6 +1,6 @@
 [project]
 name = "cachelib"
-version = "0.16.1"
+version = "0.17.0"
 description = "A collection of cache libraries in the same API interface."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -73,6 +73,7 @@ pre-commit = [
 tests = [
     "boto3>=1.43.4",
     "pylibmc>=1.6.3",
+    "python-memcached>=1.62",
     "pymongo>=4.11",
     "pytest",
     "pytest-xprocess",
@@ -163,7 +164,7 @@ order-by-type = false
 
 [tool.tox]
 env_list = [
-    "py3.14", "py3.13", "py3.12", "py3.11",
+    "py3.15", "py3.14", "py3.13", "py3.12", "py3.11",
     "style",
     "typing",
     "docs",

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "robocorp-workitems"
-version = "1.5.0"
+version = "1.5.1"
 description = "Robocorp Work Items library"
 authors = ["Sema4.ai <dev@sema4.ai>"]
 readme = "README.md"
@@ -11,9 +11,6 @@ packages = [{ include = "robocorp/workitems", from = "src" }]
 [tool.black]
 skip-string-normalization = false
 skip-magic-trailing-comma = false
-
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 mypy_path = "src:tests"

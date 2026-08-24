@@ -788,6 +788,74 @@ def resolve_scalar(
     return resolved.value, _ranked_source(resolved)
 
 
+def resolve_read_project_dotenv(
+    *,
+    toml_data: Mapping[str, Any] | None = None,
+    managed_toml_data: Mapping[str, Any] | None = None,
+    global_dotenv: Mapping[str, str] | None = None,
+) -> bool:
+    """Resolve whether the project `.env` should be loaded into the process env.
+
+    Resolves `startup.read_project_dotenv` with precedence managed → process
+    env → global `~/.deepagents/.env` → `config.toml` → default. The default
+    (`True`) preserves the historical behavior of loading the project `.env`.
+    Disabling skips only the project file — the global `~/.deepagents/.env`
+    still loads — as defense-in-depth against an untrusted repo whose `.env`
+    carries hostile values the dotenv denylist does not yet enumerate.
+
+    The option's own env var is denied from every `.env` (see
+    `config._DOTENV_DENIED_ENV_KEYS`), so neither dotenv file can inject it into
+    the process env; and the global-file value is read directly (before the
+    project file is touched) and supplied here as `global_dotenv`, so the
+    trusted global opt-out is honored for the current startup and a project
+    `.env` cannot pin the toggle true via first-write-wins.
+
+    Args:
+        toml_data: Parsed `config.toml`; loaded automatically when omitted.
+        managed_toml_data: Parsed managed TOML; the process snapshot is used when
+            omitted.
+        global_dotenv: The trusted global `~/.deepagents/.env` value for the
+            option's env var, when present; occupies a tier between the process
+            env and `config.toml`.
+
+    Returns:
+        `True` (the default) to load the project `.env`, `False` to skip it.
+    """
+    option = get_option("startup.read_project_dotenv")
+    if option is None:
+        return True
+
+    # Managed policy and the process env outrank the trusted global dotenv;
+    # resolve them (and TOML, which we discard here in favor of the global
+    # file) through the standard engine, then layer the global dotenv between
+    # the env and TOML to match the option's env-over-file precedence.
+    data = load_config_toml() if toml_data is None else toml_data
+    value, source = resolve_scalar(
+        option, toml_data=data, managed_toml_data=managed_toml_data
+    )
+    if source.startswith(("managed", "env (")):
+        return bool(value)
+
+    # The trusted global `~/.deepagents/.env` is a legitimate place to opt out
+    # and is read (by the caller) before the project file is touched.
+    raw = (global_dotenv or {}).get(option.env_var or "")
+    if raw is not None:
+        classified = _env_vars.classify_env_bool(raw)
+        if classified is not None:
+            return classified
+        logger.warning(
+            "Ignoring unrecognized %s value %r in the global dotenv; using %r",
+            option.env_var,
+            raw,
+            option.default,
+        )
+
+    # Fall back to a TOML value (if any), then the typed default.
+    if source == "config.toml":
+        return bool(value)
+    return bool(option.default)
+
+
 def load_bool_display_preference(
     key: str,
     *,
@@ -1139,6 +1207,74 @@ def resolve_auto_classifier_model_with_source(
     # A blank or wrong-typed `config.toml` entry reverts to the main agent model;
     # keep the source so the surface still shows where the ignored value lives.
     return None, source
+
+
+def resolve_startup_mode_with_source(
+    *,
+    toml_data: Mapping[str, Any] | None = None,
+    managed_toml_data: Mapping[str, Any] | None = None,
+) -> tuple[str, str]:
+    """Resolve the effective startup approval mode and its source for display.
+
+    Mirrors `model_config.load_startup_mode`. An explicit `[startup].mode`
+    wins, from the user file or from managed policy. Otherwise the app-managed
+    `[startup].recent` value restores `manual` or notice-approved `auto`. So
+    `dcode config get startup.mode` reports the mode the next bare launch reads
+    from configuration, instead of the manifest default.
+
+    `startup.mode` declares no environment variable, so no env tier applies
+    here. The `--auto-approve` flag outranks configuration at launch and is out
+    of scope for this function.
+
+    Args:
+        toml_data: Parsed `config.toml`; loaded automatically when omitted.
+        managed_toml_data: Parsed managed TOML; the process snapshot is used when
+            omitted.
+
+    Returns:
+        `(mode, source)`. `source` credits the managed or user configuration
+        layer that supplied either the explicit mode or the recent fallback,
+        and is `"default"` when nothing resolves and when an invalid explicit
+        mode fails closed.
+    """
+    from deepagents_code.model_config import is_recent_startup_mode_restorable
+
+    data = load_config_toml() if toml_data is None else toml_data
+    option = get_option("startup.mode")
+    if option is None:
+        return "manual", "default"
+
+    managed_data = (
+        load_managed_config_toml() if managed_toml_data is None else managed_toml_data
+    )
+    value, source = resolve_scalar(
+        option,
+        toml_data=data,
+        managed_toml_data=managed_data,
+    )
+    if source != "default":
+        return value, source
+
+    # No explicit mode resolved. An invalid user mode is fail-closed in
+    # `load_startup_mode`, so introspection must not consult `recent` either.
+    # Only the user layer is probed: `merge_managed_over_user` drops a managed
+    # leaf that fails its manifest kind, so a present-but-invalid mode can only
+    # come from the user file, and the loader cannot see one that this misses.
+    startup = data.get("startup")
+    if isinstance(startup, dict) and startup.get("mode") is not None:
+        return value, source
+
+    recent_option = get_option("startup.recent")
+    if recent_option is None:
+        return value, source
+    recent, recent_source = resolve_scalar(
+        recent_option,
+        toml_data=data,
+        managed_toml_data=managed_data,
+    )
+    if isinstance(recent, str) and is_recent_startup_mode_restorable(recent):
+        return recent, recent_source
+    return value, source
 
 
 def option_accepts_toml(
@@ -2245,6 +2381,34 @@ _STATIC_OPTIONS: tuple[ConfigOption, ...] = (
         default="manual",
         toml_keys=("startup", "mode"),
         cli_flag="--auto-approve",
+    ),
+    ConfigOption(
+        key="startup.read_project_dotenv",
+        group="Startup",
+        summary=(
+            "Load the project `.env` (found walking up from cwd) into the "
+            "process environment; disable to skip an untrusted repo's file."
+        ),
+        kind=OptionKind.BOOL,
+        default=True,
+        env_var=_env_vars.READ_PROJECT_DOTENV,
+        toml_keys=("startup", "read_project_dotenv"),
+    ),
+    ConfigOption(
+        key="startup.recent",
+        group="Startup",
+        summary=(
+            "Most recently selected Manual or Auto mode (managed by the app; "
+            "only `manual` and `auto` are restored)."
+        ),
+        # Deliberately `STR`, not the `NON_EMPTY_STR` used by the sibling
+        # app-managed `agents.recent`: that kind strips, while
+        # `load_startup_mode` matches `recent` exactly. Stripping here would
+        # make `recent = " auto "` display as Auto while the launch fails closed
+        # to Manual. Exact coercion keeps introspection and startup on the same
+        # boundary, and an unmatched value fails closed either way.
+        kind=OptionKind.STR,
+        toml_keys=("startup", "recent"),
     ),
     ConfigOption(
         key="startup.yolo_switcher",

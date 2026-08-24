@@ -16,6 +16,7 @@ from transformers import (
 from typing import List
 
 from .AbsArguments import AbsRerankerDataArguments
+from FlagEmbedding.utils.tokenizer_compat import pad_with_compat, prepare_for_model_compat
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,8 @@ class AbsRerankerTrainDataset(Dataset):
         """
         qry_inputs = self.tokenizer.encode(qry_encoding, truncation=True, max_length=self.args.query_max_len + self.args.passage_max_len // 4, add_special_tokens=False)
         doc_inputs = self.tokenizer.encode(doc_encoding, truncation=True, max_length=self.args.passage_max_len + self.args.query_max_len // 2, add_special_tokens=False)
-        item = self.tokenizer.prepare_for_model(
+        item = prepare_for_model_compat(
+            self.tokenizer,
             qry_inputs,
             doc_inputs,
             truncation='only_second',
@@ -195,7 +197,8 @@ class AbsRerankerCollator(DataCollatorWithPadding):
         if isinstance(features[0], list):
             features = sum(features, [])
 
-        collated = self.tokenizer.pad(
+        collated = pad_with_compat(
+            self.tokenizer,
             features,
             padding=self.padding,
             max_length=self.query_max_len + self.passage_max_len,
@@ -302,7 +305,8 @@ class AbsLLMRerankerTrainDataset(AbsRerankerTrainDataset):
                 add_special_tokens=False
             )
             if self.tokenizer.bos_token_id is not None and self.tokenizer.bos_token_id != self.tokenizer.pad_token_id:
-                item = self.tokenizer.prepare_for_model(
+                item = prepare_for_model_compat(
+                    self.tokenizer,
                     [self.tokenizer.bos_token_id] + query_inputs['input_ids'],
                     self.sep_inputs + passage_inputs['input_ids'],
                     truncation='only_second',
@@ -313,7 +317,8 @@ class AbsLLMRerankerTrainDataset(AbsRerankerTrainDataset):
                     add_special_tokens=False
                 )
             else:
-                item = self.tokenizer.prepare_for_model(
+                item = prepare_for_model_compat(
+                    self.tokenizer,
                     query_inputs['input_ids'],
                     self.sep_inputs + passage_inputs['input_ids'],
                     truncation='only_second',
@@ -387,7 +392,8 @@ class AbsLLMRerankerCollator(DataCollatorForSeq2Seq):
                 else:
                     feature["labels"] = np.concatenate([remainder, feature["labels"]]).astype(np.int64)
 
-        collated = self.tokenizer.pad(
+        collated = pad_with_compat(
+            self.tokenizer,
             features,
             padding=self.padding,
             max_length=self.query_max_len + self.passage_max_len,

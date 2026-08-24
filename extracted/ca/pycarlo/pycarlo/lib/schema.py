@@ -6437,6 +6437,28 @@ class PiiType(pycarlo.lib.types.Enum):
     )
 
 
+class PlanCorrectionAction(pycarlo.lib.types.Enum):
+    """What a correction to a proposed monitoring plan asks for. The
+    EXCLUDE_* verbs are enforced deterministically — the excluded
+    asset, monitor or database is removed from what the next run
+    considers. INCLUDE_TABLE is an instruction, not a guarantee: the
+    run will consider the asset, but nothing can force it to find
+    something worth monitoring there. There is no verb for changing a
+    proposed monitor's parameters — that is monitor tuning, not a plan
+    revision.
+
+    Enumeration Choices:
+
+    * `EXCLUDE_DATABASE`None
+    * `EXCLUDE_MONITOR`None
+    * `EXCLUDE_TABLE`None
+    * `INCLUDE_TABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EXCLUDE_DATABASE", "EXCLUDE_MONITOR", "EXCLUDE_TABLE", "INCLUDE_TABLE")
+
+
 class PlatformAgentType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -15963,6 +15985,32 @@ class PineconeUpdateConnectionDetails(sgqlc.types.Input):
     """API key for Pinecone project."""
 
 
+class PlanCorrectionInput(sgqlc.types.Input):
+    """One correction a user made to a proposed monitoring plan."""
+
+    __schema__ = schema
+    __field_names__ = ("action", "target", "note")
+    action = sgqlc.types.Field(sgqlc.types.non_null(PlanCorrectionAction), graphql_name="action")
+    """What this correction asks for."""
+
+    target = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="target")
+    """What the correction is about, in the form the action implies: an
+    asset MCON for EXCLUDE_TABLE / INCLUDE_TABLE, a staged monitor
+    finding's uuid for EXCLUDE_MONITOR, a plan container's uuid for
+    EXCLUDE_DATABASE. The target must exist in the plan named by
+    `revisesPlanUuid` (INCLUDE_TABLE, whose point is that the plan
+    missed it, must be an asset in the domain).
+    """
+
+    note = sgqlc.types.Field(String, graphql_name="note")
+    """Optional short reason, shown to the agent so its explanation of
+    the revised plan can reflect it. Truncated to 500 characters, and
+    dropped entirely once the request's notes exceed the agent's
+    prompt budget — the correction itself is always applied, since
+    enforcement does not depend on the prose.
+    """
+
+
 class PowerBIConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -25056,6 +25104,39 @@ class ApplyMonitoringPlan(sgqlc.types.Type):
     """One job per staged container, in plan order. Containers that
     staged nothing are skipped, so this can be shorter than the plan's
     `containers`.
+    """
+
+
+class ApplyMonitoringPlanSubset(sgqlc.types.Type):
+    """Apply an explicit subset of a monitoring plan's proposed monitors.
+    Partial accept: a customer who wants some of a plan's proposed
+    monitors enables exactly those, instead of enabling all of them
+    and deleting the rest. Only the containers the selection actually
+    touches get a job, so this returns one job per *affected*
+    container rather than one per staged container — poll them all via
+    ``queuedJob``, as with a whole-plan apply.  Every uuid in
+    ``monitorFindingUuids`` must be a monitor finding staged under
+    this plan; a uuid that is not rejects the whole request, so a
+    monitor the customer picked is never silently skipped. Under
+    enforced table coverage, a selection that keeps a monitor but
+    drops the table monitor staged to cover its target is also
+    rejected, naming the monitor to add — those monitors would
+    otherwise be created only to be refused one by one.  Unlike
+    ``applyMonitoringPlan`` this is allowed while the plan's run is
+    still publishing: the request names specific monitors and every
+    one is verified to exist before any job is created, so there is no
+    whole-plan claim for an in-flight run to falsify.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("jobs",)
+    jobs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("QueuedJob"))),
+        graphql_name="jobs",
+    )
+    """One job per container the selection touches, in plan order.
+    Containers no selected monitor belongs to are skipped, so this is
+    usually shorter than the plan's `containers`.
     """
 
 
@@ -45123,6 +45204,8 @@ class MonitoringPlan(sgqlc.types.Type):
         "containers",
         "run_status",
         "run_completed_time",
+        "revises_plan_uuid",
+        "correction_count",
     )
     plan_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="planUuid")
     """Identifies the run. Use it for the monitoring-plan tab's
@@ -45176,6 +45259,21 @@ class MonitoringPlan(sgqlc.types.Type):
     run_completed_time = sgqlc.types.Field(DateTime, graphql_name="runCompletedTime")
     """When the producing run reached a terminal status. Null while it is
     still running and when no run is recorded.
+    """
+
+    revises_plan_uuid = sgqlc.types.Field(UUID, graphql_name="revisesPlanUuid")
+    """planUuid of the plan this run was asked to revise, or null when it
+    was not a revision. A plan is a view over one run, so submitting
+    corrections always produces a new plan — this is what links it to
+    the one the user marked up, so the history reads as a chain rather
+    than as unrelated re-runs.
+    """
+
+    correction_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="correctionCount")
+    """How many corrections this run carried (0 when it was not a
+    revision, or was re-run unchanged). The corrections themselves are
+    not exposed: they name assets and proposals from the *previous*
+    plan, which this plan no longer contains.
     """
 
 
@@ -45796,6 +45894,7 @@ class Mutation(sgqlc.types.Type):
         "delete_finding",
         "apply_monitor_findings",
         "apply_monitoring_plan",
+        "apply_monitoring_plan_subset",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
         "set_incident_feedback",
@@ -62634,6 +62733,18 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "plan_corrections",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PlanCorrectionInput)),
+                        graphql_name="planCorrections",
+                        default=None,
+                    ),
+                ),
+                (
+                    "revises_plan_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="revisesPlanUuid", default=None),
+                ),
+                (
                     "run_instructions",
                     sgqlc.types.Arg(String, graphql_name="runInstructions", default=None),
                 ),
@@ -62642,13 +62753,30 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Runs a one-off, suggest-mode monitoring pass for a
     metadata domain without persistent side effects — no agent user is
-    provisioned and no schedule is enabled for a cold domain. Poll the
-    run via getMonitoringRunForDomain.
+    provisioned and no schedule is enabled for a cold domain. Pass
+    revisesPlanUuid (and optionally planCorrections) to re-run a plan
+    with the user's changes applied, producing a new plan linked to
+    the one it revises. Poll the run via getMonitoringRunForDomain.
 
     Arguments:
 
     * `domain_uuid` (`UUID!`): UUID of the metadata domain to run
       monitoring for.
+    * `plan_corrections` (`[PlanCorrectionInput!]`): The user's
+      corrections to the plan named by `revisesPlanUuid` — the
+      structured half of per-run steering, applied deterministically
+      rather than left to the agent to honor. Requires
+      `revisesPlanUuid`: a correction is a statement about a specific
+      plan, and every target is validated against it. At most 500 per
+      request. Not persisted beyond the run — corrections are never
+      replayed into a later scheduled run.
+    * `revises_plan_uuid` (`UUID`): planUuid of the plan this run
+      should revise. Recorded on the new run so the resulting plan
+      links back to the one it revises (see
+      MonitoringPlan.revisesPlanUuid). Valid on its own — re-running a
+      plan unchanged — and required whenever `planCorrections` is
+      passed. Re-running always produces a NEW plan; the plan being
+      revised is left as it was.
     * `run_instructions` (`String`): Optional steering prompt for this
       run only — e.g. which assets or monitor types to prioritize.
       Applied in addition to any instructions saved for the account or
@@ -62997,6 +63125,63 @@ class Mutation(sgqlc.types.Type):
       the whole request, so nothing is half-applied.
     * `mode` (`MonitorApplyMode!`)None
     * `plan_uuid` (`UUID!`): planUuid of the monitoring plan to apply.
+    """
+
+    apply_monitoring_plan_subset = sgqlc.types.Field(
+        ApplyMonitoringPlanSubset,
+        graphql_name="applyMonitoringPlanSubset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "mode",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(MonitorApplyMode), graphql_name="mode", default=None
+                    ),
+                ),
+                (
+                    "monitor_finding_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="monitorFindingUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "plan_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="planUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Apply only the named monitors of a monitoring plan
+    (dry-run, draft, or live) — one job per container the selection
+    touches. Use this instead of applyMonitoringPlan when the customer
+    accepted some of the plan's proposed monitors rather than all of
+    them.
+
+    Arguments:
+
+    * `audience_uuids` (`[UUID!]`): Audiences to route the created
+      monitors' notifications to, replacing whatever the staged config
+      asked for. Omitted or empty leaves the config's own routing
+      alone. An audience that does not exist in this account rejects
+      the whole request, so nothing is half-applied.
+    * `mode` (`MonitorApplyMode!`)None
+    * `monitor_finding_uuids` (`[UUID!]!`): Findings of the individual
+      monitors to apply — the `uuid` of each monitor-creation leaf
+      finding. Duplicates are collapsed; an empty list is rejected.
+    * `plan_uuid` (`UUID!`): planUuid of the monitoring plan to apply
+      from.
     """
 
     set_event_detector_feedback = sgqlc.types.Field(
@@ -100275,7 +100460,12 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     user, and at most one run per domain is in flight at a time —
     calling this while the domain is already running returns that run
     instead of starting a second one.  Poll the resulting run's state
-    via ``getMonitoringRunForDomain``.
+    via ``getMonitoringRunForDomain``.  Passing ``revisesPlanUuid``
+    (with or without ``planCorrections``) makes the run a *revision*
+    of that plan. A plan is a view over one run's output, so a
+    revision is always a new plan linked to its predecessor — the plan
+    being revised is never edited in place. Corrections are per-run
+    only and are never replayed into a later scheduled run.
     """
 
     __schema__ = schema

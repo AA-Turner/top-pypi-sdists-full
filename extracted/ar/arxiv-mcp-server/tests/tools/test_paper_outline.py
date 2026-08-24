@@ -12,6 +12,7 @@ from arxiv_mcp_server.tools.paper_outline import (
     handle_read_paper_section,
     handle_search_paper_text,
     parse_markdown_sections,
+    search_passages,
 )
 
 SAMPLE_PAPER = """# Introduction
@@ -216,6 +217,88 @@ async def test_search_passages_and_empty(patch_storage):
     assert miss_result["returned_passages"] == 0
 
 
+def _overlap_ratio(a: dict, b: dict) -> float:
+    overlap = max(0, min(a["end"], b["end"]) - max(a["start"], b["start"]))
+    if overlap == 0:
+        return 0.0
+    shorter = min(a["end"] - a["start"], b["end"] - b["start"])
+    return overlap / shorter if shorter else 0.0
+
+
+def test_search_passages_dedupes_overlapping_windows():
+    """Nearby repeats of the same term must not flood max_passages."""
+    # Cluster "routing" hits ~100 chars apart in one section (repro pattern).
+    filler = "x" * 80
+    abstract = (
+        f"Abstract discusses routing {filler} then routing again {filler} "
+        f"with more routing {filler} and routing once more {filler} "
+        f"final routing mention."
+    )
+    methods = "Methods use routing for expert selection in MoE layers."
+    results = "Results show routing improves latency under load."
+    conclusion = "Conclusion: routing is the key bottleneck."
+    related = "Related work compares routing heuristics."
+    md = (
+        f"# Abstract\n\n{abstract}\n\n"
+        f"# Methods\n\n{methods}\n\n"
+        f"# Results\n\n{results}\n\n"
+        f"# Related Work\n\n{related}\n\n"
+        f"# Conclusion\n\n{conclusion}\n"
+    )
+    sections = parse_markdown_sections(md)
+    passages = search_passages(
+        md, sections, "routing", max_passages=5, passage_chars=400
+    )
+    assert 1 <= len(passages) <= 5
+    # Pairwise windows must not be near-duplicates.
+    for i, a in enumerate(passages):
+        for b in passages[i + 1 :]:
+            assert _overlap_ratio(a, b) <= 0.5, (a["start"], b["start"])
+    # Prefer distinct sections over five abstract near-duplicates.
+    section_ids = {p["section_id"] for p in passages if p["section_id"]}
+    assert len(section_ids) >= min(4, len(passages))
+
+
+def test_search_passages_respects_max_passages_after_dedupe():
+    md = "\n\n".join(
+        f"# Section {i}\n\nUnique routing topic {i} discussion." for i in range(1, 12)
+    )
+    sections = parse_markdown_sections(md)
+    passages = search_passages(
+        md, sections, "routing", max_passages=3, passage_chars=120
+    )
+    assert len(passages) == 3
+    assert len({p["section_id"] for p in passages}) == 3
+
+
+@pytest.mark.asyncio
+async def test_search_paper_text_dedupes_via_handler(patch_storage):
+    filler = "y" * 90
+    body = (
+        f"# Abstract\n\nrouting {filler} routing {filler} routing\n\n"
+        f"# Methods\n\nWe study routing strategies.\n\n"
+        f"# Results\n\nrouting wins on latency.\n"
+    )
+    _write_paper(patch_storage, "2410.17954", body)
+    response = await handle_search_paper_text(
+        {
+            "paper_id": "2410.17954",
+            "query": "routing",
+            "max_passages": 5,
+            "passage_chars": 300,
+        }
+    )
+    result = json.loads(response[0].text)
+    assert result["status"] == "success"
+    assert result["returned_passages"] == len(result["passages"]) <= 5
+    passages = result["passages"]
+    assert len(passages) >= 2
+    for i, a in enumerate(passages):
+        for b in passages[i + 1 :]:
+            assert _overlap_ratio(a, b) <= 0.5
+    assert len({p["section_id"] for p in passages}) >= 2
+
+
 @pytest.mark.asyncio
 async def test_not_found_and_no_heading_paper(patch_storage):
     missing = await handle_get_paper_outline({"paper_id": "9999.99999"})
@@ -412,3 +495,417 @@ async def test_bare_title_read_section_and_search_clean(patch_storage):
     excerpt = search["passages"][0]["excerpt"]
     assert "UNTRUSTED EXTERNAL CONTENT" not in excerpt
     assert "transduction" in excerpt.casefold()
+
+
+EXPERTFLOW_HTML_STYLE = """ExpertFlow title line
+
+Abstract.
+
+The abstract body.
+
+1.
+Introduction
+
+Intro body.
+
+2.
+Related Work
+
+2.1.
+Mixture-of-Experts (MoE)
+
+MoE body.
+
+3.
+Method
+
+3.1.
+System Design Overview
+
+Overview body.
+
+3.2.
+Routing Path Predictor (RPP)
+
+Predictor body.
+
+4.
+Evaluation
+
+Eval body.
+
+5.
+Conclusion
+
+Conclusion body.
+
+Acknowledgements.
+
+This research is supported.
+
+References
+
+Aminabadi
+et al.
+(2022)
+DeepSpeed paper.
+In
+2023 USENIX Annual Technical Conference (USENIX ATC 23)
+,
+Boston, MA
+,
+2021 USENIX Annual Technical Conference (USENIX ATC 21)
+,
+pp. 551–564
+.
+Appendix
+Should not appear after references terminator.
+"""
+
+
+def test_outline_stops_at_references_and_keeps_method_subsections():
+    """Regression for #229: ExpertFlow-style HTML→text outlines.
+
+    Split ``3.`` / ``Method`` / ``3.1.`` lines must yield nested subsections,
+    and bibliography venue lines must not become outline sections.
+    """
+    sections = parse_markdown_sections(EXPERTFLOW_HTML_STYLE)
+    titles = [s.title for s in sections]
+    assert "Method" in titles
+    assert "System Design Overview" in titles
+    assert "Routing Path Predictor (RPP)" in titles
+    assert "References" in titles
+    assert titles[-1] == "References"
+    assert not any("USENIX" in t for t in titles)
+    assert "Appendix" not in titles
+
+    method = next(s for s in sections if s.title == "Method")
+    assert method.level == 1
+    children = [s for s in sections if s.section_id.startswith(method.section_id + ".")]
+    child_titles = [s.title for s in children]
+    assert "System Design Overview" in child_titles
+    assert "Routing Path Predictor (RPP)" in child_titles
+    assert any(s.section_id == f"{method.section_id}.1" for s in children)
+    assert any(s.section_id == f"{method.section_id}.2" for s in children)
+
+
+def test_reject_year_prefixed_venue_and_loose_bare_titles():
+    """Tighten numbered/bare heuristics so citation lines are not headings."""
+    md = """1 Introduction
+
+Body.
+
+2023 USENIX Annual Technical Conference (USENIX ATC 23)
+
+Still body before real terminator.
+
+References
+
+More venue noise.
+"""
+    sections = parse_markdown_sections(md)
+    titles = [s.title for s in sections]
+    assert titles == ["Introduction", "References"]
+    assert not any("USENIX" in t for t in titles)
+
+    # Extra tokens must not match bare known titles.
+    noisy = parse_markdown_sections("Method discussion continues here\n\nMore.\n")
+    assert noisy[0].title == "(document)"
+
+
+def test_bibliography_terminator_alias():
+    sections = parse_markdown_sections(
+        "Introduction\n\nIntro.\n\nBibliography\n\n1 Some Paper Title Here\n"
+    )
+    titles = [s.title for s in sections]
+    assert titles[-1] == "Bibliography"
+    assert "Some Paper Title Here" not in titles
+
+
+DAOP_IEEE_HTML_STYLE = """DAOP: Data-Aware Offloading title line
+
+Yujie Zhang
+
+Abstract
+
+Mixture-of-Experts (MoE) models face deployment challenges on memory-constrained devices.
+
+Index Terms:
+MoE inference engine
+
+I
+Introduction
+
+Mixture-of-Experts (MoE) architecture addresses computational demands.
+
+As detailed in Table
+I
+, migrating a single expert is slow.
+
+II
+Preliminaries
+II-A
+LLMs with Mixture-of-Experts (MoE)
+
+Decoder-only Architecture body.
+
+II-B
+Related Work
+
+Prior MoE systems body.
+
+III
+Observations & Insights
+
+Table
+II
+illustrates similarity.
+
+IV
+DAOP: MoE Inference Engine
+IV-A
+Memory Initialization
+
+We initially allocate experts.
+
+IV-B
+Sequence-specific Expert Allocation
+
+Algorithm body.
+
+Fig. 6:
+Design Overview of DAOP.
+Data:
+initialized expert cache, model blocks,
+comparison threshold SwapInOut
+Result:
+updated expert cache, firstly generated output token
+inputTokens = Embedding(inputTokens);
+
+IV-C
+Prediction-based Expert Pre-Calculation
+
+Prediction body.
+
+V
+Experimental Evaluation
+V-A
+Experimental Setup
+
+We assess performance on Mixtral.
+
+V-B
+Speedup
+
+Speedup body.
+
+V-C
+Energy Efficiency
+
+Table
+IV
+compares the energy efficiency of DAOP.
+
+V-D
+Accuracy Results
+
+TABLE V:
+Impact of DAOP on model accuracy
+Model
+Method
+HellaS
+Arc-e
+Mixtral 8x7B
+Official
+66.96
+
+TABLE VI:
+Impact across entire inference
+Model
+Method
+ECR
+TriviaQA
+Official
+100.0%
+
+VI
+Discussion
+VI-A
+Platform and Model Applicability
+
+Applicability body.
+
+VI-B
+Limitation & Future Work
+
+Limitation body.
+
+VII
+Conclusion
+
+Our proposed inference engine conclusion body.
+
+Acknowledgment
+
+We thank anonymous reviewers.
+
+References
+
+[1]
+Someone et al.
+"""
+
+
+def test_daop_ieee_roman_html_outline_order_without_dupes():
+    """Regression for #240: DAOP HTML IEEE roman tags, not Result:/table Method.
+
+    latexml HTML emits ``I`` / ``Introduction`` and ``V-A`` / ``Experimental
+    Setup`` on separate lines. Algorithm ``Result:`` and table column
+    ``Method`` must not become outline sections or reorder Method/Result.
+    """
+    sections = parse_markdown_sections(DAOP_IEEE_HTML_STYLE)
+    titles = [s.title for s in sections]
+    assert "Result" not in titles
+    assert "Method" not in titles
+    assert titles.count("Experimental Setup") == 1
+    assert titles.index("DAOP: MoE Inference Engine") < titles.index(
+        "Experimental Evaluation"
+    )
+    assert titles.index("Experimental Evaluation") < titles.index("Discussion")
+    by_title = {s.title: s for s in sections}
+    assert by_title["Introduction"].section_id == "2"
+    assert by_title["Preliminaries"].section_id == "3"
+    assert by_title["Related Work"].section_id == "3.2"
+    assert by_title["DAOP: MoE Inference Engine"].section_id == "5"
+    assert by_title["Memory Initialization"].section_id == "5.1"
+    assert by_title["Experimental Setup"].section_id == "6.1"
+    assert by_title["Accuracy Results"].section_id == "6.4"
+    assert titles[-1] == "References"
+    # Prose ``Table I`` / ``Table II`` must not invent extra sections.
+    assert titles.count("Introduction") == 1
+    assert "illustrates similarity" not in titles
+
+
+SWITCH_FUTURE_WORK_HTML_STYLE = """Switch Transformers title line
+
+1.
+Introduction
+
+Intro body about sparse models.
+
+8.
+Future Work
+
+This paper lays out a simplified architecture, improved training procedures,
+and a study of how sparse models scale. However, there remain many open
+future directions which we briefly describe here:
+
+1.
+A significant challenge is further improving training stability for the largest models.
+
+2.
+Generally we find that improved pre-training quality leads to better downstream results.
+
+3.
+Perform a comprehensive study of scaling relationships to guide the design.
+
+4.
+Our work falls within the family of adaptive computation algorithms.
+
+5.
+Investigating expert layers outside the FFN layer of the Transformer.
+
+6.
+Examining Switch Transformer in new and across different modalities.
+
+9.
+Conclusion
+
+Conclusion body.
+
+References
+
+[1] Someone et al.
+"""
+
+
+def test_switch_future_work_numbered_lists_not_outline_sections():
+    """Regression for #257: Switch Transformers Future Work list items.
+
+    HTML→text emits ``4.`` / ``5.`` body-list sentences under Future Work.
+    Those must not become fake L1 outline sections.
+    """
+    sections = parse_markdown_sections(SWITCH_FUTURE_WORK_HTML_STYLE)
+    titles = [s.title for s in sections]
+    assert "Future Work" in titles
+    assert "Conclusion" in titles
+    assert "Introduction" in titles
+    assert titles[-1] == "References"
+    # Numbered body-list prose must stay out of the outline.
+    for banned in (
+        "Our work falls within the family of adaptive computation algorithms",
+        "Investigating expert layers outside the FFN layer of the Transformer",
+        "Examining Switch Transformer in new and across different modalities",
+        "Perform a comprehensive study of scaling relationships to guide the design",
+        "A significant challenge is further improving training stability for the largest models",
+        "Generally we find that improved pre-training quality leads to better downstream results",
+    ):
+        assert banned not in titles
+        assert not any(banned in t for t in titles)
+    # Real numbered sections still parse; list markers do not inflate L1 count.
+    by_title = {s.title: s for s in sections}
+    assert by_title["Introduction"].level == 1
+    assert by_title["Future Work"].level == 1
+    assert by_title["Conclusion"].level == 1
+    assert [s.title for s in sections if s.level == 1] == [
+        "Introduction",
+        "Future Work",
+        "Conclusion",
+        "References",
+    ]
+
+
+def test_numbered_sentence_case_and_period_rejected():
+    """Sentence-case / trailing-period numbered lines are body lists, not headings."""
+    md = """1 Introduction
+
+Body.
+
+2.
+Our approach always used identical homogeneous experts.
+
+3 Methods
+
+Methods body.
+
+4.
+Investigating expert layers outside the feed-forward network.
+
+5 Conclusion
+
+Done.
+
+References
+
+[1] x
+"""
+    titles = [s.title for s in parse_markdown_sections(md)]
+    assert titles == ["Introduction", "Methods", "Conclusion", "References"]
+    assert "Our approach always used identical homogeneous experts" not in titles
+    assert "Investigating expert layers outside the feed-forward network" not in titles
+
+
+def test_roman_inline_and_reject_colon_bare_titles():
+    inline = parse_markdown_sections(
+        "I Introduction\n\nIntro body.\n\nII-A Background Details\n\nMore.\n"
+    )
+    assert [s.title for s in inline[:2]] == ["Introduction", "Background Details"]
+    assert inline[0].section_id == "1"
+    assert inline[1].section_id == "1.1"
+
+    colon = parse_markdown_sections(
+        "Introduction\n\nBody.\n\nResult:\nupdated cache\n\nConclusion\n\nDone.\n"
+    )
+    titles = [s.title for s in colon]
+    assert "Result" not in titles
+    assert "Introduction" in titles and "Conclusion" in titles

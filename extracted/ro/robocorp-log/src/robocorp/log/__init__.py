@@ -37,7 +37,7 @@ from .protocols import IReadLines, LogHTMLStyle, Status
 if typing.TYPE_CHECKING:
     from ._robo_logger import _RoboLogger
 
-__version__ = "3.1.2"
+__version__ = "3.1.3"
 version_info = [int(x) for x in __version__.split(".")]
 
 # --- Export parts of the public API below (imports above aren't part of
@@ -815,9 +815,9 @@ def iter_decoded_log_format_from_log_html_contents(
             i = log_html_contents.find("let chunks = [")
             j = log_html_contents.find("];", i)
 
-    assert (
-        i > 0
-    ), f"Could not find the chunks in the file ({log_html or '<log_html_not_provided>'})."
+    assert i > 0, (
+        f"Could not find the chunks in the file ({log_html or '<log_html_not_provided>'})."
+    )
     assert j > 0, "Could not find the end of the chunks in the file."
 
     sub = log_html_contents[i + len("let chunks = ") : j + 1]
@@ -1152,9 +1152,9 @@ def setup_log(
     if max_value_repr_size:
         from ._convert_units import _convert_to_bytes
 
-        prev_values[
-            "max_value_repr_size"
-        ] = _config._general_log_config.max_value_repr_size
+        prev_values["max_value_repr_size"] = (
+            _config._general_log_config.max_value_repr_size
+        )
 
         _config._general_log_config.max_value_repr_size = _convert_to_bytes(
             max_value_repr_size

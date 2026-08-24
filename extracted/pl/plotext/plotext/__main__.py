@@ -1,2 +1,3 @@
-from .plotext_cli import main
+from plotext._cli import main
+
 main()

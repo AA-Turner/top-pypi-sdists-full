@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -157,6 +158,13 @@ def _capsule_context_consistency(
     return consistency
 
 
+#: The highest confidence a result carrying ANY downgrade reason may report. Not a calibrated
+#: severity -- the branch-specific clamps below own that, because they know WHY a result is
+#: degraded. This is only the ceiling that keeps "here is why I am degraded" and "I am certain"
+#: from appearing in the same payload, so it is set as close to 1.0 as a strict inequality allows.
+_DEGRADED_CONFIDENCE_CEILING = 0.99
+
+
 def _confidence(
     payload: dict[str, Any],
     snippets: list[dict[str, Any]] | None,
@@ -172,8 +180,26 @@ def _confidence(
     output -- see ``_capsule_confidence_and_ask_without_render``, the only ``None`` caller."""
     edit_confidence = _as_dict(_as_dict(payload.get("edit_plan_seed")).get("confidence"))
     raw_overall = edit_confidence.get("overall")
-    if isinstance(raw_overall, (int, float)):
-        overall = float(raw_overall)
+    if isinstance(raw_overall, (int, float)) and math.isfinite(float(raw_overall)):
+        # CLAMP AT THE DOOR, not at the exit. `confidence.overall` is a 0..1 contract, and the
+        # branch clamps below all use `min(...)` -- which cannot bound a value that is already
+        # out of range in the wrong direction, and cannot bound NaN at all (`min(NaN, x)` is NaN).
+        #
+        # Measured on this function before the guard, with values arriving via
+        # `edit_plan_seed.confidence.overall`:
+        #     NaN -> nan     inf -> inf     5.0 -> 5.0
+        #
+        # The 5.0 case is the dangerous one, and an adversarial review that raised the NaN case
+        # did not name it. Downstream logic compares this number against thresholds (`< 0.75`
+        # decides `ask_user_before_editing`), so an out-of-range 5.0 does not merely look wrong --
+        # it WINS every such comparison and reads as maximally certain while carrying no
+        # downgrade reason to contradict it. NaN is the safer failure of the two, because NaN
+        # loses every comparison instead of winning it.
+        #
+        # A non-finite value is treated as ABSENT rather than clamped to a number: we do not know
+        # what it meant, and inventing 1.0 or 0.0 would be asserting a confidence nobody computed.
+        # Falling through to the derived defaults below is the honest handling.
+        overall = min(1.0, max(0.0, float(raw_overall)))
     else:
         if not consistency.get("primary_file_included", True) or not consistency.get(
             "rendered_context_includes_primary", True
@@ -200,6 +226,27 @@ def _confidence(
     if any("primary file" in reason for reason in downgrade_reasons):
         overall = min(overall, 0.55)
     deduped_reasons = list(dict.fromkeys(downgrade_reasons))
+
+    # THE INVARIANT, ENFORCED AT THE SINGLE EXIT: a result that lists reasons it is degraded may
+    # never also claim certainty. `ask_user_before_editing` keys off this number, so the
+    # certain-but-degraded shape tells an agent "edit this, no question needed" about a target
+    # derived from a scan that did not finish. Two external dogfoods reported exactly that
+    # (2026-08-22 v1.111.7, again 2026-08-23 v1.113.0).
+    #
+    # This is a GUARD, not another branch-specific clamp, and that distinction is the fix. Of the
+    # six reason-appending branches above, four clamp and two do not -- `confidence_downgraded`
+    # and any reason handed in by the CALLER both fall straight through to the return with
+    # `overall` untouched, which is how a caller-supplied 1.0 survives. Adding a fifth clamp would
+    # close today's hole and do nothing for the seventh branch someone adds next year. A guard at
+    # the exit holds for every branch that exists and every branch not written yet.
+    #
+    # The ceiling is deliberately the SMALLEST change that makes the statement true. Calibrating a
+    # meaningful number is the job of the branch-specific clamps, which know WHY the result is
+    # degraded; this guard only knows THAT it is, so it must not invent a severity it cannot
+    # justify or it would silently overwrite a better-informed value.
+    if deduped_reasons:
+        overall = min(overall, _DEGRADED_CONFIDENCE_CEILING)
+
     return {"overall": round(overall, 3), "downgrade_reasons": deduped_reasons}
 
 

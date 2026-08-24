@@ -2,11 +2,11 @@
 # Rust-powered core for the DCC MCP ecosystem
 
 [workspace]
-members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-actions", "crates/dcc-mcp-skills", "crates/dcc-mcp-protocols", "crates/dcc-mcp-jsonrpc", "crates/dcc-mcp-wire", "crates/dcc-mcp-job", "crates/dcc-mcp-skill-rest", "crates/dcc-mcp-gateway", "crates/dcc-mcp-gateway-core", "crates/dcc-mcp-gateway-search", "crates/dcc-mcp-logging", "crates/dcc-mcp-pybridge", "crates/dcc-mcp-pybridge-derive", "crates/dcc-mcp-paths", "crates/dcc-mcp-transport", "crates/dcc-mcp-process", "crates/dcc-mcp-telemetry", "crates/dcc-mcp-sandbox", "crates/dcc-mcp-shm", "crates/dcc-mcp-capture", "crates/dcc-mcp-usd", "crates/dcc-mcp-http", "crates/dcc-mcp-http-types", "crates/dcc-mcp-http-server", "crates/dcc-mcp-http-py", "crates/dcc-mcp-workflow", "crates/dcc-mcp-scheduler", "crates/dcc-mcp-artefact", "crates/dcc-mcp-host", "crates/dcc-mcp-marketplace", "crates/dcc-mcp-catalog", "crates/dcc-mcp-db", "crates/dcc-mcp-updater", "crates/dcc-mcp-test-utils", "crates/workspace-hack"]
+members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-actions", "crates/dcc-mcp-skills", "crates/dcc-mcp-protocols", "crates/dcc-mcp-jsonrpc", "crates/dcc-mcp-wire", "crates/dcc-mcp-job", "crates/dcc-mcp-skill-rest", "crates/dcc-mcp-gateway", "crates/dcc-mcp-gateway-admin", "crates/dcc-mcp-gateway-core", "crates/dcc-mcp-gateway-search", "crates/dcc-mcp-logging", "crates/dcc-mcp-pybridge", "crates/dcc-mcp-pybridge-derive", "crates/dcc-mcp-paths", "crates/dcc-mcp-transport", "crates/dcc-mcp-process", "crates/dcc-mcp-telemetry", "crates/dcc-mcp-sandbox", "crates/dcc-mcp-shm", "crates/dcc-mcp-capture", "crates/dcc-mcp-usd", "crates/dcc-mcp-http", "crates/dcc-mcp-http-types", "crates/dcc-mcp-http-server", "crates/dcc-mcp-http-py", "crates/dcc-mcp-workflow", "crates/dcc-mcp-scheduler", "crates/dcc-mcp-artefact", "crates/dcc-mcp-host", "crates/dcc-mcp-marketplace", "crates/dcc-mcp-catalog", "crates/dcc-mcp-db", "crates/dcc-mcp-updater", "crates/dcc-mcp-attestation", "crates/dcc-mcp-test-utils", "crates/workspace-hack"]
 resolver = "2"
 
 [workspace.package]
-version = "0.20.8" # x-release-please-version
+version = "0.20.11" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -20,6 +20,10 @@ dcc-mcp-models = { path = "crates/dcc-mcp-models" }
 dcc-mcp-actions = { path = "crates/dcc-mcp-actions" }
 dcc-mcp-skills = { path = "crates/dcc-mcp-skills" }
 dcc-mcp-protocols = { path = "crates/dcc-mcp-protocols" }
+dcc-mcp-jsonrpc = { path = "crates/dcc-mcp-jsonrpc" }
+dcc-mcp-wire = { path = "crates/dcc-mcp-wire" }
+dcc-mcp-job = { path = "crates/dcc-mcp-job" }
+dcc-mcp-skill-rest = { path = "crates/dcc-mcp-skill-rest" }
 dcc-mcp-logging = { path = "crates/dcc-mcp-logging" }
 dcc-mcp-pybridge = { path = "crates/dcc-mcp-pybridge" }
 dcc-mcp-pybridge-derive = { path = "crates/dcc-mcp-pybridge-derive" }
@@ -32,6 +36,7 @@ dcc-mcp-shm = { path = "crates/dcc-mcp-shm" }
 dcc-mcp-capture = { path = "crates/dcc-mcp-capture" }
 dcc-mcp-usd = { path = "crates/dcc-mcp-usd" }
 dcc-mcp-http = { path = "crates/dcc-mcp-http" }
+dcc-mcp-http-types = { path = "crates/dcc-mcp-http-types" }
 dcc-mcp-http-server = { path = "crates/dcc-mcp-http-server" }
 dcc-mcp-http-py = { path = "crates/dcc-mcp-http-py" }
 dcc-mcp-cli = { path = "crates/dcc-mcp-cli" }
@@ -49,10 +54,14 @@ dcc-mcp-marketplace = { path = "crates/dcc-mcp-marketplace" }
 dcc-mcp-catalog = { path = "crates/dcc-mcp-catalog" }
 dcc-mcp-db = { path = "crates/dcc-mcp-db" }
 dcc-mcp-gateway = { path = "crates/dcc-mcp-gateway" }
+dcc-mcp-gateway-admin = { path = "crates/dcc-mcp-gateway-admin" }
+dcc-mcp-gateway-core = { path = "crates/dcc-mcp-gateway-core" }
 dcc-mcp-updater = { path = "crates/dcc-mcp-updater" }
+dcc-mcp-attestation = { path = "crates/dcc-mcp-attestation" }
 dcc-mcp-gateway-ensure = { path = "crates/dcc-mcp-gateway-ensure" }
 dcc-mcp-gateway-search = { path = "crates/dcc-mcp-gateway-search" }
 dcc-mcp-semantic = { path = "crates/dcc-mcp-semantic" }
+dcc-mcp-test-utils = { path = "crates/dcc-mcp-test-utils" }
 
 # Shared dependencies (single version across workspace)
 pyo3 = { version = "0.28", features = ["multiple-pymethods"] }
@@ -91,6 +100,15 @@ base64 = "0.22"
 # only when the `job-persist-sqlite` feature is enabled on `dcc-mcp-http`;
 # otherwise zero SQLite code compiles into the wheel.
 rusqlite = { version = "0.39", features = ["bundled"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = "0.6"
+tempfile = "3"
+sha2 = "0.11"
+rand = "0.10"
+http = "1.0"
+futures = "0.3"
+async-trait = "0.1"
 
 # Safe zero-copy (de)serialisation for shared-memory headers.
 bytemuck = { version = "1.22", features = ["derive", "extern_crate_alloc", "min_const_generics"] }
@@ -133,7 +151,6 @@ readme = "README.md"
 [lib]
 name = "_core"
 crate-type = ["cdylib", "rlib"]
-required-features = ["python-bindings"]
 
 [dependencies]
 # Internal crates
@@ -156,6 +173,7 @@ dcc-mcp-http.workspace = true
 dcc-mcp-http-py.workspace = true
 dcc-mcp-artefact.workspace = true
 dcc-mcp-host.workspace = true
+dcc-mcp-wire.workspace = true
 
 # Workflow crate — opt-in via the top-level `workflow` feature.
 dcc-mcp-workflow = { workspace = true, optional = true }
@@ -193,7 +211,7 @@ strip = true
 
 [features]
 default = []
-python-bindings = ["pyo3", "dep:reqwest", "dcc-mcp-naming/python-bindings", "dcc-mcp-models/python-bindings", "dcc-mcp-actions/python-bindings", "dcc-mcp-skills/python-bindings", "dcc-mcp-protocols/python-bindings", "dcc-mcp-logging/python-bindings", "dcc-mcp-pybridge/python-bindings", "dcc-mcp-paths/python-bindings", "dcc-mcp-transport/python-bindings", "dcc-mcp-process/python-bindings", "dcc-mcp-telemetry/python-bindings", "dcc-mcp-sandbox/python-bindings", "dcc-mcp-shm/python-bindings", "dcc-mcp-capture/python-bindings", "dcc-mcp-usd/python-bindings", "dcc-mcp-http-py/python-bindings", "dcc-mcp-artefact/python-bindings", "dcc-mcp-host/python-bindings", "dcc-mcp-workflow?/python-bindings", "dcc-mcp-scheduler?/python-bindings"]
+python-bindings = ["pyo3", "dep:reqwest", "dcc-mcp-naming/python-bindings", "dcc-mcp-models/python-bindings", "dcc-mcp-actions/python-bindings", "dcc-mcp-skills/python-bindings", "dcc-mcp-protocols/python-bindings", "dcc-mcp-logging/python-bindings", "dcc-mcp-pybridge/python-bindings", "dcc-mcp-paths/python-bindings", "dcc-mcp-transport/python-bindings", "dcc-mcp-process/python-bindings", "dcc-mcp-telemetry/python-bindings", "dcc-mcp-sandbox/python-bindings", "dcc-mcp-shm/python-bindings", "dcc-mcp-capture/python-bindings", "dcc-mcp-usd/python-bindings", "dcc-mcp-http-py/python-bindings", "dcc-mcp-artefact/python-bindings", "dcc-mcp-host/python-bindings", "dcc-mcp-wire/python-bindings", "dcc-mcp-workflow?/python-bindings", "dcc-mcp-scheduler?/python-bindings"]
 # Opt into the first-class Workflow primitive (issue #348). Off by default
 # for one release — enables WorkflowSpec/WorkflowStatus in Python and the
 # workflows.* built-in tools in Rust. Step execution is stubbed; see #348.
@@ -211,10 +229,18 @@ prometheus = ["dcc-mcp-http/prometheus", "dcc-mcp-telemetry/prometheus"]
 # (issue #328). Forwards to `dcc-mcp-http/job-persist-sqlite`. Off by
 # default — when disabled, zero SQLite code compiles into the wheel.
 job-persist-sqlite = ["dcc-mcp-http/job-persist-sqlite"]
-# Enable the admin UI (Vite bundle in gateway). Forwards to
-# `dcc-mcp-gateway/admin`. Off by default — when disabled, zero admin
-# UI code or front-end assets are compiled into the wheel.
-admin = ["dcc-mcp-gateway/admin"]
+# Enable the admin UI (Vite bundle in gateway). Forwards to both the
+# direct `dcc-mcp-gateway` dep and, crucially, the gateway pulled in via
+# `dcc-mcp-http`'s default `auto-gateway` feature (issue #2182). Off by
+# default — when disabled, zero admin UI code or front-end assets are
+# compiled into the wheel.
+admin = ["dcc-mcp-gateway/admin", "dcc-mcp-http/admin"]
+# Persist gateway admin state in SQLite (bundled `rusqlite`). Off by default
+# so the admin-persist-sqlite path no longer compiles the bundled `rusqlite`
+# driver (issue #2182). Note: the gateway's traffic-capture sink still depends
+# on `rusqlite` unconditionally; a separate follow-up is needed to fully
+# eliminate bundled SQLite from the default wheel.
+admin-persist-sqlite = ["dcc-mcp-http/admin-persist-sqlite", "dcc-mcp-gateway/admin-persist-sqlite"]
 # Opt-in local Tracy profiling through the existing logging subscriber.
 tracy = ["dcc-mcp-logging/tracy"]
 
@@ -248,6 +274,7 @@ stub-gen = [
     "dcc-mcp-usd/stub-gen",
     "dcc-mcp-http-py/stub-gen",
     "dcc-mcp-artefact/stub-gen",
+    "dcc-mcp-wire/stub-gen",
     "dcc-mcp-workflow/stub-gen",
     "dcc-mcp-scheduler/stub-gen",
 ]

@@ -38,10 +38,7 @@ def install_signal_handlers(handler: Any) -> bool:
     if threading.current_thread() is not threading.main_thread():
         # Python's signal handlers can only be installed from the main thread;
         # skip and let the watchdog/heartbeat do the work.
-        emit_log(
-            logging.WARNING,
-            f"{DIAG_LOG_PREFIX}.install.signals skipped reason=not-main-thread",
-        )
+        emit_log(logging.WARNING, f"{DIAG_LOG_PREFIX}.install.signals skipped reason=not-main-thread")
         return False
 
     installed_any = False
@@ -49,35 +46,24 @@ def install_signal_handlers(handler: Any) -> bool:
         faulthandler.enable(file=sys.stderr)
         installed_any = True
     except Exception as exc:
-        emit_log(
-            logging.WARNING,
-            f"{DIAG_LOG_PREFIX}.install.faulthandler failed err={exc!r}",
-        )
+        emit_log(logging.WARNING, f"{DIAG_LOG_PREFIX}.install.faulthandler failed err={exc!r}")
 
     sigusr1 = getattr(signal, "SIGUSR1", None)
     sigusr2 = getattr(signal, "SIGUSR2", None)
 
     if sigusr1 is not None:
         try:
-            signal.signal(
-                sigusr1, _dump_handler(handler, reason="sigusr1", incremental=False)
-            )
+            signal.signal(sigusr1, _dump_handler(handler, reason="sigusr1", incremental=False))
             installed_any = True
         except (OSError, ValueError) as exc:
-            emit_log(
-                logging.WARNING, f"{DIAG_LOG_PREFIX}.install.sigusr1 failed err={exc!r}"
-            )
+            emit_log(logging.WARNING, f"{DIAG_LOG_PREFIX}.install.sigusr1 failed err={exc!r}")
 
     if sigusr2 is not None:
         try:
-            signal.signal(
-                sigusr2, _dump_handler(handler, reason="sigusr2", incremental=True)
-            )
+            signal.signal(sigusr2, _dump_handler(handler, reason="sigusr2", incremental=True))
             installed_any = True
         except (OSError, ValueError) as exc:
-            emit_log(
-                logging.WARNING, f"{DIAG_LOG_PREFIX}.install.sigusr2 failed err={exc!r}"
-            )
+            emit_log(logging.WARNING, f"{DIAG_LOG_PREFIX}.install.sigusr2 failed err={exc!r}")
 
     return installed_any
 
@@ -92,9 +78,7 @@ def _dump_handler(handler: Any, reason: str, incremental: bool) -> Any:
             else:
                 handler.emit_dump(reason=reason, signal_safe=True)
         except Exception as exc:
-            sys.stderr.write(
-                f"{DIAG_LOG_PREFIX}.dump.error reason={reason} err={exc!r}\n"
-            )
+            sys.stderr.write(f"{DIAG_LOG_PREFIX}.dump.error reason={reason} err={exc!r}\n")
             sys.stderr.flush()
 
     return _handler

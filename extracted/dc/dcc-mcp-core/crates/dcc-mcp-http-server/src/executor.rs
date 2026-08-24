@@ -27,7 +27,34 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
-use dcc_mcp_http_types::error::HttpError;
+use dcc_mcp_host::{QueueStats, WaitTimeSamples};
+use thiserror::Error;
+
+/// Errors produced by the DCC main-thread execution bridge.
+///
+/// This contract is transport-neutral. HTTP, MCP, or embedded callers map it
+/// into their own boundary error taxonomy instead of making the executor
+/// depend on one transport's error type.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ExecutorError {
+    /// The executor channel or a task's result channel was closed.
+    #[error("executor channel closed")]
+    Closed,
+
+    /// The bounded queue did not drain before the configured send timeout.
+    #[error("queue overloaded (depth={depth}/{capacity}); retry in {retry_after_secs}s")]
+    QueueOverloaded {
+        /// Current queue depth at the moment the dispatch was rejected.
+        depth: usize,
+        /// Maximum queue depth.
+        capacity: usize,
+        /// Suggested delay before retrying.
+        retry_after_secs: u64,
+    },
+}
+
+/// Backward-compatible name for the shared dispatcher queue snapshot.
+pub type ExecutorQueueStats = QueueStats;
 
 /// Shared observability state for a [`DccExecutorHandle`] and its
 /// backing channel (issue #715).
@@ -42,7 +69,7 @@ pub(crate) struct ExecutorStats {
     /// Configured channel capacity (`send_timeout` blocks when full).
     pub capacity: usize,
     /// How long `execute` will block on a full channel before
-    /// surfacing [`HttpError::QueueOverloaded`].
+    /// surfacing [`ExecutorError::QueueOverloaded`].
     pub send_timeout: Duration,
     pub total_enqueued: AtomicU64,
     pub total_dequeued: AtomicU64,
@@ -51,7 +78,7 @@ pub(crate) struct ExecutorStats {
     /// to surface `oldest_submit_age`.
     pub submit_times: parking_lot::Mutex<VecDeque<Instant>>,
     /// Wait-time samples for completed jobs (bounded ring of 256).
-    pub wait_samples: parking_lot::Mutex<VecDeque<u64>>,
+    pub wait_samples: parking_lot::Mutex<WaitTimeSamples>,
 }
 
 impl ExecutorStats {
@@ -63,7 +90,7 @@ impl ExecutorStats {
             total_dequeued: AtomicU64::new(0),
             total_rejected: AtomicU64::new(0),
             submit_times: parking_lot::Mutex::new(VecDeque::new()),
-            wait_samples: parking_lot::Mutex::new(VecDeque::with_capacity(256)),
+            wait_samples: parking_lot::Mutex::new(WaitTimeSamples::new()),
         })
     }
 
@@ -76,11 +103,7 @@ impl ExecutorStats {
         let submitted_at = self.submit_times.lock().pop_front();
         if let Some(submitted) = submitted_at {
             let wait_ms = now.saturating_duration_since(submitted).as_millis() as u64;
-            let mut ring = self.wait_samples.lock();
-            if ring.len() == 256 {
-                ring.pop_front();
-            }
-            ring.push_back(wait_ms);
+            self.wait_samples.lock().observe(wait_ms);
         }
         self.total_dequeued.fetch_add(1, Ordering::Release);
     }
@@ -102,38 +125,8 @@ impl ExecutorStats {
     }
 
     pub(crate) fn percentiles(&self) -> (Option<u64>, Option<u64>, Option<u64>) {
-        let ring = self.wait_samples.lock();
-        if ring.is_empty() {
-            return (None, None, None);
-        }
-        let mut sorted: Vec<u64> = ring.iter().copied().collect();
-        drop(ring);
-        sorted.sort_unstable();
-        let pick = |q: f64| -> u64 {
-            let n = sorted.len();
-            let idx = ((q * n as f64).ceil() as usize)
-                .saturating_sub(1)
-                .min(n - 1);
-            sorted[idx]
-        };
-        (Some(pick(0.50)), Some(pick(0.95)), Some(pick(0.99)))
+        self.wait_samples.lock().percentiles()
     }
-}
-
-/// Public observability snapshot for the DCC main-thread executor
-/// queue (issue #715). Field names are the stable wire shape
-/// consumed by `diagnostics__process_status.queue.executor_*`.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ExecutorQueueStats {
-    pub pending: usize,
-    pub capacity: usize,
-    pub total_enqueued: u64,
-    pub total_dequeued: u64,
-    pub total_rejected: u64,
-    pub oldest_wait_ms: Option<u64>,
-    pub wait_p50_ms: Option<u64>,
-    pub wait_p95_ms: Option<u64>,
-    pub wait_p99_ms: Option<u64>,
 }
 
 /// A boxed async-compatible task that runs on the DCC main thread.
@@ -148,8 +141,7 @@ pub type DccTaskFn = Box<dyn FnOnce() -> String + Send + 'static>;
 /// crates still cannot see this type — they use the public
 /// [`DccExecutorHandle::execute`] API.
 pub(crate) struct DccTask {
-    pub(crate) func: DccTaskFn,
-    pub(crate) result_tx: oneshot::Sender<String>,
+    pub(crate) func: Box<dyn FnOnce() + Send + 'static>,
 }
 
 /// Handle owned by the HTTP server to submit tasks to the DCC main thread.
@@ -200,7 +192,7 @@ impl DccExecutorHandle {
         let (p50, p95, p99) = self.stats.percentiles();
         ExecutorQueueStats {
             pending: self.stats.pending(),
-            capacity: self.stats.capacity,
+            capacity: Some(self.stats.capacity),
             total_enqueued: self.stats.total_enqueued.load(Ordering::Acquire),
             total_dequeued: self.stats.total_dequeued.load(Ordering::Acquire),
             total_rejected: self.stats.total_rejected.load(Ordering::Acquire),
@@ -219,28 +211,44 @@ impl DccExecutorHandle {
     /// capacity, the caller blocks for up to the handle's configured
     /// send-timeout (default 2 s) waiting for the main thread to
     /// drain. If it still does not drain, the call returns
-    /// [`HttpError::QueueOverloaded`] — callers can
-    /// distinguish this from [`HttpError::ExecutorClosed`]
+    /// [`ExecutorError::QueueOverloaded`] — callers can
+    /// distinguish this from [`ExecutorError::Closed`]
     /// and decide whether to retry or fail over.
-    pub async fn execute(&self, func: DccTaskFn) -> Result<String, HttpError> {
-        let (result_tx, result_rx) = oneshot::channel();
+    pub async fn execute(&self, func: DccTaskFn) -> Result<String, ExecutorError> {
+        self.execute_typed(func).await
+    }
+
+    /// Submit a typed task without serializing its result inside the process.
+    pub async fn execute_typed<T, F>(&self, func: F) -> Result<T, ExecutorError>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
+    {
+        let (result_tx, result_rx) = oneshot::channel::<T>();
+        let task = DccTask {
+            func: Box::new(move || {
+                let _ = result_tx.send(func());
+            }),
+        };
+        self.enqueue(task).await?;
+        result_rx.await.map_err(|_| ExecutorError::Closed)
+    }
+
+    async fn enqueue(&self, task: DccTask) -> Result<(), ExecutorError> {
         let submit_attempted_at = Instant::now();
         let timeout = self.stats.send_timeout;
         let send_res = if timeout.is_zero() {
             // Opt-out of backpressure: caller asked for no bound.
-            self.tx
-                .send(DccTask { func, result_tx })
-                .await
-                .map_err(|_| ())
+            self.tx.send(task).await.map_err(|_| ())
         } else {
-            match tokio::time::timeout(timeout, self.tx.send(DccTask { func, result_tx })).await {
+            match tokio::time::timeout(timeout, self.tx.send(task)).await {
                 Ok(Ok(())) => Ok(()),
                 Ok(Err(_)) => Err(()), // channel closed
                 Err(_) => {
                     // Timed out waiting on a full channel. Canonical
                     // overload signal.
                     self.stats.record_reject();
-                    return Err(HttpError::QueueOverloaded {
+                    return Err(ExecutorError::QueueOverloaded {
                         depth: self.stats.pending(),
                         capacity: self.stats.capacity,
                         retry_after_secs: 1,
@@ -254,11 +262,11 @@ impl DccExecutorHandle {
             }
             Err(()) => {
                 self.stats.record_reject();
-                return Err(HttpError::ExecutorClosed);
+                return Err(ExecutorError::Closed);
             }
         }
 
-        result_rx.await.map_err(|_| HttpError::ExecutorClosed)
+        Ok(())
     }
 
     /// Submit a cancellation-aware task to the DCC main thread (issue #332).
@@ -291,7 +299,7 @@ impl DccExecutorHandle {
         let (result_tx, result_rx) = oneshot::channel();
         let name_for_task = tool_name.to_string();
         let ct_for_task = cancel_token.clone();
-        let wrapped: DccTaskFn = Box::new(move || {
+        let wrapped = Box::new(move || {
             // Pre-execution checkpoint: drop the call if it was cancelled
             // while queued. Cheap, happens on main thread. Keeps the
             // wrapper interface uniform with `execute`.
@@ -300,10 +308,12 @@ impl DccExecutorHandle {
                     tool = %name_for_task,
                     "deferred tool skipped — job cancelled before pump reached it"
                 );
-                return serde_json::to_string(&serde_json::json!({
+                let output = serde_json::to_string(&serde_json::json!({
                     "__dispatch_error": "CANCELLED"
                 }))
                 .unwrap_or_else(|_| "{\"__dispatch_error\":\"CANCELLED\"}".to_string());
+                let _ = result_tx.send(output);
+                return;
             }
             let start = std::time::Instant::now();
             let out = (func)();
@@ -319,7 +329,7 @@ impl DccExecutorHandle {
                      (see docs/guide/dcc-thread-safety.md)"
                 );
             }
-            out
+            let _ = result_tx.send(out);
         });
 
         // Submit via a detached Tokio task so the caller doesn't need an
@@ -328,10 +338,7 @@ impl DccExecutorHandle {
         let tx = self.tx.clone();
         let stats = self.stats.clone();
         tokio::spawn(async move {
-            let task = DccTask {
-                func: wrapped,
-                result_tx,
-            };
+            let task = DccTask { func: wrapped };
             // Race `cancel_token.cancelled()` against `tx.send(task)`.
             tokio::select! {
                 biased;
@@ -358,6 +365,60 @@ impl DccExecutorHandle {
         result_rx
     }
 
+    /// Cancellation-aware typed submission without an in-process wire format.
+    #[must_use]
+    pub fn submit_deferred_typed<T, F>(
+        &self,
+        tool_name: &str,
+        cancel_token: CancellationToken,
+        func: F,
+    ) -> oneshot::Receiver<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
+    {
+        let (result_tx, result_rx) = oneshot::channel();
+        let name_for_task = tool_name.to_string();
+        let ct_for_task = cancel_token.clone();
+        let task = DccTask {
+            func: Box::new(move || {
+                if ct_for_task.is_cancelled() {
+                    return;
+                }
+                let start = Instant::now();
+                let output = func();
+                let elapsed_ms = start.elapsed().as_millis();
+                if elapsed_ms > 50 {
+                    tracing::warn!(
+                        tool = %name_for_task,
+                        elapsed_ms,
+                        "typed deferred tool spent > 50 ms on the DCC main thread"
+                    );
+                }
+                let _ = result_tx.send(output);
+            }),
+        };
+        let tx = self.tx.clone();
+        let stats = self.stats.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                biased;
+                _ = cancel_token.cancelled() => drop(task),
+                result = tx.reserve() => match result {
+                    Ok(permit) => {
+                        stats.record_submit(Instant::now());
+                        permit.send(task);
+                    }
+                    Err(_) => {
+                        stats.record_reject();
+                        drop(task);
+                    }
+                }
+            }
+        });
+        result_rx
+    }
+
     /// Yield a frame back to the DCC event loop (issue #332).
     ///
     /// Submits a no-op closure to the main-thread queue and awaits its
@@ -371,7 +432,7 @@ impl DccExecutorHandle {
     /// ```
     ///
     /// Returns `Err` if the executor has been shut down.
-    pub async fn yield_frame(&self) -> Result<(), HttpError> {
+    pub async fn yield_frame(&self) -> Result<(), ExecutorError> {
         self.execute(Box::new(String::new)).await.map(|_| ())
     }
 }
@@ -422,8 +483,7 @@ impl DeferredExecutor {
         let stats = self.handle.stats.clone();
         while let Ok(task) = self.rx.try_recv() {
             stats.record_dequeue(Instant::now());
-            let result = (task.func)();
-            let _ = task.result_tx.send(result);
+            (task.func)();
             count += 1;
         }
         count
@@ -437,8 +497,7 @@ impl DeferredExecutor {
         while count < max {
             if let Ok(task) = self.rx.try_recv() {
                 stats.record_dequeue(Instant::now());
-                let result = (task.func)();
-                let _ = task.result_tx.send(result);
+                (task.func)();
                 count += 1;
             } else {
                 break;
@@ -470,8 +529,7 @@ impl InProcessExecutor {
         let join = tokio::spawn(async move {
             while let Some(task) = rx.recv().await {
                 drain_stats.record_dequeue(Instant::now());
-                let result = (task.func)();
-                let _ = task.result_tx.send(result);
+                (task.func)();
             }
         });
         (DccExecutorHandle { tx, stats }, Arc::new(join))

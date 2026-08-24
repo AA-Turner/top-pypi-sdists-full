@@ -1,4 +1,4 @@
-from typing import (
+from typing import (  # noqa: UP035
     TYPE_CHECKING,
     Any,
     Dict,
@@ -59,8 +59,8 @@ class TagScorer:
         self,
         sample_data: Sequence[Any],
         run_column_analysis: bool = False,
-        _column_data_type: Optional[DataType] = None,
-    ) -> List[ScoredTag]:
+        _column_data_type: Optional[DataType] = None,  # noqa: UP045
+    ) -> List[ScoredTag]:  # noqa: UP006
         str_values = preprocess_values(sample_data)
 
         unique_values = set(str_values)
@@ -71,7 +71,7 @@ class TagScorer:
         if not has_valid_content and not run_column_analysis:
             return []
 
-        results: List[ScoredTag] = []
+        results: List[ScoredTag] = []  # noqa: UP006
         for analyzer in self._analyzers:
             analysis = analyzer.analyze(
                 str_values=str_values if has_valid_content else [],
@@ -96,12 +96,12 @@ class TagScorer:
     def _build_recognizer_metadata(
         self,
         analysis: TagAnalysis,
-    ) -> Optional[TagLabelRecognizerMetadata]:
+    ) -> Optional[TagLabelRecognizerMetadata]:  # noqa: UP045
         if not analysis.recognizer_results:
             return None
 
         first_result = analysis.recognizer_results[0]
-        recognition_metadata = cast(Dict[str, str], first_result.recognition_metadata)
+        recognition_metadata = cast(Dict[str, str], first_result.recognition_metadata)  # noqa: TC006, UP006
 
         recognizer_name = recognition_metadata.get(
             presidio_constants.RECOGNIZER_METADATA_NAME,
@@ -111,7 +111,7 @@ class TagScorer:
             ),
         )
 
-        patterns_matched: Set[Tuple[str, str, float]] = set()
+        patterns_matched: Set[Tuple[str, str, float]] = set()  # noqa: UP006
         for result in analysis.recognizer_results:
             if result.analysis_explanation and result.analysis_explanation.pattern:
                 patterns_matched.add(
@@ -124,16 +124,12 @@ class TagScorer:
 
         pattern_matches = [
             PatternMatch(name=name, regex=pattern, score=score)
-            for name, pattern, score in sorted(
-                patterns_matched, key=lambda o: o[1], reverse=True
-            )
+            for name, pattern, score in sorted(patterns_matched, key=lambda o: o[1], reverse=True)
         ]
 
         recognizer_id = None
         for recognizer_config in analysis.tag.recognizers or []:
-            if isinstance(
-                recognizer_config.recognizerConfig.root, PredefinedRecognizer
-            ):
+            if isinstance(recognizer_config.recognizerConfig.root, PredefinedRecognizer):
                 name = recognizer_config.recognizerConfig.root.name.value
             else:
                 name = recognizer_config.name.root
@@ -168,9 +164,7 @@ class ScoreTagsForColumnService:
         self._nlp_engine = nlp_engine
         self._language = language
 
-    def __call__(
-        self, column: Column, data: Sequence[Any], tags_to_analyze: List[Tag]
-    ) -> List[ScoredTag]:
+    def __call__(self, column: Column, data: Sequence[Any], tags_to_analyze: List[Tag]) -> List[ScoredTag]:  # noqa: UP006
         # Create analyzers for remaining candidate tags
         tag_analyzers = (
             TagAnalyzer(

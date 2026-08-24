@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "robocorp-vault"
-version = "1.4.0"
+version = "1.4.1"
 description = "Robocorp Control Room Vault API integration library"
 authors = ["Sema4.ai <dev@sema4.ai>"]
 readme = "README.md"
@@ -25,9 +25,6 @@ types-PyYAML = "^6.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 mypy_path = "src:tests"

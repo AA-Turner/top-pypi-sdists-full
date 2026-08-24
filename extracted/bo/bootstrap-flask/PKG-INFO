@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: Bootstrap-Flask
-Version: 2.5.0
+Version: 2.6.0
 Summary: Bootstrap 4 & 5 helper for your Flask projects.
 Author-email: Grey Li <withlihui@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Documentation, https://bootstrap-flask.readthedocs.io/en/stable/
 Project-URL: Changes, https://bootstrap-flask.readthedocs.io/en/stable/changelog/
 Project-URL: Source Code, https://github.com/helloflask/bootstrap-flask/
@@ -13,15 +13,13 @@ Project-URL: Discussions, https://github.com/helloflask/bootstrap-flask/discussi
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Flask
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules

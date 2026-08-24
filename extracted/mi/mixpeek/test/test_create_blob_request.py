@@ -41,6 +41,7 @@ class TestCreateBlobRequest(unittest.TestCase):
                 type = 'string',
                 data = None,
                 upload_id = 'upl_z',
+                checksum = '',
                 metadata = { },
                 canonicalize_source = True,
                 force_remirror = True

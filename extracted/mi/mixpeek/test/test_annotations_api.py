@@ -62,6 +62,20 @@ class TestAnnotationsApi(unittest.TestCase):
         """
         pass
 
+    def test_get_annotation_at_version(self) -> None:
+        """Test case for get_annotation_at_version
+
+        Get Annotation At Version
+        """
+        pass
+
+    def test_get_annotation_versions(self) -> None:
+        """Test case for get_annotation_versions
+
+        Get Annotation Versions
+        """
+        pass
+
     def test_list_annotations(self) -> None:
         """Test case for list_annotations
 

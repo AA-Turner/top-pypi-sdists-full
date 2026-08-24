@@ -15,6 +15,8 @@ from typing import List
 from typing import Optional
 
 from ._install_lifecycle_process import entry_runtime_alive as _entry_runtime_alive
+from ._path_util import to_resolved_path as _to_path
+from .constants import ENV_REGISTRY_DIR
 
 ROLE_METADATA_KEY = "dcc_mcp_role"
 ROLE_PER_DCC_SIDECAR = "per-dcc-sidecar"
@@ -26,7 +28,7 @@ GATEWAY_RECOVERY_DRIVER_DAEMON_GUARDIAN = "daemon_guardian"
 GATEWAY_RECOVERY_DRIVER_EMBEDDED_ELECTION = "embedded_election"
 GATEWAY_RECOVERY_DRIVER_NONE = "none"
 REGISTRATION_REFRESH_MODE_FILE_REGISTRY_HEARTBEAT = "file_registry_heartbeat"
-REGISTRY_ENV = "DCC_MCP_REGISTRY_DIR"
+REGISTRY_ENV = ENV_REGISTRY_DIR
 REGISTRY_FILE = "services.json"
 
 _INSTALL_ROOT_KEYS = (
@@ -173,15 +175,6 @@ def _normalise_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
         "metadata": metadata,
         "install_roots": install_roots,
     }
-
-
-def _to_path(path: Any) -> Optional[Path]:
-    if path in (None, ""):
-        return None
-    try:
-        return Path(str(path)).expanduser().resolve()
-    except OSError:
-        return Path(str(path)).expanduser().absolute()
 
 
 def _path_under(path: Optional[Path], root: Optional[Path]) -> bool:

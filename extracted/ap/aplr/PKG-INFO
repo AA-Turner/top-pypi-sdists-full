@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aplr
-Version: 10.25.0
+Version: 10.26.0
 Summary: Automatic Piecewise Linear Regression
 Home-page: https://github.com/ottenbreit-data-science/aplr
 Author: Mathias von Ottenbreit
@@ -17,6 +17,9 @@ Requires-Dist: numpy>=1.11
 Requires-Dist: pandas>=1.0.0
 Provides-Extra: plots
 Requires-Dist: matplotlib>=3.0; extra == "plots"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: scikit-learn; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

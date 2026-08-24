@@ -23,6 +23,25 @@ from dcc_mcp_core._server.options import _BridgeExecution
 from dcc_mcp_core._server.options import _DispatcherExecution
 from dcc_mcp_core._server.options import _StandaloneMainThreadExecution
 from dcc_mcp_core._server.tools_list_policy import apply_tools_list_stub_policy
+from dcc_mcp_core.constants import ENV_ASSET
+from dcc_mcp_core.constants import ENV_ASSET_TYPE
+from dcc_mcp_core.constants import ENV_CONTEXT_BUNDLE
+from dcc_mcp_core.constants import ENV_CONTEXT_KIND
+from dcc_mcp_core.constants import ENV_DCC_SKILL_PATHS_TEMPLATE
+from dcc_mcp_core.constants import ENV_DISABLE_FILE_LOGGING
+from dcc_mcp_core.constants import ENV_DISABLE_JOB_PERSISTENCE
+from dcc_mcp_core.constants import ENV_DISABLE_TELEMETRY
+from dcc_mcp_core.constants import ENV_PACKAGE_PROVENANCE
+from dcc_mcp_core.constants import ENV_PRODUCTION_DOMAIN
+from dcc_mcp_core.constants import ENV_PROJECT
+from dcc_mcp_core.constants import ENV_PROMPT_PATHS
+from dcc_mcp_core.constants import ENV_RESOURCE_PATHS
+from dcc_mcp_core.constants import ENV_SEQUENCE
+from dcc_mcp_core.constants import ENV_SHOT
+from dcc_mcp_core.constants import ENV_SKILL_PATHS
+from dcc_mcp_core.constants import ENV_TASK
+from dcc_mcp_core.constants import ENV_TOOLSET_PROFILE
+from dcc_mcp_core.env import env_flag
 
 try:
     from dcc_mcp_core._runtime.config_bridge import resolve_mcp_http_config_class
@@ -112,33 +131,29 @@ class ExecutionBinding:
 
 
 CONTEXT_METADATA_ENV: dict[str, str] = {
-    "context_bundle": "DCC_MCP_CONTEXT_BUNDLE",
-    "production_domain": "DCC_MCP_PRODUCTION_DOMAIN",
-    "context_kind": "DCC_MCP_CONTEXT_KIND",
-    "project": "DCC_MCP_PROJECT",
-    "sequence": "DCC_MCP_SEQUENCE",
-    "shot": "DCC_MCP_SHOT",
-    "asset": "DCC_MCP_ASSET",
-    "asset_type": "DCC_MCP_ASSET_TYPE",
-    "task": "DCC_MCP_TASK",
-    "toolset_profile": "DCC_MCP_TOOLSET_PROFILE",
-    "package_provenance": "DCC_MCP_PACKAGE_PROVENANCE",
-    "skill_paths": "DCC_MCP_SKILL_PATHS",
-    "resource_paths": "DCC_MCP_RESOURCE_PATHS",
-    "prompt_paths": "DCC_MCP_PROMPT_PATHS",
+    "context_bundle": ENV_CONTEXT_BUNDLE,
+    "production_domain": ENV_PRODUCTION_DOMAIN,
+    "context_kind": ENV_CONTEXT_KIND,
+    "project": ENV_PROJECT,
+    "sequence": ENV_SEQUENCE,
+    "shot": ENV_SHOT,
+    "asset": ENV_ASSET,
+    "asset_type": ENV_ASSET_TYPE,
+    "task": ENV_TASK,
+    "toolset_profile": ENV_TOOLSET_PROFILE,
+    "package_provenance": ENV_PACKAGE_PROVENANCE,
+    "skill_paths": ENV_SKILL_PATHS,
+    "resource_paths": ENV_RESOURCE_PATHS,
+    "prompt_paths": ENV_PROMPT_PATHS,
 }
-
-
-def _env_enabled(disable_env_name: str) -> bool:
-    return os.environ.get(disable_env_name, "0") != "1"
 
 
 def resolve_observability_flags(options: ObservabilityOptions) -> ObservabilityFlags:
     """Return effective observability flags after env-var overrides."""
     return ObservabilityFlags(
-        file_logging=options.enable_file_logging and _env_enabled("DCC_MCP_DISABLE_FILE_LOGGING"),
-        job_persistence=options.enable_job_persistence and _env_enabled("DCC_MCP_DISABLE_JOB_PERSISTENCE"),
-        telemetry=options.enable_telemetry and _env_enabled("DCC_MCP_DISABLE_TELEMETRY"),
+        file_logging=options.enable_file_logging and not env_flag(ENV_DISABLE_FILE_LOGGING, truthy=("1",)),
+        job_persistence=options.enable_job_persistence and not env_flag(ENV_DISABLE_JOB_PERSISTENCE, truthy=("1",)),
+        telemetry=options.enable_telemetry and not env_flag(ENV_DISABLE_TELEMETRY, truthy=("1",)),
     )
 
 
@@ -183,7 +198,7 @@ def collect_context_metadata_from_env(dcc_name: str) -> dict[str, str]:
         value = os.environ.get(env_name, "")
         if value:
             metadata[key] = value
-    dcc_skill_paths = os.environ.get(f"DCC_MCP_{dcc_name.upper()}_SKILL_PATHS", "")
+    dcc_skill_paths = os.environ.get(ENV_DCC_SKILL_PATHS_TEMPLATE.format(dcc_name.upper()), "")
     if dcc_skill_paths:
         metadata["dcc_skill_paths"] = dcc_skill_paths
     return metadata

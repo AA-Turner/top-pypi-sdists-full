@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use tokio::sync::{RwLock, broadcast, watch};
 use tower::ServiceExt;
 
-use crate::gateway::admin::router::{build_admin_router, build_v1_debug_router};
+use crate::gateway::admin::application::router::{build_admin_router, build_v1_debug_router};
 use crate::gateway::admin::state::{AdminAuditRecord, AdminState, AuditLog};
 use crate::gateway::admin::trace::TokenTelemetry;
 use crate::gateway::state::GatewayState;
@@ -56,10 +56,12 @@ impl Drop for ScopedNoDiskLogsDir {
 
 fn make_gateway_state() -> GatewayState {
     let dir = tempfile::tempdir().unwrap();
-    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+    let registry = std::sync::Arc::new(FileRegistry::new(dir.path()).unwrap());
     let (yield_tx, _) = watch::channel(false);
     let (events_tx, _) = broadcast::channel::<String>(8);
     GatewayState {
+        ingress: std::sync::Arc::new(crate::gateway::http_limits::GatewayIngressState::from_env()),
+        resilience: std::sync::Arc::new(Default::default()),
         registry,
         http_instance_registry: Arc::new(parking_lot::RwLock::new(
             crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -630,7 +632,7 @@ async fn test_admin_tasks_and_debug_bundle_from_trace() {
             .is_some_and(|url| url.ends_with("/v1/openapi.json"))
     );
 
-    let v1_router = crate::gateway::admin::router::build_v1_debug_router(state);
+    let v1_router = crate::gateway::admin::application::router::build_v1_debug_router(state);
     let (instances_status, instances_body) =
         body_json(v1_router.clone(), "/v1/debug/instances").await;
     assert_eq!(instances_status, StatusCode::OK);

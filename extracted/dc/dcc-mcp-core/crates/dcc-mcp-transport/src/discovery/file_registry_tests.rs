@@ -1,6 +1,10 @@
 //! Unit tests for `FileRegistry`.
 
 use super::*;
+use crate::discovery::types::{
+    GATEWAY_SENTINEL_DCC_TYPE, SERVICE_ENTRY_LEGACY_SCHEMA_VERSION, SERVICE_ENTRY_SCHEMA_VERSION,
+};
+use std::sync::Arc;
 use uuid::Uuid;
 
 fn remove_sentinel_for_pid_fallback(registry: &FileRegistry, key: &ServiceKey) {
@@ -718,6 +722,41 @@ fn test_write_transaction_times_out_when_in_process_lock_is_held() {
             .contains("timed out waiting for in-process registry mutex"),
         "unexpected error: {err}"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[allow(clippy::await_holding_lock)] // Intentional: proves the async writer waits off-runtime.
+async fn async_register_keeps_the_runtime_responsive_while_registry_is_contended() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = Arc::new(
+        FileRegistry::new_with_lock_policy(
+            dir.path(),
+            Duration::from_millis(500),
+            Duration::from_millis(5),
+        )
+        .unwrap(),
+    );
+    let held = registry.write_lock.lock().unwrap();
+    let writer = {
+        let registry = Arc::clone(&registry);
+        tokio::spawn(async move {
+            registry
+                .register_async(ServiceEntry::new("photoshop", "127.0.0.1", 18814))
+                .await
+        })
+    };
+
+    tokio::time::sleep(Duration::from_millis(25)).await;
+    assert!(
+        !writer.is_finished(),
+        "contended registry write should wait on the blocking pool"
+    );
+    drop(held);
+    tokio::time::timeout(Duration::from_secs(1), writer)
+        .await
+        .expect("writer should finish after the lock is released")
+        .expect("blocking task should not panic")
+        .expect("registry write should succeed");
 }
 
 #[test]
@@ -1458,6 +1497,97 @@ fn test_malformed_json_registry_file_is_quarantined() {
     assert!(!services_json.exists());
 }
 
+#[test]
+fn test_future_registry_schema_is_rejected_without_quarantine_or_rewrite() {
+    let dir = tempfile::tempdir().unwrap();
+    let services_json = dir.path().join(REGISTRY_FILE);
+    let future_version = u64::from(SERVICE_ENTRY_SCHEMA_VERSION) + 1;
+    let content = serde_json::json!([{
+        "schema_version": future_version,
+        "dcc_type": "photoshop",
+        "instance_id": "ab7e8a1b-2c3d-4e5f-6789-abcdef012345",
+        "host": "127.0.0.1",
+        "port": 18813,
+        "registered_at": 1_714_567_678,
+        "last_heartbeat": 1_714_567_678,
+    }]);
+    let original = serde_json::to_string_pretty(&content).unwrap();
+    std::fs::write(&services_json, &original).unwrap();
+
+    let error = FileRegistry::new(dir.path())
+        .err()
+        .expect("future schema must be rejected");
+
+    assert!(matches!(
+        error,
+        TransportError::UnsupportedServiceEntrySchemaVersion {
+            received,
+            supported: SERVICE_ENTRY_SCHEMA_VERSION,
+        } if received == future_version
+    ));
+    assert_eq!(std::fs::read_to_string(&services_json).unwrap(), original);
+    assert!(corrupted_registry_files(dir.path()).is_empty());
+}
+
+#[test]
+fn test_existing_registry_cannot_overwrite_future_schema_during_heartbeat() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = FileRegistry::new(dir.path()).unwrap();
+    let entry = ServiceEntry::new("maya", "127.0.0.1", 18812);
+    let key = entry.key();
+    registry.register(entry).unwrap();
+
+    let services_json = registry.registry_file_path();
+    let future_version = u64::from(SERVICE_ENTRY_SCHEMA_VERSION) + 1;
+    let content = serde_json::json!([{
+        "schema_version": future_version,
+        "dcc_type": "photoshop",
+        "instance_id": "ab7e8a1b-2c3d-4e5f-6789-abcdef012345",
+        "host": "127.0.0.1",
+        "port": 18813,
+        "registered_at": 1_714_567_678,
+        "last_heartbeat": 1_714_567_678,
+    }]);
+    let original = serde_json::to_string_pretty(&content).unwrap();
+    std::fs::write(&services_json, &original).unwrap();
+
+    let error = registry
+        .heartbeat(&key)
+        .expect_err("heartbeat must not overwrite a future registry schema");
+
+    assert!(matches!(
+        error,
+        TransportError::UnsupportedServiceEntrySchemaVersion {
+            received,
+            supported: SERVICE_ENTRY_SCHEMA_VERSION,
+        } if received == future_version
+    ));
+    assert_eq!(std::fs::read_to_string(&services_json).unwrap(), original);
+    assert!(corrupted_registry_files(dir.path()).is_empty());
+}
+
+#[test]
+fn test_register_rejects_future_service_entry_before_writing() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = FileRegistry::new(dir.path()).unwrap();
+    let mut entry = ServiceEntry::new("blender", "127.0.0.1", 18814);
+    entry.schema_version = SERVICE_ENTRY_SCHEMA_VERSION + 1;
+
+    let error = registry
+        .register(entry)
+        .expect_err("future schema must not be registered");
+
+    assert!(matches!(
+        error,
+        TransportError::UnsupportedServiceEntrySchemaVersion {
+            received: 2,
+            supported: SERVICE_ENTRY_SCHEMA_VERSION,
+        }
+    ));
+    assert!(registry.is_empty());
+    assert!(!registry.registry_file_path().exists());
+}
+
 /// A registry file with float Unix timestamps (Python-written format)
 /// must parse successfully.
 #[test]
@@ -1526,6 +1656,10 @@ fn test_legacy_python_gateway_sentinel_preserves_live_entries() {
     );
     let sentinels = registry.list_instances(GATEWAY_SENTINEL_DCC_TYPE);
     assert_eq!(sentinels.len(), 1);
+    assert_eq!(
+        sentinels[0].schema_version,
+        SERVICE_ENTRY_LEGACY_SCHEMA_VERSION
+    );
     assert_eq!(
         sentinels[0]
             .last_heartbeat

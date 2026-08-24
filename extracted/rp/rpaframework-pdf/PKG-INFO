@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rpaframework-pdf
-Version: 11.0.1
+Version: 11.0.2
 Summary: PDF library of RPA Framework
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Requires-Dist: docutils>=0.21.2
 Requires-Dist: fpdf2>=2.8.4
 Requires-Dist: pdfminer-six>=20251107
-Requires-Dist: pypdf>=6.13.3
+Requires-Dist: pypdf>=6.15.0
 Requires-Dist: robotframework!=4.0.1,!=6.1.0,<8.0.0,>=4.0.0
 Requires-Dist: rpaframework-core>=13.0.0
 Description-Content-Type: text/x-rst

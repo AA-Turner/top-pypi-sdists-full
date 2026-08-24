@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: FlagEmbedding
-Version: 1.4.0
+Version: 1.4.2
 Summary: FlagEmbedding
 Home-page: https://github.com/FlagOpen/FlagEmbedding
 Author-email: 2906698981@qq.com
@@ -286,4 +286,8 @@ If you find this repository useful, please consider giving a star :star: and cit
 
 ## License
 FlagEmbedding is licensed under the [MIT License](https://github.com/FlagOpen/FlagEmbedding/blob/master/LICENSE). 
+
+<p align="center">
+  <sub>This work is supported by the National Science and Technology Major Project (No. 2022ZD0116300).</sub>
+</p>
 

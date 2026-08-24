@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xonsh
-Version: 0.24.1
+Version: 0.24.2
 Summary: Python-powered shell. Full-featured, cross-platform and AI-friendly. 
 Author-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>
 Maintainer-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>, Gil Forsyth <xonsh@gil.forsyth.dev>
@@ -80,7 +80,7 @@ Xonsh
 
     <img src="https://avatars.githubusercontent.com/u/17418188?s=200&v=4" alt="Xonsh shell icon." align="left" width="100px">
 
-**Xonsh** (sounds like "consh") is a full-featured and cross-platform Python-based shell. The language is a superset of Python 3 with seamless integration of shell functionality and commands. It works on all major platforms, including Linux, macOS, Windows, BSD, Jupyter, Android and Raspberry Pi.
+**Xonsh** (sounds like "consh") is a full-featured and cross-platform Python-based shell. The language is a superset of Python 3 with seamless integration of shell functionality and commands. It works on all major platforms, including Linux, macOS, Windows, BSD, Jupyter, Android, Raspberry Pi and Nix.
 
 .. raw:: html
 

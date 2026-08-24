@@ -564,6 +564,18 @@ class TestDccServerBaseOptionsPath:
         server, _ = self._make_server_via_options(tmp_path)
         assert isinstance(server._options, DccServerOptions)
 
+    def test_diagnostics_state_is_bound_to_the_server_instance(self, tmp_path):
+        first, _ = self._make_server_via_options(tmp_path)
+        second, _ = self._make_server_via_options(tmp_path)
+
+        assert first.diagnostic_state is not second.diagnostic_state
+        assert first.diagnostic_state.server is first._server
+        assert second.diagnostic_state.server is second._server
+        assert first.diagnostic_state.instance_context["dcc_name"] == "houdini"
+        assert first.feedback_store is not second.feedback_store
+        assert first.script_execution_context is not second.script_execution_context
+        assert first.checkpoint_store is not second.checkpoint_store
+
 
 def test_dcc_server_base_requires_options_argument() -> None:
     from dcc_mcp_core.server_base import DccServerBase

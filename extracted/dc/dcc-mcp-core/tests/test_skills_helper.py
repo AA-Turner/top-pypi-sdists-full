@@ -12,6 +12,7 @@ import time
 import pytest
 
 import dcc_mcp_core
+from dcc_mcp_core import _json_codec
 from dcc_mcp_core import skills_helper
 from dcc_mcp_core.skills_helper import HttpStatusError
 from dcc_mcp_core.skills_helper import SkillCodecError
@@ -35,10 +36,7 @@ def test_skills_helper_json_yaml_codecs_roundtrip() -> None:
 
 
 def test_skills_helper_json_codecs_fall_back_without_core(monkeypatch) -> None:
-    def missing_core(_name: str):
-        raise ModuleNotFoundError("No module named 'dcc_mcp_core._core'", name="dcc_mcp_core._core")
-
-    monkeypatch.setattr(skills_helper, "_core_symbol", missing_core)
+    monkeypatch.setattr(_json_codec, "_optional_core_symbol", lambda _name: None)
 
     encoded = skills_helper.json_dumps({"name": "café"}, ensure_ascii=False)
 
@@ -47,6 +45,8 @@ def test_skills_helper_json_codecs_fall_back_without_core(monkeypatch) -> None:
 
 
 def test_legacy_top_level_codecs_reexport_skills_helper() -> None:
+    assert skills_helper.json_dumps is _json_codec.json_dumps
+    assert skills_helper.json_loads is _json_codec.json_loads
     assert dcc_mcp_core.json_dumps is skills_helper.json_dumps
     assert dcc_mcp_core.json_loads is skills_helper.json_loads
     assert dcc_mcp_core.yaml_dumps is skills_helper.yaml_dumps
@@ -84,13 +84,24 @@ def test_skills_helper_reexports_skill_result_helpers() -> None:
 def test_skill_error_from_exception_uses_standard_skill_error_shape() -> None:
     exc = ValueError("bad radius")
 
-    result = skill_error_from_exception(exc, prompt="Use a positive radius.", radius=-1)
+    result = skill_error_from_exception(
+        exc,
+        prompt="Use a positive radius.",
+        _meta={"vendor.trace": {"id": "trace-42"}, "dcc.error": {"type": "Spoofed"}},
+        radius=-1,
+    )
 
     assert result["success"] is False
     assert result["message"] == "bad radius"
     assert result["error"] == "ValueError"
     assert result["prompt"] == "Use a positive radius."
     assert result["context"] == {"radius": -1}
+    assert result["_meta"]["vendor.trace"] == {"id": "trace-42"}
+    assert result["_meta"]["dcc.error"] == {
+        "type": "ValueError",
+        "message": "bad radius",
+        "traceback": "ValueError: bad radius\n",
+    }
 
 
 def test_skills_helper_reports_invalid_json_errors() -> None:
@@ -289,7 +300,11 @@ def test_http_error_can_raise_structured_status_error(http_server) -> None:
     assert err.status == 418
     assert err.response.status == 418
     assert err.kind == "http-status"
-    assert err.to_skill_error()["error"] == "http-status"
+    payload = err.to_skill_error(_meta={"vendor.http": {"attempt": 1}})
+    assert payload["error"] == "http-status"
+    assert payload["_meta"]["vendor.http"] == {"attempt": 1}
+    assert payload["_meta"]["dcc.error"]["type"] == "HttpStatusError"
+    assert payload["_meta"]["dcc.error"]["message"] == str(err)
 
 
 def test_http_timeout_raises_structured_http_error(http_server) -> None:

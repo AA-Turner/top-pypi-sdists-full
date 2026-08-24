@@ -64,7 +64,7 @@ many proprietary metadata formats.
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD-3-Clause
-:Version: 2026.8.16
+:Version: 2026.8.23
 :DOI: `10.5281/zenodo.6795860 <https://doi.org/10.5281/zenodo.6795860>`_
 
 Quickstart
@@ -108,7 +108,7 @@ This revision was tested with the following requirements and dependencies
   (required only for reading xarray DataArrays)
 - `Matplotlib <https://pypi.org/project/matplotlib/>`_ 3.11.1
   (required for plotting)
-- `Lxml <https://pypi.org/project/lxml/>`_ 6.1.1
+- `Lxml <https://pypi.org/project/lxml/>`_ 6.1.2
   (required only for validating and printing XML)
 - `Zarr <https://pypi.org/project/zarr/>`_ 3.3.0
   (required only for using Zarr stores)
@@ -117,6 +117,10 @@ This revision was tested with the following requirements and dependencies
 
 Revisions
 ---------
+
+2026.8.23
+
+- Add methods to delete pages from main IFD chain and erase their content.
 
 2026.8.16
 
@@ -625,6 +629,14 @@ with ImageJ hyperstack or OME-TIFF files):
 >>> data = numpy.random.randint(0, 255, (301, 219, 3), 'uint8')
 >>> imwrite('temp.tif', data, photometric='rgb', append=True)
 
+Delete pages from the TIFF file, optionally erasing their image data
+and tag values (note: this is irreversible and might invalidate file
+metadata such as ImageJ or OME-TIFF image descriptions):
+
+>>> with TiffFile('temp.tif', mode='r+') as tif:
+...     tif.pages[-1].delete()  # delete the last page
+...     tif.pages.delete([0, 1], erase=True)  # erase the first two pages
+
 Create a TIFF file from a generator of tiles:
 
 >>> data = numpy.random.randint(0, 2**12, (31, 33, 3), 'uint16')
@@ -840,7 +852,7 @@ Inspect the TIFF file from the command line::
 
 from __future__ import annotations
 
-__version__ = '2026.8.16'
+__version__ = '2026.8.23'
 
 __all__ = [
     'CHUNKMODE',
@@ -7943,18 +7955,26 @@ class TiffPage:
         """Return offset to next IFD from file."""
         fh = self.parent.filehandle
         tiff = self.parent.tiff
-        fh.seek(self.offset)
-        tagno = struct.unpack(tiff.tagnoformat, fh.read(tiff.tagnosize))[0]
-        if tiff.is_ndpi:
-            # NDPI tags are 12 bytes standard + 4 bytes high-bits extension,
-            # with an extra 8-byte block between the standard tags and
-            # the high-bits block
-            fh.seek(self.offset + tiff.tagnosize + tagno * 16 + 8)
-        else:
-            fh.seek(self.offset + tiff.tagnosize + tagno * tiff.tagsize)
+        fh.seek(TiffPages._nextifd_fieldpos(fh, self.offset, tiff))
         return int(
             struct.unpack(tiff.offsetformat, fh.read(tiff.offsetsize))[0]
         )
+
+    def delete(self, *, erase: bool = False) -> None:
+        """Remove page from main IFD chain.
+
+        See :py:meth:`TiffPages.delete`.
+
+        Parameters:
+            erase:
+                Zero image data, tag values, and IFD structs of deleted page.
+                Requires the file to be opened in read/write mode.
+
+        """
+        if len(self._index) != 1:
+            msg = 'cannot delete SubIFD page'
+            raise ValueError(msg)
+        self.parent.pages.delete(self.index, erase=erase)
 
     def aspage(self) -> TiffPage:
         """Return TiffPage instance."""
@@ -9172,7 +9192,7 @@ class TiffFrame:
     """JPEG quantization and Huffman tables."""
 
     _keyframe: TiffPage | None
-    _index: tuple[int, ...]  # index of frame in IFD tree.
+    _index: tuple[int, ...]  # index of frame in IFD tree
 
     def __init__(
         self,
@@ -9283,6 +9303,15 @@ class TiffFrame:
     def _nextifd(self) -> int:
         """Return offset to next IFD from file."""
         return TiffPage._nextifd(self)  # type: ignore[arg-type]
+
+    def delete(self, **kwargs: Any) -> None:
+        """Remove frame from main IFD chain.
+
+        Parameters:
+            **kwargs: Arguments passed to :py:meth:`TiffPage.delete`.
+
+        """
+        return TiffPage.delete(self, **kwargs)  # type: ignore[arg-type]
 
     def aspage(self) -> TiffPage:
         """Return TiffPage from file.
@@ -9817,6 +9846,211 @@ class TiffPages(Sequence[TiffPage | TiffFrame]):
         if not self._indexed:
             self._seek(-1)
         return self._nextpageoffset
+
+    @staticmethod
+    def _nextifd_fieldpos(
+        fh: FileHandle,
+        offset: int,
+        tiff: TiffFormat,
+        /,
+    ) -> int:
+        """Return file position of next IFD offset field in IFD at offset."""
+        fh.seek(offset)
+        tagno = struct.unpack(tiff.tagnoformat, fh.read(tiff.tagnosize))[0]
+        if tiff.is_ndpi:
+            # NDPI has 16-byte tags plus an extra 8-byte block before next-IFD
+            return offset + tiff.tagnosize + tagno * 16 + 8
+        return offset + tiff.tagnosize + tagno * tiff.tagsize
+
+    def delete(
+        self,
+        key: int | Sequence[int],
+        /,
+        *,
+        erase: bool = False,
+    ) -> None:
+        """Remove pages from main IFD chain.
+
+        If the file is opened in read/write mode, the IFD chain in the file
+        is relinked. Otherwise, only the in-memory representation is updated.
+        Any previously obtained TiffPage or TiffFrame references become
+        invalid after this call.
+        Metadata describing series likely become invalid after this call.
+
+        Parameters:
+            key:
+                Index or indices of pages to remove from IFD chain.
+            erase:
+                Zero image data, tag values, and IFD structs of deleted pages.
+                Requires the file to be opened in read/write mode.
+
+        Raises:
+            PermissionError: File is not writable for erasing.
+            ValueError: Called on a SubIFD chain.
+            IndexError: An index is out of range.
+
+        """
+        if self.parent is None:
+            msg = 'cannot delete pages: no parent TiffFile'
+            raise ValueError(msg)
+        if self._index is not None:
+            msg = 'cannot delete pages from SubIFD chain'
+            raise ValueError(msg)
+        if erase and not self.parent.filehandle.writable():
+            msg = 'cannot erase pages from read-only file'
+            raise PermissionError(msg)
+        # if not self.parent.is_appendable:
+        #     msg = (
+        #         'cannot delete pages: file format contains metadata '
+        #         'that would be inconsistent with the modified IFD chain'
+        #     )
+        #     raise ValueError(msg)
+
+        # normalise key to sorted unique list
+        if isinstance(key, (int, numpy.integer)):
+            indices: list[int] = [int(key)]
+        else:
+            indices = sorted({int(k) for k in key})
+
+        if not indices:
+            return
+
+        # ensure the full IFD chain is indexed so _offsets covers it fully
+        self._seek(-1)
+        npages = len(self._offsets)
+
+        for index in indices:
+            if index < 0 or index >= npages:
+                msg = f'page {index=} out of range [0, {npages - 1}]'
+                raise IndexError(msg)
+
+        delete_set = set(indices)
+        fh = self.parent.filehandle
+        tiff = self.parent.tiff
+        # file offset of the header's first IFD pointer field (constant)
+        header_ifd_pos = 8 if tiff.is_bigtiff else 4
+
+        # group deleted indices into contiguous runs
+        runs: list[tuple[int, int]] = []
+        a = indices[0]
+        b = a
+        for index in indices[1:]:
+            if index == b + 1:
+                b = index
+            else:
+                runs.append((a, b))
+                a = b = index
+        runs.append((a, b))
+
+        if fh.writable():
+            for a, b in runs:
+                # file position of the predecessor's next IFD offset field
+                if a == 0:
+                    prev_fieldpos = header_ifd_pos
+                else:
+                    prev_fieldpos = TiffPages._nextifd_fieldpos(
+                        fh, self._offsets[a - 1], tiff
+                    )
+                # read successor offset from the last deleted IFD in the run
+                next_fieldpos = TiffPages._nextifd_fieldpos(
+                    fh, self._offsets[b], tiff
+                )
+                fh.seek(next_fieldpos)
+                next_offset = int(
+                    struct.unpack(tiff.offsetformat, fh.read(tiff.offsetsize))[
+                        0
+                    ]
+                )
+                # relink: predecessor points to successor
+                fh.seek(prev_fieldpos)
+                fh.write(struct.pack(tiff.offsetformat, next_offset))
+
+            if erase:
+                zeros = memoryview(b'\x00' * 65536)
+                for old_index in sorted(delete_set):
+                    page: TiffPage | TiffFrame
+                    page = self._loaded.get(old_index)  # type: ignore[assignment]
+                    if page is None:
+                        fh.seek(self._offsets[old_index])
+                        page = TiffPage(self.parent, index=old_index)
+                    # erase image data
+                    for dof, dbc in zip(
+                        page.dataoffsets, page.databytecounts, strict=True
+                    ):
+                        if dof > 0 and dbc > 0:
+                            fh.seek(dof)
+                            remaining = dbc
+                            while remaining > 0:
+                                fh.write(zeros[: min(remaining, 65536)])
+                                remaining -= 65536
+                    # erase out-of-line tag values
+                    for tag in page.aspage().tags:
+                        vbc = tag.valuebytecount
+                        if (
+                            vbc > tiff.tagoffsetthreshold
+                            and tag.valueoffset >= 8
+                        ):
+                            fh.seek(tag.valueoffset)
+                            remaining = vbc
+                            while remaining > 0:
+                                fh.write(zeros[: min(remaining, 65536)])
+                                remaining -= 65536
+                    # erase IFD structure (tagno + tags + next-IFD field)
+                    ifd_end = (
+                        TiffPages._nextifd_fieldpos(
+                            fh, self._offsets[old_index], tiff
+                        )
+                        + tiff.offsetsize
+                    )
+                    fh.seek(self._offsets[old_index])
+                    fh.write(b'\x00' * (ifd_end - self._offsets[old_index]))
+
+            fh.flush()
+
+        # rebuild _offsets and _loaded with shifted indices
+        new_offsets = [
+            off for i, off in enumerate(self._offsets) if i not in delete_set
+        ]
+        new_loaded: dict[int, TiffPage | TiffFrame] = {}
+        shift = 0
+        for old_index in range(npages):
+            if old_index in delete_set:
+                shift += 1
+                self._loaded.pop(old_index, None)
+                continue
+            new_index = old_index - shift
+            page = self._loaded.pop(old_index, None)  # type: ignore[arg-type]
+            if page is not None:
+                page._index = (*page._index[:-1], new_index)
+                new_loaded[new_index] = page
+
+        # detect keyframe deletion before reassigning _loaded
+        keyframe_deleted = self._keyframe not in new_loaded.values()
+
+        self._offsets = new_offsets
+        self._loaded = new_loaded
+
+        if new_offsets:
+            # update _nextpageoffset to reflect the new last IFD
+            self._nextpageoffset = TiffPages._nextifd_fieldpos(
+                fh, new_offsets[-1], tiff
+            )
+        else:
+            self._nextpageoffset = None
+            self._indexed = True
+
+        if keyframe_deleted:
+            if new_offsets:
+                if 0 not in self._loaded:
+                    # force-load new page 0 so _keyframe is never None
+                    fh.seek(new_offsets[0])
+                    self._loaded[0] = TiffPage(self.parent, index=0)
+                self._keyframe = cast(TiffPage, self._loaded[0])
+            else:
+                self._keyframe = None
+            self.parent._decoders = {}
+
+        self.parent._series = {}
 
     @overload
     def get(

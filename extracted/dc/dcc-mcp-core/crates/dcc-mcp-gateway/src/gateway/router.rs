@@ -13,13 +13,13 @@ use super::handlers::{
     handle_proxy_dcc, handle_proxy_instance, handle_v1_call, handle_v1_call_batch,
     handle_v1_context, handle_v1_dcc_instance_call, handle_v1_dcc_instance_describe,
     handle_v1_dcc_instance_stop, handle_v1_describe, handle_v1_describe_path, handle_v1_docs,
-    handle_v1_healthz, handle_v1_instance_context, handle_v1_instances_deregister,
-    handle_v1_instances_heartbeat, handle_v1_instances_register, handle_v1_list_skills,
-    handle_v1_load_skill, handle_v1_openapi, handle_v1_readyz, handle_v1_search, handle_v1_skills,
-    handle_v1_unload_skill, handle_v1_update_check, handle_v1_update_download,
+    handle_v1_feedback, handle_v1_healthz, handle_v1_instance_context,
+    handle_v1_instances_deregister, handle_v1_instances_heartbeat, handle_v1_instances_register,
+    handle_v1_list_skills, handle_v1_load_skill, handle_v1_openapi, handle_v1_readyz,
+    handle_v1_search, handle_v1_skills, handle_v1_unload_skill, handle_v1_update_check,
+    handle_v1_update_download,
 };
 use super::http_limits::rate_limit_middleware;
-use super::resilience::gateway_limits;
 use super::state::GatewayState;
 
 /// Build the gateway `Router` with all discovery, SSE, REST, and proxy routes.
@@ -57,12 +57,20 @@ use super::state::GatewayState;
 /// - `GET  /admin/api/*`        — JSON API endpoints
 pub fn build_gateway_router(mut state: GatewayState) -> Router {
     state.debug_routes_enabled = false;
-    let limits = gateway_limits();
+    let ingress = state.ingress.clone();
+    let body_max_bytes = ingress.limits().body_max_bytes;
+    let rate_limit_enabled = ingress.limits().rate_limit_per_minute_per_ip > 0;
     let mut r = build_base_router(state);
-    r = r.layer(RequestBodyLimitLayer::new(limits.body_max_bytes));
-    r = r.layer(middleware::from_fn(caller_attribution_middleware));
-    if limits.rate_limit_per_minute_per_ip > 0 {
-        r = r.layer(middleware::from_fn(rate_limit_middleware));
+    r = r.layer(RequestBodyLimitLayer::new(body_max_bytes));
+    r = r.layer(middleware::from_fn_with_state(
+        ingress.clone(),
+        caller_attribution_middleware,
+    ));
+    if rate_limit_enabled {
+        r = r.layer(middleware::from_fn_with_state(
+            ingress,
+            rate_limit_middleware,
+        ));
     }
     r.layer(TraceLayer::new_for_http()).layer(
         CorsLayer::new()
@@ -88,12 +96,20 @@ pub fn build_gateway_router_with_admin(
     {
         state.debug_routes_enabled = admin_state.is_some();
     }
-    let limits = gateway_limits();
+    let ingress = state.ingress.clone();
+    let body_max_bytes = ingress.limits().body_max_bytes;
+    let rate_limit_enabled = ingress.limits().rate_limit_per_minute_per_ip > 0;
     let mut router = build_base_router(state);
-    router = router.layer(RequestBodyLimitLayer::new(limits.body_max_bytes));
-    router = router.layer(middleware::from_fn(caller_attribution_middleware));
-    if limits.rate_limit_per_minute_per_ip > 0 {
-        router = router.layer(middleware::from_fn(rate_limit_middleware));
+    router = router.layer(RequestBodyLimitLayer::new(body_max_bytes));
+    router = router.layer(middleware::from_fn_with_state(
+        ingress.clone(),
+        caller_attribution_middleware,
+    ));
+    if rate_limit_enabled {
+        router = router.layer(middleware::from_fn_with_state(
+            ingress,
+            rate_limit_middleware,
+        ));
     }
 
     // ── #772 admin UI (opt-in feature + runtime flag) ─────────────────────
@@ -152,6 +168,7 @@ fn build_base_router(state: GatewayState) -> Router {
         )
         .route("/v1/healthz", routing::get(handle_v1_healthz))
         .route("/v1/readyz", routing::get(handle_v1_readyz))
+        .route("/v1/feedback", routing::post(handle_v1_feedback))
         .route("/v1/openapi.json", routing::get(handle_v1_openapi))
         .route("/docs", routing::get(handle_v1_docs))
         .route("/v1/skills", routing::get(handle_v1_skills))

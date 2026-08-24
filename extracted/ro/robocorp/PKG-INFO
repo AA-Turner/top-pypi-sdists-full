@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robocorp
-Version: 3.1.1
+Version: 3.1.2
 Summary: Robocorp core libraries for Python automation
 License: Apache-2.0
 Author: Sema4.ai
@@ -14,10 +14,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: robocorp-log (>=3.1.2,<4.0.0)
-Requires-Dist: robocorp-storage (>=1.1.0,<2.0.0)
+Requires-Dist: robocorp-storage (>=1.1.1,<2.0.0)
 Requires-Dist: robocorp-tasks (>=4.1.1,<5.0.0)
-Requires-Dist: robocorp-vault (>=1.4.0,<2.0.0)
-Requires-Dist: robocorp-workitems (>=1.5.0,<2.0.0)
+Requires-Dist: robocorp-vault (>=1.4.1,<2.0.0)
+Requires-Dist: robocorp-workitems (>=1.5.1,<2.0.0)
 Project-URL: Repository, https://github.com/robocorp/robocorp/
 Description-Content-Type: text/markdown
 

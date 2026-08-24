@@ -1,9 +1,10 @@
+import sys
 from copy import deepcopy
 from io import StringIO
 
 import pytest
 
-from jsonc import dump, dumps, load, loads
+from jsonc import JSONDecodeError, dump, dumps, load, loads
 
 
 def test_loads():
@@ -16,6 +17,13 @@ def test_loads():
     assert loads('{"spam": /* comment */"ham /* egg */"}') == {"spam": "ham /* egg */"}
     assert loads(r'"spam\"ham" // egg') == 'spam"ham'
     assert loads(r'"spam\"ham\\" // egg') == 'spam"ham\\'
+
+
+def test_loads_empty():
+    with pytest.raises(JSONDecodeError):
+        loads("")
+    with pytest.raises(JSONDecodeError):
+        loads(" ")
 
 
 def test_load():
@@ -95,3 +103,10 @@ def test_dump():
     o = StringIO()
     dump([], o, indent=2, comments="test")
     assert o.getvalue() == "// test\n[]"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="requires python3.15 or higher")
+def test_immutable():
+    obj = loads('{"spam": [1, 2, 3]}', object_hook=frozendict, array_hook=tuple)  # noqa: F821
+    assert obj == frozendict({"spam": (1, 2, 3)})  # noqa: F821
+    hash(obj)

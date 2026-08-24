@@ -23,6 +23,73 @@ fn installed_package(name: &str, dcc: &str) -> InstalledMarketplacePackage {
 }
 
 #[test]
+fn legacy_installed_state_without_target_infers_dcc_target() {
+    let temp = tempfile::tempdir().unwrap();
+    let service = MarketplaceService::new(temp.path().to_path_buf());
+    let state_path = temp.path().join("installed.json");
+    std::fs::write(
+        &state_path,
+        serde_json::to_string_pretty(&serde_json::json!({
+            "packages": [{
+                "name": "legacy-tools",
+                "dcc": "Maya",
+                "version": "0.20.4",
+                "path": temp.path().join("maya").join("legacy-tools"),
+                "source_name": "official",
+                "source_url": "https://example.invalid/marketplace.json",
+                "install_type": "git",
+                "install_url": null,
+                "install_ref": null,
+                "installed_at_ms": 1
+            }]
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let installed = service.list_installed(None).unwrap();
+    assert_eq!(installed.count, 1);
+    assert_eq!(
+        installed.packages[0].target,
+        CatalogTarget {
+            kind: CatalogTargetKind::Dcc,
+            id: "maya".into(),
+        }
+    );
+
+    service
+        .upsert_installed(installed_package("blender-tools", "blender"))
+        .unwrap();
+    let persisted: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(state_path).unwrap()).unwrap();
+    assert!(
+        persisted["packages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|package| package.get("target").is_some())
+    );
+}
+
+#[test]
+fn installed_package_without_target_or_legacy_dcc_is_rejected() {
+    let mut package = serde_json::to_value(installed_package("broken-tools", "maya")).unwrap();
+    let package = package.as_object_mut().unwrap();
+    package.remove("target");
+    package.insert("dcc".into(), serde_json::Value::String("  ".into()));
+
+    let error = serde_json::from_value::<InstalledMarketplacePackage>(serde_json::Value::Object(
+        package.clone(),
+    ))
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("missing field `target` and legacy `dcc` is empty")
+    );
+}
+
+#[test]
 fn resolve_installed_dcc_infers_the_only_matching_host() {
     let temp = tempfile::tempdir().unwrap();
     let service = MarketplaceService::new(temp.path().to_path_buf());
@@ -255,6 +322,128 @@ fn immutable_git_commit_only_accepts_full_object_ids() {
         immutable_git_commit(&install).as_deref(),
         Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     );
+}
+
+#[test]
+fn git_install_rejects_mutable_ref_before_starting_git() {
+    let temp = tempfile::tempdir().unwrap();
+    let destination = temp.path().join("checkout");
+    let install = CatalogInstall {
+        install_type: "git".into(),
+        url: Some("https://example.invalid/skill".into()),
+        ref_: Some("main".into()),
+        sha256: None,
+        skill_roots: None,
+        pip_package: None,
+        pip_extras: None,
+        python_path: None,
+        entry_point: None,
+        instructions_url: None,
+    };
+
+    let error = install_from_git_command(&install, &destination).unwrap_err();
+    assert!(error.to_string().contains("40-character commit"));
+    assert!(!destination.exists());
+}
+
+#[test]
+fn git_install_checks_out_the_declared_commit_detached() {
+    fn run_git(repo: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    let source = tempfile::tempdir().unwrap();
+    run_git(source.path(), &["init", "--quiet"]);
+    run_git(source.path(), &["config", "user.name", "Marketplace Test"]);
+    run_git(
+        source.path(),
+        &["config", "user.email", "marketplace@example.invalid"],
+    );
+    std::fs::write(source.path().join("SKILL.md"), "first\n").unwrap();
+    run_git(source.path(), &["add", "SKILL.md"]);
+    run_git(source.path(), &["commit", "--quiet", "-m", "first"]);
+    let pinned = run_git(source.path(), &["rev-parse", "HEAD"]);
+    std::fs::write(source.path().join("SKILL.md"), "second\n").unwrap();
+    run_git(source.path(), &["commit", "--quiet", "-am", "second"]);
+
+    let target_root = tempfile::tempdir().unwrap();
+    let destination = target_root.path().join("checkout");
+    let install = CatalogInstall {
+        install_type: "git".into(),
+        url: Some(source.path().display().to_string()),
+        ref_: Some(pinned.clone()),
+        sha256: None,
+        skill_roots: None,
+        pip_package: None,
+        pip_extras: None,
+        python_path: None,
+        entry_point: None,
+        instructions_url: None,
+    };
+
+    install_from_git_command(&install, &destination).unwrap();
+    assert_eq!(
+        git_head_commit(&destination).as_deref(),
+        Some(pinned.as_str())
+    );
+    assert_eq!(
+        std::fs::read_to_string(destination.join("SKILL.md"))
+            .unwrap()
+            .trim(),
+        "first"
+    );
+    assert_eq!(run_git(&destination, &["branch", "--show-current"]), "");
+}
+
+#[tokio::test]
+async fn zip_install_rejects_missing_or_invalid_sha_before_reading_archive() {
+    let temp = tempfile::tempdir().unwrap();
+    let service = MarketplaceService::new(temp.path().to_path_buf());
+    let mut install = CatalogInstall {
+        install_type: "zip".into(),
+        url: Some(temp.path().join("missing.zip").display().to_string()),
+        ref_: None,
+        sha256: None,
+        skill_roots: None,
+        pip_package: None,
+        pip_extras: None,
+        python_path: None,
+        entry_point: None,
+        instructions_url: None,
+    };
+
+    let error = service
+        .install_from_zip(&install, &temp.path().join("missing-hash"))
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("requires SHA-256"));
+
+    install.sha256 = Some("abc123".into());
+    let error = service
+        .install_from_zip(&install, &temp.path().join("invalid-hash"))
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("invalid SHA-256"));
+}
+
+#[test]
+fn archive_verification_accepts_only_the_declared_bytes() {
+    let bytes = b"verified marketplace package";
+    let expected = service_internals::sha256_hex(bytes);
+    verify_archive_sha256(bytes, &expected, "package.zip").unwrap();
+
+    let error = verify_archive_sha256(b"tampered", &expected, "package.zip").unwrap_err();
+    assert!(matches!(error, MarketplaceError::HashMismatch { .. }));
 }
 
 #[test]

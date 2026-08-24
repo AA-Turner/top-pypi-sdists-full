@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip('elasticsearch')
+
 import json
 import logging
 from io import BytesIO
@@ -5,7 +9,6 @@ from io import StringIO
 from pathlib import Path
 
 import elasticsearch
-import pytest
 from freezegun import freeze_time
 
 from pytest_benchmark import plugin
@@ -101,9 +104,11 @@ class MockSession(BenchmarkSession):
         data = json.loads(BENCHFILE.read_text(encoding='utf8'))
         self.benchmarks.extend(
             Namespace(
-                as_dict=lambda include_data=False, stats=True, flat=False, _bench=bench: dict(_bench, **_bench['stats'])
-                if flat
-                else dict(_bench),
+                as_dict=(
+                    lambda include_data=False, stats=True, flat=False, _bench=bench: (
+                        dict(_bench, **_bench['stats']) if flat else dict(_bench)
+                    )
+                ),
                 name=bench['name'],
                 fullname=bench['fullname'],
                 group=bench['group'],

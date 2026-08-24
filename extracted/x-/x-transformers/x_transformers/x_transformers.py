@@ -21,7 +21,6 @@ from torch.nn import Module, ModuleList, ModuleDict
 from loguru import logger
 
 from x_transformers.attend import Attend, Intermediates, pack_one, unpack_one, log_prob_from_hard_attend
-from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 
 import einx
 from einops.layers.torch import Rearrange
@@ -68,6 +67,8 @@ class LayerIntermediates:
             out.attn_intermediates = [copy(inter) for inter in self.attn_intermediates]
 
         return out
+
+from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 
 LinearNoBias = partial(nn.Linear, bias = False)
 

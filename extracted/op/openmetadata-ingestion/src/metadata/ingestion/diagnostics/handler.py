@@ -30,26 +30,17 @@ from contextlib import suppress
 from typing import Any, TypeVar
 
 from metadata.ingestion.diagnostics.collectors.http import HttpTracker
-from metadata.ingestion.diagnostics.collectors.operation_registry import (
-    OperationRegistry,
-)
-from metadata.ingestion.diagnostics.collectors.stage_progress import (
-    StageProgressCollector,
-)
+from metadata.ingestion.diagnostics.collectors.operation_registry import OperationRegistry
+from metadata.ingestion.diagnostics.collectors.stage_progress import StageProgressCollector
 from metadata.ingestion.diagnostics.config import DIAG_LOG_PREFIX, DiagnosticsConfig
 from metadata.ingestion.diagnostics.kernel import emit_log
 from metadata.ingestion.diagnostics.monitors.monitor import Monitor
 from metadata.ingestion.diagnostics.monitors.watchdog import Watchdog
 from metadata.ingestion.diagnostics.protocols import HasDump, HasInstant, HasSummary
-from metadata.ingestion.diagnostics.reporting.dump import (
-    emit_full_dump,
-    emit_incremental_dump,
-)
+from metadata.ingestion.diagnostics.reporting.dump import emit_full_dump, emit_incremental_dump
 from metadata.ingestion.diagnostics.reporting.summary import emit_report
 from metadata.ingestion.diagnostics.samplers.memory import MemoryTracker
-from metadata.ingestion.diagnostics.samplers.time_accounting import (
-    TimeAccountingSampler,
-)
+from metadata.ingestion.diagnostics.samplers.time_accounting import TimeAccountingSampler
 from metadata.ingestion.diagnostics.seams.db_introspect import DbIntrospector
 from metadata.ingestion.diagnostics.signals import install_signal_handlers
 
@@ -77,15 +68,9 @@ class DiagnosticsHandler:
         self.signals_installed = False
 
         self.aspects: list[Any] = list(aspects)
-        self.heartbeat_fields: list[HasInstant] = [
-            a for a in self.aspects if isinstance(a, HasInstant)
-        ]
-        self.dump_sections: list[HasDump] = [
-            a for a in self.aspects if isinstance(a, HasDump)
-        ]
-        self.summary_lines: list[HasSummary] = [
-            a for a in self.aspects if isinstance(a, HasSummary)
-        ]
+        self.heartbeat_fields: list[HasInstant] = [a for a in self.aspects if isinstance(a, HasInstant)]
+        self.dump_sections: list[HasDump] = [a for a in self.aspects if isinstance(a, HasDump)]
+        self.summary_lines: list[HasSummary] = [a for a in self.aspects if isinstance(a, HasSummary)]
         self._by_type: dict[type, Any] = {type(a): a for a in self.aspects}
 
     def aspect(self, cls: type[T]) -> T:
@@ -114,19 +99,9 @@ class DiagnosticsHandler:
         )
         handler.signals_installed = install_signal_handlers(handler)
         handler._monitors = [
-            Monitor(
-                "diag-time-accounting",
-                config.time_accounting_interval_seconds,
-                time_sampler.tick,
-            ),
-            Monitor(
-                "diag-watchdog", config.watchdog_tick_seconds, handler.run_watchdog
-            ),
-            Monitor(
-                "diag-heartbeat",
-                config.heartbeat_interval_seconds,
-                handler.emit_heartbeat,
-            ),
+            Monitor("diag-time-accounting", config.time_accounting_interval_seconds, time_sampler.tick),
+            Monitor("diag-watchdog", config.watchdog_tick_seconds, handler.run_watchdog),
+            Monitor("diag-heartbeat", config.heartbeat_interval_seconds, handler.emit_heartbeat),
         ]
         return handler
 
@@ -149,9 +124,7 @@ class DiagnosticsHandler:
 
     def emit_dump(self, reason: str, signal_safe: bool = False) -> None:
         """On-demand full dump: threads + each section's `render_dump` + workflow."""
-        emit_full_dump(
-            reason, self.dump_sections, self.workflow, signal_safe=signal_safe
-        )
+        emit_full_dump(reason, self.dump_sections, self.workflow, signal_safe=signal_safe)
 
     def emit_incremental_dump(self, signal_safe: bool = False) -> None:
         """On-demand incremental dump (no thread tracebacks)."""
@@ -188,11 +161,7 @@ class DiagnosticsHandler:
     def _main_op_name(self) -> str:
         main_ident = threading.main_thread().ident
         registry = self.aspect(OperationRegistry)
-        deepest = (
-            registry.deepest_per_thread().get(main_ident)
-            if main_ident is not None
-            else None
-        )
+        deepest = registry.deepest_per_thread().get(main_ident) if main_ident is not None else None
         return deepest[0] if deepest else ""
 
     def _format_steps(self) -> str:

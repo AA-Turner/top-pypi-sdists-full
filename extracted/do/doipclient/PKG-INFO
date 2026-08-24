@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doipclient
-Version: 1.2.1
+Version: 1.2.2
 Summary: A Diagnostic over IP (DoIP) client implementing ISO-13400-2.
 Home-page: https://github.com/jacobschaer/python-doipclient
 Author: Jacob Schaer

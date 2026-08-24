@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-keycloak
-Version: 0.8.2
+Version: 0.9.0
 Summary: Provider package apache-airflow-providers-keycloak for Apache Airflow
 Keywords: airflow-provider,keycloak,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -24,15 +24,18 @@ Classifier: Topic :: System :: Monitoring
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=3.0.0
-Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.18.0
 Requires-Dist: python-keycloak>=5.0.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.8.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.8.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.9.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.9.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Import-Name: airflow.providers.keycloak
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -59,7 +62,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-keycloak``
 
-Release: ``0.8.2``
+Release: ``0.9.0``
 
 
 ``Keycloak Provider``
@@ -72,7 +75,7 @@ This is a provider package for ``keycloak`` provider. All classes for this provi
 are in ``airflow.providers.keycloak`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.8.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.9.0/>`_.
 
 Installation
 ------------
@@ -90,10 +93,10 @@ Requirements
 PIP package                                 Version required
 ==========================================  ==================
 ``apache-airflow``                          ``>=3.0.0``
-``apache-airflow-providers-common-compat``  ``>=1.12.0``
+``apache-airflow-providers-common-compat``  ``>=1.18.0``
 ``python-keycloak``                         ``>=5.0.0``
 ==========================================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.8.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-keycloak/0.9.0/changelog.html>`_.
 

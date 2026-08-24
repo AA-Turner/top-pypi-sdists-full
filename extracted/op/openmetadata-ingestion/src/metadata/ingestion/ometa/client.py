@@ -16,7 +16,7 @@ import time
 import traceback
 from contextlib import nullcontext
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, cast  # noqa: UP035
 
 import requests
 from requests.exceptions import HTTPError, JSONDecodeError
@@ -33,13 +33,13 @@ from metadata.utils.logger import ometa_logger
 logger = ometa_logger()
 
 
-class RetryException(Exception):
+class RetryException(Exception):  # noqa: N818
     """
     API Client retry exception
     """
 
 
-class LimitsException(Exception):
+class LimitsException(Exception):  # noqa: N818
     """
     API Client Feature Limit exception
     """
@@ -53,6 +53,71 @@ class RestTransportError(Exception):
         self.method = method
         self.url = url
         self.cause = cause
+
+
+class HtmlResponseError(Exception):
+    """An HTML page came back where the API answers JSON.
+
+    The body is a web page, not an API response: the request reached a UI, a login
+    page or a proxy rather than the endpoint. Raised instead of handing the caller a
+    ``Response`` it would try to subscript.
+
+    ``REST`` is generic - connectors use it against third-party APIs too - so the
+    message stays provider-neutral. Callers that know which API they were talking to
+    pass a ``hint`` with the advice specific to it.
+    """
+
+    def __init__(self, url: object, status_code: int, hint: Optional[str] = None) -> None:  # noqa: UP045
+        super().__init__(
+            f"Got an HTML page instead of JSON from [{url}] (HTTP {status_code})."
+            " The endpoint served a web page, not an API response - check the configured"
+            " host/URL and that no proxy or login page is intercepting the call." + (f" {hint}" if hint else "")
+        )
+        self.url = url
+        self.status_code = status_code
+
+
+def is_html_body(resp: requests.Response) -> bool:
+    """Whether a non-JSON body is an HTML page.
+
+    Content type first; some proxies mislabel index.html as text/plain, so fall back
+    to sniffing an `<html` tag in the head of the body. CSV and ODCS-YAML exports are
+    legitimate non-JSON payloads and must not match.
+    """
+    if "html" in resp.headers.get("Content-Type", "").lower():
+        return True
+    head = resp.text[:2048].lstrip()
+    return head.startswith("<") and "<html" in head.lower()
+
+
+def _decode_body(resp: requests.Response, url: object, raise_on_html: bool = False):
+    """Decode a successful response body.
+
+    JSON when it parses; otherwise the ``Response`` itself, for the text payloads
+    some endpoints answer with (CSV and ODCS-YAML exports).
+
+    ``raise_on_html`` turns an HTML page into an ``HtmlResponseError`` instead. It
+    is opt-in because callers disagree on what HTML means: the OpenMetadata API
+    never answers it, but connectors share this client and some deliberately
+    tolerate a non-JSON reply on their ingestion path.
+    """
+    try:
+        return resp.json()
+    except JSONDecodeError as json_decode_error:
+        if raise_on_html and is_html_body(resp):
+            raise HtmlResponseError(url, resp.status_code) from json_decode_error
+        logger.debug(
+            "Non-JSON response (%s) from [%s] with content type [%s] returned as-is: %s",
+            resp.status_code,
+            url,
+            resp.headers.get("Content-Type", "unknown"),
+            json_decode_error,
+        )
+        return resp
+    except Exception as exc:
+        logger.debug(traceback.format_exc())
+        logger.warning(f"Unexpected error while returning response {resp} in json format - {exc}")
+    return None
 
 
 class APIError(Exception):
@@ -116,28 +181,32 @@ class ClientConfig(ConfigModel):
     """
 
     base_url: str
-    api_version: Optional[str] = "v1"
-    retry: Optional[int] = 3
-    retry_wait: Optional[int] = 30
-    limit_codes: List[int] = [429]
-    retry_codes: List[int] = [504]
-    auth_token: Optional[Callable] = None
-    access_token: Optional[str] = None
-    expires_in: Optional[int] = None
-    auth_header: Optional[str] = None
-    extra_headers: Optional[dict] = None
-    user_agent: Optional[str] = None
-    raw_data: Optional[bool] = False
-    allow_redirects: Optional[bool] = False
-    auth_token_mode: Optional[str] = "Bearer"
-    verify: Optional[Union[bool, str]] = None
-    cookies: Optional[Any] = None
+    api_version: Optional[str] = "v1"  # noqa: UP045
+    retry: Optional[int] = 3  # noqa: UP045
+    retry_wait: Optional[int] = 30  # noqa: UP045
+    limit_codes: List[int] = [429]  # noqa: RUF012, UP006
+    retry_codes: List[int] = [504]  # noqa: RUF012, UP006
+    auth_token: Optional[Callable] = None  # noqa: UP045
+    access_token: Optional[str] = None  # noqa: UP045
+    expires_in: Optional[int] = None  # noqa: UP045
+    auth_header: Optional[str] = None  # noqa: UP045
+    extra_headers: Optional[dict] = None  # noqa: UP045
+    user_agent: Optional[str] = None  # noqa: UP045
+    raw_data: Optional[bool] = False  # noqa: UP045
+    allow_redirects: Optional[bool] = False  # noqa: UP045
+    # Treat an HTML body as an error rather than handing the caller the raw
+    # Response. Off by default: connectors share this client against third-party
+    # APIs, and some tolerate a non-JSON reply on purpose.
+    raise_on_html: bool = False
+    auth_token_mode: Optional[str] = "Bearer"  # noqa: UP045
+    verify: Optional[Union[bool, str]] = None  # noqa: UP007, UP045
+    cookies: Optional[Any] = None  # noqa: UP045
     ttl_cache: int = 60
     # (connect, read) seconds. Default prevents indefinite hangs when a pooled
     # socket is silently severed (NAT/LB idle reaping). Override with None to
     # disable, or pass a single int to use the same value for both.
-    timeout: Optional[int | tuple[int, int]] = (10, 300)
-    cert: Optional[Union[str, tuple]] = None
+    timeout: Optional[int | tuple[int, int]] = (10, 300)  # noqa: UP045
+    cert: Optional[Union[str, tuple]] = None  # noqa: UP007, UP045
 
 
 # pylint: disable=too-many-instance-attributes
@@ -180,11 +249,13 @@ class REST:
         path: str,
         data: Any = None,
         json: Any = None,
-        base_url: Optional[URL] = None,
-        api_version: Optional[str] = None,
-        headers: Optional[dict] = None,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-        retries: Optional[int] = None,
+        base_url: Optional[URL] = None,  # noqa: UP045
+        api_version: Optional[str] = None,  # noqa: UP045
+        headers: Optional[dict] = None,  # noqa: UP045
+        timeout: Optional[Union[float, tuple[float, float]]] = None,  # noqa: UP007, UP045
+        retries: Optional[int] = None,  # noqa: UP045
+        retry_wait: Optional[int] = None,  # noqa: UP045
+        raw: bool = False,
     ):
         # pylint: disable=too-many-locals
         if path in self._limits_reached:
@@ -197,19 +268,17 @@ class REST:
         url: URL = URL(base_url + "/" + version + path)
         cookies = self._cookies
         if (
-            self.config.expires_in
+            self.config.expires_in  # noqa: RUF021
             and datetime.now(timezone.utc).timestamp() >= self.config.expires_in
-            or not self.config.access_token
+            or not self.config.access_token  # noqa: RUF021
             and self._auth_token
         ):
             self.config.access_token, expiry = self._auth_token()
-            if not self.config.access_token == "no_token":
+            if not self.config.access_token == "no_token":  # noqa: SIM201
                 if isinstance(expiry, datetime):
                     self.config.expires_in = expiry.timestamp() - 120
                 else:
-                    self.config.expires_in = (
-                        datetime.now(timezone.utc).timestamp() + expiry - 120
-                    )
+                    self.config.expires_in = datetime.now(timezone.utc).timestamp() + expiry - 120
 
         if self.config.auth_header:
             headers[self.config.auth_header] = (
@@ -225,7 +294,7 @@ class REST:
         # This will result in the Authorization value being set for the Proxy-Authorization Extra Header
         # Any header which is comming as extra header from client will overwrite the header with same name in headers
         if self.config.extra_headers:
-            extra_headers: Dict[str, str] = self.config.extra_headers
+            extra_headers: Dict[str, str] = self.config.extra_headers  # noqa: UP006
             extra_headers = {k: (v % headers) for k, v in extra_headers.items()}
             headers = {**headers, **extra_headers}
 
@@ -252,31 +321,27 @@ class REST:
         if effective_timeout:
             opts["timeout"] = effective_timeout
 
-        # Per-call `retries` override takes precedence over the client
-        # config. `_retry` / `_retry_wait` are Optional in ClientConfig;
-        # narrow to plain ints here so the loop body type-checks cleanly.
+        # Per-call `retries` / `retry_wait` override the client config. `_retry` /
+        # `_retry_wait` are Optional in ClientConfig; narrow to plain ints here so
+        # the loop body type-checks cleanly.
         total_retries: int
         if retries is not None:
             total_retries = retries if retries > 0 else 0
         else:
             total_retries = self._retry if self._retry and self._retry > 0 else 0
         retry: int = total_retries
-        retry_wait_base: int = self._retry_wait or 0
+        retry_wait_base: int = retry_wait if retry_wait is not None else (self._retry_wait or 0)
         http_tracker = get_global_tracker()
-        http_cm = (
-            http_tracker.request(method, url)
-            if http_tracker is not None
-            else nullcontext()
-        )
+        http_cm = http_tracker.request(method, url) if http_tracker is not None else nullcontext()
         op_cm = diagnostics.operation("ometa.http", method=method, url=str(url))
         with http_cm, op_cm:
             while retry >= 0:
                 try:
-                    return self._one_request(method, url, opts, retry)
+                    return self._one_request(method, url, opts, retry, raw)
                 except LimitsException as exc:
                     logger.error(f"Feature limit exceeded for {url}")
                     self._limits_reached.add(path)
-                    raise exc
+                    raise exc  # noqa: TRY201
                 except RetryException:
                     retry_wait = retry_wait_base * (total_retries - retry + 1)
                     logger.warning(
@@ -292,12 +357,16 @@ class REST:
                         traceback.format_exc()
             return None
 
-    def _one_request(self, method: str, url: URL, opts: dict, retry: int):
+    def _one_request(self, method: str, url: URL, opts: dict, retry: int, raw: bool = False):
         """
         Perform one request, possibly raising RetryException in the case
         the response is 429. Otherwise, if error text contain "code" string,
         then it decodes to json object and returns APIError.
         Returns the body json in the 200 status.
+
+        When ``raw`` is set, returns the ``Response`` after the same retry/limit
+        decisions (504/429 still retry) instead of the decoded body, so the caller
+        can read a status the error handling below would otherwise drop.
         """
         retry_codes = self._retry_codes
         limit_codes = self._limit_codes
@@ -305,22 +374,11 @@ class REST:
         try:
             resp = self._session.request(method, url, **opts)
             resp.raise_for_status()
+            if raw:
+                return resp
 
             if resp.text != "":
-                try:
-                    return resp.json()
-                except JSONDecodeError as json_decode_error:
-                    logger.debug(
-                        "Non-JSON response (%s) returned as-is: %s",
-                        resp.status_code,
-                        json_decode_error,
-                    )
-                    return resp
-                except Exception as exc:
-                    logger.debug(traceback.format_exc())
-                    logger.warning(
-                        f"Unexpected error while returning response {resp} in json format - {exc}"
-                    )
+                return _decode_body(resp, url, self.config.raise_on_html)
 
         except HTTPError as http_error:
             # retry if we hit Rate Limit
@@ -328,27 +386,33 @@ class REST:
                 raise RetryException() from http_error
             if resp.status_code in limit_codes:
                 raise LimitsException() from http_error
+            if raw:
+                return http_error.response
             if "code" in resp.text:
                 error = resp.json()
                 if "code" in error:
                     raise APIError(error, http_error) from http_error
             else:
                 raise
+        except HtmlResponseError:
+            # Already carries the actionable message; the catch-all below would
+            # downgrade it to a warning and hand the caller a None.
+            raise
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             requests.exceptions.RetryError,
             requests.exceptions.ChunkedEncodingError,
         ) as exc:
-            logger.warning(
-                "Transport failure calling [%s] with method [%s]: %s", url, method, exc
-            )
+            logger.warning("Transport failure calling [%s] with method [%s]: %s", url, method, exc)
             raise RestTransportError(method, url, exc) from exc
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(
-                f"Unexpected error calling [{url}] with method [{method}]: {exc}"
-            )
+            logger.warning(f"Unexpected error calling [{url}] with method [{method}]: {exc}")
+            # A raw caller asked for the response; swallowing to None would strand it
+            # with an AttributeError. Re-raise so the real cause reaches the caller.
+            if raw:
+                raise
 
         return None
 
@@ -366,14 +430,35 @@ class REST:
         """
         return self._request("GET", path, data, headers=headers)
 
+    def get_raw(
+        self,
+        path: str,
+        data: Any = None,
+        headers: Optional[dict] = None,  # noqa: UP045
+        retry_wait: Optional[int] = None,  # noqa: UP045
+        retries: Optional[int] = None,  # noqa: UP045
+    ) -> requests.Response:
+        """GET returning the raw ``Response`` so the caller can read its status.
+
+        ``get`` drops the status and returns ``None`` for an error body it cannot
+        classify; a caller that needs the status uses this instead. Same pipeline as
+        ``get`` (auth, retries); ``retries`` and ``retry_wait`` override the client's
+        retry count and between-retry sleep - the sleep grows per attempt, so a
+        caller on a budget must bound both.
+        """
+        return cast(
+            "requests.Response",
+            self._request("GET", path, data, headers=headers, retry_wait=retry_wait, retries=retries, raw=True),
+        )
+
     def post(
         self,
         path: str,
         data: Any = None,
         json: Any = None,
-        headers: Optional[dict] = None,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-        retries: Optional[int] = None,
+        headers: Optional[dict] = None,  # noqa: UP045
+        timeout: Optional[Union[float, tuple[float, float]]] = None,  # noqa: UP007, UP045
+        retries: Optional[int] = None,  # noqa: UP045
     ):
         """
         POST method
@@ -404,8 +489,8 @@ class REST:
         self,
         path: str,
         data: Any = None,
-        headers: Optional[dict] = None,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        headers: Optional[dict] = None,  # noqa: UP045
+        timeout: Optional[Union[float, tuple[float, float]]] = None,  # noqa: UP007, UP045
     ) -> bool:
         """Quiet POST: no retries, no sleep, no logging. Returns True on 2xx."""
         if path in self._limits_reached:
@@ -430,7 +515,7 @@ class REST:
             return False
         return 200 <= resp.status_code < 300
 
-    def _build_request_headers(self, headers: Optional[dict] = None):
+    def _build_request_headers(self, headers: Optional[dict] = None):  # noqa: UP045
         """Reader-only headers builder. Does NOT refresh auth token —
         refresh stays on _request() to avoid concurrent refreshes from
         post_best_effort callers sharing ClientConfig."""
@@ -443,7 +528,7 @@ class REST:
                 else self.config.access_token
             )
         if self.config.extra_headers:
-            extra_headers: Dict[str, str] = self.config.extra_headers
+            extra_headers: Dict[str, str] = self.config.extra_headers  # noqa: UP006
             extra_headers = {k: (v % headers) for k, v in extra_headers.items()}
             headers = {**headers, **extra_headers}
         return headers
@@ -487,19 +572,20 @@ class REST:
             headers=request_headers,
         )
 
-    def delete(self, path, data=None, headers=None):
+    def delete(self, path, data=None, json=None, headers=None):
         """
         DELETE method
 
         Parameters:
             path (str):
             data ():
+            json (): Request body for the endpoints that take one (e.g. ``deleteStale``)
             headers (dict): Optional custom headers to override default headers
 
         Returns:
             Response
         """
-        return self._request("DELETE", path, data, headers=headers)
+        return self._request("DELETE", path, data, json=json, headers=headers)
 
     def __enter__(self):
         return self

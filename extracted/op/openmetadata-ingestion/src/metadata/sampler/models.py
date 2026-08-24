@@ -43,13 +43,13 @@ T = TypeVar("T", bound=BaseModel)
 class BaseProfileConfig(ConfigModel):
     """base profile config"""
 
-    fullyQualifiedName: FullyQualifiedEntityName
-    profileSample: Optional[Union[float, int]] = None
-    profileSampleType: Optional[ProfileSampleType] = None
-    samplingMethodType: Optional[SamplingMethodType] = None
-    sampleDataCount: Optional[int] = 100
-    randomizedSample: Optional[bool] = True
-    profileSampleConfig: Optional[ProfileSampleConfig] = None
+    fullyQualifiedName: FullyQualifiedEntityName  # noqa: N815
+    profileSample: Optional[Union[float, int]] = None  # noqa: N815, UP007, UP045
+    profileSampleType: Optional[ProfileSampleType] = None  # noqa: N815, UP045
+    samplingMethodType: Optional[SamplingMethodType] = None  # noqa: N815, UP045
+    sampleDataCount: Optional[int] = 100  # noqa: N815, UP045
+    randomizedSample: Optional[bool] = True  # noqa: N815, UP045
+    profileSampleConfig: Optional[ProfileSampleConfig] = None  # noqa: N815, UP045
 
 
 class ColumnConfig(ConfigModel):
@@ -62,15 +62,13 @@ class ColumnConfig(ConfigModel):
 class TableConfig(BaseProfileConfig):
     """table profile config"""
 
-    profileQuery: Optional[str] = None
-    partitionConfig: Optional[PartitionProfilerConfig] = None
-    columnConfig: Optional[ColumnConfig] = None
-    randomizedSample: Optional[bool] = False
+    profileQuery: Optional[str] = None  # noqa: N815, UP045
+    partitionConfig: Optional[PartitionProfilerConfig] = None  # noqa: N815, UP045
+    columnConfig: Optional[ColumnConfig] = None  # noqa: N815, UP045
+    randomizedSample: Optional[bool] = False  # noqa: N815, UP045
 
     @classmethod
-    def from_database_and_schema_config(
-        cls, config: "DatabaseAndSchemaConfig", table_fqn: str
-    ):
+    def from_database_and_schema_config(cls, config: "DatabaseAndSchemaConfig", table_fqn: str):
         table_config = TableConfig(
             fullyQualifiedName=table_fqn,
             profileSample=config.profileSample,
@@ -79,22 +77,20 @@ class TableConfig(BaseProfileConfig):
             samplingMethodType=config.samplingMethodType,
             profileSampleConfig=config.profileSampleConfig,
         )
-        return table_config
+        return table_config  # noqa: RET504
 
 
 class DatabaseAndSchemaConfig(BaseProfileConfig):
     """schema profile config"""
 
-    sampleDataStorageConfig: Optional[SampleDataStorageConfig] = None
+    sampleDataStorageConfig: Optional[SampleDataStorageConfig] = None  # noqa: N815, UP045
 
 
 class SampleData(BaseModel):
     """TableData wrapper to handle ephemeral SampleData"""
 
     data: Annotated[TableData, Field(None, description="Table Sample Data")]
-    store: Annotated[
-        bool, Field(False, description="Is the sample data should be stored or not")
-    ]
+    store: Annotated[bool, Field(False, description="Is the sample data should be stored or not")]
 
 
 class SamplerResponse(ConfigModel):
@@ -123,9 +119,7 @@ class SamplerResponse(ConfigModel):
     def __str__(self):
         """Return the entity name being processed"""
         entity_type = type(self.entity).__name__
-        entity_name = (
-            self.entity.name.root if hasattr(self.entity, "name") else "Unknown"
-        )
+        entity_name = self.entity.name.root if hasattr(self.entity, "name") else "Unknown"
         return f"{entity_type} [{entity_name}]"
 
 

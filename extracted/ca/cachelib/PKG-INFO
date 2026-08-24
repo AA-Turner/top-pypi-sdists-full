@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachelib
-Version: 0.16.1
+Version: 0.17.0
 Summary: A collection of cache libraries in the same API interface.
 Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
 Requires-Python: >=3.11

@@ -26,7 +26,7 @@ use dcc_mcp_gateway_core::policy::{GatewayPolicy, GatewayPolicyDenial, GatewayPo
 use dcc_mcp_jsonrpc::McpTool;
 use dcc_mcp_transport::discovery::{
     file_registry::FileRegistry,
-    types::{InstanceStatus, ServiceEntry},
+    types::{ServiceEntry, instance_status_from_entry},
 };
 
 use crate::gateway::admin::trace::TraceContext;
@@ -47,7 +47,7 @@ use super::capability::{
 };
 use super::request_meta::meta_with_agent_context;
 use super::state::{GatewayState, ResolveInstanceError};
-use dcc_mcp_gateway_core::naming::instance_short;
+use dcc_mcp_gateway_core::capability_naming::instance_short;
 
 const PROFILING_TARGET: &str = "dcc_mcp::profiling";
 
@@ -508,11 +508,7 @@ fn unroutable_instance_error(
     known_entry: Option<&ServiceEntry>,
 ) -> ServiceError {
     if let Some(entry) = known_entry {
-        let status = InstanceStatus::from_entry(
-            entry,
-            entry.is_stale(gs.stale_timeout),
-            entry_uses_sidecar_dispatch(entry),
-        );
+        let status = instance_status_from_entry(entry, entry.is_stale(gs.stale_timeout));
         return ServiceError::new(
             "instance-offline",
             format!(
@@ -574,17 +570,16 @@ pub async fn describe_tool_full(
 ) -> Result<(CapabilityRecord, McpTool), ServiceError> {
     let record = describe_service(&gs.capability_index, slug)?;
     enforce_record_policy(&gs.policy, GatewayPolicyOperation::Describe, &record)?;
-    let reg = gs.registry.read().await;
-    let all = gs.live_instances(&reg);
+    let reg = &gs.registry;
+    let all = gs.live_instances_async().await;
     let Some(entry) = all.iter().find(|e| e.instance_id == record.instance_id) else {
         let known = gs
-            .all_instances(&reg)
+            .all_instances(reg)
             .into_iter()
             .find(|entry| entry.instance_id == record.instance_id);
         return Err(unroutable_instance_error(gs, &record, known.as_ref()));
     };
     if is_backend_job_tool(&record.backend_tool) {
-        drop(reg);
         return Ok((record, backend_job_status_tool()));
     }
     let url = entry_discovery_mcp_url(entry);
@@ -598,13 +593,13 @@ pub async fn describe_tool_full(
         )
         .with_instance_provenance("no-discovery", Some(record.instance_id)));
     }
-    drop(reg);
 
     // Use /v1/describe to get the full input_schema (issue #992).
     // The backend's resolve_slug accepts bare action names as well as
     // full <dcc>.<skill>.<action> slugs, so we can pass callable_id directly.
     let tool = try_describe_tool(
         &gs.http_client,
+        &gs.resilience,
         &url,
         &record.callable_id,
         gs.backend_timeout,
@@ -694,11 +689,11 @@ pub async fn call_service(
     // capability record's `instance_id` is authoritative even if the
     // backend's port changed since indexing, because we always
     // look it up fresh here.
-    let reg = gs.registry.read().await;
-    let all = gs.live_instances(&reg);
+    let reg = &gs.registry;
+    let all = gs.live_instances_async().await;
     let Some(entry) = all.iter().find(|e| e.instance_id == record.instance_id) else {
         let known = gs
-            .all_instances(&reg)
+            .all_instances(reg)
             .into_iter()
             .find(|entry| entry.instance_id == record.instance_id);
         return Err(unroutable_instance_error(gs, &record, known.as_ref()));
@@ -716,7 +711,9 @@ pub async fn call_service(
         entry_mcp_url(entry)
     };
     let entry = entry.clone();
-    drop(reg);
+    let request_id = trace_context
+        .map(|context| context.request_id.clone())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
 
     let call_result = if is_backend_job_tool(&record.backend_tool)
         || (entry_uses_sidecar_dispatch(&entry) && !use_discovery_dispatch)
@@ -731,11 +728,12 @@ pub async fn call_service(
         });
         call_backend_with_observability(
             &gs.http_client,
+            &gs.resilience,
             &url,
             BackendJsonRpcCallRequest {
                 method: "tools/call",
                 params: Some(params),
-                request_id: None,
+                request_id: Some(request_id.clone()),
                 require_ready: !is_backend_job_tool(&record.backend_tool),
                 trace_context,
                 traffic_capture: Some(&gs.traffic_capture),
@@ -746,12 +744,13 @@ pub async fn call_service(
     } else {
         forward_tools_call(
             &gs.http_client,
+            &gs.resilience,
             &url,
             ForwardToolsCallRequest {
                 tool_name: &record.callable_id,
                 arguments: Some(arguments),
                 meta: meta_with_agent_context(meta, agent_context),
-                request_id: None,
+                request_id: Some(request_id),
                 trace_context,
                 traffic_capture: Some(&gs.traffic_capture),
                 timeout: gs.backend_timeout,
@@ -807,29 +806,27 @@ fn ui_control_uses_discovery_dispatch(entry: &ServiceEntry, record: &CapabilityR
 
 /// Shared helper for both MCP and REST search paths.
 ///
-/// When `mode=hybrid` is requested but semantic search is not enabled,
-/// silently downgrades to `mode=fuzzy` and builds a diagnostic
+/// `mode=hybrid` is reserved but has no production semantic backend, so it
+/// downgrades to `mode=fuzzy` and builds an honest diagnostic
 /// `semantic` object for the response. Returns the (possibly downgraded)
 /// query and the `semantic` JSON field the caller should merge into its
 /// response payload.
 pub fn apply_search_mode_downgrade(
     mut query: SearchQuery,
-    semantic_search_enabled: bool,
+    _semantic_search_enabled: bool,
 ) -> (SearchQuery, Value) {
-    let hybrid_downgraded = query.mode == SearchMode::Hybrid && !semantic_search_enabled;
+    let hybrid_downgraded = query.mode == SearchMode::Hybrid;
     if hybrid_downgraded {
         query.mode = SearchMode::Fuzzy;
     }
-    let semantic = if hybrid_downgraded {
-        json!({
-            "active": false,
-            "note": "mode=hybrid requested but semantic search is not enabled; fell back to mode=fuzzy"
-        })
-    } else {
-        json!({
-            "active": semantic_search_enabled,
-        })
-    };
+    let semantic = json!({
+        "active": false,
+        "note": if hybrid_downgraded {
+            "mode=hybrid has no production semantic backend; fell back to mode=fuzzy"
+        } else {
+            "Python semantic indexes are optional application utilities, not a gateway ranking backend"
+        }
+    });
     (query, semantic)
 }
 
@@ -871,9 +868,9 @@ pub async fn parse_and_resolve_search_payload(
             .map(str::trim)
             .filter(|value| !value.is_empty())
     {
-        let registry = gs.registry.read().await;
-        let entry =
-            gs.resolve_instance(&registry, Some(raw_instance_id), query.dcc_type.as_deref())?;
+        let entry = gs
+            .resolve_instance_async(Some(raw_instance_id), query.dcc_type.as_deref())
+            .await?;
         query.instance_id = Some(entry.instance_id);
     }
     Ok(query)
@@ -894,6 +891,7 @@ async fn refresh_instance_bounded(
         refresh_instance(
             &gs.capability_index,
             &gs.http_client,
+            &gs.resilience,
             url,
             instance_id,
             dcc_type,
@@ -923,9 +921,9 @@ async fn refresh_instance_bounded(
 /// correct. Existing snapshots are served immediately; when stale, their
 /// refresh runs in the background (stale-while-revalidate).
 pub async fn refresh_search_backends(gs: &GatewayState, query: &SearchQuery) {
-    let reg = gs.registry.read().await;
+    let reg = &gs.registry;
     let reachable_instances: Vec<_> = gs
-        .live_instances(&reg)
+        .live_instances(reg)
         .into_iter()
         .filter(|entry| {
             !matches!(
@@ -942,7 +940,6 @@ pub async fn refresh_search_backends(gs: &GatewayState, query: &SearchQuery) {
         .into_iter()
         .filter(|entry| search_query_matches_instance(query, entry))
         .collect();
-    drop(reg);
 
     remove_missing_capability_instances(gs, &live_ids).await;
 
@@ -1051,8 +1048,7 @@ async fn remove_missing_capability_instances(
     for instance_id in stale_ids {
         let gate = gs.capability_index.refresh_gate(instance_id);
         let _refresh_guard = gate.lock().await;
-        let reg = gs.registry.read().await;
-        let all = gs.all_instances(&reg);
+        let all = gs.all_instances_async().await;
         let previous_status = match all.iter().find(|entry| entry.instance_id == instance_id) {
             Some(entry)
                 if matches!(
@@ -1066,7 +1062,6 @@ async fn remove_missing_capability_instances(
             Some(entry) => Some(entry.status.to_string()),
             None => Some("exited".to_string()),
         };
-        drop(reg);
         if let Some(previous_status) = previous_status {
             super::capability::remove_instance_with_status(
                 &gs.capability_index,
@@ -1139,8 +1134,8 @@ pub async fn refresh_for_describe(gs: &GatewayState, slug: &str) {
     }
 
     let owner = if let Some((dcc_type, instance_hint, _)) = parse_slug(slug) {
-        let registry = gs.registry.read().await;
-        gs.resolve_instance(&registry, Some(instance_hint), Some(dcc_type))
+        gs.resolve_instance_async(Some(instance_hint), Some(dcc_type))
+            .await
             .ok()
     } else {
         None
@@ -1189,9 +1184,9 @@ async fn refresh_all_live_backends_inner(
     reason: RefreshReason,
     reuse_recent_periodic: bool,
 ) {
-    let reg = gs.registry.read().await;
+    let reg = &gs.registry;
     let instances: Vec<_> = gs
-        .live_instances(&reg)
+        .live_instances(reg)
         .into_iter()
         .filter(|e| {
             !matches!(
@@ -1200,7 +1195,6 @@ async fn refresh_all_live_backends_inner(
             )
         })
         .collect();
-    drop(reg);
 
     let mut instance_ids: Vec<_> = instances.iter().map(|entry| entry.instance_id).collect();
     instance_ids.sort_unstable();
@@ -1374,15 +1368,7 @@ fn record_host_died(
         Some(reason),
     );
 
-    if gs.events_tx.receiver_count() > 0 {
-        let notif = serde_json::to_string(&json!({
-            "jsonrpc": "2.0",
-            "method": "notifications/resources/updated",
-            "params": {"uri": crate::gateway::handlers::resources::GATEWAY_EVENTS_URI}
-        }))
-        .unwrap_or_default();
-        let _ = gs.events_tx.send(notif);
-    }
+    crate::gateway::event_log::notify_updated(&gs.events_tx);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1394,15 +1380,14 @@ struct HostDiedEviction {
 
 async fn evict_host_died_instance(
     index: &Arc<CapabilityIndex>,
-    registry: &Arc<tokio::sync::RwLock<FileRegistry>>,
+    registry: &Arc<FileRegistry>,
     http_registry: &Arc<parking_lot::RwLock<HttpInstanceRegistry>>,
     entry: &ServiceEntry,
 ) -> HostDiedEviction {
     let capability_records_removed =
         super::capability::remove_instance_with_status(index, entry.instance_id, "host-died");
     let file_registry_row_removed = {
-        let reg = registry.read().await;
-        match reg.deregister(&entry.key()) {
+        match registry.deregister_async(entry.key()).await {
             Ok(removed) => removed.is_some(),
             Err(err) => {
                 tracing::warn!(
@@ -1791,19 +1776,14 @@ mod unit_tests {
     #[tokio::test]
     async fn host_died_eviction_drops_index_and_registry_row() {
         let registry_dir = tempfile::TempDir::new().expect("tempdir");
-        let registry = Arc::new(tokio::sync::RwLock::new(
-            FileRegistry::new(registry_dir.path()).expect("registry"),
-        ));
+        let registry =
+            std::sync::Arc::new(FileRegistry::new(registry_dir.path()).expect("registry"));
         let http_registry = Arc::new(parking_lot::RwLock::new(HttpInstanceRegistry::default()));
         let mut entry =
             dcc_mcp_transport::discovery::types::ServiceEntry::new("maya", "127.0.0.1", 8765);
         entry.instance_id = Uuid::parse_str("abcdef0123456789abcdef0123456789").unwrap();
         let key = entry.key();
-        registry
-            .read()
-            .await
-            .register(entry.clone())
-            .expect("register row");
+        registry.register(entry.clone()).expect("register row");
         http_registry
             .write()
             .register(
@@ -1851,7 +1831,7 @@ mod unit_tests {
             }
         );
         assert!(
-            registry.read().await.get(&key).is_none(),
+            registry.get(&key).is_none(),
             "host-died instance must be removed from the shared registry"
         );
         assert!(
@@ -2246,5 +2226,24 @@ mod unit_tests {
             "success": true,
             "output": {"success": true}
         })));
+    }
+
+    #[test]
+    fn hybrid_mode_never_claims_an_unwired_semantic_backend() {
+        let query = SearchQuery {
+            mode: SearchMode::Hybrid,
+            ..SearchQuery::default()
+        };
+
+        let (query, diagnostic) = apply_search_mode_downgrade(query, true);
+
+        assert_eq!(query.mode, SearchMode::Fuzzy);
+        assert_eq!(diagnostic["active"], false);
+        assert!(
+            diagnostic["note"]
+                .as_str()
+                .unwrap()
+                .contains("no production")
+        );
     }
 }

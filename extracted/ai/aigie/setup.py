@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.4.4",
+    version="0.4.5",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -86,7 +86,10 @@ setup(
         # protoc; the runtime must match (or exceed) the gencode version.
         # Upper bound keeps us compatible with downstream ecosystems
         # (google-cloud-aiplatform etc.) that still cap at <7.
-        "protobuf>=6.31,<7",
+        # 6.31.1 gencode is supported by the 6.x and 7.x runtimes (verified by
+        # importing the committed stubs under protobuf 7.35.1), so <7 was
+        # excluding a working configuration and any user held on protobuf 7.
+        "protobuf>=6.31,<8",
         "prometheus-client>=0.20.0",  # kytte_platform_unreachable_seconds etc.
         # OTel API/SDK + OTLP exporter for internal telemetry (SDK → Aigie
         # backend); httpx instrumentation traces that export path.
@@ -194,7 +197,9 @@ setup(
             "pytest-repeat>=0.9.3",
             "tenacity>=8.2.0",
             # Autonomous v2 build/lint tooling — ADR 0001
-            "grpcio-tools>=1.60",
+            # Pinned: see the note in pyproject.toml — this decides the
+            # protobuf gencode version baked into the committed _pb/ stubs.
+            "grpcio-tools==1.80.0",
             "import-linter>=2.0",
         ],
         # Documentation

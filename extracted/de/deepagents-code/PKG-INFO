@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deepagents-code
-Version: 0.1.59
+Version: 0.1.60
 Summary: Terminal coding agent built on the Deep Agents SDK - works with any model, with persistent memory, customizable skills, subagents, and approval controls.
 Project-URL: Homepage, https://www.langchain.com/dcode
 Project-URL: Documentation, https://docs.langchain.com/oss/deepagents/code/overview

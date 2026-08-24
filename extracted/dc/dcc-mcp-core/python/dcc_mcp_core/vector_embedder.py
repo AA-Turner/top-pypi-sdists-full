@@ -45,8 +45,11 @@ import re
 from typing import Iterable
 from typing import Mapping
 
-from dcc_mcp_core._typing_compat import Protocol
-from dcc_mcp_core._typing_compat import runtime_checkable
+from dcc_mcp_core._typing import Protocol
+from dcc_mcp_core._typing import runtime_checkable
+from dcc_mcp_core.constants import ENV_EMBED_MODEL
+from dcc_mcp_core.constants import ENV_EMBED_MODEL_DIR
+from dcc_mcp_core.errors import DccMcpError
 
 __all__ = [
     "DEFAULT_DIM",
@@ -70,7 +73,7 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
 
 def _tokens(text: str) -> list[str]:
-    """Lowercase token extraction. Matches the regex used by ``semantic_skill_index._tokenise``."""
+    """Lowercase token extraction matching the lexical skill index."""
     return [tok.lower() for tok in _TOKEN_RE.findall(text)]
 
 
@@ -81,7 +84,7 @@ def _char_ngrams(token: str, n: int) -> list[str]:
     return [token[i : i + n] for i in range(len(token) - n + 1)]
 
 
-class EmbedderError(RuntimeError):
+class EmbedderError(DccMcpError, RuntimeError):
     """Raised when an embedder backend cannot be constructed or invoked."""
 
 
@@ -239,11 +242,11 @@ class OnnxEmbedder:
     DEFAULT_DIM = 384
 
     #: Override the model name. Any fastembed-supported model id is valid.
-    ENV_MODEL = "DCC_MCP_EMBED_MODEL"
+    ENV_MODEL = ENV_EMBED_MODEL
 
     #: Override the on-disk model cache directory. When unset, fastembed
     #: writes to its own platform-default cache (typically ``~/.cache/fastembed``).
-    ENV_MODEL_DIR = "DCC_MCP_EMBED_MODEL_DIR"
+    ENV_MODEL_DIR = ENV_EMBED_MODEL_DIR
 
     _INSTALL_HINT = "OnnxEmbedder requires the 'semantic' extra. Install with: pip install 'dcc-mcp-core[semantic]'"
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-yt-dlp
-Version: 2026.8.19.20260823
+Version: 2026.8.19.20260824
 Summary: Typing stubs for yt-dlp
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed

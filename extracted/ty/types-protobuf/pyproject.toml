@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-protobuf"
-version = "7.35.1.20260823"
+version = "7.35.1.20260824"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for protobuf"

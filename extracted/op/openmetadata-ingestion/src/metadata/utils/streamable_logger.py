@@ -71,12 +71,12 @@ class StreamableLogHandler(logging.Handler):
         self._buffer: Queue = Queue(maxsize=max_buffer)
         self._stop_event = threading.Event()
         self._closed = False
-        self._worker: Optional[threading.Thread] = None
+        self._worker: Optional[threading.Thread] = None  # noqa: UP045
         self._post_in_flight = threading.Event()
 
         # Isolated session/connection pool; shares ClientConfig so token
         # refresh on the main client is visible here.
-        self._client: Optional[REST] = (
+        self._client: Optional[REST] = (  # noqa: UP045
             REST(metadata.client.config) if enable_streaming else None
         )
 
@@ -154,11 +154,7 @@ class StreamableLogHandler(logging.Handler):
 
     def _collect_batch(self, timeout: float) -> list:
         try:
-            batch = (
-                [self._buffer.get(timeout=timeout)]
-                if timeout > 0
-                else [self._buffer.get_nowait()]
-            )
+            batch = [self._buffer.get(timeout=timeout)] if timeout > 0 else [self._buffer.get_nowait()]
         except Empty:
             return []
         # Claim "in flight" the moment we own a batch so flush() can't return
@@ -195,9 +191,7 @@ class StreamableLogHandler(logging.Handler):
         """Block until queue is drained, or until deadline."""
         if not self.enable_streaming or self._worker is None:
             return
-        deadline = time.monotonic() + (
-            timeout if timeout is not None else self.FLUSH_DEFAULT_SEC
-        )
+        deadline = time.monotonic() + (timeout if timeout is not None else self.FLUSH_DEFAULT_SEC)
         while time.monotonic() < deadline:
             if self._buffer.empty() and not self._post_in_flight.is_set():
                 return
@@ -350,11 +344,11 @@ class StreamableLogHandlerManager:
 
 def setup_streamable_logging_for_workflow(
     metadata: OpenMetadata,
-    pipeline_fqn: Optional[str] = None,
-    run_id: Optional[UUID] = None,
+    pipeline_fqn: Optional[str] = None,  # noqa: UP045
+    run_id: Optional[UUID] = None,  # noqa: UP045
     log_level: int = logging.INFO,
     enable_streaming: bool = False,
-) -> Optional[StreamableLogHandler]:
+) -> Optional[StreamableLogHandler]:  # noqa: UP045
     if not enable_streaming or not pipeline_fqn or not run_id:
         logger.debug(
             "Streamable logging not configured: enable=%s, pipeline_fqn=%s, run_id=%s",
@@ -390,7 +384,7 @@ def setup_streamable_logging_for_workflow(
             pipeline_fqn,
             model_str(run_id),
         )
-        return handler
+        return handler  # noqa: TRY300
 
     except Exception as e:
         logger.warning("Failed to setup streamable logging: %s", e)
@@ -399,7 +393,7 @@ def setup_streamable_logging_for_workflow(
 
 def _install_global_capture(handler: "StreamableLogHandler") -> None:
     """Route uncaught exceptions and `warnings` records to the logger. Idempotent."""
-    global _global_capture_installed
+    global _global_capture_installed  # noqa: PLW0603
     if _global_capture_installed:
         return
 
@@ -407,10 +401,7 @@ def _install_global_capture(handler: "StreamableLogHandler") -> None:
 
     def _sys_excepthook(exc_type, exc, tb):
         try:
-            logger.error(
-                "Workflow terminated with uncaught exception",
-                exc_info=(exc_type, exc, tb),
-            )
+            logger.error("Workflow terminated with uncaught exception", exc_info=(exc_type, exc, tb))
             with contextlib.suppress(Exception):
                 handler.flush(timeout=5.0)
         finally:

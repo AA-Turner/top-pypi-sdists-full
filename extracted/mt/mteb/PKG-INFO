@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.20.0
+Version: 2.20.1
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -82,6 +82,15 @@ Requires-Dist: transformers<5.0.0,>=4.52.0; extra == "jina-v4"
 Requires-Dist: torchvision>=0.22.1; extra == "jina-v4"
 Provides-Extra: flash-attention
 Requires-Dist: flash-attn>=2.6.3; extra == "flash-attention"
+Provides-Extra: internvideo2
+Requires-Dist: peft>=0.13.0; extra == "internvideo2"
+Requires-Dist: timm>=1.0.9; extra == "internvideo2"
+Requires-Dist: einops>=0.8.0; extra == "internvideo2"
+Requires-Dist: sentencepiece>=0.2.0; extra == "internvideo2"
+Requires-Dist: protobuf>=3.0.0; extra == "internvideo2"
+Requires-Dist: transformers<5; extra == "internvideo2"
+Requires-Dist: open_clip_torch>=2.24.0; extra == "internvideo2"
+Requires-Dist: torchaudio>=2.0.0; extra == "internvideo2"
 Provides-Extra: omniretriever
 Requires-Dist: peft>=0.11.0; extra == "omniretriever"
 Requires-Dist: transformers<4.52.0,>=4.51.0; extra == "omniretriever"
@@ -238,6 +247,12 @@ Provides-Extra: qwen-omni-utils
 Requires-Dist: qwen_omni_utils; extra == "qwen-omni-utils"
 Provides-Extra: embeddinggemma
 Requires-Dist: transformers>=4.56.0; extra == "embeddinggemma"
+Provides-Extra: languagebind
+Requires-Dist: languagebind[audio,video]==0.1.0; extra == "languagebind"
+Requires-Dist: transformers<4.46,>=4.40.0; extra == "languagebind"
+Requires-Dist: torchcodec>=0.1.0; sys_platform == "linux" and extra == "languagebind"
+Requires-Dist: librosa>=0.10.0; extra == "languagebind"
+Requires-Dist: datasets<5.0.0,>=3.3.0; extra == "languagebind"
 Provides-Extra: gme
 Requires-Dist: transformers<4.52.0; extra == "gme"
 Dynamic: license-file

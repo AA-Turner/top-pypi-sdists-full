@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-kafka
-Version: 1.15.1
+Version: 1.16.0
 Summary: Provider package apache-airflow-providers-apache-kafka for Apache Airflow
 Keywords: airflow-provider,apache.kafka,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -33,8 +33,8 @@ Requires-Dist: apache-airflow-providers-common-messaging>=2.0.0 ; extra == "comm
 Requires-Dist: apache-airflow-providers-google ; extra == "google"
 Requires-Dist: aws-msk-iam-sasl-signer-python>=1.0.1 ; extra == "msk"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.15.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.15.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.16.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.16.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -42,6 +42,10 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: common-messaging
 Provides-Extra: google
 Provides-Extra: msk
+Import-Name: airflow.providers.apache.kafka
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+Import-Namespace: airflow.providers.apache
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -68,7 +72,7 @@ Provides-Extra: msk
 
 Package ``apache-airflow-providers-apache-kafka``
 
-Release: ``1.15.1``
+Release: ``1.16.0``
 
 
 `Apache Kafka  <https://kafka.apache.org/>`__
@@ -81,7 +85,7 @@ This is a provider package for ``apache.kafka`` provider. All classes for this p
 are in ``airflow.providers.apache.kafka`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.15.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.16.0/>`_.
 
 Installation
 ------------
@@ -138,5 +142,5 @@ Extra                 Dependencies
 ====================  ====================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.15.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/1.16.0/changelog.html>`_.
 

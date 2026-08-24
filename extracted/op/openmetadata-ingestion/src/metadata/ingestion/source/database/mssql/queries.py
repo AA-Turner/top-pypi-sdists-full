@@ -140,7 +140,7 @@ MSSQL_GET_DATABASE_COMMENTS = textwrap.dedent(
 FROM sys.extended_properties ep
 WHERE ep.class = 0  
 AND ep.name = 'MS_Description'
-"""
+"""  # noqa: W291
 )
 
 MSSQL_GET_SCHEMA_COMMENTS = textwrap.dedent(
@@ -155,7 +155,7 @@ LEFT JOIN sys.extended_properties ep
     AND ep.minor_id = 0 
     AND ep.class = 3
     AND ep.name = 'MS_Description'
-    """
+    """  # noqa: W291
 )
 
 MSSQL_GET_STORED_PROCEDURE_COMMENTS = textwrap.dedent(
@@ -172,7 +172,7 @@ LEFT JOIN sys.extended_properties ep
     AND ep.minor_id = 0 
     AND ep.class = 1
     AND ep.name = 'MS_Description';
-"""
+"""  # noqa: W291
 )
 
 MSSQL_ALL_VIEW_DEFINITIONS = textwrap.dedent(
@@ -297,7 +297,8 @@ index_info AS (
         constraint_info.column_name AS referred_column,
         fk_info.match_option,
         fk_info.update_rule,
-        fk_info.delete_rule
+        fk_info.delete_rule,
+        DB_NAME() AS referred_database
     FROM
         fk_info INNER JOIN constraint_info ON
             constraint_info.constraint_schema =
@@ -316,7 +317,8 @@ index_info AS (
         index_info.column_name AS referred_column,
         fk_info.match_option,
         fk_info.update_rule,
-        fk_info.delete_rule
+        fk_info.delete_rule,
+        DB_NAME() AS referred_database
     FROM
         fk_info INNER JOIN index_info ON
             index_info.index_schema = fk_info.unique_constraint_schema
@@ -340,7 +342,7 @@ JOIN sys.sql_modules l on l.object_id = p.object_id
  WHERE ROUTINE_TYPE = 'PROCEDURE'
    AND ROUTINE_CATALOG = '{database_name}'
    AND ROUTINE_SCHEMA = '{schema_name}'
-    """
+    """  # noqa: W291
 )
 
 MSSQL_GET_ENCRYPTED_STORED_PROCEDURES = textwrap.dedent(
@@ -414,12 +416,10 @@ JOIN Q_HISTORY Q
     )
 order by PROCEDURE_START_TIME desc
 ;
-    """
+    """  # noqa: W291
 )
 
-MSSQL_GET_QUERY_STORE_STATE = (
-    "SELECT actual_state FROM sys.database_query_store_options"
-)
+MSSQL_GET_QUERY_STORE_STATE = "SELECT actual_state FROM sys.database_query_store_options"
 
 MSSQL_GET_STORED_PROCEDURE_QUERIES_FROM_QUERY_STORE = textwrap.dedent(
     """

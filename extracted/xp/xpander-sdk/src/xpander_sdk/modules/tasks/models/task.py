@@ -58,6 +58,7 @@ class HumanInTheLoopRequest(BaseModel):
 
 class AttachmentKind(str, Enum):
     """Coarse attachment class. MIRROR of xpander_dev_utils.models.executions.AttachmentKind - keep identical."""
+
     image = "image"
     pdf = "pdf"
     document = "document"
@@ -70,14 +71,19 @@ class AttachmentKind(str, Enum):
 
 class AttachmentRef(BaseModel):
     """Attachment metadata captured at upload. MIRROR of xpander_dev_utils.models.executions.AttachmentRef."""
+
     url: str
     name: Optional[str] = None
     mime: Optional[str] = None
     size: Optional[int] = None
     kind: Optional[AttachmentKind] = None
     sha256: Optional[str] = None
-    expires_at: Optional[str] = None  # ISO-8601; string keeps the wire dict JSON-trivial
+    expires_at: Optional[str] = (
+        None  # ISO-8601; string keeps the wire dict JSON-trivial
+    )
     source: Optional[str] = None
+    # Derived text (STT/OCR) written back post-conversion so replays never reconvert.
+    transcript: Optional[str] = None
 
 
 def resolve_attachments(
@@ -125,7 +131,9 @@ class AgentExecutionInput(BaseModel):
 
     def to_request_dict(self) -> dict:
         """Wire dict for task creation; principal/attachments ride only when set, keeping the legacy shape."""
-        data = self.model_dump(mode="json")  # enum kind -> plain string, so any JSON encoder is safe
+        data = self.model_dump(
+            mode="json"
+        )  # enum kind -> plain string, so any JSON encoder is safe
         if data.get("principal") is None:
             data.pop("principal", None)
         # Absent attachments keep the byte-identical legacy payload (and never reach a pre-mirror

@@ -1,96 +1,6 @@
 use super::*;
+use crate::testing::{InMemorySkillCatalog as FakeCatalog, RecordingToolInvoker as FakeInvoker};
 use std::sync::Mutex;
-
-/// In-memory test fake. Lets us drive the service without spinning
-/// up a real SkillCatalog/ToolDispatcher — keeps unit tests
-/// dependency-free.
-#[derive(Default)]
-struct FakeCatalog {
-    actions: Mutex<Vec<CatalogAction>>,
-}
-
-impl FakeCatalog {
-    fn push(&self, a: CatalogAction) {
-        self.actions.lock().unwrap().push(a);
-    }
-}
-
-impl SkillCatalogSource for FakeCatalog {
-    fn list_actions(&self) -> Vec<CatalogAction> {
-        self.actions.lock().unwrap().clone()
-    }
-    fn is_loaded(&self, name: &str) -> bool {
-        self.actions
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|a| a.skill_name == name && a.loaded)
-    }
-    fn load_skill(&self, skill_name: &str) -> Result<Vec<String>, ServiceError> {
-        let mut actions = self.actions.lock().unwrap();
-        let mut loaded = Vec::new();
-        for action in actions.iter_mut().filter(|a| a.skill_name == skill_name) {
-            action.loaded = true;
-            loaded.push(action.action_name.clone());
-        }
-        if loaded.is_empty() {
-            Err(ServiceError::new(
-                ServiceErrorKind::NotFound,
-                format!("skill not found: {skill_name}"),
-            ))
-        } else {
-            Ok(loaded)
-        }
-    }
-    fn unload_skill(&self, skill_name: &str) -> Result<usize, ServiceError> {
-        let mut actions = self.actions.lock().unwrap();
-        let mut removed = 0usize;
-        for action in actions.iter_mut().filter(|a| a.skill_name == skill_name) {
-            action.loaded = false;
-            removed += 1;
-        }
-        if removed == 0 {
-            Err(ServiceError::new(
-                ServiceErrorKind::NotFound,
-                format!("skill not found: {skill_name}"),
-            ))
-        } else {
-            Ok(removed)
-        }
-    }
-}
-
-#[derive(Default)]
-struct FakeInvoker {
-    calls: Mutex<Vec<(String, Value, Option<Value>)>>,
-    next: Mutex<Option<Result<Value, ServiceError>>>,
-}
-
-impl FakeInvoker {
-    fn set_next(&self, r: Result<Value, ServiceError>) {
-        *self.next.lock().unwrap() = Some(r);
-    }
-}
-
-impl ToolInvoker for FakeInvoker {
-    fn invoke(
-        &self,
-        name: &str,
-        params: Value,
-        meta: Option<Value>,
-    ) -> Result<CallOutcome, ServiceError> {
-        self.calls
-            .lock()
-            .unwrap()
-            .push((name.to_owned(), params.clone(), meta));
-        let r = self.next.lock().unwrap().take().unwrap_or(Ok(Value::Null));
-        r.map(|v| CallOutcome {
-            slug: ToolSlug(name.to_owned()),
-            output: v,
-            validation_skipped: false,
-        })
-    }
-}
 
 fn sphere_action(loaded: bool) -> CatalogAction {
     CatalogAction {
@@ -104,6 +14,8 @@ fn sphere_action(loaded: bool) -> CatalogAction {
         input_schema: serde_json::json!({"type":"object"}),
         loaded,
         scope: "repo".into(),
+        layer: None,
+        path_source: "unknown".into(),
         annotations: Default::default(),
         execution: Default::default(),
         timeout_hint_secs: None,
@@ -118,10 +30,7 @@ fn sphere_action(loaded: bool) -> CatalogAction {
 }
 
 fn build_service(actions: Vec<CatalogAction>) -> (SkillRestService, Arc<FakeInvoker>) {
-    let cat = Arc::new(FakeCatalog::default());
-    for a in actions {
-        cat.push(a);
-    }
+    let cat = Arc::new(FakeCatalog::new(actions));
     let inv = Arc::new(FakeInvoker::default());
     let svc = SkillRestService::new(cat, inv.clone());
     (svc, inv)
@@ -427,6 +336,8 @@ fn search_matches_aliases_and_schema_tokens_without_schema_expansion() {
         }),
         loaded: true,
         scope: "repo".into(),
+        layer: None,
+        path_source: "unknown".into(),
         annotations: Default::default(),
         execution: Default::default(),
         timeout_hint_secs: None,
@@ -693,6 +604,7 @@ fn catalog_source_lists_discovered_tools_with_input_schema() {
     let hit = svc
         .search(&SearchRequest {
             query: Some("action_python".into()),
+            tags: vec!["example".into()],
             loaded_only: false,
             ..Default::default()
         })
@@ -729,8 +641,8 @@ fn describe_unknown_slug_is_404_class() {
     assert_eq!(err.kind, ServiceErrorKind::UnknownSlug);
 }
 
-#[test]
-fn call_rejects_unloaded_skill() {
+#[tokio::test]
+async fn call_rejects_unloaded_skill() {
     let (svc, _) = build_service(vec![sphere_action(false)]);
     let err = svc
         .call(&CallRequest {
@@ -738,6 +650,7 @@ fn call_rejects_unloaded_skill() {
             params: Value::Null,
             meta: None,
         })
+        .await
         .unwrap_err();
     assert_eq!(err.kind, ServiceErrorKind::SkillNotLoaded);
 }
@@ -768,8 +681,8 @@ fn queue_overload_maps_to_host_busy() {
     }
 }
 
-#[test]
-fn call_dispatches_and_normalises_slug() {
+#[tokio::test]
+async fn call_dispatches_and_normalises_slug() {
     let (svc, inv) = build_service(vec![sphere_action(true)]);
     inv.set_next(Ok(serde_json::json!({"created": 1})));
     let out = svc
@@ -778,17 +691,18 @@ fn call_dispatches_and_normalises_slug() {
             params: serde_json::json!({"radius": 1.5}),
             meta: None,
         })
+        .await
         .unwrap();
     assert_eq!(out.slug.0, "maya.spheres.create_sphere");
     assert_eq!(out.output["created"], 1);
-    let calls = inv.calls.lock().unwrap();
+    let calls = inv.calls();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, "create_sphere");
-    assert_eq!(calls[0].1["radius"], 1.5);
+    assert_eq!(calls[0].action_name, "create_sphere");
+    assert_eq!(calls[0].params["radius"], 1.5);
 }
 
-#[test]
-fn invalid_slug_format_is_bad_request() {
+#[tokio::test]
+async fn invalid_slug_format_is_bad_request() {
     let (svc, _) = build_service(vec![sphere_action(true)]);
     let err = svc
         .call(&CallRequest {
@@ -796,6 +710,7 @@ fn invalid_slug_format_is_bad_request() {
             params: Value::Null,
             meta: None,
         })
+        .await
         .unwrap_err();
     assert_eq!(err.kind, ServiceErrorKind::BadRequest);
 }

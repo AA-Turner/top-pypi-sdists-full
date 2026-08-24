@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.20.8
+Version: 0.20.11
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
 Requires-Dist: dcc-mcp-server>=0.18.17,<1.0.0
+Requires-Dist: typing-extensions==4.7.1 ; python_full_version < '3.8'
+Requires-Dist: websockets>=11,<18 ; extra == 'bridge'
 Requires-Dist: dcc-mcp-core[test] ; extra == 'dev'
 Requires-Dist: ruff>=0.8.0 ; python_full_version >= '3.8' and extra == 'dev'
 Requires-Dist: mypy>=1.0 ; python_full_version >= '3.8' and extra == 'dev'
@@ -29,11 +31,11 @@ Requires-Dist: pytest-cov>=4.0 ; python_full_version >= '3.8' and extra == 'test
 Requires-Dist: pytest-cov>=4.0,<5.0 ; python_full_version < '3.8' and extra == 'test'
 Requires-Dist: pytest-xdist>=3.0 ; python_full_version >= '3.8' and extra == 'test'
 Requires-Dist: pytest-xdist==3.5.0 ; python_full_version < '3.8' and extra == 'test'
-Requires-Dist: typing-extensions==4.7.1 ; python_full_version < '3.8' and extra == 'test'
 Requires-Dist: rez ; extra == 'test'
 Requires-Dist: zipp>=3.19.1 ; python_full_version >= '3.8' and extra == 'test'
 Requires-Dist: pytest-qt>=4.4 ; python_full_version >= '3.9' and extra == 'test'
 Requires-Dist: pyside6-essentials>=6.5 ; python_full_version >= '3.9' and extra == 'test'
+Provides-Extra: bridge
 Provides-Extra: dev
 Provides-Extra: semantic
 Provides-Extra: test
@@ -333,8 +335,9 @@ Admin UI at [http://127.0.0.1:9765/admin](http://127.0.0.1:9765/admin) after the
 gateway is available.
 
 When a call fails, preserve its `request_id`, run `doctor` or a failure-filtered
-`stats` query, and discover `dcc_feedback__report` through the normal
-`search -> describe -> call` flow. Gateway-routed failures also expose a
+`stats` query, and use gateway-owned `dcc-mcp-cli feedback`. A live adapter's
+`dcc_feedback__report` is only a thin Core forwarder to the same endpoint.
+Gateway-routed failures also expose a
 public-safe `/v1/debug/issue-reports/<request_id>` payload for a reviewed bug
 report; raw bundles must never be uploaded automatically.
 

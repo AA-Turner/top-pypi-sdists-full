@@ -17,7 +17,7 @@ from hypothesis.strategies._internal.deferred import DeferredStrategy
 from jsonschema_rs import canonical
 
 from schemathesis.config import OutputConfig
-from schemathesis.core import MAX_STRING_LENGTH
+from schemathesis.core import INTERNAL_BUFFER_SIZE, MAX_STRING_LENGTH
 from schemathesis.core.errors import (
     InvalidSchema,
     UnsupportedRegexPattern,
@@ -75,6 +75,11 @@ def _countable(bound: int | None) -> int | None:
     """A size bound Hypothesis can be handed, or `None` when it runs past what a size can count."""
     # Sizes are averaged as floats, so a bound past this range fails the conversion before any check.
     return bound if bound is None or bound <= sys.maxsize else None
+
+
+def _floor(bound: int | None) -> int | None:
+    """A size floor a draw can reach, or `None` past the buffer one draw fits in."""
+    return bound if bound is None or bound <= INTERNAL_BUFFER_SIZE else None
 
 
 # What a builder raises when it cannot draw for a node, and a caller may route around it.
@@ -237,11 +242,12 @@ def _not(
     if isinstance(barred_view, canonical.ReferenceView):
         barred = _target(barred, barred_view.uri, ctx)
     complement = _negated(barred)
-    if complement is None:
-        # No complement is spelled for a branch set that points on, so the bar judges the draw itself.
-        # Only the document can be judged that way: below it, a pointer to `#` names something else.
+    if complement is None or _bars_its_input(complement, barred):
+        # Nothing to draw from where no complement is spelled, or where negation hands the bar back
+        # unchanged, so the bar judges the draw itself. Only the document can be judged that way:
+        # below it, a pointer to `#` names something else.
         if schema != ctx.root:
-            raise UnsupportedSchema.from_reason("a `not` over branches that point on, below the document root")
+            raise UnsupportedSchema.from_reason("a `not` whose complement is not spelled out, below the document root")
         return _anything(ctx).filter(_validator(schema))
     spelled = complement.to_json_schema()
     if _points_on(spelled):
@@ -263,6 +269,12 @@ def _not(
         ctx.cyclic = ctx.cyclic or nested.cyclic
         return strategy
     return from_schema(complement, ctx)
+
+
+def _bars_its_input(complement: jsonschema_rs.CanonicalSchema, barred: jsonschema_rs.CanonicalSchema) -> bool:
+    """Whether negation declined, handing back a bar over the very schema it was asked to complement."""
+    view = complement.view()
+    return isinstance(view, canonical.NotView) and view.schema == barred
 
 
 def _points_on(schema: JsonValue) -> bool:
@@ -413,7 +425,7 @@ class _Layout:
 def _array(
     schema: jsonschema_rs.CanonicalSchema, view: jsonschema_rs.canonical.ArrayView, ctx: StrategyContext
 ) -> SearchStrategy[JsonValue]:
-    if view.min_items is not None and _countable(view.min_items) is None:
+    if view.min_items is not None and _floor(view.min_items) is None:
         # No array can be that long.
         return st.nothing()
     if view.prefix_items or view.contains:
@@ -439,7 +451,7 @@ def _array(
         # No position can be filled, so the empty array is the only value the bounds may allow.
         return st.nothing() if kwargs.get("min_size") else st.builds(list)
     if all_distinct:
-        return st.lists(element, unique_by=_json_identity, **kwargs)
+        return st.lists(element, unique_by=json_identity, **kwargs)
     if view.distinctness is canonical.Distinctness.SOME_REPEATED:
         return st.lists(element, **kwargs).map(_repeat_one)
     return st.lists(element, **kwargs)
@@ -597,7 +609,7 @@ def _from_layout(
     if max_items is not None:
         kwargs["max_size"] = max_items - fixed
     # `unique_by` settles the free positions; collisions across parts are left to the joined filter.
-    distinct = {"unique_by": _json_identity} if all_distinct else {}
+    distinct = {"unique_by": json_identity} if all_distinct else {}
     parts.append(st.lists(free, **distinct, **kwargs))
     return _joined(parts, unique=all_distinct, checked=layout.counted, schema=schema)
 
@@ -809,7 +821,7 @@ def _repeated(placement: _Placement, *, unique: bool) -> SearchStrategy[list[Jso
         # A contradiction canonicalization could not see: nothing meets the demand, so no array clears
         # the schema this way. Other layouts, and the schema's other branches, may still.
         return st.nothing()
-    kwargs = {"unique_by": _json_identity} if unique else {}
+    kwargs = {"unique_by": json_identity} if unique else {}
     repeated = st.lists(element, min_size=count, max_size=count + placement.slack, **kwargs)
     try:
         repeated.validate()
@@ -846,7 +858,7 @@ def _supply(
         # An element also answers to `items`; a demanded value it rejects is not drawable.
         admits = _validator(items)
         raw = [value for value in raw if admits(value)]
-    return frozenset(_json_identity(value) for value in raw)
+    return frozenset(json_identity(value) for value in raw)
 
 
 @lru_cache(maxsize=512)
@@ -854,9 +866,9 @@ def _finite_values(schema: jsonschema_rs.CanonicalSchema) -> frozenset[object] |
     """The values this schema admits, as uniqueness keys, or `None` when they are not enumerable."""
     view = schema.view()
     if isinstance(view, canonical.ConstView):
-        return frozenset({_json_identity(cast("JsonValue", view.value))})
+        return frozenset({json_identity(cast("JsonValue", view.value))})
     if isinstance(view, canonical.EnumView):
-        return frozenset(_json_identity(value) for value in view.values)
+        return frozenset(json_identity(value) for value in view.values)
     return None
 
 
@@ -897,7 +909,7 @@ def _parts_unique(parts: tuple[Sequence[JsonValue], ...]) -> bool:
     # `unique_by` settled each part on its own; only collisions across them are left to catch.
     seen: set[object] = set()
     for part in parts:
-        keys = {_json_identity(value) for value in part}
+        keys = {json_identity(value) for value in part}
         if len(keys) != len(part) or keys & seen:
             return False
         seen |= keys
@@ -908,13 +920,13 @@ def _repeat_one(value: list[JsonValue]) -> list[JsonValue]:
     """One drawn array, with an element repeated where every one of them differs."""
     # A repeat needs two positions to sit in, and the demand carries that floor with it.
     assert len(value) >= 2
-    seen = {_json_identity(item) for item in value}
+    seen = {json_identity(item) for item in value}
     if len(seen) < len(value):
         return value
     return [value[0], *value[:-1]]
 
 
-def _json_identity(value: JsonValue) -> object:
+def json_identity(value: JsonValue) -> object:
     """What `uniqueItems` counts as the same value."""
     # `True == 1` in Python, but `true` and `1` are different JSON values.
     if isinstance(value, bool):
@@ -1079,6 +1091,9 @@ def _collect(
     entries: SearchStrategy[tuple[str, JsonValue]], low: int, high: int
 ) -> SearchStrategy[dict[str, JsonValue]]:
     def resolved() -> SearchStrategy[dict[str, JsonValue]]:
+        if _floor(low) is None:
+            # No object can be that wide.
+            return st.nothing()
         if entries.is_empty:
             # No key can be spelled; the floor decides whether that is fatal or only means no extras.
             return st.nothing() if low else st.just({})

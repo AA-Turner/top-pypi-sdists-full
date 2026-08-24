@@ -57,6 +57,9 @@ import os
 import secrets
 from typing import Any
 
+from dcc_mcp_core.constants import ENV_API_KEY
+from dcc_mcp_core.errors import DccMcpError
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -69,7 +72,7 @@ __all__ = [
 ]
 
 
-class TokenValidationError(Exception):
+class TokenValidationError(DccMcpError):
     """Raised when a Bearer token fails validation."""
 
 
@@ -95,7 +98,7 @@ class ApiKeyConfig:
     """
 
     api_key: str | None = None
-    env_var: str = "DCC_MCP_API_KEY"
+    env_var: str = ENV_API_KEY
     header_name: str = "Authorization"
 
     def resolve(self) -> str | None:

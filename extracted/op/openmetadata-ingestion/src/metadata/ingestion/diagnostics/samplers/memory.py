@@ -122,10 +122,7 @@ class MemoryTracker:
             if sample.rss > self._peak_rss:
                 self._peak_rss = sample.rss
                 self._high_water_op = current_op
-            if (
-                sample.psi_some_avg10 is not None
-                and sample.psi_some_avg10 > self._psi_avg10_max
-            ):
+            if sample.psi_some_avg10 is not None and sample.psi_some_avg10 > self._psi_avg10_max:
                 self._psi_avg10_max = sample.psi_some_avg10
 
     def _make_process_handle(self):
@@ -177,23 +174,11 @@ class MemoryTracker:
                 return None
         with self._lock:
             latest, baseline = self._last_sample, self._baseline_rss
-            peak, high_water_op, psi_max = (
-                self._peak_rss,
-                self._high_water_op,
-                self._psi_avg10_max,
-            )
+            peak, high_water_op, psi_max = self._peak_rss, self._high_water_op, self._psi_avg10_max
             elapsed = time.monotonic() - self._started_at
         result = None
         if latest is not None and baseline is not None:
-            result = _format_mem_budget(
-                "diag.mem_budget",
-                latest,
-                peak,
-                baseline,
-                high_water_op,
-                psi_max,
-                elapsed,
-            )
+            result = _format_mem_budget("diag.mem_budget", latest, peak, baseline, high_water_op, psi_max, elapsed)
         return result
 
     def render_instant(self) -> str:
@@ -438,16 +423,11 @@ def _format_mem_budget(
         f"Δpeak={format_signed_bytes(peak - baseline)}"
     )
 
-    attribution_parts = [
-        f"high_water_op={high_water_op or '-'}",
-        f"psi_avg10_max={psi_avg10_max:.1f}",
-    ]
+    attribution_parts = [f"high_water_op={high_water_op or '-'}", f"psi_avg10_max={psi_avg10_max:.1f}"]
     unavailable: list[str] = []
 
     if latest.cgroup_max is not None and latest.cgroup_current is not None:
-        attribution_parts.append(
-            f"cgroup_headroom={format_bytes(latest.cgroup_max - latest.cgroup_current)}"
-        )
+        attribution_parts.append(f"cgroup_headroom={format_bytes(latest.cgroup_max - latest.cgroup_current)}")
     else:
         unavailable.append("cgroup_headroom")
 

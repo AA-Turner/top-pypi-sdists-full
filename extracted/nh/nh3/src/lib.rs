@@ -33,6 +33,7 @@ struct Config {
     allowed_classes: Option<HashMap<String, HashSet<String>>>,
     filter_style_properties: Option<HashSet<String>>,
     url_relative: Option<UrlRelativeConfig>,
+    id_prefix: Option<String>,
 }
 
 impl Default for Config {
@@ -51,6 +52,7 @@ impl Default for Config {
             allowed_classes: None,
             filter_style_properties: None,
             url_relative: None,
+            id_prefix: None,
         }
     }
 }
@@ -169,10 +171,10 @@ struct Inner {
 ///     If a tag is not itself whitelisted, adding entries to this map will do nothing.
 ///
 ///     This map is an *alternate* to the entries of ``attributes`` (and ``attributes["*"]``):
-///     if the same attribute is also whitelisted there for the same tag, every value is
-///     accepted and this per-value whitelist is ignored for that attribute. To actually
-///     restrict the allowed values, whitelist the tag but do **not** also list the
-///     attribute in ``attributes``.
+///     if the same attribute were whitelisted there for the same tag, ammonia would accept
+///     every value and ignore this per-value whitelist, so ``Cleaner`` raises ``ValueError``
+///     on that combination. To restrict the allowed values, whitelist the tag but do **not**
+///     also list the attribute in ``attributes``.
 /// :type tag_attribute_values: ``dict[str, dict[str, set[str]]]``, optional
 /// :param set_tag_attribute_values: Sets the values of HTML attributes that are to be set on specific tags.
 ///     The value is structured as a map from tag names to a map from attribute names to an attribute value.
@@ -203,6 +205,11 @@ struct Inner {
 ///       returns a non-string, non-``None`` value) strips the URL, and the error
 ///       is reported via ``sys.unraisablehook``.
 /// :type url_relative: ``str | tuple | Callable[[str], str | None]``, optional
+/// :param id_prefix: Prepends the given string to every allowed ``id`` attribute value,
+///     which helps avoid collisions with ``id``\ s already present on the host page.
+///     The tag and the ``id`` attribute must still be whitelisted (via ``attributes``);
+///     values that already start with the prefix are left unchanged. Defaults to ``None``.
+/// :type id_prefix: ``str``, optional
 ///
 /// Example usage:
 ///
@@ -418,6 +425,9 @@ impl Cleaner {
             };
             builder.url_relative(value);
         }
+        if let Some(id_prefix) = config.id_prefix.as_ref() {
+            builder.id_prefix(Some(id_prefix.as_str()));
+        }
 
         builder
     }
@@ -444,7 +454,8 @@ impl Cleaner {
         url_schemes = None,
         allowed_classes = None,
         filter_style_properties = None,
-        url_relative = None
+        url_relative = None,
+        id_prefix = None
     ))]
     fn py_new(
         py: Python,
@@ -461,6 +472,7 @@ impl Cleaner {
         allowed_classes: Option<HashMap<String, HashSet<String>>>,
         filter_style_properties: Option<HashSet<String>>,
         url_relative: Option<Py<PyAny>>,
+        id_prefix: Option<String>,
     ) -> PyResult<Self> {
         if let Some(callback) = attribute_filter.as_ref() {
             if !callback.bind(py).is_callable() {
@@ -508,6 +520,32 @@ impl Cleaner {
                 )));
             }
         }
+        if let (Some(values), Some(attrs)) = (tag_attribute_values.as_ref(), attributes.as_ref()) {
+            // `attributes` and `tag_attribute_values` are alternates in ammonia: if an
+            // attribute is whitelisted in `attributes` (under the tag or the generic
+            // "*" key) it is accepted with *any* value, so a per-value whitelist in
+            // `tag_attribute_values` for that same attribute is silently ignored. That
+            // is almost always a mistake -- the caller thinks they restricted the value
+            // but did not -- so reject it instead of quietly allowing everything.
+            let generic = attrs.get("*");
+            for (tag, tag_values) in values {
+                let tag_attrs = attrs.get(tag);
+                for attr in tag_values.keys() {
+                    let whitelisted = tag_attrs.is_some_and(|s| s.contains(attr))
+                        || generic.is_some_and(|s| s.contains(attr));
+                    if whitelisted {
+                        return Err(PyValueError::new_err(format!(
+                            "attribute \"{attr}\" on tag \"{tag}\" is whitelisted in both \
+                             `attributes` and `tag_attribute_values`, which are alternates; \
+                             `attributes` already permits every value, so the \
+                             `tag_attribute_values` whitelist would be silently ignored. \
+                             Drop \"{attr}\" from `attributes` (the \"{tag}\" entry or \"*\") \
+                             to restrict it by value"
+                        )));
+                    }
+                }
+            }
+        }
         let config = Config {
             tags,
             clean_content_tags,
@@ -522,6 +560,7 @@ impl Cleaner {
             allowed_classes,
             filter_style_properties,
             url_relative,
+            id_prefix,
         };
         Ok(Self::new(config))
     }
@@ -582,10 +621,10 @@ impl Cleaner {
 ///
 /// ``tag_attribute_values`` restricts an attribute to a set of allowed values
 /// (values outside the set cause the attribute to be stripped), while
-/// ``set_tag_attribute_values`` unconditionally adds attributes. Note that
-/// ``tag_attribute_values`` is an *alternate* to ``attributes`` — if the same
-/// attribute is also whitelisted in ``attributes`` for that tag, every value
-/// is allowed and the per-value whitelist is ignored:
+/// ``set_tag_attribute_values`` unconditionally adds attributes. Because
+/// ``tag_attribute_values`` is an *alternate* to ``attributes``, the attribute
+/// must be left out of ``attributes`` for the restriction to apply — listing it
+/// in both raises ``ValueError``:
 ///
 /// .. code-block:: pycon
 ///
@@ -678,6 +717,18 @@ impl Cleaner {
 ///    ...     url_relative=lambda url: f"https://cdn.example.com{url}",
 ///    ... )
 ///    '<img src="https://cdn.example.com/a.png">'
+///
+/// ``id_prefix`` namespaces ``id`` attributes (which must be whitelisted) so they
+/// cannot collide with ``id``\ s on the surrounding page:
+///
+/// .. code-block:: pycon
+///
+///    >>> nh3.clean(
+///    ...     '<b id="x">hi</b>',
+///    ...     attributes={"b": {"id"}},
+///    ...     id_prefix="user-content-",
+///    ... )
+///    '<b id="user-content-x">hi</b>'
 
 #[pyfunction(signature = (
     html,
@@ -693,7 +744,8 @@ impl Cleaner {
     url_schemes = None,
     allowed_classes = None,
     filter_style_properties = None,
-    url_relative = None
+    url_relative = None,
+    id_prefix = None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn clean(
@@ -712,6 +764,7 @@ fn clean(
     allowed_classes: Option<HashMap<String, HashSet<String>>>,
     filter_style_properties: Option<HashSet<String>>,
     url_relative: Option<Py<PyAny>>,
+    id_prefix: Option<String>,
 ) -> PyResult<String> {
     let cleaner = Cleaner::py_new(
         py,
@@ -728,6 +781,7 @@ fn clean(
         allowed_classes,
         filter_style_properties,
         url_relative,
+        id_prefix,
     )?;
     Ok(py.detach(|| cleaner.clean(html)))
 }

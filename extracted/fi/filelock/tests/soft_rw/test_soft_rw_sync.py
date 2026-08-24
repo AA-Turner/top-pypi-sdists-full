@@ -351,7 +351,12 @@ def test_writer_preference_blocks_new_readers(lock_file: str) -> None:
         reader1.start()
         assert r1_held.wait(timeout=_PROCESS_DEADLINE)
         writer.start()
-        time.sleep(0.3)
+        # Start reader2 only once the writer's marker is on disk: a fixed sleep undershoots on a Windows runner still
+        # spawning the writer's interpreter, and reader2 then slips in ahead of the writer's intent.
+        deadline = time.monotonic() + _PROCESS_DEADLINE
+        while not Path(f"{lock_file}.write").exists():
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
         reader2.start()
         assert not r2_held.wait(timeout=0.5)
         r1_release.set()
@@ -369,11 +374,13 @@ def test_transaction_lock_timeout_across_threads(lock_file: str) -> None:
     # Two threads share one lock instance. Thread A holds the transaction lock while spinning on a peer
     # writer; thread B times out on the transaction lock, exercising the in-process Timeout path rather
     # than cross-process contention.
+    # Staleness is not under test: a peer heartbeat that stalls past a short threshold on a loaded runner would let
+    # thread A evict the peer and take the lock, turning thread B's Timeout into a same-instance ownership error.
     peer = SoftReadWriteLock(
         lock_file,
         is_singleton=False,
         heartbeat_interval=0.1,
-        stale_threshold=0.5,
+        stale_threshold=_PROCESS_DEADLINE,
         poll_interval=0.02,
     )
     peer.acquire_write(timeout=2)
@@ -382,7 +389,7 @@ def test_transaction_lock_timeout_across_threads(lock_file: str) -> None:
             lock_file,
             is_singleton=False,
             heartbeat_interval=0.1,
-            stale_threshold=0.5,
+            stale_threshold=_PROCESS_DEADLINE,
             poll_interval=0.02,
         )
         try:
@@ -761,6 +768,35 @@ def test_stale_malformed_marker_is_evicted(lock_file: str, content: bytes) -> No
             pass
     finally:
         lock.close()
+
+
+@pytest.mark.parametrize("mode", [pytest.param("write", id="write"), pytest.param("read", id="read")])
+@pytest.mark.parametrize(
+    "raw",
+    [pytest.param("host with space", id="space"), pytest.param("wörks", id="non-ascii")],
+)
+@pytest.mark.timeout(10)
+def test_out_of_grammar_hostname_keeps_the_slot_held(
+    lock_file: str, mocker: MockerFixture, raw: str, mode: Literal["read", "write"]
+) -> None:
+    # A kernel hostname outside the marker grammar used to reach the marker verbatim, so a holder published a marker
+    # its own heartbeat read as malformed. A write slot then never claimed at all, and a read slot aged out under its
+    # live reader and fell to the next contender.
+    mocker.patch("filelock._identity.socket.gethostname", return_value=raw)
+    holder = _make_lock(lock_file)
+    acquire = holder.acquire_write if mode == "write" else holder.acquire_read
+    acquire(timeout=2)
+    try:
+        contender = _make_lock(lock_file)
+        try:
+            # longer than the stale threshold, so only a heartbeat that reads its own marker keeps the slot
+            with pytest.raises(Timeout):
+                contender.acquire_write(timeout=1)
+        finally:
+            contender.close()
+    finally:
+        holder.release()
+        holder.close()
 
 
 def test_fifo_write_marker_does_not_block(lock_file: str) -> None:  # pragma: needs fifo

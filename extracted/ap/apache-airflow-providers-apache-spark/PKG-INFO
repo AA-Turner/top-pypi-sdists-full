@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-spark
-Version: 6.3.1
+Version: 6.3.2
 Summary: Provider package apache-airflow-providers-apache-spark for Apache Airflow
 Keywords: airflow-provider,apache.spark,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -33,8 +33,8 @@ Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.4.0 ; extra == "cncf-
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Requires-Dist: pyspark>=4.0.0 ; extra == "pyspark"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -42,6 +42,10 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: cncf-kubernetes
 Provides-Extra: openlineage
 Provides-Extra: pyspark
+Import-Name: airflow.providers.apache.spark
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+Import-Namespace: airflow.providers.apache
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -68,7 +72,7 @@ Provides-Extra: pyspark
 
 Package ``apache-airflow-providers-apache-spark``
 
-Release: ``6.3.1``
+Release: ``6.3.2``
 
 
 `Apache Spark <https://spark.apache.org/>`__
@@ -81,7 +85,7 @@ This is a provider package for ``apache.spark`` provider. All classes for this p
 are in ``airflow.providers.apache.spark`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.2/>`_.
 
 Installation
 ------------
@@ -137,5 +141,5 @@ Extra                Dependencies
 ===================  ===================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.2/changelog.html>`_.
 

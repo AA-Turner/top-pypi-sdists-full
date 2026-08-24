@@ -75,14 +75,7 @@ class StageProgressCollector:
                     depth += _queue_depth(queue_obj)
                 self._queues[name] = live_refs
                 counts = self._counts.get(name, {"put": 0, "processed": 0})
-                out.append(
-                    {
-                        "name": name,
-                        "depth": depth,
-                        "put": counts["put"],
-                        "processed": counts["processed"],
-                    }
-                )
+                out.append({"name": name, "depth": depth, "put": counts["put"], "processed": counts["processed"]})
         return out
 
     def render_instant(self) -> str:
@@ -90,9 +83,7 @@ class StageProgressCollector:
         queues = self.snapshot()
         if not queues:
             return ""
-        parts = [
-            f"{q['name']}:{q['depth']}({q['put']}->{q['processed']})" for q in queues
-        ]
+        parts = [f"{q['name']}:{q['depth']}({q['put']}->{q['processed']})" for q in queues]
         return " stage_queues=" + ",".join(parts)
 
     def render_dump(self, out: TextIO) -> None:
@@ -101,9 +92,7 @@ class StageProgressCollector:
             return
         out.write(f"{DIAG_LOG_PREFIX}.dump.queues\n")
         for q in queues:
-            out.write(
-                f"  name={q['name']} depth={q['depth']} put={q['put']} processed={q['processed']}\n"
-            )
+            out.write(f"  name={q['name']} depth={q['depth']} put={q['put']} processed={q['processed']}\n")
 
 
 def _queue_depth(queue_obj: Any) -> int:

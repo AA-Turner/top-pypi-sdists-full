@@ -2,14 +2,13 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
+use dcc_mcp_gateway_core::capability::CapabilityGroupInfo;
 use dcc_mcp_jsonrpc::{McpPrompt, McpTool};
 
 use crate::gateway::admin::trace::TraceContext;
-use crate::gateway::capability::CapabilityGroupInfo;
 use crate::gateway::metrics::record_gateway_backend_error_kind;
 use crate::gateway::resilience::{
-    circuits, is_circuit_worthy_rest_error, is_retryable_rest_error, jittered_backoff,
-    read_retry_max,
+    GatewayResilienceState, is_circuit_worthy_rest_error, is_retryable_rest_error, jittered_backoff,
 };
 
 use super::error::{BackendCallError, rest_error_prometheus_kind};
@@ -28,36 +27,29 @@ fn action_matches_group_tool(action: &str, group_tool_name: &str) -> bool {
         return true;
     }
     // Try the bare action name (strip skill prefix) for comparison.
-    dcc_mcp_gateway_core::naming::decode_skill_tool_name(action)
+    dcc_mcp_gateway_core::capability_naming::decode_skill_tool_name(action)
         .is_some_and(|(_, bare)| bare == group_tool_name)
 }
 
-#[derive(Debug, Clone)]
-pub struct UnloadedCapabilityHint {
-    pub skill_name: String,
-    pub tool_name: String,
-    pub summary: String,
-    pub search_tokens: Vec<String>,
-    pub available_groups: Vec<CapabilityGroupInfo>,
-    pub tool_group: Option<String>,
-}
+pub use dcc_mcp_gateway_core::capability::UnloadedCapabilityHint;
 
 async fn rest_get_idempotent(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     url: &str,
     timeout: Duration,
     backend_key: &str,
 ) -> Result<Value, String> {
-    let max = read_retry_max();
+    let max = resilience.read_retry_max();
     for attempt in 0..=max {
-        if let Err(reason) = circuits().check_open(backend_key) {
+        if let Err(reason) = resilience.circuits().check_open(backend_key) {
             let msg = format!("{url}: {reason}");
             record_gateway_backend_error_kind(rest_error_prometheus_kind(&msg));
             return Err(msg);
         }
         match rest_get(client, url, timeout).await {
             Ok(v) => {
-                circuits().on_success(backend_key);
+                resilience.circuits().on_success(backend_key);
                 return Ok(v);
             }
             Err(e) => {
@@ -67,9 +59,9 @@ async fn rest_get_idempotent(
                     continue;
                 }
                 if is_circuit_worthy_rest_error(&e) {
-                    circuits().on_transport_failure(backend_key);
+                    resilience.circuits().on_transport_failure(backend_key);
                 } else {
-                    circuits().on_success(backend_key);
+                    resilience.circuits().on_success(backend_key);
                 }
                 record_gateway_backend_error_kind(rest_error_prometheus_kind(&e));
                 return Err(e);
@@ -81,21 +73,22 @@ async fn rest_get_idempotent(
 
 async fn rest_post_idempotent(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     url: &str,
     body: Value,
     timeout: Duration,
     backend_key: &str,
 ) -> Result<Value, String> {
-    let max = read_retry_max();
+    let max = resilience.read_retry_max();
     for attempt in 0..=max {
-        if let Err(reason) = circuits().check_open(backend_key) {
+        if let Err(reason) = resilience.circuits().check_open(backend_key) {
             let msg = format!("{url}: {reason}");
             record_gateway_backend_error_kind(rest_error_prometheus_kind(&msg));
             return Err(msg);
         }
         match rest_post(client, url, body.clone(), timeout).await {
             Ok(v) => {
-                circuits().on_success(backend_key);
+                resilience.circuits().on_success(backend_key);
                 return Ok(v);
             }
             Err(e) => {
@@ -105,9 +98,9 @@ async fn rest_post_idempotent(
                     continue;
                 }
                 if is_circuit_worthy_rest_error(&e) {
-                    circuits().on_transport_failure(backend_key);
+                    resilience.circuits().on_transport_failure(backend_key);
                 } else {
-                    circuits().on_success(backend_key);
+                    resilience.circuits().on_success(backend_key);
                 }
                 record_gateway_backend_error_kind(rest_error_prometheus_kind(&e));
                 return Err(e);
@@ -124,6 +117,7 @@ async fn rest_post_idempotent(
 #[allow(dead_code)]
 pub async fn call_backend(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     method: &str,
     params: Option<Value>,
@@ -159,7 +153,7 @@ pub async fn call_backend(
         body
     };
 
-    post_jsonrpc(client, mcp_url, req_body, None, timeout)
+    post_jsonrpc(client, resilience, mcp_url, req_body, None, timeout)
         .await
         .map_err(|e| e.to_string())
 }
@@ -178,6 +172,7 @@ pub struct BackendJsonRpcCallRequest<'a> {
 /// trace propagation and traffic evidence used by REST tool forwarding.
 pub async fn call_backend_with_observability(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     request: BackendJsonRpcCallRequest<'_>,
 ) -> Result<Value, String> {
@@ -223,6 +218,7 @@ pub async fn call_backend_with_observability(
 
     match post_jsonrpc_with_trace_context(
         client,
+        resilience,
         mcp_url,
         req_body,
         None,
@@ -284,6 +280,7 @@ pub async fn call_backend_with_observability(
 /// hint even before the skill is loaded.
 pub async fn try_fetch_tools(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> Result<(Vec<McpTool>, Vec<UnloadedCapabilityHint>), String> {
@@ -293,6 +290,7 @@ pub async fn try_fetch_tools(
     // `/v1/search` is a POST endpoint; pass the filter params in the JSON body.
     let val = rest_post_idempotent(
         client,
+        resilience,
         &url,
         json!({"loaded_only": false, "limit": 5000}),
         timeout,
@@ -420,6 +418,12 @@ pub async fn try_fetch_tools(
                     tool_name: action,
                     summary: description,
                     search_tokens: rest_metadata_search_tokens(metadata),
+                    rank_layer: rest_metadata_string(metadata, "rankLayer", "rank_layer"),
+                    rank_path_source: rest_metadata_string(
+                        metadata,
+                        "rankPathSource",
+                        "rank_path_source",
+                    ),
                     available_groups,
                     tool_group,
                 });
@@ -443,6 +447,7 @@ pub async fn try_fetch_tools(
 /// `SkillRestService::describe` method.
 pub async fn try_describe_tool(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     backend_tool_slug: &str,
     timeout: Duration,
@@ -452,6 +457,7 @@ pub async fn try_describe_tool(
     let url = format!("{base}/v1/describe");
     let val = rest_post_idempotent(
         client,
+        resilience,
         &url,
         json!({"tool_slug": backend_tool_slug, "include_schema": true}),
         timeout,
@@ -551,6 +557,17 @@ fn rest_metadata_search_tokens(value: Option<&Value>) -> Vec<String> {
     out
 }
 
+fn rest_metadata_string(value: Option<&Value>, camel: &str, snake: &str) -> Option<String> {
+    value
+        .and_then(Value::as_object)
+        .and_then(|map| map.get("dcc"))
+        .and_then(Value::as_object)
+        .and_then(|dcc| dcc.get(camel).or_else(|| dcc.get(snake)))
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 fn append_metadata_values(value: Option<&Value>, prefix: &str, out: &mut Vec<String>) {
     match value {
         Some(Value::String(s)) => {
@@ -594,10 +611,11 @@ fn prefixed_search_token(prefix: &str, value: &str) -> String {
 /// for the semantics of each component.
 pub async fn fetch_tools(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> (Vec<McpTool>, Vec<UnloadedCapabilityHint>) {
-    match try_fetch_tools(client, mcp_url, timeout).await {
+    match try_fetch_tools(client, resilience, mcp_url, timeout).await {
         Ok(pair) => pair,
         Err(e) => {
             tracing::warn!(mcp_url = %mcp_url, error = %e, "Backend GET /v1/search failed");
@@ -613,13 +631,14 @@ pub async fn fetch_tools(
 /// to callers that need deterministic errors for a specific backend.
 pub async fn try_fetch_prompts(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> Result<Vec<McpPrompt>, String> {
     let base = rest_base_from_mcp_url(mcp_url);
     let key = base.as_str();
     let url = format!("{base}/v1/prompts");
-    let val = rest_get_idempotent(client, &url, timeout, key).await?;
+    let val = rest_get_idempotent(client, resilience, &url, timeout, key).await?;
     Ok(val
         .get("prompts")
         .and_then(Value::as_array)
@@ -634,10 +653,11 @@ pub async fn try_fetch_prompts(
 /// Fetch prompt list from a backend; fail-soft on errors.
 pub async fn fetch_prompts(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> Vec<McpPrompt> {
-    match try_fetch_prompts(client, mcp_url, timeout).await {
+    match try_fetch_prompts(client, resilience, mcp_url, timeout).await {
         Ok(prompts) => prompts,
         Err(e) => {
             tracing::warn!(mcp_url = %mcp_url, error = %e, "Backend GET /v1/prompts failed");
@@ -651,13 +671,14 @@ pub async fn fetch_prompts(
 /// Unlike [`fetch_resources`], this reports transport / protocol failures.
 pub async fn try_fetch_resources(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> Result<Vec<Value>, String> {
     let base = rest_base_from_mcp_url(mcp_url);
     let key = base.as_str();
     let url = format!("{base}/v1/resources");
-    let val = rest_get_idempotent(client, &url, timeout, key).await?;
+    let val = rest_get_idempotent(client, resilience, &url, timeout, key).await?;
     Ok(val
         .get("resources")
         .and_then(Value::as_array)
@@ -668,10 +689,11 @@ pub async fn try_fetch_resources(
 /// Fetch resource list from a backend; fail-soft on errors.
 pub async fn fetch_resources(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     timeout: Duration,
 ) -> Vec<Value> {
-    match try_fetch_resources(client, mcp_url, timeout).await {
+    match try_fetch_resources(client, resilience, mcp_url, timeout).await {
         Ok(resources) => resources,
         Err(e) => {
             tracing::warn!(mcp_url = %mcp_url, error = %e, "Backend GET /v1/resources failed");
@@ -687,6 +709,7 @@ pub async fn fetch_resources(
 /// is preserved.
 pub async fn read_resource(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     uri: &str,
     timeout: Duration,
@@ -695,7 +718,7 @@ pub async fn read_resource(
     let key = base.as_str();
     let encoded = percent_encode_uri(uri);
     let url = format!("{base}/v1/resources/{encoded}");
-    rest_get_idempotent(client, &url, timeout, key).await
+    rest_get_idempotent(client, resilience, &url, timeout, key).await
 }
 
 /// Input for forwarding a `tools/call` to a backend via `POST /v1/call`.
@@ -705,8 +728,8 @@ pub struct ForwardToolsCallRequest<'a> {
     pub tool_name: &'a str,
     pub arguments: Option<Value>,
     pub meta: Option<Value>,
-    /// Accepted for API compatibility but not forwarded; the REST surface does
-    /// not use JSON-RPC request ids.
+    /// Correlation id forwarded as `X-Request-ID` and required in the backend
+    /// response body as `request_id`.
     pub request_id: Option<String>,
     pub trace_context: Option<&'a TraceContext>,
     pub traffic_capture: Option<&'a crate::gateway::traffic::TrafficCapture>,
@@ -716,6 +739,7 @@ pub struct ForwardToolsCallRequest<'a> {
 /// Forward a `tools/call` to a backend via `POST /v1/call`.
 pub async fn forward_tools_call(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     request: ForwardToolsCallRequest<'_>,
 ) -> Result<Value, String> {
@@ -723,7 +747,7 @@ pub async fn forward_tools_call(
         tool_name,
         arguments,
         meta,
-        request_id: _request_id,
+        request_id,
         trace_context,
         traffic_capture,
         timeout,
@@ -749,7 +773,7 @@ pub async fn forward_tools_call(
             body.clone(),
         );
     }
-    if let Err(reason) = circuits().check_open(key) {
+    if let Err(reason) = resilience.circuits().check_open(key) {
         let msg = format!("{mcp_url}: {reason}");
         record_gateway_backend_error_kind(rest_error_prometheus_kind(&msg));
         if let Some(capture) = traffic_capture {
@@ -765,9 +789,21 @@ pub async fn forward_tools_call(
         }
         return Err(msg);
     }
-    match rest_post_with_trace_context(client, &url, body, timeout, trace_context).await {
+    let expected_request_id = request_id
+        .as_deref()
+        .or_else(|| trace_context.map(|ctx| ctx.request_id.as_str()));
+    match rest_post_with_trace_context(
+        client,
+        &url,
+        body,
+        timeout,
+        expected_request_id,
+        trace_context,
+    )
+    .await
+    {
         Ok(v) => {
-            circuits().on_success(key);
+            resilience.circuits().on_success(key);
             if let Some(capture) = traffic_capture {
                 emit_backend_traffic_frame(
                     capture,
@@ -783,9 +819,9 @@ pub async fn forward_tools_call(
         }
         Err(e) => {
             if is_circuit_worthy_rest_error(&e) {
-                circuits().on_transport_failure(key);
+                resilience.circuits().on_transport_failure(key);
             } else {
-                circuits().on_success(key);
+                resilience.circuits().on_success(key);
             }
             record_gateway_backend_error_kind(rest_error_prometheus_kind(&e));
             if let Some(capture) = traffic_capture {
@@ -846,6 +882,7 @@ fn trace_correlation(trace_context: Option<&TraceContext>, session_id: Option<&s
 /// contract without falling back to backend JSON-RPC.
 pub async fn forward_prompts_get(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     prompt_name: &str,
     arguments: Option<Value>,
@@ -866,7 +903,7 @@ pub async fn forward_prompts_get(
         url.push_str("?args=");
         url.push_str(&encoded_args);
     }
-    rest_get_idempotent(client, &url, timeout, key).await
+    rest_get_idempotent(client, resilience, &url, timeout, key).await
 }
 
 /// Forward a `resources/subscribe` (or `resources/unsubscribe` when `subscribe`
@@ -881,6 +918,7 @@ pub async fn forward_prompts_get(
 /// Returns the raw `result` JSON — typically `{}`.
 pub async fn subscribe_resource(
     client: &reqwest::Client,
+    resilience: &GatewayResilienceState,
     mcp_url: &str,
     uri: &str,
     subscribe: bool,
@@ -903,9 +941,16 @@ pub async fn subscribe_resource(
         body
     };
 
-    post_jsonrpc(client, mcp_url, req_body, Some(session_id), timeout)
-        .await
-        .map_err(|e| e.to_string())
+    post_jsonrpc(
+        client,
+        resilience,
+        mcp_url,
+        req_body,
+        Some(session_id),
+        timeout,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

@@ -8,6 +8,45 @@ mod probe;
 use probe::probe_and_mark_unreachable_instances;
 pub(crate) use probe::self_probe_listener;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InstanceMembership {
+    dcc_type: String,
+    instance_id: String,
+}
+
+fn instance_membership(entries: Vec<ServiceEntry>) -> HashMap<String, InstanceMembership> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            let membership = InstanceMembership {
+                dcc_type: entry.dcc_type,
+                instance_id: entry.instance_id.to_string(),
+            };
+            (
+                format!("{}:{}", membership.dcc_type, membership.instance_id),
+                membership,
+            )
+        })
+        .collect()
+}
+
+fn removed_instances(
+    previous: &HashMap<String, InstanceMembership>,
+    current: &HashMap<String, InstanceMembership>,
+) -> Vec<InstanceMembership> {
+    let mut removed: Vec<_> = previous
+        .iter()
+        .filter(|(key, _)| !current.contains_key(*key))
+        .map(|(_, value)| value.clone())
+        .collect();
+    removed.sort_by(|left, right| {
+        left.dcc_type
+            .cmp(&right.dcc_type)
+            .then(left.instance_id.cmp(&right.instance_id))
+    });
+    removed
+}
+
 /// Outcome of [`start_gateway_tasks`] for the ambient (shared-runtime) path.
 pub(crate) struct GatewayTasks {
     /// AbortHandle for the combined supervisor task (cleanup + watchers + serve).
@@ -57,7 +96,7 @@ async fn wait_for_gateway_yield(mut yield_rx: watch::Receiver<bool>) {
 }
 
 fn spawn_gateway_idle_shutdown_task(
-    registry: Arc<RwLock<FileRegistry>>,
+    registry: Arc<FileRegistry>,
     gw_state: GatewayState,
     yield_tx: Arc<watch::Sender<bool>>,
     grace: Duration,
@@ -69,8 +108,8 @@ fn spawn_gateway_idle_shutdown_task(
         loop {
             tokio::time::sleep(poll).await;
             let live_count = {
-                let reg = registry.read().await;
-                gw_state.live_instances(&reg).len()
+                let reg = &registry;
+                gw_state.live_instances(reg).len()
             };
 
             if live_count > 0 {
@@ -348,7 +387,7 @@ const ADMIN_AUDIT_RING_CAPACITY: usize = 512;
 pub(crate) async fn start_gateway_tasks(
     listener: tokio::net::TcpListener,
     remote_listener: Option<tokio::net::TcpListener>,
-    registry: Arc<RwLock<FileRegistry>>,
+    registry: Arc<FileRegistry>,
     stale_timeout: Duration,
     backend_timeout: Duration,
     async_dispatch_timeout: Duration,
@@ -396,6 +435,11 @@ pub(crate) async fn start_gateway_tasks(
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(30))
         .build()?;
+    let gateway_limits = crate::gateway::resilience::GatewayLimits::from_env();
+    let ingress = Arc::new(crate::gateway::http_limits::GatewayIngressState::new(
+        gateway_limits.clone(),
+    ));
+    let resilience = Arc::new(crate::gateway::resilience::GatewayResilienceState::from_env());
 
     // ── Separate HTTP client for the backend SSE subscriber (issue #TODO) ──
     // MUST NOT have a client-level timeout. reqwest's `.timeout()` applies to
@@ -452,13 +496,13 @@ pub(crate) async fn start_gateway_tasks(
         let mut interval = tokio::time::interval(Duration::from_secs(15));
         loop {
             interval.tick().await;
-            let r = reg_cleanup.read().await;
-
             // Keep the sentinel fresh first — it's what `has_newer_sentinel`
             // and every consumer of `list_instances("__gateway__")` rely on.
-            let _ = r.heartbeat(&sentinel_key_cleanup);
+            let _ = reg_cleanup
+                .heartbeat_async(sentinel_key_cleanup.clone())
+                .await;
 
-            match r.cleanup_stale(stale_timeout) {
+            match reg_cleanup.cleanup_stale_async(stale_timeout).await {
                 Ok(n) if n > 0 => {
                     tracing::info!("Gateway: evicted {} stale instance(s)", n);
                     // Record one synthetic stale-eviction event per batch.
@@ -476,7 +520,7 @@ pub(crate) async fn start_gateway_tasks(
                 _ => {}
             }
 
-            match r.prune_dead_pids() {
+            match reg_cleanup.prune_dead_pids_async().await {
                 Ok(n) if n > 0 => {
                     tracing::info!("Gateway: reaped {} ghost entry/entries", n);
                     crate::gateway::event_log::record_event(
@@ -520,7 +564,11 @@ pub(crate) async fn start_gateway_tasks(
                 own_adapter_version.as_deref(),
                 own_adapter_dcc.as_deref(),
             );
-            if has_newer_sentinel(&r, own_info, stale_timeout) {
+            let sentinels = reg_cleanup
+                .list_instances_async(GATEWAY_SENTINEL_DCC_TYPE.to_string())
+                .await
+                .unwrap_or_default();
+            if super::sentinel::has_newer_sentinel_entries(sentinels, own_info, stale_timeout) {
                 tracing::info!(
                     current = %own_version,
                     adapter_version = ?own_adapter_version,
@@ -552,20 +600,26 @@ pub(crate) async fn start_gateway_tasks(
     let mdns_watch = mdns_instance_registry.clone();
     let relay_watch = relay_instance_registry.clone();
     let events_tx_watch = events_tx.clone();
+    let instance_event_log = contention_log.clone();
+    #[cfg(feature = "prometheus")]
+    let instance_event_metrics = gateway_metrics.clone();
     let watch_own_host = own_host.clone();
     let watch_own_port = own_port;
     let watcher_handle = tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(2));
         // Fingerprint = sorted "dcc_type:instance_id" strings of live instances.
         let mut last_fingerprint = String::new();
+        let mut last_instances = HashMap::new();
+        let mut initialized = false;
 
         loop {
             interval.tick().await;
 
-            let fingerprint = {
-                let r = reg_watch.read().await;
-                let entries: Vec<_> = r
-                    .list_all()
+            let current_instances = {
+                let entries: Vec<_> = reg_watch
+                    .list_all_async()
+                    .await
+                    .unwrap_or_default()
                     .into_iter()
                     .filter(|e| {
                         e.dcc_type != GATEWAY_SENTINEL_DCC_TYPE
@@ -583,13 +637,31 @@ pub(crate) async fn start_gateway_tasks(
                     relay_entries,
                     http_entries,
                 );
-                let mut keys: Vec<String> = entries
-                    .into_iter()
-                    .map(|e| format!("{}:{}", e.dcc_type, e.instance_id))
-                    .collect();
-                keys.sort_unstable();
-                keys.join("|")
+                instance_membership(entries)
             };
+            let mut keys: Vec<_> = current_instances.keys().cloned().collect();
+            keys.sort_unstable();
+            let fingerprint = keys.join("|");
+
+            let removed = if initialized {
+                removed_instances(&last_instances, &current_instances)
+            } else {
+                Vec::new()
+            };
+            for instance in &removed {
+                crate::gateway::event_log::record_event(
+                    &instance_event_log,
+                    #[cfg(feature = "prometheus")]
+                    &instance_event_metrics,
+                    crate::gateway::event_log::EventKind::InstanceExited,
+                    &instance.dcc_type,
+                    instance.instance_id.clone(),
+                    Some("instance left the live gateway inventory".to_string()),
+                );
+            }
+            if !removed.is_empty() {
+                crate::gateway::event_log::notify_updated(&events_tx_watch);
+            }
 
             if fingerprint != last_fingerprint {
                 tracing::debug!(
@@ -607,6 +679,8 @@ pub(crate) async fn start_gateway_tasks(
                 }
                 last_fingerprint = fingerprint;
             }
+            last_instances = current_instances;
+            initialized = true;
         }
     });
 
@@ -622,6 +696,7 @@ pub(crate) async fn start_gateway_tasks(
     let reg_prompts = registry.clone();
     let events_tx_prompts = events_tx.clone();
     let http_client_prompts = http_client.clone();
+    let resilience_prompts = resilience.clone();
     let prompts_own_host = own_host.clone();
     let prompts_own_port = own_port;
     let prompts_watcher_handle = tokio::spawn(async move {
@@ -635,6 +710,7 @@ pub(crate) async fn start_gateway_tasks(
                 &reg_prompts,
                 stale_timeout,
                 &http_client_prompts,
+                &resilience_prompts,
                 backend_timeout,
                 Some(prompts_own_host.as_str()),
                 prompts_own_port,
@@ -678,6 +754,7 @@ pub(crate) async fn start_gateway_tasks(
     let reg_resources = registry.clone();
     let events_tx_resources = events_tx.clone();
     let http_client_resources = http_client.clone();
+    let resilience_resources = resilience.clone();
     let resources_own_host = own_host.clone();
     let resources_own_port = own_port;
     let resources_watcher_handle = tokio::spawn(async move {
@@ -691,6 +768,7 @@ pub(crate) async fn start_gateway_tasks(
                 &reg_resources,
                 stale_timeout,
                 &http_client_resources,
+                &resilience_resources,
                 backend_timeout,
                 Some(resources_own_host.as_str()),
                 resources_own_port,
@@ -744,8 +822,7 @@ pub(crate) async fn start_gateway_tasks(
     // Probe every registered port, but retain live-owned rows as Unreachable.
     // Owner/PID pruning above remains the authoritative local death test.
     {
-        let r = registry.read().await;
-        match r.prune_dead_pids() {
+        match registry.prune_dead_pids_async().await {
             Ok(n) if n > 0 => {
                 tracing::info!(
                     reaped = n,
@@ -755,7 +832,7 @@ pub(crate) async fn start_gateway_tasks(
             Err(e) => tracing::warn!("Gateway: pre-subscribe dead-PID sweep error: {e}"),
             _ => {}
         }
-        match r.cleanup_stale(stale_timeout) {
+        match registry.cleanup_stale_async(stale_timeout).await {
             Ok(n) if n > 0 => {
                 tracing::info!(
                     evicted = n,
@@ -765,7 +842,9 @@ pub(crate) async fn start_gateway_tasks(
             Err(e) => tracing::warn!("Gateway: pre-subscribe stale sweep error: {e}"),
             _ => {}
         }
-        match probe_and_mark_unreachable_instances(&r, stale_timeout, &own_host, own_port).await {
+        match probe_and_mark_unreachable_instances(&registry, stale_timeout, &own_host, own_port)
+            .await
+        {
             Ok(marked) if !marked.is_empty() => {
                 tracing::info!(
                     marked = marked.len(),
@@ -794,9 +873,10 @@ pub(crate) async fn start_gateway_tasks(
         loop {
             interval.tick().await;
             let urls: Vec<String> = {
-                let r = reg_sub.read().await;
-                let entries: Vec<_> = r
-                    .list_all()
+                let entries: Vec<_> = reg_sub
+                    .list_all_async()
+                    .await
+                    .unwrap_or_default()
                     .into_iter()
                     .filter(|e| {
                         e.dcc_type != GATEWAY_SENTINEL_DCC_TYPE
@@ -849,6 +929,8 @@ pub(crate) async fn start_gateway_tasks(
 
     #[cfg_attr(not(feature = "admin"), allow(unused_mut))]
     let mut gw_state = GatewayState {
+        ingress,
+        resilience,
         registry: registry.clone(),
         http_instance_registry: http_instance_registry.clone(),
         mdns_instance_registry: mdns_instance_registry.clone(),
@@ -989,7 +1071,7 @@ pub(crate) async fn start_gateway_tasks(
             }
 
             // 3. Build the sink that feeds the audit ring buffer and the trace log.
-            let mut admin_sink = crate::gateway::admin::state::AdminAuditSink::new(
+            let mut admin_sink = crate::gateway::admin::AdminAuditSink::new(
                 audit_log.clone(),
                 ADMIN_AUDIT_RING_CAPACITY,
             )
@@ -1217,4 +1299,48 @@ pub(crate) async fn start_gateway_tasks(
         supervisor: combined,
         yield_tx,
     })
+}
+
+#[cfg(test)]
+mod instance_membership_tests {
+    use super::*;
+
+    fn membership(dcc_type: &str, instance_id: &str) -> (String, InstanceMembership) {
+        (
+            format!("{dcc_type}:{instance_id}"),
+            InstanceMembership {
+                dcc_type: dcc_type.to_string(),
+                instance_id: instance_id.to_string(),
+            },
+        )
+    }
+
+    #[test]
+    fn removed_instances_preserve_dcc_and_instance_identity() {
+        let previous = HashMap::from([
+            membership("houdini", "aaaaaaaa-0000-0000-0000-000000000000"),
+            membership("photoshop", "bbbbbbbb-0000-0000-0000-000000000000"),
+        ]);
+        let current = HashMap::from([membership(
+            "photoshop",
+            "bbbbbbbb-0000-0000-0000-000000000000",
+        )]);
+
+        assert_eq!(
+            removed_instances(&previous, &current),
+            vec![InstanceMembership {
+                dcc_type: "houdini".to_string(),
+                instance_id: "aaaaaaaa-0000-0000-0000-000000000000".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn removed_instances_does_not_report_unchanged_inventory() {
+        let inventory = HashMap::from([membership(
+            "custom_host",
+            "cccccccc-0000-0000-0000-000000000000",
+        )]);
+        assert!(removed_instances(&inventory, &inventory).is_empty());
+    }
 }

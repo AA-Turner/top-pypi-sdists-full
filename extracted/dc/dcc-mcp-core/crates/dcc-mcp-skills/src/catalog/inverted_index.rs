@@ -1,23 +1,8 @@
-//! Inverted index for `search_skills` — token → posting list + term frequency.
+//! Optional token index utility — token → posting list + term frequency.
 //!
-//! At 10k+ skills the full linear scan in `score_skills_with_tokens` becomes
-//! the dominant cost. The inverted index maps every token that appears in any
-//! skill's `FieldTokens` to the set of document indices that contain it,
-//! together with the per-document term frequency. When a query arrives, the
-//! scorer only visits documents that intersect the query's posting lists
-//! instead of iterating over the entire catalog.
-//!
-//! # Index lifecycle
-//!
-//! - **Built lazily** on the first `search_skills` call that carries a query.
-//!   The build walks every `SkillEntry` in the catalog and is O(total tokens).
-//! - **Invalidated** on every mutation that changes a skill's searchable text:
-//!   `register`, `remove`, `add_skill`, `remove_skill`, `rediscover`,
-//!   `load_skill_object` (via `refresh_tokens`), and `load_skill_metadata`
-//!   (via `refresh_tokens`).
-//! - **Re-built** on the next search after invalidation.
-//! - The `stale` flag is cheap (`AtomicBool`); invalidation never blocks on
-//!   the index lock.
+//! The production skill catalog does not prune the canonical fuzzy scorer with
+//! this exact-token index because doing so would discard typo/prefix matches.
+//! It remains available for callers that explicitly need exact-token lookup.
 //!
 //! # Data structure
 //!
@@ -31,17 +16,17 @@
 //!
 //! # Fallback path
 //!
-//! When the index is stale (e.g. because it hasn't been rebuilt yet after a
-//! mutation), `search_skills` falls back to the existing linear scan. The
-//! stale flag is checked at the top of the query path; if set, the index is
-//! not used and the linear path is taken. The flag is only cleared after a
-//! successful rebuild. This guarantees correctness at all times — stale
-//! index = slower, but never wrong results.
+//! Tokenless queries use the linear scan. A stale index is rebuilt before it
+//! participates in candidate selection and the flag is cleared only after a
+//! successful rebuild.
 
 use super::scoring::FieldTokens;
 use dashmap::DashMap;
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+type DocumentTokens = (usize, HashMap<String, usize>);
 
 /// A single posting: skill name + term frequency in that document.
 ///
@@ -65,6 +50,8 @@ pub struct InvertedIndex {
     /// Maps a token string to its posting list. The posting list is sorted
     /// by `doc_idx` for deterministic iteration.
     index: Arc<DashMap<String, Vec<Posting>>>,
+    documents: Arc<DashMap<String, DocumentTokens>>,
+    next_doc_idx: Arc<AtomicUsize>,
 }
 
 impl InvertedIndex {
@@ -75,32 +62,51 @@ impl InvertedIndex {
     /// Complexity: O(total tokens across all fields). The posting lists are
     /// built by scanning every token in every field for every document.
     pub fn build(names_and_fields: &[(&str, &FieldTokens)]) -> Self {
-        let index = Arc::new(DashMap::<String, Vec<Posting>>::new());
+        let index = Self {
+            index: Arc::new(DashMap::new()),
+            documents: Arc::new(DashMap::new()),
+            next_doc_idx: Arc::new(AtomicUsize::new(0)),
+        };
+        for (name, fields) in names_and_fields {
+            index.upsert(name, fields);
+        }
+        index
+    }
 
-        // Accumulate per-document token → tf maps first, then merge into
-        // the global index. This avoids locking the DashMap shard on every
-        // single token insertion.
-        let per_doc: Vec<_> = names_and_fields
-            .iter()
-            .map(|(name, ft)| (name.to_string(), doc_token_tfs(ft)))
-            .collect();
+    /// Add or replace one searchable document without rebuilding the catalog.
+    pub fn upsert(&self, name: &str, fields: &FieldTokens) {
+        self.remove(name);
+        let doc_idx = self.next_doc_idx.fetch_add(1, Ordering::Relaxed);
+        let token_tfs = doc_token_tfs(fields);
+        for (token, tf) in &token_tfs {
+            let mut postings = self.index.entry(token.clone()).or_default();
+            postings.push(Posting {
+                name: name.to_string(),
+                doc_idx,
+                tf: *tf,
+            });
+            postings.sort_by_key(|posting| posting.doc_idx);
+        }
+        self.documents
+            .insert(name.to_string(), (doc_idx, token_tfs));
+    }
 
-        for (doc_idx, (name, doc_tf)) in per_doc.iter().enumerate() {
-            for (token, tf) in doc_tf.iter() {
-                index.entry(token.clone()).or_default().push(Posting {
-                    name: name.clone(),
-                    doc_idx,
-                    tf: *tf,
-                });
+    /// Remove one searchable document and all of its postings.
+    pub fn remove(&self, name: &str) {
+        let Some((_, (_, token_tfs))) = self.documents.remove(name) else {
+            return;
+        };
+        for token in token_tfs.keys() {
+            let remove_token = if let Some(mut postings) = self.index.get_mut(token) {
+                postings.retain(|posting| posting.name != name);
+                postings.is_empty()
+            } else {
+                false
+            };
+            if remove_token {
+                self.index.remove(token);
             }
         }
-
-        // Sort each posting list by doc_idx for deterministic iteration.
-        for mut entry in index.iter_mut() {
-            entry.value_mut().sort_by_key(|p| p.doc_idx);
-        }
-
-        InvertedIndex { index }
     }
 
     /// Return the posting list for `token`, if present.
@@ -123,41 +129,6 @@ impl InvertedIndex {
     #[inline]
     pub fn token_count(&self) -> usize {
         self.index.len()
-    }
-}
-
-/// The index guard held by `SkillCatalog`. Wraps the built index plus a
-/// stale flag so the catalog can invalidate without locking the index.
-#[derive(Debug)]
-pub(crate) struct IndexGuard {
-    pub index: Option<Arc<InvertedIndex>>,
-    pub stale: Arc<AtomicBool>,
-}
-
-impl Default for IndexGuard {
-    fn default() -> Self {
-        Self {
-            index: None,
-            stale: Arc::new(AtomicBool::new(true)),
-        }
-    }
-}
-
-impl IndexGuard {
-    /// Mark the index as stale so the next query rebuilds it.
-    pub fn invalidate(&self) {
-        self.stale.store(true, Ordering::Release);
-    }
-
-    /// Check whether the index is stale.
-    pub fn is_stale(&self) -> bool {
-        self.stale.load(Ordering::Acquire)
-    }
-
-    /// Replace the index and clear the stale flag atomically.
-    pub fn set(&mut self, index: InvertedIndex) {
-        self.index = Some(Arc::new(index));
-        self.stale.store(false, Ordering::Release);
     }
 }
 
@@ -244,25 +215,5 @@ mod tests {
         let posts: Vec<_> = idx.get("modeling").unwrap().collect();
         assert_eq!(posts.len(), 2);
         assert!(posts.windows(2).all(|w| w[0].doc_idx < w[1].doc_idx));
-    }
-
-    #[test]
-    fn test_index_guard_stale_default() {
-        let guard = IndexGuard::default();
-        assert!(guard.is_stale());
-        assert!(guard.index.is_none());
-    }
-
-    #[test]
-    fn test_index_guard_set_and_invalidate() {
-        let mut guard = IndexGuard::default();
-        let idx = InvertedIndex::build(&[]);
-        guard.set(idx);
-        assert!(!guard.is_stale());
-        assert!(guard.index.is_some());
-
-        guard.invalidate();
-        assert!(guard.is_stale());
-        // index ref still alive but stale flag says "don't use".
     }
 }

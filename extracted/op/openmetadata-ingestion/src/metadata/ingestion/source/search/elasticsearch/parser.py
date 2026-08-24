@@ -14,7 +14,6 @@ Utils module to parse the jsonschema
 """
 
 import traceback
-from typing import List, Optional
 
 from metadata.generated.schema.entity.data.searchIndex import DataType, SearchIndexField
 from metadata.utils.logger import ingestion_logger
@@ -32,28 +31,25 @@ def _missing_(cls, value):
 DataType._missing_ = _missing_
 
 
-def parse_es_index_mapping(mapping: dict) -> Optional[List[SearchIndexField]]:
+def parse_es_index_mapping(mapping: dict | None) -> list[SearchIndexField]:
     """
     Recursively convert the parsed schema into required models
     """
     field_models = []
+    if not mapping:
+        logger.debug("No mappings to parse: the index or template declares none")
+        return field_models
     try:
         properties = mapping.get("properties", {})
         for key, value in properties.items():
-            data_type = (
-                DataType(value.get("type").upper())
-                if value.get("type")
-                else DataType.OBJECT
-            )
+            data_type = DataType(value.get("type").upper()) if value.get("type") else DataType.OBJECT
             field_models.append(
                 SearchIndexField(
                     name=key,
                     dataType=data_type,
                     dataTypeDisplay=value.get("type"),
                     description=value.get("description"),
-                    children=parse_es_index_mapping(value)
-                    if value.get("properties")
-                    else None,
+                    children=parse_es_index_mapping(value) if value.get("properties") else None,
                 )
             )
     except Exception as exc:  # pylint: disable=broad-except

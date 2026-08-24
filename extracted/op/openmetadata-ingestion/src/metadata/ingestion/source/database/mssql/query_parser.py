@@ -54,16 +54,12 @@ class MssqlQueryParserSource(QueryParserSource, ABC):
     _active_query_store: Optional[bool] = None  # noqa: UP045
 
     @classmethod
-    def create(
-        cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None
-    ):
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
         """Create class instance"""
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: MssqlConnection = config.serviceConnection.root.config
         if not isinstance(connection, MssqlConnection):
-            raise InvalidSourceException(
-                f"Expected MssqlConnection, but got {connection}"
-            )
+            raise InvalidSourceException(f"Expected MssqlConnection, but got {connection}")
         return cls(config, metadata)
 
     def uses_query_store(self) -> bool:
@@ -74,9 +70,7 @@ class MssqlQueryParserSource(QueryParserSource, ABC):
         if self._query_store_enabled is None:
             self._query_store_enabled = is_query_store_enabled(self.engine)
             if self._query_store_enabled:
-                logger.info(
-                    "MSSQL query history: Query Store is enabled, using it (durable)."
-                )
+                logger.info("MSSQL query history: Query Store is enabled, using it (durable).")
             else:
                 logger.info(
                     "MSSQL query history: Query Store is not enabled or not accessible, using "
@@ -93,11 +87,7 @@ class MssqlQueryParserSource(QueryParserSource, ABC):
         the instance-wide DMV statement.
         """
         if self._active_query_store is None:
-            statement = (
-                MSSQL_SQL_STATEMENT_FROM_QUERY_STORE
-                if self.uses_query_store()
-                else self.sql_stmt
-            )
+            statement = MSSQL_SQL_STATEMENT_FROM_QUERY_STORE if self.uses_query_store() else self.sql_stmt
         elif self._active_query_store:
             statement = MSSQL_SQL_STATEMENT_FROM_QUERY_STORE
         else:

@@ -63,6 +63,8 @@ class APIRoute(str, Enum):
     ExecuteCodeInWorkspace = "/tools/{task_id}/xp-code-executor"
     ResolveDynamicPrompt = "/tools/{agent_id}/dynamic-prompt"
     ResolveChannelPresence = "/tools/{agent_id}/channel-presence"
+    # Org segment is appended by Configuration.get_full_url, same as the routes above.
+    MediaExtract = "/media/extract"
 
     # HITL (Human-in-the-Loop)
     HITLRequest = "/hitl/request"

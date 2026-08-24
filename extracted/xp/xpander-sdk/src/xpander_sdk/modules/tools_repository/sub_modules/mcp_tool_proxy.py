@@ -42,10 +42,25 @@ class MCPToolProxy:
 
     async def ainvoke(self, arguments: Optional[Dict[str, Any]] = None) -> Any:
         """Run the MCP tool via the live session; return its text content."""
+        content, _ = await self.ainvoke_with_media(arguments)
+        return content
+
+    async def ainvoke_with_media(
+        self, arguments: Optional[Dict[str, Any]] = None
+    ) -> tuple:
+        """Run the tool and keep any media it produced: (content, {images, videos, audios}).
+
+        A tool that returns an image otherwise reaches the model as the placeholder text
+        agno substitutes, and the image itself is dropped on the floor.
+        """
         result = await self._agno_function.entrypoint(**(arguments or {}))
-        # agno wraps output as a ToolResult (content str, optional images); MCP
+        # agno wraps output as a ToolResult (content str, optional media); MCP
         # failures come back as content prefixed "Error from MCP tool ...".
-        return getattr(result, "content", result)
+        media = {
+            key: list(getattr(result, key, None) or [])
+            for key in ("images", "videos", "audios")
+        }
+        return getattr(result, "content", result), {k: v for k, v in media.items() if v}
 
 
 def build_mcp_proxies(

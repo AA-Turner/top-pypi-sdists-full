@@ -26,7 +26,23 @@ _MULTIMODAL_INPUT_PATTERNS = [
     re.compile(r"file content is not supported", re.IGNORECASE),
     re.compile(r"document.{0,40}not supported", re.IGNORECASE),
     re.compile(r"vision is not (?:supported|enabled)", re.IGNORECASE),
-    re.compile(r"model does not support (?:vision|multimodal|attachments|files)", re.IGNORECASE),
+    re.compile(
+        r"model does not support (?:vision|multimodal|attachments|files)", re.IGNORECASE
+    ),
+    # Audio/video rejections read differently per provider, and a turn that carries
+    # only an .mp3 would otherwise fail hard instead of degrading to its transcript.
+    re.compile(
+        r"audio (?:input )?is (?:currently )?(?:un|not )supported", re.IGNORECASE
+    ),
+    re.compile(r"does not support audio", re.IGNORECASE),
+    re.compile(r"audio content is not supported", re.IGNORECASE),
+    re.compile(r"unsupported audio (?:type|format)", re.IGNORECASE),
+    re.compile(
+        r"video (?:input )?is (?:currently )?(?:un|not )supported", re.IGNORECASE
+    ),
+    re.compile(r"does not support video", re.IGNORECASE),
+    re.compile(r"unsupported video (?:type|format)", re.IGNORECASE),
+    re.compile(r"invalid_?(?:audio|video)_?(?:input|format)", re.IGNORECASE),
 ]
 
 

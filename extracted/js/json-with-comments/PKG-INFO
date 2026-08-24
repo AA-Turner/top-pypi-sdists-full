@@ -1,25 +1,25 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: json-with-comments
-Version: 1.2.10
+Version: 1.3.0
 Summary: JSON with Comments (jsonc) for Python
 Project-URL: Repository, https://github.com/n-takumasa/json-with-comments
 Author-email: Takumasa Nakamura <n.takumasa@gmail.com>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: json with comments,jsonc
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 
 # JSON with Comments for Python

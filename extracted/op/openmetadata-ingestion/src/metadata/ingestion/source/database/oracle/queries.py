@@ -138,9 +138,7 @@ SELECT query FROM {prefix}_MVIEWS WHERE owner = :owner AND mview_name = :name
 # Last resort when the raw text is NULL or still cannot be read. GET_DDL returns
 # a CLOB (read through a locator, immune to the LONG truncation) but needs
 # SELECT_CATALOG_ROLE for objects in other schemas.
-ORACLE_GET_VIEW_DEFINITION_BY_NAME = (
-    "SELECT DBMS_METADATA.GET_DDL(:object_type, :name, :owner) AS view_ddl FROM dual"
-)
+ORACLE_GET_VIEW_DEFINITION_BY_NAME = "SELECT DBMS_METADATA.GET_DDL(:object_type, :name, :owner) AS view_ddl FROM dual"
 
 GET_VIEW_NAMES = textwrap.dedent(
     """

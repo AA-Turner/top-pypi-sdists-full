@@ -54,6 +54,4 @@ class Monitor:
             try:
                 self._check()
             except Exception as exc:
-                emit_log(
-                    logging.ERROR, f"{DIAG_LOG_PREFIX}.{self._label}.error err={exc!r}"
-                )
+                emit_log(logging.ERROR, f"{DIAG_LOG_PREFIX}.{self._label}.error err={exc!r}")

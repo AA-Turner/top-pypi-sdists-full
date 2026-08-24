@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.430"
+__version__ = "1.3.443"
 
 # Define package exports
 __all__ = [
@@ -80,6 +80,7 @@ __all__ = [
     "NamespacesApi",
     "NotificationsApi",
     "OnboardingApi",
+    "OpsApi",
     "OrganizationAPIKeysApi",
     "OrganizationAuditApi",
     "OrganizationBillingApi",
@@ -163,7 +164,10 @@ __all__ = [
     "AnalysisType",
     "AndInner",
     "AnnotationResponse",
+    "AnnotationRevision",
     "AnnotationStatsResponse",
+    "AnnotationVersionDescriptor",
+    "AnnotationVersionsResponse",
     "AnthropicModel",
     "ApiAllowRule",
     "ApiAnalyticsBucketsModelsTimeRange",
@@ -848,6 +852,8 @@ __all__ = [
     "OrganizationModelResponse",
     "OrganizationPublishStatsResponse",
     "OrganizationUpdateRequest",
+    "OwnershipEntry",
+    "OwnershipListResponse",
     "PageMeta",
     "PageTabInput",
     "PageTabOutput",
@@ -995,6 +1001,7 @@ __all__ = [
     "ScaffoldSampleCollection",
     "ScaffoldSampleDataResponse",
     "ScalingConfig",
+    "SceneDownloadResponse",
     "SchemaInferenceRequest",
     "SchemaInferenceResult",
     "SchemaMappingInput",
@@ -1434,6 +1441,7 @@ from mixpeek.api.namespace_templates_api import NamespaceTemplatesApi as Namespa
 from mixpeek.api.namespaces_api import NamespacesApi as NamespacesApi
 from mixpeek.api.notifications_api import NotificationsApi as NotificationsApi
 from mixpeek.api.onboarding_api import OnboardingApi as OnboardingApi
+from mixpeek.api.ops_api import OpsApi as OpsApi
 from mixpeek.api.organization_api_keys_api import OrganizationAPIKeysApi as OrganizationAPIKeysApi
 from mixpeek.api.organization_audit_api import OrganizationAuditApi as OrganizationAuditApi
 from mixpeek.api.organization_billing_api import OrganizationBillingApi as OrganizationBillingApi
@@ -1521,7 +1529,10 @@ from mixpeek.models.alignment_metrics import AlignmentMetrics as AlignmentMetric
 from mixpeek.models.analysis_type import AnalysisType as AnalysisType
 from mixpeek.models.and_inner import AndInner as AndInner
 from mixpeek.models.annotation_response import AnnotationResponse as AnnotationResponse
+from mixpeek.models.annotation_revision import AnnotationRevision as AnnotationRevision
 from mixpeek.models.annotation_stats_response import AnnotationStatsResponse as AnnotationStatsResponse
+from mixpeek.models.annotation_version_descriptor import AnnotationVersionDescriptor as AnnotationVersionDescriptor
+from mixpeek.models.annotation_versions_response import AnnotationVersionsResponse as AnnotationVersionsResponse
 from mixpeek.models.anthropic_model import AnthropicModel as AnthropicModel
 from mixpeek.models.api_allow_rule import ApiAllowRule as ApiAllowRule
 from mixpeek.models.api_analytics_buckets_models_time_range import ApiAnalyticsBucketsModelsTimeRange as ApiAnalyticsBucketsModelsTimeRange
@@ -2206,6 +2217,8 @@ from mixpeek.models.org_model_list_response import OrgModelListResponse as OrgMo
 from mixpeek.models.organization_model_response import OrganizationModelResponse as OrganizationModelResponse
 from mixpeek.models.organization_publish_stats_response import OrganizationPublishStatsResponse as OrganizationPublishStatsResponse
 from mixpeek.models.organization_update_request import OrganizationUpdateRequest as OrganizationUpdateRequest
+from mixpeek.models.ownership_entry import OwnershipEntry as OwnershipEntry
+from mixpeek.models.ownership_list_response import OwnershipListResponse as OwnershipListResponse
 from mixpeek.models.page_meta import PageMeta as PageMeta
 from mixpeek.models.page_tab_input import PageTabInput as PageTabInput
 from mixpeek.models.page_tab_output import PageTabOutput as PageTabOutput
@@ -2353,6 +2366,7 @@ from mixpeek.models.scaffold_manifest_response import ScaffoldManifestResponse a
 from mixpeek.models.scaffold_sample_collection import ScaffoldSampleCollection as ScaffoldSampleCollection
 from mixpeek.models.scaffold_sample_data_response import ScaffoldSampleDataResponse as ScaffoldSampleDataResponse
 from mixpeek.models.scaling_config import ScalingConfig as ScalingConfig
+from mixpeek.models.scene_download_response import SceneDownloadResponse as SceneDownloadResponse
 from mixpeek.models.schema_inference_request import SchemaInferenceRequest as SchemaInferenceRequest
 from mixpeek.models.schema_inference_result import SchemaInferenceResult as SchemaInferenceResult
 from mixpeek.models.schema_mapping_input import SchemaMappingInput as SchemaMappingInput

@@ -12,7 +12,7 @@ mod endpoint_contracts {
     use tokio::sync::{RwLock, broadcast, watch};
     use tower::ServiceExt;
 
-    use crate::gateway::admin::router::build_admin_router;
+    use crate::gateway::admin::application::router::build_admin_router;
     use crate::gateway::admin::state::AdminState;
     use crate::gateway::admin::trace::{
         AgentContext, AgentContextTrust, DispatchTrace, TraceLog, TracePayload,
@@ -22,10 +22,14 @@ mod endpoint_contracts {
 
     fn make_gateway_state() -> GatewayState {
         let dir = tempfile::tempdir().unwrap();
-        let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+        let registry = std::sync::Arc::new(FileRegistry::new(dir.path()).unwrap());
         let (yield_tx, _) = watch::channel(false);
         let (events_tx, _) = broadcast::channel::<String>(8);
         GatewayState {
+            ingress: std::sync::Arc::new(
+                crate::gateway::http_limits::GatewayIngressState::from_env(),
+            ),
+            resilience: std::sync::Arc::new(Default::default()),
             registry,
             http_instance_registry: Arc::new(parking_lot::RwLock::new(
                 crate::gateway::http_registration::HttpInstanceRegistry::default(),

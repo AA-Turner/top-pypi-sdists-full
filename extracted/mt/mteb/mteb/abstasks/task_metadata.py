@@ -76,6 +76,7 @@ TaskSubtype = Literal[
     "Emotion recognition",
     "Textures recognition",
     "Activity recognition",
+    "Physical plausibility classification",
     "Tumor detection",
     "Duplicate Detection",
     "Rendered semantic textual similarity",
@@ -161,6 +162,7 @@ TaskDomain = Literal[
     "Egocentric",  # first-person / wearable-camera video
     "Nature",  # animals, wildlife, natural environments
     "Animation",  # cartoon / animated / synthetic content
+    "Robotics",  # robot manipulation / embodied-agent content
 ]
 """
 The domains follow the categories used in the [Universal Dependencies project](https://universaldependencies.org), though
@@ -904,6 +906,7 @@ class TaskMetadata(BaseModel):
             "Emotion recognition": ["sentiment-scoring"],
             "Textures recognition": [],
             "Activity recognition": [],
+            "Physical plausibility classification": [],
             "Tumor detection": [],
             "Duplicate Detection": [],
             "Rendered semantic textual similarity": [
@@ -993,6 +996,7 @@ class TaskMetadata(BaseModel):
             "AudioPairClassification": ["audio-classification"],
             # video
             "VideoCentricQA": ["visual-question-answering"],
+            "VideoZeroshotClassification": ["video-classification"],
         }
         if self.type == "ZeroShotClassification":
             if self.modalities == ["image"]:

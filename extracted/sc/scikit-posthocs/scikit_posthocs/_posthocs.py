@@ -68,9 +68,9 @@ def __convert_to_df(
         val_col = "vals"
 
     if isinstance(a, DataFrame):
-        x = a.copy()
         if not {group_col, val_col}.issubset(a.columns):
             raise ValueError("Specify correct column names using `group_col` and `val_col` args")
+        x = a.loc[:, [val_col, group_col]].copy()
         return x, val_col, group_col
 
     elif isinstance(a, list) or (isinstance(a, np.ndarray) and not a.shape.count(2)):
@@ -175,6 +175,33 @@ def __convert_to_block_df(
     return x, new_y_col, new_group_col, new_block_col, new_block_id_col
 
 
+def __complete_block_matrix(
+    a: Union[DataFrame, ArrayLike], melted: bool, sort: bool
+) -> Optional[tuple[np.ndarray, np.ndarray]]:
+    if melted:
+        return None
+
+    if isinstance(a, DataFrame):
+        if sort or not a.columns.is_unique or a.columns.hasnans:
+            return None
+        values = a.to_numpy()
+        groups = a.columns.to_numpy(copy=True)
+    else:
+        try:
+            values = np.asarray(a)
+        except ValueError:
+            return None
+        if values.ndim != 2:
+            return None
+        groups = np.arange(values.shape[1])
+
+    if values.ndim != 2 or not np.issubdtype(values.dtype, np.number):
+        return None
+    if np.isnan(values).any():
+        return None
+    return values, groups
+
+
 def posthoc_conover(
     a: Union[list, np.ndarray, DataFrame],
     val_col: Optional[str] = None,
@@ -241,14 +268,6 @@ def posthoc_conover(
     >>> sp.posthoc_conover(x, p_adjust = 'holm')
     """
 
-    def compare_conover(i, j):
-        diff = np.abs(x_ranks_avg.loc[i] - x_ranks_avg.loc[j])
-        B = 1.0 / x_lens.loc[i] + 1.0 / x_lens.loc[j]
-        D = (n - 1.0 - h_cor) / (n - x_len)
-        t_value = diff / np.sqrt(S2 * B * D)
-        p_value = 2.0 * ss.t.sf(np.abs(t_value), df=n - x_len)
-        return p_value
-
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col, _val_col], ascending=True) if sort else x
 
@@ -259,15 +278,18 @@ def posthoc_conover(
 
     x["ranks"] = x[_val_col].rank()
     x_ranks_avg = x.groupby(_group_col, observed=True)["ranks"].mean()
-    x_ranks_sum = x.groupby(_group_col, observed=True)["ranks"].sum().to_numpy()
+    x_ranks_sum = x.groupby(_group_col, observed=True)["ranks"].sum()
 
     # ties
-    vals = x.groupby("ranks").count()[_val_col].to_numpy()
-    tie_sum = np.sum(vals[vals != 1] ** 3 - vals[vals != 1])
+    vals = x["ranks"].value_counts(sort=False).to_numpy()
+    tie_sum = np.sum(vals**3 - vals)
     tie_sum = 0 if not tie_sum else tie_sum
     x_ties = np.min([1.0, 1.0 - tie_sum / (n**3.0 - n)])
 
-    h = (12.0 / (n * (n + 1.0))) * np.sum(x_ranks_sum**2 / x_lens) - 3.0 * (n + 1.0)
+    group_lens = x_lens.reindex(x_groups_unique).to_numpy()
+    rank_means = x_ranks_avg.reindex(x_groups_unique).to_numpy()
+    rank_sums = x_ranks_sum.reindex(x_groups_unique).to_numpy()
+    h = (12.0 / (n * (n + 1.0))) * np.sum(rank_sums**2 / group_lens) - 3.0 * (n + 1.0)
     h_cor = h / x_ties
 
     if x_ties == 1:
@@ -280,10 +302,11 @@ def posthoc_conover(
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    combs = it.combinations(range(x_len), 2)
-
-    for i, j in combs:
-        vs[i, j] = compare_conover(x_groups_unique[i], x_groups_unique[j])
+    diff = np.abs(rank_means[tri_upper[0]] - rank_means[tri_upper[1]])
+    B = 1.0 / group_lens[tri_upper[0]] + 1.0 / group_lens[tri_upper[1]]
+    D = (n - 1.0 - h_cor) / (n - x_len)
+    t_values = diff / np.sqrt(S2 * B * D)
+    vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=n - x_len)
 
     if p_adjust:
         vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
@@ -361,14 +384,6 @@ def posthoc_dunn(
     >>> sp.posthoc_dunn(x, p_adjust = 'holm')
     """
 
-    def compare_dunn(i, j):
-        diff = np.abs(x_ranks_avg.loc[i] - x_ranks_avg.loc[j])
-        A = n * (n + 1.0) / 12.0
-        B = 1.0 / x_lens.loc[i] + 1.0 / x_lens.loc[j]
-        z_value = diff / np.sqrt((A - x_ties) * B)
-        p_value = 2.0 * ss.norm.sf(np.abs(z_value))
-        return p_value
-
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col, _val_col], ascending=True) if sort else x
 
@@ -381,20 +396,22 @@ def posthoc_dunn(
     x_ranks_avg = x.groupby(_group_col, observed=True)["ranks"].mean()
 
     # ties
-    vals = x.groupby("ranks").count()[_val_col].to_numpy()
-    tie_sum = np.sum(vals[vals != 1] ** 3 - vals[vals != 1])
+    vals = x["ranks"].value_counts(sort=False).to_numpy()
+    tie_sum = np.sum(vals**3 - vals)
     tie_sum = 0 if not tie_sum else tie_sum
     x_ties = tie_sum / (12.0 * (n - 1))
 
     vs = np.zeros((x_len, x_len))
-    combs = it.combinations(range(x_len), 2)
-
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    for i, j in combs:
-        vs[i, j] = compare_dunn(x_groups_unique[i], x_groups_unique[j])
+    group_lens = x_lens.reindex(x_groups_unique).to_numpy()
+    rank_means = x_ranks_avg.reindex(x_groups_unique).to_numpy()
+    diff = np.abs(rank_means[tri_upper[0]] - rank_means[tri_upper[1]])
+    B = 1.0 / group_lens[tri_upper[0]] + 1.0 / group_lens[tri_upper[1]]
+    z_values = diff / np.sqrt((n * (n + 1.0) / 12.0 - x_ties) * B)
+    vs[tri_upper] = 2.0 * ss.norm.sf(np.abs(z_values))
 
     if p_adjust:
         vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
@@ -460,19 +477,6 @@ def posthoc_nemenyi(
     >>> sp.posthoc_nemenyi(x)
     """
 
-    def compare_stats_chi(i, j):
-        diff = np.abs(x_ranks_avg.loc[i] - x_ranks_avg.loc[j])
-        A = n * (n + 1.0) / 12.0
-        B = 1.0 / x_lens.loc[i] + 1.0 / x_lens.loc[j]
-        chi = diff**2.0 / (A * B)
-        return chi
-
-    def compare_stats_tukey(i, j):
-        diff = np.abs(x_ranks_avg.loc[i] - x_ranks_avg.loc[j])
-        B = 1.0 / x_lens.loc[i] + 1.0 / x_lens.loc[j]
-        q = diff / np.sqrt((n * (n + 1.0) / 12.0) * B)
-        return q
-
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col, _val_col], ascending=True) if sort else x
 
@@ -485,29 +489,28 @@ def posthoc_nemenyi(
     x_ranks_avg = x.groupby(_group_col, observed=True)["ranks"].mean()
 
     # ties
-    vals = x.groupby("ranks").count()[_val_col].to_numpy()
-    tie_sum = np.sum(vals[vals != 1] ** 3 - vals[vals != 1])
+    vals = x["ranks"].value_counts(sort=False).to_numpy()
+    tie_sum = np.sum(vals**3 - vals)
     tie_sum = 0 if not tie_sum else tie_sum
     x_ties = np.min([1.0, 1.0 - tie_sum / (n**3.0 - n)])
 
     vs = np.zeros((x_len, x_len))
-    combs = it.combinations(range(x_len), 2)
-
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    if dist == "chi":
-        for i, j in combs:
-            vs[i, j] = compare_stats_chi(x_groups_unique[i], x_groups_unique[j]) / x_ties
+    group_lens = x_lens.reindex(x_groups_unique).to_numpy()
+    rank_means = x_ranks_avg.reindex(x_groups_unique).to_numpy()
+    diff = np.abs(rank_means[tri_upper[0]] - rank_means[tri_upper[1]])
+    B = 1.0 / group_lens[tri_upper[0]] + 1.0 / group_lens[tri_upper[1]]
+    A = n * (n + 1.0) / 12.0
 
-        vs[tri_upper] = ss.chi2.sf(vs[tri_upper], x_len - 1)
+    if dist == "chi":
+        vs[tri_upper] = ss.chi2.sf(diff**2.0 / (A * B * x_ties), x_len - 1)
 
     elif dist == "tukey":
-        for i, j in combs:
-            vs[i, j] = compare_stats_tukey(x_groups_unique[i], x_groups_unique[j]) * np.sqrt(2.0)
-
-        vs[tri_upper] = ss.studentized_range.sf(vs[tri_upper], x_len, np.inf)
+        q_values = diff / np.sqrt(A * B)
+        vs[tri_upper] = ss.studentized_range.sf(q_values * np.sqrt(2.0), x_len, np.inf)
 
     vs[tri_lower] = np.transpose(vs)[tri_lower]
     np.fill_diagonal(vs, 1)
@@ -603,6 +606,22 @@ def posthoc_nemenyi_friedman(
         dif = np.abs(R[groups[i]] - R[groups[j]])
         qval = dif / np.sqrt(k * (k + 1.0) / (6.0 * n))
         return qval
+
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        n, k = values.shape
+        ranks = ss.rankdata(values, axis=1, method="average")
+        mean_ranks = ranks.mean(axis=0)
+        vs = np.zeros((k, k))
+        tri_upper = np.triu_indices(k, 1)
+        tri_lower = np.tril_indices(k, -1)
+        differences = np.abs(mean_ranks[tri_upper[0]] - mean_ranks[tri_upper[1]])
+        q_values = differences / np.sqrt(k * (k + 1.0) / (6.0 * n))
+        vs[tri_upper] = ss.studentized_range.sf(q_values * np.sqrt(2.0), k, np.inf)
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
 
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
@@ -744,6 +763,35 @@ def posthoc_conover_friedman(
         pval = ss.studentized_range.sf(qval, k, np.inf).item()
         return pval
 
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        n, k = values.shape
+        ranks = ss.rankdata(values, axis=1, method="average")
+        rank_sums = ranks.sum(axis=0)
+        A1 = np.sum(ranks**2.0)
+        S2 = 1.0 / (k - 1.0) * (A1 - k * n * ((k + 1.0) ** 2.0) / 4.0)
+        T2 = np.sum((rank_sums - n * (k + 1.0) / 2.0) ** 2.0) / S2
+        df = n * k - k - n + 1.0
+        A = S2 * (2.0 * n * (k - 1.0)) / df
+        B = 1.0 - T2 / (n * (k - 1.0))
+
+        vs = np.zeros((k, k))
+        tri_upper = np.triu_indices(k, 1)
+        tri_lower = np.tril_indices(k, -1)
+        differences = np.abs(rank_sums[tri_upper[0]] - rank_sums[tri_upper[1]])
+        if p_adjust == "single-step":
+            q_values = np.sqrt(2.0) * differences / np.sqrt(A) / np.sqrt(B)
+            vs[tri_upper] = ss.studentized_range.sf(q_values, k, np.inf)
+        else:
+            t_values = differences / np.sqrt(A) / np.sqrt(B)
+            vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=df)
+            if p_adjust is not None:
+                vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
+
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
     )
@@ -856,41 +904,34 @@ def posthoc_npm_test(
     k = groups.size
     n = x.shape[0]
     sigma = np.sqrt(n * (n + 1) / 12.0)
+    values = x[_val_col].to_numpy()
+    group_values = x[_group_col].to_numpy()
+    group_codes = np.empty(n, dtype=int)
+    for code, group in enumerate(groups):
+        group_codes[group_values == group] = code
 
-    def compare(x, ix):
-        x0 = x.copy()
-        x0.loc[:, _val_col] = x0.loc[ix, _val_col].values
-        x0["ranks"] = x0[_val_col].rank()
-        ri = x0.groupby(_group_col, observed=True)["ranks"].mean()
-        ni = x0.groupby(_group_col, observed=True)[_val_col].count()
-        is_balanced = all(ni == n)
+    def compare(permuted):
+        ranks = Series(permuted).rank().to_numpy()
+        valid = ~np.isnan(ranks)
+        ni = np.bincount(group_codes[valid], minlength=k)
+        rank_sums = np.bincount(group_codes[valid], weights=ranks[valid], minlength=k)
+        ri = rank_sums / ni
         stat = np.ones((k, k))
 
-        for i in range(k - 1):
-            for j in range(i + 1, k):
-                m = np.arange(i, j)
-                if is_balanced:
-                    tmp = [
-                        (ri.loc[groups[j]] - ri.loc[groups[_mi]]) / (sigma / np.sqrt(n))
-                        for _mi in m
-                    ]
-                else:
-                    tmp = [
-                        (ri.loc[groups[j]] - ri.loc[groups[_mi]])
-                        / (sigma * np.sqrt(1.0 / ni.loc[groups[_mi]] + 1.0 / ni.loc[groups[j]]))
-                        for _mi in m
-                    ]
-                stat[j, i] = np.max(tmp)
+        for j in range(1, k):
+            previous = np.arange(j)
+            denominator = sigma * np.sqrt(1.0 / ni[previous] + 1.0 / ni[j])
+            comparisons = (ri[j] - ri[previous]) / denominator
+            stat[j, :j] = np.maximum.accumulate(comparisons[::-1])[::-1]
         return stat
 
-    stat = compare(x, x.index)
+    stat = compare(values)
 
-    mt = np.zeros((nperm, k, k))
-    for i in range(nperm):
-        ix = np.random.permutation(x.index)
-        mt[i] = compare(x, ix)
+    exceedances = np.zeros((k, k), dtype=int)
+    for _ in range(nperm):
+        exceedances += compare(np.random.permutation(values)) >= stat
 
-    p_values = (mt >= stat).sum(axis=0) / nperm
+    p_values = exceedances / nperm
 
     tri_upper = np.triu_indices(p_values.shape[0], 1)
     p_values[tri_upper] = np.transpose(p_values)[tri_upper]
@@ -991,6 +1032,23 @@ def posthoc_siegel_friedman(
         dif = np.abs(R[groups[i]] - R[groups[j]])
         zval = dif / np.sqrt(k * (k + 1.0) / (6.0 * n))
         return zval
+
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        n, k = values.shape
+        mean_ranks = ss.rankdata(values, axis=1, method="average").mean(axis=0)
+        vs = np.zeros((k, k))
+        tri_upper = np.triu_indices(k, 1)
+        tri_lower = np.tril_indices(k, -1)
+        differences = np.abs(mean_ranks[tri_upper[0]] - mean_ranks[tri_upper[1]])
+        z_values = differences / np.sqrt(k * (k + 1.0) / (6.0 * n))
+        vs[tri_upper] = np.minimum(2.0 * ss.norm.sf(np.abs(z_values)), 1.0)
+        if p_adjust:
+            vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
 
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
@@ -1111,6 +1169,21 @@ def posthoc_miller_friedman(
         qval = dif / np.sqrt(k * (k + 1.0) / (6.0 * n))
         return qval
 
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        n, k = values.shape
+        mean_ranks = ss.rankdata(values, axis=1, method="average").mean(axis=0)
+        vs = np.zeros((k, k))
+        tri_upper = np.triu_indices(k, 1)
+        tri_lower = np.tril_indices(k, -1)
+        differences = np.abs(mean_ranks[tri_upper[0]] - mean_ranks[tri_upper[1]])
+        q_values = differences / np.sqrt(k * (k + 1.0) / (6.0 * n))
+        vs[tri_upper] = ss.chi2.sf(q_values**2.0, k - 1)
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
+
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
     )
@@ -1225,6 +1298,29 @@ def posthoc_durbin(
     >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
     >>> sp.posthoc_durbin(x)
     """
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        b, t = values.shape
+        ranks = ss.rankdata(values, axis=1, method="average")
+        rank_sums = ranks.sum(axis=0)
+        A = np.sum(ranks**2.0)
+        C = b * t * (t + 1.0) ** 2.0 / 4.0
+        D = np.sum(rank_sums**2.0) - b * C
+        T1 = (t - 1.0) / (A - C) * D
+        df = b * t - b - t + 1.0
+        denom = np.sqrt((A - C) * 2.0 * b / df * (1.0 - T1 / (b * (t - 1.0))))
+        vs = np.zeros((t, t))
+        tri_upper = np.triu_indices(t, 1)
+        tri_lower = np.tril_indices(t, -1)
+        differences = np.abs(rank_sums[tri_upper[0]] - rank_sums[tri_upper[1]])
+        vs[tri_upper] = 2.0 * ss.t.sf(np.abs(differences / denom), df=df)
+        if p_adjust:
+            vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
+
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
     )
@@ -1339,6 +1435,8 @@ def posthoc_anderson(
 
     groups = x[_group_col].unique()
     k = groups.size
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    samples = [x_grouped.get_group(group).dropna().to_numpy() for group in groups]
     vs = np.zeros((k, k), dtype=float)
     combs = it.combinations(range(k), 2)
 
@@ -1354,10 +1452,7 @@ def posthoc_anderson(
 
     for i, j in combs:
         result = ss.anderson_ksamp(
-            [
-                x.loc[x[_group_col] == groups[i], _val_col],
-                x.loc[x[_group_col] == groups[j], _val_col],
-            ],
+            [samples[i], samples[j]],
             **_anderson_kwargs,
             method=ss.PermutationMethod(),
         )
@@ -1477,6 +1572,38 @@ def posthoc_quade(
         pval = 2.0 * ss.norm.sf(np.abs(zval))
         return pval
 
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        b, k = values.shape
+        ranks = ss.rankdata(values, axis=1, method="average")
+        weights = ss.rankdata(np.ptp(values, axis=1), method="average")
+        centered = ranks - (k + 1.0) / 2.0
+        scores = centered * weights[:, None]
+        weighted_ranks = ranks * weights[:, None]
+        A = np.sum(scores**2.0)
+        S = scores.sum(axis=0)
+        B = np.sum(S**2.0) / b
+        W = weighted_ranks.sum(axis=0)
+        vs = np.zeros((k, k))
+        tri_upper = np.triu_indices(k, 1)
+        tri_lower = np.tril_indices(k, -1)
+        if dist == "t":
+            denom = np.sqrt(2.0 * b * (A - B) / ((b - 1.0) * (k - 1.0)))
+            statistics = np.abs(S[tri_upper[0]] - S[tri_upper[1]]) / denom
+            vs[tri_upper] = 2.0 * ss.t.sf(np.abs(statistics), df=(b - 1) * (k - 1))
+        else:
+            n = b * k
+            denom = np.sqrt(k * (k + 1.0) * (2.0 * n + 1.0) * (k - 1.0) / (18.0 * n * (n + 1.0)))
+            ff = 1.0 / (b * (b + 1.0) / 2.0)
+            statistics = np.abs(W[tri_upper[0]] - W[tri_upper[1]]) * ff / denom
+            vs[tri_upper] = 2.0 * ss.norm.sf(np.abs(statistics))
+        if p_adjust:
+            vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+        vs[tri_lower] = vs.T[tri_lower]
+        np.fill_diagonal(vs, 1)
+        return DataFrame(vs, index=groups, columns=groups)
+
     x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
         a, y_col, group_col, block_col, block_id_col, melted
     )
@@ -1489,13 +1616,12 @@ def posthoc_quade(
     b = x[_block_id_col].unique().size
 
     x["r"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
-    q = Series(
-        x.groupby(_block_id_col, observed=True)[_y_col].max()
-        - x.groupby(_block_id_col, observed=True)[_y_col].min().to_numpy()
-    ).rank()
+    block_values = x.groupby(_block_id_col, observed=True)[_y_col]
+    q = (block_values.max() - block_values.min()).rank()
     x["rr"] = x["r"] - (k + 1) / 2
-    x["s"] = x.apply(lambda row: row["rr"] * q[row[_block_id_col]], axis=1)
-    x["w"] = x.apply(lambda row: row["r"] * q[row[_block_id_col]], axis=1)
+    block_weights = x[_block_id_col].map(q)
+    x["s"] = x["rr"] * block_weights
+    x["w"] = x["r"] * block_weights
 
     A = (x["s"] ** 2).sum()
     S = x.groupby(_group_col, observed=True)["s"].sum()
@@ -1613,28 +1739,20 @@ def posthoc_vanwaerden(
     r = ss.rankdata(x[_val_col])
     x["z_scores"] = ss.norm.ppf(r / (n + 1))
 
-    aj = x.groupby(_group_col, observed=True)["z_scores"].sum().to_numpy()
-    nj = x.groupby(_group_col, observed=True)["z_scores"].count()
+    grouped_scores = x.groupby(_group_col, observed=True)["z_scores"]
+    aj = grouped_scores.sum().reindex(groups).to_numpy()
+    nj = grouped_scores.count().reindex(groups).to_numpy()
     s2 = (1.0 / (n - 1.0)) * (x["z_scores"] ** 2.0).sum()
     sts = (1.0 / s2) * np.sum(aj**2.0 / nj)
     A = aj / nj
 
     vs = np.zeros((k, k), dtype=float)
-    combs = it.combinations(range(k), 2)
-
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
-    vs[:, :] = 0
-
-    def compare_stats(i, j):
-        dif = np.abs(A[groups[i]] - A[groups[j]])
-        B = 1.0 / nj[groups[i]] + 1.0 / nj[groups[j]]
-        tval = dif / np.sqrt(s2 * (n - 1.0 - sts) / (n - k) * B)
-        pval = 2.0 * ss.t.sf(np.abs(tval), df=n - k)
-        return pval
-
-    for i, j in combs:
-        vs[i, j] = compare_stats(i, j)
+    differences = np.abs(A[tri_upper[0]] - A[tri_upper[1]])
+    sample_factor = 1.0 / nj[tri_upper[0]] + 1.0 / nj[tri_upper[1]]
+    t_values = differences / np.sqrt(s2 * (n - 1.0 - sts) / (n - k) * sample_factor)
+    vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=n - k)
 
     if p_adjust:
         vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
@@ -1816,6 +1934,7 @@ def posthoc_ttest(
     groups = x[_group_col].unique()
     k = groups.size
     xg = x.groupby(by=_group_col, observed=True)[_val_col]
+    samples = [xg.get_group(group).to_numpy() for group in groups]
 
     vs = np.zeros((k, k), dtype=float)
     tri_upper = np.triu_indices(vs.shape[0], 1)
@@ -1841,9 +1960,7 @@ def posthoc_ttest(
             vs[i, j] = compare_pooled(i, j)
     else:
         for i, j in combs:
-            vs[i, j] = ss.ttest_ind(
-                xg.get_group(groups[i]), xg.get_group(groups[j]), equal_var=equal_var
-            )[1]
+            vs[i, j] = ss.ttest_ind(samples[i], samples[j], equal_var=equal_var)[1]
 
     if p_adjust:
         vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
@@ -1981,6 +2098,7 @@ def posthoc_mannwhitney(
     x_len = groups.size
     vs = np.zeros((x_len, x_len))
     xg = x.groupby(_group_col, observed=True)[_val_col]
+    samples = [xg.get_group(group).to_numpy() for group in groups]
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
@@ -1989,8 +2107,8 @@ def posthoc_mannwhitney(
 
     for i, j in combs:
         vs[i, j] = ss.mannwhitneyu(
-            xg.get_group(groups[i]),
-            xg.get_group(groups[j]),
+            samples[i],
+            samples[j],
             use_continuity=use_continuity,
             alternative=alternative,
         )[1]
@@ -2093,6 +2211,7 @@ def posthoc_wilcoxon(
     x_len = groups.size
     vs = np.zeros((x_len, x_len))
     xg = x.groupby(_group_col, observed=True)[_val_col]
+    samples = [xg.get_group(group).to_numpy() for group in groups]
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
@@ -2101,8 +2220,8 @@ def posthoc_wilcoxon(
 
     for i, j in combs:
         vs[i, j] = ss.wilcoxon(
-            xg.get_group(groups[i]),
-            xg.get_group(groups[j]),
+            samples[i],
+            samples[j],
             zero_method=zero_method,
             method=method,
             correction=correction,
@@ -2185,20 +2304,16 @@ def posthoc_scheffe(
     n = ni.sum()
     sin = 1.0 / (n - groups.size) * np.sum(si * (ni - 1.0))
 
-    def compare(i, j):
-        dif = xi.loc[i] - xi.loc[j]
-        A = sin * (1.0 / ni.loc[i] + 1.0 / ni.loc[j]) * (groups.size - 1.0)
-        f_val = dif**2.0 / A
-        return f_val
-
     vs = np.zeros((groups.size, groups.size), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    combs = it.combinations(range(groups.size), 2)
-
-    for i, j in combs:
-        vs[i, j] = compare(groups[i], groups[j])
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    dif = means[tri_upper[0]] - means[tri_upper[1]]
+    A = sin * (1.0 / counts[tri_upper[0]] + 1.0 / counts[tri_upper[1]]) * (groups.size - 1.0)
+    vs[tri_upper] = dif**2.0 / A
 
     vs[tri_lower] = np.transpose(vs)[tri_lower]
     p_values = ss.f.sf(vs, groups.size - 1.0, n - groups.size)
@@ -2277,53 +2392,48 @@ def posthoc_tamhane(
     xi = x_grouped.mean()
     si = x_grouped.var()
 
-    def compare(i, j):
-        dif = xi[i] - xi[j]
-        A = si[i] / ni[i] + si[j] / ni[j]
-        t_val = dif / np.sqrt(A)
-        if welch:
-            df = A**2.0 / (
-                si[i] ** 2.0 / (ni[i] ** 2.0 * (ni[i] - 1.0))
-                + si[j] ** 2.0 / (ni[j] ** 2.0 * (ni[j] - 1.0))
-            )
-        else:
-            # checks according to Tamhane (1979, p. 474)
-            ok1 = (9.0 / 10.0 <= ni[i] / ni[j]) and (ni[i] / ni[j] <= 10.0 / 9.0)
-            ok2 = (9.0 / 10.0 <= (si[i] / ni[i]) / (si[j] / ni[j])) and (
-                (si[i] / ni[i]) / (si[j] / ni[j]) <= 10.0 / 9.0
-            )
-            ok3 = (
-                (4.0 / 5.0 <= ni[i] / ni[j])
-                and (ni[i] / ni[j] <= 5.0 / 4.0)
-                and (1.0 / 2.0 <= (si[i] / ni[i]) / (si[j] / ni[j]))
-                and ((si[i] / ni[i]) / (si[j] / ni[j]) <= 2.0)
-            )
-            ok4 = (
-                (2.0 / 3.0 <= ni[i] / ni[j])
-                and (ni[i] / ni[j] <= 3.0 / 2.0)
-                and (3.0 / 4.0 <= (si[i] / ni[i]) / (si[j] / ni[j]))
-                and ((si[i] / ni[i]) / (si[j] / ni[j]) <= 4.0 / 3.0)
-            )
-            OK = any([ok1, ok2, ok3, ok4])
-            if not OK:
-                warnings.warn(
-                    "Sample sizes or standard errors are not balanced. T2 test is recommended.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            df = ni[i] + ni[j] - 2.0
-        p_val = 2.0 * ss.t.sf(np.abs(t_val), df=df)
-        return p_val
-
     vs = np.zeros((groups.size, groups.size), dtype=float)
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
     vs[:, :] = 0
 
-    combs = it.combinations(range(groups.size), 2)
-
-    for i, j in combs:
-        vs[i, j] = compare(groups[i], groups[j])
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    variances = si.reindex(groups).to_numpy()
+    i, j = tri_upper
+    scaled_variances = variances / counts
+    A = scaled_variances[i] + scaled_variances[j]
+    t_values = (means[i] - means[j]) / np.sqrt(A)
+    if welch:
+        df = A**2.0 / (
+            variances[i] ** 2.0 / (counts[i] ** 2.0 * (counts[i] - 1.0))
+            + variances[j] ** 2.0 / (counts[j] ** 2.0 * (counts[j] - 1.0))
+        )
+    else:
+        count_ratio = counts[i] / counts[j]
+        error_ratio = scaled_variances[i] / scaled_variances[j]
+        ok1 = (9.0 / 10.0 <= count_ratio) & (count_ratio <= 10.0 / 9.0)
+        ok2 = (9.0 / 10.0 <= error_ratio) & (error_ratio <= 10.0 / 9.0)
+        ok3 = (
+            (4.0 / 5.0 <= count_ratio)
+            & (count_ratio <= 5.0 / 4.0)
+            & (1.0 / 2.0 <= error_ratio)
+            & (error_ratio <= 2.0)
+        )
+        ok4 = (
+            (2.0 / 3.0 <= count_ratio)
+            & (count_ratio <= 3.0 / 2.0)
+            & (3.0 / 4.0 <= error_ratio)
+            & (error_ratio <= 4.0 / 3.0)
+        )
+        for _ in np.flatnonzero(~(ok1 | ok2 | ok3 | ok4)):
+            warnings.warn(
+                "Sample sizes or standard errors are not balanced. T2 test is recommended.",
+                UserWarning,
+                stacklevel=2,
+            )
+        df = counts[i] + counts[j] - 2.0
+    vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=df)
 
     vs[tri_upper] = 1.0 - (1.0 - vs[tri_upper]) ** groups.size
     vs[tri_lower] = np.transpose(vs)[tri_lower]
@@ -2399,23 +2509,14 @@ def posthoc_tukey(
     si = x_grouped.var()
     sin = 1.0 / (n - groups.size) * np.sum(si * (ni - 1))
 
-    def compare(i, j):
-        dif = xi[i] - xi[j]
-        A = sin * 0.5 * (1.0 / ni.loc[i] + 1.0 / ni.loc[j])
-        q_val = dif / np.sqrt(A)
-        return q_val
-
     vs = np.zeros((groups.size, groups.size), dtype=float)
     tri_upper = np.triu_indices(vs.shape[0], 1)
     tri_lower = np.tril_indices(vs.shape[0], -1)
-    vs[:, :] = 0
-
-    combs = it.combinations(range(groups.size), 2)
-
-    for i, j in combs:
-        vs[i, j] = compare(groups[i], groups[j])
-
-    vs[tri_upper] = ss.studentized_range.sf(np.abs(vs[tri_upper]), groups.size, n - groups.size)
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    scale = sin * 0.5 * (1.0 / counts[tri_upper[0]] + 1.0 / counts[tri_upper[1]])
+    q_values = (means[tri_upper[0]] - means[tri_upper[1]]) / np.sqrt(scale)
+    vs[tri_upper] = ss.studentized_range.sf(np.abs(q_values), groups.size, n - groups.size)
     vs[tri_lower] = np.transpose(vs)[tri_lower]
 
     np.fill_diagonal(vs, 1)
@@ -2487,24 +2588,28 @@ def posthoc_dscf(
     x = x.sort_values(by=[_group_col], ascending=True) if sort else x
     groups = x[_group_col].unique()
     x_grouped = x.groupby(_group_col, observed=True)[_val_col]
-    n = x_grouped.count()
+    samples = [x_grouped.get_group(group).dropna().to_numpy() for group in groups]
     k = groups.size
 
-    def get_ties(x):
-        t = x.value_counts().values
-        c = np.sum((t**3 - t) / 12.0)
-        return c
-
     def compare(i, j):
-        ni = n.loc[i]
-        nj = n.loc[j]
-        x_raw = x.loc[(x[_group_col] == i) | (x[_group_col] == j)].copy()
-        x_raw["ranks"] = x_raw.loc[:, _val_col].rank()
-        r = x_raw.groupby(_group_col, observed=True)["ranks"].sum().loc[[j, i]]
-        u = np.array([nj * ni + (nj * (nj + 1) / 2), nj * ni + (ni * (ni + 1) / 2)]) - r
+        left = samples[i]
+        right = samples[j]
+        ni = left.size
+        nj = right.size
+        ranks = ss.rankdata(np.concatenate((left, right)), method="average")
+        ri = ranks[:ni].sum()
+        rj = ranks[ni:].sum()
+        u = np.array(
+            [
+                nj * ni + nj * (nj + 1) / 2.0 - rj,
+                nj * ni + ni * (ni + 1) / 2.0 - ri,
+            ]
+        )
         u_min = np.min(u)
         s = ni + nj
-        var = (nj * ni / (s * (s - 1.0))) * ((s**3 - s) / 12.0 - get_ties(x_raw["ranks"]))
+        tie_counts = np.unique(ranks, return_counts=True)[1]
+        ties = np.sum((tie_counts**3 - tie_counts) / 12.0)
+        var = (nj * ni / (s * (s - 1.0))) * ((s**3 - s) / 12.0 - ties)
         p = np.sqrt(2.0) * (u_min - nj * ni / 2.0) / np.sqrt(var)
         return p
 
@@ -2516,10 +2621,852 @@ def posthoc_dscf(
     combs = it.combinations(range(k), 2)
 
     for i, j in combs:
-        vs[i, j] = compare(groups[i], groups[j])
+        vs[i, j] = compare(i, j)
 
     vs[tri_upper] = ss.studentized_range.sf(np.abs(vs[tri_upper]), k, np.inf)
     vs[tri_lower] = np.transpose(vs)[tri_lower]
 
     np.fill_diagonal(vs, 1)
     return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_games_howell(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Games-Howell all-pairs comparison test for normally distributed data
+    with unequal group variances. A total of m = k(k-1)/2 hypotheses can be
+    tested. The null hypothesis is tested in the two-tailed test against the
+    alternative hypothesis [1]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    Games-Howell is the most common all-pairs alternative to Tukey's test
+    when group variances cannot be assumed equal. The p values are computed
+    from the studentized range (Tukey) distribution using Welch's
+    approximate degrees of freedom, same as `posthoc_tamhane` with
+    `welch=True` but using the studentized range rather than the
+    t-distribution.
+
+    References
+    ----------
+    .. [1] L. Sachs (1997), Angewandte Statistik. Berlin: Springer. Pages: 396.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_games_howell(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    ni = x_grouped.count()
+    xi = x_grouped.mean()
+    si = x_grouped.var()
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    variances = si.reindex(groups).to_numpy()
+    i, j = tri_upper
+    A = variances[i] / counts[i] + variances[j] / counts[j]
+    q_values = (means[i] - means[j]) / np.sqrt(A) * np.sqrt(2.0)
+    df = A**2.0 / (
+        variances[i] ** 2.0 / (counts[i] ** 2.0 * (counts[i] - 1.0))
+        + variances[j] ** 2.0 / (counts[j] ** 2.0 * (counts[j] - 1.0))
+    )
+    vs[tri_upper] = ss.studentized_range.sf(np.abs(q_values), k, df)
+
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_dunnett_t3(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Dunnett's T3 all-pairs comparison test for normally distributed data
+    with unequal group variances. A total of m = k(k-1)/2 hypotheses can be
+    tested. The null hypothesis is tested in the two-tailed test against the
+    alternative hypothesis [1]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    Test statistics are Welch t values, with degrees of freedom rounded to
+    the nearest integer (matching PMCMRplus; this is what numerically
+    distinguishes T3 from `posthoc_tamhane`, whose Welch df are not
+    rounded). P values are obtained with a single-step Dunn-Sidak-type
+    adjustment, `1 - (1 - p) ** m` with `m = k * (k - 1) / 2` the number of
+    pairwise comparisons, applied to the raw two-sided Welch t p value of
+    each pair. This reproduces PMCMRplus's studentized maximum modulus
+    computation (an equicorrelated multivariate t distribution with zero
+    off-diagonal correlation reduces exactly to this closed form), without
+    requiring a multivariate-t dependency.
+
+    References
+    ----------
+    .. [1] C. W. Dunnett (1980), Pair wise multiple comparisons in the
+        unequal variance case, Journal of the American Statistical
+        Association, 75, 796-800.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_dunnett_t3(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    m = k * (k - 1) / 2.0
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    ni = x_grouped.count()
+    xi = x_grouped.mean()
+    si = x_grouped.var()
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    variances = si.reindex(groups).to_numpy()
+    i, j = tri_upper
+    A = variances[i] / counts[i] + variances[j] / counts[j]
+    t_values = (means[i] - means[j]) / np.sqrt(A)
+    df = A**2.0 / (
+        variances[i] ** 2.0 / (counts[i] ** 2.0 * (counts[i] - 1.0))
+        + variances[j] ** 2.0 / (counts[j] ** 2.0 * (counts[j] - 1.0))
+    )
+    p_raw = 2.0 * ss.t.sf(np.abs(t_values), df=np.round(df))
+    vs[tri_upper] = 1.0 - (1.0 - p_raw) ** m
+
+    vs[vs > 1] = 1.0
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_lsd(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    p_adjust: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Fisher's Least Significant Difference (LSD) all-pairs comparison test
+    for normally distributed data with equal group variances, following a
+    parametric ANOVA [1]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    p_adjust : str, optional
+        Method for adjusting p values. See `statsmodels.sandbox.stats.multicomp`
+        for details. Left as `None` (the default), this reproduces Fisher's
+        *protected* LSD test, which is only valid when applied after a
+        significant omnibus ANOVA F-test.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    Test statistics use the pooled within-group variance, equivalent to
+    `posthoc_ttest` with `pool_sd=True` and no p value adjustment.
+
+    References
+    ----------
+    .. [1] L. Sachs (1997), Angewandte Statistik. Berlin: Springer.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_lsd(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    n = len(x.index)
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    ni = x_grouped.count()
+    xi = x_grouped.mean()
+    si = x_grouped.var()
+    s2in = (1.0 / (n - k)) * np.sum(si * (ni - 1.0))
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    i, j = tri_upper
+    A = s2in * (1.0 / counts[i] + 1.0 / counts[j])
+    t_values = (means[i] - means[j]) / np.sqrt(A)
+    vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=n - k)
+
+    if p_adjust:
+        vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_snk(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Student-Newman-Keuls (SNK) all-pairs comparison test for normally
+    distributed data with equal group variances, following a parametric
+    ANOVA [1]_, [2]_, [3]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    Unlike single-step procedures (Tukey, Games-Howell), SNK is a stepwise
+    range test: the p value for a pair of group means is computed from the
+    studentized range distribution using as `nmeans` the number of ordered
+    means the pair spans (i.e. 1 + the difference between their ranks when
+    means are sorted in decreasing order), not the total number of groups.
+    There is no separate p value adjustment argument, since the step-down
+    procedure is itself the adjustment.
+
+    References
+    ----------
+    .. [1] Newman, D. (1939), The distribution of range in samples from a
+        normal population, expressed in terms of an independent estimate of
+        standard deviation, Biometrika, 31, 20-30.
+    .. [2] Keuls, M. (1952), The use of the "studentized range" in connection
+        with an analysis of variance, Euphytica, 1, 112-122.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_snk(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    n = len(x.index)
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    ni = x_grouped.count()
+    xi = x_grouped.mean()
+    si = x_grouped.var()
+    s2in = (1.0 / (n - k)) * np.sum(si * (ni - 1.0))
+    df = n - k
+
+    # rank position of each group when means are sorted in decreasing order
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    order = means.argsort()[::-1]
+    rank_pos = np.empty(k, dtype=int)
+    rank_pos[order] = np.arange(k)
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    i, j = tri_upper
+    q_values = (means[i] - means[j]) / np.sqrt((s2in / 2.0) * (1.0 / counts[i] + 1.0 / counts[j]))
+    nmeans = 1 + np.abs(rank_pos[i] - rank_pos[j])
+    vs[tri_upper] = ss.studentized_range.sf(np.abs(q_values), nmeans, df)
+
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_duncan(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Duncan's multiple range test for normally distributed data with equal
+    group variances, following a parametric ANOVA [1]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    Like `posthoc_snk`, this is a stepwise range test using as `nmeans` the
+    number of ordered means a pair spans. The studentized-range p value for
+    each pair is further Bonferroni-adjusted as
+    `1 - (1 - p) ** (1 / (nmeans - 1))`, following Duncan (1955). There is no
+    separate p value adjustment argument, since the step-down procedure is
+    itself the adjustment.
+
+    References
+    ----------
+    .. [1] Duncan, D. B. (1955), Multiple range and multiple F tests,
+        Biometrics, 11, 1-42.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_duncan(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    n = len(x.index)
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    ni = x_grouped.count()
+    xi = x_grouped.mean()
+    si = x_grouped.var()
+    s2in = (1.0 / (n - k)) * np.sum(si * (ni - 1.0))
+    df = n - k
+    r = k / np.sum(1.0 / ni)
+
+    counts = ni.reindex(groups).to_numpy()
+    means = xi.reindex(groups).to_numpy()
+    order = means.argsort()[::-1]
+    rank_pos = np.empty(k, dtype=int)
+    rank_pos[order] = np.arange(k)
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    i, j = tri_upper
+    t_values = (means[i] - means[j]) / np.sqrt(s2in / r)
+    nmeans = 1 + np.abs(rank_pos[i] - rank_pos[j])
+    p_values = ss.studentized_range.sf(np.abs(t_values), nmeans, df)
+    vs[tri_upper] = 1.0 - (1.0 - p_values) ** (1.0 / (nmeans - 1))
+
+    vs[vs > 1] = 1.0
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_median(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    p_adjust: Optional[str] = None,
+    sort: bool = False,
+) -> DataFrame:
+    """Brown-Mood all-pairs median test, a nonparametric alternative to
+    Kruskal-Wallis-type all-pairs tests robust to outliers and skew [1]_.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    p_adjust : str, optional
+        Method for adjusting p values. See `statsmodels.sandbox.stats.multicomp`
+        for details.
+
+    sort : bool, optional
+        If True, sort data by group columns.
+
+    Returns
+    -------
+    result : pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    For each pair of groups, observations are classified as above or at-or-below
+    the grand median (computed once, from the pooled sample of both groups'
+    parent dataset) and compared with Pearson's chi-squared test (no continuity
+    correction), following PMCMRplus's `medianAllPairsTest`.
+
+    References
+    ----------
+    .. [1] G. W. Brown, A. M. Mood (1951), On median tests for linear
+        hypotheses, Proceedings of the Second Berkeley Symposium on
+        Mathematical Statistics and Probability, University of California
+        Press, 159-166.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_median(x, val_col='values', group_col='groups')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    grand_median = x[_val_col].median()
+    x_grouped = x.groupby(_group_col, observed=True)[_val_col]
+    n_gt = x[_val_col].gt(grand_median).groupby(x[_group_col], observed=True).sum()
+    n_total = x_grouped.count()
+    n_le = n_total - n_gt
+
+    def compare(i, j):
+        table = np.array([[n_gt[i], n_le[i]], [n_gt[j], n_le[j]]])
+        _, p_val, _, _ = ss.chi2_contingency(table, correction=False)
+        return p_val
+
+    vs = np.zeros((k, k), dtype=float)
+    tri_upper = np.triu_indices(vs.shape[0], 1)
+    tri_lower = np.tril_indices(vs.shape[0], -1)
+    vs[:, :] = 0
+
+    combs = it.combinations(range(k), 2)
+
+    for i, j in combs:
+        vs[i, j] = compare(groups[i], groups[j])
+
+    if p_adjust:
+        vs[tri_upper] = multipletests(vs[tri_upper], method=p_adjust)[1]
+
+    vs[tri_lower] = np.transpose(vs)[tri_lower]
+    np.fill_diagonal(vs, 1)
+    return DataFrame(vs, index=groups, columns=groups)
+
+
+def posthoc_steel(
+    a: Union[list, np.ndarray, DataFrame],
+    val_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    control: Optional[str] = None,
+    alternative: Literal["two-sided", "less", "greater"] = "two-sided",
+    p_adjust: Optional[str] = None,
+    sort: bool = False,
+    to_matrix: bool = True,
+) -> Union[Series, DataFrame]:
+    """Steel's many-to-one rank test [1]_, a nonparametric alternative to
+    Dunnett's test for comparisons of several treatment groups against one
+    control group.
+
+    Parameters
+    ----------
+    a : Union[list, np.ndarray, DataFrame]
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
+
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    control : str, optional
+        Name of the control group within the `group_col` column. Must be
+        specified if `a` is a pandas DataFrame.
+
+    alternative : ['two-sided', 'less', or 'greater'], optional
+        Whether to get the p-value for the one-sided hypothesis
+        ('less' or 'greater') or for the two-sided hypothesis ('two-sided').
+        Defaults to 'two-sided'.
+
+    p_adjust : str, optional
+        Method for adjusting p values across the treatment-vs-control
+        comparisons. See `statsmodels.sandbox.stats.multicomp` for details.
+
+    sort : bool, optional
+        Specifies whether to sort DataFrame by group_col or not.
+
+    to_matrix : bool, optional
+        Specifies whether to return a DataFrame or a Series. If True, a
+        DataFrame is returned with some NaN values since it's not a pairwise
+        comparison. Default is True.
+
+    Returns
+    -------
+    result : pandas.Series or pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    This implements the normal-approximation variant of Steel's test: each
+    treatment group is compared to the control with a Mann-Whitney U test
+    (`scipy.stats.mannwhitneyu`), and the resulting p values across
+    treatments may be combined with `p_adjust`. PMCMRplus's `steelTest`
+    instead looks up exact critical rank-sum values from a fixed table
+    (balanced designs only, n <= 20, k <= 9, alpha = 0.05); that table is not
+    reproduced here.
+
+    References
+    ----------
+    .. [1] R. G. D. Steel (1959), A multiple comparison rank sum test:
+        treatments versus control, Biometrics, 15, 560-572.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import pandas as pd
+    >>> x = pd.DataFrame({"a": [1,2,3,5,1], "b": [12,31,54,62,12], "c": [10,12,6,74,11]})
+    >>> x = x.melt(var_name='groups', value_name='values')
+    >>> sp.posthoc_steel(x, val_col='values', group_col='groups', control='a')
+    """
+    x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
+    x = x.sort_values(by=[_group_col], ascending=True) if sort else x
+    x = x.set_index(_group_col)[_val_col]
+    x_embedded = x.groupby(_group_col, observed=True).agg(lambda y: y.dropna().tolist())
+    control_data = x_embedded.loc[control]
+    treatment_data = x_embedded.drop(control)
+
+    pvals = np.array(
+        [ss.mannwhitneyu(t, control_data, alternative=alternative).pvalue for t in treatment_data]
+    )
+
+    if p_adjust:
+        pvals = multipletests(pvals, method=p_adjust)[1]
+
+    multi_index = MultiIndex.from_product([[control], treatment_data.index.tolist()])
+    steel_sr = Series(pvals, index=multi_index)
+
+    if not to_matrix:
+        return steel_sr
+
+    else:
+        levels = x.index.unique().to_numpy()
+        result_df = DataFrame(index=levels, columns=levels, dtype=float)
+
+        for pair in steel_sr.index:
+            ctl, trt = pair
+            result_df.loc[ctl, trt] = steel_sr[pair]
+            result_df.loc[trt, ctl] = steel_sr[pair]
+        for level in levels:
+            result_df.loc[level, level] = 1.0
+        return result_df
+
+
+def posthoc_demsar(
+    a: Union[list, np.ndarray, DataFrame],
+    y_col: Optional[str] = None,
+    group_col: Optional[str] = None,
+    block_col: Optional[str] = None,
+    block_id_col: Optional[str] = None,
+    control: Optional[str] = None,
+    alternative: Literal["two-sided", "less", "greater"] = "two-sided",
+    p_adjust: Optional[str] = None,
+    melted: bool = False,
+    sort: bool = False,
+    to_matrix: bool = True,
+) -> Union[Series, DataFrame]:
+    """Demsar's many-to-one test for unreplicated blocked data [1]_, comparing
+    several treatments against one control (e.g. a baseline algorithm)
+    across a set of blocks (e.g. datasets), based on Friedman-type ranks.
+
+    Parameters
+    ----------
+    a : array_like or pandas DataFrame object
+        An array, any object exposing the array interface or a pandas
+        DataFrame.
+
+        If `melted` is set to False (default), `a` is a typical matrix of
+        block design, i.e. rows are blocks, and columns are groups. In this
+        case you do not need to specify col arguments.
+
+        If `a` is an array and `melted` is set to True,
+        y_col, block_col and group_col must specify the indices of columns
+        containing elements of correspondary type.
+
+        If `a` is a Pandas DataFrame and `melted` is set to True,
+        y_col, block_col and group_col must specify columns names (strings).
+
+    y_col : str or int
+        Must be specified if `a` is a pandas DataFrame object.
+        Name of the column that contains y data.
+
+    group_col : str or int
+        Must be specified if `a` is a pandas DataFrame object.
+        Name of the column that contains treatment (group) factor values.
+
+    block_col : str or int
+        Must be specified if `a` is a pandas DataFrame object.
+        Name of the column that contains blocking factor values.
+
+    block_id_col : str or int
+        Must be specified if `a` is a pandas DataFrame object.
+        Name of the column that contains identifiers of blocking factor values.
+
+    control : str, optional
+        Name of the control group within the `group_col` column. Must be
+        specified if `a` is a pandas DataFrame.
+
+    alternative : ['two-sided', 'less', or 'greater'], optional
+        Whether to get the p-value for the one-sided hypothesis
+        ('less' or 'greater') or for the two-sided hypothesis ('two-sided').
+        Defaults to 'two-sided'.
+
+    p_adjust : str, optional
+        Method for adjusting p values across the treatment-vs-control
+        comparisons. See `statsmodels.sandbox.stats.multicomp` for details.
+
+    melted : bool, optional
+        Specifies if data are given as melted columns "y", "blocks", and
+        "groups".
+
+    sort : bool, optional
+        If True, sort data by block and group columns.
+
+    to_matrix : bool, optional
+        Specifies whether to return a DataFrame or a Series. If True, a
+        DataFrame is returned with some NaN values since it's not a pairwise
+        comparison. Default is True.
+
+    Returns
+    -------
+    result : pandas.Series or pandas.DataFrame
+        P values.
+
+    Notes
+    -----
+    P values are computed from the standard normal distribution applied to
+    the difference in mean Friedman-type ranks between each treatment and
+    the control. This is the standard procedure for comparing multiple
+    classifiers/algorithms against a baseline across multiple datasets [1]_.
+
+    References
+    ----------
+    .. [1] J. Demsar (2006), Statistical comparisons of classifiers over
+        multiple data sets, Journal of Machine Learning Research, 7, 1-30.
+
+    Examples
+    --------
+    >>> import scikit_posthocs as sp
+    >>> import numpy as np
+    >>> x = np.array([[31,27,24],[31,28,31],[45,29,46],[21,18,48],[42,36,46],[32,17,40]])
+    >>> sp.posthoc_demsar(x, control=0)
+    """
+    matrix = __complete_block_matrix(a, melted, sort)
+    if matrix is not None:
+        values, groups = matrix
+        control_indices = np.flatnonzero(groups == control)
+        if control_indices.size:
+            n, k = values.shape
+            mean_ranks = ss.rankdata(values, axis=1, method="average").mean(axis=0)
+            treatment_indices = np.flatnonzero(groups != control)
+            treatments = groups[treatment_indices]
+            zvals = (mean_ranks[treatment_indices] - mean_ranks[control_indices[0]]) / np.sqrt(
+                k * (k + 1.0) / (6.0 * n)
+            )
+            if alternative == "two-sided":
+                pvals = 2.0 * ss.norm.sf(np.abs(zvals))
+            elif alternative == "greater":
+                pvals = ss.norm.sf(zvals)
+            else:
+                pvals = ss.norm.cdf(zvals)
+            if p_adjust:
+                pvals = multipletests(pvals, method=p_adjust)[1]
+            demsar_sr = Series(pvals, index=MultiIndex.from_product([[control], treatments]))
+            if not to_matrix:
+                return demsar_sr
+            result_df = DataFrame(index=groups, columns=groups, dtype=float)
+            result_df.loc[control, treatments] = pvals
+            result_df.loc[treatments, control] = pvals
+            np.fill_diagonal(result_df.values, 1.0)
+            return result_df
+
+    x, _y_col, _group_col, _block_col, _block_id_col = __convert_to_block_df(
+        a, y_col, group_col, block_col, block_id_col, melted
+    )
+    x = x.sort_values(by=[_group_col, _block_col], ascending=True) if sort else x
+    x.dropna(inplace=True)
+
+    groups = x[_group_col].unique()
+    k = groups.size
+    n = x[_block_id_col].unique().size
+
+    x["mat"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
+    R = x.groupby(_group_col, observed=True)["mat"].mean()
+
+    denom = np.sqrt(k * (k + 1.0) / (6.0 * n))
+    treatments = [g for g in groups if g != control]
+    zvals = np.array([(R[t] - R[control]) / denom for t in treatments])
+
+    if alternative == "two-sided":
+        pvals = 2.0 * ss.norm.sf(np.abs(zvals))
+    elif alternative == "greater":
+        pvals = ss.norm.sf(zvals)
+    else:
+        pvals = ss.norm.cdf(zvals)
+
+    if p_adjust:
+        pvals = multipletests(pvals, method=p_adjust)[1]
+
+    multi_index = MultiIndex.from_product([[control], treatments])
+    demsar_sr = Series(pvals, index=multi_index)
+
+    if not to_matrix:
+        return demsar_sr
+
+    else:
+        levels = groups
+        result_df = DataFrame(index=levels, columns=levels, dtype=float)
+
+        for pair in demsar_sr.index:
+            ctl, trt = pair
+            result_df.loc[ctl, trt] = demsar_sr[pair]
+            result_df.loc[trt, ctl] = demsar_sr[pair]
+        for level in levels:
+            result_df.loc[level, level] = 1.0
+        return result_df

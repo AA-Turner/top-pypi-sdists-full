@@ -238,6 +238,52 @@ SNOWFLAKE_GET_STAGES = """
 SHOW STAGES IN SCHEMA "{schema}"
 """
 
+# NOTE: the column names differ (intentionally) between the semantic catalog
+# views. INFORMATION_SCHEMA.SEMANTIC_VIEWS exposes CATALOG / SCHEMA / NAME,
+# whereas the child views (SEMANTIC_TABLES / SEMANTIC_DIMENSIONS / _FACTS /
+# _METRICS) expose SEMANTIC_VIEW_CATALOG / SEMANTIC_VIEW_SCHEMA /
+# SEMANTIC_VIEW_NAME. So `WHERE SCHEMA` here vs `WHERE SEMANTIC_VIEW_SCHEMA`
+# below is correct, not a mismatch.
+SNOWFLAKE_GET_SEMANTIC_VIEWS = """
+SELECT NAME FROM information_schema.semantic_views WHERE SCHEMA = '{schema}'
+"""
+
+# Semantic view objects (dimensions/facts/metrics), read from the matching
+# INFORMATION_SCHEMA.SEMANTIC_* catalog view via `{catalog_view}`.
+#
+# PRIMARY PATH. One round-trip per schema covers every semantic view in it, so the
+# query count scales with schemas rather than views. SEMANTIC_VIEW_NAME leads the
+# projection so rows can be grouped by view; the remaining columns match
+# ..._FOR_VIEW below so downstream row parsing is identical either way.
+SNOWFLAKE_GET_SEMANTIC_OBJECTS_IN_SCHEMA = """
+SELECT SEMANTIC_VIEW_NAME, TABLE_NAME, NAME, DATA_TYPE, EXPRESSION, COMMENT, SYNONYMS
+FROM information_schema.{catalog_view}
+WHERE SEMANTIC_VIEW_SCHEMA = '{schema}'
+"""
+
+# FALLBACK ONLY. Used when the schema-wide query above fails with errno 90030
+# ("information schema query returned too much data"), which is the case a
+# schema-wide fetch cannot serve. One round-trip per view per catalog view.
+SNOWFLAKE_GET_SEMANTIC_OBJECTS_FOR_VIEW = """
+SELECT TABLE_NAME, NAME, DATA_TYPE, EXPRESSION, COMMENT, SYNONYMS
+FROM information_schema.{catalog_view}
+WHERE SEMANTIC_VIEW_SCHEMA = '{schema}' AND SEMANTIC_VIEW_NAME = '{semantic_view}'
+"""
+
+# Database-qualified batch queries used by the lineage workflow to resolve
+# semantic view -> base table (and column) lineage across every schema/view in
+# a database in a single round-trip.
+SNOWFLAKE_GET_SEMANTIC_TABLES_IN_DB = """
+SELECT SEMANTIC_VIEW_SCHEMA, SEMANTIC_VIEW_NAME, NAME,
+       BASE_TABLE_CATALOG, BASE_TABLE_SCHEMA, BASE_TABLE_NAME
+FROM "{database}".information_schema.semantic_tables
+"""
+
+SNOWFLAKE_GET_SEMANTIC_COLUMNS_IN_DB = """
+SELECT SEMANTIC_VIEW_SCHEMA, SEMANTIC_VIEW_NAME, TABLE_NAME, NAME, EXPRESSION
+FROM "{database}".information_schema.{catalog_view}
+"""
+
 SNOWFLAKE_GET_TRANSIENT_NAMES = """
 select TABLE_NAME, NULL from information_schema.tables
 where TABLE_SCHEMA = '{schema}'
@@ -338,19 +384,32 @@ SELECT query_text from {account_usage}.query_history limit 1
 """
 
 SNOWFLAKE_TEST_GET_TABLES = """
-SELECT TABLE_NAME FROM "{database_name}".information_schema.tables LIMIT 1
+SELECT TABLE_NAME FROM "{database_name}".information_schema.tables
+WHERE TABLE_SCHEMA <> 'INFORMATION_SCHEMA' LIMIT 100
 """
 
 SNOWFLAKE_TEST_GET_VIEWS = """
-SELECT TABLE_NAME FROM "{database_name}".information_schema.views LIMIT 1
+SELECT TABLE_NAME FROM "{database_name}".information_schema.views
+WHERE TABLE_SCHEMA <> 'INFORMATION_SCHEMA' LIMIT 100
 """
 
 SNOWFLAKE_TEST_GET_STREAMS = """
 SHOW STREAMS IN DATABASE "{database_name}"
 """
 
+SNOWFLAKE_TEST_GET_SCHEMAS = """
+SHOW SCHEMAS IN DATABASE "{database_name}"
+"""
+
 SNOWFLAKE_GET_DATABASES = "SHOW DATABASES"
 
+# Account-wide schema listing in a single round-trip (one connection, no
+# per-database reconnect). Returns one row per schema with a `database_name`
+# column. NOTE: SHOW is capped at 10k rows and truncates silently (no error is
+# raised), so accounts with more than 10k schemas get an under-counted total and
+# the DatabaseSchema progress bar may exceed 100%. This is a display-only
+# approximation and does not affect what actually gets ingested.
+SNOWFLAKE_GET_SCHEMATA = "SHOW TERSE SCHEMAS IN ACCOUNT"
 
 SNOWFLAKE_GET_SCHEMA_COLUMNS = """
 SELECT /* sqlalchemy:_get_schema_columns */
@@ -419,13 +478,9 @@ WHERE FUNCTION_CATALOG = '{database_name}'
     """
 )
 
-SNOWFLAKE_DESC_STORED_PROCEDURE = (
-    "DESC PROCEDURE {database_name}.{schema_name}.{procedure_name}{procedure_signature}"
-)
+SNOWFLAKE_DESC_STORED_PROCEDURE = "DESC PROCEDURE {database_name}.{schema_name}.{procedure_name}{procedure_signature}"
 
-SNOWFLAKE_DESC_FUNCTION = (
-    "DESC FUNCTION {database_name}.{schema_name}.{procedure_name}{procedure_signature}"
-)
+SNOWFLAKE_DESC_FUNCTION = "DESC FUNCTION {database_name}.{schema_name}.{procedure_name}{procedure_signature}"
 
 SNOWFLAKE_GET_STORED_PROCEDURE_QUERIES = textwrap.dedent(
     """
@@ -502,6 +557,10 @@ SELECT GET_DDL('VIEW','{view_name}') AS \"text\"
 
 SNOWFLAKE_GET_STREAM_DEFINITION = """
 SELECT GET_DDL('STREAM','{stream_name}') AS \"text\"
+"""
+
+SNOWFLAKE_GET_SEMANTIC_VIEW_DEFINITION = """
+SELECT GET_DDL('SEMANTIC_VIEW','{semantic_view_name}') AS \"text\"
 """
 
 SNOWFLAKE_QUERY_LOG_QUERY = """

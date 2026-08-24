@@ -15,21 +15,25 @@ pub(in crate::gateway::admin) mod admin_tests {
     use tokio::sync::{RwLock, broadcast, oneshot, watch};
     use tower::ServiceExt;
 
-    use dcc_mcp_gateway_core::naming::instance_short;
+    use dcc_mcp_gateway_core::capability_naming::instance_short;
 
-    use crate::gateway::admin::router::{build_admin_router, build_v1_debug_router};
+    use crate::gateway::admin::application::router::{build_admin_router, build_v1_debug_router};
     use crate::gateway::admin::state::{AdminAuditRecord, AdminState, AuditLog};
     use crate::gateway::admin::trace::{AgentContextTrust, TokenTelemetry};
     use crate::gateway::router::build_gateway_router_with_admin;
     use crate::gateway::state::GatewayState;
     use dcc_mcp_transport::discovery::file_registry::FileRegistry;
 
-    fn make_gateway_state() -> GatewayState {
+    pub(in crate::gateway::admin) fn make_gateway_state() -> GatewayState {
         let dir = tempfile::tempdir().unwrap();
-        let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+        let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
         let (yield_tx, _) = watch::channel(false);
         let (events_tx, _) = broadcast::channel::<String>(8);
         GatewayState {
+            ingress: std::sync::Arc::new(
+                crate::gateway::http_limits::GatewayIngressState::from_env(),
+            ),
+            resilience: std::sync::Arc::new(Default::default()),
             registry,
             http_instance_registry: Arc::new(parking_lot::RwLock::new(
                 crate::gateway::http_registration::HttpInstanceRegistry::default(),
@@ -339,8 +343,8 @@ filters:
         (port, tx)
     }
 
-    async fn spawn_sidecar_dispatch_backend() -> (u16, oneshot::Sender<()>, Arc<Mutex<Vec<Value>>>)
-    {
+    pub(in crate::gateway::admin) async fn spawn_sidecar_dispatch_backend()
+    -> (u16, oneshot::Sender<()>, Arc<Mutex<Vec<Value>>>) {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let calls_for_route = calls.clone();
         let app = Router::new()
@@ -359,67 +363,6 @@ filters:
                                 "content": [{
                                     "type": "text",
                                     "text": "{\"success\":true,\"created\":\"random_sphere_1\"}"
-                                }],
-                                "isError": false
-                            }
-                        }))
-                    }
-                }),
-            );
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let (tx, rx) = oneshot::channel::<()>();
-        tokio::spawn(async move {
-            let _ = axum::serve(listener, app)
-                .with_graceful_shutdown(async {
-                    let _ = rx.await;
-                })
-                .await;
-        });
-        (port, tx, calls)
-    }
-
-    async fn spawn_discovery_dispatch_backend(
-        hits: Value,
-    ) -> (u16, oneshot::Sender<()>, Arc<Mutex<Vec<Value>>>) {
-        let calls = Arc::new(Mutex::new(Vec::new()));
-        let calls_for_rest = calls.clone();
-        let calls_for_route = calls.clone();
-        let app = Router::new()
-            .route(
-                "/v1/search",
-                axum::routing::post(move || {
-                    let hits = hits.clone();
-                    async move { axum::Json(json!({ "hits": hits })) }
-                }),
-            )
-            .route(
-                "/v1/call",
-                axum::routing::post(move |axum::Json(req): axum::Json<Value>| {
-                    let calls = calls_for_rest.clone();
-                    async move {
-                        calls.lock().push(req);
-                        axum::Json(json!({
-                            "isError": false,
-                            "output": {"success": true, "snapshot_id": "snapshot-1"}
-                        }))
-                    }
-                }),
-            )
-            .route(
-                "/mcp",
-                axum::routing::post(move |axum::Json(req): axum::Json<Value>| {
-                    let calls = calls_for_route.clone();
-                    async move {
-                        calls.lock().push(req.clone());
-                        let id = req.get("id").cloned().unwrap_or(json!("test"));
-                        axum::Json(json!({
-                            "jsonrpc": "2.0",
-                            "id": id,
-                            "result": {
-                                "content": [{
-                                    "type": "text",
-                                    "text": "{\"success\":true,\"snapshot_id\":\"snapshot-1\"}"
                                 }],
                                 "isError": false
                             }
@@ -565,7 +508,7 @@ filters:
         let entry = make_service_entry("maya", "127.0.0.1", port, None);
         let instance_id = entry.instance_id;
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
         assert!(
@@ -612,7 +555,7 @@ filters:
             format!("http://127.0.0.1:{discovery_port}/mcp"),
         );
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
         let router = build_admin_router(AdminState::new(gs));
@@ -655,7 +598,7 @@ filters:
         );
         let instance_id = entry.instance_id;
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
 
@@ -731,7 +674,7 @@ filters:
         );
         let instance_id = entry.instance_id;
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
 
@@ -807,7 +750,7 @@ filters:
         assert_eq!(sidecar_calls.lock().len(), 1);
 
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             let key = dcc_mcp_transport::discovery::types::ServiceKey {
                 dcc_type: "maya".to_string(),
                 instance_id,
@@ -861,7 +804,7 @@ filters:
         let instance_id = entry.instance_id;
         let key = entry.key();
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
 
@@ -882,7 +825,7 @@ filters:
         assert_eq!(error["reason"], "lease_owner_mismatch");
         assert!(error.get("active_lease_owner").is_none());
         {
-            let registry = gs.registry.read().await;
+            let registry = &gs.registry;
             assert_eq!(
                 registry.get(&key).unwrap().lease_owner.as_deref(),
                 Some("workflow-a")
@@ -898,7 +841,7 @@ filters:
         let result: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(result["success"], true);
         {
-            let registry = gs.registry.read().await;
+            let registry = &gs.registry;
             assert!(registry.get(&key).unwrap().lease_owner.is_none());
         }
 
@@ -910,7 +853,7 @@ filters:
         assert_eq!(error["reason"], "no_active_lease");
 
         {
-            let registry = gs.registry.read().await;
+            let registry = &gs.registry;
             let mut expired = registry.get(&key).unwrap();
             expired.acquire_lease(
                 "expired-workflow",
@@ -925,67 +868,6 @@ filters:
                 .expect_err("an expired lease should behave as unleased");
         let error: Value = serde_json::from_str(&error).unwrap();
         assert_eq!(error["reason"], "no_active_lease");
-    }
-
-    #[tokio::test]
-    async fn test_gateway_call_routes_ui_control_to_sidecar_discovery_endpoint() {
-        let gs = make_gateway_state();
-        let (discovery_port, stop_discovery, discovery_calls) =
-            spawn_discovery_dispatch_backend(json!([{
-                "skill": "core",
-                "action": "ui_control__snapshot",
-                "summary": "Capture a bounded UI Control snapshot",
-                "loaded": true,
-                "has_schema": true
-            }]))
-            .await;
-        let (sidecar_port, stop_sidecar, sidecar_calls) = spawn_sidecar_dispatch_backend().await;
-        let mut entry = make_service_entry("3dsmax", "127.0.0.1", sidecar_port, None);
-        entry.metadata.insert(
-            crate::gateway::http_registration::MCP_URL_METADATA_KEY.to_string(),
-            format!("http://127.0.0.1:{sidecar_port}/mcp"),
-        );
-        entry.metadata.insert(
-            crate::gateway::http_registration::DISCOVERY_MCP_URL_METADATA_KEY.to_string(),
-            format!("http://127.0.0.1:{discovery_port}/mcp"),
-        );
-        entry.metadata.insert(
-            crate::gateway::http_registration::ROLE_METADATA_KEY.to_string(),
-            crate::gateway::http_registration::ROLE_PER_DCC_SIDECAR.to_string(),
-        );
-        let instance_id = entry.instance_id;
-        {
-            let registry = gs.registry.write().await;
-            registry.register(entry).unwrap();
-        }
-
-        crate::gateway::capability_service::refresh_all_live_backends(
-            &gs,
-            crate::gateway::capability::RefreshReason::Periodic,
-        )
-        .await;
-        let slug =
-            crate::gateway::capability::tool_slug("3dsmax", &instance_id, "ui_control__snapshot");
-
-        let result = crate::gateway::capability_service::call_service(
-            &gs,
-            &slug,
-            json!({}),
-            None,
-            None,
-            None,
-        )
-        .await
-        .expect("ui-control calls should use the in-process discovery endpoint");
-        let _ = stop_discovery.send(());
-        let _ = stop_sidecar.send(());
-
-        assert_eq!(result["isError"], false);
-        assert_eq!(discovery_calls.lock().len(), 1);
-        assert!(
-            sidecar_calls.lock().is_empty(),
-            "ui-control calls must not be sent to the sidecar action dispatcher"
-        );
     }
 
     #[tokio::test]
@@ -1032,7 +914,7 @@ filters:
         let entry = make_service_entry("maya", "127.0.0.1", port, None);
         let instance_id = entry.instance_id;
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
         let modeling_slug = make_tool_slug("maya", &instance_id, "maya-modeling__create_sphere");
@@ -1136,7 +1018,7 @@ filters:
         let entry = make_service_entry("maya", "127.0.0.1", port, None);
         let instance_id = entry.instance_id;
         {
-            let registry = gs.registry.write().await;
+            let registry = &gs.registry;
             registry.register(entry).unwrap();
         }
         let router = build_admin_router(AdminState::new(gs));
@@ -1754,8 +1636,7 @@ filters:
     }
 
     // ── /api/workers (Phase 4) ────────────────────────────────────────────
-
-    fn make_service_entry(
+    pub(in crate::gateway::admin) fn make_service_entry(
         dcc_type: &str,
         host: &str,
         port: u16,
@@ -1765,6 +1646,7 @@ filters:
         use std::time::SystemTime;
         let now = SystemTime::now();
         ServiceEntry {
+            schema_version: dcc_mcp_transport::SERVICE_ENTRY_SCHEMA_VERSION,
             dcc_type: dcc_type.into(),
             instance_id: uuid::Uuid::new_v4(),
             host: host.into(),
@@ -1808,7 +1690,7 @@ filters:
 
         let gs = make_gateway_state();
         {
-            let reg = gs.registry.write().await;
+            let reg = &gs.registry;
             reg.register(make_service_entry("maya", "127.0.0.1", 18813, Some(4242)))
                 .unwrap();
 
@@ -1840,7 +1722,7 @@ filters:
 
         let gs = make_gateway_state();
         {
-            let reg = gs.registry.write().await;
+            let reg = &gs.registry;
             reg.register(make_service_entry("maya", "127.0.0.1", 18813, Some(4242)))
                 .unwrap();
 
@@ -1865,7 +1747,7 @@ filters:
         let gs = make_gateway_state();
         // Inject one ServiceEntry into the registry.
         {
-            let reg = gs.registry.write().await;
+            let reg = &gs.registry;
             let mut entry = make_service_entry("maya", "127.0.0.1", 18813, Some(4242));
             entry
                 .metadata
@@ -1928,7 +1810,7 @@ filters:
 
         let gs = make_gateway_state();
         {
-            let reg = gs.registry.write().await;
+            let reg = &gs.registry;
             let mut booting = make_service_entry("3dsmax", "127.0.0.1", 0, Some(4244));
             booting.status = ServiceStatus::Booting;
             booting
@@ -1968,7 +1850,7 @@ filters:
     async fn test_admin_workers_hides_stale_registry_rows() {
         let gs = make_gateway_state();
         {
-            let reg = gs.registry.write().await;
+            let reg = &gs.registry;
             reg.register(make_service_entry("maya", "127.0.0.1", 18813, Some(4242)))
                 .unwrap();
 

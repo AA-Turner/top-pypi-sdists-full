@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nettigo_air_monitor
-Version: 5.0.0
+Version: 5.1.0
 Summary: Python wrapper for getting air quality data from Nettigo Air Monitor devices.
 Author: Maciej Bieniek
 License-Expression: Apache-2.0
@@ -9,32 +9,21 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Requires-Python: >=3.12
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp>=3.9.4
-Requires-Dist: aqipy-atmotech
+Requires-Dist: aiohttp>=3.14.1
+Requires-Dist: aqipy-atmotech==0.1.5
 Requires-Dist: dacite>=1.7.0
 Requires-Dist: tenacity
-Provides-Extra: test
-Requires-Dist: aioresponses==0.7.8; extra == "test"
-Requires-Dist: coverage==7.9.1; extra == "test"
-Requires-Dist: mypy==1.16.1; extra == "test"
-Requires-Dist: pytest-asyncio==1.0.0; extra == "test"
-Requires-Dist: pytest-cov>=2.12.1; extra == "test"
-Requires-Dist: pytest-error-for-skips==2.0.2; extra == "test"
-Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: ruff==0.12.1; extra == "test"
-Requires-Dist: syrupy==4.9.1; extra == "test"
-Provides-Extra: dev
-Requires-Dist: pre-commit==4.2.0; extra == "dev"
 Dynamic: license-file
 
+[![CI](https://img.shields.io/github/actions/workflow/status/bieniu/nettigo-air-monitor/ci.yml?branch=master&label=CI&logo=github&style=popout)](https://github.com/bieniu/imgw-pib/actions/workflows/ci.yml?query=branch%3Amaster)
+[![codecov](https://codecov.io/gh/bieniu/nettigo-air-monitor/graph/badge.svg?token=1ERNC3KBP7)](https://codecov.io/gh/bieniu/nettigo-air-monitor)
 [![GitHub Release][releases-shield]][releases]
 [![PyPI][pypi-releases-shield]][pypi-releases]
 [![PyPI - Downloads][pypi-downloads]][pypi-statistics]
@@ -53,6 +42,7 @@ Python wrapper for getting air quality data from Nettigo Air Monitor devices.
 
 ```python
 """An example of using Nettigo Air Monitor package."""
+
 import asyncio
 import logging
 
@@ -103,7 +93,18 @@ async def main() -> None:
 loop = asyncio.new_event_loop()
 loop.run_until_complete(main())
 loop.close()
+```
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## How to create a dev environment
+
+```bash
+git clone https://github.com/bieniu/nettigo-air-monitor.git
+cd nettigo-air-monitor
+./scripts/setup-local-env.sh
 ```
 
 [releases]: https://github.com/bieniu/nettigo-air-monitor/releases

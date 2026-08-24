@@ -43,10 +43,11 @@ class AbsEmbedderRunner(ABC):
             os.path.exists(training_args.output_dir)
             and os.listdir(training_args.output_dir)
             and training_args.do_train
-            and not training_args.overwrite_output_dir
+            and training_args.resume_from_checkpoint is None
         ):
             raise ValueError(
-                f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+                "Please use a new output directory or set --resume_from_checkpoint."
             )
 
         # Setup logging

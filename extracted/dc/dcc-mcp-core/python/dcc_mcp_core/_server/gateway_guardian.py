@@ -20,18 +20,32 @@ from urllib.request import Request
 from urllib.request import urlopen
 import uuid
 
+from dcc_mcp_core._version_util import parse_semver as _parse_semver
+from dcc_mcp_core.constants import ENV_CORE_VERSION
+from dcc_mcp_core.constants import ENV_DCC_TYPE
+from dcc_mcp_core.constants import ENV_GATEWAY_ENSURE_TIMEOUT_SECS
+from dcc_mcp_core.constants import ENV_GATEWAY_GUARDIAN_FAILURES
+from dcc_mcp_core.constants import ENV_GATEWAY_GUARDIAN_INTERVAL
+from dcc_mcp_core.constants import ENV_GATEWAY_GUARDIAN_REENSURE_JITTER_MAX
+from dcc_mcp_core.constants import ENV_GATEWAY_GUARDIAN_RESTART_TIMEOUT
+from dcc_mcp_core.constants import ENV_GATEWAY_GUARDIAN_TIMEOUT
+from dcc_mcp_core.constants import ENV_GATEWAY_IDLE_TIMEOUT_SECS
+from dcc_mcp_core.constants import ENV_GATEWAY_LAUNCH_LOCK_STALE_SECS
+from dcc_mcp_core.constants import ENV_GATEWAY_PERSIST
+from dcc_mcp_core.constants import ENV_GATEWAY_PORT
+from dcc_mcp_core.constants import ENV_REGISTRY_DIR
+from dcc_mcp_core.constants import ENV_SERVER_BIN
 from dcc_mcp_core.daemon_launch import launch_detached
+from dcc_mcp_core.env import env_float
+from dcc_mcp_core.env import env_int
 from dcc_mcp_core.install_lifecycle import default_registry_dir
 
 logger = logging.getLogger(__name__)
 
 _LAUNCH_LOCK = "gateway-launch.lock"
-_LAUNCH_LOCK_STALE_SECS_ENV = "DCC_MCP_GATEWAY_LAUNCH_LOCK_STALE_SECS"
 _LAUNCH_LOCK_STALE_SECS_DEFAULT = 30.0
-_ENSURE_TIMEOUT_ENV = "DCC_MCP_GATEWAY_ENSURE_TIMEOUT_SECS"
 _ENSURE_TIMEOUT_DEFAULT = 15.0
 _AUTO_ENSURE_GATEWAY_IDLE_TIMEOUT_DEFAULT = 300
-_REENSURE_JITTER_ENV = "DCC_MCP_GATEWAY_GUARDIAN_REENSURE_JITTER_MAX"
 _REENSURE_JITTER_DEFAULT = 2.0
 
 
@@ -112,7 +126,7 @@ def _request_gateway_yield(
 
 
 def _resolve_server_bin() -> str:
-    explicit = (os.environ.get("DCC_MCP_SERVER_BIN") or "").strip()
+    explicit = (os.environ.get(ENV_SERVER_BIN) or "").strip()
     if explicit:
         return explicit
     try:
@@ -175,7 +189,7 @@ class _LaunchLock:
 
 
 def _launch_lock_stale_secs() -> float:
-    return _float_env(_LAUNCH_LOCK_STALE_SECS_ENV, _LAUNCH_LOCK_STALE_SECS_DEFAULT)
+    return env_float(ENV_GATEWAY_LAUNCH_LOCK_STALE_SECS, _LAUNCH_LOCK_STALE_SECS_DEFAULT, minimum=0.1)
 
 
 def _remove_stale_launch_lock(path: Path, stale_after_secs: float) -> bool:
@@ -257,7 +271,7 @@ def _wait_managed_gateway_ready(
 def _resolve_gateway_persist(gateway_persist: bool | None) -> bool:
     if gateway_persist is not None:
         return bool(gateway_persist)
-    return (os.environ.get("DCC_MCP_GATEWAY_PERSIST") or "").strip().lower() in {
+    return (os.environ.get(ENV_GATEWAY_PERSIST) or "").strip().lower() in {
         "1",
         "true",
         "yes",
@@ -268,7 +282,7 @@ def _resolve_gateway_persist(gateway_persist: bool | None) -> bool:
 def _resolve_gateway_idle_timeout_secs(gateway_idle_timeout_secs: int | None) -> int | None:
     if gateway_idle_timeout_secs is not None:
         return max(int(gateway_idle_timeout_secs), 0)
-    raw = (os.environ.get("DCC_MCP_GATEWAY_IDLE_TIMEOUT_SECS") or "").strip()
+    raw = (os.environ.get(ENV_GATEWAY_IDLE_TIMEOUT_SECS) or "").strip()
     if not raw:
         return _AUTO_ENSURE_GATEWAY_IDLE_TIMEOUT_DEFAULT
     try:
@@ -305,16 +319,16 @@ def build_gateway_daemon_command(
         cmd.extend(["--gateway-idle-timeout-secs", str(idle_timeout)])
 
     env = os.environ.copy()
-    if not env.get("DCC_MCP_GATEWAY_PORT"):
-        env["DCC_MCP_GATEWAY_PORT"] = str(gateway_port)
+    if not env.get(ENV_GATEWAY_PORT):
+        env[ENV_GATEWAY_PORT] = str(gateway_port)
     registry_path = _resolve_registry_dir(registry_dir)
-    env["DCC_MCP_REGISTRY_DIR"] = str(registry_path)
-    if dcc_type and not env.get("DCC_MCP_DCC_TYPE"):
-        env["DCC_MCP_DCC_TYPE"] = dcc_type
+    env[ENV_REGISTRY_DIR] = str(registry_path)
+    if dcc_type and not env.get(ENV_DCC_TYPE):
+        env[ENV_DCC_TYPE] = dcc_type
     if persist:
-        env["DCC_MCP_GATEWAY_PERSIST"] = "1"
+        env[ENV_GATEWAY_PERSIST] = "1"
     if idle_timeout is not None:
-        env["DCC_MCP_GATEWAY_IDLE_TIMEOUT_SECS"] = str(idle_timeout)
+        env[ENV_GATEWAY_IDLE_TIMEOUT_SECS] = str(idle_timeout)
     return cmd, env
 
 
@@ -457,7 +471,7 @@ def _resolve_ensure_timeout(timeout_secs: float | None) -> float:
     """Resolve the ensure timeout: explicit arg > env var > default (15s)."""
     if timeout_secs is not None:
         return max(float(timeout_secs), 0.1)
-    return _float_env(_ENSURE_TIMEOUT_ENV, _ENSURE_TIMEOUT_DEFAULT)
+    return env_float(ENV_GATEWAY_ENSURE_TIMEOUT_SECS, _ENSURE_TIMEOUT_DEFAULT, minimum=0.1)
 
 
 def ensure_gateway_daemon(
@@ -577,27 +591,34 @@ class GatewayDaemonGuardian:
         self.gateway_port = gateway_port
         self.registry_dir = registry_dir
         self.dcc_type = dcc_type
-        self.probe_interval_secs = probe_interval_secs or _float_env(
-            "DCC_MCP_GATEWAY_GUARDIAN_INTERVAL",
+        self.probe_interval_secs = probe_interval_secs or env_float(
+            ENV_GATEWAY_GUARDIAN_INTERVAL,
             5.0,
+            minimum=0.1,
         )
-        self.probe_timeout_secs = probe_timeout_secs or _float_env(
-            "DCC_MCP_GATEWAY_GUARDIAN_TIMEOUT",
+        self.probe_timeout_secs = probe_timeout_secs or env_float(
+            ENV_GATEWAY_GUARDIAN_TIMEOUT,
             0.5,
+            minimum=0.1,
         )
-        self.restart_timeout_secs = restart_timeout_secs or _float_env(
-            "DCC_MCP_GATEWAY_GUARDIAN_RESTART_TIMEOUT",
-            _float_env(_ENSURE_TIMEOUT_ENV, _ENSURE_TIMEOUT_DEFAULT),
+        self.restart_timeout_secs = restart_timeout_secs or env_float(
+            ENV_GATEWAY_GUARDIAN_RESTART_TIMEOUT,
+            env_float(ENV_GATEWAY_ENSURE_TIMEOUT_SECS, _ENSURE_TIMEOUT_DEFAULT, minimum=0.1),
+            minimum=0.1,
         )
         self.reensure_jitter_max_secs = max(
             0.0,
             reensure_jitter_max_secs
             if reensure_jitter_max_secs is not None
-            else _float_env(_REENSURE_JITTER_ENV, _REENSURE_JITTER_DEFAULT),
+            else env_float(
+                ENV_GATEWAY_GUARDIAN_REENSURE_JITTER_MAX,
+                _REENSURE_JITTER_DEFAULT,
+                minimum=0.1,
+            ),
         )
         self.failure_threshold = max(
             1,
-            failure_threshold or _int_env("DCC_MCP_GATEWAY_GUARDIAN_FAILURES", 2),
+            failure_threshold or env_int(ENV_GATEWAY_GUARDIAN_FAILURES, 2),
         )
         self.status_callback = status_callback
         self._stop = threading.Event()
@@ -740,32 +761,11 @@ class GatewayDaemonGuardian:
         return payload
 
 
-# ── Semver helpers (aligned with Rust crates/dcc-mcp-gateway/src/gateway/version.rs) ──
-
-
-def _parse_semver(v: str) -> tuple[int, int, int]:
-    """Parse a semver string like ``"0.18.15"`` or ``"v1.2.3-rc1"`` into a triple.
-
-    Handles leading ``v`` prefixes and pre-release suffixes.
-    Missing components default to 0.
-    """
-    stripped = v.strip().lstrip("vV")
-    parts: list[int] = []
-    for segment in stripped.split("."):
-        # Strip pre-release suffix (everything after first '-')
-        numeric = segment.split("-")[0]
-        try:
-            parts.append(int(numeric))
-        except (ValueError, TypeError):
-            parts.append(0)
-    while len(parts) < 3:
-        parts.append(0)
-    return (parts[0], parts[1], parts[2])
-
-
 def _is_newer_version(candidate: str, current: str) -> bool:
     """Return True when *candidate* is strictly newer than *current*."""
-    return _parse_semver(candidate) > _parse_semver(current)
+    candidate_semver = _parse_semver(candidate)
+    current_semver = _parse_semver(current)
+    return candidate_semver is not None and current_semver is not None and candidate_semver > current_semver
 
 
 def _get_core_version() -> str:
@@ -774,7 +774,7 @@ def _get_core_version() -> str:
     Checks ``DCC_MCP_CORE_VERSION`` env var first, then tries to read from the
     installed ``dcc_mcp_core`` package metadata.
     """
-    env_version = (os.environ.get("DCC_MCP_CORE_VERSION") or "").strip()
+    env_version = (os.environ.get(ENV_CORE_VERSION) or "").strip()
     if env_version:
         return env_version
     try:
@@ -964,17 +964,3 @@ def _read_managed_gateway_version_from_registry(
         if pid > 0 and isinstance(instance_id, str) and instance_id and isinstance(version, str):
             return version
     return None
-
-
-def _float_env(name: str, default: float) -> float:
-    try:
-        return max(float(os.environ.get(name, "") or default), 0.1)
-    except ValueError:
-        return default
-
-
-def _int_env(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, "") or default)
-    except ValueError:
-        return default

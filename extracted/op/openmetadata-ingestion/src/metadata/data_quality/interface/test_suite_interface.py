@@ -15,13 +15,13 @@ supporting sqlalchemy abstraction layer
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Set, Type
+from typing import Optional, Set, Type, cast  # noqa: UP035
 
 from metadata.data_quality.api.models import TestCaseResultResponse
 from metadata.data_quality.builders.validator_builder import ValidatorBuilder
-from metadata.data_quality.validations.base_test_handler import BaseTestValidator
+from metadata.data_quality.validations.base_test_handler import BaseTestValidator  # noqa: TC001
 from metadata.data_quality.validations.runtime_param_setter.param_setter import (
-    RuntimeParameterSetter,
+    RuntimeParameterSetter,  # noqa: TC001
 )
 from metadata.data_quality.validations.runtime_param_setter.param_setter_factory import (
     RuntimeParameterSetterFactory,
@@ -36,6 +36,7 @@ from metadata.generated.schema.tests.testCase import TestCase
 from metadata.generated.schema.tests.testDefinition import TestDefinition
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.sampler.sampler_interface import SamplerInterface
+from metadata.utils.entity_reference import require_entity_reference_id
 from metadata.utils.logger import test_suite_logger
 
 logger = test_suite_logger()
@@ -83,9 +84,7 @@ class TestSuiteInterface(ABC):
         )
 
     @abstractmethod
-    def _get_validator_builder(
-        self, test_case: TestCase, entity_type: str
-    ) -> ValidatorBuilder:
+    def _get_validator_builder(self, test_case: TestCase, entity_type: str) -> ValidatorBuilder:
         """get the builder class for the validator. Define this in the implementation class
 
         Args:
@@ -103,9 +102,7 @@ class TestSuiteInterface(ABC):
         return cls.runtime_params_setter_fact()
 
     @classmethod
-    def _set_runtime_params_setter_fact(
-        cls, class_fact: Type[RuntimeParameterSetterFactory]
-    ):
+    def _set_runtime_params_setter_fact(cls, class_fact: Type[RuntimeParameterSetterFactory]):  # noqa: UP006
         """Set the runtime parameter setter factory.
         Use this method to set the runtime parameter setter factory and override the default.
 
@@ -117,20 +114,12 @@ class TestSuiteInterface(ABC):
     def _should_collect_failed_rows_sample(self) -> bool:
         """Failed row samples are persisted sample data. Skip collecting them
         when the global profiler configuration disables storing sample data."""
-        return self.sample_data_config is None or bool(
-            self.sample_data_config.storeSampleData
-        )
+        return self.sample_data_config is None or bool(self.sample_data_config.storeSampleData)
 
-    def run_test_case(
-        self, test_case: TestCase
-    ) -> Optional[TestCaseResultResponse]:  # noqa: UP045
+    def run_test_case(self, test_case: TestCase) -> Optional[TestCaseResultResponse]:  # noqa: UP045
         """run column data quality tests"""
-        runtime_params_setter_fact: RuntimeParameterSetterFactory = (
-            self._get_runtime_params_setter_fact()
-        )  # type: ignore
-        runtime_params_setters: Set[
-            RuntimeParameterSetter
-        ] = runtime_params_setter_fact.get_runtime_param_setters(
+        runtime_params_setter_fact: RuntimeParameterSetterFactory = self._get_runtime_params_setter_fact()  # type: ignore
+        runtime_params_setters: Set[RuntimeParameterSetter] = runtime_params_setter_fact.get_runtime_param_setters(  # noqa: UP006
             test_case.testDefinition.fullyQualifiedName,  # type: ignore
             self.ometa_client,
             self.service_connection_config,
@@ -139,18 +128,21 @@ class TestSuiteInterface(ABC):
         )
 
         # get `column` or `table` type for validator import
-        entity_type: str = self.ometa_client.get_by_id(
-            TestDefinition, test_case.testDefinition.id
-        ).entityType.value
+        test_definition_id = require_entity_reference_id(test_case.testDefinition, "Test definition")
+        test_definition = cast(
+            "TestDefinition",
+            self.ometa_client.get_by_id(TestDefinition, test_definition_id, nullable=False),
+        )
+        if test_definition.entityType is None:
+            raise ValueError(f"Test definition {test_definition_id.root} must include entityType")
+        entity_type: str = test_definition.entityType.value
 
         validator_builder = self._get_validator_builder(test_case, entity_type)
         validator_builder.set_runtime_params(runtime_params_setters)
         validator: BaseTestValidator = validator_builder.validator
         try:
             test_result = validator.run_validation()
-            response = TestCaseResultResponse(
-                testCaseResult=test_result, testCase=test_case
-            )
+            response = TestCaseResultResponse(testCaseResult=test_result, testCase=test_case)
             if self._should_collect_failed_rows_sample():
                 validator.result_with_failed_samples(response)
             else:
@@ -161,9 +153,7 @@ class TestSuiteInterface(ABC):
                 )
             return response  # noqa: TRY300
         except Exception as err:
-            message = (
-                f"Error executing {test_case.testDefinition.fullyQualifiedName} - {err}"
-            )
+            message = f"Error executing {test_case.testDefinition.fullyQualifiedName} - {err}"
             logger.exception(message)
             return TestCaseResultResponse(
                 testCase=test_case,

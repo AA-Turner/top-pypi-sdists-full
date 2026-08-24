@@ -18,12 +18,13 @@ use crate::types::{
     InstalledMarketplacePackage, MarketplaceActivation, MarketplaceHit, MarketplaceInspectResult,
     MarketplaceInstallResult, MarketplaceInstalledList, MarketplaceInstalledState,
     MarketplaceOutdatedList, MarketplaceSearchResult, MarketplaceSource, MarketplaceSourceOrigin,
-    MarketplaceUninstallResult, MarketplaceUpdateResult, OutdatedMarketplacePackage,
-    RepoInstallResult, RepoSkillList, StoredMarketplaceSource, entry_targets, entry_targets_dcc,
+    MarketplaceUninstallResult, MarketplaceUpdateResult, OFFICIAL_MARKETPLACE_ATTESTATION,
+    OFFICIAL_MARKETPLACE_SOURCE, OutdatedMarketplacePackage, RepoInstallResult, RepoSkillList,
+    StoredMarketplaceSource, entry_targets, entry_targets_dcc,
 };
 
 #[path = "service_internals.rs"]
-mod service_internals;
+pub(crate) mod service_internals;
 use service_internals::*;
 pub(crate) use service_internals::{
     copy_dir_recursive, promote_single_nested_skill_directory, remove_path, write_atomic,
@@ -280,6 +281,7 @@ impl MarketplaceService {
             .install
             .clone()
             .ok_or_else(|| MarketplaceError::MissingInstall(hit.entry.name.clone()))?;
+        validate_install_integrity(&install)?;
         let package_name = path_component("package name", &hit.entry.name)?;
         let dcc_root = self.dcc_dir(&dcc);
         let dest = dcc_root.join(&package_name);
@@ -425,6 +427,7 @@ impl MarketplaceService {
             .install
             .clone()
             .ok_or_else(|| MarketplaceError::MissingInstall(hit.entry.name.clone()))?;
+        validate_install_integrity(&install)?;
         let package = hit.entry.package.as_ref().ok_or_else(|| {
             MarketplaceError::CommandFailed(
                 "generic target package requires package metadata".into(),
@@ -852,7 +855,7 @@ impl MarketplaceService {
         crate::add_repo::list_repo_skills(repo_ref)
     }
 
-    /// Install a Skill or Agent Plugin directly from GitHub (no catalog needed).
+    /// Legacy direct-install entry point retained to fail closed without a commit.
     pub fn add_repo(
         &self,
         repo_ref: &str,
@@ -860,6 +863,17 @@ impl MarketplaceService {
         force: bool,
     ) -> Result<RepoInstallResult, MarketplaceError> {
         crate::add_repo::install_from_repo(repo_ref, dcc, force, &self.root)
+    }
+
+    /// Install a Skill or Agent Plugin from an immutable repository commit.
+    pub fn add_repo_at_commit(
+        &self,
+        repo_ref: &str,
+        commit: &str,
+        dcc: Option<&str>,
+        force: bool,
+    ) -> Result<RepoInstallResult, MarketplaceError> {
+        crate::add_repo::install_from_repo_at_commit(repo_ref, commit, dcc, force, &self.root)
     }
 
     // ── internal helpers ─────────────────────────────────────────────────────
@@ -873,7 +887,8 @@ impl MarketplaceService {
         source: &MarketplaceSource,
     ) -> Result<Vec<CatalogEntry>, MarketplaceError> {
         let text = if source.url.starts_with("http://") || source.url.starts_with("https://") {
-            self.client
+            let bytes = self
+                .client
                 .get(&source.url)
                 .header("User-Agent", "dcc-mcp marketplace")
                 .send()
@@ -881,9 +896,37 @@ impl MarketplaceService {
                 .map_err(|err| MarketplaceError::Fetch(source.url.clone(), err))?
                 .error_for_status()
                 .map_err(|err| MarketplaceError::Fetch(source.url.clone(), err))?
-                .text()
+                .bytes()
                 .await
-                .map_err(|err| MarketplaceError::Fetch(source.url.clone(), err))?
+                .map_err(|err| MarketplaceError::Fetch(source.url.clone(), err))?;
+            if source.url == OFFICIAL_MARKETPLACE_SOURCE {
+                let bundle = self
+                    .client
+                    .get(OFFICIAL_MARKETPLACE_ATTESTATION)
+                    .header("User-Agent", "dcc-mcp marketplace")
+                    .send()
+                    .await
+                    .map_err(|err| {
+                        MarketplaceError::Fetch(OFFICIAL_MARKETPLACE_ATTESTATION.into(), err)
+                    })?
+                    .error_for_status()
+                    .map_err(|err| {
+                        MarketplaceError::Fetch(OFFICIAL_MARKETPLACE_ATTESTATION.into(), err)
+                    })?
+                    .text()
+                    .await
+                    .map_err(|err| {
+                        MarketplaceError::Fetch(OFFICIAL_MARKETPLACE_ATTESTATION.into(), err)
+                    })?;
+                dcc_mcp_attestation::verify_attested_bytes(
+                    &bytes,
+                    &bundle,
+                    &dcc_mcp_attestation::GitHubAttestationPolicy::official_marketplace(),
+                )?;
+            }
+            String::from_utf8(bytes.to_vec()).map_err(|error| {
+                dcc_mcp_catalog::CatalogError::Parse(format!("catalog is not valid UTF-8: {error}"))
+            })?
         } else {
             let path = source
                 .url
@@ -992,8 +1035,9 @@ impl MarketplaceService {
         install: &CatalogInstall,
         dest: &Path,
     ) -> Result<(), MarketplaceError> {
+        let expected_sha256 = required_archive_sha256(install)?;
         let (url, bytes) = self.load_archive(install).await?;
-        verify_archive_sha256(&bytes, install.sha256.as_deref(), &url)?;
+        verify_archive_sha256(&bytes, &expected_sha256, &url)?;
         extract_zip_archive(&bytes, dest)?;
         flatten_single_skill_directory(dest)?;
         Ok(())
@@ -1004,21 +1048,6 @@ impl MarketplaceService {
         install: &CatalogInstall,
         dest: &Path,
     ) -> Result<(), MarketplaceError> {
-        if let Some(url) = github_archive_url(install) {
-            let archive_install = CatalogInstall {
-                install_type: "zip".into(),
-                url: Some(url),
-                ref_: None,
-                sha256: None,
-                skill_roots: None,
-                pip_package: None,
-                pip_extras: None,
-                python_path: None,
-                entry_point: None,
-                instructions_url: None,
-            };
-            return self.install_from_zip(&archive_install, dest).await;
-        }
         install_from_git_command(install, dest)
     }
 
@@ -1080,7 +1109,7 @@ impl MarketplaceService {
     async fn update_git_package(
         &self,
         pkg: &OutdatedMarketplacePackage,
-        dest: &Path,
+        _dest: &Path,
     ) -> Result<MarketplaceUpdateResult, MarketplaceError> {
         let latest_entry = self
             .find_latest_entry_for_package(
@@ -1110,57 +1139,25 @@ impl MarketplaceService {
             ensure_entry_installable(entry)?;
         }
 
-        let git_dir = dest.join(".git");
-        let install_url_changed = pkg.install_url.as_deref().is_some_and(|url| {
-            git_remote_url(dest)
-                .ok()
-                .is_some_and(|remote_url| remote_url.trim() != url)
-        });
-
-        if git_dir.is_dir() && !install_url_changed {
-            if let Some(ref_) = pkg.install_ref.as_deref() {
-                git_fetch_and_checkout(dest, ref_)?;
-            } else {
-                git_pull(dest)?;
-            }
-        } else {
-            let result = self
-                .install(
-                    pkg.name.clone(),
-                    Some(pkg.dcc.clone()),
-                    vec![pkg.source_url.clone()],
-                    true,
-                    false,
-                )
-                .await?;
-            return Ok(MarketplaceUpdateResult {
-                updated: true,
-                name: pkg.name.clone(),
-                dcc: pkg.dcc.clone(),
-                previous_version: pkg.installed_version.clone(),
-                new_version: result.version,
-                previous_commit: pkg.installed_commit.clone(),
-                new_commit: result.resolved_commit,
-                path: result.path,
-                install_type: result.install_type,
-                source_name: pkg.source_name.clone(),
-                source_url: pkg.source_url.clone(),
-                reload_required: true,
-            });
-        }
-
-        let new_version = latest_entry.and_then(|entry| entry.version);
-
+        let result = self
+            .install(
+                pkg.name.clone(),
+                Some(pkg.dcc.clone()),
+                vec![pkg.source_url.clone()],
+                true,
+                false,
+            )
+            .await?;
         Ok(MarketplaceUpdateResult {
             updated: true,
             name: pkg.name.clone(),
             dcc: pkg.dcc.clone(),
             previous_version: pkg.installed_version.clone(),
-            new_version,
+            new_version: result.version,
             previous_commit: pkg.installed_commit.clone(),
-            new_commit: pkg.latest_commit.clone().or_else(|| git_head_commit(dest)),
-            path: dest.display().to_string(),
-            install_type: pkg.install_type.clone(),
+            new_commit: result.resolved_commit,
+            path: result.path,
+            install_type: result.install_type,
             source_name: pkg.source_name.clone(),
             source_url: pkg.source_url.clone(),
             reload_required: true,
@@ -1361,45 +1358,6 @@ mod tests {
         let list = svc.list_installed(None).unwrap();
         assert_eq!(list.count, 1);
         assert_eq!(list.packages[0].name, "test-skill");
-    }
-
-    #[test]
-    fn github_archive_url_converts_https_git_url() {
-        let install = CatalogInstall {
-            install_type: "git".into(),
-            url: Some("https://github.com/dcc-mcp/dcc-mcp-maya-mgear.git".into()),
-            ref_: Some("main".into()),
-            sha256: None,
-            skill_roots: None,
-            pip_package: None,
-            pip_extras: None,
-            python_path: None,
-            entry_point: None,
-            instructions_url: None,
-        };
-
-        assert_eq!(
-            github_archive_url(&install).as_deref(),
-            Some("https://codeload.github.com/dcc-mcp/dcc-mcp-maya-mgear/zip/main")
-        );
-    }
-
-    #[test]
-    fn github_archive_url_leaves_ssh_git_for_git_command() {
-        let install = CatalogInstall {
-            install_type: "git".into(),
-            url: Some("git@github.com:dcc-mcp/private-pack.git".into()),
-            ref_: Some("main".into()),
-            sha256: None,
-            skill_roots: None,
-            pip_package: None,
-            pip_extras: None,
-            python_path: None,
-            entry_point: None,
-            instructions_url: None,
-        };
-
-        assert_eq!(github_archive_url(&install), None);
     }
 
     #[test]

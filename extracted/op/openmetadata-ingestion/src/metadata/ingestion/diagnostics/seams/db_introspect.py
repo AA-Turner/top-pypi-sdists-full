@@ -30,9 +30,7 @@ thread-locals or cursor-id maps.
 
 from typing import Any
 
-from metadata.ingestion.diagnostics.collectors.operation_registry import (
-    OperationRegistry,
-)
+from metadata.ingestion.diagnostics.collectors.operation_registry import OperationRegistry
 
 _TOKEN_ATTR = "_diag_op_token"
 _KWARGS_SQL_MAX_CHARS = 2000
@@ -56,8 +54,8 @@ class DbIntrospector:
         if self._installed:
             return True
         try:
-            from sqlalchemy import event
-            from sqlalchemy.engine import Engine
+            from sqlalchemy import event  # noqa: PLC0415
+            from sqlalchemy.engine import Engine  # noqa: PLC0415
         except ImportError:
             return False
 
@@ -76,7 +74,7 @@ class DbIntrospector:
         if not self._installed:
             return
         try:
-            from sqlalchemy import event
+            from sqlalchemy import event  # noqa: PLC0415
 
             event.remove(self._engine_cls, "before_cursor_execute", self._before)
             event.remove(self._engine_cls, "after_cursor_execute", self._after)
