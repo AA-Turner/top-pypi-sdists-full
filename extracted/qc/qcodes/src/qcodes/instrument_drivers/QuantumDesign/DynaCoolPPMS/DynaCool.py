@@ -1,7 +1,7 @@
 import warnings
 from functools import partial
 from time import sleep
-from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 import numpy as np
 from pyvisa import VisaIOError
@@ -11,12 +11,9 @@ from qcodes.instrument import VisaInstrument, VisaInstrumentKWArgs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.parameters import Parameter
-
-_T = TypeVar("_T")
 
 
 class DynaCool(VisaInstrument):
@@ -84,15 +81,14 @@ class DynaCool(VisaInstrument):
             label="Block instrument while ramping temperature",
             initial_value=False,
             vals=vals.Bool(),
-            get_cmd=False,
-            set_cmd=False,
+            get_cmd=None,
+            set_cmd=None,
         )
         """Parameter block_while_ramping_temperature, when set to True,
         will block further interaction while temperature is ramping to setpoint."""
 
         self.blocking_t_state_check_interval: Parameter = self.add_parameter(
             name="blocking_t_state_check_interval",
-            instrument=self,
             initial_value=0.5,
             unit="s",
             vals=vals.Numbers(0, 60),
@@ -265,7 +261,7 @@ class DynaCool(VisaInstrument):
         self._error_code = 0
 
         # we must know all parameter values because of interlinked parameters
-        self.snapshot(update=True)
+        self.snapshot(update="All")
 
         # it is a safe default to set the target to the current value
         self.field_target(self.field_measured())
@@ -277,7 +273,7 @@ class DynaCool(VisaInstrument):
         return self._error_code
 
     @staticmethod
-    def _pick_one(which_one: int, parser: "Callable[[str], _T]", resp: str) -> _T:
+    def _pick_one[T](which_one: int, parser: "Callable[[str], T]", resp: str) -> T:
         """
         Since most of the API calls return several values in a comma-separated
         string, here's a convenience function to pick out the substring of
@@ -390,7 +386,7 @@ class DynaCool(VisaInstrument):
         The combined set function for the three field parameters,
         field_setpoint, field_rate, and field_approach
         """
-        temporary_values = list(self.parameters[p].raw_value for p in self.field_params)
+        temporary_values = [self.parameters[p].raw_value for p in self.field_params]
         values = cast("list[int | float]", temporary_values)
         values[self.field_params.index(param)] = value
 
@@ -424,7 +420,7 @@ class DynaCool(VisaInstrument):
         The setter function for the temperature parameters. All three are set
         with the same call to the instrument API
         """
-        temp_values = list(self.parameters[par].raw_value for par in self.temp_params)
+        temp_values = [self.parameters[par].raw_value for par in self.temp_params]
         values = cast("list[int | float]", temp_values)
         values[self.temp_params.index(param)] = value
 
@@ -434,7 +430,7 @@ class DynaCool(VisaInstrument):
             while self.temperature_state() != "stable":
                 sleep(self.blocking_t_state_check_interval())
 
-        self.setpoint.cache._set_from_raw_value(values[0])
+        self.temperature_setpoint.cache._set_from_raw_value(values[0])
 
     def write(self, cmd: str) -> None:
         """

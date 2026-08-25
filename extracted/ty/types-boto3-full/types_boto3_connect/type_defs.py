@@ -141,6 +141,7 @@ from .literals import (
     QueueStatusType,
     QueueTypeType,
     QuickConnectTypeType,
+    RealTimeContactAnalysisExtractedInformationFailureCodeType,
     RealTimeContactAnalysisOutputTypeType,
     RealTimeContactAnalysisPostContactSummaryFailureCodeType,
     RealTimeContactAnalysisPostContactSummaryStatusType,
@@ -1210,11 +1211,13 @@ __all__ = (
     "RealTimeContactAnalysisAttachmentTypeDef",
     "RealTimeContactAnalysisCategoryDetailsTypeDef",
     "RealTimeContactAnalysisCharacterIntervalTypeDef",
+    "RealTimeContactAnalysisExtractedInformationValueTypeDef",
     "RealTimeContactAnalysisIssueDetectedTypeDef",
     "RealTimeContactAnalysisPointOfInterestTypeDef",
     "RealTimeContactAnalysisSegmentAttachmentsTypeDef",
     "RealTimeContactAnalysisSegmentCategoriesTypeDef",
     "RealTimeContactAnalysisSegmentEventTypeDef",
+    "RealTimeContactAnalysisSegmentExtractedInformationTypeDef",
     "RealTimeContactAnalysisSegmentIssuesTypeDef",
     "RealTimeContactAnalysisSegmentPostContactSummaryTypeDef",
     "RealTimeContactAnalysisSegmentTranscriptTypeDef",
@@ -9395,6 +9398,11 @@ class RealTimeContactAnalysisSegmentTranscriptTypeDef(TypedDict):
     Sentiment: NotRequired[RealTimeContactAnalysisSentimentLabelType]
 
 
+class RealTimeContactAnalysisExtractedInformationValueTypeDef(TypedDict):
+    Content: str
+    PointsOfInterest: list[RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef]
+
+
 class RealTimeContactAnalysisPointOfInterestTypeDef(TypedDict):
     TranscriptItems: NotRequired[
         list[RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef]
@@ -10249,6 +10257,14 @@ class SearchQuickConnectsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class RealTimeContactAnalysisSegmentExtractedInformationTypeDef(TypedDict):
+    ExtractionDefinitionId: str
+    ExtractionDefinitionName: str
+    ExtractionDefinitionDisplayLabel: NotRequired[str]
+    ExtractedValues: NotRequired[list[RealTimeContactAnalysisExtractedInformationValueTypeDef]]
+    FailureCode: NotRequired[RealTimeContactAnalysisExtractedInformationFailureCodeType]
+
+
 class RealTimeContactAnalysisCategoryDetailsTypeDef(TypedDict):
     PointsOfInterest: list[RealTimeContactAnalysisPointOfInterestTypeDef]
 
@@ -10972,6 +10988,7 @@ class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     Event: NotRequired[RealTimeContactAnalysisSegmentEventTypeDef]
     Attachments: NotRequired[RealTimeContactAnalysisSegmentAttachmentsTypeDef]
     PostContactSummary: NotRequired[RealTimeContactAnalysisSegmentPostContactSummaryTypeDef]
+    ExtractedInformation: NotRequired[RealTimeContactAnalysisSegmentExtractedInformationTypeDef]
 
 
 class ContactSearchSummaryTypeDef(TypedDict):

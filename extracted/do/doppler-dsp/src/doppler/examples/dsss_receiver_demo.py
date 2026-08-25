@@ -28,7 +28,7 @@ import warnings
 # --8<-- [start:signal]
 import numpy as np
 
-from doppler.wfm import Gold
+from doppler.wfm import Composer, Gold, Segment, bpsk_map
 
 SF = 1023  # 2**10 - 1: the CCSDS 415.0-G-1 command-link Gold code period
 CHIP_RATE = 3.0e6  # Hz
@@ -43,29 +43,53 @@ N_SYM = 3500
 PRE_SILENCE = TE * 20 + 737  # deliberately not a whole number of epochs
 
 CODE = Gold().generate(SF)
-_CSIGN = np.where(CODE & 1, -1.0, 1.0)
 
 
 def make_signal(cn0_dbhz: float, seed: int):
-    """Identical construction to Stage 1-3's ``make_signal``."""
-    rng = np.random.default_rng(seed)
-    n = int(N_SYM * TSYM) + 2 * TE
-    idx = np.arange(n)
-    data = (rng.integers(0, 2, N_SYM + 4) * 2 - 1).astype(float)
-    si = np.clip(np.floor(idx / TSYM).astype(int), 0, len(data) - 1)
-    cph = (idx / SPC).astype(int) % SF
-    sig = data[si] * _CSIGN[cph] * np.exp(2j * np.pi * (DOPPLER_HZ / FS) * idx)
+    """The same signal Stage 1-3 used, described rather than assembled.
 
-    amp_snr = np.sqrt(10.0 ** (cn0_dbhz / 10.0) / FS)
-    sigma = 1.0 / amp_snr
-    total_n = int(PRE_SILENCE) + n
-    noise = (sigma / np.sqrt(2.0)) * (
-        rng.standard_normal(total_n) + 1j * rng.standard_normal(total_n)
+    :class:`~doppler.wfm.Synth` in continuous DSSS mode (``symbol_rate > 0``)
+    is the transmitter: the Gold code repeats forever and a known random
+    payload rides on it at ``SYM_RATE``, with non-integer chips/symbol --
+    the asynchronicity this whole chain exists to handle. ``freq`` carries
+    the static Doppler. Noise is added here rather than by the source so the
+    pre-signal silence carries the same floor as the signal itself (the
+    receiver sweeps that silence before the burst arrives).
+
+    Ground truth comes from :func:`~doppler.wfm.bpsk_map`, the same C kernel
+    the source maps bits with, so the returned symbols are what was
+    transmitted -- not a sign convention restated here.
+    """
+    payload = (
+        np.random.default_rng(seed).integers(0, 2, N_SYM + 4).astype(np.uint8)
     )
-    x = np.concatenate([np.zeros(int(PRE_SILENCE)), sig]).astype(
-        np.complex64
-    ) + noise.astype(np.complex64)
-    return x, data
+    capture = Segment(
+        type="dsss",
+        fs=FS,
+        sps=SPC,
+        freq=DOPPLER_HZ,  # the static Doppler offset
+        # C/N0 in dB-Hz is the link's own figure; referred to the full
+        # sample-rate band it is the segment's `snr`. The engine resolves the
+        # AWGN amplitude from there -- an invented sigma convention is the
+        # single most common way a stimulus goes quietly wrong.
+        snr=cn0_dbhz - 10.0 * np.log10(FS),
+        snr_mode="fs",
+        seed=seed,
+        data_code=bytes(CODE.tolist()),
+        symbol_rate=SYM_RATE,  # > 0 selects continuous async DSSS
+        payload=bytes(payload.tolist()),
+        num_samples=int(N_SYM * TSYM) + 2 * TE,
+        # The pre-signal silence is the segment's own LEADING gap, and
+        # `gap_noise="auto"` runs the noise floor through it -- so the
+        # receiver sweeps real noise before the signal starts, with no
+        # second noise realisation to keep consistent by hand.
+        delay_samples=int(PRE_SILENCE),
+        gap_noise="auto",
+    )
+    return (
+        Composer([capture]).compose(),
+        bpsk_map(payload).real.astype(float),
+    )
 
 
 # --8<-- [end:signal]

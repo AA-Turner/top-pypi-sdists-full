@@ -1,6 +1,7 @@
-use crate::auditwheel::{AuditWheelMode, PlatformTag};
+use crate::auditwheel::{AuditWheelMode, CompatibilityTag, PlatformTag};
 use crate::bridge::{
-    StableAbiVersion, find_bridge, has_windows_import_lib_support, upgrade_bridge_stable_abi,
+    CrateDependencies, StableAbiVersion, find_bridge_with_deps, has_windows_import_lib_support,
+    upgrade_bridge_stable_abi,
 };
 use crate::build_options::{BuildOptions, TargetTriple};
 use crate::compile::filter_cargo_targets;
@@ -19,6 +20,7 @@ use anyhow::{Result, bail};
 use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::{debug, instrument};
 
 /// Builder for constructing a [`BuildContext`] from [`BuildOptions`].
@@ -95,14 +97,14 @@ impl BuildContextBuilder {
             cargo_metadata,
             mut pyproject_toml_maturin_options,
         } = ProjectResolver::resolve(
-            build_options.manifest_path.clone(),
+            build_options.cargo.manifest_path.clone(),
             build_options.cargo.clone(),
             editable,
             explicit_pyproject_path,
         )?;
         let pyproject = pyproject_toml.as_ref();
 
-        let bindings = build_options.python.bindings.as_deref().or_else(|| {
+        let bindings = build_options.python.bindings.or_else(|| {
             pyproject.and_then(|x| {
                 if x.bindings().is_some() {
                     pyproject_toml_maturin_options.push("bindings");
@@ -121,7 +123,8 @@ impl BuildContextBuilder {
 
         // Detect bridge without conditional pyo3 features — those are
         // evaluated after interpreter resolution via upgrade_bridge_stable_abi.
-        let bridge = find_bridge(&cargo_metadata, bindings)?;
+        let crate_deps = CrateDependencies::resolve(&cargo_metadata, &cargo_options)?;
+        let bridge = find_bridge_with_deps(&cargo_metadata, bindings, &crate_deps)?;
 
         if !bridge.is_bin() && project_layout.extension_name.contains('-') {
             bail!(
@@ -132,7 +135,7 @@ impl BuildContextBuilder {
         }
 
         let (target, universal2) = resolve_target(
-            build_options.target.clone(),
+            build_options.cargo.target.clone(),
             build_options.python.interpreter.first(),
         )?;
 
@@ -148,17 +151,14 @@ impl BuildContextBuilder {
             &bridge,
             &metadata24,
             &cargo_metadata,
+            &crate_deps,
         )?;
 
         // Select the stable ABI after interpreter resolution. This allows
         // combined abi3/abi3t feature sets to choose the one stable ABI family
         // this build can actually produce.
-        let bridge = upgrade_bridge_stable_abi(
-            bridge,
-            &cargo_metadata,
-            pyproject_for_stable_abi,
-            &interpreter,
-        )?;
+        let bridge =
+            upgrade_bridge_stable_abi(bridge, &crate_deps, pyproject_for_stable_abi, &interpreter)?;
         debug!("Resolved bridge model: {:?}", bridge);
         if let Some(stable_abi) = bridge.pyo3().and_then(|p| p.stable_abi.as_ref()) {
             match stable_abi.version {
@@ -179,15 +179,6 @@ impl BuildContextBuilder {
             eprintln!("🔗 Found {bridge} bindings");
         }
 
-        // Set PYO3_PYTHON for cross-compilation so pyo3's build script
-        // can find the host interpreter.
-        if let Some(ref host_python) = host_python {
-            unsafe {
-                env::set_var("PYO3_PYTHON", host_python);
-                env::set_var("PYTHON_SYS_EXECUTABLE", host_python);
-            }
-        }
-
         if cargo_options.args.is_empty() {
             // if not supplied on command line, try pyproject.toml
             let tool_maturin = pyproject.and_then(|p| p.maturin());
@@ -202,15 +193,10 @@ impl BuildContextBuilder {
 
         let sbom = Self::resolve_sbom_config(&build_options, pyproject);
 
-        // Check if PyPI validation is needed from the original user input,
-        // since resolve_platform_tags filters out PlatformTag::Pypi
-        let pypi_validation = build_options
-            .platform
-            .platform_tag
-            .iter()
-            .any(|platform_tag| platform_tag == &PlatformTag::Pypi);
-
-        let platform_tags = resolve_platform_tags(
+        let ResolvedPlatformTags {
+            platform_tags,
+            pypi_validation,
+        } = resolve_platform_tags(
             build_options.platform.platform_tag,
             &target,
             &bridge,
@@ -241,7 +227,7 @@ impl BuildContextBuilder {
             .unwrap_or_else(|| cargo_metadata.target_directory.clone().into_std_path_buf());
 
         let config_targets = pyproject.and_then(|x| x.targets());
-        let compile_targets = filter_cargo_targets(&cargo_metadata, bridge, config_targets)?;
+        let compile_targets = filter_cargo_targets(&cargo_metadata, &bridge, config_targets)?;
         if compile_targets.is_empty() {
             bail!(
                 "No Cargo targets to build, please check your bindings configuration in pyproject.toml."
@@ -280,6 +266,7 @@ impl BuildContextBuilder {
 
         Ok(BuildContext {
             project: ProjectContext {
+                bridge,
                 target,
                 project_layout,
                 pyproject_toml_path,
@@ -289,7 +276,7 @@ impl BuildContextBuilder {
                 module_name,
                 manifest_path: cargo_toml_path,
                 target_dir,
-                cargo_metadata,
+                cargo_metadata: Arc::new(cargo_metadata),
                 universal2,
                 editable,
                 cargo_options,
@@ -313,6 +300,7 @@ impl BuildContextBuilder {
                 zig: build_options.platform.zig,
                 platform_tag: platform_tags,
                 interpreter,
+                host_python,
                 pypi_validation,
             },
         })
@@ -326,20 +314,25 @@ impl BuildContextBuilder {
         bridge: &BridgeModel,
         metadata24: &Metadata24,
         cargo_metadata: &cargo_metadata::Metadata,
+        crate_deps: &CrateDependencies,
     ) -> Result<(Vec<PythonInterpreter>, Option<PathBuf>)> {
-        let has_import_lib_support = has_windows_import_lib_support(cargo_metadata)?;
+        let has_import_lib_support = has_windows_import_lib_support(cargo_metadata, crate_deps)?;
         if sdist_only && env::var_os("MATURIN_TEST_PYTHON").is_none() {
             return Ok((Vec::new(), None));
         }
 
-        let mut user_interpreters = build_options.python.interpreter.clone();
-        if cfg!(test)
-            && user_interpreters.is_empty()
-            && !build_options.python.find_interpreter
-            && let Some(python) = env::var_os("MATURIN_TEST_PYTHON")
-        {
-            user_interpreters = vec![python.into()];
-        }
+        let user_interpreters = build_options.python.interpreter.clone();
+        #[cfg(test)]
+        let user_interpreters = {
+            let mut user_interpreters = user_interpreters;
+            if user_interpreters.is_empty()
+                && !build_options.python.find_interpreter
+                && let Some(python) = env::var_os("MATURIN_TEST_PYTHON")
+            {
+                user_interpreters = vec![python.into()];
+            }
+            user_interpreters
+        };
 
         let resolver = InterpreterResolver::new(
             target,
@@ -391,18 +384,42 @@ impl BuildContextBuilder {
     fn resolve_sbom_config(
         build_options: &BuildOptions,
         pyproject: Option<&PyProjectToml>,
-    ) -> Option<SbomConfig> {
+    ) -> SbomConfig {
         let mut config = pyproject
             .and_then(|x| x.maturin())
             .and_then(|x| x.sbom.clone())
             .unwrap_or_default();
-        if !build_options.output.sbom_include.is_empty() {
-            let includes = config.include.get_or_insert_with(Vec::new);
-            includes.extend(build_options.output.sbom_include.iter().cloned());
-            includes.dedup();
-        }
-        Some(config)
+        let had_includes = config.include.is_some();
+        let pyproject_includes = config.include.take().unwrap_or_default();
+        let merged =
+            merge_and_dedup_sbom_includes(&pyproject_includes, &build_options.output.sbom_include);
+        config.include = if merged.is_empty() && !had_includes {
+            None
+        } else {
+            Some(merged)
+        };
+        config
     }
+}
+
+/// Merge SBOM include paths from `pyproject.toml` and the CLI, removing
+/// duplicates across the full merged list while preserving first-seen
+/// order (pyproject entries first, then CLI entries).
+///
+/// Equality is based on the configured path spelling as written (i.e.
+/// plain `PathBuf` equality) — paths are intentionally *not* canonicalized
+/// here. Canonicalization and duplicate-output-filename validation happen
+/// later in [`crate::sbom::SbomData::write`], which must still reject
+/// distinct paths that resolve to the same output filename.
+fn merge_and_dedup_sbom_includes(pyproject: &[PathBuf], cli: &[PathBuf]) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    let mut merged = Vec::with_capacity(pyproject.len() + cli.len());
+    for path in pyproject.iter().chain(cli.iter()) {
+        if seen.insert(path.clone()) {
+            merged.push(path.clone());
+        }
+    }
+    merged
 }
 
 /// Resolve the build target and universal2 flag from the user-specified
@@ -457,15 +474,23 @@ fn resolve_target(
     Ok((target, universal2))
 }
 
+/// Real platform tags plus whether PyPI filename validation was requested via the pypi compatibility option.
+#[derive(Debug)]
+struct ResolvedPlatformTags {
+    platform_tags: Vec<PlatformTag>,
+    pypi_validation: bool,
+}
+
 /// Resolve platform tags from CLI flags, pyproject.toml, and target properties.
 fn resolve_platform_tags(
-    user_tags: Vec<PlatformTag>,
+    user_tags: Vec<CompatibilityTag>,
     target: &Target,
     bridge: &BridgeModel,
     pyproject: Option<&PyProjectToml>,
     pyproject_options: &mut Vec<&str>,
     #[cfg(feature = "zig")] use_zig: bool,
-) -> Result<Vec<PlatformTag>> {
+) -> Result<ResolvedPlatformTags> {
+    let pypi_validation;
     let platform_tags = if user_tags.is_empty() {
         #[cfg(feature = "zig")]
         let zig = use_zig;
@@ -480,27 +505,34 @@ fn resolve_platform_tags(
             })
             .or(if zig {
                 if target.is_musl_libc() {
-                    Some(PlatformTag::Musllinux { major: 1, minor: 2 })
+                    Some(PlatformTag::Musllinux { major: 1, minor: 2 }.into())
                 } else {
-                    Some(target.get_minimum_manylinux_tag())
+                    Some(target.get_minimum_manylinux_tag().into())
                 }
             } else if target.is_musl_libc() && !bridge.is_bin() {
-                Some(PlatformTag::Musllinux { major: 1, minor: 2 })
+                Some(PlatformTag::Musllinux { major: 1, minor: 2 }.into())
             } else {
                 None
             });
-        if let Some(platform_tag) = compatibility {
+        pypi_validation = compatibility
+            .as_ref()
+            .is_some_and(CompatibilityTag::is_pypi);
+        if pypi_validation && !is_arch_supported_by_pypi(target) {
+            bail!("Rust target {target} is not supported by PyPI");
+        }
+        if let Some(platform_tag) = compatibility.and_then(CompatibilityTag::into_platform_tag) {
             vec![platform_tag]
         } else {
             Vec::new()
         }
     } else {
-        if user_tags.iter().any(|tag| tag.is_pypi()) && !is_arch_supported_by_pypi(target) {
+        pypi_validation = user_tags.iter().any(CompatibilityTag::is_pypi);
+        if pypi_validation && !is_arch_supported_by_pypi(target) {
             bail!("Rust target {target} is not supported by PyPI");
         }
         user_tags
             .into_iter()
-            .filter(|platform_tag| platform_tag != &PlatformTag::Pypi)
+            .filter_map(CompatibilityTag::into_platform_tag)
             .collect()
     };
 
@@ -512,7 +544,10 @@ fn resolve_platform_tags(
         }
     }
 
-    Ok(platform_tags)
+    Ok(ResolvedPlatformTags {
+        platform_tags,
+        pypi_validation,
+    })
 }
 
 /// Checks for bridge/platform type edge cases
@@ -560,4 +595,189 @@ fn validate_bridge_type(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    fn pyproject_with_compatibility(compatibility: &str) -> PyProjectToml {
+        toml::from_str(&format!(
+            r#"
+            [build-system]
+            requires = ["maturin"]
+            build-backend = "maturin"
+
+            [tool.maturin]
+            compatibility = "{compatibility}"
+            "#
+        ))
+        .unwrap()
+    }
+
+    fn resolve_for_test(
+        user_tags: Vec<CompatibilityTag>,
+        target: &Target,
+        pyproject: Option<&PyProjectToml>,
+        pyproject_options: &mut Vec<&str>,
+    ) -> Result<ResolvedPlatformTags> {
+        resolve_platform_tags(
+            user_tags,
+            target,
+            &BridgeModel::Bin(None),
+            pyproject,
+            pyproject_options,
+            #[cfg(feature = "zig")]
+            false,
+        )
+    }
+
+    #[test]
+    fn resolve_platform_tags_filters_cli_pypi() {
+        let target = Target::from_target_triple(Some(&TargetTriple::Regular(
+            "x86_64-unknown-linux-gnu".to_string(),
+        )))
+        .unwrap();
+        let mut pyproject_options = Vec::new();
+
+        let resolved = resolve_for_test(
+            vec![CompatibilityTag::Pypi],
+            &target,
+            None,
+            &mut pyproject_options,
+        )
+        .unwrap();
+
+        assert!(resolved.platform_tags.is_empty());
+        assert!(resolved.pypi_validation);
+        assert!(pyproject_options.is_empty());
+    }
+
+    #[test]
+    fn resolve_platform_tags_filters_pyproject_pypi() {
+        let target = Target::from_target_triple(Some(&TargetTriple::Regular(
+            "x86_64-unknown-linux-gnu".to_string(),
+        )))
+        .unwrap();
+        let pyproject = pyproject_with_compatibility("pypi");
+        let mut pyproject_options = Vec::new();
+
+        let resolved = resolve_for_test(
+            Vec::new(),
+            &target,
+            Some(&pyproject),
+            &mut pyproject_options,
+        )
+        .unwrap();
+
+        assert!(resolved.platform_tags.is_empty());
+        assert!(resolved.pypi_validation);
+        assert_eq!(pyproject_options, vec!["compatibility"]);
+    }
+
+    #[test]
+    fn resolve_platform_tags_rejects_pyproject_pypi_for_unsupported_target() {
+        let target = Target::from_target_triple(Some(&TargetTriple::Regular(
+            "riscv32gc-unknown-linux-gnu".to_string(),
+        )))
+        .unwrap();
+        let pyproject = pyproject_with_compatibility("pypi");
+        let mut pyproject_options = Vec::new();
+
+        let err = resolve_for_test(
+            Vec::new(),
+            &target,
+            Some(&pyproject),
+            &mut pyproject_options,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "Rust target riscv32gc-unknown-linux-gnu is not supported by PyPI"
+        );
+    }
+
+    #[test]
+    fn merge_and_dedup_sbom_includes_removes_non_adjacent_duplicates() {
+        let pyproject = vec![
+            PathBuf::from("a.json"),
+            PathBuf::from("b.json"),
+            PathBuf::from("a.json"),
+        ];
+        let cli: Vec<PathBuf> = Vec::new();
+
+        let merged = merge_and_dedup_sbom_includes(&pyproject, &cli);
+
+        assert_eq!(
+            merged,
+            vec![PathBuf::from("a.json"), PathBuf::from("b.json")]
+        );
+    }
+
+    #[test]
+    fn merge_and_dedup_sbom_includes_preserves_pyproject_then_cli_order() {
+        let pyproject = vec![PathBuf::from("a.json"), PathBuf::from("b.json")];
+        let cli = vec![
+            PathBuf::from("b.json"),
+            PathBuf::from("c.json"),
+            PathBuf::from("a.json"),
+        ];
+
+        let merged = merge_and_dedup_sbom_includes(&pyproject, &cli);
+
+        assert_eq!(
+            merged,
+            vec![
+                PathBuf::from("a.json"),
+                PathBuf::from("b.json"),
+                PathBuf::from("c.json"),
+            ]
+        );
+    }
+
+    #[test]
+    fn merge_and_dedup_sbom_includes_dedups_pyproject_only() {
+        let pyproject = vec![
+            PathBuf::from("a.json"),
+            PathBuf::from("a.json"),
+            PathBuf::from("c.json"),
+            PathBuf::from("a.json"),
+        ];
+        let cli: Vec<PathBuf> = Vec::new();
+
+        let merged = merge_and_dedup_sbom_includes(&pyproject, &cli);
+
+        assert_eq!(
+            merged,
+            vec![PathBuf::from("a.json"), PathBuf::from("c.json")]
+        );
+    }
+
+    #[test]
+    fn resolve_sbom_config_preserves_explicit_empty_include() {
+        // An explicitly configured `include = []` in pyproject.toml must stay
+        // `Some(vec![])` after resolution, not collapse to `None`. `SbomConfig`
+        // is publicly exposed via `BuildContext.artifact.sbom` and derives
+        // `Serialize`, so `Some([])` vs `None` is an observable difference
+        // (`[]` vs `null`) and also changes whether `SbomData::write` enters
+        // its include-handling branch at all.
+        let pyproject: PyProjectToml = toml::from_str(
+            r#"
+            [build-system]
+            requires = ["maturin"]
+            build-backend = "maturin"
+
+            [tool.maturin.sbom]
+            include = []
+            "#,
+        )
+        .unwrap();
+        let build_options = BuildOptions::default();
+
+        let config = BuildContextBuilder::resolve_sbom_config(&build_options, Some(&pyproject));
+
+        assert_eq!(config.include, Some(Vec::new()));
+    }
 }

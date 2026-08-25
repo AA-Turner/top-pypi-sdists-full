@@ -3,30 +3,70 @@
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic import AliasChoices, Field, SerializeAsAny, model_validator
+from pydantic import AliasChoices, Field, PrivateAttr, SerializeAsAny, model_validator
 from pydantic_config import BaseConfig
 
 from verifiers.v1.clients import ClientConfig, EvalClientConfig
 from verifiers.v1.configs.cli.env import narrowed_env_annotation, resolve_env_field
 from verifiers.v1.configs.env import EnvConfig
-from verifiers.v1.configs.legacy import LegacyEnvConfig
 from verifiers.v1.configs.serve import ServeConfig
 from verifiers.v1.envs.single_agent import SingleAgentEnvConfig
 from verifiers.v1.types import SamplingConfig
+
+
+def default_run_name(env: EnvConfig, model: str) -> str:
+    """The auto-generated run name: `<env>--<model>--<harness>--<short-id>`, a
+    descriptive leaf for the run directory `output_dir / run.name`. The short-id
+    suffix keeps repeated invocations from colliding."""
+    taskset = env.taskset
+    name = taskset.name if taskset.id else "no-taskset"
+    if taskset.id and env.id:
+        # Same compounding as `EnvConfig.env_id`: a `best-of-n+gsm8k` run must
+        # not share a name with a plain `gsm8k` one.
+        name = f"{env.id}+{name}"
+    # Every seat's resolved harness, distinct, in role order.
+    harness = "+".join(dict.fromkeys(h.name for h in env.agent_harnesses().values()))
+    slug = (
+        f"{name}--{model.replace('/', '--')}--{harness or 'default'}--{uuid4().hex[:8]}"
+    )
+    return slug.lower()
+
+
+class RichConfig(BaseConfig):
+    """The live dashboard."""
+
+    show_logs: bool = False
+    """Replace the dashboard's per-rollout rows with a live tail of the attempt's log
+    file (`logs/latest/eval.log`) — the env's own log lines included."""
+
+
+class RunConfig(BaseConfig):
+    name: str | None = None
+    """Run name. Auto-generated as `<env>--<model>--<harness>--<short-id>` when unset."""
+
+    dir: str | None = None
+    """Run directory name — the run writes to `output_dir / dir`. Defaults to `run.name`;
+    set it only when the directory should differ from the display name."""
+
+    # TODO: fetch the id from the Prime SDK once runs are registered there.
+    _id: str = PrivateAttr(default_factory=lambda: str(uuid4()))
+
+    @property
+    def id(self) -> str:
+        return self._id
 
 
 class EvalConfig(BaseConfig):
     env: SerializeAsAny[EnvConfig] = SingleAgentEnvConfig()
     """The environment — which env, its seed taskset, each agent, its knobs. Narrowed to
     the selected env's config class by the env id, else the taskset id."""
-    serve: ServeConfig = ServeConfig()
-    """How the env is hosted under `--server`: the worker pool, each worker's episode
-    bound. Ignored by an in-process run."""
-    legacy: LegacyEnvConfig = LegacyEnvConfig()
-    """A classic (v0) environment to evaluate through the bridge instead of `[env]`."""
-    uuid: str = Field(default_factory=lambda: str(uuid4()), exclude=True)
-    """Auto-generated run id — the leaf of the output dir, so runs never overwrite.
-    Excluded from the saved config so re-running `@ config.toml` lands in a fresh dir."""
+    serve: ServeConfig | None = Field(default_factory=ServeConfig)
+    """How the env is hosted: the env-server worker pool (elastic by default) and each
+    worker's episode bound — the path prime-rl trains through. `--no-serve` runs the
+    rollouts in-process instead."""
+    run: RunConfig = Field(default_factory=RunConfig)
+    """Run identity: `run.name` is the display name, `run.dir` names the directory
+    under `output_dir`, and `run.id` is stamped on traces."""
     model: str = Field(
         "deepseek/deepseek-v4-flash", validation_alias=AliasChoices("model", "m")
     )
@@ -54,89 +94,44 @@ class EvalConfig(BaseConfig):
     )
     """Episodes in flight at once, `None` for no limit. An episode plays its agents one
     at a time, so this is the live agent runs too — until `--env.max-concurrent-agents`
-    says otherwise. Under `--server` it seeds each worker's bound, unless
+    says otherwise. Under `[serve]` it also seeds each worker's bound, unless
     `--serve.max-concurrent` pins one."""
     verbose: bool = Field(False, validation_alias=AliasChoices("verbose", "v"))
     """Log at debug level instead of the default info."""
     dry_run: bool = Field(False, exclude=True)
     """Resolve + validate the config and dump it, then exit. Excluded from the saved
-    config so re-running `@ config.toml` (or resuming/replaying the dir) actually runs."""
-    rich: bool = True
-    """Show a live dashboard instead of per-rollout logs (in-process only; an unset
-    `rich` defaults off under `--server`)."""
-    server: bool = False
-    """Drive rollouts through the env-server worker pool (sized by `[serve]`) instead of
-    in-process — the path prime-rl trains through. Incompatible with `--rich`."""
+    config so re-running `@ configs/eval.json` (or resuming/replaying the dir) actually runs."""
+    clean: bool = Field(False, exclude=True)
+    """Delete the run directory (`output_dir / run.dir`) before running, overwriting a
+    previous run's results. Excluded from the saved config."""
+    rich: RichConfig | None = Field(default_factory=RichConfig)
+    """The live dashboard (on by default; `--no-rich` streams logs to the console
+    instead). A served run has no live per-turn view, so its rollout rows fill in as
+    each episode completes; `--rich.show-logs` swaps the rows for the run's logs."""
     push: bool = True
     """Upload the finished run to the Prime Intellect platform (the private Evaluations
     tab) at the end of the eval. On by default; disable with `--no-push`. Needs
     `$PRIME_API_KEY` or `prime login`."""
-    output_dir: Path | None = Field(
-        None, validation_alias=AliasChoices("output_dir", "o")
+    output_dir: Path = Field(
+        Path("outputs"), validation_alias=AliasChoices("output_dir", "o")
     )
-    """Where to write the run (config.toml + traces.jsonl). None = a fresh per-run dir
-    under `outputs/<env>--<model>--<harness>/<uuid>` (so runs never overwrite each other)."""
-    resume: Path | None = Field(None, exclude=True)
-    """Set by `--resume <dir>`: re-run missing or errored rollouts, or an incomplete
-    group-scored task as a whole group, appending to that run's own results. The run's saved
-    config is loaded verbatim, so `--resume` takes no other arguments. Excluded from the
-    saved config."""
-
-    @model_validator(mode="after")
-    def reject_rich_with_server(self):
-        """The dashboard reads live in-process run slots, so it can't ride the
-        worker pool: an unset `rich` defaults off under `--server`; an explicit
-        `--rich --server` is refused."""
-        if self.server and self.rich:
-            if "rich" not in self.model_fields_set:
-                self.rich = False
-                return self
-            raise ValueError(
-                "`--rich` (the live dashboard) runs in-process and can't be combined with "
-                "`--server`; drop `--rich`."
-            )
-        return self
-
-    @property
-    def is_legacy(self) -> bool:
-        """Whether this run goes through the v0 bridge: a legacy id and no v1 taskset."""
-        return self.legacy.id is not None and not self.env.taskset.id
-
-    @property
-    def env_id(self) -> str:
-        """The run's identifier: the v1 env's, else the v0 env id."""
-        return self.env.env_id or self.legacy.id or ""
-
-    @property
-    def worker_max_concurrent(self) -> int | None:
-        """A served worker's episode bound: its own pin, else the run's `--max-concurrent`."""
-        return (
-            self.serve.max_concurrent
-            if self.serve.max_concurrent is not None
-            else self.max_concurrent
-        )
-
-    @model_validator(mode="after")
-    def _refuse_mixed_run(self):
-        # A v0 id next to any v1 env identity leaves one of the two going nowhere, and
-        # which one depends on `is_legacy`: a taskset makes it False, so the v0 env never
-        # loads; a bare `--env.id` leaves it True, so the v0 env runs under the v1 name.
-        if self.legacy.id is None or not self.env.env_id:
-            return self
-        if self.env.taskset.id:
-            raise ValueError(
-                f"--legacy.id {self.legacy.id!r} is a classic (v0) env and can't combine "
-                f"with the v1 taskset {self.env.taskset.id!r}. Pairing a reusable env with "
-                f"a taskset is --env.id {self.legacy.id!r} (TOML: id under [env]); to run "
-                "the v0 env instead, drop the taskset."
-            )
-        raise ValueError(
-            f"--legacy.id {self.legacy.id!r} is a classic (v0) env and can't combine with "
-            f"the v1 env --env.id {self.env.id!r}: the v0 env is what would run, stamped "
-            "with the v1 env's name. Keep whichever one you meant to run."
-        )
+    """Directory that groups related runs. The run itself (`configs/eval.json` +
+    `traces.jsonl`) writes to `output_dir / run.dir`."""
+    resume: bool = Field(False, exclude=True)
+    """Re-run the run's missing/errored rollouts in place instead of starting fresh. The
+    run dir comes from the resolved config (`output_dir / run.dir`), so resume with the
+    run's own config — e.g. `uv run eval @ <run-dir>/configs/eval.json --resume`. Excluded
+    from the saved config."""
 
     @model_validator(mode="before")
     @classmethod
     def _resolve_env(cls, data):
         return resolve_env_field(data, narrowed_env_annotation(cls))
+
+    @model_validator(mode="after")
+    def auto_setup_run_name(self):
+        if self.run.name is None:
+            self.run.name = default_run_name(self.env, self.model)
+        if self.run.dir is None:
+            self.run.dir = self.run.name
+        return self

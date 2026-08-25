@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy-strict-kwargs
-Version: 2026.8.20.1
+Version: 2026.8.25
 Summary: Enforce using keyword arguments where possible.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License: MIT License
@@ -51,7 +51,7 @@ Requires-Dist: doccmd==2026.8.16; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
 Requires-Dist: mypy[faster-cache]==2.3.1; extra == "dev"
 Requires-Dist: no-defaults==2.1.0; extra == "dev"
-Requires-Dist: prek==0.4.13; extra == "dev"
+Requires-Dist: prek==0.4.14; extra == "dev"
 Requires-Dist: pydocstringformatter==1.0.0; extra == "dev"
 Requires-Dist: pylint[spelling]==4.0.7; extra == "dev"
 Requires-Dist: pylint-per-file-ignores==3.2.1; extra == "dev"
@@ -63,14 +63,14 @@ Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-mypy-plugins==4.0.3; extra == "dev"
 Requires-Dist: pyyaml==6.0.3; extra == "dev"
-Requires-Dist: ruff==0.16.3; extra == "dev"
+Requires-Dist: ruff==0.16.4; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==4.0.0; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: strict-kwargs==2026.8.16; extra == "dev"
 Requires-Dist: towncrier==25.8.0; extra == "dev"
-Requires-Dist: ty==0.0.72; extra == "dev"
-Requires-Dist: vale==3.13.0.0; extra == "dev"
+Requires-Dist: ty==0.0.73; extra == "dev"
+Requires-Dist: vale==3.17.1.0; extra == "dev"
 Requires-Dist: vulture==2.16; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
 Requires-Dist: zizmor==1.29.0; extra == "dev"
@@ -106,12 +106,12 @@ With this plugin, ``mypy`` will only accept the form where keyword arguments are
 Why?
 ----
 
-* In the same spirit as a formatter - think ``black`` or ``ruff format`` - this lets you stop spending time discussing whether a particular function call should use keyword arguments.
+* In the same spirit as a formatter - think ``black`` or ``ruff format`` - this lets you stop spending time discussing whether a function call should use keyword arguments.
 * Sometimes positional arguments are best at first, and then more and more are added and code becomes unclear, without anyone stopping to refactor to keyword arguments.
 * The type checker gives better errors when keyword arguments are used.
   For example, with positional arguments, you may see, ``Argument 5 to "add" has incompatible type "str"; expected "int"``.
   This requires that you count the arguments to see which one is wrong.
-  With named arguments, you get ``Argument "e" to "add" has incompatible type "str"; expected "int"``.
+  With keyword arguments, you get ``Argument "e" to "add" has incompatible type "str"; expected "int"``.
 
 Installation
 ------------

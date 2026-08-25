@@ -1,6 +1,4 @@
-use crate::common::{
-    ActivationAssertionsInterceptor, CoreWfStarter, WorkflowHandleExt, build_fake_sdk,
-};
+use crate::common::{ActivationAssertionsInterceptor, CoreWfStarter, WorkflowHandleExt};
 use std::{
     collections::{HashSet, VecDeque, hash_map::RandomState},
     sync::{
@@ -36,7 +34,6 @@ use temporalio_common::{
     },
 };
 
-use temporalio_common::worker::WorkerTaskTypes;
 use temporalio_macros::{activity_definitions, workflow, workflow_methods};
 use temporalio_sdk::{
     ActivityOptions, PatchActivationCallback, SyncWorkflowContext, WorkflowContext, WorkflowResult,
@@ -78,9 +75,8 @@ impl ChangesWf {
 async fn writes_change_markers() {
     let wf_name = "writes_change_markers";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
+    starter.sdk_config.register_workflow::<ChangesWf>().unwrap();
     let mut worker = starter.worker().await;
-    worker.register_workflow::<ChangesWf>().unwrap();
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
@@ -119,14 +115,14 @@ impl NoChangeThenChangeWf {
 async fn can_add_change_markers() {
     let wf_name = "can_add_change_markers";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
-    let mut worker = starter.worker().await;
     let did_die = Arc::new(AtomicBool::new(false));
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || NoChangeThenChangeWf {
             did_die: did_die.clone(),
         })
         .unwrap();
+    let mut worker = starter.worker().await;
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
@@ -155,14 +151,14 @@ impl ReplayWithChangeMarkerWf {
 async fn replaying_with_patch_marker() {
     let wf_name = "replaying_with_patch_marker";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
-    let mut worker = starter.worker().await;
     let did_die = Arc::new(AtomicBool::new(false));
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || ReplayWithChangeMarkerWf {
             did_die: did_die.clone(),
         })
         .unwrap();
+    let mut worker = starter.worker().await;
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
@@ -187,7 +183,6 @@ impl PatchActivationTwiceWf {
 async fn patch_activation_callback_is_memoized_across_replay() {
     let wf_name = "patch_activation_callback_is_memoized_across_replay";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     starter.sdk_config.max_cached_workflows = 0;
     let callback_calls = Arc::new(AtomicUsize::new(0));
     let callback_calls_clone = callback_calls.clone();
@@ -195,10 +190,11 @@ async fn patch_activation_callback_is_memoized_across_replay() {
         callback_calls_clone.fetch_add(1, Ordering::Relaxed);
         false
     }));
-    let mut worker = starter.worker().await;
-    worker
+    starter
+        .sdk_config
         .register_workflow::<PatchActivationTwiceWf>()
         .unwrap();
+    let mut worker = starter.worker().await;
     let workflow_id = starter.get_task_queue().to_string();
     let handle = worker
         .submit_workflow(
@@ -237,7 +233,7 @@ impl PatchActivationRolloutWf {
         let patched = ctx.patched(ROLLOUT_PATCH_ID);
         ctx.timer(Duration::from_millis(1)).await;
         ctx.state(|wf| wf.ready.notify_one());
-        ctx.wait_condition(|wf| wf.released).await;
+        ctx.wait_condition(|wf| wf.released).await?;
         Ok(if patched { "new" } else { "old" }.to_string())
     }
 
@@ -258,7 +254,7 @@ impl PatchActivationOldRolloutWf {
     #[run(name = "patch_activation_rollout")]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<String> {
         ctx.timer(Duration::from_millis(1)).await;
-        ctx.wait_condition(|wf| wf.released).await;
+        ctx.wait_condition(|wf| wf.released).await?;
         Ok("old".to_string())
     }
 
@@ -272,7 +268,6 @@ impl PatchActivationOldRolloutWf {
 async fn declined_patch_can_roll_out_to_old_worker() {
     let wf_name = "declined_patch_can_roll_out_to_old_worker";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let callback_calls = Arc::new(AtomicUsize::new(0));
     let callback_calls_clone = callback_calls.clone();
     let workflow_id = starter.get_task_queue().to_string();
@@ -284,15 +279,17 @@ async fn declined_patch_can_roll_out_to_old_worker() {
         false
     });
     starter.sdk_config.patch_activation_callback = Some(callback);
-    let mut worker = starter.worker().await;
+    let mut old_starter = starter.clone_no_worker();
     let ready = Arc::new(Notify::new());
     let ready_clone = ready.clone();
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || PatchActivationRolloutWf {
             ready: ready_clone.clone(),
             released: false,
         })
         .unwrap();
+    let mut worker = starter.worker().await;
     let handle = worker
         .submit_workflow(
             PatchActivationRolloutWf::run,
@@ -315,12 +312,12 @@ async fn declined_patch_can_roll_out_to_old_worker() {
             if attrs.marker_name == PATCH_MARKER_NAME
     )));
 
-    let mut old_starter = starter.clone_no_worker();
     old_starter.sdk_config.patch_activation_callback = None;
-    let mut old_worker = old_starter.worker().await;
-    old_worker
+    old_starter
+        .sdk_config
         .register_workflow::<PatchActivationOldRolloutWf>()
         .unwrap();
+    let mut old_worker = old_starter.worker().await;
     old_worker.expect_workflow_completion(workflow_id, handle.info().run_id.clone());
     let (signal_result, run_result) = join!(
         handle.signal(
@@ -339,22 +336,23 @@ async fn declined_patch_can_roll_out_to_old_worker() {
 async fn activated_patch_replays_without_consulting_declining_callback() {
     let wf_name = "activated_patch_replays_without_consulting_declining_callback";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let activated_calls = Arc::new(AtomicUsize::new(0));
     let activated_calls_clone = activated_calls.clone();
     starter.sdk_config.patch_activation_callback = Some(Arc::new(move |_| {
         activated_calls_clone.fetch_add(1, Ordering::Relaxed);
         true
     }));
-    let mut worker = starter.worker().await;
+    let mut declining_starter = starter.clone_no_worker();
     let ready = Arc::new(Notify::new());
     let ready_clone = ready.clone();
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || PatchActivationRolloutWf {
             ready: ready_clone.clone(),
             released: false,
         })
         .unwrap();
+    let mut worker = starter.worker().await;
     let workflow_id = starter.get_task_queue().to_string();
     let handle = worker
         .submit_workflow(
@@ -378,20 +376,20 @@ async fn activated_patch_replays_without_consulting_declining_callback() {
             if attrs.marker_name == PATCH_MARKER_NAME
     )));
 
-    let mut declining_starter = starter.clone_no_worker();
     let declining_calls = Arc::new(AtomicUsize::new(0));
     let declining_calls_clone = declining_calls.clone();
     declining_starter.sdk_config.patch_activation_callback = Some(Arc::new(move |_| {
         declining_calls_clone.fetch_add(1, Ordering::Relaxed);
         false
     }));
-    let mut declining_worker = declining_starter.worker().await;
-    declining_worker
+    declining_starter
+        .sdk_config
         .register_workflow_with_factory(move || PatchActivationRolloutWf {
             ready: Arc::new(Notify::new()),
             released: false,
         })
         .unwrap();
+    let mut declining_worker = declining_starter.worker().await;
     declining_worker.expect_workflow_completion(workflow_id, handle.info().run_id.clone());
     let (signal_result, run_result) = join!(
         handle.signal(
@@ -436,14 +434,14 @@ async fn patched_on_second_workflow_task_is_deterministic() {
     let mut starter = CoreWfStarter::new(wf_name);
     // Disable caching to force replay from beginning
     starter.sdk_config.max_cached_workflows = 0_usize;
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
-    let mut worker = starter.worker().await;
     let fail_once = Arc::new(AtomicBool::new(true));
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || TimerPatchedTimerWf {
             fail_once: fail_once.clone(),
         })
         .unwrap();
+    let mut worker = starter.worker().await;
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
@@ -479,14 +477,14 @@ impl RemoveDeprecatedPatchNearOtherPatchWf {
 async fn can_remove_deprecated_patch_near_other_patch() {
     let wf_name = "can_add_change_markers";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
-    let mut worker = starter.worker().await;
     let did_die = Arc::new(AtomicBool::new(false));
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || RemoveDeprecatedPatchNearOtherPatchWf {
             did_die: did_die.clone(),
         })
         .unwrap();
+    let mut worker = starter.worker().await;
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
@@ -507,7 +505,7 @@ impl DeprecatedPatchRemovalWf {
             assert!(ctx.deprecate_patch("getting-deprecated"));
         }
         ctx.state(|wf| wf.notify.notify_one());
-        ctx.wait_condition(|s| s.signal_received).await;
+        ctx.wait_condition(|s| s.signal_received).await?;
 
         ctx.timer(Duration::from_millis(1)).await;
 
@@ -528,19 +526,19 @@ impl DeprecatedPatchRemovalWf {
 async fn deprecated_patch_removal() {
     let wf_name = "deprecated_patch_removal";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
-    let mut worker = starter.worker().await;
     let wf_id = starter.get_task_queue().to_string();
     let did_die = Arc::new(AtomicBool::new(false));
     let send_sig = Arc::new(Notify::new());
     let send_sig_clone = send_sig.clone();
-    worker
+    starter
+        .sdk_config
         .register_workflow_with_factory(move || DeprecatedPatchRemovalWf {
             did_die: did_die.clone(),
             notify: send_sig_clone.clone(),
             signal_received: false,
         })
         .unwrap();
+    let mut worker = starter.worker().await;
 
     let handle = worker
         .submit_workflow(
@@ -805,13 +803,14 @@ async fn v1_and_v4_changes(
         });
     }
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.set_worker_interceptor(aai);
-    worker
-        .register_workflow_with_factory(move || PatchWf {
-            version: wf_version,
-        })
-        .unwrap();
+    let mut worker =
+        crate::common::build_fake_sdk_intercepted_with_options(mock_cfg, aai, |options| {
+            options
+                .register_workflow_with_factory(move || PatchWf {
+                    version: wf_version,
+                })
+                .unwrap();
+        });
     worker.run().await.unwrap();
 }
 
@@ -914,13 +913,14 @@ async fn v2_and_v3_changes(
         });
     }
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.set_worker_interceptor(aai);
-    worker
-        .register_workflow_with_factory(move || PatchWf {
-            version: wf_version,
-        })
-        .unwrap();
+    let mut worker =
+        crate::common::build_fake_sdk_intercepted_with_options(mock_cfg, aai, |options| {
+            options
+                .register_workflow_with_factory(move || PatchWf {
+                    version: wf_version,
+                })
+                .unwrap();
+        });
     worker.run().await.unwrap();
 }
 
@@ -1045,10 +1045,11 @@ async fn same_change_multiple_spots(#[case] have_marker_in_hist: bool, #[case] r
         MockPollCfg::from_hist_builder(t)
     };
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker
-        .register_workflow::<SameChangeMultipleSpotsWf>()
-        .unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options
+            .register_workflow::<SameChangeMultipleSpotsWf>()
+            .unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -1126,10 +1127,11 @@ async fn many_patches_combine_in_search_attrib_update(#[case] num_patches: usize
         }
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker
-        .register_workflow_with_factory(move || ManyPatchesWf { num_patches })
-        .unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options
+            .register_workflow_with_factory(move || ManyPatchesWf { num_patches })
+            .unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -1158,9 +1160,11 @@ impl ManyPatchesInOneWftWf {
 async fn patch_marker_size_overflow_replay_is_deterministic() {
     let wf_name = "patch_marker_size_overflow_replay_is_deterministic";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
+    starter
+        .sdk_config
+        .register_workflow::<ManyPatchesInOneWftWf>()
+        .unwrap();
     let mut worker = starter.worker().await;
-    worker.register_workflow::<ManyPatchesInOneWftWf>().unwrap();
 
     let task_queue = starter.get_task_queue().to_owned();
     let handle = worker
@@ -1197,8 +1201,5 @@ async fn patch_marker_size_overflow_replay_is_deterministic() {
 
     // Replay the workflow from the fetched history. This must succeed: the SDK must produce the
     // same sequence of upsert SA commands during replay as it did during the original execution.
-    handle
-        .fetch_history_and_replay(worker.inner_mut())
-        .await
-        .unwrap();
+    handle.fetch_history_and_replay(&mut worker).await.unwrap();
 }

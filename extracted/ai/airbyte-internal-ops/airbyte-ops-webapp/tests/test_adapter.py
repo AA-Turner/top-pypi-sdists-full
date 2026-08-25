@@ -5,6 +5,7 @@ import urllib.parse
 from datetime import datetime
 from types import SimpleNamespace
 
+import google.api_core.exceptions
 import google.auth.exceptions
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
@@ -1038,6 +1039,12 @@ def test_ops_adapter_resolves_actor_context(
             organization_id="organization-id",
         ),
     )
+    monkeypatch.setattr(adapter_module, "get_gcp_credentials_for_tier_gcs_ro", object)
+    monkeypatch.setattr(
+        adapter_module,
+        "get_org_tier",
+        lambda _organization_id, **_kwargs: SimpleNamespace(customer_tier="TIER_2"),
+    )
 
     resolution = OpsMcpAdapter(bearer_token="token").resolve_context_guid(
         connector=connector,
@@ -1052,6 +1059,140 @@ def test_ops_adapter_resolves_actor_context(
     assert resolution.workspace_name == "Test Workspace"
     assert resolution.organization_name == "Test Org"
     assert resolution.actor_type == "source"
+
+
+@pytest.mark.parametrize(
+    ("customer_tier", "expected_fragment"),
+    [
+        pytest.param("TIER_0", "human approval required", id="tier_0_warns"),
+        pytest.param("TIER_1", "human approval required", id="tier_1_warns"),
+        pytest.param("TIER_2", "Customer tier: TIER_2", id="tier_2_plain"),
+        pytest.param("UNKNOWN", "Customer tier: UNKNOWN", id="unknown_plain"),
+        pytest.param("", "unresolved", id="unresolved_tier"),
+    ],
+)
+def test_customer_tier_label(customer_tier: str, expected_fragment: str) -> None:
+    assert expected_fragment in tools_module._customer_tier_label(customer_tier)
+
+
+@pytest.mark.parametrize(
+    ("organization_id", "org_tier", "expected"),
+    [
+        pytest.param("organization-id", "TIER_0", "TIER_0", id="sensitive_tier"),
+        pytest.param("organization-id", "TIER_2", "TIER_2", id="standard_tier"),
+        pytest.param("organization-id", "UNKNOWN", "UNKNOWN", id="degraded_source"),
+        pytest.param("", "TIER_0", "", id="missing_organization_id"),
+        pytest.param("organization-id", None, "", id="tier_lookup_failed"),
+    ],
+)
+def test_ops_adapter_resolves_customer_tier(
+    monkeypatch: pytest.MonkeyPatch,
+    organization_id: str,
+    org_tier: str | None,
+    expected: str,
+) -> None:
+    def fake_get_org_tier(_organization_id: str, **_kwargs: object) -> SimpleNamespace:
+        if org_tier is None:
+            raise RuntimeError("tier export unavailable")
+        return SimpleNamespace(customer_tier=org_tier)
+
+    monkeypatch.setattr(adapter_module, "get_gcp_credentials_for_tier_gcs_ro", object)
+    monkeypatch.setattr(adapter_module, "get_org_tier", fake_get_org_tier)
+
+    tier = OpsMcpAdapter(bearer_token="token").resolve_customer_tier(organization_id)
+
+    assert tier == expected
+
+
+@pytest.mark.parametrize(
+    "credential_error",
+    [
+        pytest.param(
+            google.auth.exceptions.DefaultCredentialsError("no ADC"),
+            id="missing_credentials",
+        ),
+        pytest.param(
+            google.api_core.exceptions.Forbidden("no bucket access"),
+            id="forbidden_tier_export",
+        ),
+    ],
+)
+def test_ops_adapter_customer_tier_survives_credential_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    credential_error: Exception,
+) -> None:
+    def fail_credentials() -> None:
+        raise credential_error
+
+    monkeypatch.setattr(
+        adapter_module, "get_gcp_credentials_for_tier_gcs_ro", fail_credentials
+    )
+
+    tier = OpsMcpAdapter(bearer_token="token").resolve_customer_tier("organization-id")
+
+    assert tier == ""
+
+
+def test_ops_adapter_actor_context_carries_organization_customer_tier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connector = ConnectorOption(
+        id="destination-definition-id",
+        name="destination-snowflake",
+        connector_type="destination",
+        latest_version="4.1.1",
+        docker_repository="airbyte/destination-snowflake",
+    )
+
+    def fake_post(
+        url: str,
+        *,
+        json: dict[str, str],
+        headers: dict[str, str],
+        timeout: int,
+    ) -> FakeResponse:
+        if url.endswith("/destinations/get"):
+            return FakeResponse(
+                200,
+                {
+                    "destinationDefinitionId": connector.id,
+                    "workspaceId": "workspace-id",
+                    "name": "My Destination",
+                },
+            )
+        if url.endswith("/workspaces/get"):
+            return FakeResponse(
+                200,
+                {"organizationId": "organization-id", "name": "Trial Workspace"},
+            )
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(
+        adapter_module.api_client, "_get_access_token", lambda **_: "token"
+    )
+    monkeypatch.setattr(adapter_module.api_client.requests, "post", fake_post)
+    monkeypatch.setattr(
+        adapter_module,
+        "get_organization_info",
+        lambda **_: SimpleNamespace(
+            organization_name="Trial Org",
+            organization_id="organization-id",
+        ),
+    )
+    monkeypatch.setattr(adapter_module, "get_gcp_credentials_for_tier_gcs_ro", object)
+    monkeypatch.setattr(
+        adapter_module,
+        "get_org_tier",
+        lambda _organization_id, **_kwargs: SimpleNamespace(customer_tier="TIER_0"),
+    )
+
+    resolution = OpsMcpAdapter(bearer_token="token").resolve_context_guid(
+        connector=connector,
+        context_guid="actor-id",
+    )
+
+    assert resolution.scope_type == "actor"
+    assert resolution.customer_tier == "TIER_0"
 
 
 def test_ops_adapter_context_resolution_falls_through_validation_misses(
@@ -1092,6 +1233,12 @@ def test_ops_adapter_context_resolution_falls_through_validation_misses(
             organization_name="Fallthrough Org",
             organization_id="organization-id",
         ),
+    )
+    monkeypatch.setattr(adapter_module, "get_gcp_credentials_for_tier_gcs_ro", object)
+    monkeypatch.setattr(
+        adapter_module,
+        "get_org_tier",
+        lambda _organization_id, **_kwargs: SimpleNamespace(customer_tier="TIER_2"),
     )
 
     resolution = OpsMcpAdapter(bearer_token="token").resolve_context_guid(

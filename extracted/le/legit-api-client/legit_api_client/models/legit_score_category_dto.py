@@ -79,8 +79,7 @@ class LegitScoreCategoryDto(BaseModel):
         _items = []
         if self.requirements:
             for _item_requirements in self.requirements:
-                if _item_requirements:
-                    _items.append(_item_requirements.to_dict())
+                _items.append(_item_requirements.to_dict() if _item_requirements is not None else None)
             _dict['requirements'] = _items
         # set to None if title (nullable) is None
         # and model_fields_set contains the field

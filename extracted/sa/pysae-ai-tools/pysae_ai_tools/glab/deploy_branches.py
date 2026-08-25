@@ -3,10 +3,12 @@
 Single source of truth for the question "does a merged ticket still have a deployment
 step ahead of it?", shared by the two paths that settle a ticket's board status:
 ``workflow_transition.settle_issue_after_merge`` (live, on merge) and
-``issue_workflow_update`` (reconciliation). They used to answer it differently — the
-former on the ``board.to_deploy`` flag alone, the latter on the flag *and* the branch
-topology — which parked merged tickets forever on repos that deploy from the MR
-pipeline (Terraform apply, ArgoCD) and never grow a ``deploy/*`` branch.
+``issue_workflow_update`` (reconciliation), so they can never disagree.
+
+The answer comes from the repo's declaration (``board.to_deploy``) when it makes one,
+and from its branch topology otherwise — a repo that deploys from the MR pipeline
+(Terraform apply, ArgoCD) never grows a ``deploy/*`` branch and needs no config to be
+read as shipping at merge.
 """
 
 from typing import Any
@@ -38,11 +40,12 @@ def shipped_when_job_for(project_path: str) -> str | None:
     return cfg.board.shipped_when_job if cfg is not None else ProjectConfig().board.shipped_when_job
 
 
-def uses_to_deploy_column(project_path: str) -> bool:
-    """Whether the project opts into the ``workflow::To deploy`` column (``board.to_deploy``).
+def to_deploy_column_for(project_path: str) -> bool | None:
+    """The project's declared stance on the ``workflow::To deploy`` column (``board.to_deploy``).
 
-    ``False`` marks a repo that ships at merge, so To deploy is skipped and a merged ticket
-    is closed at once rather than parked. Missing/broken config falls back to the default (on).
+    ``True`` opts in (a merged ticket is parked, whatever the branches look like), ``False``
+    marks a repo that ships at merge (the ticket is closed at once). ``None`` — the default,
+    and the fallback on a missing/broken config — leaves the answer to the branch topology.
     """
     cfg = _config_for(project_path)
     return cfg.board.to_deploy if cfg is not None else ProjectConfig().board.to_deploy
@@ -101,17 +104,24 @@ def resolve_deploy_pairs(project_id: str, mapping: dict[str, str]) -> list[tuple
 def has_deploy_step(project_id: str, project_path: str = "") -> bool:
     """Whether a merged ticket must still wait in ``workflow::To deploy`` on this project.
 
-    An explicit opt-out (``board.to_deploy: false``) always wins. Otherwise a step remains
-    when the project names a deployment job (``board.shipped_when_job`` — the shipment is
-    that job succeeding, not a branch moving), or when at least one source→deploy branch
-    pair resolves. A repo with neither has no deployment step after the merge — its CI
-    applies from the MR pipeline — so merging *is* shipping and the ticket closes.
+    A declared ``board.to_deploy`` settles it, both ways: the repo said whether it has a
+    deployment step, and the branches are not asked to contradict it. That matters for the
+    opt-in too, not just the opt-out — a package repo released from its tag pipeline declares
+    ``to_deploy: true`` before its first release ever creates ``deploy/prod``, and its merged
+    tickets must park rather than close.
+
+    Undeclared, the topology answers: a step remains when the project names a deployment job
+    (``board.shipped_when_job`` — the shipment is that job succeeding, not a branch moving),
+    or when at least one source→deploy branch pair resolves. A repo with neither has no
+    deployment step after the merge — its CI applies from the MR pipeline — so merging *is*
+    shipping and the ticket closes.
 
     Fail-safe: when no pair resolves and the repo's branches cannot be listed at all, To
     deploy is kept — a transient API failure must never close a ticket early.
     """
-    if not uses_to_deploy_column(project_path):
-        return False
+    declared = to_deploy_column_for(project_path)
+    if declared is not None:
+        return declared
     if shipped_when_job_for(project_path):
         return True
     if resolve_deploy_pairs(project_id, deploy_branches_for(project_path)):

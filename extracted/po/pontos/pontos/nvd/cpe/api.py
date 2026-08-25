@@ -4,19 +4,16 @@
 #
 
 
+from collections.abc import Iterator
 from datetime import datetime
 from types import TracebackType
 from typing import (
     Any,
-    Iterator,
-    List,
-    Optional,
-    Type,
-    Union,
 )
 from uuid import UUID
 
 from httpx import Timeout
+from typing_extensions import Self
 
 from pontos.errors import PontosError
 from pontos.nvd.api import (
@@ -28,7 +25,6 @@ from pontos.nvd.api import (
     convert_camel_case,
     format_date,
     now,
-    return_or_raise,
 )
 from pontos.nvd.models.cpe import CPE
 
@@ -41,10 +37,13 @@ def _result_iterator(
 ) -> Iterator[CPE | Exception]:
     results: list[dict[str, Any]] = data.get("products", [])  # type: ignore
     for result in results:
-        yield return_or_raise(
-            lambda: CPE.from_dict(result["cpe"]),
-            return_exceptions,
-        )
+        try:
+            yield CPE.from_dict(result["cpe"])
+        except Exception as exception:
+            if return_exceptions:
+                yield exception
+            else:
+                raise
 
 
 class CPEApi(NVDApi):
@@ -65,8 +64,8 @@ class CPEApi(NVDApi):
     def __init__(
         self,
         *,
-        token: Optional[str] = None,
-        timeout: Optional[Timeout] = DEFAULT_TIMEOUT_CONFIG,
+        token: str | None = None,
+        timeout: Timeout | None = DEFAULT_TIMEOUT_CONFIG,
         rate_limit: bool = True,
         request_attempts: int = 1,
     ) -> None:
@@ -93,7 +92,7 @@ class CPEApi(NVDApi):
             request_attempts=request_attempts,
         )
 
-    async def cpe(self, cpe_name_id: Union[str, UUID]) -> CPE:
+    async def cpe(self, cpe_name_id: str | UUID) -> CPE:
         """
         Query for a CPE matching the CPE UUID.
 
@@ -132,14 +131,14 @@ class CPEApi(NVDApi):
     def cpes(
         self,
         *,
-        last_modified_start_date: Optional[datetime] = None,
-        last_modified_end_date: Optional[datetime] = None,
-        cpe_match_string: Optional[str] = None,
-        keywords: Optional[Union[List[str], str]] = None,
-        match_criteria_id: Optional[str] = None,
-        request_results: Optional[int] = None,
+        last_modified_start_date: datetime | None = None,
+        last_modified_end_date: datetime | None = None,
+        cpe_match_string: str | None = None,
+        keywords: list[str] | str | None = None,
+        match_criteria_id: str | None = None,
+        request_results: int | None = None,
         start_index: int = 0,
-        results_per_page: Optional[int] = None,
+        results_per_page: int | None = None,
         return_exceptions: bool = False,
     ) -> NVDResults[CPE]:
         """
@@ -203,7 +202,7 @@ class CPEApi(NVDApi):
                 keywords = [keywords]
 
             params["keywordSearch"] = " ".join(keywords)
-            if any((" " in keyword for keyword in keywords)):
+            if any(" " in keyword for keyword in keywords):
                 params["keywordExactMatch"] = ""
 
         if match_criteria_id:
@@ -224,16 +223,16 @@ class CPEApi(NVDApi):
             return_exceptions=return_exceptions,
         )
 
-    async def __aenter__(self) -> "CPEApi":
+    async def __aenter__(self) -> Self:
         await super().__aenter__()
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Optional[bool]:
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
         return await super().__aexit__(  # type: ignore
             exc_type, exc_value, traceback
         )

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openapi-generator-cli
-Version: 7.24.0
+Version: 7.25.0
 Summary: CLI for openapi generator
 Project-URL: Documentation, https://github.com/OpenAPITools/openapi-generator#3---usage
 Project-URL: Homepage, https://openapi-generator.tech
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
@@ -34,6 +35,14 @@ Description-Content-Type: text/markdown
   <https://badge.fury.io/py/openapi-generator-cli.svg>
 )](
   <https://badge.fury.io/py/openapi-generator-cli>
+) [![Lint](
+  <https://github.com/OpenAPITools/openapi-generator-pip/actions/workflows/lint.yaml/badge.svg>
+)](
+  <https://github.com/OpenAPITools/openapi-generator-pip/actions/workflows/lint.yaml>
+) [![Test](
+  <https://github.com/OpenAPITools/openapi-generator-pip/actions/workflows/test.yaml/badge.svg>
+)](
+  <https://github.com/OpenAPITools/openapi-generator-pip/actions/workflows/test.yaml>
 ) [![Code style: black](
   <https://img.shields.io/badge/code%20style-black-000000.svg>
 )](

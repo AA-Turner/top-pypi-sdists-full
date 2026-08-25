@@ -23,7 +23,12 @@ CHAT_PLACEMENTS = [
     pair("null", "subprocess", "null-harness-in-subprocess"),
     pair("bash", "docker", "bash-harness-in-docker"),
     pair("rlm", "docker", "rlm-harness-in-docker"),
-    pair("kimi-code", "docker", "kimi-code-harness-in-docker"),
+    pytest.param(
+        {"id": "kimi-code", "transport": "responses"},
+        "docker",
+        marks=[mark.kimi_code, mark.docker],
+        id="kimi-code-responses-harness-in-docker",
+    ),
     pair("bash", "prime", "bash-harness-in-prime"),
     pair("bash", "modal", "bash-harness-in-modal"),
 ]
@@ -34,7 +39,12 @@ CHAT_PLACEMENTS = [
 AGENTIC_PLACEMENTS = [
     pair("bash", "subprocess", "bash-harness-in-subprocess"),
     pair("rlm", "docker", "rlm-harness-in-docker"),
-    pair("kimi-code", "docker", "kimi-code-harness-in-docker"),
+    pytest.param(
+        {"id": "kimi-code", "transport": "responses"},
+        "docker",
+        marks=[mark.kimi_code, mark.docker],
+        id="kimi-code-responses-harness-in-docker",
+    ),
     pair("codex", "docker", "codex-harness-in-docker"),
     pair("claude-code", "docker", "claude-code-harness-in-docker"),
     pair("hermes-agent", "docker", "hermes-agent-harness-in-docker"),
@@ -59,8 +69,18 @@ ACP_RESUME_PLACEMENTS = [
     pair("claude-code", "docker", "claude-code-acp-in-docker"),
     pair("hermes-agent", "docker", "hermes-agent-acp-in-docker"),
     pair("rlm", "docker", "rlm-acp-in-docker"),
-    pair("kimi-code", "docker", "kimi-code-acp-in-docker"),
-    pair("pi", "docker", "pi-acp-in-docker"),
+    pytest.param(
+        {"id": "kimi-code", "transport": "responses"},
+        "docker",
+        marks=[mark.kimi_code, mark.docker],
+        id="kimi-code-responses-acp-in-docker",
+    ),
+    pytest.param(
+        {"id": "pi", "transport": "responses"},
+        "docker",
+        marks=[mark.pi, mark.docker],
+        id="pi-responses-acp-in-docker",
+    ),
     pair("pool", "docker", "pool-acp-in-docker"),
     pair("openclaw", "docker", "openclaw-acp-in-docker"),
     pair("pool", "prime", "pool-acp-in-prime"),
@@ -116,6 +136,8 @@ async def test_single_turn(run_v1, harness, harness_runtime, tmp_path):
     assert trace.num_turns == 1
     assert trace.stop_condition == "agent_completed"
     assert trace.reward == 1.0
+    assert trace.task.key == f"echo:{trace.task.data.answer}"
+    assert trace.task.hash is not None
     # The seat's resolved identity rides the trace (policy metadata for trainers).
     assert trace.agent is not None
     assert trace.agent.config.sampling.max_tokens == 2048
@@ -235,11 +257,14 @@ async def test_acp_resume_with_tool(run_v1, harness, harness_runtime, tmp_path):
     assert len(segments) == 2
     assert segments[0]["terminated"] is False
     assert segments[1]["terminated"] is False
+    # Kimi Code is broken upstream: its Responses adapter drops message `phase` on replay.
+    if harness.id != "kimi-code":
+        assert trace.num_branches == 1
     # Native MCP tools need not appear in the intercepted model request that
     # populates trace.tools; the ACP transcript is the source of truth for use.
     assert "tool" in segments[1]["roles"]
     assert segments[1]["tool_outputs"]
-    if harness == "rlm":
+    if harness.id == "rlm":
         assert "turns_since_last_compaction" in trace.metrics
 
 
@@ -263,10 +288,10 @@ async def test_tool(run_v1, harness_runtime, tool_runtime, tmp_path):
     assert trace.ok
     assert trace.num_turns >= 2  # tool call + answer
     assert trace.reward == 1.0
-    # The interception server captured the advertised tools onto the trace (for tool-use SFT):
-    # the null harness offered the task's MCP tool as `echo_back`, schema included.
+    # The interception server captured the harness's advertised name and schema. Harnesses
+    # may qualify the same raw MCP tool differently, so the test checks its stable suffix.
     assert trace.tools
-    (echo_tool,) = [t for t in trace.tools if t.name == "echo_back"]
+    (echo_tool,) = [tool for tool in trace.tools if tool.name.endswith("back")]
     assert "message" in echo_tool.parameters.get("properties", {})
 
 
@@ -301,7 +326,7 @@ async def test_shared_tool_isolation(
 ):
     """A shared writable tool isolates state across concurrent rollouts and runtimes."""
     traces = await run_v1_server(
-        "scratchpad-v1",
+        "scratchpad",
         harness="null",
         runtime={"type": harness_runtime},
         output_dir=tmp_path,
@@ -574,9 +599,9 @@ async def test_env_id_user_sim_with_tools(run_v1, tmp_path):
     assert assistant.task.data.prompt is None  # the scenario stayed off the wire
     assert user.num_turns >= 1  # the modeled user actually drove the exchange
     assert assistant.rewards["echoed"].score == 1.0  # the tool ran, mid-conversation
-    # The tool was advertised to the masked chat exactly as to any run.
+    # The tool was advertised to the masked chat, regardless of harness qualification.
     assert assistant.tools
-    assert any(tool.name == "echo_back" for tool in assistant.tools)
+    assert any(tool.name.endswith("back") for tool in assistant.tools)
 
 
 @pytest.mark.e2e
@@ -584,7 +609,7 @@ async def test_kuhn_poker_self_play(run_v1, tmp_path):
     """The turn-coupled proof env: one Kuhn poker hand, both seats live interactions
     of the run's own model (self-play), refereed host-side, paid out zero-sum."""
     traces = await run_v1(
-        "kuhn-poker-v1",
+        "kuhn-poker",
         harness=None,  # both seats pin the null harness themselves
         output_dir=tmp_path,
         max_turns=8,
@@ -637,16 +662,15 @@ async def test_replay_round_trip(run_v1, tmp_path):
     typed rebuild fails and the trace-only `@reward` silently stops running (the
     wire-narrowing regression). Trace-only rewards are deterministic given the transcript,
     so all three generations must agree."""
-    import tomllib
     from pathlib import Path
 
-    from verifiers.v1.cli.output import CONFIG_FILE
+    from verifiers.v1.cli.output import saved_config_path
     from verifiers.v1.cli.replay import run_replay
     from verifiers.v1.configs.cli.replay import ReplayConfig
 
     run_dir = tmp_path / "run"
     (source,) = await run_v1(
-        "reverse-text-v1",
+        "reverse-text",
         harness="null",
         runtime={"type": "subprocess"},
         output_dir=run_dir,
@@ -658,7 +682,9 @@ async def test_replay_round_trip(run_v1, tmp_path):
     async def replay(source_dir: Path, out: Path):
         # The CLI's layering, minus the argv plumbing: the saved run's config is the base
         # (`ReplayConfig` ignores its eval-only keys), the source's output_dir is dropped.
-        data = tomllib.loads((source_dir / CONFIG_FILE).read_text())
+        import json
+
+        data = json.loads(saved_config_path(source_dir).read_text())
         data.pop("output_dir", None)
         config = ReplayConfig(**{**data, "rich": False})
         (trace,) = await run_replay(config, source_dir, out)

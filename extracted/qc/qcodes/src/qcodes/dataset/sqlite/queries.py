@@ -5,6 +5,7 @@ specific to the domain of QCoDeS database.
 
 from __future__ import annotations
 
+import datetime
 import logging
 import sqlite3
 import time
@@ -840,10 +841,9 @@ def mark_run_complete(
             is a noop.
 
     """
-    if override is False:
-        if completed(conn=conn, run_id=run_id):
-            log.warning("Trying to mark a run completed that was already completed.")
-            return
+    if override is False and completed(conn=conn, run_id=run_id):
+        log.warning("Trying to mark a run completed that was already completed.")
+        return
 
     query = """
     UPDATE
@@ -1830,7 +1830,7 @@ def get_data_by_tag_and_table_name(
         ):
             data = None
         else:
-            raise e
+            raise
     return data
 
 
@@ -1903,7 +1903,7 @@ def insert_data_in_dynamic_columns(
 
     """
     validate_dynamic_column_data(data)
-    for key in data.keys():
+    for key in data:
         insert_column(conn, table_name, key)
     update_columns(conn, row_id, table_name, data)
 
@@ -1954,7 +1954,7 @@ def add_data_to_dynamic_columns(
         if str(e).startswith("duplicate"):
             update_columns(conn, row_id, table_name, data)
         else:
-            raise e
+            raise
 
 
 def get_experiment_name_from_experiment_id(conn: AtomicConnection, exp_id: int) -> str:
@@ -2289,18 +2289,39 @@ def get_raw_run_attributes(
 
 
 def raw_time_to_str_time(
-    raw_timestamp: float | None, fmt: str = "%Y-%m-%d %H:%M:%S"
+    raw_timestamp: float | None, fmt: str = "%Y-%m-%d %H:%M:%S%z"
 ) -> str | None:
+    """
+    Convert a raw (POSIX) timestamp into a human readable string.
+
+    The timestamp is rendered in the local timezone of the machine that reads
+    the dataset. Note that raw timestamps stored in the database are POSIX
+    timestamps and therefore do not capture the timezone in which the
+    measurement was performed. The default format therefore includes the UTC
+    offset of the local timezone to make the resulting string unambiguous.
+
+    Args:
+        raw_timestamp: POSIX timestamp to convert or None.
+        fmt: Format to render the timestamp in.
+            Consult :meth:`datetime.datetime.strftime` for the format options.
+
+    Returns:
+        The formatted timestamp or None if the raw timestamp was None.
+
+    """
     if raw_timestamp is None:
         return None
     else:
-        return time.strftime(fmt, time.localtime(raw_timestamp))
+        local_time = datetime.datetime.fromtimestamp(
+            raw_timestamp, tz=datetime.UTC
+        ).astimezone()
+        return local_time.strftime(fmt)
 
 
 def _check_if_table_found(conn: AtomicConnection, table_name: str) -> bool:
     query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
     cursor = conn.cursor()
-    return not many_many(cursor.execute(query, (table_name,)), "name") == []
+    return many_many(cursor.execute(query, (table_name,)), "name") != []
 
 
 def _get_result_table_name_by_guid(conn: AtomicConnection, guid: str) -> str:

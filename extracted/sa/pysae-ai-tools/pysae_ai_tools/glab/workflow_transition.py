@@ -211,8 +211,9 @@ def settle_issue_after_merge(issue_iid: str, *, project_path: str = "", project_
       shipment; issue-workflow-update closes it once shipped).
     - none remains → close the ticket and strip its board column: GitLab autoclose is off on
       Pysae repos, so nothing else would close it. That covers both a repo opting out of the
-      column (``board.to_deploy: false``) and one with no deploy branch at all — an infra repo
-      whose CI applies from the MR pipeline is already deployed by the time it merges.
+      column (``board.to_deploy: false``) and one declaring nothing and having no deploy branch
+      at all — an infra repo whose CI applies from the MR pipeline is already deployed by the
+      time it merges.
 
     :func:`deploy_branches.has_deploy_step` owns that decision, shared with
     ``issue-workflow-update`` so the live path and the reconciliation never disagree.

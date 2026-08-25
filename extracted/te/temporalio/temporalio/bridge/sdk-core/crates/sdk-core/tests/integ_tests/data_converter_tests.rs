@@ -3,7 +3,7 @@ use futures::{FutureExt, future::BoxFuture};
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -27,12 +27,11 @@ use temporalio_common::{
             history::v1::history_event::Attributes,
         },
     },
-    worker::WorkerTaskTypes,
 };
 use temporalio_macros::{activities, workflow, workflow_methods};
 use temporalio_sdk::{
-    ActivityOptions, CancellableFuture, MemoValue, SyncWorkflowContext, WorkflowContext,
-    WorkflowContextView, WorkflowResult,
+    ActivityOptions, ApplicationFailure, CancellableFuture, MemoValue, SyncWorkflowContext,
+    WorkflowContext, WorkflowContextView, WorkflowResult,
     activities::{ActivityContext, ActivityError},
 };
 
@@ -133,6 +132,7 @@ const ACTIVITY_PANIC_MESSAGE: &str = "activity converter fallback panic";
 const QUERY_FAILURE_MESSAGE: &str = "query converter fallback failure";
 const UPDATE_VALIDATOR_FAILURE_MESSAGE: &str = "update validator converter fallback failure";
 const UPDATE_HANDLER_FAILURE_MESSAGE: &str = "update handler converter fallback failure";
+const CODEC_RETRY_MARKER: &str = "codec-retry-test";
 
 #[derive(Debug)]
 struct FailingFailureConverter;
@@ -296,7 +296,7 @@ struct WorkflowFailureFallbackWorkflow;
 impl WorkflowFailureFallbackWorkflow {
     #[run]
     async fn run(_ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        Err(anyhow::anyhow!(WORKFLOW_FAILURE_MESSAGE).into())
+        Err(ApplicationFailure::new(WORKFLOW_FAILURE_MESSAGE).into())
     }
 }
 
@@ -343,7 +343,7 @@ struct QueryUpdateFailureFallbackWorkflow {
 impl QueryUpdateFailureFallbackWorkflow {
     #[run]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        ctx.wait_condition(|s| s.finish).await;
+        ctx.wait_condition(|s| s.finish).await?;
         Ok(())
     }
 
@@ -389,7 +389,6 @@ async fn custom_failure_converter_fallback_applied_to_workflow_failures() {
         .sdk_config
         .register_workflow::<WorkflowFailureFallbackWorkflow>()
         .unwrap();
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
 
     let task_queue = starter.get_task_queue().to_owned();
@@ -472,7 +471,6 @@ async fn custom_failure_converter_fallback_applied_to_query_failures() {
         .sdk_config
         .register_workflow::<QueryUpdateFailureFallbackWorkflow>()
         .unwrap();
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
 
     let task_queue = starter.get_task_queue().to_owned();
@@ -520,7 +518,6 @@ async fn custom_failure_converter_fallback_applied_to_update_validation_failures
         .sdk_config
         .register_workflow::<QueryUpdateFailureFallbackWorkflow>()
         .unwrap();
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
 
     let task_queue = starter.get_task_queue().to_owned();
@@ -574,7 +571,6 @@ async fn custom_failure_converter_fallback_applied_to_update_handler_failures() 
         .sdk_config
         .register_workflow::<QueryUpdateFailureFallbackWorkflow>()
         .unwrap();
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
 
     let task_queue = starter.get_task_queue().to_owned();
@@ -698,7 +694,6 @@ async fn multi_args_serializes_as_multiple_payloads() {
         .sdk_config
         .register_workflow::<MultiArgs2Workflow>()
         .unwrap();
-    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
 
     let input = MultiArgs2("hello".to_string(), 42);
@@ -718,7 +713,7 @@ async fn multi_args_serializes_as_multiple_payloads() {
     assert_eq!(output, "received: hello and 42");
 
     // Verify the workflow history contains multiple payloads in the input
-    let client = starter.get_client().await;
+    let client = starter.get_core_client().await;
     let events = client
         .get_workflow_handle::<UntypedWorkflow>(wf_name)
         .fetch_history(Default::default())
@@ -802,14 +797,14 @@ impl PayloadCodec for XorCodec {
         &self,
         _context: &SerializationContextData,
         payloads: Vec<Payload>,
-    ) -> BoxFuture<'static, Vec<Payload>> {
+    ) -> BoxFuture<'static, Result<Vec<Payload>, PayloadConversionError>> {
         let count = payloads.len();
         eprintln!("XorCodec::encode called with {} payloads", count);
         self.encode_count.fetch_add(count, Ordering::SeqCst);
         let key = self.key;
         let gate_on_metadata = self.gate_on_metadata;
         async move {
-            payloads
+            Ok(payloads
                 .into_iter()
                 .map(|mut p| {
                     p.data = p.data.iter().map(|b| b ^ key).collect();
@@ -818,7 +813,7 @@ impl PayloadCodec for XorCodec {
                     }
                     p
                 })
-                .collect()
+                .collect())
         }
         .boxed()
     }
@@ -827,14 +822,14 @@ impl PayloadCodec for XorCodec {
         &self,
         _context: &SerializationContextData,
         payloads: Vec<Payload>,
-    ) -> BoxFuture<'static, Vec<Payload>> {
+    ) -> BoxFuture<'static, Result<Vec<Payload>, PayloadConversionError>> {
         let count = payloads.len();
         eprintln!("XorCodec::decode called with {} payloads", count);
         self.decode_count.fetch_add(count, Ordering::SeqCst);
         let key = self.key;
         let gate_on_metadata = self.gate_on_metadata;
         async move {
-            payloads
+            Ok(payloads
                 .into_iter()
                 .map(|mut p| {
                     if !gate_on_metadata || p.metadata.remove("xor_encoded").is_some() {
@@ -842,10 +837,167 @@ impl PayloadCodec for XorCodec {
                     }
                     p
                 })
-                .collect()
+                .collect())
         }
         .boxed()
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CodecFailurePoint {
+    WorkflowEncode,
+    WorkflowDecode,
+    ActivityEncode,
+    ActivityDecode,
+}
+
+struct FailOnceCodec {
+    failure_point: CodecFailurePoint,
+    failed: AtomicBool,
+    matching_calls: AtomicUsize,
+}
+
+impl FailOnceCodec {
+    fn new(failure_point: CodecFailurePoint) -> Self {
+        Self {
+            failure_point,
+            failed: AtomicBool::new(false),
+            matching_calls: AtomicUsize::new(0),
+        }
+    }
+}
+
+impl PayloadCodec for FailOnceCodec {
+    fn encode(
+        &self,
+        context: &SerializationContextData,
+        payloads: Vec<Payload>,
+    ) -> BoxFuture<'static, Result<Vec<Payload>, PayloadConversionError>> {
+        let matches_context = matches!(
+            (self.failure_point, context),
+            (
+                CodecFailurePoint::WorkflowEncode,
+                SerializationContextData::Workflow
+            ) | (
+                CodecFailurePoint::ActivityEncode,
+                SerializationContextData::Activity
+            )
+        );
+        let marker = if matches!(self.failure_point, CodecFailurePoint::WorkflowEncode) {
+            b"activity-processed:codec-retry-test".as_slice()
+        } else {
+            CODEC_RETRY_MARKER.as_bytes()
+        };
+        let matches_payload = payloads.iter().any(|payload| {
+            payload
+                .data
+                .windows(marker.len())
+                .any(|data| data == marker)
+        });
+        let should_fail = matches_context && matches_payload;
+        if should_fail {
+            self.matching_calls.fetch_add(1, Ordering::SeqCst);
+        }
+        let should_fail = should_fail && !self.failed.swap(true, Ordering::SeqCst);
+        async move {
+            if should_fail {
+                Err(PayloadConversionError::EncodingError(
+                    "intentional codec encode failure".into(),
+                ))
+            } else {
+                Ok(payloads)
+            }
+        }
+        .boxed()
+    }
+
+    fn decode(
+        &self,
+        context: &SerializationContextData,
+        payloads: Vec<Payload>,
+    ) -> BoxFuture<'static, Result<Vec<Payload>, PayloadConversionError>> {
+        let matches_context = matches!(
+            (self.failure_point, context),
+            (
+                CodecFailurePoint::WorkflowDecode,
+                SerializationContextData::Workflow
+            ) | (
+                CodecFailurePoint::ActivityDecode,
+                SerializationContextData::Activity
+            )
+        );
+        let matches_payload = payloads.iter().any(|payload| {
+            payload
+                .data
+                .windows(CODEC_RETRY_MARKER.len())
+                .any(|data| data == CODEC_RETRY_MARKER.as_bytes())
+        });
+        let should_fail = matches_context && matches_payload;
+        if should_fail {
+            self.matching_calls.fetch_add(1, Ordering::SeqCst);
+        }
+        let should_fail = should_fail && !self.failed.swap(true, Ordering::SeqCst);
+        async move {
+            if should_fail {
+                Err(PayloadConversionError::EncodingError(
+                    "intentional codec decode failure".into(),
+                ))
+            } else {
+                Ok(payloads)
+            }
+        }
+        .boxed()
+    }
+}
+
+#[rstest::rstest]
+#[case::workflow_encode(CodecFailurePoint::WorkflowEncode)]
+#[case::workflow_decode(CodecFailurePoint::WorkflowDecode)]
+#[case::activity_encode(CodecFailurePoint::ActivityEncode)]
+#[case::activity_decode(CodecFailurePoint::ActivityDecode)]
+#[tokio::test]
+async fn codec_errors_fail_tasks_and_retry(#[case] failure_point: CodecFailurePoint) {
+    let codec = Arc::new(FailOnceCodec::new(failure_point));
+    let connection = get_integ_connection(None).await;
+    let data_converter = DataConverter::new(
+        PayloadConverter::default(),
+        DefaultFailureConverter,
+        codec.clone(),
+    );
+    let client_opts = ClientOptions::new(integ_namespace())
+        .data_converter(data_converter)
+        .build();
+    let client = Client::new(connection, client_opts).unwrap();
+    let mut starter = CoreWfStarter::new_with_overrides(
+        &format!("codec_errors_fail_and_retry_{failure_point:?}"),
+        None,
+        Some(client),
+    );
+    starter.sdk_config.register_activities(TestActivities);
+    starter
+        .sdk_config
+        .register_workflow::<DataConverterTestWorkflow>()
+        .unwrap();
+    let workflow_id = starter.get_task_queue().to_owned();
+    let mut worker = starter.worker().await;
+    let handle = worker
+        .submit_workflow(
+            DataConverterTestWorkflow::run,
+            TrackedWrapper(TrackedValue::new(CODEC_RETRY_MARKER.to_owned())),
+            WorkflowStartOptions::new(starter.get_task_queue(), workflow_id).build(),
+        )
+        .await
+        .unwrap();
+
+    worker.run_until_done().await.unwrap();
+
+    let output = handle.get_result(Default::default()).await.unwrap().0;
+    assert_eq!(
+        output.data,
+        format!("activity-processed:{CODEC_RETRY_MARKER}")
+    );
+    assert!(codec.failed.load(Ordering::SeqCst));
+    assert!(codec.matching_calls.load(Ordering::SeqCst) >= 2);
 }
 
 #[tokio::test]
@@ -867,7 +1019,6 @@ async fn codec_encodes_and_decodes_payloads() {
 
     let mut starter = CoreWfStarter::new_with_overrides(wf_name, None, Some(client));
     starter.sdk_config.register_activities(TestActivities);
-    starter.sdk_config.task_types = WorkerTaskTypes::all();
     starter
         .sdk_config
         .register_workflow::<DataConverterTestWorkflow>()
@@ -926,7 +1077,6 @@ async fn describe_decodes_workflow_payload_fields() {
 
     let mut starter = CoreWfStarter::new_with_overrides(wf_name, None, Some(client));
     starter.sdk_config.register_activities(TestActivities);
-    starter.sdk_config.task_types = WorkerTaskTypes::all();
     starter
         .sdk_config
         .register_workflow::<DescribeDataConverterWorkflow>()
@@ -1005,7 +1155,6 @@ async fn describe_decodes_user_metadata_with_ungated_xor_codec() {
 
     let mut starter = CoreWfStarter::new_with_overrides(wf_name, None, Some(client));
     starter.sdk_config.register_activities(TestActivities);
-    starter.sdk_config.task_types = WorkerTaskTypes::all();
     starter
         .sdk_config
         .register_workflow::<DescribeDataConverterWorkflow>()
@@ -1072,7 +1221,6 @@ async fn codec_roundtrips_activity_cancellation_details() {
     starter
         .sdk_config
         .register_activities(FailurePayloadActivities);
-    starter.sdk_config.task_types = WorkerTaskTypes::all();
     starter
         .sdk_config
         .register_workflow::<CancellationDetailsWorkflow>()
@@ -1122,7 +1270,6 @@ async fn codec_roundtrips_activity_heartbeat_timeout_details() {
     starter
         .sdk_config
         .register_activities(FailurePayloadActivities);
-    starter.sdk_config.task_types = WorkerTaskTypes::all();
     starter
         .sdk_config
         .register_workflow::<HeartbeatDetailsWorkflow>()

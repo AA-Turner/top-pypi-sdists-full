@@ -57,7 +57,7 @@ class Error(BaseModel):
     )
     error_metadata: Optional[ConnectorErrorMetadata] = Field(
         default=None,
-        description="Automatically-populated enrichment derived by the SDK from the resolved error code. Never set by connector authors — populated by handle_exception() in the SDK pipeline.  Contains: - fault / category: two-dimensional classification (who / what to do) - retryable / throttled / refreshable: behavioural trigger signals - hint: optional remediation hint for operators and support tooling",
+        description="Automatically-populated enrichment derived by the SDK from the resolved error code. Never set by connector authors - populated by handle_exception() in the SDK pipeline.  Contains: - fault / category: two-dimensional classification (who / what to do) - retryable / throttled / refreshable: behavioural trigger signals - hint: optional remediation hint for operators and support tooling",
     )
     __properties: ClassVar[List[str]] = [
         "message",

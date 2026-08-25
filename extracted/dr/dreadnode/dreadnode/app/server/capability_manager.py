@@ -410,7 +410,7 @@ class CapabilityRegistry:
                         if (_cap_checks := getattr(capability, "checks", None))
                         else None
                     ),
-                    entry_agent=None,
+                    entry_agent=capability.agents[0].name if capability.agents else None,
                     skills_paths=[
                         str(p)
                         for p in (

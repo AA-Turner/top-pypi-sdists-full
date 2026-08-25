@@ -6,9 +6,9 @@
 
 import re
 from collections import defaultdict
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import NamedTuple, Optional, TypedDict, Union
+from typing import NamedTuple, TypedDict
 
 import tomlkit
 
@@ -61,7 +61,7 @@ class ConventionalCommits:
 
     def __init__(
         self,
-        config: Optional[Path] = None,
+        config: Path | None = None,
     ) -> None:
         """
         Create a new ConventionalCommits instance for collecting conventional
@@ -84,7 +84,7 @@ class ConventionalCommits:
 
     def get_commits(
         self,
-        from_ref: Optional[SupportsStr] = None,
+        from_ref: SupportsStr | None = None,
         to_ref: SupportsStr = "HEAD",
     ) -> dict[str, list[CommitLogEntry]]:
         """
@@ -108,7 +108,7 @@ class ConventionalCommits:
         return self._config.get("commit_types", [])
 
     def _get_git_log(
-        self, from_ref: Optional[SupportsStr], to_ref: SupportsStr = "HEAD"
+        self, from_ref: SupportsStr | None, to_ref: SupportsStr = "HEAD"
     ) -> list[str]:
         """Getting the git log for the a range of commits.
 
@@ -158,7 +158,9 @@ class ConventionalCommits:
         expressions = [
             (
                 commit_type["group"],
-                re.compile(rf'{commit_type["message"]}\s?[:|-]', flags=re.I),
+                re.compile(
+                    rf"{commit_type['message']}\s?[:|-]", flags=re.IGNORECASE
+                ),
             )
             for commit_type in self.commit_types()
         ]
@@ -206,8 +208,8 @@ class ChangelogBuilder:
         self,
         *,
         repository: str,
-        git_tag_prefix: Optional[str] = "v",
-        config: Optional[Path] = None,
+        git_tag_prefix: str | None = "v",
+        config: Path | None = None,
     ) -> None:
         """
         Create a new ChangelogBuilder instance.
@@ -226,8 +228,8 @@ class ChangelogBuilder:
     def create_changelog(
         self,
         *,
-        last_version: Optional[SupportsStr] = None,
-        next_version: Optional[SupportsStr] = None,
+        last_version: SupportsStr | None = None,
+        next_version: SupportsStr | None = None,
     ) -> str:
         """
         Create a changelog
@@ -249,10 +251,10 @@ class ChangelogBuilder:
 
     def create_changelog_file(
         self,
-        output: Union[str, Path],
+        output: str | Path,
         *,
-        last_version: Optional[SupportsStr] = None,
-        next_version: Optional[SupportsStr] = None,
+        last_version: SupportsStr | None = None,
+        next_version: SupportsStr | None = None,
     ) -> None:
         """
         Create a changelog and write the changelog to a file
@@ -279,8 +281,8 @@ class ChangelogBuilder:
 
     def _build_changelog(
         self,
-        last_version: Optional[SupportsStr],
-        next_version: Optional[SupportsStr],
+        last_version: SupportsStr | None,
+        next_version: SupportsStr | None,
         commit_dict: dict[str, list[CommitLogEntry]],
     ) -> str:
         """
@@ -297,19 +299,19 @@ class ChangelogBuilder:
         changelog = []
         if next_version:
             changelog.append(
-                f"## [{next_version}] - {date.today().isoformat()}"
+                f"## [{next_version}] - {datetime.now(tz=timezone.utc).date().isoformat()}"
             )
         else:
             changelog.append("## [Unreleased]")
 
         # changelog entries
         for commit_type in self._conventional_commits.commit_types():
-            if commit_type["group"] in commit_dict.keys():
+            if commit_type["group"] in commit_dict:
                 changelog.append(f"\n## {commit_type['group']}")
                 for log_entry in commit_dict[commit_type["group"]]:
                     commit_id, commit_message = log_entry
                     commit_link = (
-                        f"{ADDRESS}{self._repository}/" f"commit/{commit_id}"
+                        f"{ADDRESS}{self._repository}/commit/{commit_id}"
                     )
                     msg = f"{commit_message} [{commit_id}]({commit_link})"
                     changelog.append(f"* {msg}")
@@ -339,9 +341,7 @@ class ChangelogBuilder:
 
         return "\n".join(changelog)
 
-    def _write_changelog_file(
-        self, changelog: str, output: Union[str, Path]
-    ) -> None:
+    def _write_changelog_file(self, changelog: str, output: str | Path) -> None:
         """
         Write changelog to an output file
 

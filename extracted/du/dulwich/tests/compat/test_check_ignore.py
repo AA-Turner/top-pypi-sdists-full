@@ -687,6 +687,98 @@ class CheckIgnoreCompatTestCase(CompatTestCase):
         ]
         self._assert_ignore_match(paths)
 
+    def test_bracket_expression_grammar(self) -> None:
+        """Test the whole bracket expression grammar against git.
+
+        git matches these with wildmatch(), which unlike fnmatch takes '^' as a
+        negation character, understands [:name:] classes, lets a backslash
+        escape a member, never matches '/' and gives up entirely on a malformed
+        class.
+        """
+        paths = [
+            "a",
+            "b",
+            "c",
+            "d",
+            "Q",
+            "z",
+            "0",
+            "9",
+            "_",
+            "^",
+            "!",
+            "]",
+            "[",
+            "ab",
+            "0a",
+            "a-c",
+            "abc",
+            "sub/a",
+            "sub/b",
+            "sub/0",
+        ]
+        for path in paths:
+            self._create_file(path)
+
+        # Patterns git's wildmatch() refuses outright, so nothing is ignored.
+        malformed = {"[abc", "[", "[]", "[!]", "[^]", "[[:foo:]]", "foo["}
+        patterns = [
+            "[abc]",
+            "[a-c]",
+            "[!a-c]",
+            "[^a-c]",
+            "[!0-9]",
+            "[^0-9]",
+            "[^^]",
+            "[[:digit:]]",
+            "[[:alpha:]]",
+            "[[:punct:]]",
+            "[[:xdigit:]]",
+            "[![:digit:]]",
+            "[^[:digit:]]",
+            "[[:digit:]abc]",
+            "[a[:digit:]]",
+            "[]]",
+            "[]a]",
+            "[!]]",
+            "[^]]",
+            "[\\]]",
+            "[\\[]",
+            "[x\\]y]",
+            "a[a\\-c]c",
+            "[a-]",
+            "[-a]",
+            "[a-c-]",
+            "[z-a]",
+            "[/-9]",
+            "[a/c]",
+            "[!/]",
+            "[^/]",
+            "*[^a]",
+            "?[^a]",
+            "[[:digit:]]*",
+            "*[[:digit:]]",
+            "sub/[^a]",
+            "sub/[[:digit:]]",
+            "**/[^a]",
+            "**/[[:digit:]]",
+            *sorted(malformed),
+        ]
+        for pattern in patterns:
+            self._write_gitignore(pattern + "\n")
+            git_ignored = self._git_check_ignore(paths)
+            # An erroring git would look like "nothing is ignored", so check
+            # that it really answered before comparing.
+            if pattern in malformed:
+                self.assertEqual(set(), git_ignored, f"pattern: {pattern}")
+            else:
+                self.assertNotEqual(set(), git_ignored, f"pattern: {pattern}")
+            self.assertEqual(
+                git_ignored,
+                self._dulwich_check_ignore(paths),
+                f"pattern: {pattern}",
+            )
+
     def test_mixed_single_double_asterisk_patterns(self) -> None:
         """Test patterns that mix single (*) and double (**) asterisks."""
         self._write_gitignore(
@@ -1154,6 +1246,56 @@ class CheckIgnoreCompatTestCase(CompatTestCase):
             "logs/keep/",
             "logs/subdir/",
             "logs/subdir/file.txt",
+        ]
+        self._assert_ignore_match(paths)
+
+    def test_trailing_double_asterisk_slash(self) -> None:
+        """Test that "foo/**/" only covers the directories below foo.
+
+        "foo/" itself is left out: git answers it inconsistently. "git status
+        --ignored" leaves the directory untracked, while "git check-ignore
+        foo/" calls it ignored, because the pattern is matched against the
+        trailing slash of the argument and "**" happily matches nothing.
+        """
+        self._write_gitignore("foo/**/\n")
+        self._create_file("foo/keep.txt")
+        self._create_file("foo/bar/bla.c")
+        self._create_dir("foo/bar/bla")
+
+        paths = [
+            "foo/keep.txt",
+            "foo/bar/",
+            "foo/bar/bla.c",
+            "foo/bar/bla/",
+        ]
+        self._assert_ignore_match(paths)
+
+    def test_trailing_double_asterisk_slash_at_root(self) -> None:
+        """Test a bare "**/", which covers every directory below the root."""
+        self._write_gitignore("**/\n")
+        self._create_file("keep.txt")
+        self._create_file("foo/bla.c")
+        self._create_dir("foo/bar")
+
+        paths = ["keep.txt", "foo/", "foo/bla.c", "foo/bar/"]
+        self._assert_ignore_match(paths)
+
+    def test_trailing_double_asterisk_slash_nested(self) -> None:
+        """Test "foo/**/" against a deeper tree with its own subdirectories."""
+        self._write_gitignore("foo/**/\n")
+        self._create_file("foo/a.txt")
+        self._create_file("foo/bar/b.txt")
+        self._create_file("foo/bar/bla/c.txt")
+        self._create_file("keep/foo/d.txt")
+
+        paths = [
+            "foo/a.txt",
+            "foo/bar/",
+            "foo/bar/b.txt",
+            "foo/bar/bla/",
+            "foo/bar/bla/c.txt",
+            "keep/foo/",
+            "keep/foo/d.txt",
         ]
         self._assert_ignore_match(paths)
 

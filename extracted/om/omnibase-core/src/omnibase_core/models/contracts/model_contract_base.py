@@ -53,6 +53,12 @@ from omnibase_core.models.contracts.model_contract_config import ModelContractCo
 from omnibase_core.models.contracts.model_contract_feature_flag import (
     ModelContractFeatureFlag,
 )
+from omnibase_core.models.contracts.model_contract_intent_consumption import (
+    ModelContractIntentConsumption,
+)
+from omnibase_core.models.contracts.model_contract_mcp_config import (
+    ModelContractMcpConfig,
+)
 from omnibase_core.models.contracts.model_dod_evidence import ModelDodEvidence
 from omnibase_core.models.contracts.model_lifecycle_config import ModelLifecycleConfig
 from omnibase_core.models.contracts.model_performance_requirements import (
@@ -62,6 +68,9 @@ from omnibase_core.models.contracts.model_validation_rules import ModelValidatio
 from omnibase_core.models.contracts.subcontracts.model_contract_behavior_spec import (
     ModelContractBehaviorSpec,
 )
+from omnibase_core.models.contracts.subcontracts.model_event_bus_subcontract import (
+    ModelEventBusSubcontract,
+)
 from omnibase_core.models.contracts.subcontracts.model_protocol_dependency import (
     ModelProtocolDependency,
 )
@@ -70,6 +79,14 @@ from omnibase_core.models.primitives.model_semver import ModelSemVer
 from omnibase_core.types import (
     TypedDictConsumedEventEntry,
     TypedDictPublishedEventEntry,
+)
+
+# Values that EnumDependencyType actually models. Derived from the enum so a new
+# member is picked up automatically. Used to decide whether a contract's freeform
+# ``type:`` key may be read as a ``dependency_type`` alias -- see
+# ``_batch_convert_dict_dependencies``.
+_DEPENDENCY_TYPE_MEMBER_VALUES: frozenset[str] = frozenset(
+    member.value for member in EnumDependencyType
 )
 
 
@@ -310,6 +327,28 @@ class ModelContractBase(BaseModel, ABC):
     # ONEX Infrastructure Extension Fields (OMN-1588)
     # These fields enable contract-level event routing and handler configuration
     # without requiring downstream repos to strip fields before validation.
+
+    # Top-level YAML sections the runtime reads from every node contract
+    # (OMN-16451). A section is declared here only when a runtime reader
+    # exists for it; sections nothing consumes are rejected by extra="forbid".
+    event_bus: ModelEventBusSubcontract | None = Field(
+        default=None,
+        description="Event-bus subscriptions, publications, and dead-letter topics. "
+        "Read by the runtime host to wire Kafka consumers and by auto-wiring "
+        "for DLQ routing.",
+    )
+
+    mcp: ModelContractMcpConfig | None = Field(
+        default=None,
+        description="MCP tool exposure. Read by the MCP adapter when scanning "
+        "contracts for AI-invocable tools.",
+    )
+
+    intent_consumption: ModelContractIntentConsumption | None = Field(
+        default=None,
+        description="Intent-type to effect-node routing. Read by the intent "
+        "routing loader when wiring intent executors.",
+    )
 
     handler_routing: "ModelHandlerRoutingSubcontract | None" = Field(
         default=None,
@@ -624,10 +663,26 @@ class ModelContractBase(BaseModel, ABC):
                     if item_dict.get("module") is not None
                     else None
                 )
-                dependency_type = item_dict.get(
-                    "dependency_type",
-                    EnumDependencyType.PROTOCOL,
-                )
+                # Contracts in the wild spell this key ``type:``, not
+                # ``dependency_type:``. ``type:`` is freeform, though: alongside
+                # real EnumDependencyType values ("protocol", "service",
+                # "environment") the corpus carries values the enum does not
+                # model ("handler", "library", "node", class names, ...).
+                # So ``type:`` is honoured ONLY when it names an enum member;
+                # every other value keeps the historical PROTOCOL default rather
+                # than turning ~180 committed dependency entries into hard
+                # contract-load failures.
+                if "dependency_type" in item_dict:
+                    dependency_type = item_dict["dependency_type"]
+                else:
+                    type_alias = item_dict.get("type")
+                    dependency_type = (
+                        type_alias
+                        if isinstance(type_alias, str)
+                        and type_alias in _DEPENDENCY_TYPE_MEMBER_VALUES
+                        else EnumDependencyType.PROTOCOL
+                    )
+
                 if isinstance(dependency_type, str):
                     dependency_type = EnumDependencyType(dependency_type)
                 elif not isinstance(dependency_type, EnumDependencyType):
@@ -644,6 +699,11 @@ class ModelContractBase(BaseModel, ABC):
                     if item_dict.get("description") is not None
                     else None
                 )
+                env_var = (
+                    str(item_dict["env_var"])
+                    if item_dict.get("env_var") is not None
+                    else None
+                )
 
                 result_deps.append(
                     ModelDependency(
@@ -653,6 +713,7 @@ class ModelContractBase(BaseModel, ABC):
                         version=version,
                         required=required,
                         description=description,
+                        env_var=env_var,
                     ),
                 )
             except (AttributeError, KeyError, TypeError, ValueError) as e:

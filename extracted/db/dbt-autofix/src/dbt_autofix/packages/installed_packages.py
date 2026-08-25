@@ -90,7 +90,7 @@ def load_yaml_from_package_dbt_project_yml_path(package_project_yml_path: Path) 
         return {}
     try:
         parsed_package_file = load_yaml(package_project_yml_path)
-    except:
+    except Exception:
         console.log(f"Error when parsing package file {package_project_yml_path}")
         return {}
     if parsed_package_file == {}:
@@ -118,11 +118,13 @@ def parse_package_info_from_package_dbt_project_yml(parsed_package_file: dict[An
         console.log("Package must contain name")
         return
 
+    # the version listed in the package's dbt_project.yml is arbitrary and
+    # typically doesn't reflect the actual package version (which Package Hub
+    # derives from the git tag in the package repo)
     if "version" in parsed_package_file:
         version = str(parsed_package_file["version"])
     else:
-        console.log("Package must contain version")
-        return
+        version = "0.0.0"
 
     if "require-dbt-version" in parsed_package_file:
         require_dbt_version_raw: Any = parsed_package_file["require-dbt-version"]

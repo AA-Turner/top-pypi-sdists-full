@@ -94,6 +94,8 @@ def parse_requirements(fname="requirements/runtime.txt", with_version=True):
                         parts.append(";" + platform_deps)
                 item = "".join(parts)
                 yield item
+        else:
+            raise FileNotFoundError(f"Requirements file not found: {require_fpath}")
 
     packages = list(gen_packages_items())
     return packages
@@ -113,9 +115,9 @@ def get_extensions(version_info):
 
     if not WIN:
         kwargs["extra_compile_args"] = [
+            # Keep IEEE floating-point behavior while retaining portable optimization.
+            "-O3",
             "-fPIC",
-            "-ffinite-math-only",
-            "-fno-signed-zeros",
             "-ftree-vectorize",
             "-funroll-loops",
         ]
@@ -156,16 +158,13 @@ setup(
         "Development Status :: 4 - Beta",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     data_files=glob.glob("requirements/*"),
     install_requires=parse_requirements("requirements/runtime.txt"),
     extras_require={

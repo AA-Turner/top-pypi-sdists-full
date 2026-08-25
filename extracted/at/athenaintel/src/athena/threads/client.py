@@ -98,7 +98,11 @@ class ThreadsClient:
         return _response.data
 
     def get_status(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        thread_id: str,
+        *,
+        include_messages: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> ThreadStatusResponseOut:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
@@ -107,6 +111,9 @@ class ThreadsClient:
         ----------
         thread_id : str
             The unique thread ID to check status for
+
+        include_messages : typing.Optional[bool]
+            Whether to materialize checkpoint messages. By default, deployments with lightweight active reads enabled omit messages while a run is scheduled, queued, or running, and include them once it is terminal. Set true to force messages or false to skip them.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -127,7 +134,9 @@ class ThreadsClient:
             thread_id="thread_id",
         )
         """
-        _response = self._raw_client.get_status(thread_id, request_options=request_options)
+        _response = self._raw_client.get_status(
+            thread_id, include_messages=include_messages, request_options=request_options
+        )
         return _response.data
 
     def stop(self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ThreadStopResponseOut:
@@ -262,7 +271,11 @@ class AsyncThreadsClient:
         return _response.data
 
     async def get_status(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        thread_id: str,
+        *,
+        include_messages: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> ThreadStatusResponseOut:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
@@ -271,6 +284,9 @@ class AsyncThreadsClient:
         ----------
         thread_id : str
             The unique thread ID to check status for
+
+        include_messages : typing.Optional[bool]
+            Whether to materialize checkpoint messages. By default, deployments with lightweight active reads enabled omit messages while a run is scheduled, queued, or running, and include them once it is terminal. Set true to force messages or false to skip them.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -299,7 +315,9 @@ class AsyncThreadsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_status(thread_id, request_options=request_options)
+        _response = await self._raw_client.get_status(
+            thread_id, include_messages=include_messages, request_options=request_options
+        )
         return _response.data
 
     async def stop(

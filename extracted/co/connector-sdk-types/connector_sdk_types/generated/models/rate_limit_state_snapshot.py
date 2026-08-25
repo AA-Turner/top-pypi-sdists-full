@@ -25,13 +25,13 @@ from typing_extensions import Self
 
 class RateLimitStateSnapshot(BaseModel):
     """
-    A snapshot of rate limit state — passed between caller and connector to preserve adaptive state across page calls and give callers visibility into current standing.
+    A snapshot of rate limit state - passed between caller and connector to preserve adaptive state across page calls and give callers visibility into current standing.
     """ # noqa: E501
     remaining: Optional[StrictInt] = Field(default=None, description="Remaining requests allowed in the current window.")
     limit: Optional[StrictInt] = Field(default=None, description="Total requests allowed in the current window.")
     reset: Optional[StrictInt] = Field(default=None, description="Unix timestamp (seconds) when the current window resets. Callers can use this to schedule the next call precisely.")
     window_seconds: Optional[StrictInt] = Field(default=None, description="Window size in seconds.")
-    current_delay: Optional[StrictInt] = Field(default=None, description="The connector's current internal delay between requests (seconds, rounded). Reflects adaptive backoff state — useful for seeding the next call's rate limiter.")
+    current_delay: Optional[StrictInt] = Field(default=None, description="The connector's current internal delay between requests (seconds, rounded). Reflects adaptive backoff state - useful for seeding the next call's rate limiter.")
     source: Optional[RateLimitStateSnapshotSource] = Field(default=None, description="The source of the rate limit state snapshot. The data for rate limiting is not guaranteed and can be coming from: - The external API, like headers from the API response - The Connector SDK, by managing static rate limiting state (in-connector config)")
     __properties: ClassVar[List[str]] = ["remaining", "limit", "reset", "window_seconds", "current_delay", "source"]
 

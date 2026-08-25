@@ -57,7 +57,6 @@ class Qualifier(ABC):
     term: str
 
     def __str__(self) -> str:
-        """ """
         return f"{self.operator}:{self.term}"
 
 
@@ -80,7 +79,7 @@ class NotQualifier(Qualifier):
         self.qualifier = qualifier
 
     def __str__(self) -> str:
-        return f"-{str(self.qualifier)}"
+        return f"-{self.qualifier!s}"
 
 
 class InQualifier(Qualifier):

@@ -22,7 +22,7 @@ except ImportError:
     redis = None
 
 try:
-    import libmc as memcache
+    import pylibmc as memcache
 except ImportError:
     try:
         from google.appengine.api import memcache
@@ -46,6 +46,11 @@ class CacheTestsBase:
     def c(self, make_cache):
         """Return a cache instance."""
         return make_cache()
+
+    @pytest.fixture
+    def sleep(self, clock):
+        """Stay a while and listen..."""
+        return clock.advance if self._can_use_fast_sleep else time.sleep
 
 
 class GenericCacheTests(CacheTestsBase):
@@ -112,12 +117,12 @@ class GenericCacheTests(CacheTestsBase):
         assert c.set("bar", False)
         assert c.get("bar") in (False, 0)
 
-    def test_generic_timeout(self, c):
+    def test_generic_timeout(self, c, sleep):
         c.set("foo", "bar", 0)
         assert c.get("foo") == "bar"
         c.set("baz", "qux", 1)
         assert c.get("baz") == "qux"
-        time.sleep(3)
+        sleep(3)
         # timeout of zero means no timeout
         assert c.get("foo") == "bar"
         if self._guaranteed_deletes:
@@ -152,11 +157,31 @@ class TestSimpleCache(GenericCacheTests):
         # Cache purges old items *before* it sets new ones.
         assert len(c._cache) == 3
 
+    def test_deprecated_ignore_errors(self):
+        with pytest.warns(DeprecationWarning, match="ignore_errors"):
+            c = backends.SimpleCache(ignore_errors=True)
+        assert c.ignore_delete_many_errors is True
+
+    def test_ignore_delete_many_errors(self):
+        c = backends.SimpleCache(ignore_delete_many_errors=True)
+        assert c.ignore_delete_many_errors is True
+
 
 class TestFileSystemCache(GenericCacheTests):
     @pytest.fixture
     def make_cache(self, tmpdir):
         return lambda **kw: backends.FileSystemCache(cache_dir=str(tmpdir), **kw)
+
+    def test_deprecated_ignore_errors(self, tmpdir):
+        with pytest.warns(DeprecationWarning, match="ignore_errors"):
+            c = backends.FileSystemCache(cache_dir=str(tmpdir), ignore_errors=True)
+        assert c.ignore_delete_many_errors is True
+
+    def test_ignore_delete_many_errors(self, tmpdir):
+        c = backends.FileSystemCache(
+            cache_dir=str(tmpdir), ignore_delete_many_errors=True
+        )
+        assert c.ignore_delete_many_errors is True
 
 
 # don't use pytest.mark.skipif on subclasses
@@ -179,14 +204,14 @@ class TestRedisCache(GenericCacheTests):
         if request.param is None:
             host = "localhost"
         elif request.param:
-            host = redis.StrictRedis()
+            host = redis.StrictRedis(port=6360)
         elif callable(request.param):
             key_prefix = gen_key_prefix  # noqa (flake8 error: undefined)
-            host = redis.Redis()
+            host = redis.Redis(port=6360)
         else:
-            host = redis.Redis()
+            host = redis.Redis(port=6360)
 
-        c = backends.RedisCache(host=host, key_prefix=key_prefix)
+        c = backends.RedisCache(host=host, key_prefix=key_prefix, port=6360)
         yield lambda: c
         c.clear()
 
@@ -214,6 +239,10 @@ class TestRedisCacheClientsOverride(CacheTestsBase):
         EXPECTED_GET_MANY_VALUES = ["bacon", "spam", "eggs"]
 
         class DummyWriteClient:
+            # cachelib < 0.15 uses setex(), >= 0.15 uses set(ex=...)
+            def set(self, *args, **kwargs):
+                return "spam"
+
             def setex(self, *args, **kwargs):
                 return "spam"
 
@@ -246,12 +275,14 @@ class TestMemcachedCache(GenericCacheTests):
 
     @pytest.fixture
     def make_cache(self):
-        c = backends.MemcachedCache(key_prefix="werkzeug-test-case:")
+        c = backends.MemcachedCache(
+            servers=["127.0.0.1:11212"], key_prefix="werkzeug-test-case:"
+        )
         yield lambda: c
         c.clear()
 
     def test_compat(self, c):
-        assert c._client.set(c.key_prefix + "foo", "bar")
+        assert c.set("foo", "bar")
         assert c.get("foo") == "bar"
 
     def test_huge_timeouts(self, c):
@@ -264,7 +295,7 @@ class TestMemcachedCache(GenericCacheTests):
     def test_timeouts(self, c):
         c.set("foo", "bar", 1)
         assert c.get("foo") == "bar"
-        time.sleep(2)
+        time.sleep(3)
         assert c.has("foo") is False
 
 

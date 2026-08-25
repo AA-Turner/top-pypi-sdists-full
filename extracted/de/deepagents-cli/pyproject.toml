@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deepagents-cli"
-version = "0.2.2"
-description = "Deployment tooling for Deep Agents - bundle, run, and ship agents to LangGraph Platform."
+version = "0.3.0"
+description = "DEPRECATED: Deployment tooling for Deep Agents. Use Managed Deep Agents (`uv tool install managed-deepagents`, `mda`) instead: https://docs.langchain.com/langsmith/python/managed-deep-agents-overview"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 keywords = ["agents", "ai", "cli", "deploy", "llm", "langgraph", "langchain", "deep-agent"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 7 - Inactive",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -25,16 +25,15 @@ classifiers = [
 ]
 dependencies = [
     # Framework
-    "deepagents>=0.6.8",
-    "langchain>=1.3.4,<2.0.0",
-    "langgraph>=1.2.4,<2.0.0",
+    "deepagents>=0.6.12",
+    "langchain>=1.3.16,<2.0.0",
 
     # Bundling & deploy server
-    "langgraph-sdk>=0.4.2,<1.0.0",
+    "langgraph-sdk>=0.4.3,<1.0.0",
     "httpx>=0.28.1,<1.0.0",
 
     # LangSmith
-    "langsmith>=0.8.9",
+    "langsmith>=0.11.1",
 
     # Utilities
     "python-dotenv>=1.2.2,<2.0.0",
@@ -56,19 +55,19 @@ Reddit = "https://www.reddit.com/r/LangChain/"
 
 [dependency-groups]
 test = [
-    "build>=1.0.0,<2.0.0",
-    "ruff>=0.14.0,<1.0.0",
-    "ty>=0.0.1,<1.0.0",
-    "pytest>=8.3.4,<10.0.0",
-    "pytest-asyncio>=0.25.3,<2.0.0",
-    "pytest-cov>=6.0.0,<8.0.0",
-    "pytest-mock>=3.14.0,<4.0.0",
-    "pytest-socket>=0.7.0,<1.0.0",
-    "pytest-timeout>=2.3.1,<3.0.0",
-    "pytest-watcher>=0.3.4,<1.0.0",
+    "build>=1.5.0,<2.0.0",
+    "ruff>=0.15.20,<1.0.0",
+    "ty>=0.0.54,<1.0.0",
+    "pytest>=9.1.1,<10.0.0",
+    "pytest-asyncio>=1.4.0,<2.0.0",
+    "pytest-cov>=7.1.0,<8.0.0",
+    "pytest-mock>=3.15.1,<4.0.0",
+    "pytest-socket>=0.8.0,<1.0.0",
+    "pytest-timeout>=2.4.0,<3.0.0",
+    "pytest-watcher>=0.6.3,<1.0.0",
     "pytest-xdist>=3.8.0,<4.0.0",
-    "responses>=0.25.0,<1.0.0",
-    "twine>=6.0.0,<7.0.0",
+    "responses>=0.26.1,<1.0.0",
+    "twine>=6.2.0,<7.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -176,6 +175,12 @@ omit = ["tests/*"]
 
 [tool.pytest.ini_options]
 timeout = 30  # Default timeout for all tests (can be overridden per-test)
+filterwarnings = [
+    # Unexpected warnings fail the run; see "Warnings are errors" in AGENTS.md.
+    "error",
+    # deepagents-cli is deprecated; the package warns at import time on purpose.
+    "default:deepagents-cli is deprecated:DeprecationWarning",
+]
 
 addopts = "--strict-markers --strict-config --durations=5"
 asyncio_mode = "auto"

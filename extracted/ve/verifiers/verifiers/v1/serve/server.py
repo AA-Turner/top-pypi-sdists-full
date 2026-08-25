@@ -5,17 +5,15 @@ import msgpack
 import zmq
 import zmq.asyncio
 
-from verifiers.utils.process_utils import use_threading_tqdm_lock
-from verifiers.utils.serve_utils import msgpack_encoder
 from verifiers.v1.clients import ModelContext
 from verifiers.v1.configs.client import ClientConfig
 from verifiers.v1.configs.env import EnvConfig
+from verifiers.v1.serve.encoding import msgpack_encoder
 from verifiers.v1.serve.types import (
     BaseResponse,
+    CancelRequest,
+    CancelResponse,
     HealthResponse,
-    InfoResponse,
-    RunGroupRequest,
-    RunGroupResponse,
     RunRequest,
     RunResponse,
 )
@@ -49,12 +47,10 @@ class EnvServer:
                 f"{self.data_cls.__name__} excludes {excluded} from serialization — "
                 "a served task must survive the wire whole (drop exclude=True)"
             )
-        self.num_tasks: int | None = None
-        # v1 envs never group-score (siblings score inside the env's own rollout);
-        # only the legacy (v0) bridge sets this.
-        self.requires_group_scoring = False
         # This worker's episode bound (`--max-concurrent`), spanning requests.
         self._gate = asyncio.Semaphore(max_concurrent) if max_concurrent else None
+        # In-flight run tasks by wire request_id, so a `cancel` can abort them
+        self._running: dict[str, asyncio.Task] = {}
         self.ctx = zmq.asyncio.Context()
         self.frontend = self.ctx.socket(zmq.ROUTER)
         self.frontend.setsockopt(zmq.ROUTER_MANDATORY, 1)
@@ -69,9 +65,6 @@ class EnvServer:
     @classmethod
     def run_server(cls, address_queue=None, **kwargs) -> None:
         """Run a spawned server and report its concrete address when requested."""
-        # Pin tqdm to a threading lock first, so a dataset pull (legacy bridge) never
-        # leaks a multiprocessing semaphore (resource_tracker warning at shutdown).
-        use_threading_tqdm_lock()
         server = cls(**kwargs)
         if address_queue is not None:
             address_queue.put(server.address)
@@ -83,16 +76,12 @@ class EnvServer:
             # of a spurious multiprocessing traceback, matching serve_env's own handling.
             pass
 
-    def _build_task(self, task_data: dict | None) -> Task:
+    def _build_task(self, task_data: dict) -> Task:
         """Rebuild a request's task from its wire data: validate into the taskset's
         declared `TaskData` type and wrap it in the declared `Task` with the config's
         task subtree — the same construction the taskset's own `load()` performs. The
         client owns the taskset; this server never `load()`s data, so pool workers
         don't each pull the dataset."""
-        if task_data is None:
-            raise ValueError(
-                "v1 env server requests carry task_data (task_idx addresses the legacy bridge)"
-            )
         data = self.data_cls.model_validate(task_data)
         return self.task_cls(data, self.env.config.taskset.task)
 
@@ -104,11 +93,6 @@ class EnvServer:
         endpoint (and a training run's changing model) leaves nothing behind."""
         return ModelContext(client=client_config, model=model, sampling=sampling)
 
-    def serving(self):
-        """The env's serving resources, entered for the server's lifetime so they're
-        reused across requests. The legacy v0 bridge overrides this (no v1 serving)."""
-        return self.env.serving()
-
     async def _run(self, req: RunRequest) -> RunResponse:
         ctx = self._context(req.client, req.model, req.sampling)
         (slot,) = self.env.slots(self._build_task(req.task_data))
@@ -118,14 +102,6 @@ class EnvServer:
         # Trust the env-minted episode; serialize it once before client-side re-typing.
         return RunResponse.model_construct(episode=episode)
 
-    async def _run_group(self, req: RunGroupRequest) -> RunGroupResponse:
-        # The route survives for the legacy (v0) bridge (`LegacyEnvServer` overrides
-        # this); a dispatcher calling it on a v1 env gets a loud error.
-        raise RuntimeError(
-            "run_group is a legacy (v0) route; v1 envs score sibling-dependent "
-            "signals inside their own rollout — request run instead"
-        )
-
     async def _handle(
         self, client_id: bytes, request_id: bytes, method: bytes, payload: bytes
     ) -> None:
@@ -134,19 +110,27 @@ class EnvServer:
             raw = msgpack.unpackb(payload, raw=False)
             if route == "health":
                 response: BaseResponse = HealthResponse()
-            elif route == "info":
-                response = InfoResponse(
-                    num_tasks=self.num_tasks,
-                    requires_group_scoring=self.requires_group_scoring,
-                )
             elif route == "run":
-                response = await self._run(RunRequest.model_validate(raw))
-            elif route == "run_group":
-                response = await self._run_group(RunGroupRequest.model_validate(raw))
+                # Registered in the dispatch loop, before this task first runs
+                try:
+                    response = await self._run(RunRequest.model_validate(raw))
+                finally:
+                    self._running.pop(request_id.decode(), None)
+            elif route == "cancel":
+                target = CancelRequest.model_validate(raw).request_id
+                running = self._running.get(target)
+                if running is not None:
+                    running.cancel()
+                    logger.info("cancelled run %s on client request", target)
+                response = CancelResponse(cancelled=running is not None)
             else:
                 response = BaseResponse(
                     success=False, error=f"unknown method {route!r}"
                 )
+        except asyncio.CancelledError:
+            # An aborted run still replies so broker/client accounting stays
+            # exact; the requesting client has already given up on the result
+            response = BaseResponse(success=False, error="Cancelled: rollout aborted")
         except (
             Exception
         ) as e:  # a failed request is data, not a crash — report and keep serving
@@ -167,17 +151,15 @@ class EnvServer:
 
     async def run(self) -> None:
         logger.info(
-            "EnvServer up: taskset=%s address=%s tasks=%s group_scoring=%s",
+            "EnvServer up: taskset=%s address=%s",
             self.taskset_id,
             self.address,
-            self.num_tasks if self.num_tasks is not None else "client-side",
-            self.requires_group_scoring,
         )
         poller = zmq.asyncio.Poller()
         poller.register(self.frontend, zmq.POLLIN)
         tasks: set[asyncio.Task] = set()
         # Shared servers and the interception live across requests in this worker.
-        async with self.serving():
+        async with self.env.serving():
             try:
                 while True:
                     events = dict(await poller.poll(timeout=100))
@@ -193,6 +175,12 @@ class EnvServer:
                     task = asyncio.create_task(
                         self._handle(client_id, request_id, method, payload)
                     )
+                    if method == b"run":
+                        # Register at dispatch, not handler start: a cancel
+                        # processed ahead of the run's handler task must still
+                        # find its target (ZMQ preserves per-client frame
+                        # order, so the run always arrives first)
+                        self._running[request_id.decode()] = task
                     tasks.add(task)
                     task.add_done_callback(tasks.discard)
             except (asyncio.CancelledError, KeyboardInterrupt):

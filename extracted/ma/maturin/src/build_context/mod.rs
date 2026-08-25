@@ -7,7 +7,6 @@ pub(crate) use repair::finalize_staged_artifacts;
 use crate::auditwheel::AuditWheelMode;
 use crate::auditwheel::PlatformTag;
 use crate::cargo_options::CargoOptions;
-use crate::compile::CompileTarget;
 use crate::compression::CompressionOptions;
 use crate::pgo::PgoPhase;
 use crate::project_layout::ProjectLayout;
@@ -18,6 +17,7 @@ use crate::{
 use anyhow::Result;
 use cargo_metadata::Metadata;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// The input part of the build context.
 ///
@@ -26,6 +26,8 @@ use std::path::PathBuf;
 /// is generally independent of the target Python interpreter.
 #[derive(Clone, Debug)]
 pub struct ProjectContext {
+    /// The bridge model used by this project
+    pub bridge: BridgeModel,
     /// The platform, i.e. os and pointer width
     pub target: Target,
     /// Whether this project is pure rust or rust mixed with python
@@ -45,7 +47,7 @@ pub struct ProjectContext {
     /// Directory for all generated artifacts
     pub target_dir: PathBuf,
     /// Cargo.toml as resolved by [cargo_metadata]
-    pub cargo_metadata: Metadata,
+    pub cargo_metadata: Arc<Metadata>,
     /// Whether to use universal2 or use the native macOS tag (off)
     pub universal2: bool,
     /// Build editable wheels
@@ -55,14 +57,13 @@ pub struct ProjectContext {
     /// Cargo features conditionally enabled based on the target Python version/implementation
     pub conditional_features: Vec<ConditionalFeature>,
     /// List of Cargo targets to compile
-    pub compile_targets: Vec<CompileTarget>,
+    pub compile_targets: Vec<cargo_metadata::Target>,
 }
 
 impl ProjectContext {
     /// Bridge model
     pub fn bridge(&self) -> &BridgeModel {
-        // FIXME: currently we only allow multiple bin targets so bridges are all the same
-        &self.compile_targets[0].bridge_model
+        &self.bridge
     }
 
     /// Returns the platform part of the tag for the wheel name
@@ -91,7 +92,7 @@ pub struct ArtifactContext {
     /// Compression options
     pub compression: CompressionOptions,
     /// SBOM configuration
-    pub sbom: Option<SbomConfig>,
+    pub sbom: SbomConfig,
     /// Include the import library in the wheel on Windows
     pub include_import_lib: bool,
     /// Include debug info files (.pdb, .dSYM, .dwp) in the wheel
@@ -120,6 +121,8 @@ pub struct PythonContext {
     pub platform_tag: Vec<PlatformTag>,
     /// The available python interpreters
     pub interpreter: Vec<PythonInterpreter>,
+    /// Host Python to expose to PyO3 when target interpreters are not runnable.
+    pub host_python: Option<PathBuf>,
     /// Whether to validate wheels against PyPI platform tag rules
     pub pypi_validation: bool,
 }
@@ -138,8 +141,38 @@ pub struct BuildContext {
     pub python: PythonContext,
 }
 
-/// The wheel file location and its Python version tag (e.g. `py3`).
-///
-/// For bindings the version tag contains the Python interpreter version
-/// they bind against (e.g. `cp37`).
-pub type BuiltWheelMetadata = (PathBuf, String);
+/// A built distribution artifact and the high-level tag maturin associates with it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuiltWheel {
+    /// Path to the built wheel or source distribution.
+    pub path: PathBuf,
+    /// High-level tag describing the artifact kind or bound interpreter.
+    pub tag: BuiltArtifactTag,
+}
+
+/// High-level tag for a built artifact.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BuiltArtifactTag {
+    /// A Python interpreter tag such as `cp312`.
+    Interpreter(String),
+    /// Universal Python 3 artifact tag, rendered as `py3` at string boundaries.
+    Universal,
+    /// Source distribution artifact tag, rendered as `source` at string boundaries.
+    Source,
+}
+
+impl BuiltArtifactTag {
+    pub(crate) fn interpreter(tag: impl Into<String>) -> Self {
+        Self::Interpreter(tag.into())
+    }
+}
+
+impl std::fmt::Display for BuiltArtifactTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Interpreter(tag) => f.write_str(tag),
+            Self::Universal => f.write_str("py3"),
+            Self::Source => f.write_str("source"),
+        }
+    }
+}

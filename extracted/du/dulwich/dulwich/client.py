@@ -43,6 +43,7 @@ __all__ = [
     "COMMON_CAPABILITIES",
     "DEFAULT_GIT_CREDENTIALS_PATHS",
     "DEFAULT_REF_PREFIX",
+    "MAX_IN_VAIN",
     "RECEIVE_CAPABILITIES",
     "UPLOAD_CAPABILITIES",
     "AbstractHttpGitClient",
@@ -181,7 +182,7 @@ from .credentials import match_partial_url, match_urls
 from .errors import GitProtocolError, HangupException, NotGitRepository, SendPackError
 from .object_format import DEFAULT_OBJECT_FORMAT
 from .object_store import GraphWalker
-from .objects import ObjectID
+from .objects import ObjectID, valid_hexsha
 from .pack import (
     PACK_SPOOL_FILE_MAX_SIZE,
     PackChunkGenerator,
@@ -256,6 +257,10 @@ from .repo import BaseRepo, Repo
 # specified, so explicitly request all refs to match
 # behaviour with v1 when no ref-prefix is specified.
 DEFAULT_REF_PREFIX = [b"HEAD", b"refs/"]
+
+# Stop negotiation after this many "have" lines without an ACK. This matches
+# MAX_IN_VAIN in C Git's fetch-pack.c.
+MAX_IN_VAIN = 256
 
 
 logger = logging.getLogger(__name__)
@@ -773,12 +778,15 @@ def _read_shallow_updates(
             cmd, sha = pkt.split(b" ", 1)
         except ValueError:
             raise GitProtocolError(f"unknown command {pkt!r}")
-        if cmd == COMMAND_SHALLOW:
-            new_shallow.add(ObjectID(sha.strip()))
-        elif cmd == COMMAND_UNSHALLOW:
-            new_unshallow.add(ObjectID(sha.strip()))
-        else:
+        if cmd not in (COMMAND_SHALLOW, COMMAND_UNSHALLOW):
             raise GitProtocolError(f"unknown command {pkt!r}")
+        sha = sha.strip()
+        if not valid_hexsha(sha):
+            raise GitProtocolError(f"invalid shallow line {pkt!r}")
+        if cmd == COMMAND_SHALLOW:
+            new_shallow.add(ObjectID(sha))
+        else:
+            new_unshallow.add(ObjectID(sha))
     return (new_shallow, new_unshallow)
 
 
@@ -965,14 +973,19 @@ def _handle_upload_pack_head(
         proto.write_pkt_line(None)
 
     have = next(graph_walker)
+    in_vain = 0
+    got_ack = False
     while have:
         proto.write_pkt_line(COMMAND_HAVE + b" " + have + b"\n")
+        in_vain += 1
         if can_read is not None and can_read():
             pkt = proto.read_pkt_line()
             assert pkt is not None
             parts = pkt.rstrip(b"\n").split(b" ")
             if parts[0] == b"ACK":
                 graph_walker.ack(ObjectID(parts[1]))
+                in_vain = 0
+                got_ack = True
                 if parts[2] in (b"continue", b"common"):
                     pass
                 elif parts[2] == b"ready":
@@ -981,6 +994,11 @@ def _handle_upload_pack_head(
                     raise AssertionError(
                         f"{parts[2]!r} not in ('continue', 'ready', 'common)"
                     )
+        # Once the server has ACKed something, stop if negotiation makes no
+        # progress for MAX_IN_VAIN haves. Stateless transports cannot read
+        # ACKs while building the request, so apply the limit from the start.
+        if in_vain >= MAX_IN_VAIN and (got_ack or can_read is None):
+            break
         have = next(graph_walker)
     proto.write_pkt_line(COMMAND_DONE + b"\n")
     if protocol_version == 2:
@@ -3854,6 +3872,18 @@ class PLinkSSHVendor(SSHVendor):
 get_ssh_vendor: Callable[[], SSHVendor] = SubprocessSSHVendor
 
 
+def _quote_remote_path(path: bytes) -> bytes:
+    """Quote a remote path the way git's sq_quote() does.
+
+    The path is always wrapped in single quotes, even when it contains no
+    characters that are special to a shell. shlex.quote() leaves such paths
+    bare, but some servers (notably Bitbucket Server) parse the command line
+    themselves rather than handing it to a shell, and only accept git's
+    canonical quoted form.
+    """
+    return b"'" + path.replace(b"'", b"'\\''") + b"'"
+
+
 class SSHGitClient(TraditionalGitClient):
     """Git client that connects over SSH."""
 
@@ -4008,15 +4038,13 @@ class SSHGitClient(TraditionalGitClient):
             path = path.decode(self._remote_path_encoding)
         if path.startswith("/~"):
             path = path[1:]
-        import shlex
-
         # The git command is run by the remote login shell, so the path has
         # to be quoted to stop an embedded single quote from closing the
         # quoting and having the remainder interpreted as shell.
         argv = (
             self._get_cmd_path(cmd)
             + b" "
-            + shlex.quote(path).encode(self._remote_path_encoding)
+            + _quote_remote_path(path.encode(self._remote_path_encoding))
         )
         kwargs = {}
         if self.password is not None:

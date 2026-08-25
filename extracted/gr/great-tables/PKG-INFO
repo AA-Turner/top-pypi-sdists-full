@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: great-tables
-Version: 0.23.0
+Version: 0.24.0
 Summary: Easily generate information-rich, publication-quality tables from Python.
 Author-email: Richard Iannone <rich@posit.co>, Michael Chow <michael.chow@posit.co>
 License: MIT License

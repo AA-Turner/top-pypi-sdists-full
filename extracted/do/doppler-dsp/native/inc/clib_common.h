@@ -39,6 +39,17 @@
 #define DP_ERR_TIMEOUT (-5) /**< Operation timed out. */
 #define DP_ERR_MEMORY (-6)  /**< Memory allocation failure. */
 #define DP_ERR_TOO_LARGE (-7) /**< Frame exceeds transport max payload. */
+#define DP_ERR_INTERRUPTED                                                    \
+  (-8) /**< A blocking call returned because dp_stream_interrupt() was     \
+            called -- a request to stop, not a failure. */
+#define DP_ERR_CLOSED                                                         \
+  (-9) /**< The context is draining or closed and accepts no more sends -- \
+            a state, not a transport failure. */
+#define DP_ERR_EOF                                                            \
+  (-10) /**< The producer has finished: no more data is coming, ever. A     \
+             state, not a failure, and distinct from DP_ERR_TIMEOUT, which  \
+             means "not yet". Every transport spells it the same way -- see \
+             docs/design/io-termination.md. */
 
 #include "jm_perf.h"
 

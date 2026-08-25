@@ -15,6 +15,7 @@ the Streamable HTTP endpoint.
 """
 
 import argparse
+import json
 import sys
 
 import uvicorn
@@ -23,7 +24,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from late.mcp.auth import is_allowed_origin
+from late.mcp.auth import ANONYMOUS_DISCOVERY_BEARER, is_allowed_origin
 from late.mcp.config import ServerConfig, validate_environment
 from late.mcp.constants import (
     DOCS_URL,
@@ -33,6 +34,9 @@ from late.mcp.constants import (
     ENDPOINT_OAUTH_PROTECTED_RESOURCE,
     ENDPOINT_ROOT,
     ENDPOINT_SSE,
+    MCP_PUBLIC_URL,
+    OAUTH_AUTHORIZATION_SERVER,
+    OAUTH_SCOPES,
     SERVICE_NAME,
     SERVICE_VERSION,
     TRANSPORT_TYPE,
@@ -73,6 +77,79 @@ async def handle_health(_request: Request) -> JSONResponse:
     )
 
 
+_SERVER_CARD = {
+    "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/server-card.schema.json",
+    "name": "zernio",
+    "title": "Zernio Social Media API",
+    "version": SERVICE_VERSION,
+    "description": (
+        "Post, schedule, and analyze social media content across 15+ platforms "
+        "plus ad management on 7 ad networks, via MCP."
+    ),
+    "icon": "https://media.zernio.com/site-assets/brand/icon-primary.png",
+    "websiteUrl": "https://zernio.com",
+    "repository": {"url": "https://github.com/zernio-dev/zernio-python", "source": "github"},
+    "remotes": [{"type": "streamable-http", "url": f"{MCP_PUBLIC_URL}{ENDPOINT_MCP}"}],
+    "serverInfo": {
+        "name": "zernio",
+        "title": "Zernio Social Media API",
+        "version": SERVICE_VERSION,
+        "vendor": "Zernio",
+        "homepage": "https://zernio.com",
+        "documentation": DOCS_URL,
+        "contact": {"email": "support@zernio.com", "url": "https://zernio.com/contact"},
+    },
+    "transport": {"type": "streamable-http", "endpoint": f"{MCP_PUBLIC_URL}{ENDPOINT_MCP}"},
+    "authentication": {
+        "type": "oauth2",
+        "authorization_endpoint": f"{OAUTH_AUTHORIZATION_SERVER}/oauth/authorize",
+        "token_endpoint": f"{OAUTH_AUTHORIZATION_SERVER}/api/oauth/token",
+        "registration_endpoint": f"{OAUTH_AUTHORIZATION_SERVER}/api/oauth/register",
+        "scopes_supported": list(OAUTH_SCOPES),
+    },
+    "capabilities": {
+        "tools": {"listChanged": True},
+        "resources": {"listChanged": True, "subscribe": False},
+        "prompts": {"listChanged": False},
+    },
+    "links": {
+        "canonical": "https://zernio.com/.well-known/mcp/server-card.json",
+        "serviceDesc": "https://zernio.com/openapi.json",
+        "serviceDoc": DOCS_URL,
+        "status": "https://status.zernio.com",
+    },
+}
+
+
+@mcp.custom_route("/.well-known/mcp/server-card.json", methods=["GET"])
+async def handle_server_card(_request: Request) -> JSONResponse:
+    """MCP server card on the server's own origin (public, no auth)."""
+    return JSONResponse(_SERVER_CARD, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@mcp.custom_route("/mcp/server-card", methods=["GET"])
+async def handle_server_card_alias(_request: Request) -> JSONResponse:
+    """Alias path some scanners probe for the manifest (public, no auth)."""
+    return JSONResponse(_SERVER_CARD, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@mcp.custom_route("/server.json", methods=["GET"])
+async def handle_registry_manifest(_request: Request) -> JSONResponse:
+    """MCP Registry manifest, mirroring the repo-root server.json (public)."""
+    return JSONResponse(
+        {
+            "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+            "name": "com.zernio/zernio",
+            "title": "Zernio",
+            "description": "Schedule, publish, and analyze social media across 15+ platforms, plus inbox, ads, and analytics.",
+            "version": "1.0.0",
+            "repository": {"url": "https://github.com/zernio-dev/zernio-python", "source": "github"},
+            "remotes": [{"type": "streamable-http", "url": f"{MCP_PUBLIC_URL}{ENDPOINT_MCP}"}],
+        },
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @mcp.custom_route(ENDPOINT_OAUTH_PROTECTED_RESOURCE, methods=["GET"])
 async def handle_oauth_protected_resource_legacy(_request: Request) -> RedirectResponse:
     """Legacy RFC 9728 discovery path (public, no auth).
@@ -86,6 +163,131 @@ async def handle_oauth_protected_resource_legacy(_request: Request) -> RedirectR
     return RedirectResponse(
         f"{ENDPOINT_OAUTH_PROTECTED_RESOURCE}{ENDPOINT_MCP}", status_code=308
     )
+
+
+# JSON-RPC methods that carry no user data and are safe to serve without a
+# bearer: the connection handshake plus catalog listings/reads. tools/call is
+# deliberately absent — an unauthenticated tools/call still gets the HTTP 401
+# + WWW-Authenticate challenge, which is what triggers a client's OAuth flow
+# (MCP auth spec: clients begin authorization on any 401, mid-session
+# included). Discovery succeeding anonymously must not change that.
+_ANONYMOUS_METHODS = frozenset(
+    {
+        "initialize",
+        "notifications/initialized",
+        "ping",
+        "tools/list",
+        "prompts/list",
+        "resources/list",
+        "resources/read",
+        "resources/templates/list",
+    }
+)
+
+# Only parse bodies up to this size when deciding anonymity; larger
+# unauthenticated bodies skip the parse and hit the normal 401.
+_ANONYMOUS_MAX_BODY_BYTES = 64 * 1024
+
+
+class RootAliasMiddleware:
+    """Serve the MCP transport on the bare origin as well as /mcp.
+
+    Some clients and scanners (is-agentic's Ora among them) are handed
+    `https://mcp.zernio.com` and connect to `/` directly, where the JSON info
+    route answered 405 to POST. Alias protocol traffic to /mcp: every POST,
+    and GET/DELETE only when the client asks for an event stream, so the plain
+    GET / info document keeps working for browsers.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"].rstrip("/") == "":
+            method = scope.get("method")
+            accept = next(
+                (v for k, v in scope["headers"] if k.lower() == b"accept"), b""
+            )
+            if method == "POST" or (
+                method in ("GET", "DELETE") and b"text/event-stream" in accept
+            ):
+                scope = dict(scope)
+                scope["path"] = ENDPOINT_MCP
+                scope["raw_path"] = ENDPOINT_MCP.encode()
+        await self.app(scope, receive, send)
+
+
+class AnonymousDiscoveryMiddleware:
+    """Let discovery-only JSON-RPC requests through without credentials.
+
+    Scanners, agent registries, and MCP clients probe `initialize` and the
+    list methods before any auth flow. FastMCP's bearer middleware rejects
+    those with an empty-body 401, so a public catalog is invisible to anything
+    that cannot complete OAuth (headless crawlers). For an unauthenticated
+    POST to the MCP endpoint whose single JSON-RPC message is in
+    _ANONYMOUS_METHODS, inject the local discovery bearer (auth.py verifies it
+    without an upstream call and grants no scopes); everything else passes
+    through untouched and keeps the 401 challenge.
+
+    Pure ASGI (not BaseHTTPMiddleware) so the streamable-HTTP response is
+    never buffered; only the REQUEST body is read, then replayed.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not self._eligible(scope):
+            await self.app(scope, receive, send)
+            return
+
+        consumed: list[dict] = []
+        body = b""
+        complete = True
+        while True:
+            message = await receive()
+            consumed.append(message)
+            if message["type"] != "http.request":
+                complete = False
+                break
+            body += message.get("body", b"")
+            if not message.get("more_body", False):
+                break
+            if len(body) > _ANONYMOUS_MAX_BODY_BYTES:
+                complete = False
+                break
+
+        if complete and len(body) <= _ANONYMOUS_MAX_BODY_BYTES and self._is_discovery(body):
+            scope = dict(scope)
+            scope["headers"] = [
+                *scope["headers"],
+                (b"authorization", b"Bearer " + ANONYMOUS_DISCOVERY_BEARER.encode()),
+            ]
+
+        replay = iter(consumed)
+
+        async def replaying_receive() -> dict:
+            for message in replay:
+                return message
+            return await receive()
+
+        await self.app(scope, replaying_receive, send)
+
+    @staticmethod
+    def _eligible(scope: Scope) -> bool:
+        if scope["type"] != "http" or scope.get("method") != "POST":
+            return False
+        if scope["path"].rstrip("/") != ENDPOINT_MCP.rstrip("/"):
+            return False
+        return not any(k.lower() == b"authorization" for k, _ in scope["headers"])
+
+    @staticmethod
+    def _is_discovery(body: bytes) -> bool:
+        try:
+            parsed = json.loads(body)
+        except (ValueError, UnicodeDecodeError):
+            return False
+        return isinstance(parsed, dict) and parsed.get("method") in _ANONYMOUS_METHODS
 
 
 _ORIGIN_GUARDED_PATHS = (
@@ -162,7 +364,12 @@ def build_app() -> Starlette:
         r for r in sse_app.routes if getattr(r, "path", "") in sse_paths
     )
 
+    # add_middleware order: last added runs first. RootAlias must rewrite the
+    # path before OriginGuard matches on it; AnonymousDiscovery runs last so
+    # it sees the aliased path too.
+    app.add_middleware(AnonymousDiscoveryMiddleware)
     app.add_middleware(OriginGuardMiddleware)
+    app.add_middleware(RootAliasMiddleware)
     return app
 
 

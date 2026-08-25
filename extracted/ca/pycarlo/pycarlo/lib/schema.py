@@ -865,42 +865,6 @@ class AiAgentType(pycarlo.lib.types.Enum):
     __choices__ = ("CHAT", "GENERAL", "MONITORING", "TRIAGE", "TROUBLESHOOTING", "TUNING")
 
 
-class AirflowRunState(pycarlo.lib.types.Enum):
-    """Enumeration Choices:
-
-    * `deferred`None
-    * `failed`None
-    * `queued`None
-    * `removed`None
-    * `restarting`None
-    * `running`None
-    * `scheduled`None
-    * `skipped`None
-    * `success`None
-    * `unknown`None
-    * `up_for_reschedule`None
-    * `up_for_retry`None
-    * `upstream_failed`None
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "deferred",
-        "failed",
-        "queued",
-        "removed",
-        "restarting",
-        "running",
-        "scheduled",
-        "skipped",
-        "success",
-        "unknown",
-        "up_for_reschedule",
-        "up_for_retry",
-        "upstream_failed",
-    )
-
-
 class AlertAccessRequestStatus(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -11233,6 +11197,19 @@ class BigQueryUpdateConnectionDetails(sgqlc.types.Input):
     __field_names__ = ("service_json",)
     service_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="serviceJson")
     """Service account key file as a base64 string"""
+
+
+class BitbucketRepoSelectionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("workspace", "repo_slug", "repo_uuid")
+    workspace = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workspace")
+    """BitBucket workspace slug"""
+
+    repo_slug = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoSlug")
+    """Repository slug within the workspace"""
+
+    repo_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoUuid")
+    """BitBucket repository UUID"""
 
 
 class BqConnectionDetails(sgqlc.types.Input):
@@ -24385,279 +24362,6 @@ class AiAgent(sgqlc.types.Type):
     """
 
 
-class AirflowCapabilitiesResponse(sgqlc.types.Type):
-    """Airflow capabilities information"""
-
-    __schema__ = schema
-    __field_names__ = (
-        "has_connection",
-        "has_callbacks",
-        "uses_deprecated_graphql",
-        "webhook_status",
-    )
-    has_connection = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasConnection")
-    """True if the account has a connection set up"""
-
-    has_callbacks = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasCallbacks")
-    """True if the account has callbacks set up"""
-
-    uses_deprecated_graphql = sgqlc.types.Field(Boolean, graphql_name="usesDeprecatedGraphql")
-    """True if using deprecated GraphQL implementation instead of
-    callbacks
-    """
-
-    webhook_status = sgqlc.types.Field("WebhookStatus", graphql_name="webhookStatus")
-    """Webhook status information (only for callback implementation)"""
-
-
-class AirflowDagConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AirflowDagEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AirflowDagEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AirflowDag` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AirflowDag", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AirflowDagRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AirflowDagRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AirflowDagRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AirflowDagRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AirflowDagRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AirflowDagRunInfo(sgqlc.types.Type):
-    """Airflow DAG Run information"""
-
-    __schema__ = schema
-    __field_names__ = ("run_id", "start_date", "end_date", "success", "duration", "error", "state")
-    run_id = sgqlc.types.Field(String, graphql_name="runId")
-    """Run ID"""
-
-    start_date = sgqlc.types.Field(DateTime, graphql_name="startDate")
-    """Start date"""
-
-    end_date = sgqlc.types.Field(DateTime, graphql_name="endDate")
-    """End date"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """Run was completed successfully"""
-
-    duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Run duration in seconds"""
-
-    error = sgqlc.types.Field(String, graphql_name="error")
-    """Error message in case of failure"""
-
-    state = sgqlc.types.Field(sgqlc.types.non_null(AirflowRunState), graphql_name="state")
-    """Current state of the run"""
-
-
-class AirflowTaskConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AirflowTaskEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AirflowTaskEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AirflowTask` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AirflowTask", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AirflowTaskRunAttempt(sgqlc.types.Type):
-    """Individual attempt details for an Airflow task run"""
-
-    __schema__ = schema
-    __field_names__ = (
-        "attempt_number",
-        "start_date",
-        "end_date",
-        "state",
-        "success",
-        "duration",
-        "exception_message",
-    )
-    attempt_number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attemptNumber")
-    """Attempt number"""
-
-    start_date = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startDate")
-    """Attempt start time"""
-
-    end_date = sgqlc.types.Field(DateTime, graphql_name="endDate")
-    """Attempt end time"""
-
-    state = sgqlc.types.Field(sgqlc.types.non_null(AirflowRunState), graphql_name="state")
-    """Attempt state"""
-
-    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
-    """Whether attempt succeeded"""
-
-    duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Attempt duration in seconds"""
-
-    exception_message = sgqlc.types.Field(String, graphql_name="exceptionMessage")
-    """Error message if failed"""
-
-
-class AirflowTaskRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AirflowTaskRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AirflowTaskRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AirflowTaskRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AirflowTaskRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AirflowTaskRunStats(sgqlc.types.Type):
-    """Airflow Task Run statistics"""
-
-    __schema__ = schema
-    __field_names__ = (
-        "num_run_success",
-        "num_run_failure",
-        "num_run_running",
-        "avg_duration",
-        "last_run",
-        "task_id",
-        "dag_id",
-        "resource__name",
-        "task_mcon",
-        "job_mcon",
-        "urls",
-    )
-    num_run_success = sgqlc.types.Field(Int, graphql_name="numRunSuccess")
-    """Number of successful tasks"""
-
-    num_run_failure = sgqlc.types.Field(Int, graphql_name="numRunFailure")
-    """Number of failed tasks"""
-
-    num_run_running = sgqlc.types.Field(Int, graphql_name="numRunRunning")
-    """Number of running tasks"""
-
-    avg_duration = sgqlc.types.Field(Float, graphql_name="avgDuration")
-    """Average duration of tasks"""
-
-    last_run = sgqlc.types.Field(DateTime, graphql_name="lastRun")
-    """Last run timestamp of tasks"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID of Airflow task"""
-
-    dag_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dagId")
-    """DAG ID of Airflow DAG"""
-
-    resource__name = sgqlc.types.Field(String, graphql_name="resource_Name")
-    """Resource name of Airflow connection"""
-
-    task_mcon = sgqlc.types.Field(String, graphql_name="taskMcon")
-    """MCON of Task for provided task_id"""
-
-    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of Job for provided job_id"""
-
-    urls = sgqlc.types.Field("AirflowUrls", graphql_name="urls")
-    """URLs to Airflow UI"""
-
-
-class AirflowTaskRunStatsConnection(sgqlc.types.relay.Connection):
-    """Airflow Task Run statistics response"""
-
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AirflowTaskRunStatsEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AirflowTaskRunStatsEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AirflowTaskRunStats` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field(AirflowTaskRunStats, graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AirflowUrls(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("dag", "dag_run", "task_run")
-    dag = sgqlc.types.Field(String, graphql_name="dag")
-    """URL to Airflow UI for the DAG"""
-
-    dag_run = sgqlc.types.Field(String, graphql_name="dagRun")
-    """URL to Airflow UI for the DAG run"""
-
-    task_run = sgqlc.types.Field(String, graphql_name="taskRun")
-    """URL to Airflow UI for the task run"""
-
-
 class AlationIntegrationConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -27159,6 +26863,77 @@ class BillingMonitorUsageResults(sgqlc.types.Type):
     __field_names__ = ("usages",)
     usages = sgqlc.types.Field(sgqlc.types.list_of(BillingMonitorUsage), graphql_name="usages")
     """List of daily monitor usage data points."""
+
+
+class BitbucketInstallation(sgqlc.types.Type):
+    """A BitBucket Cloud installation and the repositories selected under
+    it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "host", "repo_selection", "display_name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Internal Github installation uuid"""
+
+    host = sgqlc.types.Field(String, graphql_name="host")
+
+    repo_selection = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("BitbucketSelectedRepo")),
+        graphql_name="repoSelection",
+    )
+    """Repositories currently selected for this installation"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Provider name for display"""
+
+
+class BitbucketInstallations(sgqlc.types.Type):
+    """BitBucket integrations configured for the account."""
+
+    __schema__ = schema
+    __field_names__ = ("installations",)
+    installations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(BitbucketInstallation)),
+        graphql_name="installations",
+    )
+    """BitBucket installations for the account"""
+
+
+class BitbucketRepo(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("workspace", "repo_slug", "repo_uuid", "name", "selected")
+    workspace = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workspace")
+    """BitBucket workspace slug"""
+
+    repo_slug = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoSlug")
+    """Repository slug within the workspace"""
+
+    repo_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoUuid")
+    """BitBucket repository UUID"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Repository display name"""
+
+    selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
+    """True if the repository is selected"""
+
+
+class BitbucketSelectedRepo(sgqlc.types.Type):
+    """A repository currently selected for a BitBucket installation."""
+
+    __schema__ = schema
+    __field_names__ = ("workspace", "repo_slug", "repo_uuid", "webhook_err")
+    workspace = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workspace")
+    """BitBucket workspace slug"""
+
+    repo_slug = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoSlug")
+    """BitBucket repository slug"""
+
+    repo_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repoUuid")
+    """BitBucket repository UUID (stable across slug renames)"""
+
+    webhook_err = sgqlc.types.Field(String, graphql_name="webhookErr")
+    """Error message if webhook creation failed"""
 
 
 class BranchAttribution(sgqlc.types.Type):
@@ -34527,6 +34302,12 @@ class DeleteAzureDevopsInstallation(sgqlc.types.Type):
     """True if deleting the installation was successful"""
 
 
+class DeleteBitbucketInstallation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+
+
 class DeleteBulkMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -35874,16 +35655,6 @@ class ETLJobsType(sgqlc.types.Type):
     """Boolean indicating if there's a next page based on limit/offset"""
 
 
-class ETLTasksType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("tasks", "has_next_page")
-    tasks = sgqlc.types.Field(sgqlc.types.list_of("ETLTaskUnionType"), graphql_name="tasks")
-    """ETL Tasks list"""
-
-    has_next_page = sgqlc.types.Field(Boolean, graphql_name="hasNextPage")
-    """Boolean indicating if there's a next page based on limit/offset"""
-
-
 class EffectiveTableMonitorOutput(sgqlc.types.Type):
     """Reference to the table monitor whose sensitivity an asset-level
     monitor inherits.
@@ -36128,10 +35899,6 @@ class EtlContainer(sgqlc.types.Type):
         "connections",
         "incidents",
         "events",
-        "airflowdagmodel_set",
-        "airflowtaskmodel_set",
-        "airflowdagrunmodel_set",
-        "airflowtaskrunmodel_set",
         "job_count",
         "webhook_status",
         "push_events",
@@ -36210,102 +35977,6 @@ class EtlContainer(sgqlc.types.Type):
         ),
     )
     """Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    airflowdagmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowDagConnection),
-        graphql_name="airflowdagmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    airflowtaskmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowTaskConnection),
-        graphql_name="airflowtaskmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    airflowdagrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowDagRunConnection),
-        graphql_name="airflowdagrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    airflowtaskrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowTaskRunConnection),
-        graphql_name="airflowtaskrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
 
     * `offset` (`Int`)None
     * `before` (`String`)None
@@ -42735,6 +42406,15 @@ class LinkAzureDevopsInstallation(sgqlc.types.Type):
     """Updated Azure DevOps installation"""
 
 
+class LinkBitbucketConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("success", "installation_id")
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+    installation_id = sgqlc.types.Field(String, graphql_name="installationId")
+    """Internal UUID of the installation"""
+
+
 class LinkDatadogIncidentForAlert(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("datadog_incident",)
@@ -45669,6 +45349,10 @@ class Mutation(sgqlc.types.Type):
         "delete_gitlab_installation",
         "select_gitlab_projects",
         "update_gitlab_installation",
+        "register_bitbucket_connection",
+        "link_bitbucket_connection",
+        "select_bitbucket_repos",
+        "delete_bitbucket_installation",
         "create_azure_devops_installation",
         "update_azure_devops_installation",
         "link_azure_devops_installation",
@@ -51941,7 +51625,7 @@ class Mutation(sgqlc.types.Type):
     for a given scope. Each entry must be a valid IP address or a CIDR
     range in network-address form (e.g. 198.51.100.0/24 — host bits
     are rejected). Duplicate entries, /0 ranges, and empty lists are
-    rejected; at most 100 entries per scope
+    rejected; at most 1000 entries per scope
 
     Arguments:
 
@@ -52622,6 +52306,92 @@ class Mutation(sgqlc.types.Type):
       to update
     * `show_impact_analysis` (`Boolean!`): If true, show impacted
       models and reports as a Merge Request comment
+    """
+
+    register_bitbucket_connection = sgqlc.types.Field(
+        "RegisterBitbucketConnection", graphql_name="registerBitbucketConnection"
+    )
+    """(experimental) Start MC BitBucket Cloud OAuth connection"""
+
+    link_bitbucket_connection = sgqlc.types.Field(
+        LinkBitbucketConnection,
+        graphql_name="linkBitbucketConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "code",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="code", default=None
+                    ),
+                ),
+                (
+                    "state",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="state", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Complete MC BitBucket Cloud OAuth connection
+
+    Arguments:
+
+    * `code` (`String!`): Authorization code from BitBucket
+    * `state` (`String!`): Installation UUID passed as OAuth state
+    """
+
+    select_bitbucket_repos = sgqlc.types.Field(
+        "SelectBitbucketRepos",
+        graphql_name="selectBitbucketRepos",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+                (
+                    "repos",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(BitbucketRepoSelectionInput)),
+                        graphql_name="repos",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Select BitBucket repos to monitor
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): Internal UUID of the BitBucket
+      installation
+    * `repos` (`[BitbucketRepoSelectionInput]!`)None
+    """
+
+    delete_bitbucket_installation = sgqlc.types.Field(
+        DeleteBitbucketInstallation,
+        graphql_name="deleteBitbucketInstallation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a BitBucket installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): Internal UUID of the BitBucket
+      installation to delete
     """
 
     create_azure_devops_installation = sgqlc.types.Field(
@@ -74168,10 +73938,8 @@ class Query(sgqlc.types.Type):
         "get_etl_groups_v3",
         "get_etl_task_performance_v3",
         "get_etl_job",
-        "get_etl_task",
         "get_etl_jobs",
         "get_etl_jobs_v2",
-        "get_etl_tasks",
         "get_data_product",
         "get_data_product_v2",
         "get_data_products",
@@ -74209,6 +73977,9 @@ class Query(sgqlc.types.Type):
         "get_vcs_summary",
         "get_vcs_pull_requests",
         "get_gitlab_projects",
+        "get_bitbucket_integrations",
+        "get_bitbucket_integration",
+        "get_bitbucket_repos",
         "get_azure_devops_installations",
         "get_azure_devops_installation",
         "get_azure_devops_organization",
@@ -74649,11 +74420,6 @@ class Query(sgqlc.types.Type):
         "get_collibra_monitor_table_search_names",
         "get_collibra_domains_for_table_search_name",
         "get_alation_table_flags",
-        "get_airflow_task_results",
-        "get_airflow_task_stats",
-        "get_airflow_tasks_for_source_and_destination_tables",
-        "get_airflow_dag_runs",
-        "get_airflow_capabilities",
         "get_task_graph",
         "get_job_dependencies",
         "get_tsa_analysis_result",
@@ -79032,27 +78798,6 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): Mcon for job to get details for
     """
 
-    get_etl_task = sgqlc.types.Field(
-        "ETLTaskUnionType",
-        graphql_name="getEtlTask",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """Get information about a task
-
-    Arguments:
-
-    * `mcon` (`String!`): Mcon for task to get details for
-    """
-
     get_etl_jobs = sgqlc.types.Field(
         ETLJobsType,
         graphql_name="getEtlJobs",
@@ -79141,45 +78886,6 @@ class Query(sgqlc.types.Type):
     * `job_name` (`String`): Filter by job name
     * `order_by` (`[String]`): List of order by fields ie
       '["-jobName", "generatesIncidents"]'
-    """
-
-    get_etl_tasks = sgqlc.types.Field(
-        ETLTasksType,
-        graphql_name="getEtlTasks",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "first",
-                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
-                ),
-                (
-                    "offset",
-                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="offset", default=None),
-                ),
-                (
-                    "job_mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="jobMcons", default=None
-                    ),
-                ),
-                (
-                    "task_mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="taskMcons", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Get ETL tasks for the given set of ETL Jobs or
-    specific tasks by mcons
-
-    Arguments:
-
-    * `first` (`Int!`): Page size
-    * `offset` (`Int!`): Page offset
-    * `job_mcons` (`[String]`): Filter by job mcons
-    * `task_mcons` (`[String]`): Filter by task mcons
     """
 
     get_data_product = sgqlc.types.Field(
@@ -80159,6 +79865,63 @@ class Query(sgqlc.types.Type):
 
     * `installation_uuid` (`UUID!`): Internal UUID of the GitLab
       installation
+    """
+
+    get_bitbucket_integrations = sgqlc.types.Field(
+        BitbucketInstallations, graphql_name="getBitbucketIntegrations"
+    )
+    """(experimental) BitBucket integrations configured for the account"""
+
+    get_bitbucket_integration = sgqlc.types.Field(
+        BitbucketInstallation,
+        graphql_name="getBitbucketIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) A single BitBucket integration
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): Internal UUID of the BitBucket
+      installation
+    """
+
+    get_bitbucket_repos = sgqlc.types.Field(
+        sgqlc.types.list_of(BitbucketRepo),
+        graphql_name="getBitbucketRepos",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+                (
+                    "workspace",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="workspace", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List repos in a BitBucket workspace for the
+    installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): Internal UUID of the BitBucket
+      installation
+    * `workspace` (`String!`): BitBucket workspace slug
     """
 
     get_azure_devops_installations = sgqlc.types.Field(
@@ -89134,6 +88897,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
             )
         ),
     )
@@ -89143,6 +88907,7 @@ class Query(sgqlc.types.Type):
 
     * `segment_count_query` (`SegmentCountQueryInput!`): Segment count
       query parameters
+    * `timeout` (`Int`): Timeout in seconds
     """
 
     evaluate_comparison_monitor_alert_conditions = sgqlc.types.Field(
@@ -97470,235 +97235,6 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): The MCON of the table
     """
 
-    get_airflow_task_results = sgqlc.types.Field(
-        AirflowTaskRunConnection,
-        graphql_name="getAirflowTaskResults",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_name",
-                    sgqlc.types.Arg(String, graphql_name="resourceName", default=None),
-                ),
-                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-                ("success", sgqlc.types.Arg(Boolean, graphql_name="success", default=None)),
-                ("state", sgqlc.types.Arg(String, graphql_name="state", default=None)),
-                ("dag_id", sgqlc.types.Arg(String, graphql_name="dagId", default=None)),
-                ("task_id", sgqlc.types.Arg(String, graphql_name="taskId", default=None)),
-                (
-                    "mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
-                    ),
-                ),
-                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
-                ("task_mcon", sgqlc.types.Arg(String, graphql_name="taskMcon", default=None)),
-                (
-                    "table_mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="tableMcons", default=None
-                    ),
-                ),
-                ("run_id", sgqlc.types.Arg(String, graphql_name="runId", default=None)),
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Get Airflow Task runs
-
-    Arguments:
-
-    * `resource_name` (`String`): Filter by ETL container
-    * `from_date` (`DateTime`): Filter date range start, optional only
-      if runId is specified
-    * `to_date` (`DateTime`): Filter date range end
-    * `success` (`Boolean`): Filter by success or failure
-    * `state` (`String`): Filter by state
-    * `dag_id` (`String`): Deprecated, use jobMcon. Filter by DAG ID
-    * `task_id` (`String`): Deprecated, use taskMcon. Filter by Task
-      ID
-    * `mcons` (`[String]`): Deprecated, use tableMcons. Filter by list
-      of table MCONs
-    * `job_mcon` (`String`): Filter by Job MCON
-    * `task_mcon` (`String`): Filter by Task MCON
-    * `table_mcons` (`[String]`): Filter by list of table MCONs
-    * `run_id` (`String`): Filter by Run ID
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    get_airflow_task_stats = sgqlc.types.Field(
-        AirflowTaskRunStatsConnection,
-        graphql_name="getAirflowTaskStats",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_name",
-                    sgqlc.types.Arg(String, graphql_name="resourceName", default=None),
-                ),
-                (
-                    "from_date",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="fromDate", default=None
-                    ),
-                ),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-                ("success", sgqlc.types.Arg(Boolean, graphql_name="success", default=None)),
-                ("state", sgqlc.types.Arg(String, graphql_name="state", default=None)),
-                (
-                    "mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
-                    ),
-                ),
-                ("dag_id", sgqlc.types.Arg(String, graphql_name="dagId", default=None)),
-                (
-                    "table_mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="tableMcons", default=None
-                    ),
-                ),
-                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Get Airflow Task statistics
-
-    Arguments:
-
-    * `resource_name` (`String`): Filter by ETL container
-    * `from_date` (`DateTime!`): Filter date range start
-    * `to_date` (`DateTime`): Filter date range end
-    * `success` (`Boolean`): Filter by success or failure
-    * `state` (`String`): Filter by state
-    * `mcons` (`[String]`): Deprecated, use tableMcons. Filter by list
-      of table MCONs
-    * `dag_id` (`String`): Deprecated, use jobMcon. Filter by DAG ID
-    * `table_mcons` (`[String]`): Filter by list of table MCONs
-    * `job_mcon` (`String`): Filter by Job MCON
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    get_airflow_tasks_for_source_and_destination_tables = sgqlc.types.Field(
-        AirflowTaskRunStatsConnection,
-        graphql_name="getAirflowTasksForSourceAndDestinationTables",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_name",
-                    sgqlc.types.Arg(String, graphql_name="resourceName", default=None),
-                ),
-                (
-                    "source_table_mcon",
-                    sgqlc.types.Arg(String, graphql_name="sourceTableMcon", default=None),
-                ),
-                (
-                    "destination_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String),
-                        graphql_name="destinationTableMcon",
-                        default=None,
-                    ),
-                ),
-                (
-                    "from_date",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="fromDate", default=None
-                    ),
-                ),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-                ("success", sgqlc.types.Arg(Boolean, graphql_name="success", default=None)),
-                ("state", sgqlc.types.Arg(String, graphql_name="state", default=None)),
-                ("dag_id", sgqlc.types.Arg(String, graphql_name="dagId", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Get Airflow Tasks for source and destination tables
-
-    Arguments:
-
-    * `resource_name` (`String`): Filter by ETL container
-    * `source_table_mcon` (`String`): The table mcon from where the
-      jobs are reading data
-    * `destination_table_mcon` (`String!`): The table mcon to where
-      the jobs are modifying the data
-    * `from_date` (`DateTime!`): Filter date range start
-    * `to_date` (`DateTime`): Filter date range end
-    * `success` (`Boolean`): Filter by success or failure
-    * `state` (`String`): Filter by state
-    * `dag_id` (`String`): Deprecated, use jobMcon. Filter by DAG ID
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    get_airflow_dag_runs = sgqlc.types.Field(
-        sgqlc.types.list_of(AirflowDagRunInfo),
-        graphql_name="getAirflowDagRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "job_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
-                    ),
-                ),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=20)),
-                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-            )
-        ),
-    )
-    """List of runs for a given DAG. Optionally filter by start date and
-    end date
-
-    Arguments:
-
-    * `job_mcon` (`String!`): Job MCON to filter by
-    * `limit` (`Int`): Number of runs to return (default: `20`)
-    * `from_date` (`DateTime`): Filter runs with start_date >=
-      from_date
-    * `to_date` (`DateTime`): Filter runs with start_date <= to_date
-    """
-
-    get_airflow_capabilities = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowCapabilitiesResponse),
-        graphql_name="getAirflowCapabilities",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "etl_container_uuid",
-                    sgqlc.types.Arg(UUID, graphql_name="etlContainerUuid", default=None),
-                ),
-            )
-        ),
-    )
-    """Airflow Capabilities
-
-    Arguments:
-
-    * `etl_container_uuid` (`UUID`): UUID of ETL Container
-    """
-
     get_task_graph = sgqlc.types.Field(
         JobLineageGraph,
         graphql_name="getTaskGraph",
@@ -99398,6 +98934,13 @@ class RefreshSlackAppScopes(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="botScopes"
     )
     """The refreshed bot scopes now recorded for the installation"""
+
+
+class RegisterBitbucketConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("auth_url",)
+    auth_url = sgqlc.types.Field(String, graphql_name="authUrl")
+    """BitBucket URL to request authorization code"""
 
 
 class RegisterGithubActionTriggerAppInstallationRequest(sgqlc.types.Type):
@@ -101331,6 +100874,12 @@ class SegmentLabels(sgqlc.types.Type):
 
     last_label = sgqlc.types.Field(String, graphql_name="lastLabel")
     """Value to use as 'after' for pagination"""
+
+
+class SelectBitbucketRepos(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
 class SelectGitlabProjects(sgqlc.types.Type):
@@ -110892,361 +110441,6 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     """Whether conversation clustering can be enabled for this agent —
     gates the Clusters panel and the clustering opt-in.
     """
-
-
-class AirflowDag(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "account",
-        "generates_incidents",
-        "uuid",
-        "resource",
-        "mcon",
-        "dag_id",
-        "env_name",
-        "last_run_date",
-        "last_webhook_received",
-        "runs",
-        "etl_type",
-        "source_tables",
-        "dest_tables",
-        "recent_run_count",
-        "generates_alerts",
-        "tasks",
-        "job_url",
-        "job_id",
-        "job_name",
-        "webhook_status",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    generates_incidents = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesIncidents"
-    )
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    dag_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dagId")
-    """DAG ID"""
-
-    env_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="envName")
-    """AirFlow environment name"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
-
-    last_webhook_received = sgqlc.types.Field(DateTime, graphql_name="lastWebhookReceived")
-    """Timestamp of the last webhook event received for this DAG"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowDagRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Dag associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    etl_type = sgqlc.types.Field(sgqlc.types.non_null(EtlType), graphql_name="etlType")
-    """Etl type of the job"""
-
-    source_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="sourceTables"
-    )
-    """Tables read from in this job"""
-
-    dest_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="destTables"
-    )
-    """Tables modified in this job"""
-
-    recent_run_count = sgqlc.types.Field(Int, graphql_name="recentRunCount")
-    """Number of runs of this job within the last 30 days"""
-
-    generates_alerts = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts"
-    )
-    """Whether this job generates alerts when it fails"""
-
-    tasks = sgqlc.types.Field(sgqlc.types.list_of("AirflowTask"), graphql_name="tasks")
-    """Tasks in this dag"""
-
-    job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
-    """Url of the job page in the original ADF environment"""
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Same as DagId"""
-
-    job_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobName")
-    """Same as DagId"""
-
-    webhook_status = sgqlc.types.Field(WebhookStatus, graphql_name="webhookStatus")
-    """Webhook status info for this DAG"""
-
-
-class AirflowDagRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "execution_date",
-        "start_date",
-        "end_date",
-        "state",
-        "dag_id",
-        "run_id",
-        "env_name",
-        "reason",
-        "payload",
-        "associated_dag",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    execution_date = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="executionDate")
-    """run execution_date"""
-
-    start_date = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startDate")
-    """run start_date"""
-
-    end_date = sgqlc.types.Field(DateTime, graphql_name="endDate")
-    """run end_date"""
-
-    state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="state")
-    """run state"""
-
-    dag_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dagId")
-    """DAG ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Run ID"""
-
-    env_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="envName")
-    """AirFlow environment name"""
-
-    reason = sgqlc.types.Field(String, graphql_name="reason")
-    """DAG run reason"""
-
-    payload = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="payload")
-    """DAG run payload"""
-
-    associated_dag = sgqlc.types.Field(AirflowDag, graphql_name="associatedDag")
-    """Dag associated with the event"""
-
-
-class AirflowTask(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "account",
-        "uuid",
-        "resource",
-        "mcon",
-        "dag_id",
-        "task_id",
-        "env_name",
-        "runs",
-        "source_tables",
-        "dest_tables",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    dag_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dagId")
-    """DAG ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    env_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="envName")
-    """AirFlow environment name"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(AirflowTaskRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """task associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    source_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="sourceTables"
-    )
-    """Tables read from in this task"""
-
-    dest_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="destTables"
-    )
-    """Tables modified in this task"""
-
-
-class AirflowTaskRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "execution_date",
-        "start_date",
-        "end_date",
-        "state",
-        "dag_id",
-        "run_id",
-        "task_id",
-        "env_name",
-        "next_retry_date",
-        "attempt_number",
-        "duration",
-        "exception_message",
-        "payload",
-        "associated_task",
-        "urls",
-        "task_mcon",
-        "job_mcon",
-        "log_url",
-        "attempts",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    execution_date = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="executionDate")
-    """run execution_date"""
-
-    start_date = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startDate")
-    """run start_date"""
-
-    end_date = sgqlc.types.Field(DateTime, graphql_name="endDate")
-    """run end_date"""
-
-    state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="state")
-    """run state"""
-
-    dag_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dagId")
-    """DAG ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """DAG Run ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    env_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="envName")
-    """AirFlow environment name"""
-
-    next_retry_date = sgqlc.types.Field(DateTime, graphql_name="nextRetryDate")
-    """Task next retry datetime"""
-
-    attempt_number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attemptNumber")
-    """Task attempt number"""
-
-    duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Task run duration in seconds"""
-
-    exception_message = sgqlc.types.Field(String, graphql_name="exceptionMessage")
-    """Task failure error message"""
-
-    payload = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="payload")
-    """Task run payload"""
-
-    associated_task = sgqlc.types.Field(AirflowTask, graphql_name="associatedTask")
-    """task associated with the event"""
-
-    urls = sgqlc.types.Field(AirflowUrls, graphql_name="urls")
-    """URLs to Airflow UI"""
-
-    task_mcon = sgqlc.types.Field(String, graphql_name="taskMcon")
-    """MCON of Task for provided task_id"""
-
-    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of Job for provided job_id"""
-
-    log_url = sgqlc.types.Field(String, graphql_name="logUrl")
-    """Log URL for the Task Run"""
-
-    attempts = sgqlc.types.Field(
-        sgqlc.types.list_of(AirflowTaskRunAttempt), graphql_name="attempts"
-    )
-    """List of all retry attempts for this task run"""
 
 
 class AlationIntegration(sgqlc.types.Type, Node):
@@ -122399,12 +121593,7 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowDag, DbtJob)
-
-
-class ETLTaskUnionType(sgqlc.types.Union):
-    __schema__ = schema
-    __types__ = (AirflowTask,)
+    __types__ = (DbtJob,)
 
 
 class ExceptionMetadataRowValue(sgqlc.types.Union):

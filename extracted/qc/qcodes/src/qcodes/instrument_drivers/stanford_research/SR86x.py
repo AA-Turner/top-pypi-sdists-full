@@ -19,9 +19,9 @@ from qcodes.validators import ComplexNumbers, Enum, Ints, Numbers
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from typing import Unpack
 
-    from typing_extensions import Unpack
-
+    from qcodes.metadatable import SnapshotUpdate
     from qcodes.parameters import Parameter
 
 log = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ class SR86xBuffer(InstrumentChannel["SR86x"]):
 
     def snapshot_base(
         self,
-        update: bool | None = False,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         if params_to_skip_update is None:
@@ -1292,7 +1292,7 @@ class SR86x(VisaInstrument):
             method_name = "get_latest"
 
         return tuple(
-            getattr(getattr(self.data_channels[i], "assigned_parameter"), method_name)()
+            getattr(self.data_channels[i].assigned_parameter, method_name)()
             for i in range(self._N_DATA_CHANNELS)
         )
 

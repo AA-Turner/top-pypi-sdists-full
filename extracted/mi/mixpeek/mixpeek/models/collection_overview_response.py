@@ -19,25 +19,25 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
 class CollectionOverviewResponse(BaseModel):
     """
-    Collection overview metrics.
+    Collection overview metrics.  Honesty contract (BACKE-3528 / ADM-07): every field is computed from a real source. A field whose source is not reachable from the analytics service is Optional and returned as None, meaning \"not yet computed here\", never a fabricated 0 or 1.0.
     """ # noqa: E501
     collection_id: StrictStr
     collection_name: StrictStr
     total_documents: StrictInt
-    documents_last_24h: StrictInt
-    documents_last_7d: StrictInt
-    avg_processing_time_ms: Union[StrictFloat, StrictInt]
-    success_rate: Union[StrictFloat, StrictInt]
+    documents_last_24h: Optional[StrictInt] = Field(default=None, description="Documents created in the last 24h. None means NOT YET COMPUTED here, which is different from zero: no faithful per-window document-created count is reachable from this service. A created_at range filter on the vector store silently matches nothing (the shard range compares numerics and created_at is an ISO-8601 string), and the ClickHouse growth series counts distinct source objects rather than documents created.")
+    documents_last_7d: Optional[StrictInt] = Field(default=None, description="Documents created in the last 7d. None means NOT YET COMPUTED here, which is different from zero; see documents_last_24h for why no faithful source is wired.")
+    avg_processing_time_ms: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Mean extraction latency (ms) over the recent window, from ClickHouse. None means NOT YET COMPUTED here, which is different from zero: the window held no timed events, or the analytics store was unavailable.")
+    success_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Object to document conservation ratio (produced object count / source object count) from reconciliation. None means NOT YET COMPUTED here, which is different from 1.0: the collection has no source objects to conserve (a non-bucket source, or nothing ingested yet).")
     active_taxonomies: StrictInt
     active_clusters: StrictInt
-    last_indexed: Optional[datetime] = None
+    last_indexed: Optional[datetime] = Field(default=None, description="When the collection was last updated or indexed (collection updated_at). None when the collection record carries no update timestamp.")
     __properties: ClassVar[List[str]] = ["collection_id", "collection_name", "total_documents", "documents_last_24h", "documents_last_7d", "avg_processing_time_ms", "success_rate", "active_taxonomies", "active_clusters", "last_indexed"]
 
     model_config = ConfigDict(

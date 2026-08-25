@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_launch_wizard.type_defs import CreateDeploymentInputTypeDef
+    from types_boto3_launch_wizard.type_defs import DelegatedAdminConstraintTypeDef
 
-    data: CreateDeploymentInputTypeDef = ...
+    data: DelegatedAdminConstraintTypeDef = ...
     ```
 """
 
@@ -19,6 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Any
 
 from .literals import (
     DeploymentFilterKeyType,
@@ -35,8 +36,10 @@ else:
 
 
 __all__ = (
+    "AccountConstraintTypeDef",
     "CreateDeploymentInputTypeDef",
     "CreateDeploymentOutputTypeDef",
+    "DelegatedAdminConstraintTypeDef",
     "DeleteDeploymentInputTypeDef",
     "DeleteDeploymentOutputTypeDef",
     "DeploymentConditionalFieldTypeDef",
@@ -83,6 +86,10 @@ __all__ = (
     "WorkloadDeploymentPatternDataSummaryTypeDef",
     "WorkloadDeploymentPatternDataTypeDef",
 )
+
+
+class DelegatedAdminConstraintTypeDef(TypedDict):
+    servicePrincipal: str
 
 
 class CreateDeploymentInputTypeDef(TypedDict):
@@ -149,6 +156,7 @@ class DeploymentEventDataSummaryTypeDef(TypedDict):
     status: NotRequired[EventStatusType]
     statusReason: NotRequired[str]
     timestamp: NotRequired[datetime]
+    metadata: NotRequired[dict[str, str]]
 
 
 class DeploymentFilterTypeDef(TypedDict):
@@ -188,16 +196,6 @@ class GetWorkloadInputTypeDef(TypedDict):
     workloadName: str
 
 
-class WorkloadDataTypeDef(TypedDict):
-    workloadName: NotRequired[str]
-    displayName: NotRequired[str]
-    status: NotRequired[WorkloadStatusType]
-    description: NotRequired[str]
-    documentationUrl: NotRequired[str]
-    iconUrl: NotRequired[str]
-    statusMessage: NotRequired[str]
-
-
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -220,26 +218,9 @@ class ListWorkloadDeploymentPatternsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class WorkloadDeploymentPatternDataSummaryTypeDef(TypedDict):
-    workloadName: NotRequired[str]
-    deploymentPatternName: NotRequired[str]
-    workloadVersionName: NotRequired[str]
-    deploymentPatternVersionName: NotRequired[str]
-    displayName: NotRequired[str]
-    description: NotRequired[str]
-    status: NotRequired[WorkloadDeploymentPatternStatusType]
-    statusMessage: NotRequired[str]
-
-
 class ListWorkloadsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-
-class WorkloadDataSummaryTypeDef(TypedDict):
-    workloadName: NotRequired[str]
-    displayName: NotRequired[str]
-    status: NotRequired[WorkloadStatusType]
 
 
 class TagResourceInputTypeDef(TypedDict):
@@ -259,6 +240,11 @@ class UpdateDeploymentInputTypeDef(TypedDict):
     deploymentPatternVersionName: NotRequired[str]
     dryRun: NotRequired[bool]
     force: NotRequired[bool]
+
+
+class AccountConstraintTypeDef(TypedDict):
+    managementAccount: NotRequired[dict[str, Any]]
+    delegatedAdmin: NotRequired[DelegatedAdminConstraintTypeDef]
 
 
 class CreateDeploymentOutputTypeDef(TypedDict):
@@ -332,11 +318,6 @@ class ListDeploymentPatternVersionsInputTypeDef(TypedDict):
     filters: NotRequired[Sequence[DeploymentPatternVersionFilterTypeDef]]
 
 
-class GetWorkloadOutputTypeDef(TypedDict):
-    workload: WorkloadDataTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ListDeploymentEventsInputPaginateTypeDef(TypedDict):
     deploymentId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -363,16 +344,34 @@ class ListWorkloadsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListWorkloadDeploymentPatternsOutputTypeDef(TypedDict):
-    workloadDeploymentPatterns: list[WorkloadDeploymentPatternDataSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class WorkloadDataSummaryTypeDef(TypedDict):
+    workloadName: NotRequired[str]
+    displayName: NotRequired[str]
+    status: NotRequired[WorkloadStatusType]
+    accountConstraints: NotRequired[list[AccountConstraintTypeDef]]
 
 
-class ListWorkloadsOutputTypeDef(TypedDict):
-    workloads: list[WorkloadDataSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class WorkloadDataTypeDef(TypedDict):
+    workloadName: NotRequired[str]
+    displayName: NotRequired[str]
+    status: NotRequired[WorkloadStatusType]
+    accountConstraints: NotRequired[list[AccountConstraintTypeDef]]
+    description: NotRequired[str]
+    documentationUrl: NotRequired[str]
+    iconUrl: NotRequired[str]
+    statusMessage: NotRequired[str]
+
+
+class WorkloadDeploymentPatternDataSummaryTypeDef(TypedDict):
+    workloadName: NotRequired[str]
+    deploymentPatternName: NotRequired[str]
+    workloadVersionName: NotRequired[str]
+    deploymentPatternVersionName: NotRequired[str]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    status: NotRequired[WorkloadDeploymentPatternStatusType]
+    statusMessage: NotRequired[str]
+    accountConstraints: NotRequired[list[AccountConstraintTypeDef]]
 
 
 class WorkloadDeploymentPatternDataTypeDef(TypedDict):
@@ -384,7 +383,25 @@ class WorkloadDeploymentPatternDataTypeDef(TypedDict):
     description: NotRequired[str]
     status: NotRequired[WorkloadDeploymentPatternStatusType]
     statusMessage: NotRequired[str]
+    accountConstraints: NotRequired[list[AccountConstraintTypeDef]]
     specifications: NotRequired[list[DeploymentSpecificationsFieldTypeDef]]
+
+
+class ListWorkloadsOutputTypeDef(TypedDict):
+    workloads: list[WorkloadDataSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetWorkloadOutputTypeDef(TypedDict):
+    workload: WorkloadDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListWorkloadDeploymentPatternsOutputTypeDef(TypedDict):
+    workloadDeploymentPatterns: list[WorkloadDeploymentPatternDataSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class GetWorkloadDeploymentPatternOutputTypeDef(TypedDict):

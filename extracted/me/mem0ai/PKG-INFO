@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mem0ai
-Version: 2.0.18
+Version: 2.0.19
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <support@mem0.ai>
 License-Expression: Apache-2.0
@@ -32,7 +32,7 @@ Provides-Extra: llms
 Requires-Dist: google-genai>=1.0.0; extra == 'llms'
 Requires-Dist: google-generativeai>=0.3.0; extra == 'llms'
 Requires-Dist: groq>=0.3.0; extra == 'llms'
-Requires-Dist: litellm>=1.83.7; extra == 'llms'
+Requires-Dist: litellm<1.98.0,>=1.83.7; extra == 'llms'
 Requires-Dist: ollama>=0.3.0; extra == 'llms'
 Requires-Dist: openai>=1.90.0; extra == 'llms'
 Requires-Dist: together>=0.2.10; extra == 'llms'

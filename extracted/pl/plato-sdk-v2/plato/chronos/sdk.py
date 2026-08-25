@@ -48,7 +48,6 @@ from plato.chronos.api.sessions import (
     get_session_envs,
     get_session_logs,
     get_session_status,
-    get_session_trajectory,
     list_sessions,
     update_session_notes,
     upsert_session_preview_url,
@@ -64,6 +63,12 @@ from plato.chronos.api.workspace_repos import (
 )
 from plato.chronos.api.workspace_repos import (
     list_audit_events as list_audit_events_api,
+)
+from plato.chronos.atif import (
+    SessionTrajectory,
+    TrajectoryMetrics,
+    spans_to_trajectory,
+    total_metrics,
 )
 from plato.chronos.experiments import AsyncExperiments, Experiments
 from plato.chronos.models import (
@@ -87,10 +92,8 @@ from plato.chronos.models import (
     SessionPreviewUrlsResponse,
     SessionResponse,
     SessionStatusResponse,
-    SessionTrajectory,
     Status,
     Status1,
-    TrajectoryMetrics,
     UpdateNotesRequest,
     UpsertSessionPreviewUrlRequest,
     WorkspaceRepoCredentialsResponse,
@@ -474,6 +477,7 @@ class Chronos(_ChronosBase):
         atif_only: bool = False,
         errors_only: bool = False,
         search: str | None = None,
+        plato_type: str | None = None,
         on_progress: ProgressCallback | None = None,
     ) -> list[OTelSpanSchema]:
         """Auto-paginated: fetches ALL spans for a session via logs-stream."""
@@ -483,6 +487,7 @@ class Chronos(_ChronosBase):
             atif_only=atif_only,
             errors_only=errors_only,
             search=search,
+            plato_type=plato_type,
             on_progress=on_progress,
         )
 
@@ -514,11 +519,20 @@ class Chronos(_ChronosBase):
     # -- Trajectory --
 
     def get_trajectory(self, session_id: str) -> SessionTrajectory:
-        return get_session_trajectory.sync(self._client, public_id=session_id)
+        """Rebuild the session's ATIF trajectory client-side from the span stream.
+
+        Drains the uncapped, cursor-resumable logs-stream endpoint (agent/world
+        spans plus artifact spans), so the trajectory is always complete — the
+        removed server endpoint truncated at 1000 spans.
+        """
+        spans = self.get_all_traces(session_id, atif_only=True)
+        artifact_spans = self.get_all_traces(session_id, plato_type="artifact")
+        status = self.get_status(session_id).status.value
+        return spans_to_trajectory([*spans, *artifact_spans], session_id, status=status)
 
     def get_metrics(self, session_id: str) -> TrajectoryMetrics:
         """Get aggregated cost and token metrics for a session."""
-        return self.get_trajectory(session_id).total_metrics
+        return total_metrics(self.get_trajectory(session_id))
 
     # -- State --
 
@@ -881,6 +895,7 @@ class AsyncChronos(_ChronosBase):
         atif_only: bool = False,
         errors_only: bool = False,
         search: str | None = None,
+        plato_type: str | None = None,
         on_progress: ProgressCallback | None = None,
     ) -> list[OTelSpanSchema]:
         """Auto-paginated: fetches ALL spans for a session via logs-stream."""
@@ -890,6 +905,7 @@ class AsyncChronos(_ChronosBase):
             atif_only=atif_only,
             errors_only=errors_only,
             search=search,
+            plato_type=plato_type,
             on_progress=on_progress,
         )
 
@@ -922,12 +938,21 @@ class AsyncChronos(_ChronosBase):
     # -- Trajectory --
 
     async def get_trajectory(self, session_id: str) -> SessionTrajectory:
-        return await get_session_trajectory.asyncio(self._client, public_id=session_id)
+        """Rebuild the session's ATIF trajectory client-side from the span stream.
+
+        Drains the uncapped, cursor-resumable logs-stream endpoint (agent/world
+        spans plus artifact spans), so the trajectory is always complete — the
+        removed server endpoint truncated at 1000 spans.
+        """
+        spans = await self.get_all_traces(session_id, atif_only=True)
+        artifact_spans = await self.get_all_traces(session_id, plato_type="artifact")
+        status = (await self.get_status(session_id)).status.value
+        return spans_to_trajectory([*spans, *artifact_spans], session_id, status=status)
 
     async def get_metrics(self, session_id: str) -> TrajectoryMetrics:
         """Get aggregated cost and token metrics for a session."""
         traj = await self.get_trajectory(session_id)
-        return traj.total_metrics
+        return total_metrics(traj)
 
     # -- Reviews & Annotations --
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.52.2
+Version: 4.52.3
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -71,7 +71,7 @@ Requires-Dist: filelock>=3.32.4
 Requires-Dist: fasteners>=0.20
 Requires-Dist: mycdp>=1.4.0
 Requires-Dist: pynose>=1.5.5
-Requires-Dist: platformdirs>=4.11.3
+Requires-Dist: platformdirs>=4.11.4
 Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: sbvirtualdisplay>=1.4.0
 Requires-Dist: MarkupSafe>=3.0.3
@@ -215,7 +215,7 @@ Dynamic: summary
 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/tour_examples/ReadMe.md">🚎 Tours</a>
 <br />
 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/mcp_servers/">🤖 MCP</a> |
-<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/js_package_manager.md">🟨 JS-Mgr</a> |
+<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/js_package_manager.md">🟨 JS Mgr</a> |
 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/translations.md">🌏 Translator</a> |
 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/presenter/ReadMe.md">🎞️ Presenter</a> |
 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/visual_testing/ReadMe.md">🖼️ Visual</a> |
@@ -232,6 +232,10 @@ Dynamic: summary
 <ul>
 <li><code><b>pip install seleniumbase</b></code> for the main framework. (Or use <code>uv add</code>)</li>
 <li><code><b>pip install playwright</b></code> for the optional integration. (Or use <code>uv add</code>)</li>
+</ul>
+
+<ul>
+<li><b>🤖 For the <code>seleniumbase-mcp</code> MCP server, <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/mcp_servers/">see the MCP ReadMe</a>.</b></li>
 </ul>
 
 --------

@@ -165,10 +165,14 @@ class OpenedConnectionTracker:
 
         with self._lock:
             connection_set: Optional[WeakSet] = self._opened_connections.get(instance_endpoint)
-            connections_list = list(connection_set) if connection_set is not None else None
+            if connection_set is not None:
+                connections_list = list(connection_set)
+                connection_set.clear()
+            else:
+                connections_list = None
 
-        if connections_list is not None:
-            self._log_connection_set(instance_endpoint, connection_set)
+        if connections_list:
+            self._log_connection_set(instance_endpoint, connections_list)
             self._invalidate_connections(connections_list)
 
     def remove_connection_tracking(self, host_info: HostInfo, connection: Connection | None):
@@ -204,15 +208,28 @@ class OpenedConnectionTracker:
             if conn_reference is None:
                 continue
 
+            # For pool-proxied connections (e.g. SQLAlchemy's
+            # _ConnectionFairy), prefer .invalidate() over .close().
+            # close() checks the connection back into the pool, which first
+            # runs rollback-on-return against the failed writer -- an
+            # unbounded blocking call on this thread when the host is
+            # unreachable -- and re-pools the connection if that rollback
+            # happens to succeed (e.g. the old writer came back as a
+            # reader). invalidate() skips the rollback and discards the
+            # connection so the pool opens a fresh one on next checkout.
             try:
-                conn_reference.close()
+                inv = getattr(conn_reference, "invalidate", None)
+                if callable(inv):
+                    inv()
+                else:
+                    conn_reference.close()
             except Exception:
                 # Swallow this exception, current connection should be useless anyway
                 pass
 
     def _invalidate_connections(self, connections_list: list):
         invalidate_connection_thread: Thread = Thread(daemon=True, target=self._task,
-                                                      args=[connections_list])  # type: ignore
+                                                      args=[connections_list])  # type: ignore[arg-type]
         invalidate_connection_thread.start()
 
     def log_opened_connections(self):
@@ -228,11 +245,11 @@ class OpenedConnectionTracker:
         msg = "".join(msg_parts)
         return logger.debug("OpenedConnectionTracker.OpenedConnectionsTracked", msg)
 
-    def _log_connection_set(self, host: str, conn_set: Optional[WeakSet]):
-        if conn_set is None or len(conn_set) == 0:
+    def _log_connection_set(self, host: str, connections: Optional[list]):
+        if not connections:
             return
 
-        conn_parts = [f"\n\t\t{item}" for item in list(conn_set)]
+        conn_parts = [f"\n\t\t{item}" for item in connections]
         conn = "".join(conn_parts)
         msg = host + f"[{conn}\n]"
         logger.debug("OpenedConnectionTracker.InvalidatingConnections", msg)

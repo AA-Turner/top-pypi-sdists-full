@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openinference-instrumentation-bedrock
-Version: 0.1.45
+Version: 0.1.47
 Summary: OpenInference Bedrock Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-bedrock
 Author-email: OpenInference Authors <oss@arize.com>
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
 Requires-Dist: dacite>=1.8.1
 Requires-Dist: openinference-instrumentation>=0.1.51
-Requires-Dist: openinference-semantic-conventions>=0.1.31
+Requires-Dist: openinference-semantic-conventions>=0.1.33
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions
@@ -310,6 +310,6 @@ asyncio.run(main())
 ## More Info
 
 * [More info on OpenInference and Phoenix](https://docs.arize.com/phoenix)
-* [More info on OpenInference and Arize AX](https://arize.com/docs/ax)
+* [More info on OpenInference and Arize AX](https://arize.com/products/ax?utm_source=docs&utm_medium=web&utm_content=openinference)
 * [How to customize spans to track sessions, metadata, etc.](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#customizing-spans)
 * [How to account for private information and span payload customization](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#tracing-configuration)

@@ -35,7 +35,7 @@ dependencies = [
     "openai>=2.9.0",
     "openai-agents>=0.8.2",
     "prime-tunnel>=0.1.8",
-    "prime-sandboxes>=0.2.35",
+    "prime-sandboxes>=0.2.39",
     "pydantic>=2.12.3",
     "requests",
     "rich>=11.0.0",
@@ -47,11 +47,11 @@ dependencies = [
     "setproctitle>=1.3.0",
     "httpx>=0.27.0",
     "aiohttp>=3.9.0",
-    "prime-pydantic-config[toml]>=0.4.2",
+    "prime-pydantic-config[toml]>=0.4.3",
     "uvloop>=0.21.0; sys_platform != 'win32' and sys_platform != 'cygwin' and platform_python_implementation != 'PyPy'",
     "loguru>=0.7.0",
     "tomli-w>=1.0.0",
-    "renderers>=0.1.9",
+    "renderers>=0.1.10",
     "typing_extensions>=4.12.2",
 ]
 
@@ -76,10 +76,23 @@ dev = [
 # from this repo. The built-in tasksets/harnesses ship inside verifiers (verifiers/v1/...).
 examples = [
     "compact",
-    "gsm8k-v1", "glossary-v1", "deepwiki-v1", "wiki-search-v1", "code-golf-v1",
-    "proposer-solver-v1", "reverse-text-v1", "color-codeword-v1",
-    "wordle-v1", "openenv-wordle-v1", "alphabet-sort-v1", "scratchpad-v1",
-    "kuhn-poker-v1",
+    "gsm8k",
+    "glossary",
+    "deepwiki",
+    "wiki-search",
+    "code-golf",
+    "proposer-solver",
+    "reverse-text",
+    "color-codeword",
+    "wordle",
+    "openenv-wordle",
+    "alphabet-sort",
+    "scratchpad",
+    "kuhn-poker",
+    "interception",
+    "grayscale-interception",
+    "bash-interception",
+    "web-search-interception",
 ]
 
 [project.optional-dependencies]
@@ -96,7 +109,7 @@ browser = [
 ]
 harbor = [
     # Harbor currently publishes Python 3.12+ packages; keep core verifiers installable on 3.11.
-    "harbor==0.20.0; python_version >= '3.12'",
+    "harbor==0.21.0 ; python_full_version >= '3.12'",
 ]
 modal = [
     "modal>=1.4.0",
@@ -151,24 +164,29 @@ default = true
 
 [tool.uv.sources]
 compact = { path = "environments/compact", editable = true }
-glossary-v1 = { path = "environments/glossary_v1", editable = true }
-deepwiki-v1 = { path = "environments/deepwiki_v1", editable = true }
-wiki-search-v1 = { path = "environments/wiki_search_v1", editable = true }
-gsm8k-v1 = { path = "environments/gsm8k_v1", editable = true }
-code-golf-v1 = { path = "environments/code_golf_v1", editable = true }
-proposer-solver-v1 = { path = "environments/proposer_solver_v1", editable = true }
-reverse-text-v1 = { path = "environments/reverse_text_v1", editable = true }
-wordle-v1 = { path = "environments/wordle_v1", editable = true }
-openenv-wordle-v1 = { path = "environments/openenv_wordle_v1", editable = true }
-color-codeword-v1 = { path = "environments/color_codeword_v1", editable = true }
-alphabet-sort-v1 = { path = "environments/alphabet_sort_v1", editable = true }
-scratchpad-v1 = { path = "environments/scratchpad_v1", editable = true }
-kuhn-poker-v1 = { path = "environments/kuhn_poker_v1", editable = true }
+glossary = { path = "environments/glossary", editable = true }
+deepwiki = { path = "environments/deepwiki", editable = true }
+wiki-search = { path = "environments/wiki_search", editable = true }
+gsm8k = { path = "environments/gsm8k", editable = true }
+code-golf = { path = "environments/code_golf", editable = true }
+proposer-solver = { path = "environments/proposer_solver", editable = true }
+reverse-text = { path = "environments/reverse_text", editable = true }
+wordle = { path = "environments/wordle", editable = true }
+openenv-wordle = { path = "environments/openenv_wordle", editable = true }
+color-codeword = { path = "environments/color_codeword", editable = true }
+alphabet-sort = { path = "environments/alphabet_sort", editable = true }
+scratchpad = { path = "environments/scratchpad", editable = true }
+kuhn-poker = { path = "environments/kuhn_poker", editable = true }
+interception = { path = "environments/interception", editable = true }
+grayscale-interception = { path = "environments/grayscale_interception", editable = true }
+bash-interception = { path = "environments/bash_interception", editable = true }
+web-search-interception = { path = "environments/web_search_interception", editable = true }
 
 [tool.uv.exclude-newer-package]
 # Bounded cutoffs for the explicitly requested tool upgrades.
 # Full UTC timestamps: bare dates resolve to local-tz midnight and churn the
 # lockfile across timezones.
+harbor = "2026-08-11T00:00:00Z"
 ruff = "2026-07-28T00:00:00Z"
 ty = "2026-07-28T00:00:00Z"
 # PrimeIntellect-published on PyPI (trusted publisher)
@@ -178,19 +196,19 @@ prime-pydantic-config = false
 renderers = false
 
 [project.scripts]
-vf-eval = "verifiers.scripts.eval:main"
 eval = "verifiers.v1.cli.eval.main:main"
 validate = "verifiers.v1.cli.validate:main"
 debug = "verifiers.v1.cli.debug:main"
 replay = "verifiers.v1.cli.replay:main"
 init = "verifiers.v1.cli.init:main"
 gepa = "verifiers.v1.cli.gepa:main"
-vf-gepa = "verifiers.scripts.gepa:main"
-vf-init = "verifiers.scripts.init:main"
-vf-install = "verifiers.scripts.install:main"
-vf-setup = "verifiers.scripts.setup:main"
-vf-build = "verifiers.scripts.build:main"
-vf-tui = "verifiers.scripts.tui:main"
+vf-eval = "verifiers.legacy.scripts.eval:main"
+vf-gepa = "verifiers.legacy.scripts.gepa:main"
+vf-init = "verifiers.legacy.scripts.init:main"
+vf-install = "verifiers.legacy.scripts.install:main"
+vf-setup = "verifiers.legacy.scripts.setup:main"
+vf-build = "verifiers.legacy.scripts.build:main"
+vf-tui = "verifiers.legacy.scripts.tui:main"
 
 # hatchling configuration
 [tool.hatch.version]
@@ -237,6 +255,12 @@ Homepage = "https://github.com/primeintellect-ai/verifiers"
 Documentation = "https://github.com/primeintellect-ai/verifiers"
 Repository = "https://github.com/primeintellect-ai/verifiers.git"
 Issues = "https://github.com/primeintellect-ai/verifiers/issues"
+
+[tool.ruff.lint.isort]
+# The legacy tree answers at both verifiers.* and verifiers.legacy.* (the
+# package-root alias); path probing would classify the moved submodules as
+# third-party, so pin the whole namespace first-party.
+known-first-party = ["verifiers"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -300,7 +324,7 @@ redundant-cast = "ignore"
 exclude = ["environments", "verifiers/v1"]
 
 [[tool.ty.overrides]]
-include = ["verifiers/envs/experimental/composable/tasksets/**"]
+include = ["verifiers/legacy/envs/experimental/composable/tasksets/**"]
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"

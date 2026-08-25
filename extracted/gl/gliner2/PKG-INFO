@@ -1,285 +1,164 @@
 Metadata-Version: 2.4
 Name: gliner2
-Version: 1.3.2
+Version: 2.0.0
 Summary: GLiNER2: Unified Schema-Based Information Extraction and Text Classification
 Maintainer: Urchade Zaratiana
-License:                                  Apache License
-                                   Version 2.0, January 2004
-                                http://www.apache.org/licenses/
-        
-           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-        
-           1. Definitions.
-        
-              "License" shall mean the terms and conditions for use, reproduction,
-              and distribution as defined by Sections 1 through 9 of this document.
-        
-              "Licensor" shall mean the copyright owner or entity authorized by
-              the copyright owner that is granting the License.
-        
-              "Legal Entity" shall mean the union of the acting entity and all
-              other entities that control, are controlled by, or are under common
-              control with that entity. For the purposes of this definition,
-              "control" means (i) the power, direct or indirect, to cause the
-              direction or management of such entity, whether by contract or
-              otherwise, or (ii) ownership of fifty percent (50%) or more of the
-              outstanding shares, or (iii) beneficial ownership of such entity.
-        
-              "You" (or "Your") shall mean an individual or Legal Entity
-              exercising permissions granted by this License.
-        
-              "Source" form shall mean the preferred form for making modifications,
-              including but not limited to software source code, documentation
-              source, and configuration files.
-        
-              "Object" form shall mean any form resulting from mechanical
-              transformation or translation of a Source form, including but
-              not limited to compiled object code, generated documentation,
-              and conversions to other media types.
-        
-              "Work" shall mean the work of authorship, whether in Source or
-              Object form, made available under the License, as indicated by a
-              copyright notice that is included in or attached to the work
-              (an example is provided in the Appendix below).
-        
-              "Derivative Works" shall mean any work, whether in Source or Object
-              form, that is based on (or derived from) the Work and for which the
-              editorial revisions, annotations, elaborations, or other modifications
-              represent, as a whole, an original work of authorship. For the purposes
-              of this License, Derivative Works shall not include works that remain
-              separable from, or merely link (or bind by name) to the interfaces of,
-              the Work and Derivative Works thereof.
-        
-              "Contribution" shall mean any work of authorship, including
-              the original version of the Work and any modifications or additions
-              to that Work or Derivative Works thereof, that is intentionally
-              submitted to Licensor for inclusion in the Work by the copyright owner
-              or by an individual or Legal Entity authorized to submit on behalf of
-              the copyright owner. For the purposes of this definition, "submitted"
-              means any form of electronic, verbal, or written communication sent
-              to the Licensor or its representatives, including but not limited to
-              communication on electronic mailing lists, source code control systems,
-              and issue tracking systems that are managed by, or on behalf of, the
-              Licensor for the purpose of discussing and improving the Work, but
-              excluding communication that is conspicuously marked or otherwise
-              designated in writing by the copyright owner as "Not a Contribution."
-        
-              "Contributor" shall mean Licensor and any individual or Legal Entity
-              on behalf of whom a Contribution has been received by Licensor and
-              subsequently incorporated within the Work.
-        
-           2. Grant of Copyright License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              copyright license to reproduce, prepare Derivative Works of,
-              publicly display, publicly perform, sublicense, and distribute the
-              Work and such Derivative Works in Source or Object form.
-        
-           3. Grant of Patent License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              (except as stated in this section) patent license to make, have made,
-              use, offer to sell, sell, import, and otherwise transfer the Work,
-              where such license applies only to those patent claims licensable
-              by such Contributor that are necessarily infringed by their
-              Contribution(s) alone or by combination of their Contribution(s)
-              with the Work to which such Contribution(s) was submitted. If You
-              institute patent litigation against any entity (including a
-              cross-claim or counterclaim in a lawsuit) alleging that the Work
-              or a Contribution incorporated within the Work constitutes direct
-              or contributory patent infringement, then any patent licenses
-              granted to You under this License for that Work shall terminate
-              as of the date such litigation is filed.
-        
-           4. Redistribution. You may reproduce and distribute copies of the
-              Work or Derivative Works thereof in any medium, with or without
-              modifications, and in Source or Object form, provided that You
-              meet the following conditions:
-        
-              (a) You must give any other recipients of the Work or
-                  Derivative Works a copy of this License; and
-        
-              (b) You must cause any modified files to carry prominent notices
-                  stating that You changed the files; and
-        
-              (c) You must retain, in the Source form of any Derivative Works
-                  that You distribute, all copyright, patent, trademark, and
-                  attribution notices from the Source form of the Work,
-                  excluding those notices that do not pertain to any part of
-                  the Derivative Works; and
-        
-              (d) If the Work includes a "NOTICE" text file as part of its
-                  distribution, then any Derivative Works that You distribute must
-                  include a readable copy of the attribution notices contained
-                  within such NOTICE file, excluding those notices that do not
-                  pertain to any part of the Derivative Works, in at least one
-                  of the following places: within a NOTICE text file distributed
-                  as part of the Derivative Works; within the Source form or
-                  documentation, if provided along with the Derivative Works; or,
-                  within a display generated by the Derivative Works, if and
-                  wherever such third-party notices normally appear. The contents
-                  of the NOTICE file are for informational purposes only and
-                  do not modify the License. You may add Your own attribution
-                  notices within Derivative Works that You distribute, alongside
-                  or as an addendum to the NOTICE text from the Work, provided
-                  that such additional attribution notices cannot be construed
-                  as modifying the License.
-        
-              You may add Your own copyright statement to Your modifications and
-              may provide additional or different license terms and conditions
-              for use, reproduction, or distribution of Your modifications, or
-              for any such Derivative Works as a whole, provided Your use,
-              reproduction, and distribution of the Work otherwise complies with
-              the conditions stated in this License.
-        
-           5. Submission of Contributions. Unless You explicitly state otherwise,
-              any Contribution intentionally submitted for inclusion in the Work
-              by You to the Licensor shall be under the terms and conditions of
-              this License, without any additional terms or conditions.
-              Notwithstanding the above, nothing herein shall supersede or modify
-              the terms of any separate license agreement you may have executed
-              with Licensor regarding such Contributions.
-        
-           6. Trademarks. This License does not grant permission to use the trade
-              names, trademarks, service marks, or product names of the Licensor,
-              except as required for reasonable and customary use in describing the
-              origin of the Work and reproducing the content of the NOTICE file.
-        
-           7. Disclaimer of Warranty. Unless required by applicable law or
-              agreed to in writing, Licensor provides the Work (and each
-              Contributor provides its Contributions) on an "AS IS" BASIS,
-              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-              implied, including, without limitation, any warranties or conditions
-              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-              PARTICULAR PURPOSE. You are solely responsible for determining the
-              appropriateness of using or redistributing the Work and assume any
-              risks associated with Your exercise of permissions under this License.
-        
-           8. Limitation of Liability. In no event and under no legal theory,
-              whether in tort (including negligence), contract, or otherwise,
-              unless required by applicable law (such as deliberate and grossly
-              negligent acts) or agreed to in writing, shall any Contributor be
-              liable to You for damages, including any direct, indirect, special,
-              incidental, or consequential damages of any character arising as a
-              result of this License or out of the use or inability to use the
-              Work (including but not limited to damages for loss of goodwill,
-              work stoppage, computer failure or malfunction, or any and all
-              other commercial damages or losses), even if such Contributor
-              has been advised of the possibility of such damages.
-        
-           9. Accepting Warranty or Additional Liability. While redistributing
-              the Work or Derivative Works thereof, You may choose to offer,
-              and charge a fee for, acceptance of support, warranty, indemnity,
-              or other liability obligations and/or rights consistent with this
-              License. However, in accepting such obligations, You may act only
-              on Your own behalf and on Your sole responsibility, not on behalf
-              of any other Contributor, and only if You agree to indemnify,
-              defend, and hold each Contributor harmless for any liability
-              incurred by, or claims asserted against, such Contributor by reason
-              of your accepting any such warranty or additional liability.
-        
-           END OF TERMS AND CONDITIONS
-        
-           APPENDIX: How to apply the Apache License to your work.
-        
-              To apply the Apache License to your work, attach the following
-              boilerplate notice, with the fields enclosed by brackets "[]"
-              replaced with your own identifying information. (Don't include
-              the brackets!)  The text should be enclosed in the appropriate
-              comment syntax for the file format. We also recommend that a
-              file or class name and description of purpose be included on the
-              same "printed page" as the copyright notice for easier
-              identification within third-party archives.
-        
-           Copyright [yyyy] [name of copyright owner]
-        
-           Licensed under the Apache License, Version 2.0 (the "License");
-           you may not use this file except in compliance with the License.
-           You may obtain a copy of the License at
-        
-               http://www.apache.org/licenses/LICENSE-2.0
-        
-           Unless required by applicable law or agreed to in writing, software
-           distributed under the License is distributed on an "AS IS" BASIS,
-           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-           See the License for the specific language governing permissions and
-           limitations under the License.
-        
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/fastino-ai/GLiNER2
 Project-URL: Repository, https://github.com/fastino-ai/GLiNER2
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: peft
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: requests>=2.28
-Requires-Dist: urllib3>=1.26
+Requires-Dist: pydantic<3,>=2.0
+Requires-Dist: requests<3,>=2.28
+Requires-Dist: tqdm<5,>=4.64
+Requires-Dist: urllib3<3,>=1.26
 Provides-Extra: local
-Requires-Dist: torch; extra == "local"
-Requires-Dist: transformers; extra == "local"
-Requires-Dist: peft; extra == "local"
+Requires-Dist: numpy<3,>=1.24; extra == "local"
+Requires-Dist: peft<1,>=0.10; extra == "local"
+Requires-Dist: safetensors<1,>=0.4; extra == "local"
+Requires-Dist: torch<3,>=2.1; extra == "local"
+Requires-Dist: transformers<5,>=4.38; extra == "local"
+Provides-Extra: train
+Requires-Dist: numpy<3,>=1.24; extra == "train"
+Requires-Dist: peft<1,>=0.10; extra == "train"
+Requires-Dist: PyYAML<7,>=6; extra == "train"
+Requires-Dist: safetensors<1,>=0.4; extra == "train"
+Requires-Dist: torch<3,>=2.1; extra == "train"
+Requires-Dist: transformers<5,>=4.38; extra == "train"
+Provides-Extra: test
+Requires-Dist: packaging<27,>=24.2; extra == "test"
+Requires-Dist: pytest<9,>=8; extra == "test"
+Requires-Dist: pytest-cov<8,>=5; extra == "test"
+Requires-Dist: tomli<3,>=2; python_version < "3.11" and extra == "test"
+Provides-Extra: dev
+Requires-Dist: build<2,>=1; extra == "dev"
+Requires-Dist: mypy<2,>=1.10; extra == "dev"
+Requires-Dist: numpy<3,>=1.24; extra == "dev"
+Requires-Dist: packaging<27,>=24.2; extra == "dev"
+Requires-Dist: peft<1,>=0.10; extra == "dev"
+Requires-Dist: pytest<9,>=8; extra == "dev"
+Requires-Dist: pytest-cov<8,>=5; extra == "dev"
+Requires-Dist: PyYAML<7,>=6; extra == "dev"
+Requires-Dist: ruff<1,>=0.6; extra == "dev"
+Requires-Dist: safetensors<1,>=0.4; extra == "dev"
+Requires-Dist: scipy<2,>=1.10; extra == "dev"
+Requires-Dist: torch<3,>=2.1; extra == "dev"
+Requires-Dist: tomli<3,>=2; python_version < "3.11" and extra == "dev"
+Requires-Dist: transformers<5,>=4.38; extra == "dev"
+Requires-Dist: twine<7,>=5; extra == "dev"
+Requires-Dist: types-PyYAML<7,>=6; extra == "dev"
+Requires-Dist: types-requests<3,>=2.28; extra == "dev"
+Provides-Extra: benchmark
+Requires-Dist: datasets<5,>=3.0; extra == "benchmark"
+Requires-Dist: numpy<3,>=1.24; extra == "benchmark"
+Requires-Dist: peft<1,>=0.10; extra == "benchmark"
+Requires-Dist: safetensors<1,>=0.4; extra == "benchmark"
+Requires-Dist: scikit-learn<2,>=1.3; extra == "benchmark"
+Requires-Dist: scipy<2,>=1.10; extra == "benchmark"
+Requires-Dist: torch<3,>=2.1; extra == "benchmark"
+Requires-Dist: transformers<5,>=4.38; extra == "benchmark"
 Dynamic: license-file
-
-<div align="center">
-  <a href="https://pioneer.ai/gliner" target="_blank" rel="noopener noreferrer">
-    <img src="image/GitHub.png" alt="Pioneer AI - Fine-tune GLiNER with a single prompt" width="100%"/>
-  </a>
-</div>
 
 # GLiNER2: Unified Schema-Based Information Extraction and Text Classification
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/gliner2.svg)](https://badge.fury.io/py/gliner2)
 [![Downloads](https://pepy.tech/badge/gliner2)](https://pepy.tech/project/gliner2)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2FGLiNER-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/GLiNER/)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/fastino)
 
-> *Extract entities, classify text, parse structured data, and extract relations—all in one efficient model.*
+> *Schema-driven information extraction and classification — entities, labels, records, relations, and span attributes in one local model.*
 
-GLiNER2 unifies **Named Entity Recognition**, **Text Classification**, **Structured Data Extraction**, and **Relation Extraction** into a single 205M parameter model. It provides efficient CPU-based inference without requiring complex pipelines or external API dependencies.
+GLiNER2 is a **schema-conditioned** encoder family for **Named Entity Recognition**, **Text Classification**, **Structured Data Extraction**, **Relation Extraction**, and **span attributes**. Two extraction architectures share one public API:
 
-Fine-tune via [Pioneer](https://pioneer.ai/gliner). Additional documentation via [Pioneer docs](https://agent.pioneer.ai/docs/api-reference). Join discussions on [Discord](https://discord.gg/fastino) and [Reddit](https://www.reddit.com/r/GLiNER/).
+- **`span`** (`GLiNER2` / `SpanExtractor`) — fixed-width span grid; legacy checkpoints and specialty fine-tunes (GLiGuard, PII).
+- **`boundary`** (`BoundaryExtractor`, **GLiNER2.5**) — sparse start/end pairing; any span length within the encoded window.
+
+Load any Hub checkpoint with `AutoExtractor.from_pretrained(...)`. It dispatches by the saved `architecture` field. `GLiNER2.from_pretrained(...)` remains span-only and will **not** load GLiNER2.5 boundary checkpoints.
+
+Fine-tune via [Fastino](https://fastino.ai). Join discussions on [Discord](https://discord.gg/fastino) and [Reddit](https://www.reddit.com/r/GLiNER/).
 
 ## ✨ Why GLiNER2?
 
-- **🎯 One Model, Four Tasks**: Entities, classification, structured data, and relations in a single forward pass
-- **💻 CPU First**: Lightning-fast inference on standard hardware—no GPU required
+- **🎯 One schema, many tasks**: entities, classification, structured records, relations, and span attributes in a single forward pass
+- **📐 Two architectures**: span (GLiNER2) and boundary (GLiNER2.5) behind `AutoExtractor`
+- **🔗 Constrained decoding**: `Classifier` for cross-task label rules; `JointIE` for typed entity–relation graphs
+- **💻 CPU first**: fast local inference on standard hardware — no GPU required
 - **🛡️ Privacy**: 100% local processing, zero external dependencies
 
 ## 🚀 Installation & Quick Start
+
+GLiNER2 requires Python 3.10 or newer. Choose the smallest install profile that
+matches your use case:
 
 ```bash
 # Schema validation, API client, training-data utilities — no torch required
 pip install gliner2
 
-# Full local inference and training (installs torch, transformers, etc.)
+# Local model inference and LoRA support
 pip install gliner2[local]
+
+# Model training and recipe configuration
+pip install gliner2[train]
+
+# Reproducible tests, contributor tooling, or benchmarks
+pip install gliner2[test]
+pip install gliner2[dev]
+pip install gliner2[benchmark]
 ```
 
 The base install gives you `Schema`, `SchemaInput`, `RegexValidator`, `GLiNER2API`,
 `InputExample`, `TrainingDataset`, and all JSONL validation tooling — everything
 needed to build schemas, validate data, and call the cloud API without pulling in
-PyTorch.
-
-To load and run models locally, install the `[local]` extra:
+PyTorch. `API` is a concise alias for `GLiNER2API`:
 
 ```python
-from gliner2 import GLiNER2  # requires gliner2[local]
+from gliner2 import API, InputExample, Schema, TrainingDataset
+```
 
-# Load model once, use everywhere
-extractor = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+The torch-free API client partitions batch requests locally and can scan long
+documents without changing the server protocol:
 
-# Extract entities in one line
+```python
+client = API()  # reads PIONEER_API_KEY
+results = client.batch_extract_entities(
+    documents,
+    ["company", "person"],
+    batch_size=8,
+)
+long_result = client.extract_entities_long(
+    annual_report,
+    ["company", "person"],
+    chunk_size=384,
+    chunk_overlap=64,
+    include_spans=True,
+)
+```
+
+To load and run models locally, install the `[local]` extra and use
+`AutoExtractor` — it loads span, boundary, GLiGuard, and PII checkpoints:
+
+```python
+from gliner2 import AutoExtractor  # requires gliner2[local]
+
+# Default English GLiNER2.5 boundary checkpoint
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1")
+
 text = "Apple CEO Tim Cook announced iPhone 15 in Cupertino yesterday."
-result = extractor.extract_entities(text, ["company", "person", "product", "location"])
+result = model.extract_entities(text, ["company", "person", "product", "location"])
 
 print(result)
 # {'entities': {'company': ['Apple'], 'person': ['Tim Cook'], 'product': ['iPhone 15'], 'location': ['Cupertino']}}
 ```
+
+For legacy span checkpoints or explicit span-only loading, `GLiNER2.from_pretrained("fastino/gliner2-base-v1")` still works (`GLiNER2 = SpanExtractor`).
 
 ### Quantization and Compilation
 
@@ -287,63 +166,131 @@ Enable fp16 and/or `torch.compile` for faster inference — no extra dependencie
 
 ```python
 # fp16
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1", map_location="cuda", quantize=True)
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1", map_location="cuda", quantize=True)
 
 # torch.compile (fused GPU kernels, first call triggers tracing)
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1", map_location="cuda", compile=True)
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1", map_location="cuda", compile=True)
 
 # Both
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1", map_location="cuda", quantize=True, compile=True)
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1", map_location="cuda", quantize=True, compile=True)
 
 # Or after loading
 model.quantize()
 model.compile()
 ```
 
-### 🌐 API Access: GLiNER XL 1B
+### Custom word splitters
 
-Our biggest and most powerful model—**GLiNER XL 1B**—is available exclusively via API. No GPU required, no model downloads, just instant access to state-of-the-art extraction. Get your API key at [gliner.pioneer.ai](https://gliner.pioneer.ai).
+GLiNER2 first splits text into **word tokens**, then encodes those tokens with the model's subword tokenizer. The default `"whitespace"` splitter is the one used to train public checkpoints.
+
+For languages without whitespace-delimited words, such as Chinese, use the character-level splitter:
 
 ```python
-from gliner2 import GLiNER2
-
-# Access GLiNER XL 1B via API
-extractor = GLiNER2.from_api()  # Uses PIONEER_API_KEY env variable
-
-result = extractor.extract_entities(
-    "OpenAI CEO Sam Altman announced GPT-5 at their San Francisco headquarters.",
-    ["company", "person", "product", "location"]
+model = AutoExtractor.from_pretrained(
+    "fastino/gliner2.5-base-v1",
+    word_splitter="char",
 )
-# {'entities': {'company': ['OpenAI'], 'person': ['Sam Altman'], 'product': ['GPT-5'], 'location': ['San Francisco']}}
+
+# Or after loading
+model.set_word_splitter("char")
 ```
+
+Built-in names:
+
+| Name | Class | Use when |
+|------|-------|----------|
+| `"whitespace"` (default) | `WhitespaceTokenSplitter` | Space-delimited languages; matches public checkpoints |
+| `"char"` | `CharLevelSplitter` | Languages such as Chinese; keeps Latin words/emails intact and splits other non-space characters |
+
+You can also pass a custom callable that yields `(token, start, end)` with exclusive-end offsets into the **original** text:
+
+```python
+from gliner2.processor import CharLevelSplitter
+
+model.set_word_splitter(CharLevelSplitter())
+```
+
+Changing a pretrained model's word boundaries can affect quality unless the model was trained with the same splitter. The choice is runtime-only: saved checkpoints reload with `"whitespace"` unless you pass `word_splitter` again.
+
+### Architecture guide
+
+The boundary architecture (**GLiNER2.5**) uses sparse start/end pairing instead of a fixed span-width grid, so spans of any length that fit in the encoded window are representable. It supports entities, classification, structured record/event decoding, sparse relations, and span attributes when enabled by the checkpoint.
+
+See the full guide — loading, creating/training a boundary model, record and relation decoding, save/load, LoRA aliases, export mode, loss/imbalance controls, and gold-capacity policy — in [`docs/boundary_architecture.md`](docs/boundary_architecture.md) and the design notes in [`docs/gliner2_5_boundary_architecture.md`](docs/gliner2_5_boundary_architecture.md).
 
 ## 📦 Available Models
 
-| Model | Parameters | Description | Use Case                                         |
-|-------|------------|-------------|--------------------------------------------------|
-| `fastino/gliner2-base-v1` | 205M | base size   | Extraction / classification |
-| `fastino/gliner2-large-v1` | 340M | large size  | Extraction / classification                      |
+All models are on the [GLiNER2 family collection](https://huggingface.co/collections/fastino/gliner2-family). Load with `AutoExtractor.from_pretrained(...)` unless noted.
 
-The models are available on [Hugging Face](https://huggingface.co/collections/fastino/gliner2-family).
+### GLiNER2 (span architecture)
+
+| Model | Parameters | Encoder | Language | Use case |
+|-------|------------|---------|----------|----------|
+| [`fastino/gliner2-base-v1`](https://huggingface.co/fastino/gliner2-base-v1) | 205M | DeBERTa-v3-base | English | Default span checkpoint |
+| [`fastino/gliner2-large-v1`](https://huggingface.co/fastino/gliner2-large-v1) | 340M | DeBERTa-v3-large | English | Higher-accuracy span |
+| [`fastino/gliner2-multi-v1`](https://huggingface.co/fastino/gliner2-multi-v1) | ~205M | mDeBERTa-v3-base | Multilingual | Multilingual span |
+
+### GLiNER2.5 (boundary architecture)
+
+| Model | Parameters | Encoder | Language | Use case |
+|-------|------------|---------|----------|----------|
+| [`fastino/gliner2.5-small-v1`](https://huggingface.co/fastino/gliner2.5-small-v1) | 74M | DeBERTa-v3-xsmall | English | Fast CPU / edge |
+| [`fastino/gliner2.5-base-v1`](https://huggingface.co/fastino/gliner2.5-base-v1) | 194M | DeBERTa-v3-base | English | Default English multi-task |
+| [`fastino/gliner2.5-multi-v1`](https://huggingface.co/fastino/gliner2.5-multi-v1) | 287M | mDeBERTa-v3-base | Multilingual | Default multilingual multi-task |
+
+Boundary checkpoints include classification, records, and relations when those heads are enabled. Prefer **`gliner2.5-base-v1`** for English and **`gliner2.5-multi-v1`** for multilingual.
+
+### Safety and PII (span fine-tunes)
+
+| Model | Parameters | Use case |
+|-------|------------|----------|
+| [`fastino/gliguard-LLMGuardrails-300M`](https://huggingface.co/fastino/gliguard-LLMGuardrails-300M) | ~300M | LLM prompt/response guardrails (safety, toxicity, jailbreak, refusal) |
+| [`fastino/gliner2-privacy-filter-PII-multi`](https://huggingface.co/fastino/gliner2-privacy-filter-PII-multi) | 205M | Multilingual PII detection (42 entity types) |
+| [`fastino/GLiNER2-Guardrails-PII-Multi`](https://huggingface.co/fastino/GLiNER2-Guardrails-PII-Multi) | 205M | Combined guardrails + PII in one checkpoint |
+
+See [Safety, PII, and GLiGuard](tutorial/16-safety_pii.md) for usage. GLiGuard and PII models are span checkpoints; `AutoExtractor` and `GLiNER2` both load them.
+
+**Loader cheat-sheet**
+
+| Goal | Checkpoint |
+|------|------------|
+| English IE (recommended) | `fastino/gliner2.5-base-v1` |
+| Multilingual IE | `fastino/gliner2.5-multi-v1` |
+| Small / fast English | `fastino/gliner2.5-small-v1` |
+| Legacy span | `fastino/gliner2-{base,large,multi}-v1` |
+| LLM guardrails | `fastino/gliguard-LLMGuardrails-300M` |
+| PII redaction | `fastino/gliner2-privacy-filter-PII-multi` |
+| Guardrails + PII | `fastino/GLiNER2-Guardrails-PII-Multi` |
 
 ## 📚 Documentation & Tutorials
 
-Comprehensive guides for all GLiNER2 features:
+### Core extraction (tutorials 1–7)
+- **[Text Classification](tutorial/1-classification.md)** — Single and multi-label classification
+- **[Entity Extraction](tutorial/2-ner.md)** — NER with descriptions and spans
+- **[Structured Data Extraction](tutorial/3-json_extraction.md)** — JSON / record structures
+- **[Combined Schemas](tutorial/4-combined.md)** — Multi-task extraction in one pass
+- **[Regex Validators](tutorial/5-validator.md)** — Filter and validate spans
+- **[Relation Extraction](tutorial/6-relation_extraction.md)** — Independent relation tuples
+- **[API Access](tutorial/7-api.md)** — Cloud API via `GLiNER2API`
 
-### Core Features
-- **[Text Classification](tutorial/1-classification.md)** - Single and multi-label classification with confidence scores
-- **[Entity Extraction](tutorial/2-ner.md)** - Named entity recognition with descriptions and spans
-- **[Structured Data Extraction](tutorial/3-json_extraction.md)** - Parse complex JSON structures from text
-- **[Combined Schemas](tutorial/4-combined.md)** - Multi-task extraction in a single pass
-- **[Regex Validators](tutorial/5-validator.md)** - Filter and validate extracted spans
-- **[Relation Extraction](tutorial/6-relation_extraction.md)** - Extract relationships between entities
-- **[API Access](tutorial/7-api.md)** - Use GLiNER2 via cloud API
+### Advanced decoding (GLiNER2.5)
+- **[Long-Context Extraction](tutorial/12-long_context.md)** — Chunked long-document APIs
+- **[Span Attributes](tutorial/13-span_attributes.md)** — Sentiment and labels on entity spans
+- **[Constrained Classification](tutorial/14-constrained_classification.md)** — Hard cross-task label constraints
+- **[Joint Information Extraction](tutorial/15-joint_ie.md)** — Typed entity–relation graphs
 
-### Training & Customization
-- **[Training Data Format](tutorial/8-train_data.md)** - Complete guide to preparing training data
-- **[Model Training](tutorial/9-training.md)** - Train custom models for your domain
-- **[LoRA Adapters](tutorial/10-lora_adapters.md)** - Parameter-efficient fine-tuning
-- **[Adapter Switching](tutorial/11-adapter_switching.md)** - Switch between domain adapters
+### Safety, PII, and GLiGuard
+- **[Safety, PII, and GLiGuard](tutorial/16-safety_pii.md)** — Guardrails and PII checkpoints
+
+### Training & customization
+- **[Training Data Format](tutorial/8-train_data.md)** — JSONL formats
+- **[Model Training](tutorial/9-training.md)** — Span and boundary training
+- **[LoRA Adapters](tutorial/10-lora_adapters.md)** — Parameter-efficient fine-tuning
+- **[Adapter Switching](tutorial/11-adapter_switching.md)** — Runtime adapter routing
+
+### Architecture
+- **[Boundary architecture guide](docs/boundary_architecture.md)** — Loading, training, records, relations
+- **[GLiNER2.5 design notes](docs/gliner2_5_boundary_architecture.md)** — Propose-then-rerank internals
 
 ## 🎯 Core Capabilities
 
@@ -352,14 +299,14 @@ Extract named entities with optional descriptions for precision:
 
 ```python
 # Basic entity extraction
-entities = extractor.extract_entities(
+entities = model.extract_entities(
     "Patient received 400mg ibuprofen for severe headache at 2 PM.",
     ["medication", "dosage", "symptom", "time"]
 )
 # Output: {'entities': {'medication': ['ibuprofen'], 'dosage': ['400mg'], 'symptom': ['severe headache'], 'time': ['2 PM']}}
 
 # Enhanced with descriptions for medical accuracy
-entities = extractor.extract_entities(
+entities = model.extract_entities(
     "Patient received 400mg ibuprofen for severe headache at 2 PM.",
     {
         "medication": "Names of drugs, medications, or pharmaceutical substances",
@@ -371,7 +318,7 @@ entities = extractor.extract_entities(
 # Same output but with higher accuracy due to context descriptions
 
 # With confidence scores
-entities = extractor.extract_entities(
+entities = model.extract_entities(
     "Apple Inc. CEO Tim Cook announced iPhone 15 in Cupertino.",
     ["company", "person", "product", "location"],
     include_confidence=True
@@ -386,7 +333,7 @@ entities = extractor.extract_entities(
 # }
 
 # With character positions (spans)
-entities = extractor.extract_entities(
+entities = model.extract_entities(
     "Apple Inc. CEO Tim Cook announced iPhone 15 in Cupertino.",
     ["company", "person", "product"],
     include_spans=True
@@ -400,7 +347,7 @@ entities = extractor.extract_entities(
 # }
 
 # With both confidence and spans
-entities = extractor.extract_entities(
+entities = model.extract_entities(
     "Apple Inc. CEO Tim Cook announced iPhone 15 in Cupertino.",
     ["company", "person", "product"],
     include_confidence=True,
@@ -415,19 +362,52 @@ entities = extractor.extract_entities(
 # }
 ```
 
+### Long-Document Extraction
+Use the explicit long-document APIs when input text is longer than the model's
+normal context window. GLiNER2 scans overlapping word chunks, remaps chunk-local
+spans back to the original document, and merges duplicate detections from the
+overlap.
+
+```python
+long_text = open("annual_report.txt").read()
+
+result = model.extract_entities_long(
+    long_text,
+    ["company", "person", "product", "location"],
+    chunk_size=384,
+    chunk_overlap=64,
+    include_spans=True,
+    include_confidence=True,
+)
+
+# Spans are global offsets into long_text.
+for company in result["entities"].get("company", []):
+    assert long_text[company["start"]:company["end"]] == company["text"]
+```
+
+For multiple documents, use `batch_extract_entities_long(...)` or the generic
+`batch_extract_long(...)` with a schema. Increase `chunk_overlap` when important
+entities or relations may appear near chunk boundaries.
+
+All extraction methods accept the same explicit `overlap_policy`: `allow`
+keeps every distinct span, `nested` permits containment but rejects crossing
+spans, `flat`/`disallow` selects a deterministic non-overlapping set, and
+`longest` removes strictly contained spans. Leaving it as `None` preserves the
+loaded architecture's checkpoint-compatible default.
+
 ### 2. Text Classification
 Single or multi-label classification with configurable confidence:
 
 ```python
 # Sentiment analysis
-result = extractor.classify_text(
+result = model.classify_text(
     "This laptop has amazing performance but terrible battery life!",
     {"sentiment": ["positive", "negative", "neutral"]}
 )
 # Output: {'sentiment': 'negative'}
 
 # Multi-aspect classification
-result = extractor.classify_text(
+result = model.classify_text(
     "Great camera quality, decent performance, but poor battery life.",
     {
         "aspects": {
@@ -440,7 +420,7 @@ result = extractor.classify_text(
 # Output: {'aspects': ['camera', 'performance', 'battery']}
 
 # With confidence scores
-result = extractor.classify_text(
+result = model.classify_text(
     "This laptop has amazing performance but terrible battery life!",
     {"sentiment": ["positive", "negative", "neutral"]},
     include_confidence=True
@@ -448,14 +428,14 @@ result = extractor.classify_text(
 # Output: {'sentiment': {'label': 'negative', 'confidence': 0.82}}
 
 # Multi-label with confidence
-schema = extractor.create_schema().classification(
+schema = model.create_schema().classification(
     "topics",
     ["technology", "business", "health", "politics", "sports"],
     multi_label=True,
     cls_threshold=0.3
 )
 text = "Apple announced new health monitoring features in their latest smartwatch, boosting their stock price."
-results = extractor.extract(text, schema, include_confidence=True)
+results = model.extract(text, schema, include_confidence=True)
 # Output: {
 #     'topics': [
 #         {'label': 'technology', 'confidence': 0.92},
@@ -472,7 +452,7 @@ Parse complex structured information with field-level control:
 # Product information extraction
 text = "iPhone 15 Pro Max with 256GB storage, A17 Pro chip, priced at $1199. Available in titanium and black colors."
 
-result = extractor.extract_json(
+result = model.extract_json(
     text,
     {
         "product": [
@@ -497,7 +477,7 @@ result = extractor.extract_json(
 # Multiple structured entities
 text = "Apple Inc. headquarters in Cupertino launched iPhone 15 for $999 and MacBook Air for $1299."
 
-result = extractor.extract_json(
+result = model.extract_json(
     text,
     {
         "company": [
@@ -519,7 +499,7 @@ result = extractor.extract_json(
 # }
 
 # With confidence scores
-result = extractor.extract_json(
+result = model.extract_json(
     "The MacBook Pro costs $1999 and features M3 chip, 16GB RAM, and 512GB storage.",
     {
         "product": [
@@ -543,7 +523,7 @@ result = extractor.extract_json(
 # }
 
 # With character positions (spans)
-result = extractor.extract_json(
+result = model.extract_json(
     "The MacBook Pro costs $1999 and features M3 chip.",
     {
         "product": [
@@ -561,7 +541,7 @@ result = extractor.extract_json(
 # }
 
 # With both confidence and spans
-result = extractor.extract_json(
+result = model.extract_json(
     "The MacBook Pro costs $1999 and features M3 chip, 16GB RAM, and 512GB storage.",
     {
         "product": [
@@ -593,7 +573,7 @@ Extract relationships between entities as directional tuples:
 # Basic relation extraction
 text = "John works for Apple Inc. and lives in San Francisco. Apple Inc. is located in Cupertino."
 
-result = extractor.extract_relations(
+result = model.extract_relations(
     text,
     ["works_for", "lives_in", "located_in"]
 )
@@ -606,7 +586,7 @@ result = extractor.extract_relations(
 # }
 
 # With descriptions for better accuracy
-schema = extractor.create_schema().relations({
+schema = model.create_schema().relations({
     "works_for": "Employment relationship where person works at organization",
     "founded": "Founding relationship where person created organization",
     "acquired": "Acquisition relationship where company bought another company",
@@ -614,7 +594,7 @@ schema = extractor.create_schema().relations({
 })
 
 text = "Elon Musk founded SpaceX in 2002. SpaceX is located in Hawthorne, California."
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {
 #     'relation_extraction': {
 #         'founded': [('Elon Musk', 'SpaceX')],
@@ -623,7 +603,7 @@ results = extractor.extract(text, schema)
 # }
 
 # With confidence scores
-results = extractor.extract_relations(
+results = model.extract_relations(
     "John works for Apple Inc. and lives in San Francisco.",
     ["works_for", "lives_in"],
     include_confidence=True
@@ -642,7 +622,7 @@ results = extractor.extract_relations(
 # }
 
 # With character positions (spans)
-results = extractor.extract_relations(
+results = model.extract_relations(
     "John works for Apple Inc. and lives in San Francisco.",
     ["works_for", "lives_in"],
     include_spans=True
@@ -661,7 +641,7 @@ results = extractor.extract_relations(
 # }
 
 # With both confidence and spans
-results = extractor.extract_relations(
+results = model.extract_relations(
     "John works for Apple Inc. and lives in San Francisco.",
     ["works_for", "lives_in"],
     include_confidence=True,
@@ -681,12 +661,115 @@ results = extractor.extract_relations(
 # }
 ```
 
-### 5. Multi-Task Schema Composition
+### 5. Span attributes (GLiNER2.5)
+
+Attach labels such as **sentiment** to extracted entity spans. Attributes are scored at decoded spans, not as document-level classification.
+
+```python
+from gliner2 import AutoExtractor, AttributeGroup
+
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1")
+
+schema = (
+    model.create_schema()
+    .entities(["person"])
+    .entity_attributes({
+        "sentiment": AttributeGroup(
+            ["positive", "negative", "neutral"],
+            applies_to=["person"],
+            qualify_labels=True,
+        )
+    })
+)
+
+result = model.extract(
+    "Alice was delighted, but Bob sounded frustrated.",
+    schema,
+    include_spans=True,
+    include_confidence=True,
+)
+# {'entities': {'person': [
+#     {'text': 'Alice', 'sentiment': {'label': 'positive', 'confidence': 0.89}, ...},
+#     {'text': 'Bob', 'sentiment': {'label': 'negative', 'confidence': 0.84}, ...},
+# ]}}
+```
+
+See [Span Attributes](tutorial/13-span_attributes.md).
+
+### 6. Constrained classification
+
+Use `Classifier` when labels on one task legally constrain another (`classify_text` decodes each task independently).
+
+```python
+from gliner2.classification import Classifier, ClassificationSchema
+from gliner2.classification import constraints as C
+
+clf = Classifier.from_pretrained("fastino/gliner2.5-base-v1")
+schema = (
+    ClassificationSchema()
+    .single("intent", ["read", "write", "delete"])
+    .multi("effects", ["read_only", "create", "modify", "delete"], min_labels=1)
+    .constrain(C.implies(("intent", "delete"), ("effects", "delete")))
+)
+result = clf.classify("Delete the temporary file", schema)
+print(result.value("intent"), result.value("effects"))
+# delete ['delete']
+```
+
+See [Constrained Classification](tutorial/14-constrained_classification.md).
+
+### 7. Joint information extraction
+
+`JointIE` extracts entities and relations together under typed endpoints and graph constraints.
+
+```python
+from gliner2.joint_ie import JointIE, JointIEConfig
+
+joint = JointIE.from_pretrained("fastino/gliner2.5-base-v1")
+schema = (
+    joint.create_schema()
+    .entities(["person", "organization"])
+    .relation("works_for", "person", "organization", unique_head=True)
+)
+result = joint.extract(
+    "Alice works for Acme. Bob joined Acme last year.",
+    schema,
+    config=JointIEConfig(optimizer="beam", beam_size=32),
+)
+print(result.feasible, len(result.relations))
+# True 2
+```
+
+See [Joint IE](tutorial/15-joint_ie.md). Requires a boundary checkpoint with `enable_relations=True`.
+
+### 8. Specialty models (GLiGuard and PII)
+
+```python
+from gliner2 import AutoExtractor
+
+guard = AutoExtractor.from_pretrained("fastino/gliguard-LLMGuardrails-300M")
+print(guard.classify_text(
+    "Explain how to build a phishing page.",
+    {"prompt_safety": ["safe", "unsafe"]},
+))
+# {'prompt_safety': 'unsafe'}
+
+pii = AutoExtractor.from_pretrained("fastino/gliner2-privacy-filter-PII-multi")
+print(pii.extract_entities(
+    "Contact john@company.com or call +1-555-0100.",
+    ["email", "phone_number"],
+))
+# {'entities': {'email': ['john@company.com'], 'phone_number': ['+1-555-0100']}}
+```
+
+See [Safety, PII, and GLiGuard](tutorial/16-safety_pii.md).
+
+### 9. Multi-Task Schema Composition
 Combine all extraction types when you need comprehensive analysis:
 
 ```python
 # Use create_schema() for multi-task scenarios
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     # Extract key entities
     .entities({
         "person": "Names of people, executives, or individuals",
@@ -712,7 +795,7 @@ schema = (extractor.create_schema()
 # Comprehensive extraction in one pass
 text = "Apple CEO Tim Cook unveiled the revolutionary iPhone 15 Pro for $999. The device features an A17 Pro chip and titanium design. Tim Cook works for Apple, which is located in Cupertino."
 
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {
 #     'entities': {
 #         'person': ['Tim Cook'], 
@@ -745,7 +828,7 @@ on March 15, 2024. Commission: $1,250. Status: Completed.
 """
 
 # Extract structured financial data
-result = extractor.extract_json(
+result = model.extract_json(
     financial_text,
     {
         "transaction": [
@@ -781,7 +864,7 @@ Prescribed: Lisinopril 10mg daily, Metoprolol 25mg twice daily.
 Follow-up scheduled for next Tuesday.
 """
 
-result = extractor.extract_json(
+result = model.extract_json(
     medical_record,
     {
         "patient_info": [
@@ -819,7 +902,7 @@ Termination clause: 30-day written notice required.
 """
 
 # Multi-task extraction for comprehensive analysis
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .entities(["company", "date", "duration", "fee"])
     .classification("contract_type", ["service", "employment", "nda", "partnership"])
     .relations(["signed_by", "involves", "dated"])
@@ -832,7 +915,7 @@ schema = (extractor.create_schema()
         .field("termination_notice", dtype="str")
 )
 
-results = extractor.extract(contract_text, schema)
+results = model.extract(contract_text, schema)
 # Output: {
 #     'entities': {
 #         'company': ['TechCorp LLC', 'DataSystems Inc.'],
@@ -865,7 +948,7 @@ Elon Musk founded SpaceX in 2002. SpaceX is located in Hawthorne, California.
 SpaceX acquired Swarm Technologies in 2021. Many engineers work for SpaceX.
 """
 
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .entities(["person", "organization", "location", "date"])
     .relations({
         "founded": "Founding relationship where person created organization",
@@ -875,7 +958,7 @@ schema = (extractor.create_schema()
     })
 )
 
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {
 #     'entities': {
 #         'person': ['Elon Musk', 'engineers'],
@@ -898,7 +981,7 @@ results = extractor.extract(text, schema)
 
 ```python
 # High-precision extraction for critical fields
-result = extractor.extract_json(
+result = model.extract_json(
     text,
     {
         "financial_data": [
@@ -911,7 +994,7 @@ result = extractor.extract_json(
 )
 
 # Per-field thresholds using schema builder (for multi-task scenarios)
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("sensitive_data")
         .field("ssn", dtype="str", threshold=0.95)         # Highest precision
         .field("email", dtype="str", threshold=0.8)        # Medium precision  
@@ -923,7 +1006,7 @@ schema = (extractor.create_schema()
 
 ```python
 # Structured extraction with choices and types
-result = extractor.extract_json(
+result = model.extract_json(
     "Premium subscription at $99/month with mobile and web access.",
     {
         "subscription": [
@@ -949,53 +1032,53 @@ result = extractor.extract_json(
 Filter extracted spans to ensure they match expected patterns, improving extraction quality and reducing false positives.
 
 ```python
-from gliner2 import GLiNER2, RegexValidator
+from gliner2 import AutoExtractor, RegexValidator
 
-extractor = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1")
 
 # Email validation
 email_validator = RegexValidator(r"^[\w\.-]+@[\w\.-]+\.\w+$")
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("contact")
         .field("email", dtype="str", validators=[email_validator])
 )
 
 text = "Contact: john@company.com, not-an-email, jane@domain.org"
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {'contact': [{'email': 'john@company.com'}]}  # Only valid emails
 
 # Phone number validation (US format)
 phone_validator = RegexValidator(r"\(\d{3}\)\s\d{3}-\d{4}", mode="partial")
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("contact")
         .field("phone", dtype="str", validators=[phone_validator])
 )
 
 text = "Call (555) 123-4567 or 5551234567"
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {'contact': [{'phone': '(555) 123-4567'}]}  # Second number filtered out
 
 # URL validation
 url_validator = RegexValidator(r"^https?://", mode="partial")
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("links")
         .field("url", dtype="list", validators=[url_validator])
 )
 
 text = "Visit https://example.com or www.site.com"
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {'links': [{'url': ['https://example.com']}]}  # www.site.com filtered out
 
 # Exclude test data
 import re
 no_test_validator = RegexValidator(r"^(test|demo|sample)", exclude=True, flags=re.IGNORECASE)
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("products")
         .field("name", dtype="list", validators=[no_test_validator])
 )
 
 text = "Products: iPhone, Test Phone, Samsung Galaxy"
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {'products': [{'name': ['iPhone', 'Samsung Galaxy']}]}  # Test Phone excluded
 
 # Multiple validators (all must pass)
@@ -1005,19 +1088,19 @@ username_validators = [
     RegexValidator(r"^(?!admin)", exclude=True, flags=re.IGNORECASE)  # No "admin"
 ]
 
-schema = (extractor.create_schema()
+schema = (model.create_schema()
     .structure("user")
         .field("username", dtype="str", validators=username_validators)
 )
 
 text = "Users: ab, john_doe, user@domain, admin, valid_user123"
-results = extractor.extract(text, schema)
+results = model.extract(text, schema)
 # Output: {'user': [{'username': 'john_doe'}]}  # Only valid usernames
 ```
 
-## FlashDeberta (Optional GPU Acceleration)
+## FlashDeBERTa (Optional GPU Acceleration)
 
-For DebertaV2-based models, you can use [FlashDeberta](https://github.com/fastino-ai/flashdeberta) to accelerate inference on GPU via flash attention kernels.
+For DeBERTaV2-based models, you can use [FlashDeBERTa](https://github.com/fastino-ai/flashdeberta) to accelerate inference on NVIDIA GPUs via flash attention kernels.
 
 **Install:**
 
@@ -1028,26 +1111,37 @@ pip install flashdeberta
 **Use:**
 
 ```python
-import os
-os.environ["USE_FLASHDEBERTA"] = "1"  # set before importing gliner2
+from gliner2 import AutoExtractor
 
-from gliner2 import GLiNER2
+model = AutoExtractor.from_pretrained(
+    "fastino/gliner2-base-v1",
+    use_flashdeberta=True,
+    map_location="cuda",
+)
+model.half().eval()
 
-extractor = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
-# Prints: "Using FlashDeberta backend."
-
-result = extractor.extract_entities(
+result = model.extract_entities(
     "Apple CEO Tim Cook announced iPhone 15 in Cupertino.",
     ["company", "person", "product", "location"]
 )
 ```
 
-The flag is only effective when the model uses a DebertaV2 encoder and the `flashdeberta` package is installed. Otherwise standard HuggingFace `AutoModel` is used automatically.
+The option works for both span and boundary checkpoints. It is only effective when the model uses a DeBERTaV2 encoder and the `flashdeberta` package is installed; otherwise the standard Hugging Face encoder is used. For backward compatibility, setting `USE_FLASHDEBERTA=1` still enables it when `use_flashdeberta` is omitted. Passing `use_flashdeberta=False` explicitly overrides the environment variable.
 
-A benchmark script is included to compare the two backends:
+Use FP16 or BF16 on CUDA to realize the flash-kernel speedup. The benchmark compares both backends in separate processes, verifies that FlashDeBERTa actually activated, and reports latency, statistical significance, and peak memory:
 
 ```bash
-python benchmarks/benchmark_flashdeberta.py
+# End-to-end extraction (FP16 is the CUDA default)
+python benchmarks/benchmark_flashdeberta.py --dtype fp16 --architecture auto
+
+# Encoder-only comparison, excluding preprocessing and decoding
+python benchmarks/benchmark_flashdeberta.py --dtype fp16 --encoder-only
+
+# Boundary checkpoint (the model config must declare boundary architecture)
+python benchmarks/benchmark_flashdeberta.py \
+  --model /path/to/boundary-checkpoint \
+  --architecture boundary \
+  --dtype bf16
 ```
 
 ## 📦 Batch Processing
@@ -1062,7 +1156,7 @@ texts = [
     "Amazon's Andy Jassy revealed new AWS services in Seattle."
 ]
 
-results = extractor.batch_extract_entities(
+results = model.batch_extract_entities(
     texts,
     ["company", "person", "product", "location"],
     batch_size=8
@@ -1076,7 +1170,7 @@ texts = [
     "Bob reports to Alice at Google."
 ]
 
-results = extractor.batch_extract_relations(
+results = model.batch_extract_relations(
     texts,
     ["works_for", "founded", "reports_to", "lives_in"],
     batch_size=8
@@ -1085,7 +1179,7 @@ results = extractor.batch_extract_relations(
 # All requested relation types appear in each result, even if empty
 
 # Batch with confidence and spans
-results = extractor.batch_extract_entities(
+results = model.batch_extract_entities(
     texts,
     ["company", "person"],
     include_confidence=True,
@@ -1101,9 +1195,11 @@ Train GLiNER2 on your own data to specialize for your domain or use case.
 ### Quick Start Training
 
 ```python
-from gliner2 import GLiNER2
+from gliner2 import AutoExtractor
 from gliner2.training.data import InputExample
-from gliner2.training.trainer import GLiNER2Trainer, TrainingConfig
+from gliner2.training.trainer import ExtractorTrainer, TrainingConfig
+
+# GLiNER2Trainer is a backward-compatible alias for ExtractorTrainer
 
 # 1. Prepare training data
 examples = [
@@ -1118,8 +1214,8 @@ examples = [
     # Add more examples...
 ]
 
-# 2. Configure training
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+# 2. Configure training (span or boundary base checkpoint)
+model = AutoExtractor.from_pretrained("fastino/gliner2.5-base-v1")
 config = TrainingConfig(
     output_dir="./output",
     num_epochs=10,
@@ -1129,7 +1225,7 @@ config = TrainingConfig(
 )
 
 # 3. Train
-trainer = GLiNER2Trainer(model, config)
+trainer = ExtractorTrainer(model, config)
 trainer.train(train_data=examples)
 ```
 
@@ -1161,15 +1257,14 @@ GLiNER2 uses JSONL format where each line contains an `input` and `output` field
 ### Training from JSONL File
 
 ```python
-from gliner2 import GLiNER2
-from gliner2.training.trainer import GLiNER2Trainer, TrainingConfig
+from gliner2 import AutoExtractor
+from gliner2.training.trainer import ExtractorTrainer, TrainingConfig
 
-# Load model and train from JSONL file
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+model = AutoExtractor.from_pretrained("fastino/gliner2-base-v1")
 config = TrainingConfig(output_dir="./output", num_epochs=10)
 
-trainer = GLiNER2Trainer(model, config)
-trainer.train(train_data="train.jsonl")  # Path to your JSONL file
+trainer = ExtractorTrainer(model, config)
+trainer.train(train_data="train.jsonl")
 ```
 
 ### LoRA Training (Parameter-Efficient Fine-Tuning)
@@ -1177,41 +1272,35 @@ trainer.train(train_data="train.jsonl")  # Path to your JSONL file
 Train lightweight adapters for domain-specific tasks:
 
 ```python
-from gliner2 import GLiNER2
+from gliner2 import AutoExtractor
 from gliner2.training.data import InputExample
-from gliner2.training.trainer import GLiNER2Trainer, TrainingConfig
+from gliner2.training.trainer import ExtractorTrainer, TrainingConfig
 
-# Prepare domain-specific data
 legal_examples = [
     InputExample(
         text="Apple Inc. filed a lawsuit against Samsung Electronics.",
         entities={"company": ["Apple Inc.", "Samsung Electronics"]}
     ),
-    # Add more examples...
 ]
 
-# Configure LoRA training
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+model = AutoExtractor.from_pretrained("fastino/gliner2-base-v1")
 config = TrainingConfig(
     output_dir="./legal_adapter",
     num_epochs=10,
     batch_size=8,
     encoder_lr=1e-5,
     task_lr=5e-4,
-    
-    # LoRA settings
-    use_lora=True,                    # Enable LoRA
-    lora_r=8,                         # Rank (4, 8, 16, 32)
-    lora_alpha=16.0,                  # Scaling factor (usually 2*r)
-    lora_dropout=0.0,                 # Dropout for LoRA layers
-    save_adapter_only=True            # Save only adapter (~5MB vs ~450MB)
+    use_lora=True,
+    lora_r=8,
+    lora_alpha=16.0,
+    lora_dropout=0.0,
+    save_adapter_only=True,
+    lora_targets=["encoder", "all_task_heads"],
 )
 
-# Train adapter
-trainer = GLiNER2Trainer(model, config)
+trainer = ExtractorTrainer(model, config)
 trainer.train(train_data=legal_examples)
 
-# Use the adapter
 model.load_adapter("./legal_adapter/final")
 results = model.extract_entities(legal_text, ["company", "law"])
 ```
@@ -1224,9 +1313,9 @@ results = model.extract_entities(legal_text, ["company", "law"])
 ### Complete Training Example
 
 ```python
-from gliner2 import GLiNER2
+from gliner2 import AutoExtractor
 from gliner2.training.data import InputExample, TrainingDataset
-from gliner2.training.trainer import GLiNER2Trainer, TrainingConfig
+from gliner2.training.trainer import ExtractorTrainer, TrainingConfig
 
 # Prepare training data
 train_examples = [
@@ -1261,7 +1350,7 @@ train_data, val_data, _ = train_dataset.split(
 )
 
 # Configure training
-model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+model = AutoExtractor.from_pretrained("fastino/gliner2-base-v1")
 config = TrainingConfig(
     output_dir="./ner_model",
     experiment_name="ner_training",
@@ -1278,15 +1367,22 @@ config = TrainingConfig(
     early_stopping_patience=3
 )
 
-# Train
-trainer = GLiNER2Trainer(model, config)
+trainer = ExtractorTrainer(model, config)
 trainer.train(train_data=train_data, val_data=val_data)
 
-# Load best model
-model = GLiNER2.from_pretrained("./ner_model/best")
+model = AutoExtractor.from_pretrained("./ner_model/best")
 ```
 
 For more details, see the [Training Tutorial](tutorial/9-training.md) and [Data Format Guide](tutorial/8-train_data.md).
+
+## 🚢 Release process
+
+Every release must pass Python 3.10–3.12 CI, offline and checkpoint quality
+gates, CUDA hardware checks, and fresh wheel/sdist installation smoke tests.
+Version tags build artifacts automatically, but PyPI publishing stays disabled
+until the protected trusted-publishing environment and repository opt-in
+variable are configured. Maintainers should follow the complete
+[release checklist](RELEASE.md); local token uploads are not supported.
 
 ## 📄 License
 
@@ -1327,5 +1423,5 @@ Built upon the original [GLiNER](https://github.com/urchade/GLiNER) architecture
 
 <div align="center">
     <strong>Ready to extract insights from your data?</strong><br>
-    <code>pip install gliner2</code>
+    <code>pip install "gliner2[local]"</code>
 </div>

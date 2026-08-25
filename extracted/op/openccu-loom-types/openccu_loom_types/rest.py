@@ -235,7 +235,7 @@ class Info(BaseModel):
     )
     capabilities: list[str] = Field(
         ...,
-        description="Runtime feature set. Always-on entries:\n`rest.v1`, `ws.broadcasts.v1`, `errors.problem_details.v1`.\nConditional entries surface only when configured:\n`mqtt.discovery.v1`, `matter.bridge.v1`, `auth.oidc.v1`,\n`alarm.v1` (the `/alarm` surface is mounted — absent, the\nalarm subsystem is off and every `/alarm` route answers 404).\n\nOpen-ended on purpose: the daemon may advertise additional\ncapabilities (e.g. `system.restart.supervised.v1`, `mcp.v1`)\nas features are added. Clients MUST treat this as a forward-\ncompatible string set and ignore values they do not recognise\n— never reject an `Info` payload because of an unknown entry.\n",
+        description='Runtime feature set. Always-on entries:\n`rest.v1`, `ws.broadcasts.v1`, `errors.problem_details.v1`.\nConditional entries surface only when configured:\n`mqtt.discovery.v1`, `mqtt.raw.v1`, `matter.bridge.v1`,\n`auth.oidc.v1`, `auth.ccu.v1`, `webhook.inbound.v1`,\n`diagrams.v1`, `admin.persistence.v1`, `history.v1`,\n`mcp.v1`, `mcp.write.v1`, `system.restart.supervised.v1`,\n`addon_self_update`, `alarm.v1` (the `/alarm` surface is\nmounted — absent, the alarm subsystem is off and every\n`/alarm` route answers 404).\n\n`mcp.write.v1` implies `mcp.v1`; `addon_self_update` predates\nthe `<area>.<feature>.v<n>` convention and keeps its spelling\nbecause renaming a token a client already matches on is a\nbreaking change.\n\nA token means the daemon is CONFIGURED for that capability,\nnot that the subsystem is working at this instant. It answers\n"may I use this path at all", which is what a client needs to\nbuild its feature set; a broker that is briefly unreachable is\nnot a missing capability, and a token that came and went with\nconnectivity would force every client to re-derive its\nsurface on each poll. For what is running right now, read\n`/health`, whose components report liveness.\n\nOpen-ended on purpose: the daemon may advertise additional\ncapabilities (e.g. `system.restart.supervised.v1`, `mcp.v1`)\nas features are added. Clients MUST treat this as a forward-\ncompatible string set and ignore values they do not recognise\n— never reject an `Info` payload because of an unknown entry.\n',
     )
 
 
@@ -3842,6 +3842,557 @@ class AlarmOutputTestRequest(BaseModel):
     )
 
 
+class AcceptInboxDeviceRequest(BaseModel):
+    name: str | None = None
+    include_channels: bool | None = Field(
+        None,
+        description='Also rename each channel to "<name>:<channelNo>". Only consulted together with name. Defaults to false.',
+    )
+    rooms: list[str] | None = None
+    functions: list[str] | None = None
+
+
+class BulkUpdateMatterExposableResponse(BaseModel):
+    applied: int
+
+
+class ChangeOwnPasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class CreateFunctionRequest(BaseModel):
+    name: str
+    central: str | None = None
+
+
+class CreateRoomRequest(BaseModel):
+    name: str
+    central: str | None = Field(
+        None, description="Target CCU (required when more than one is configured)."
+    )
+
+
+class ValueType(StrEnum):
+    BOOL = "BOOL"
+    INTEGER = "INTEGER"
+    FLOAT = "FLOAT"
+    STRING = "STRING"
+    ENUM = "ENUM"
+    ALARM = "ALARM"
+
+
+class CreateSysvarRequest(BaseModel):
+    name: str = Field(..., description="Name of the new system variable.")
+    value_type: ValueType = Field(
+        ...,
+        description="Value kind of the new variable. ALARM provisions a binary, acknowledgeable alarm line (backed by an OT_ALARMDP on the CCU) and always routes through the Rega create script.\n",
+    )
+    unit: str | None = Field(None, description='Physical unit string (e.g. "°C", "%").')
+    min: str | None = Field(
+        None, description="Minimum value (as string, CCU convention)."
+    )
+    max: str | None = Field(
+        None, description="Maximum value (as string, CCU convention)."
+    )
+    description: str | None = Field(
+        None,
+        description="Human-readable label shown in the CCU UI. When set, creation routes through the Rega script (the native JSON-RPC create methods carry no description parameter).\n",
+    )
+    value_list: list[str] | None = Field(
+        None, description="Ordered list of enum labels for ENUM-type sysvars."
+    )
+    value_name_0: str | None = Field(
+        None,
+        description='False-state label for a binary (BOOL/ALARM) variable. Empty adopts the CCU\'s own "false" default. Setting a custom label routes creation through the Rega script.\n',
+    )
+    value_name_1: str | None = Field(
+        None,
+        description='True-state label for a binary (BOOL/ALARM) variable. Empty adopts the CCU\'s own "true" default.\n',
+    )
+    channel_address: str | None = Field(
+        None,
+        description='Bind the new variable to a device channel ("ADDR:idx", the CCU "Kanalzuordnung"). Empty leaves it unassigned. The address is resolved to the channel\'s ReGa ise id; an address the CCU cannot resolve is rejected with 422.\n',
+    )
+
+
+class CreateTokenRequest(BaseModel):
+    subject: str = Field(
+        ...,
+        description='Logical owner of the token (e.g. "homeassistant", "ci-runner").',
+    )
+    role: Role4
+
+
+class DetermineParameterRequest(BaseModel):
+    parameter: str = Field(
+        ..., description='Name of the parameter to determine (e.g. "TEMPERATURE").'
+    )
+
+
+class DetermineParameterResponse(BaseModel):
+    value: Any = Field(
+        ...,
+        description="The determined value. Type follows the parameter's\ndeclared TYPE (bool / number / string); null when the\nbackend does not support the operation (e.g. CUxD).\n",
+    )
+
+
+class DeviceInstallModeRequest(BaseModel):
+    seconds: int | None = Field(60, ge=0)
+
+
+class DiscoveredCentral(BaseModel):
+    serial: str
+    name: str
+    host: str
+    suggested_host: str = Field(
+        ...,
+        description='Address the SPA pre-fills on adoption. Differs from host when a stabler value applies — "localhost" for a CCU on the daemon\'s own host, or a reverse-resolved docker hostname for a co-located HA add-on. Equals host otherwise.',
+    )
+    manufacturer: str | None = None
+    model: str | None = None
+    last_seen: AwareDatetime
+    already_configured: bool
+
+
+class DownloadSystemFirmwareRequest(BaseModel):
+    url: AnyUrl = Field(
+        ..., description="http/https firmware image the CCU should fetch."
+    )
+    central: str | None = Field(
+        None, description="Target central (optional for single-CCU deployments)."
+    )
+
+
+class ForceCloseEditSessionRequest(BaseModel):
+    key: str
+
+
+class GetAlarmStateResponse(BaseModel):
+    zones: list[AlarmZoneStatus]
+
+
+class GetConfigChangesResponse(BaseModel):
+    fields: list[str]
+
+
+class GetDeviceTeamCandidatesResponse(BaseModel):
+    candidates: list[TeamCandidate]
+
+
+class Device(BaseModel):
+    address: str | None = None
+    name: str | None = None
+    interface_id: str | None = None
+    central: str | None = None
+    rssi_device: int | None = Field(
+        None, description="RSSI_DEVICE in dBm (device's view); null when absent."
+    )
+    rssi_peer: int | None = Field(
+        None, description="RSSI_PEER in dBm (partner's view); null when absent."
+    )
+    battery_level: int | None = Field(
+        None, description="Battery level 0-100 (%); null for mains-powered devices."
+    )
+    low_battery: bool | None = Field(
+        None, description="LOW_BAT flag; null when the device has no battery indicator."
+    )
+    reachable: bool | None = Field(
+        None, description="Whether the device is currently reachable."
+    )
+
+
+class GetDiagnosticsRSSIResponse(BaseModel):
+    devices: list[Device] | None = None
+
+
+class GetPreferenceResponse(BaseModel):
+    key: str | None = None
+    value: Any | None = None
+
+
+class GetRestartPendingResponse(BaseModel):
+    pending: bool
+    fields: list[str]
+
+
+class IgnoredCentral(BaseModel):
+    serial: str
+    name: str | None = None
+    host: str | None = None
+    ignored_at: AwareDatetime
+    ignored_by: str | None = None
+
+
+class InstallModeSearchRequest(BaseModel):
+    interface: str = Field(..., description="The BidCos-Wired interface to scan.")
+    central: str | None = Field(
+        None, description="Disambiguates the CCU; optional for single-CCU setups."
+    )
+
+
+class InstallModeSearchResponse(BaseModel):
+    central: str | None = None
+    interface: str
+    found: int = Field(..., description="Number of devices the bus scan found.")
+
+
+class InstallSystemUpdateRequest(BaseModel):
+    backup_first: bool | None = Field(
+        False,
+        description="Take a full backup of the target central before starting the update.\n",
+    )
+
+
+class ListAllLinksResponse(BaseModel):
+    links: list[Link]
+
+
+class ListDeviceReplaceCandidatesResponse(BaseModel):
+    candidates: list[ReplaceCandidate]
+
+
+class ListDiagramsResponse(BaseModel):
+    diagrams: list[DiagramConfig]
+
+
+class ListGroupTypesResponse(BaseModel):
+    types: list[GroupTypeEntry]
+
+
+class ListLogsResponse(BaseModel):
+    last_seq: int
+    records: list[LogRecord]
+
+
+class ListSystemCCUResponse(BaseModel):
+    entries: list[SystemCCUEntry]
+
+
+class Event(BaseModel):
+    central: str
+    component: str
+    healthy: bool
+    reason: str | None = None
+    interface_id: str | None = None
+    error_code: int | None = None
+    central_state: str | None = None
+    connection_state: str | None = None
+    degraded_interfaces: list[str] | None = None
+    issues: list[str] | None = None
+    event_at: AwareDatetime
+
+
+class ListSystemStatusResponse(BaseModel):
+    events: list[Event]
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class MatchMasterProfileRequest(BaseModel):
+    current_values: dict[str, Any] | None = None
+
+
+class MatchMasterProfileResponse(BaseModel):
+    active_id: int
+
+
+class Confirm(StrEnum):
+    remove_all_fabrics = "remove-all-fabrics"
+
+
+class MatterFactoryResetRequest(BaseModel):
+    confirm: Confirm
+
+
+class OpenEditSessionRequest(BaseModel):
+    key: str
+    subject: str | None = None
+
+
+class PatchChannelRequest(BaseModel):
+    name: str | None = None
+    rooms: list[str] | None = Field(
+        None,
+        description="Replaces the channel's room assignments. Room names\nunknown to the CCU are silently skipped.\n",
+    )
+    functions: list[str] | None = Field(
+        None,
+        description="Replaces the channel's function (Gewerk)\nassignments. Unknown names are silently skipped.\n",
+    )
+
+
+class PatchDeviceRequest(BaseModel):
+    name: str | None = None
+    include_channels: bool | None = Field(
+        None,
+        description='Also rename each channel to "<name>:<channelNo>". Only consulted together with name. Defaults to false.',
+    )
+    rooms: list[str] | None = None
+    functions: list[str] | None = None
+
+
+class PatchSysvarRequest(BaseModel):
+    name: str | None = Field(
+        None,
+        description="New name for the variable. When present and non-empty the sysvar is renamed in place (the path {name} stays the current name). Omit or leave empty to keep the name.\n",
+    )
+    description: str | None = Field(
+        None, description="Human-readable label shown in the CCU UI."
+    )
+    unit: str | None = Field(None, description='Physical unit string (e.g. "°C", "%").')
+    min: str | None = Field(
+        None, description="Minimum value (as string, CCU convention)."
+    )
+    max: str | None = Field(
+        None, description="Maximum value (as string, CCU convention)."
+    )
+    value_list: list[str] | None = Field(
+        None, description="Ordered list of enum labels for LIST/ENUM-type sysvars."
+    )
+    value_name_0: str | None = Field(
+        None,
+        description="New false-state label for a binary (LOGIC/ALARM) variable. An empty string leaves the label untouched.\n",
+    )
+    value_name_1: str | None = Field(
+        None,
+        description="New true-state label for a binary (LOGIC/ALARM) variable. An empty string leaves the label untouched.\n",
+    )
+    is_visible: bool | None = Field(
+        None,
+        description="Toggle the CCU WebUI-visibility flag. Omit to leave it unchanged.\n",
+    )
+    is_logged: bool | None = Field(
+        None,
+        description="Toggle the archive flag (CCU DPArchive) that records value changes to the measurement history. Omit to leave it unchanged.\n",
+    )
+    channel_address: str | None = Field(
+        None,
+        description='Reassign the CCU "Kanalzuordnung". Tri-state: omit to leave the assignment untouched, send an empty string to clear it, or a channel address ("ADDR:idx") to assign it. The address is resolved to the channel\'s ReGa ise id; an address the CCU cannot resolve is rejected with 422.\n',
+    )
+
+
+class PutConfigSectionResponse(BaseModel):
+    section: str
+    version: int
+    updated_at: AwareDatetime
+    restart_required: bool
+    applied: bool = Field(
+        ...,
+        description="Whether the running daemon took the change without a restart. False is not an error on its own: most sections have no subsystem that can rebuild itself, and the value simply takes effect at the next restart. It is false with an `apply_error` when a subsystem that could have taken it refused.\n",
+    )
+    apply_error: str | None = Field(
+        None,
+        description="Present only when a live apply was attempted and failed. The section is persisted regardless and takes effect at the next restart.\n",
+    )
+
+
+class State4(BaseModel):
+    state: str | None = Field(
+        None,
+        description="State-machine bucket (e.g. connected, degraded, disconnected).",
+    )
+    closed: bool | None = Field(
+        None, description="True once the client has been shut down."
+    )
+    total_requests: int | None = None
+    executed_requests: int | None = None
+    pending_requests: int | None = None
+    last_failure_at: AwareDatetime | None = Field(
+        None, description="RFC3339 timestamp of the last request failure."
+    )
+    last_callback_at: AwareDatetime | None = Field(
+        None, description="RFC3339 timestamp of the last received callback."
+    )
+
+
+class ReliabilityState(BaseModel):
+    central: str | None = None
+    interface: str | None = None
+    circuit_state: int | None = Field(
+        None,
+        description="Circuit-breaker state code: 0 = closed, 1 = open, 2 = half-open.\n",
+    )
+    state: State4 | None = Field(
+        None,
+        description="Live InterfaceClient state. Omitted when the client exposes none.\n",
+    )
+
+
+class RenameFunctionRequest(BaseModel):
+    new_name: str
+    central: str | None = None
+
+
+class RenameRoomRequest(BaseModel):
+    new_name: str
+    central: str | None = None
+
+
+class ReplaceDeviceRequest(BaseModel):
+    old_address: str = Field(
+        ..., description="The paired device the new device replaces."
+    )
+    central: str | None = Field(
+        None, description="Disambiguates the CCU; optional for single-CCU setups."
+    )
+
+
+class ReplaceDeviceResponse(BaseModel):
+    status: str = Field(..., examples=["replacing"])
+    old_address: str
+    new_address: str
+    central: str | None = None
+
+
+class SetDeviceChannelTeamRequest(BaseModel):
+    team: str | None = Field(
+        None,
+        description="The team channel address to join; null/empty resets to the default team.",
+    )
+
+
+class SetProgramEnabledRequest(BaseModel):
+    active: bool
+
+
+class SetSystemCCUPositionRequest(BaseModel):
+    longitude: float = Field(..., ge=-180.0, le=180.0)
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+
+
+class Admin(BaseModel):
+    username: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=8)
+
+
+class Locale1(StrEnum):
+    de = "de"
+    en = "en"
+
+
+class Theme(StrEnum):
+    light = "light"
+    dark = "dark"
+    system = "system"
+
+
+class Locale(BaseModel):
+    locale: Locale1
+    theme: Theme
+
+
+class Ccu(BaseModel):
+    name: str = Field(..., min_length=1)
+    host: str = Field(..., min_length=1)
+    username: str | None = None
+    password: str | None = None
+    interfaces: list[str] = Field(..., min_length=1)
+
+
+class Mqtt(BaseModel):
+    broker_url: str = Field(..., min_length=1)
+    username: str | None = None
+    password: str | None = None
+
+
+class SetupRequest(BaseModel):
+    admin: Admin
+    locale: Locale
+    ccu: Ccu | None = Field(None, description="Optional first CCU. Omit to skip.")
+    mqtt: Mqtt | None = Field(None, description="Optional MQTT broker. Omit to skip.")
+
+
+class SetupStatusResponse(BaseModel):
+    required: bool
+
+
+class Status2(StrEnum):
+    shutdown_signalled = "shutdown_signalled"
+    shutdown_in_progress = "shutdown_in_progress"
+
+
+class SystemRestartResponse(BaseModel):
+    status: Status2 | None = Field(
+        None,
+        description="`shutdown_signalled` — this request sent the shutdown signal. `shutdown_in_progress` — a shutdown signalled less than 30 s ago is still running, so no second signal was sent; retry later if it did not complete.",
+    )
+    at: AwareDatetime | None = None
+
+
+class TriggerBackupRequest(BaseModel):
+    central_name: str | None = Field(
+        None,
+        description="Name of the central to back up. Omit to back up the first registered central.\n",
+    )
+
+
+class UnsuppressServiceMessageRequest(BaseModel):
+    interface: str | None = Field(
+        None,
+        description='CCU interface the channel lives on (e.g. "HmIP-RF"). Optional — resolved from the stored suppression when omitted.\n',
+    )
+    channel: str = Field(..., description='Channel address ("ADDR:chn").')
+    parameter: str | None = Field(
+        None,
+        description='Service parameter to unsuppress (e.g. "LOWBAT"). Omit or empty to clear every service parameter of the channel.\n',
+    )
+
+
+class UpdateFirmwareResponse(BaseModel):
+    status: str = Field(..., examples=["scheduled"])
+    duty_cycle_warning: int | None = Field(
+        None,
+        description="Transmit duty cycle in percent of the device's radio interface, present only when it is at or above the warning threshold (80%). Absent when unknown or below.\n",
+        ge=0,
+        le=100,
+    )
+
+
+class UploadBackupRequest(BaseModel):
+    file: bytes = Field(..., description="The `.sbk` archive.")
+
+
+class UploadTLSCertificateRequest(BaseModel):
+    cert: bytes
+    key: bytes
+
+
+class Phase2(StrEnum):
+    per_central = "per-central"
+    ordered = "ordered"
+
+
+class WiringSeam(BaseModel):
+    name: str = Field(
+        ...,
+        description="Stable identifier, `<subsystem>.<what>`.",
+        examples=["history.recorder"],
+    )
+    collaborator: str = Field(
+        ..., description="The thing that was attached.", examples=["*history.Recorder"]
+    )
+    phase: Phase2 = Field(
+        ...,
+        description="`per-central` for an observer replayed over every central, `ordered` for a once-only attachment whose position in the boot sequence matters.\n",
+    )
+    before: list[str] | None = Field(
+        None,
+        description="Boot marks this seam must be attached before. Only an `ordered` seam carries them.\n",
+    )
+    after: list[str] | None = Field(
+        None, description="Boot marks this seam must be attached after."
+    )
+    why: str = Field(..., description="What stops working when the seam is absent.")
+    violations: list[str] | None = Field(
+        None,
+        description="Ordering constraints that were already broken when the seam was attached. Empty is the normal case; a non-empty list is a wiring defect the daemon reports about itself — the collaborator IS wired, so nothing else about the daemon looks wrong.\n",
+    )
+
+
 class GroupEntry(BaseModel):
     id: int = Field(..., description="Numeric CCU group id.")
     name: str = Field(..., description="Operator-facing group name.")
@@ -4252,6 +4803,10 @@ class SecurityNotification(BaseModel):
     at: AwareDatetime
 
 
+class ListSchedulesResponse(BaseModel):
+    items: list[ScheduleDeviceSummary]
+
+
 class GroupCentralEntry(BaseModel):
     central: str = Field(
         ..., description="Daemon-local central name the groups belong to."
@@ -4306,6 +4861,10 @@ class SecuritySnapshot(BaseModel):
     )
     last_alarm: SecurityNotification | None = None
     last_fault: SecurityNotification | None = None
+
+
+class ListGroupsResponse(BaseModel):
+    entries: list[GroupCentralEntry]
 
 
 class UnIgnoreCandidateList(BaseModel):

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-from typing import Optional
 
 from pontos.enum import StrEnum
 from pontos.git import Git, GitError
@@ -78,10 +77,10 @@ def find_signing_key(terminal: Terminal) -> str:
 
 def get_next_release_version(
     *,
-    last_release_version: Optional[Version],
+    last_release_version: Version | None,
     calculator: type[VersionCalculator],
     release_type: ReleaseType,
-    release_version: Optional[Version],
+    release_version: Version | None,
 ) -> Version:
     if release_version:
         if release_type and release_type != ReleaseType.VERSION:
@@ -136,6 +135,6 @@ def repository_split(repository: str) -> tuple[str, str]:
     splitted_repo = repository.split("/")
     if len(splitted_repo) != 2:
         raise ValueError(
-            f"Invalid repository {repository}. Format must be " "owner/name."
+            f"Invalid repository {repository}. Format must be owner/name."
         )
     return splitted_repo[0], splitted_repo[1]

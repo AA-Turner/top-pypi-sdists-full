@@ -1,30 +1,31 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: treelite
-Version: 4.7.0
+Version: 4.7.1
 Summary: Treelite: Universal model exchange format for decision tree forests
-Project-URL: documentation, https://treelite.readthedocs.io/en/latest/
-Project-URL: repository, https://github.com/dmlc/treelite
-Author-email: Hyunsu Cho <chohyu01@cs.washington.edu>
+Author-Email: Hyunsu Cho <chohyu01@cs.washington.edu>
 License: Apache-2.0
-Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: documentation, https://treelite.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/dmlc/treelite
+Requires-Python: >=3.11
 Requires-Dist: numpy
-Requires-Dist: packaging
 Requires-Dist: scipy
+Requires-Dist: packaging
 Provides-Extra: scikit-learn
-Requires-Dist: scikit-learn; extra == 'scikit-learn'
+Requires-Dist: scikit-learn; extra == "scikit-learn"
 Provides-Extra: testing
-Requires-Dist: hypothesis; extra == 'testing'
-Requires-Dist: pandas; extra == 'testing'
-Requires-Dist: pytest; extra == 'testing'
-Requires-Dist: scikit-learn; extra == 'testing'
+Requires-Dist: scikit-learn; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: hypothesis; extra == "testing"
+Requires-Dist: pandas; extra == "testing"
 Description-Content-Type: text/x-rst
 
 =======================

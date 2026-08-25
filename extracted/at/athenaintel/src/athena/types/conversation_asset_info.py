@@ -68,7 +68,7 @@ class ConversationAssetInfo(UniversalBaseModel):
 
     messages: typing.Optional[typing.List[ConversationMessage]] = pydantic.Field(default=None)
     """
-    Complete list of messages in the conversation from checkpoints
+    Complete list of messages in the conversation from checkpoints. May be null for active status polls when lightweight reads are enabled; terminal responses include messages by default.
     """
 
     model: typing.Optional[str] = pydantic.Field(default=None)

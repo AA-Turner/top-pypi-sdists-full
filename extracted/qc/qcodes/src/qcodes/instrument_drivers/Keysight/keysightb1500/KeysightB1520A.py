@@ -3,12 +3,10 @@ import textwrap
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from typing_extensions import deprecated
 
 import qcodes.validators as vals
 from qcodes.instrument import InstrumentBaseKWArgs, InstrumentChannel
 from qcodes.parameters import Group, GroupParameter, MultiParameter, Parameter
-from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 from . import constants
 from .constants import MM, ChNr, ModuleKind
@@ -28,7 +26,7 @@ from .KeysightB1500_module import (
 from .message_builder import MessageBuilder
 
 if TYPE_CHECKING:
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500_base import (
         KeysightB1500,
@@ -452,19 +450,6 @@ class KeysightB1500CVSweeper(InstrumentChannel["KeysightB1520A"]):
         return int(resp_dict["output_after_sweep"])
 
 
-@deprecated(
-    "CVSweeper is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500CVSweeper instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class CVSweeper(KeysightB1500CVSweeper):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
-
-
 class KeysightB1520A(KeysightB1500Module):
     """
     Driver for Keysight B1520A Capacitance Measurement Unit module for B1500
@@ -823,14 +808,13 @@ class KeysightB1520A(KeysightB1500Module):
         end_value = self.cv_sweep.sweep_end()
         step_value = self.cv_sweep.sweep_steps()
         mode = self.cv_sweep.sweep_mode()
-        if mode in (2, 4):
-            if not sign(start_value) == sign(end_value):
-                if sign(start_value) == 0:
-                    start_value = sign(start_value) * 0.005  # resolution
-                elif sign(end_value) == 0:
-                    end_value = sign(end_value) * 0.005  # resolution
-                else:
-                    raise AssertionError("Polarity of start and end is not same.")
+        if mode in (2, 4) and sign(start_value) != sign(end_value):
+            if sign(start_value) == 0:
+                start_value = sign(start_value) * 0.005  # resolution
+            elif sign(end_value) == 0:
+                end_value = sign(end_value) * 0.005  # resolution
+            else:
+                raise AssertionError("Polarity of start and end is not same.")
 
         def linear_sweep(start: float, end: float, steps: int) -> tuple[float, ...]:
             sweep_val = np.linspace(start, end, steps).flatten().tolist()
@@ -1152,19 +1136,6 @@ class KeysightB1520A(KeysightB1500Module):
         self.setup_fnc_already_run = True
 
 
-@deprecated(
-    "B1520A is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1520A instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class B1520A(KeysightB1520A):
-    """
-    Alias for backwards compatiblitly
-    """
-
-    pass
-
-
 class KeysightB1500CVSweepMeasurement(
     MultiParameter[tuple[tuple[float, ...], tuple[float, ...]], KeysightB1520A],
     StatusMixin,
@@ -1235,16 +1206,16 @@ class KeysightB1500CVSweepMeasurement(
             parsed_data = fmt_response_base_parser(raw_data)
 
         if len(set(parsed_data.type)) == 2:
-            self.param1 = _FMTResponse(*(parsed_data[i][::2] for i in range(0, 4)))
-            self.param2 = _FMTResponse(*(parsed_data[i][1::2] for i in range(0, 4)))
+            self.param1 = _FMTResponse(*(parsed_data[i][::2] for i in range(4)))
+            self.param2 = _FMTResponse(*(parsed_data[i][1::2] for i in range(4)))
 
             self.shapes = ((num_steps,),) * 2
             self.setpoints = ((self.instrument.cv_sweep_voltages(),),) * 2
         else:
-            self.param1 = _FMTResponse(*(parsed_data[i][::4] for i in range(0, 4)))
-            self.param2 = _FMTResponse(*(parsed_data[i][1::4] for i in range(0, 4)))
-            self.ac_voltage = _FMTResponse(*(parsed_data[i][2::4] for i in range(0, 4)))
-            self.dc_voltage = _FMTResponse(*(parsed_data[i][3::4] for i in range(0, 4)))
+            self.param1 = _FMTResponse(*(parsed_data[i][::4] for i in range(4)))
+            self.param2 = _FMTResponse(*(parsed_data[i][1::4] for i in range(4)))
+            self.ac_voltage = _FMTResponse(*(parsed_data[i][2::4] for i in range(4)))
+            self.dc_voltage = _FMTResponse(*(parsed_data[i][3::4] for i in range(4)))
 
             self.shapes = ((len(self.dc_voltage.value),),) * 2
             self.setpoints = ((self.dc_voltage.value,),) * 2
@@ -1265,19 +1236,6 @@ class KeysightB1500CVSweepMeasurement(
         self.names, self.labels, self.units = get_name_label_unit_of_impedance_model(
             model
         )
-
-
-@deprecated(
-    "CVSweepMeasurement is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500CVSweepMeasurement instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class CVSweepMeasurement(KeysightB1500CVSweepMeasurement):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
 
 
 class KeysightB1500Correction(InstrumentChannel["KeysightB1520A"]):
@@ -1444,19 +1402,6 @@ class KeysightB1500Correction(InstrumentChannel["KeysightB1520A"]):
         return response_out
 
 
-@deprecated(
-    "Correction is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500Correction instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class Correction(KeysightB1500Correction):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
-
-
 class KeysightB1500FrequencyList(InstrumentChannel["KeysightB1500Correction"]):
     """
     A frequency list for open/short/load correction for Keysight B1520A CMU.
@@ -1509,16 +1454,3 @@ class KeysightB1500FrequencyList(InstrumentChannel["KeysightB1500Correction"]):
         msg = MessageBuilder().corrl_query(chnum=self._chnum, index=index)
         response = self.ask(msg.message)
         return float(response)
-
-
-@deprecated(
-    "FrequencyList is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500FrequencyList instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class FrequencyList(KeysightB1500FrequencyList):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass

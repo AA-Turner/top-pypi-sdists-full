@@ -8,27 +8,27 @@ from typing import TYPE_CHECKING, Any, Generic, Self, cast, overload
 
 from typing_extensions import TypeVar
 
-from qcodes.metadatable import MetadatableWithName
+from qcodes.metadatable import MetadatableWithName, normalize_snapshot_update
 from qcodes.parameters import (
     ArrayParameter,
     MultiChannelInstrumentParameter,
     MultiParameter,
     Parameter,
 )
-from qcodes.parameters.multi_channel_instrument_parameter import InstrumentModuleType
 from qcodes.utils import full_class
 from qcodes.validators import Validator
 
 from .instrument_base import InstrumentBase
 
 if TYPE_CHECKING:
-    from typing import Self
+    from typing import Unpack
 
-    from typing_extensions import Unpack
+    from qcodes.metadatable import SnapshotUpdate
 
     from .instrument_base import InstrumentBaseKWArgs
 
 
+# Cannot convert to PEP 695: uses default= and covariant= which require PEP 696 (Python 3.13+).
 _TIB_co = TypeVar(
     "_TIB_co", bound="InstrumentBase", default=InstrumentBase, covariant=True
 )
@@ -100,10 +100,9 @@ class InstrumentChannel(InstrumentModule[_TIB_co], Generic[_TIB_co]):
     pass
 
 
-T = TypeVar("T", bound="ChannelTuple")
-
-
-class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
+class ChannelTuple[InstrumentModuleType: "InstrumentModule"](
+    MetadatableWithName, Sequence[InstrumentModuleType]
+):
     """
     Container for channelized parameters that allows for sweeps over
     all channels, as well as addressing of individual channels.
@@ -383,7 +382,7 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         """
@@ -392,13 +391,13 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
         :class:`.NumpyJSONEncoder` supports).
 
         Args:
-            update: If True, update the state by querying the
-                instrument. If None only update if the state is known to be
-                invalid. If False, just use the latest values in memory
-                and never update.
+            update: If ``"All"``, update the state by querying the instrument.
+                If ``"Only_invalid"`` (the default) only update values whose
+                cache is invalid. If ``"Never"``, just use the latest values in
+                memory and never update.
             params_to_skip_update: List of parameter names that will be skipped
-                in update even if update is True. This is useful if you have
-                parameters that are slow to update but can be updated in a
+                in update even if update is ``"All"``. This is useful if you
+                have parameters that are slow to update but can be updated in a
                 different way (as in the qdac). If you want to skip the
                 update of certain parameters in all snapshots, use the
                 ``snapshot_get``  attribute of those parameters instead.
@@ -407,6 +406,7 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
             dict: base snapshot
 
         """
+        update = normalize_snapshot_update(update)
         if self._snapshotable:
             snap = {
                 "channels": {
@@ -443,11 +443,10 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
             AttributeError: If no parameter with the given name exists.
 
         """
-        if len(self) > 0:
-            # Check if this is a valid parameter
-            if name in self._channels[0].parameters:
-                param = self._construct_multiparam(name)
-                return param
+        # Check if this is a valid parameter
+        if len(self) > 0 and name in self._channels[0].parameters:
+            param = self._construct_multiparam(name)
+            return param
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no parameter '{name}'"
         )
@@ -614,7 +613,9 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
         return sorted(set(names))
 
     def print_readable_snapshot(
-        self, update: bool = False, max_chars: int = 80
+        self,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
+        max_chars: int = 80,
     ) -> None:
         if self._snapshotable:
             for channel in self._channels:
@@ -630,7 +631,7 @@ class ChannelTuple(MetadatableWithName, Sequence[InstrumentModuleType]):
 
 # in index method the parameter obj should be called value but that would
 # be an incompatible change
-class ChannelList(  #  pyright: ignore[reportIncompatibleMethodOverride]
+class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore[reportIncompatibleMethodOverride]
     ChannelTuple[InstrumentModuleType], MutableSequence[InstrumentModuleType]
 ):
     """
@@ -928,8 +929,6 @@ class ChannelTupleValidator(Validator[InstrumentChannel]):
 class ChannelListValidator(ChannelTupleValidator):
     """Alias for backwards compatibility. Do not use"""
 
-    pass
-
 
 class AutoLoadableInstrumentChannel(InstrumentChannel):
     """
@@ -1163,10 +1162,9 @@ class AutoLoadableInstrumentChannel(InstrumentChannel):
         return self._exists_on_instrument
 
 
-TAUTORELOADCHANNEL = TypeVar("TAUTORELOADCHANNEL", bound=AutoLoadableInstrumentChannel)
-
-
-class AutoLoadableChannelList(ChannelList[TAUTORELOADCHANNEL]):
+class AutoLoadableChannelList[TAUTORELOADCHANNEL: AutoLoadableInstrumentChannel](
+    ChannelList[TAUTORELOADCHANNEL]
+):
     """
     Extends the QCoDeS :class:`ChannelList` class to add the following features:
     - Automatically create channel objects on initialization
@@ -1245,3 +1243,16 @@ class AutoLoadableChannelList(ChannelList[TAUTORELOADCHANNEL]):
 
         self.append(new_channel)
         return new_channel
+
+
+if not TYPE_CHECKING:
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    _deprecated_typevars: dict[str, TypeVar] = {
+        "T": TypeVar("T", bound="ChannelTuple"),
+        "TAUTORELOADCHANNEL": TypeVar(
+            "TAUTORELOADCHANNEL", bound=AutoLoadableInstrumentChannel
+        ),
+    }
+
+    __getattr__ = _make_deprecated_typevars_getattr(__name__, _deprecated_typevars)

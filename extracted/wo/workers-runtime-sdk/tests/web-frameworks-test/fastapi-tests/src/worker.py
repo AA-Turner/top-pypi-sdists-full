@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import hashlib
 import importlib.util
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,7 @@ from fastapi import (
     Query,
     Request,
     UploadFile,
+    WebSocket,
 )
 from fastapi.exceptions import HTTPException
 from fastapi.responses import (
@@ -32,7 +34,6 @@ from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
 
 import asgi
-from workers import Response, WorkerEntrypoint
 
 
 async def _noop(*args):
@@ -80,6 +81,14 @@ async def api_hello():
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.websocket("/websocket/echo")
+async def websocket_echo(websocket: WebSocket):
+    await websocket.accept()
+    message = await websocket.receive_text()
+    await websocket.send_text(f"echo:{message}")
+    await websocket.close()
 
 
 # -- sync route handler (dispatched via run_in_threadpool) -------------------
@@ -436,6 +445,24 @@ async def platform_lifespan_state(request: Request):
     return {"available": True, "closed": resource.closed}
 
 
+# --------------------------------------------------------------------------- #
+# Pyodide and Workers platform boundary routes
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/platform/upload-spooled")
+async def platform_upload_spooled(file: UploadFile = File(...)):  # noqa: B008
+    first = await file.read()
+    await file.seek(0)
+    second = await file.read()
+    return {
+        "size": len(first),
+        "sha256": hashlib.sha256(first).hexdigest(),
+        "reread_matches": first == second,
+        "rolled_to_disk": bool(getattr(file.file, "_rolled", False)),
+    }
+
+
 @app.get("/native-file")
 async def native_file():
     """Serve a single bundled file with FastAPI's native FileResponse."""
@@ -445,17 +472,6 @@ async def native_file():
 # Mounted before the catch-all below so `/static/*` is handled by Starlette's
 # own filesystem-backed static file app rather than the Assets binding.
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-@app.get("/{path:path}")
-async def frontend(path: str, request: Request):
-    """Proxy static asset requests to the Workers Assets binding."""
-    env = request.scope["env"]
-    asset_url = f"https://assets.local/{path}"
-    resp = await env.ASSETS.fetch(asset_url)
-    body = await resp.bytes()
-    headers = dict(resp.headers)
-    return FastAPIResponse(content=body, status_code=resp.status, headers=headers)
 
 
 class ResultCollector:
@@ -524,37 +540,40 @@ class FastAPIAppPlugin:
         return app
 
 
-class Default(WorkerEntrypoint):
-    async def fetch(self, request):
-        from urllib.parse import urlparse
+@app.get("/run-tests/{suite_name:path}")
+async def run_suite(suite_name: str, request: Request):
+    module = f"test_{suite_name}"
+    if importlib.util.find_spec(module) is None:
+        return JSONResponse(
+            {"error": f"Unknown suite '{suite_name}' (no module '{module}')"},
+            status_code=404,
+        )
 
-        path = urlparse(request.url).path
+    collector = ResultCollector()
+    saved_loop = asyncio.events._get_running_loop()
+    try:
+        pytest.main(
+            ["--pyargs", module, "-p", "no:cacheprovider"],
+            plugins=[
+                collector,
+                EnvPlugin(request.scope["env"]),
+                FastAPIAppPlugin(),
+            ],
+        )
+    finally:
+        asyncio.events._set_running_loop(saved_loop)
+    return collector.results
 
-        if path.startswith("/run-tests/"):
-            suite_name = path[len("/run-tests/") :]
-            return self._run_suite(suite_name)
 
-        return await asgi.fetch(app, request, self.env, self.ctx)
+@app.get("/{path:path}")
+async def frontend(path: str, request: Request):
+    """Proxy static asset requests to the Workers Assets binding."""
+    env = request.scope["env"]
+    asset_url = f"https://assets.local/{path}"
+    resp = await env.ASSETS.fetch(asset_url)
+    body = await resp.bytes()
+    headers = dict(resp.headers)
+    return FastAPIResponse(content=body, status_code=resp.status, headers=headers)
 
-    def _run_suite(self, suite_name):
-        module = f"test_{suite_name}"
-        if importlib.util.find_spec(module) is None:
-            return Response.json(
-                {"error": f"Unknown suite '{suite_name}' (no module '{module}')"},
-                status=404,
-            )
 
-        collector = ResultCollector()
-        saved_loop = asyncio.events._get_running_loop()
-        try:
-            pytest.main(
-                ["--pyargs", module, "-p", "no:cacheprovider"],
-                plugins=[
-                    collector,
-                    EnvPlugin(self.env),
-                    FastAPIAppPlugin(),
-                ],
-            )
-        finally:
-            asyncio.events._set_running_loop(saved_loop)
-        return Response.json(collector.results)
+Default = asgi.entrypoint(app)

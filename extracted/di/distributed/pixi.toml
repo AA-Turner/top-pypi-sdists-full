@@ -1,12 +1,13 @@
 # This file is used by pixi-build in other projects (namely, dask/dask) 
 # to generate a conda package of distributed from git tip
 [workspace]
+requires-pixi = ">=0.72.1"
 channels = ["https://prefix.dev/conda-forge"]
 platforms = [
-    { name = "linux-64-cpu", platform = "linux-64" },
-    { name = "linux-aarch64-cpu", platform = "linux-aarch64" },
-    { name = "osx-arm64-cpu", platform = "osx-arm64" },
-    { name = "win-64-cpu", platform = "win-64" },
+    "linux-64",
+    "linux-aarch64",
+    "osx-arm64",
+    "win-64",
     { name = "linux-64-cuda", platform = "linux-64", cuda = "12" },
     { name = "linux-aarch64-cuda", platform = "linux-aarch64", cuda = "12" },
 ]
@@ -187,7 +188,7 @@ bokeh = { git = "https://github.com/bokeh/bokeh" }
 # zict = { git = "https://github.com/dask/zict" }
 
 [feature.cpu]
-platforms = ["linux-64-cpu", "linux-aarch64-cpu", "osx-arm64-cpu", "win-64-cpu"]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64", "win-64"]
 
 [feature.cuda]
 channels = ["rapidsai", "https://prefix.dev/conda-forge"]
@@ -239,6 +240,21 @@ pre-commit = "*"
 [feature.lint.tasks]
 lint = "pre-commit run --all-files"
 
+[feature.test-report.dependencies]
+python = "=3.14"
+altair = "*"
+junitparser = "*"
+pandas = "*"
+requests = "*"
+
+[feature.test-report.tasks.test-report]
+args = [{ arg = "repo" }]
+cmd = """
+python continuous_integration/scripts/test_report.py --repo '{{ repo }}' --max-days 30 --max-runs 60 --nfails 1 -o test_report.html &&
+python continuous_integration/scripts/test_report.py --repo '{{ repo }}' --max-days 7 --max-runs 15 --nfails 2 -o test_short_report.html --title 'Test Short Report'
+"""
+description = "Generate HTML reports of the flaky tests in the CI of the given repo, e.g. dask/distributed"
+
 [feature.build.dependencies]
 python = "=3.14"
 conda = "*"
@@ -268,3 +284,4 @@ nightly = ["cpu", "nightly", "test"]
 cuda = ["cuda", "test"]
 lint = { features = ["cpu", "lint"], no-default-feature = true }
 build = { features = ["cpu", "build"], no-default-feature = true }
+test-report = { features = ["cpu", "test-report"], no-default-feature = true }

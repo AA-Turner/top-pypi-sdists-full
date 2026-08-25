@@ -23,41 +23,19 @@ from peft import LoraConfig as PeftLoraConfig, get_peft_model, PeftModel
 from peft.tuners.lora.layer import LoraLayer as _PeftLoraLayer
 from safetensors.torch import load_file, save_file
 
+from gliner2.training.lora_targets import (  # noqa: F401 - compatibility exports
+    ENCODER_PATTERNS,
+    TASK_MODULES,
+    _alias_targets,
+    _resolve_targets,
+    _task_module_names,
+)
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Core (non-deprecated) — mirrors Gliner2Internal main
 # ---------------------------------------------------------------------------
-
-ENCODER_PATTERNS = ["query", "key", "value", "dense"]
-TASK_MODULES = ["span_rep", "classifier", "count_embed", "count_pred"]
-
-
-def _resolve_targets(model: nn.Module, targets: list[str]) -> list[str]:
-    """Map high-level target names to concrete Linear layer paths.
-
-    Args:
-        model: The model to resolve targets against.
-        targets: High-level target names, e.g. ``["encoder"]``,
-            ``["encoder.query"]``, or task head names like ``["classifier"]``.
-
-    Returns:
-        Sorted list of fully-qualified module paths suitable for
-        passing directly to ``peft.LoraConfig(target_modules=...)``.
-    """
-    selected: list[str] = []
-    for name, mod in model.named_modules():
-        if not isinstance(mod, nn.Linear):
-            continue
-        local = name.split(".")[-1]
-        for t in targets:
-            if t == "encoder" and name.startswith("encoder.") and any(p in local for p in ENCODER_PATTERNS):
-                selected.append(name)
-            elif t.startswith("encoder.") and name.startswith("encoder.") and t.split(".", 1)[1] in local:
-                selected.append(name)
-            elif t in TASK_MODULES and (name == t or name.startswith(f"{t}.")):
-                selected.append(name)
-    return sorted(set(selected))
 
 
 def _deprecation(name: str, replacement: str) -> None:

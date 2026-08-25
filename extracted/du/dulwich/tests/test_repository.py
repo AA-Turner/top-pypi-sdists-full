@@ -38,7 +38,8 @@ from dulwich import errors, objects
 from dulwich.attrs import GitAttributes
 from dulwich.client import LocalGitClient
 from dulwich.config import Config
-from dulwich.errors import NotGitRepository
+from dulwich.errors import NotGitRepository, ObjectFormatException
+from dulwich.file import PERM_EVERYBODY, PERM_GROUP, SharedPerm, calc_shared_perm
 from dulwich.index import get_unstaged_changes as _get_unstaged_changes
 from dulwich.object_store import tree_lookup_path
 from dulwich.repo import (
@@ -49,6 +50,8 @@ from dulwich.repo import (
     UnsupportedExtension,
     UnsupportedVersion,
     check_user_identity,
+    parse_shared_repository,
+    sanitize_user_identity,
 )
 from dulwich.tests.utils import open_repo, setup_warning_catcher, tear_down_repo
 
@@ -383,6 +386,22 @@ class RepositoryRootTests(TestCase):
 
         jpg_attrs = attrs.match_path(b"image.jpg")
         self.assertEqual(jpg_attrs, {b"text": False, b"binary": True})
+
+    def test_get_gitattributes_malformed_pattern(self) -> None:
+        # Git treats a malformed pattern as matching nothing rather than as a
+        # broken file, so the bad line is skipped and the rest still applies.
+        r = self.open_repo("a.git")
+        info_dir = os.path.join(r.controldir(), "info")
+        if not os.path.exists(info_dir):
+            os.makedirs(info_dir)
+        with open(os.path.join(info_dir, "attributes"), "wb") as f:
+            f.write(b"*.[ch text=auto\n")
+            f.write(b"*.txt text\n")
+
+        with self.assertLogs("dulwich.attrs", level="WARNING"):
+            attrs = r.get_gitattributes()
+        self.assertEqual(len(attrs), 1)
+        self.assertEqual(attrs.match_path(b"file.txt"), {b"text": True})
 
     def test_contains_missing(self) -> None:
         r = self.open_repo("a.git")
@@ -1189,6 +1208,28 @@ class BuildRepoRootTests(TestCase):
             os.path.exists(os.path.join(self._repo.controldir(), "shallow")),
         )
 
+    def test_update_shallow_rejects_malformed_id(self) -> None:
+        # A hostile server can advertise a "shallow <sha>" pkt-line whose
+        # length-framed payload embeds a newline; the client rejects that at
+        # parse time, but writing an unvalidated id to .git/shallow would
+        # forge an extra graft line, so reject non-hex ids at the sink too.
+        malformed = (
+            b"a90fa2d900a17e99b433217e988c4eb4a2e9a097"
+            b"\nb90fa2d900a17e99b433217e988c4eb4a2e9a097"
+        )
+        self.assertRaises(
+            ObjectFormatException, self._repo.update_shallow, [malformed], None
+        )
+        self.assertEqual(set(), self._repo.get_shallow())
+        self.assertFalse(
+            os.path.exists(os.path.join(self._repo.controldir(), "shallow"))
+        )
+
+    def test_get_shallow_rejects_malformed_id(self) -> None:
+        with open(os.path.join(self._repo.path, ".git", "shallow"), "wb") as f:
+            f.write(b"a90fa2d900a17e99b433217e988c4eb4a2e9a097\nnothex\n")
+        self.assertRaises(ObjectFormatException, self._repo.get_shallow)
+
     def test_fetch_deepen_local(self) -> None:
         r = self._repo
 
@@ -1973,6 +2014,38 @@ class CheckUserIdentityTests(TestCase):
         )
 
 
+class SanitizeUserIdentityTests(TestCase):
+    def test_clean(self) -> None:
+        self.assertEqual(
+            b"Me <me@example.com>", sanitize_user_identity(b"Me", b"me@example.com")
+        )
+
+    def test_strips_leading_and_trailing_crud(self) -> None:
+        self.assertEqual(
+            b"Full Name <me@example.com>",
+            sanitize_user_identity(b" ,:;<Full Name>'\"\\ ", b"<me@example.com>"),
+        )
+        self.assertEqual(
+            b"Me <me@example.com>",
+            sanitize_user_identity(b"\x01\x1fMe\t\n", b"\x00me@example.com\x20"),
+        )
+
+    def test_drops_delimiters_from_middle(self) -> None:
+        self.assertEqual(
+            b"FullName <mee@xample.com>",
+            sanitize_user_identity(b"Full<>\nName", b"me\ne@<x>\0ample.com"),
+        )
+
+    def test_keeps_inner_crud(self) -> None:
+        self.assertEqual(
+            b"Name, Full: yes <m,e@example.com>",
+            sanitize_user_identity(b"Name, Full: yes", b"m,e@example.com"),
+        )
+
+    def test_empty(self) -> None:
+        self.assertEqual(b" <>", sanitize_user_identity(b"<>", b" ,;"))
+
+
 class RepoConfigIncludeIfTests(TestCase):
     """Test includeIf functionality in repository config loading."""
 
@@ -2188,6 +2261,36 @@ class SharedRepositoryTests(TestCase):
         """Get the file mode bits (without file type bits)."""
         return stat.S_IMODE(os.stat(path).st_mode)
 
+    def test_calc_shared_perm_only_loosens(self):
+        """Named settings add bits but never remove them."""
+        # "all" adds other-read to a group-writable mode.
+        self.assertEqual(0o664, calc_shared_perm(0o644, PERM_EVERYBODY))
+        # It cannot restore write bits the umask stripped.
+        self.assertEqual(0o664, calc_shared_perm(0o664, PERM_EVERYBODY))
+        # "group" leaves others alone.
+        self.assertEqual(0o660, calc_shared_perm(0o640, PERM_GROUP))
+
+    def test_calc_shared_perm_read_only_stays_read_only(self):
+        """A mode without user write does not gain write bits."""
+        self.assertEqual(0o444, calc_shared_perm(0o444, PERM_EVERYBODY))
+
+    def test_calc_shared_perm_explicit_octal_replaces(self):
+        """An explicit octal setting states the mode outright."""
+        perm = parse_shared_repository("0600")
+        self.assertEqual(0o600, calc_shared_perm(0o666, perm))
+
+    def test_parse_shared_repository(self):
+        self.assertEqual(PERM_GROUP, parse_shared_repository("group"))
+        self.assertEqual(PERM_GROUP, parse_shared_repository(True))
+        self.assertEqual(PERM_EVERYBODY, parse_shared_repository("all"))
+        self.assertEqual(PERM_EVERYBODY, parse_shared_repository("2"))
+        self.assertIsNone(parse_shared_repository("umask"))
+        self.assertIsNone(parse_shared_repository(False))
+        self.assertIsNone(parse_shared_repository("bogus"))
+        self.assertEqual(
+            SharedPerm(tweak=0o666, replace=True), parse_shared_repository("0666")
+        )
+
     def _check_permissions(self, repo, expected_file_mode, expected_dir_mode):
         """Check that repository files and directories have expected permissions."""
         objects_dir = os.path.join(repo.commondir(), "objects")
@@ -2223,8 +2326,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         repo = Repo.init_bare(tmp_dir, shared_repository="group")
         self.addCleanup(repo.close)
@@ -2246,11 +2349,65 @@ class SharedRepositoryTests(TestCase):
         repo = Repo.init_bare(tmp_dir, shared_repository="all")
         self.addCleanup(repo.close)
 
-        # Expected permissions for world sharing
+        # With umask 0 nothing strips the write bits, so "all" keeps them,
+        # matching git init --shared=all under the same umask.
         expected_dir_mode = 0o2777  # setgid + rwxrwxrwx
         expected_file_mode = 0o666  # rw-rw-rw-
 
         self._check_permissions(repo, expected_file_mode, expected_dir_mode)
+
+    def test_init_bare_shared_all_default_umask(self):
+        """sharedRepository=all grants others read but not write."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        os.umask(0o022)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="all")
+        self.addCleanup(repo.close)
+
+        # git init --shared=all under umask 022 produces these modes.
+        self._check_permissions(repo, 0o664, 0o2775)
+
+    def test_init_bare_shared_all_not_world_writable(self):
+        """sharedRepository=all must not leave the control dir world-writable."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        os.umask(0o022)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="all")
+        self.addCleanup(repo.close)
+
+        for name in ("hooks", "refs", "objects", "info"):
+            path = os.path.join(repo.commondir(), name)
+            mode = self._get_file_mode(path)
+            self.assertEqual(
+                0,
+                mode & stat.S_IWOTH,
+                f"{name} is world-writable: {oct(mode)}",
+            )
+
+    def test_shared_all_and_group_differ_under_restrictive_umask(self):
+        """Sharing with all grants others read where group sharing does not."""
+        os.umask(0o077)
+
+        all_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, all_dir)
+        all_repo = Repo.init_bare(all_dir, shared_repository="all")
+        self.addCleanup(all_repo.close)
+
+        group_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, group_dir)
+        group_repo = Repo.init_bare(group_dir, shared_repository="group")
+        self.addCleanup(group_repo.close)
+
+        self.assertEqual(
+            0o2775, self._get_file_mode(os.path.join(all_repo.commondir(), "refs"))
+        )
+        self.assertEqual(
+            0o2770, self._get_file_mode(os.path.join(group_repo.commondir(), "refs"))
+        )
 
     def test_init_bare_shared_umask(self):
         """Test initializing bare repo with sharedRepository=umask (default)."""
@@ -2274,8 +2431,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         repo = Repo.init_bare(tmp_dir, shared_repository="group")
         self.addCleanup(repo.close)
@@ -2289,7 +2446,7 @@ class SharedRepositoryTests(TestCase):
 
         # Check file permissions
         actual_mode = self._get_file_mode(obj_path)
-        expected_mode = 0o664  # rw-rw-r--
+        expected_mode = 0o444  # r--r--r--
         self.assertEqual(
             expected_mode,
             actual_mode,
@@ -2326,11 +2483,34 @@ class SharedRepositoryTests(TestCase):
 
         # Check file permissions
         actual_mode = self._get_file_mode(obj_path)
-        expected_mode = 0o666  # rw-rw-rw-
+        # Objects are written read-only, so the shared setting only controls
+        # who may read them. git init --shared=all behaves the same way.
+        expected_mode = 0o444  # r--r--r--
         self.assertEqual(
             expected_mode,
             actual_mode,
             f"loose object mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_loose_object_not_world_writable(self):
+        """Loose objects are not world-writable under a default umask."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        os.umask(0o022)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="all")
+        self.addCleanup(repo.close)
+
+        blob = objects.Blob.from_string(b"test content")
+        repo.object_store.add_object(blob)
+
+        obj_path = repo.object_store._get_shafile_path(blob.id)
+        actual_mode = self._get_file_mode(obj_path)
+        self.assertEqual(
+            0,
+            actual_mode & stat.S_IWOTH,
+            f"loose object is world-writable: {oct(actual_mode)}",
         )
 
     def test_pack_file_permissions_group(self):
@@ -2338,8 +2518,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         repo = Repo.init_bare(tmp_dir, shared_repository="group")
         self.addCleanup(repo.close)
@@ -2358,7 +2538,7 @@ class SharedRepositoryTests(TestCase):
         # Check pack file permissions
         pack_path = os.path.join(pack_dir, pack_files[0])
         actual_mode = self._get_file_mode(pack_path)
-        expected_mode = 0o664  # rw-rw-r--
+        expected_mode = 0o444  # r--r--r--
         self.assertEqual(
             expected_mode,
             actual_mode,
@@ -2370,8 +2550,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         repo = Repo.init_bare(tmp_dir, shared_repository="group")
         self.addCleanup(repo.close)
@@ -2390,7 +2570,7 @@ class SharedRepositoryTests(TestCase):
         # Check pack index file permissions
         idx_path = os.path.join(pack_dir, idx_files[0])
         actual_mode = self._get_file_mode(idx_path)
-        expected_mode = 0o664  # rw-rw-r--
+        expected_mode = 0o444  # r--r--r--
         self.assertEqual(
             expected_mode,
             actual_mode,
@@ -2402,8 +2582,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         # Create non-bare repo (index only exists in non-bare repos)
         repo = Repo.init(tmp_dir, shared_repository="group")
@@ -2433,8 +2613,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         # Create repo with shared=group
         repo = Repo.init_bare(tmp_dir, shared_repository="group")
@@ -2450,7 +2630,7 @@ class SharedRepositoryTests(TestCase):
 
         obj_path = repo.object_store._get_shafile_path(blob.id)
         actual_mode = self._get_file_mode(obj_path)
-        expected_mode = 0o664  # rw-rw-r--
+        expected_mode = 0o444  # r--r--r--
         self.assertEqual(
             expected_mode,
             actual_mode,
@@ -2462,8 +2642,8 @@ class SharedRepositoryTests(TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir)
 
-        # Set umask to 0 to see what permissions are actually set
-        os.umask(0)
+        # Use a conventional umask; git's shared masks only loosen it.
+        os.umask(0o022)
 
         repo = Repo.init(tmp_dir, shared_repository="group")
         self.addCleanup(repo.close)
@@ -2580,3 +2760,221 @@ class WorktreeConfigTests(TestCase):
         c.write_to_path()
 
         self.assertRaises(InvalidWorktreeConfiguration, Repo, repo_dir)
+
+
+class RepoOverrideTests(TestCase):
+    """Tests for the controldir/commondir/worktree/object_directory kwargs."""
+
+    def _make_repo(self, bare=False):
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        repo_dir = os.path.join(tmp_dir, "repo.git" if bare else "repo")
+        os.mkdir(repo_dir)
+        if bare:
+            r = Repo.init_bare(repo_dir)
+        else:
+            r = Repo.init(repo_dir)
+        self.addCleanup(r.close)
+        return tmp_dir, repo_dir, r
+
+    def test_controldir_opens_bare_layout(self) -> None:
+        _tmp_dir, repo_dir, _r = self._make_repo(bare=True)
+        with Repo(controldir=repo_dir) as opened:
+            self.assertTrue(opened.bare)
+            self.assertEqual(repo_dir, opened.controldir())
+            self.assertEqual(repo_dir, opened.commondir())
+            # No implicit cwd: a bare-like Repo built from just a control
+            # dir uses the control dir as its path.
+            self.assertEqual(repo_dir, opened.path)
+
+    def test_controldir_points_at_dot_git(self) -> None:
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        gitdir = os.path.join(repo_dir, ".git")
+        with Repo(controldir=gitdir, worktree=repo_dir) as opened:
+            self.assertFalse(opened.bare)
+            self.assertEqual(gitdir, opened.controldir())
+            self.assertEqual(repo_dir, opened.path)
+
+    def test_worktree_kw_wins_over_core_worktree(self) -> None:
+        tmp_dir, repo_dir, r = self._make_repo()
+        configured = os.path.join(tmp_dir, "configured")
+        os.mkdir(configured)
+        explicit = os.path.join(tmp_dir, "explicit")
+        os.mkdir(explicit)
+        c = r.get_config()
+        c.set((b"core",), b"worktree", configured.encode())
+        c.write_to_path()
+
+        with Repo(repo_dir, worktree=explicit) as opened:
+            self.assertEqual(explicit, opened.path)
+            self.assertFalse(opened.bare)
+
+    def test_commondir_override_absolute(self) -> None:
+        # Point commondir at a second repo's control directory so refs and
+        # objects come from there rather than the one addressed by controldir.
+        tmp_dir, primary_dir, _primary = self._make_repo(bare=True)
+        secondary_dir = os.path.join(tmp_dir, "secondary.git")
+        os.mkdir(secondary_dir)
+        secondary = Repo.init_bare(secondary_dir)
+        self.addCleanup(secondary.close)
+
+        with Repo(controldir=primary_dir, commondir=secondary_dir) as opened:
+            self.assertEqual(secondary_dir, opened.commondir())
+            self.assertEqual(primary_dir, opened.controldir())
+
+    def test_commondir_override_relative_to_controldir(self) -> None:
+        tmp_dir, primary_dir, _primary = self._make_repo(bare=True)
+        secondary_dir = os.path.join(tmp_dir, "secondary.git")
+        os.mkdir(secondary_dir)
+        secondary = Repo.init_bare(secondary_dir)
+        self.addCleanup(secondary.close)
+
+        with Repo(controldir=primary_dir, commondir="../secondary.git") as opened:
+            self.assertEqual(
+                os.path.realpath(secondary_dir),
+                os.path.realpath(opened.commondir()),
+            )
+
+    def test_object_directory_override(self) -> None:
+        tmp_dir, repo_dir, _r = self._make_repo(bare=True)
+        alt_objects = os.path.join(tmp_dir, "alt-objects")
+        # Copy the empty objects layout so DiskObjectStore can attach to it.
+        shutil.copytree(os.path.join(repo_dir, "objects"), alt_objects)
+
+        with Repo(controldir=repo_dir, object_directory=alt_objects) as opened:
+            self.assertEqual(alt_objects, opened.object_store.path)
+
+    def test_alternates_kwarg_resolves_missing_objects(self) -> None:
+        # An alternate object dir passed via kwarg lets the repo find
+        # objects that don't live in its own object store.
+        _tmp_dir, primary, _r = self._make_repo(bare=True)
+        _tmp2, alt_repo_path, alt_repo = self._make_repo(bare=True)
+        blob = objects.Blob()
+        blob.data = b"content from alternate"
+        alt_repo.object_store.add_object(blob)
+        alt_objects = os.path.join(alt_repo_path, "objects")
+
+        with Repo(controldir=primary, alternates=[alt_objects]) as opened:
+            self.assertIn(blob.id, opened.object_store)
+            self.assertEqual(blob.data, opened.object_store[blob.id].data)
+
+    def test_index_file_override(self) -> None:
+        tmp_dir, repo_dir, _r = self._make_repo()
+        custom_index = os.path.join(tmp_dir, "custom-index")
+        with Repo(repo_dir, index_file=custom_index) as opened:
+            self.assertEqual(custom_index, opened.index_path())
+
+    def test_discover_stops_at_ceiling(self) -> None:
+        # Discovery starting inside the repo would normally find it; a
+        # ceiling directory placed between start and repo prevents that.
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        subdir = os.path.join(repo_dir, "a", "b")
+        os.makedirs(subdir)
+        # A ceiling at repo_dir stops discovery before it enters repo_dir.
+        self.assertRaises(
+            NotGitRepository,
+            Repo.discover,
+            subdir,
+            ceiling_dirs=[repo_dir],
+        )
+
+    def test_discover_ceiling_reached_through_symlink(self) -> None:
+        # The ceiling and the start path may be given in different forms:
+        # here both are reached through a symlink, while discovery walks
+        # resolved paths. This is the situation on macOS, where the
+        # temporary directory sits under a symlinked /var, and on Windows,
+        # where paths may carry 8.3 short names.
+        tmp_dir, repo_dir, _r = self._make_repo()
+        link = os.path.join(tmp_dir, "link")
+        os.symlink(repo_dir, link)
+        subdir = os.path.join(link, "a", "b")
+        os.makedirs(subdir)
+        self.assertRaises(
+            NotGitRepository,
+            Repo.discover,
+            subdir,
+            ceiling_dirs=[link],
+        )
+
+    def _patch_boundary_at(self, boundary: str) -> None:
+        """Make ``boundary`` and everything above it look like another device.
+
+        Creating a real mount point needs privileges, so the device numbers
+        are faked instead: the boundary directory and its ancestors report a
+        different ``st_dev`` than the directories below it.
+        """
+        real_stat = os.stat
+        boundary = os.path.realpath(boundary)
+
+        def fake_stat(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+            result = real_stat(path, *args, **kwargs)
+            abs_path = os.path.realpath(os.fsdecode(path))
+            if abs_path == boundary or abs_path.startswith(boundary + os.sep):
+                return result
+            return os.stat_result(
+                (
+                    result.st_mode,
+                    result.st_ino,
+                    result.st_dev + 1,
+                    result.st_nlink,
+                    result.st_uid,
+                    result.st_gid,
+                    result.st_size,
+                    int(result.st_atime),
+                    int(result.st_mtime),
+                    int(result.st_ctime),
+                )
+            )
+
+        os.stat = fake_stat
+        self.addCleanup(setattr, os, "stat", real_stat)
+
+    def test_discover_stops_at_filesystem_boundary(self) -> None:
+        # The repo sits above a filesystem boundary, so discovery started
+        # below it must not reach the repo.
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        start = os.path.join(repo_dir, "a", "b")
+        os.makedirs(start)
+        # Everything from `a` down is a "different device" than the repo.
+        self._patch_boundary_at(os.path.join(repo_dir, "a"))
+        self.assertRaises(
+            NotGitRepository, Repo.discover, start, across_filesystem=False
+        )
+
+    def test_discover_across_filesystem_boundary(self) -> None:
+        # The same walk finds the repo when crossing boundaries is allowed.
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        start = os.path.join(repo_dir, "a", "b")
+        os.makedirs(start)
+        self._patch_boundary_at(os.path.join(repo_dir, "a"))
+        with Repo.discover(start, across_filesystem=True) as opened:
+            self.assertEqual(os.path.realpath(repo_dir), os.path.realpath(opened.path))
+
+    def test_discover_defaults_to_crossing_filesystems(self) -> None:
+        # The default preserves dulwich's historical behaviour.
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        start = os.path.join(repo_dir, "a", "b")
+        os.makedirs(start)
+        self._patch_boundary_at(os.path.join(repo_dir, "a"))
+        with Repo.discover(start) as opened:
+            self.assertEqual(os.path.realpath(repo_dir), os.path.realpath(opened.path))
+
+    def test_discover_ignores_ceiling_at_start(self) -> None:
+        # Like git, a ceiling matching the starting directory itself is not
+        # applied: only directories walked up into are checked.
+        _tmp_dir, repo_dir, _r = self._make_repo()
+        with Repo.discover(repo_dir, ceiling_dirs=[repo_dir]) as opened:
+            self.assertEqual(os.path.realpath(repo_dir), os.path.realpath(opened.path))
+
+    def test_discover_ignores_unrelated_ceiling(self) -> None:
+        tmp_dir, repo_dir, _r = self._make_repo()
+        subdir = os.path.join(repo_dir, "a", "b")
+        os.makedirs(subdir)
+        # A ceiling that is never crossed does not interfere.
+        unrelated = os.path.join(tmp_dir, "unrelated")
+        os.mkdir(unrelated)
+        with Repo.discover(subdir, ceiling_dirs=[unrelated]) as opened:
+            self.assertEqual(os.path.realpath(repo_dir), os.path.realpath(opened.path))
+
+    def test_requires_root_or_controldir(self) -> None:
+        self.assertRaises(TypeError, Repo)

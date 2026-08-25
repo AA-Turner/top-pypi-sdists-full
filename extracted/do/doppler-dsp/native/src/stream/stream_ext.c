@@ -14,8 +14,12 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
+#include <signal.h>
+
 #include "dp_tlm/dp_tlm_core.h" /* dp_tlm_rec_t (TLM16 frames) */
 #include "stream/stream.h"
+
+#include "dp_interrupt_pyadopt.h"
 
 /* =========================================================================
  * dpMsgObject — prevents premature dp_msg_free via NumPy base object
@@ -69,9 +73,19 @@ build_recv_result (dp_msg_t *msg, const dp_header_t *hdr)
 
   npy_intp         dims[1];
   int              typenum;
-  dp_sample_type_t st = dp_msg_sample_type (msg);
+  dp_frame_kind_t  kind = dp_msg_kind (msg);
+  dp_sample_type_t st   = dp_msg_sample_type (msg);
+  const int        tlm  = (kind == DP_KIND_TLM);
 
-  if (st == CI32)
+  if (tlm)
+    {
+      /* telemetry records: structured rows (n u8 | value f4 | probe u2 |
+       * flags u2), decoded below via the shared descr instead of a plain
+       * typenum. */
+      dims[0] = (npy_intp)dp_msg_num_samples (msg);
+      typenum = -1;
+    }
+  else if (st == CI32)
     {
       dims[0] = (npy_intp)(dp_msg_num_samples (msg) * 2); /* interleaved I/Q */
       typenum = NPY_INT32;
@@ -80,11 +94,6 @@ build_recv_result (dp_msg_t *msg, const dp_header_t *hdr)
     {
       dims[0] = (npy_intp)dp_msg_num_samples (msg);
       typenum = NPY_COMPLEX128;
-    }
-  else if (st == CF128)
-    {
-      dims[0] = (npy_intp)dp_msg_num_samples (msg);
-      typenum = NPY_CLONGDOUBLE;
     }
   else if (st == CI8)
     {
@@ -101,23 +110,16 @@ build_recv_result (dp_msg_t *msg, const dp_header_t *hdr)
       dims[0] = (npy_intp)dp_msg_num_samples (msg);
       typenum = NPY_COMPLEX64;
     }
-  else if (st == TLM16)
-    {
-      /* telemetry records: structured rows (n u8 | value f4 | probe u2 |
-       * flags u2), decoded below via the shared descr instead of a plain
-       * typenum. */
-      dims[0] = (npy_intp)dp_msg_num_samples (msg);
-      typenum = -1;
-    }
   else
     {
       Py_DECREF (msg_obj);
-      PyErr_Format (PyExc_ValueError, "Unknown sample_type: %u", (unsigned)st);
+      PyErr_Format (PyExc_ValueError, "Unknown wire format: 0x%04X",
+                    (unsigned)st);
       return NULL;
     }
 
   PyObject *arr;
-  if (st == TLM16)
+  if (tlm)
     {
       Py_INCREF (tlm16_descr); /* NewFromDescr steals a reference */
       arr = PyArray_NewFromDescr (&PyArray_Type, tlm16_descr, 1, dims, NULL,
@@ -149,10 +151,15 @@ build_recv_result (dp_msg_t *msg, const dp_header_t *hdr)
                         PyFloat_FromDouble (hdr->center_freq));
   PyDict_SetItemString (header, "num_samples",
                         PyLong_FromUnsignedLongLong (hdr->num_samples));
-  PyDict_SetItemString (header, "sample_type",
-                        PyLong_FromLong (hdr->sample_type));
-  PyDict_SetItemString (header, "protocol", PyLong_FromLong (hdr->protocol));
-  PyDict_SetItemString (header, "stream_id", PyLong_FromLong (hdr->stream_id));
+  PyDict_SetItemString (header, "format", PyLong_FromLong (hdr->format));
+  PyDict_SetItemString (header, "kind", PyLong_FromLong (hdr->kind));
+  PyDict_SetItemString (
+      header, "data_rep",
+      PyUnicode_FromStringAndSize (hdr->data_rep, sizeof hdr->data_rep));
+  PyDict_SetItemString (header, "flags", PyLong_FromLong (hdr->flags));
+  PyDict_SetItemString (header, "payload_bytes",
+                        PyLong_FromUnsignedLong (hdr->payload_bytes));
+  PyDict_SetItemString (header, "version", PyLong_FromLong (hdr->version));
 
   return Py_BuildValue ("(NN)", arr, header);
 }
@@ -161,8 +168,6 @@ build_recv_result (dp_msg_t *msg, const dp_header_t *hdr)
 typedef int (*send_ci32_fn) (void *, const int32_t *, size_t, double, double);
 typedef int (*send_cf64_fn) (void *, const double _Complex *, size_t, double,
                              double);
-typedef int (*send_cf128_fn) (void *, const long double _Complex *, size_t,
-                              double, double);
 typedef int (*send_ci8_fn) (void *, const int8_t *, size_t, double, double);
 typedef int (*send_ci16_fn) (void *, const int16_t *, size_t, double, double);
 typedef int (*send_cf32_fn) (void *, const float _Complex *, size_t, double,
@@ -170,9 +175,8 @@ typedef int (*send_cf32_fn) (void *, const float _Complex *, size_t, double,
 
 static PyObject *
 do_send (void *ctx, int sample_type, send_ci32_fn fn_ci32,
-         send_cf64_fn fn_cf64, send_cf128_fn fn_cf128, send_ci8_fn fn_ci8,
-         send_ci16_fn fn_ci16, send_cf32_fn fn_cf32, PyObject *args,
-         PyObject *kwds)
+         send_cf64_fn fn_cf64, send_ci8_fn fn_ci8, send_ci16_fn fn_ci16,
+         send_cf32_fn fn_cf32, PyObject *args, PyObject *kwds)
 {
   PyArrayObject *arr;
   double         sample_rate      = 0.0;
@@ -200,12 +204,11 @@ do_send (void *ctx, int sample_type, send_ci32_fn fn_ci32,
       return NULL;
     }
 
-  int expected = (sample_type == CI32)    ? NPY_INT32
-                 : (sample_type == CF64)  ? NPY_COMPLEX128
-                 : (sample_type == CF128) ? NPY_CLONGDOUBLE
-                 : (sample_type == CI8)   ? NPY_INT8
-                 : (sample_type == CI16)  ? NPY_INT16
-                                          : NPY_COMPLEX64; /* CF32 */
+  int expected = (sample_type == CI32)   ? NPY_INT32
+                 : (sample_type == CF64) ? NPY_COMPLEX128
+                 : (sample_type == CI8)  ? NPY_INT8
+                 : (sample_type == CI16) ? NPY_INT16
+                                         : NPY_COMPLEX64; /* CF32 */
   if (PyArray_TYPE (arr) != expected)
     {
       PyErr_SetString (PyExc_TypeError, "samples dtype mismatch");
@@ -233,12 +236,9 @@ do_send (void *ctx, int sample_type, send_ci32_fn fn_ci32,
     else if (sample_type == CI16)
       rc = fn_ci16 (ctx, (const int16_t *)data, (size_t)num_samples,
                     sample_rate, center_freq);
-    else if (sample_type == CF32)
+    else /* CF32 */
       rc = fn_cf32 (ctx, (const float _Complex *)data, (size_t)num_samples,
                     sample_rate, center_freq);
-    else
-      rc = fn_cf128 (ctx, (const long double _Complex *)data,
-                     (size_t)num_samples, sample_rate, center_freq);
   Py_END_ALLOW_THREADS;
 
   if (rc == DP_ERR_TOO_LARGE)
@@ -291,6 +291,35 @@ do_recv (void *ctx, set_timeout_fn fn_timeout, recv_signal_fn fn_recv,
       PyErr_SetString (PyExc_TimeoutError, "recv timeout");
       return NULL;
     }
+  if (rc == DP_ERR_INTERRUPTED)
+    {
+      /* KeyboardInterrupt rather than a doppler-specific exception: the
+         interrupt exists so Ctrl+C works during a blocking recv, and a
+         program's existing handling of Ctrl+C -- `try`, `finally`, a
+         `with` block's cleanup -- applies unchanged. Anything else would
+         make the caller learn a second word for the same event.
+
+         PyErr_CheckSignals() FIRST, and once. Our C handler chains to
+         CPython's, so a real Ctrl+C leaves a Python-level signal pending;
+         raising our own exception here and letting that one fire too
+         delivered KeyboardInterrupt TWICE -- the second landing inside
+         the caller's `except KeyboardInterrupt:` cleanup. Measured, not
+         reasoned. So: let CPython raise it if it has one to raise, and
+         only invent one when nothing is pending (interrupt() called from
+         another thread, where no signal was involved at all). */
+      if (PyErr_CheckSignals () != 0)
+        return NULL; /* CPython raised it; do not raise a second */
+      PyErr_SetString (PyExc_KeyboardInterrupt, "interrupted");
+      return NULL;
+    }
+  if (rc == DP_ERR_EOF)
+    {
+      /* EOFError, not RuntimeError: the sender finished, which is a state
+         and the ordinary end of a loop. Python already has a word for it,
+         and `except EOFError` is what a reader expects to write. */
+      PyErr_SetString (PyExc_EOFError, "end of stream: the sender finished");
+      return NULL;
+    }
   if (rc != DP_OK)
     {
       PyErr_Format (PyExc_RuntimeError, "recv failed: %s", dp_strerror (rc));
@@ -330,7 +359,13 @@ Publisher_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
                                     &sample_type))
     return NULL;
 
-  if (sample_type < CI32 || sample_type > TLM16)
+  /* TLM16 is a frame KIND, not a sample format, and it arrives in the same
+     argument slot because "what does this socket publish" is one question
+     to a caller. The two vocabularies cannot collide: a BLUE code is two
+     ASCII characters packed into 16 bits, so every one of them is >= 0x4200,
+     while DP_KIND_TLM is 1. */
+  const int tlm = (sample_type == DP_KIND_TLM);
+  if (!tlm && !dp_sample_type_is_valid ((dp_sample_type_t)sample_type))
     {
       PyErr_SetString (PyExc_ValueError, "Invalid sample_type");
       return NULL;
@@ -340,7 +375,8 @@ Publisher_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   if (!self)
     return NULL;
 
-  self->ctx = dp_pub_create (endpoint, (dp_sample_type_t)sample_type);
+  self->ctx = tlm ? dp_pub_create_tlm (endpoint)
+                  : dp_pub_create (endpoint, (dp_sample_type_t)sample_type);
   if (!self->ctx)
     {
       Py_DECREF (self);
@@ -357,7 +393,7 @@ Publisher_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 static PyObject *
 Publisher_send (PublisherObject *self, PyObject *args, PyObject *kwds)
 {
-  if (self->sample_type == TLM16)
+  if (self->sample_type == DP_KIND_TLM)
     {
       /* Telemetry frames: a structured array of 16-byte records (the
        * dtype Telemetry.read() returns) published verbatim. PUB-only —
@@ -403,9 +439,8 @@ Publisher_send (PublisherObject *self, PyObject *args, PyObject *kwds)
       Py_RETURN_NONE;
     }
   return do_send (self->ctx, self->sample_type, (send_ci32_fn)dp_pub_send_ci32,
-                  (send_cf64_fn)dp_pub_send_cf64,
-                  (send_cf128_fn)dp_pub_send_cf128,
-                  (send_ci8_fn)dp_pub_send_ci8, (send_ci16_fn)dp_pub_send_ci16,
+                  (send_cf64_fn)dp_pub_send_cf64, (send_ci8_fn)dp_pub_send_ci8,
+                  (send_ci16_fn)dp_pub_send_ci16,
                   (send_cf32_fn)dp_pub_send_cf32, args, kwds);
 }
 
@@ -434,11 +469,213 @@ Publisher_exit (PublisherObject *self, PyObject *Py_UNUSED (args))
   return Publisher_close (self, NULL);
 }
 
+static PyObject *
+Publisher_flush (PublisherObject *self, PyObject *args, PyObject *kwds)
+{
+  int          timeout_ms = 2000;
+  static char *kwlist[]   = { "timeout_ms", NULL };
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|i", kwlist, &timeout_ms))
+    return NULL;
+  if (self->closed || !self->ctx)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "publisher is closed");
+      return NULL;
+    }
+
+  int rc;
+  Py_BEGIN_ALLOW_THREADS
+    ;
+    rc = dp_pub_flush (self->ctx, timeout_ms);
+  Py_END_ALLOW_THREADS;
+
+  if (rc == DP_ERR_TIMEOUT)
+    {
+      PyErr_Format (PyExc_TimeoutError,
+                    "the server did not acknowledge everything published "
+                    "within %d ms; data is still buffered",
+                    timeout_ms);
+      return NULL;
+    }
+  if (rc != DP_OK)
+    {
+      PyErr_Format (PyExc_RuntimeError, "flush failed: %s", dp_strerror (rc));
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+Publisher_drain (PublisherObject *self, PyObject *args, PyObject *kwds)
+{
+  int          timeout_ms = 5000;
+  static char *kwlist[]   = { "timeout_ms", NULL };
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|i", kwlist, &timeout_ms))
+    return NULL;
+  if (self->closed || !self->ctx)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "publisher is closed");
+      return NULL;
+    }
+
+  int rc;
+  Py_BEGIN_ALLOW_THREADS
+    ;
+    rc = dp_stream_drain (self->ctx, timeout_ms);
+  Py_END_ALLOW_THREADS;
+
+  if (rc == DP_ERR_TIMEOUT)
+    {
+      PyErr_Format (PyExc_TimeoutError,
+                    "the drain did not complete within %d ms", timeout_ms);
+      return NULL;
+    }
+  if (rc != DP_OK)
+    {
+      PyErr_Format (PyExc_RuntimeError, "drain failed: %s", dp_strerror (rc));
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+Publisher_send_eos (PublisherObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->ctx)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "publisher is closed");
+      return NULL;
+    }
+  int rc;
+  Py_BEGIN_ALLOW_THREADS
+    ;
+    rc = dp_pub_send_eos (self->ctx);
+  Py_END_ALLOW_THREADS;
+  if (rc != DP_OK)
+    {
+      PyErr_Format (PyExc_RuntimeError, "send_eos failed: %s",
+                    dp_strerror (rc));
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef Publisher_methods[] = {
   { "send", (PyCFunction)Publisher_send, METH_VARARGS | METH_KEYWORDS,
     "send(samples, sample_rate=0, center_freq=0, timestamp_ns=None) -- "
     "timestamp_ns overrides the auto-stamped send time, propagating an "
     "upstream origin timestamp instead of stamping now" },
+  { "send_eos", (PyCFunction)Publisher_send_eos, METH_NOARGS,
+    "send_eos() -> None\n"
+    "\n"
+    "Tell subscribers the stream has ended.\n"
+    "\n"
+    "A subscriber's recv() raises EOFError instead of waiting out a\n"
+    "timeout -- which means only \"nothing yet\" and cannot be told from\n"
+    "\"nothing ever\" without this.\n"
+    "\n"
+    "Send it BEFORE drain(), not after: a drain cannot be reversed and\n"
+    "refuses sends once it reaches its publish-flushing phase. The order\n"
+    "is: stop producing, send_eos(), drain(), close().\n"
+    "\n"
+    "PUB/SUB is at-most-once, so this frame can be dropped like any\n"
+    "other: it makes the common case end promptly, not reliably, and a\n"
+    "subscriber that must not hang still needs a timeout. PUSH/PULL\n"
+    "delivers it at-least-once, so handling must be idempotent.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.stream import Publisher, CF32\n"
+    ">>> pub = Publisher(\"nats://127.0.0.1:4222/demo\", CF32)  # doctest: "
+    "+SKIP\n"
+    ">>> pub.send_eos()                                        # doctest: "
+    "+SKIP\n"
+    ">>> pub.drain()                                           # doctest: "
+    "+SKIP\n" },
+  { "flush", (PyCFunction)Publisher_flush, METH_VARARGS | METH_KEYWORDS,
+    "flush(timeout_ms=2000) -> None\n"
+    "\n"
+    "Wait until the server has everything published so far.\n"
+    "\n"
+    "send() hands the frame to the client and returns; the client writes\n"
+    "it in the background, so \"the send returned\" is not \"the server\n"
+    "has it\". This waits for a round trip.\n"
+    "\n"
+    "You do NOT need it before close(): the NATS client flushes what is\n"
+    "buffered when the connection closes. But it does so best-effort\n"
+    "with a 500 ms cap and no way to report failure, so a backlog that\n"
+    "cannot drain in half a second is dropped silently -- and on a link\n"
+    "slower than loopback that is not a large backlog. Call this when\n"
+    "losing the tail would matter, and you get a budget you chose and an\n"
+    "answer you can act on. It is also the only way to ask the question\n"
+    "without closing.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "timeout_ms : int, optional\n"
+    "    How long to wait (default 2000).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "None\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "TimeoutError\n"
+    "    If the budget ran out with data still buffered.\n"
+    "RuntimeError\n"
+    "    If the publisher is closed, or the flush failed outright.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.stream import Publisher, CF64  # doctest: +SKIP\n"
+    ">>> with Publisher(\"nats://127.0.0.1:4222/iq\", CF64) as pub:\n"
+    "...     pub.send(np.zeros(8, dtype=np.complex128))  # doctest: +SKIP\n"
+    "...     pub.flush()                                 # doctest: +SKIP\n" },
+  { "drain", (PyCFunction)Publisher_drain, METH_VARARGS | METH_KEYWORDS,
+    "drain(timeout_ms=5000) -> None\n"
+    "\n"
+    "Shut down gracefully: stop accepting new work, let what is in\n"
+    "flight finish, flush everything pending, close.\n"
+    "\n"
+    "This WAITS for the connection to close, which is the part worth\n"
+    "having: the underlying drain returns immediately and finishes in\n"
+    "the background, so a process that exits when it returns abandons\n"
+    "exactly the work the drain was for.\n"
+    "\n"
+    "Drain LAST, after you have stopped producing. It cannot be\n"
+    "reversed, and a send issued while one is in progress races its\n"
+    "phases -- it may slip through, or be refused. Because this waits,\n"
+    "a single-threaded caller need not reason about that: afterwards a\n"
+    "send raises RuntimeError deterministically.\n"
+    "\n"
+    "Against flush(): flush asks whether the server has what you\n"
+    "published and leaves the publisher usable; drain ends it.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "timeout_ms : int, optional\n"
+    "    How long to wait for the close (default 5000).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "None\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "TimeoutError\n"
+    "    If the drain did not complete in the budget.\n"
+    "RuntimeError\n"
+    "    If the publisher is already closed, or the drain failed.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.stream import Publisher, CF64   # doctest: +SKIP\n"
+    ">>> pub = Publisher(\"nats://127.0.0.1:4222/iq\", CF64)  # doctest: "
+    "+SKIP\n"
+    ">>> pub.drain()   # stopped producing, so shut down  # doctest: +SKIP\n"
+    ">>> pub.close()                                      # doctest: "
+    "+SKIP\n" },
   { "close", (PyCFunction)Publisher_close, METH_NOARGS,
     "close() — destroy the socket" },
   { "__enter__", (PyCFunction)Publisher_enter, METH_NOARGS, NULL },
@@ -581,7 +818,7 @@ Push_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
                                     &sample_type))
     return NULL;
 
-  if (sample_type < CI32 || sample_type > CF32)
+  if (!dp_sample_type_is_valid ((dp_sample_type_t)sample_type))
     {
       PyErr_SetString (PyExc_ValueError, "Invalid sample_type");
       return NULL;
@@ -610,9 +847,31 @@ Push_send (PushObject *self, PyObject *args, PyObject *kwds)
 {
   return do_send (
       self->ctx, self->sample_type, (send_ci32_fn)dp_push_send_ci32,
-      (send_cf64_fn)dp_push_send_cf64, (send_cf128_fn)dp_push_send_cf128,
-      (send_ci8_fn)dp_push_send_ci8, (send_ci16_fn)dp_push_send_ci16,
-      (send_cf32_fn)dp_push_send_cf32, args, kwds);
+      (send_cf64_fn)dp_push_send_cf64, (send_ci8_fn)dp_push_send_ci8,
+      (send_ci16_fn)dp_push_send_ci16, (send_cf32_fn)dp_push_send_cf32, args,
+      kwds);
+}
+
+static PyObject *
+Push_send_eos (PushObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->ctx)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "push is closed");
+      return NULL;
+    }
+  int rc;
+  Py_BEGIN_ALLOW_THREADS
+    ;
+    rc = dp_pub_send_eos (self->ctx);
+  Py_END_ALLOW_THREADS;
+  if (rc != DP_OK)
+    {
+      PyErr_Format (PyExc_RuntimeError, "send_eos failed: %s",
+                    dp_strerror (rc));
+      return NULL;
+    }
+  Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -645,6 +904,32 @@ static PyMethodDef Push_methods[] = {
     "send(samples, sample_rate=0, center_freq=0, timestamp_ns=None) -- "
     "timestamp_ns overrides the auto-stamped send time, propagating an "
     "upstream origin timestamp instead of stamping now" },
+  { "send_eos", (PyCFunction)Push_send_eos, METH_NOARGS,
+    "send_eos() -> None\n"
+    "\n"
+    "Tell workers this stream has ended.\n"
+    "\n"
+    "A Pull.recv() raises EOFError instead of waiting out a timeout --\n"
+    "which means only \"nothing yet\" and cannot be told from \"nothing\n"
+    "ever\" without this.\n"
+    "\n"
+    "The work queue is at-LEAST-once, so unlike PUB/SUB the marker is\n"
+    "not dropped -- but it may arrive more than once, so a handler must\n"
+    "be idempotent. It needs no ack from the caller: recv() reports the\n"
+    "ending as a state and hands back no message, so it acks the frame\n"
+    "itself. Were it not acked it would redeliver forever and outlive\n"
+    "the run that sent it.\n"
+    "\n"
+    "On a shared subject exactly ONE worker sees it, because a work\n"
+    "queue load-balances: use it to end a single-consumer stage, not to\n"
+    "broadcast a shutdown to a pool.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.stream import Push, CF32\n"
+    ">>> push = Push(\"nats://127.0.0.1:4222/work\", CF32)  # doctest: +SKIP\n"
+    ">>> push.send_eos()                                    # doctest: "
+    "+SKIP\n" },
   { "close", (PyCFunction)Push_close, METH_NOARGS, NULL },
   { "__enter__", (PyCFunction)Push_enter, METH_NOARGS, NULL },
   { "__exit__", (PyCFunction)Push_exit, METH_VARARGS, NULL },
@@ -823,7 +1108,7 @@ Requester_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
                                     &sample_type))
     return NULL;
 
-  if (sample_type < CI32 || sample_type > CF32)
+  if (!dp_sample_type_is_valid ((dp_sample_type_t)sample_type))
     {
       PyErr_SetString (PyExc_ValueError, "Invalid sample_type");
       return NULL;
@@ -851,9 +1136,8 @@ static PyObject *
 Requester_send (RequesterObject *self, PyObject *args, PyObject *kwds)
 {
   return do_send (self->ctx, self->sample_type, (send_ci32_fn)dp_req_send_ci32,
-                  (send_cf64_fn)dp_req_send_cf64,
-                  (send_cf128_fn)dp_req_send_cf128,
-                  (send_ci8_fn)dp_req_send_ci8, (send_ci16_fn)dp_req_send_ci16,
+                  (send_cf64_fn)dp_req_send_cf64, (send_ci8_fn)dp_req_send_ci8,
+                  (send_ci16_fn)dp_req_send_ci16,
                   (send_cf32_fn)dp_req_send_cf32, args, kwds);
 }
 
@@ -942,7 +1226,7 @@ Replier_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
                                     &sample_type))
     return NULL;
 
-  if (sample_type < CI32 || sample_type > CF32)
+  if (!dp_sample_type_is_valid ((dp_sample_type_t)sample_type))
     {
       PyErr_SetString (PyExc_ValueError, "Invalid sample_type");
       return NULL;
@@ -977,9 +1261,8 @@ static PyObject *
 Replier_send (ReplierObject *self, PyObject *args, PyObject *kwds)
 {
   return do_send (self->ctx, self->sample_type, (send_ci32_fn)dp_rep_send_ci32,
-                  (send_cf64_fn)dp_rep_send_cf64,
-                  (send_cf128_fn)dp_rep_send_cf128,
-                  (send_ci8_fn)dp_rep_send_ci8, (send_ci16_fn)dp_rep_send_ci16,
+                  (send_cf64_fn)dp_rep_send_cf64, (send_ci8_fn)dp_rep_send_ci8,
+                  (send_ci16_fn)dp_rep_send_ci16,
                   (send_cf32_fn)dp_rep_send_cf32, args, kwds);
 }
 
@@ -1043,6 +1326,76 @@ py_get_timestamp_ns (PyObject *self, PyObject *args)
   return PyLong_FromUnsignedLongLong (dp_get_timestamp_ns ());
 }
 
+/* mean_power(samples) -> float
+ *
+ * The same dp_mean_power() the C examples call, so the Python and C
+ * receivers report one number computed one way. The format comes from the
+ * array's dtype, which is what recv() set from the frame's own header. */
+static PyObject *
+py_mean_power (PyObject *self, PyObject *args)
+{
+  (void)self;
+  PyArrayObject *arr;
+  if (!PyArg_ParseTuple (args, "O!", &PyArray_Type, &arr))
+    return NULL;
+  if (!PyArray_IS_C_CONTIGUOUS (arr))
+    {
+      PyErr_SetString (PyExc_ValueError, "samples must be C-contiguous");
+      return NULL;
+    }
+
+  dp_sample_type_t fmt;
+  switch (PyArray_TYPE (arr))
+    {
+    case NPY_COMPLEX64:
+      fmt = CF32;
+      break;
+    case NPY_COMPLEX128:
+      fmt = CF64;
+      break;
+    case NPY_INT8:
+      fmt = CI8;
+      break;
+    case NPY_INT16:
+      fmt = CI16;
+      break;
+    case NPY_INT32:
+      fmt = CI32;
+      break;
+    default:
+      PyErr_SetString (PyExc_TypeError,
+                       "samples dtype is not a doppler wire format "
+                       "(complex64/complex128, or int8/int16/int32 "
+                       "interleaved I/Q)");
+      return NULL;
+    }
+
+  npy_intp n = PyArray_SIZE (arr);
+  if (fmt == CI8 || fmt == CI16 || fmt == CI32)
+    n /= 2; /* interleaved I/Q pairs */
+
+  double p;
+  void  *data = PyArray_DATA (arr);
+  Py_BEGIN_ALLOW_THREADS
+    ;
+    p = dp_mean_power (fmt, data, (size_t)n);
+  Py_END_ALLOW_THREADS;
+  return PyFloat_FromDouble (p);
+}
+
+/* format_name(code) -> str — the same dp_sample_type_str() the C face
+ * prints, so the two receivers name a format identically instead of each
+ * carrying a private code-to-name table. */
+static PyObject *
+py_format_name (PyObject *self, PyObject *args)
+{
+  (void)self;
+  int code;
+  if (!PyArg_ParseTuple (args, "i", &code))
+    return NULL;
+  return PyUnicode_FromString (dp_sample_type_str ((dp_sample_type_t)code));
+}
+
 /* =========================================================================
  * Module definition
  * ========================================================================= */
@@ -1051,6 +1404,67 @@ static PyMethodDef module_methods[] = {
   { "get_timestamp_ns", py_get_timestamp_ns, METH_NOARGS,
     "get_timestamp_ns() -> int\n"
     "Current wall-clock time in nanoseconds (CLOCK_REALTIME)." },
+  { "format_name", py_format_name, METH_VARARGS,
+    "format_name(code) -> str\n"
+    "\n"
+    "The name of a wire format code.\n"
+    "\n"
+    "The same ``dp_sample_type_str()`` the C face prints, so a Python\n"
+    "receiver names a format exactly as the C one does rather than\n"
+    "carrying a private code-to-name table.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "code : int\n"
+    "    A wire format, e.g. ``CF64``.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "str\n"
+    "    The format's name, or ``\"UNKNOWN\"`` for a code this build does\n"
+    "    not know.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.stream import format_name, CF64, CI8\n"
+    ">>> format_name(CF64), format_name(CI8)\n"
+    "('CF64', 'CI8')\n" },
+  { "mean_power", py_mean_power, METH_VARARGS,
+    "mean_power(samples) -> float\n"
+    "\n"
+    "Mean power of a complex sample block, normalised to full scale.\n"
+    "\n"
+    "``mean(|x|**2)``, with the integer formats divided by their full\n"
+    "scale first, so the answer means the same thing whatever the wire\n"
+    "carried and ``10*log10()`` of it is dBFS in every case. This is the\n"
+    "same ``dp_mean_power()`` the C examples call -- one implementation,\n"
+    "so the Python and C receivers cannot report different numbers for\n"
+    "one frame.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "samples : ndarray\n"
+    "    C-contiguous block: ``complex64``/``complex128``, or\n"
+    "    ``int8``/``int16``/``int32`` interleaved I/Q (length ``2*n``).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Mean power, 0.0 for an empty block.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "TypeError\n"
+    "    If the dtype is not one of the wire formats.\n"
+    "ValueError\n"
+    "    If ``samples`` is not C-contiguous.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.stream import mean_power\n"
+    ">>> mean_power(np.ones(4, dtype=np.complex64))\n"
+    "1.0\n" },
   { NULL },
 };
 
@@ -1112,11 +1526,18 @@ PyInit_stream (void)
 
   PyModule_AddIntConstant (m, "CI32", CI32);
   PyModule_AddIntConstant (m, "CF64", CF64);
-  PyModule_AddIntConstant (m, "CF128", CF128);
   PyModule_AddIntConstant (m, "CI8", CI8);
   PyModule_AddIntConstant (m, "CI16", CI16);
   PyModule_AddIntConstant (m, "CF32", CF32);
-  PyModule_AddIntConstant (m, "TLM16", TLM16);
+  PyModule_AddIntConstant (m, "TLM16", DP_KIND_TLM);
+
+  /* ONE flag per process. The NATS receive path checks dp_interrupted()
+     between slices, and this module is `no_generate`, so jm writes no
+     PyInit_ here to put its rendezvous in -- without this call a stop
+     requested through doppler.interrupt cannot end a recv() here
+     (doppler#976). */
+  if (!dp_interrupt_pyadopt (m))
+    return NULL;
 
   return m;
 }

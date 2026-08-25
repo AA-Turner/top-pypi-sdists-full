@@ -40,11 +40,14 @@ Example — feedback tool call::
         "params": {
             "name": "dcc_feedback__report",
             "arguments": {
-                "tool_name": "maya_geometry__create_sphere",
+                "phase": "dispatch",
+                "severity": "blocker",
+                "tool_slug": "maya_geometry__create_sphere",
                 "intent": "Create a 2 m radius sphere at the origin",
-                "attempt": "Passed radius=2.0 but got a unit sphere",
-                "blocker": "The radius parameter seems to be ignored",
-                "severity": "blocked"
+                "observed": "The radius parameter seems to be ignored",
+                "expected": "A sphere with radius 2.0 is created",
+                "repro": {"steps": ["Call create_sphere with radius=2.0"]},
+                "evidence": {"error_kind": "parameter_ignored"}
             }
         }
     }
@@ -54,6 +57,9 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
+import re
+import sys
 import threading
 import time
 from typing import Any
@@ -68,34 +74,129 @@ from dcc_mcp_core import json_dumps
 from dcc_mcp_core import json_loads
 from dcc_mcp_core._tool_registration import ToolSpec
 from dcc_mcp_core._tool_registration import register_tools
+from dcc_mcp_core._version_util import package_version
 from dcc_mcp_core.constants import CATEGORY_FEEDBACK
 from dcc_mcp_core.constants import ENV_GATEWAY_HOST
 from dcc_mcp_core.constants import ENV_GATEWAY_PORT
 from dcc_mcp_core.result_envelope import ToolResultEnvelope
+from dcc_mcp_core.schemas.finding import FindingRuntimeContext
+from dcc_mcp_core.schemas.finding import FindingValidationError
+from dcc_mcp_core.schemas.finding import build_finding_v1
+from dcc_mcp_core.schemas.finding import finding_tool_input_schema
+from dcc_mcp_core.schemas.finding import normalize_legacy_feedback
 
 logger = logging.getLogger(__name__)
 
 _MAX_FEEDBACK_ENTRIES = 500
+_DEFAULT_FEEDBACK_MAX_BYTES = 5 * 1024 * 1024
+_DEFAULT_FEEDBACK_BACKUP_COUNT = 4
 _DEFAULT_GATEWAY_HOST = "127.0.0.1"
 _DEFAULT_GATEWAY_PORT = 9765
 _GATEWAY_FEEDBACK_TIMEOUT_SECS = 5.0
 _GATEWAY_EVENTS_URI = "resources://gateway/events"
+_SAFE_FEEDBACK_PATH_SEGMENT = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+class FeedbackPersistenceError(RuntimeError):
+    """Raised when an enabled feedback store cannot durably append a record."""
+
+
+def feedback_store_path(
+    registry_dir: str | os.PathLike[str],
+    dcc_name: str,
+    pid: int,
+) -> Path:
+    """Return the per-process JSONL path for one DCC feedback store."""
+    raw_name = str(dcc_name).strip().replace("\\", "_").replace("/", "_").replace(":", "_")
+    safe_name = _SAFE_FEEDBACK_PATH_SEGMENT.sub("_", raw_name).strip("._-") or "dcc"
+    return Path(registry_dir).expanduser() / "feedback" / f"{safe_name[:96]}-{int(pid)}.jsonl"
 
 
 class FeedbackStore:
-    """Thread-safe bounded feedback state for one server instance."""
+    """Thread-safe bounded feedback state for one server instance.
 
-    def __init__(self, max_entries: int = _MAX_FEEDBACK_ENTRIES) -> None:
+    ``path`` enables a write-through JSONL mirror. Each append is flushed and
+    synced before the in-memory entry becomes visible. The active file and its
+    numbered backups remain bounded by ``max_bytes`` and ``backup_count``.
+    """
+
+    def __init__(
+        self,
+        max_entries: int = _MAX_FEEDBACK_ENTRIES,
+        *,
+        path: str | os.PathLike[str] | None = None,
+        max_bytes: int = _DEFAULT_FEEDBACK_MAX_BYTES,
+        backup_count: int = _DEFAULT_FEEDBACK_BACKUP_COUNT,
+    ) -> None:
         self._lock = threading.Lock()
         self._entries: list[dict[str, Any]] = []
         self._max_entries = max(1, int(max_entries))
+        self._path = Path(path).expanduser() if path is not None else None
+        self._max_bytes = int(max_bytes)
+        self._backup_count = int(backup_count)
+        if self._max_bytes <= 0:
+            raise ValueError("max_bytes must be greater than zero")
+        if self._backup_count <= 0:
+            raise ValueError("backup_count must be greater than zero")
+
+    @property
+    def path(self) -> Path | None:
+        """Return the configured JSONL path, if persistence is enabled."""
+        return self._path
+
+    def _backup_path(self, index: int) -> Path:
+        assert self._path is not None
+        return self._path.with_name(f"{self._path.name}.{index}")
+
+    def _rotate_unlocked(self) -> None:
+        assert self._path is not None
+        for index in range(self._backup_count - 1, 0, -1):
+            source = self._backup_path(index)
+            if source.exists():
+                source.replace(self._backup_path(index + 1))
+        if self._path.exists():
+            self._path.replace(self._backup_path(1))
+
+    def _persist_unlocked(self, entry: dict[str, Any]) -> None:
+        if self._path is None:
+            return
+        try:
+            record = (json_dumps(entry) + "\n").encode("utf-8")
+            if len(record) > self._max_bytes:
+                raise FeedbackPersistenceError(f"feedback entry size {len(record)} exceeds max_bytes={self._max_bytes}")
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            current_size = self._path.stat().st_size if self._path.exists() else 0
+            if current_size and current_size + len(record) > self._max_bytes:
+                self._rotate_unlocked()
+            with self._path.open("ab") as stream:
+                stream.write(record)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except FeedbackPersistenceError:
+            raise
+        except (OSError, TypeError, ValueError) as exc:
+            raise FeedbackPersistenceError(f"could not persist feedback to {self._path}: {exc}") from exc
 
     def append(self, entry: dict[str, Any]) -> None:
-        """Append one entry and evict the oldest overflow."""
+        """Durably append one entry and evict the oldest memory overflow."""
         with self._lock:
-            self._entries.append(dict(entry))
+            stored_entry = dict(entry)
+            self._persist_unlocked(stored_entry)
+            self._entries.append(stored_entry)
             if len(self._entries) > self._max_entries:
                 del self._entries[: len(self._entries) - self._max_entries]
+
+    def flush(self) -> None:
+        """Sync the active JSONL file, if one exists."""
+        with self._lock:
+            if self._path is None or not self._path.exists():
+                return
+            try:
+                with self._path.open("ab") as stream:
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except OSError as exc:
+                raise FeedbackPersistenceError(f"could not flush feedback at {self._path}: {exc}") from exc
 
     def recent(
         self,
@@ -265,7 +366,7 @@ def make_rationale_meta(rationale: str) -> dict[str, Any]:
 
 # ── Feedback tool schema ───────────────────────────────────────────────────
 
-_FEEDBACK_SCHEMA: dict[str, Any] = {
+_LEGACY_FEEDBACK_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "tool_name": {
@@ -302,16 +403,18 @@ _FEEDBACK_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+_FEEDBACK_SCHEMA: dict[str, Any] = {
+    "oneOf": [finding_tool_input_schema(), _LEGACY_FEEDBACK_SCHEMA],
+}
+
 _FEEDBACK_TOOL_DESCRIPTION = (
-    "Report when blocked, when a tool doesn't work as expected, or when a call "
-    "pattern fails. "
-    "When to use: call this after trying a tool and getting stuck so maintainers "
-    "can improve the skill. "
-    "How to use: set tool_name to the tool that failed, intent to your goal, "
-    "attempt to what you tried, blocker to where you got stuck, severity to "
-    "'blocked' / 'workaround_found' / 'suggestion'. The shared Core handler "
-    "forwards the report to the gateway; request_id and job_id may correlate "
-    "the failed operation."
+    "Report a bounded Finding v1 when installation, startup, dispatch, or a skill "
+    "is blocked, degraded, has a workaround, or suggests an improvement. Supply "
+    "phase, severity, intent, observed, expected, and exactly one repro.argv or "
+    "repro.steps list; identify the subject with tool_slug or evidence.error_kind. "
+    "Core auto-fills runtime versions, DCC identity, OS, fingerprint, and conservative "
+    "redaction status before forwarding to the gateway. The original tool_name / "
+    "blocker input remains accepted as a compatibility form."
 )
 
 
@@ -375,6 +478,7 @@ def _handle_gateway_feedback_report(
     dcc_name: str,
     gateway_endpoint: str | None,
     instance_id_provider: Callable[[], str | None] | None = None,
+    finding_context_provider: Callable[[], FindingRuntimeContext] | None = None,
     store: FeedbackStore | None = None,
 ) -> str:
     """Forward one compatibility-tool report to the gateway authority."""
@@ -390,12 +494,28 @@ def _handle_gateway_feedback_report(
             "gateway_feedback_unavailable",
         )
 
-    report = {
-        name: args[name]
-        for name in ("tool_name", "intent", "attempt", "blocker", "severity", "request_id", "job_id")
-        if name in args and args[name] is not None
-    }
-    report["dcc_type"] = dcc_name
+    try:
+        context = (
+            finding_context_provider() if finding_context_provider is not None else _default_finding_context(dcc_name)
+        )
+    except Exception as exc:
+        logger.warning("Could not resolve feedback finding context: %s", exc)
+        return _feedback_error(
+            "The adapter finding context is unavailable.",
+            "feedback_context_unavailable",
+        )
+    if not isinstance(context, FindingRuntimeContext) or context.dcc_type != dcc_name:
+        return _feedback_error(
+            "The adapter finding context does not match this DCC.",
+            "feedback_context_unavailable",
+        )
+
+    evidence = args.get("evidence", {})
+    if evidence is None:
+        evidence = {}
+    if not isinstance(evidence, dict):
+        return _feedback_error("evidence must be an object.", "invalid_input")
+    evidence = dict(evidence)
     if instance_id_provider is not None:
         try:
             instance_id = instance_id_provider()
@@ -410,7 +530,14 @@ def _handle_gateway_feedback_report(
                 "The adapter instance id is unavailable.",
                 "feedback_instance_unavailable",
             )
-        report["instance_id"] = str(instance_id)
+        evidence["instance_id"] = str(instance_id)
+
+    try:
+        authored = normalize_legacy_feedback(args) if "tool_name" in args else dict(args)
+        authored["evidence"] = {**authored.get("evidence", {}), **evidence}
+        report = build_finding_v1(authored, context)
+    except FindingValidationError as exc:
+        return _feedback_error(str(exc), "invalid_input")
 
     transport_request_id = str(uuid.uuid4())
     try:
@@ -472,24 +599,36 @@ def _handle_gateway_feedback_report(
         or event_resource_uri != _GATEWAY_EVENTS_URI
         or not isinstance(recorded_at, str)
         or not recorded_at
+        or payload.get("schema_version") != report["schema_version"]
+        or payload.get("fingerprint") != report["fingerprint"]
     ):
         return _feedback_error(
             "Gateway returned an invalid feedback receipt.",
             "gateway_feedback_invalid_receipt",
         )
 
-    _store_feedback(
-        {
-            "id": feedback_id,
-            "timestamp": time.time(),
-            **report,
-        },
-        store=store,
-    )
+    try:
+        _store_feedback(
+            {
+                "id": feedback_id,
+                "timestamp": time.time(),
+                **report,
+            },
+            store=store,
+        )
+    except FeedbackPersistenceError as exc:
+        logger.error("Gateway accepted feedback but the local JSONL mirror failed: %s", exc)
+        return _feedback_error(
+            "Feedback was accepted at the gateway, but local persistence failed.",
+            "feedback_persistence_failed",
+            feedback_id=feedback_id,
+            recorded_at=recorded_at,
+            event_resource_uri=event_resource_uri,
+        )
     logger.info(
         "dcc_feedback__report forwarded: id=%s tool=%s severity=%s",
         feedback_id,
-        report.get("tool_name", ""),
+        report.get("tool_slug", ""),
         report.get("severity", ""),
     )
     return ToolResultEnvelope.ok(
@@ -497,7 +636,25 @@ def _handle_gateway_feedback_report(
         feedback_id=feedback_id,
         recorded_at=recorded_at,
         event_resource_uri=event_resource_uri,
+        schema_version=report["schema_version"],
+        fingerprint=report["fingerprint"],
     ).to_json()
+
+
+def _default_finding_context(dcc_name: str) -> FindingRuntimeContext:
+    """Build a conservative identity for direct low-level registrations."""
+    adapter = "dcc-mcp-{}".format(
+        "".join(character.lower() if character.isalnum() else "-" for character in dcc_name).strip("-") or "dcc"
+    )
+    return FindingRuntimeContext(
+        dcc_type=dcc_name,
+        adapter=adapter,
+        adapter_version="unknown",
+        core_version=package_version(fallback="unknown", load_core=True),
+        host_version="unknown",
+        os=sys.platform,
+        owning_repo=f"dcc-mcp/{adapter}",
+    )
 
 
 def _handle_feedback_report(params: str, *, store: FeedbackStore | None = None) -> str:
@@ -516,7 +673,14 @@ def _handle_feedback_report(params: str, *, store: FeedbackStore | None = None) 
         "blocker": args.get("blocker", ""),
         "severity": args.get("severity", "blocked"),
     }
-    _store_feedback(entry, store=store)
+    try:
+        _store_feedback(entry, store=store)
+    except FeedbackPersistenceError as exc:
+        logger.error("Could not persist feedback: %s", exc)
+        return _feedback_error(
+            "Feedback could not be persisted.",
+            "feedback_persistence_failed",
+        )
     logger.info(
         "dcc_feedback__report: id=%s tool=%s severity=%s",
         entry["id"],
@@ -538,6 +702,7 @@ def register_feedback_tool(
     gateway_host: str | None = None,
     gateway_port: int | None = None,
     instance_id_provider: Callable[[], str | None] | None = None,
+    finding_context_provider: Callable[[], FindingRuntimeContext] | None = None,
 ) -> None:
     """Register the ``dcc_feedback__report`` MCP tool on *server*.
 
@@ -563,6 +728,8 @@ def register_feedback_tool(
         Optional configured gateway port; ``0`` disables the forwarder.
     instance_id_provider:
         Optional late-bound provider for the live adapter instance id.
+    finding_context_provider:
+        Optional late-bound provider for runtime-owned Finding v1 identity.
 
     Example
     -------
@@ -591,6 +758,7 @@ def register_feedback_tool(
             dcc_name=dcc_name,
             gateway_endpoint=resolved_endpoint,
             instance_id_provider=instance_id_provider,
+            finding_context_provider=finding_context_provider,
             store=store,
         )
         try:
@@ -618,9 +786,11 @@ def register_feedback_tool(
 # ── Public API ─────────────────────────────────────────────────────────────
 
 __all__ = [
+    "FeedbackPersistenceError",
     "FeedbackStore",
     "clear_feedback",
     "extract_rationale",
+    "feedback_store_path",
     "get_default_feedback_store",
     "get_feedback_entries",
     "make_rationale_meta",

@@ -121,6 +121,7 @@ docs = [
   "sphinx-autodoc-typehints>=3.6.2",
   "sphinx-copybutton>=0.5.2",
   "sphinx-inline-tabs>=2025.12.21.14",
+  "sphinx-llm>=0.4.1",
   "sphinxcontrib-mermaid>=2",
   "sphinxcontrib-towncrier>=0.2.1a0",
   "towncrier>=23.6",
@@ -225,15 +226,15 @@ ini_options.env = [
 ini_options.timeout = 120
 
 [tool.coverage]
-run.dynamic_context = "test_function"
-run.parallel = true
-run.plugins = [
-  "covdefaults",
-]
-run.relative_files = true
 run.source = [
   "${_COVERAGE_SRC}",
   "tests",
+]
+run.dynamic_context = "test_function"
+run.parallel = true
+run.relative_files = true
+run.plugins = [
+  "covdefaults",
 ]
 paths.source = [
   "src",

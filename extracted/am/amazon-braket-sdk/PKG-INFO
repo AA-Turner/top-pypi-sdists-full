@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-sdk
-Version: 1.125.0
+Version: 1.126.0
 Summary: An open source library for interacting with quantum computing devices on Amazon Braket
 Author: Amazon Web Services
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: amazon-braket-schemas>=1.27.0
+Requires-Dist: amazon-braket-schemas>=1.30.0
 Requires-Dist: amazon-braket-default-simulator>=1.32.0
 Requires-Dist: oqpy~=0.3.7
 Requires-Dist: backoff
@@ -39,6 +39,9 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-rerunfailures<16.0; extra == "test"
 Requires-Dist: pytest-xdist[psutil]; extra == "test"
+Provides-Extra: type-check
+Requires-Dist: mypy==2.3.0; extra == "type-check"
+Requires-Dist: numpy==2.4.6; extra == "type-check"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"

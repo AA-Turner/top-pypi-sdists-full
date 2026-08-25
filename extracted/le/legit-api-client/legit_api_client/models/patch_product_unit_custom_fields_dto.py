@@ -74,8 +74,7 @@ class PatchProductUnitCustomFieldsDto(BaseModel):
         _items = []
         if self.by_field_ids:
             for _item_by_field_ids in self.by_field_ids:
-                if _item_by_field_ids:
-                    _items.append(_item_by_field_ids.to_dict())
+                _items.append(_item_by_field_ids.to_dict() if _item_by_field_ids is not None else None)
             _dict['byFieldIds'] = _items
         return _dict
 

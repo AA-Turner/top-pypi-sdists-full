@@ -9,9 +9,10 @@ The redis caching backend.
 :license: BSD, see LICENSE for more details.
 """
 
-import pickle
+from typing import Any
 
 from cachelib import RedisCache as CachelibRedisCache
+from flask import Flask
 
 from flask_caching.backends.base import BaseCache
 
@@ -26,7 +27,7 @@ class RedisCache(BaseCache, CachelibRedisCache):
     the fly.
 
     :param host: address of the Redis server or an object which API is
-                 compatible with the official Python Redis client (redis-py).
+        compatible with the official Python Redis client (``redis-py``).
     :param port: port number on which Redis server listens for connections.
     :param password: password authentication for the Redis server.
     :param db: db (zero-based numeric index) on Redis Server to connect.
@@ -34,21 +35,25 @@ class RedisCache(BaseCache, CachelibRedisCache):
                             specified on :meth:`~BaseCache.set`. A timeout of
                             0 indicates that the cache never expires.
     :param key_prefix: A prefix that should be added to all keys.
+    :param ignore_delete_many_errors: If set to ``False`` the ``delete_many``
+                                      method raises a ``RuntimeError`` in case
+                                      a key couldn't be deleted.
+                                      Defaults to ``False``.
 
     Any additional keyword arguments will be passed to ``redis.Redis``.
     """
 
     def __init__(
         self,
-        host="localhost",
-        port=6379,
-        password=None,
-        db=0,
-        default_timeout=300,
-        key_prefix=None,
-        **kwargs,
-    ):
-        BaseCache.__init__(self, default_timeout=default_timeout)
+        host: Any = "localhost",
+        port: int = 6379,
+        password: str | None = None,
+        db: int = 0,
+        default_timeout: int = 300,
+        key_prefix: str | None = None,
+        ignore_delete_many_errors: bool = False,
+        **kwargs: Any,
+    ) -> None:
         CachelibRedisCache.__init__(
             self,
             host=host,
@@ -57,11 +62,18 @@ class RedisCache(BaseCache, CachelibRedisCache):
             db=db,
             default_timeout=default_timeout,
             key_prefix=key_prefix,
+            ignore_delete_many_errors=ignore_delete_many_errors,
             **kwargs,
         )
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "RedisCache":
         try:
             from redis import from_url as redis_from_url
         except ImportError as e:
@@ -93,21 +105,13 @@ class RedisCache(BaseCache, CachelibRedisCache):
 
         return new_class
 
-    def dump_object(self, value):
-        """Dumps an object into a string for redis.  By default it serializes
-        integers as regular string and pickle dumps everything else.
-        """
-        t = type(value)
-        if isinstance(t, int):
-            return str(value).encode("ascii")
-        return b"!" + pickle.dumps(value)
-
-    def unlink(self, *keys):
+    def unlink(self, *keys: str) -> Any:
         """when redis-py >= 3.0.0 and redis > 4, support this operation"""
         if not keys:
-            return
-        if self.key_prefix:
-            keys = [self.key_prefix + key for key in keys]
+            return None
+        prefix = self._get_prefix()
+        if prefix:
+            keys = tuple(prefix + key for key in keys)
 
         unlink = getattr(self._write_client, "unlink", None)
         if unlink is not None and callable(unlink):
@@ -133,6 +137,10 @@ class RedisSentinelCache(RedisCache):
                             specified on :meth:`~BaseCache.set`. A timeout of
                             0 indicates that the cache never expires.
     :param key_prefix: A prefix that should be added to all keys.
+    :param ignore_delete_many_errors: If set to ``False`` the ``delete_many``
+                                      method raises a ``RuntimeError`` in case
+                                      a key couldn't be deleted.
+                                      Defaults to ``False``.
 
     Any additional keyword arguments will be passed to
     ``redis.sentinel.Sentinel``.
@@ -140,16 +148,15 @@ class RedisSentinelCache(RedisCache):
 
     def __init__(
         self,
-        sentinels=None,
-        master=None,
-        password=None,
-        db=0,
-        default_timeout=300,
-        key_prefix="",
-        **kwargs,
-    ):
-        super().__init__(key_prefix=key_prefix, default_timeout=default_timeout)
-
+        sentinels: Any = None,
+        master: str = "mymaster",
+        password: str | None = None,
+        db: int = 0,
+        default_timeout: int = 300,
+        key_prefix: str = "",
+        ignore_delete_many_errors: bool = False,
+        **kwargs: Any,
+    ) -> None:
         try:
             import redis.sentinel
         except ImportError as e:
@@ -178,11 +185,26 @@ class RedisSentinelCache(RedisCache):
             **kwargs,
         )
 
-        self._write_client = sentinel.master_for(master)
-        self._read_client = sentinel.slave_for(master)
+        write_client = sentinel.master_for(master)
+        read_client = sentinel.slave_for(master)
+
+        super().__init__(
+            host=write_client,
+            key_prefix=key_prefix,
+            default_timeout=default_timeout,
+            ignore_delete_many_errors=ignore_delete_many_errors,
+        )
+
+        self._read_client = read_client
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "RedisSentinelCache":
         kwargs.update(
             dict(
                 sentinels=config.get("CACHE_REDIS_SENTINELS", [("127.0.0.1", 26379)]),
@@ -215,16 +237,24 @@ class RedisClusterCache(RedisCache):
                             specified on :meth:`~BaseCache.set`. A timeout of
                             0 indicates that the cache never expires.
     :param key_prefix: A prefix that should be added to all keys.
+    :param ignore_delete_many_errors: If set to ``False`` the ``delete_many``
+                                      method raises a ``RuntimeError`` in case
+                                      a key couldn't be deleted.
+                                      Defaults to ``False``.
 
     Any additional keyword arguments will be passed to
     ``rediscluster.RedisCluster``.
     """
 
     def __init__(
-        self, cluster="", password="", default_timeout=300, key_prefix="", **kwargs
-    ):
-        super().__init__(key_prefix=key_prefix, default_timeout=default_timeout)
-
+        self,
+        cluster: Any = "",
+        password: str = "",
+        default_timeout: int = 300,
+        key_prefix: str = "",
+        ignore_delete_many_errors: bool = False,
+        **kwargs: Any,
+    ) -> None:
         if kwargs.get("decode_responses", None):
             raise ValueError("decode_responses is not supported by RedisCache.")
 
@@ -243,7 +273,7 @@ class RedisClusterCache(RedisCache):
             try:
                 nodes = [(node.split(":")) for node in cluster.split(",")]
                 startup_nodes = [
-                    ClusterNode(node[0].strip(), node[1].strip()) for node in nodes
+                    ClusterNode(node[0].strip(), int(node[1].strip())) for node in nodes
                 ]
             except IndexError as e:
                 raise ValueError(
@@ -262,11 +292,21 @@ class RedisClusterCache(RedisCache):
                 **kwargs,
             )
 
-        self._write_client = cluster
-        self._read_client = cluster
+        super().__init__(
+            host=cluster,
+            key_prefix=key_prefix,
+            default_timeout=default_timeout,
+            ignore_delete_many_errors=ignore_delete_many_errors,
+        )
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "RedisClusterCache":
         kwargs.update(
             dict(
                 cluster=config.get("CACHE_REDIS_CLUSTER", ""),

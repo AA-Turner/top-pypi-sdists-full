@@ -19,13 +19,13 @@ from verifiers.v1.clients import (
     ModelContext,
 )
 from verifiers.v1.configs.agent import AgentConfig, TimeoutConfig
+from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.dialects import parse_message
 from verifiers.v1.harness import Harness
 from verifiers.v1.interception import Interception, InterceptionServer
 from verifiers.v1.mcp import SharedToolServer
 from verifiers.v1.rollout import Rollout, RolloutTimeouts
 from verifiers.v1.runtimes import (
-    NetworkPolicyConfig,
     Runtime,
     RuntimeConfig,
     SubprocessConfig,
@@ -332,16 +332,20 @@ class Agent:
         return None
 
     def _check_resume_support(self) -> None:
-        # Multi-turn capability is a derived fact, not a flag: an exchange advances
-        # by resuming the harness onto the conversation, so the harness needs either
-        # the default relaunch (a Messages prompt) or its own native continuation.
+        # Multi-turn capability is derived: a harness needs transcript replay, a
+        # native resume implementation, or a rollout-scoped session implementation.
         harness = self.harness
-        if type(harness).resume is Harness.resume and not harness.SUPPORTS_RESUME:
+        if (
+            type(harness).session is Harness.session
+            and type(harness).resume is Harness.resume
+            and not harness.SUPPORTS_RESUME
+        ):
             raise ValueError(
                 f"Harness {harness.config.id!r} cannot host a user: resuming an "
                 "exchange takes transcript-backed resume (SUPPORTS_RESUME) for the "
-                "default relaunch-on-the-conversation, or a native resume() "
-                "override. Use a harness that has one (e.g. bash or null)."
+                "default relaunch-on-the-conversation, a native resume() override, "
+                "or a rollout-scoped session() override. Use a harness that has "
+                "one (e.g. bash or null)."
             )
 
     async def run(
@@ -461,15 +465,11 @@ class Agent:
         interaction = Interaction(run, gate=self._gate)
         async with self._gate or nullcontext():
             opened = await run.open()
-            if not opened:
+            if not opened and (failure := run.failure) is not None:
                 trace = await run.close()
                 if trace.agent.runtime is not None:
                     trace.agent.runtime.borrowed = runtime is not None
-        if not opened:
-            failure = run.failure
-            if failure is None:  # `open()` returning False always captures one.
-                raise RuntimeError("rollout setup failed without a captured error")
-            raise failure
+                raise failure
         try:
             yield interaction
         except Exception as e:
@@ -548,6 +548,8 @@ class Agent:
             else self.runtime_config
         )
         async with provision_runtime(config) as runtime:
+            # Keep sandbox startup task-neutral: this box may later host another task.
+            runtime.env = dict(task.runtime_env()) if task is not None else {}
             yield runtime
 
 

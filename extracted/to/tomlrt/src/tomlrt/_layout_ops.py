@@ -12,9 +12,10 @@ Design notes:
   direct KV insert's ref goes immediately after the anchor's ref (or
   at the front), not blindly at the tail where child-section refs may
   already sit.
-* ``c._body_tail`` is incremental: O(1) on insert, O(len(c._refs)) only
-  when deleting the current tail. It also answers "what is ``c``'s
-  last body KV?" (`_last_body_kv`), so no insert has to search for one.
+* ``c._body_tail`` is incremental: O(1) on insert, and on deleting the
+  current tail a bisect plus a walk back over ``c``'s own body. It also
+  answers "what is ``c``'s last body KV?" (`_last_body_kv`), so no
+  insert has to search for one.
 * A non-dotted direct KV files exactly one ref on its host container;
   ancestors are unaffected.
 """
@@ -27,7 +28,7 @@ import copy
 import itertools
 import operator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 from tomlrt import _array, _container
 from tomlrt._comment_text import _split_attached_block
@@ -770,6 +771,7 @@ def _invalidate_body_tail_chain(
     owned_slots: set[Slot] | None,
     *,
     min_depth: int = 0,
+    departing: bool = False,
 ) -> None:
     """Recompute invalidated ``_body_tail`` values on the path to root.
 
@@ -778,6 +780,11 @@ def _invalidate_body_tail_chain(
     ``owned_slots`` of ``None`` means "every cached tail is suspect" —
     used after a block move, which can hand a container a later body
     slot than the one it was caching.
+
+    ``departing`` says the named slots are leaving, so a tail among
+    them can only be replaced by an earlier body slot and each
+    recompute can bound its search there. A reorder keeps its slots and
+    can promote a later one, so it leaves this alone.
 
     Stops once ``len(cc._path) < min_depth``: an ancestor at depth
     ``d`` cannot have its body_tail point at a slot whose minimum
@@ -788,7 +795,9 @@ def _invalidate_body_tail_chain(
     while cur is not None and len(cur._path) >= min_depth:  # noqa: SLF001
         tail = cur._body_tail  # noqa: SLF001
         if tail is not None and (owned_slots is None or tail in owned_slots):
-            cur._body_tail = _recompute_body_tail(cur)  # noqa: SLF001
+            cur._body_tail = _recompute_body_tail(  # noqa: SLF001
+                cur, below=tail if departing else None
+            )
         cur = cur._parent  # noqa: SLF001
 
 
@@ -1094,7 +1103,7 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
         d = len(s.host_path) if isinstance(s, KVSlot) else 0
         if d < min_owned_depth:
             min_owned_depth = d
-    _invalidate_body_tail_chain(c, owned_ids, min_depth=min_owned_depth)
+    _invalidate_body_tail_chain(c, owned_ids, min_depth=min_owned_depth, departing=True)
 
     # Unlink owned slots; transplant user-referenced subtrees to an
     # orphan Document so clone/re-install can still read the full CST.
@@ -1557,12 +1566,17 @@ def _ensure_leading_blank_line(slot: Slot, doc: Document) -> None:
     slot.leading = doc._newline + slot.leading  # noqa: SLF001
 
 
-def _recompute_body_tail(c: Container) -> Slot | None:
+def _recompute_body_tail(c: Container, *, below: Slot | None = None) -> Slot | None:
     """Last body-region ref's slot in ``c._refs`` (mirrors invariants rule).
 
     The one query the ``_body_tail`` cache cannot answer, and so the
     only reverse walk of ``c._refs``: it runs exactly when the cache
     has been invalidated by a delete or a move.
+
+    ``below`` is the departing tail. It held the latest body slot, so
+    nothing past it in ``_refs`` is one and the walk starts from its
+    place instead of the end — bisected, because the refs past it are
+    child headers, of which there can be any number.
 
     No host-path filter is needed: a KV's refs propagate from its host
     container *down* its dotted path, so a KV under ``[a.b]`` is filed
@@ -1570,9 +1584,12 @@ def _recompute_body_tail(c: Container) -> Slot | None:
     sees KVs hosted at its own path, and an implicit dotted container —
     the one shape that does see foreign-host KVs — wants them all.
     """
+    refs = c._refs  # noqa: SLF001
+    i = len(refs) if below is None else _ordered_index(refs, below._order)  # noqa: SLF001
     owner = c._owner_aot_entry  # noqa: SLF001
-    for ref in reversed(c._refs):  # noqa: SLF001
-        s = ref.slot
+    while i:
+        i -= 1
+        s = refs[i].slot
         if isinstance(s, KVSlot) and s.owner_aot_entry is owner:
             return s
     if c._header_ref is not None:  # noqa: SLF001
@@ -1915,7 +1932,7 @@ def _consume_first_entry_placeholder(aot: AoT, ordinal: int) -> None:
     slot = ref.slot
     _scrub_owned_slots_via_backptrs([slot])
     min_depth = len(slot.host_path) if isinstance(slot, KVSlot) else 0
-    _invalidate_body_tail_chain(parent, {slot}, min_depth=min_depth)
+    _invalidate_body_tail_chain(parent, {slot}, min_depth=min_depth, departing=True)
     unlink_slot(slot, doc)
 
 
@@ -2332,6 +2349,65 @@ def _gather_subtree_slots(src_table: Container) -> list[Slot]:
     return _owned_slots_from(src_table, src_table._header_ref.slot)  # noqa: SLF001
 
 
+def clone_graft_slots(
+    view: Container | AoT,
+    *,
+    target_path: tuple[str, ...],
+    host_path: tuple[str, ...],
+    owner: AoTEntry | None,
+    nl: str,
+) -> list[Slot]:
+    """Deep-clone ``view``'s block, rebased to ``target_path``.
+
+    The clone comes back unlinked, for a caller writing a slot run of
+    its own; the source is left exactly as it was. Every ``[[..]]``
+    header in it gets a fresh `AoTEntry`, so an array-of-tables keeps
+    one entry per header and a section that was itself an entry becomes
+    a plain ``[table]``. ``host_path`` hosts the dotted keys of a
+    header-less section — see :func:`_clone_entry_slots`.
+    """
+    own_header = (
+        view._header_ref.slot  # noqa: SLF001
+        if isinstance(view, _container.Container) and view._header_ref is not None  # noqa: SLF001
+        else None
+    )
+    cloned, _head = _clone_entry_slots(
+        owned_slots(view),
+        new_entry=None,
+        body_owner=owner,
+        src_prefix=view._path,  # noqa: SLF001
+        target_prefix=target_path,
+        dst_newline=nl,
+        head=own_header,
+        host_path=host_path,
+    )
+    return cloned
+
+
+def owned_slots(view: Container | AoT) -> list[Slot]:
+    """Every slot ``view``'s block spans, in doc-stream order.
+
+    Any shape: headered or not, an array-of-tables, a whole document.
+
+    A container's block need not begin at its own header — a
+    forward-declared descendant (``[a.b]`` before ``[a]``) comes
+    earlier — but every slot in it records a ref on the container,
+    either as its own header or as an ancestor step of a descendant's,
+    so ``_refs`` in doc-stream order starts where the block does.
+    """
+    if isinstance(view, _array.AoT):
+        return [s for entry in view for s in _gather_subtree_slots(entry)]
+    if isinstance(view, _container.Document):
+        slots: list[Slot] = []
+        cur = view._head  # noqa: SLF001
+        while cur is not None:
+            slots.append(cur)
+            cur = cur._next  # noqa: SLF001
+        return slots
+    assert view._refs, "an attached view spans at least one slot"  # noqa: SLF001
+    return _owned_slots_from(view, view._refs[0].slot)  # noqa: SLF001
+
+
 def _gather_headered_subtree_slots(
     src_table: Container,
 ) -> tuple[StructuralHeaderSlot, list[Slot]]:
@@ -2620,7 +2696,7 @@ def _unfile_stale_same_orphan_ancestors(
             if id(ref.container) in stale_container_ids:
                 unfile_ref(ref)
                 unfiled.add(slot)
-    _invalidate_body_tail_chain(old_parent, unfiled)
+    _invalidate_body_tail_chain(old_parent, unfiled, departing=True)
 
 
 def adopt_private_section(
@@ -2944,6 +3020,7 @@ def _clone_entry_slots(
     target_prefix: tuple[str, ...],
     dst_newline: str,
     head: Slot | None = None,
+    host_path: tuple[str, ...] | None = None,
 ) -> tuple[list[Slot], StructuralHeaderSlot | None]:
     r"""Deep-clone an entry's slot list with path/owner rebasing.
 
@@ -2967,8 +3044,13 @@ def _clone_entry_slots(
 
     A KV hosted *above* ``src_prefix`` — a header-less section's own
     dotted key — cannot be rebased by path, and is re-hosted at
-    ``target_prefix`` instead.
+    ``host_path`` instead, which defaults to ``target_prefix``. A clone
+    that lands under a header of its own wants that default; one that
+    stays header-less, spelled by dotted keys, wants the enclosing
+    section that will host them.
     """
+    if host_path is None:
+        host_path = target_prefix
     nested_entry_map: dict[AoTEntry, AoTEntry] = {}
     if head is not None and new_entry is not None:
         assert isinstance(head, StructuralHeaderSlot)
@@ -2988,7 +3070,7 @@ def _clone_entry_slots(
         c._prev = None  # noqa: SLF001
         c._next = None  # noqa: SLF001
         _rebase_implicit_slot_in_place(
-            c, src_prefix, target_prefix, target_prefix, dst_newline
+            c, src_prefix, target_prefix, host_path, dst_newline
         )
         src_owner = s.owner_aot_entry
         mapped = nested_entry_map.get(src_owner) if src_owner else None
@@ -3147,42 +3229,45 @@ def _aot_append_anchor(aot: AoT) -> Slot | None:
     return _nearest_header_host_tail(parent)
 
 
-_PopT = TypeVar("_PopT")
+def _unfile_ordered(refs: list[SlotRef], ref: SlotRef) -> None:
+    """Drop ``ref`` from a doc-ordered projection.
 
+    A bulk scrub eats a projection from one end or the other, so both
+    ends are tried before bisecting for the ref's order key. Bisecting
+    is what keeps a delete from the middle off a scan of ``c._refs``,
+    which runs to the size of the container's subtree.
 
-def _pop_or_remove(lst: list[_PopT], item: _PopT) -> None:
-    """O(1) pop if ``item`` is at the tail; else C-level ``list.remove``.
-
-    Both branches are C-implemented; the tail check avoids an
-    O(N) scan when the caller is consuming a list in reverse
-    (the common case for batched scrubs).
+    ``pop`` rather than ``del refs[i]``: both shift the same tail, but
+    the subscript form is measurably slower, four-fold on CPython 3.14.
     """
-    if lst[-1] is item:
-        lst.pop()
-    else:
-        lst.remove(item)
+    if refs[-1] is ref:
+        refs.pop()
+        return
+    i = 0 if refs[0] is ref else _ordered_index(refs, ref.slot._order)  # noqa: SLF001
+    assert refs[i] is ref, "ref must be filed in its slot's order"
+    refs.pop(i)
 
 
 def unfile_ref(ref: SlotRef) -> None:
     """Remove ``ref`` from its container's ``_refs``/``_index`` and from ``slot._refs``.
 
-    Each affected list uses the tail-fast-path via
-    `_pop_or_remove`. Also clears ``container._header_ref`` if the
-    ref was the container's own-header ref.
+    Also clears ``container._header_ref`` if the ref was the
+    container's own-header ref.
     """
     c = ref.container
     assert not c._inline, "inline containers do not file refs"  # noqa: SLF001
-    _pop_or_remove(c._refs, ref)  # noqa: SLF001
+    _unfile_ordered(c._refs, ref)  # noqa: SLF001
     local_key = ref.local_key
     if local_key is None:
         assert c._header_ref is ref  # noqa: SLF001
         c._header_ref = None  # noqa: SLF001
     else:
         bucket = c._index[local_key]  # noqa: SLF001
-        _pop_or_remove(bucket, ref)
+        _unfile_ordered(bucket, ref)
         if not bucket:
             del c._index[local_key]  # noqa: SLF001
-    _pop_or_remove(ref.slot._refs, ref)  # noqa: SLF001
+    # Back-pointers are unordered, and bounded by path depth.
+    ref.slot._refs.remove(ref)  # noqa: SLF001
 
 
 def _scrub_owned_slots_via_backptrs(
@@ -3266,14 +3351,15 @@ def remove_aot_entries(aot: AoT, indices: Iterable[int]) -> list[Table]:
     union_owned: set[Slot] = set(union_owned_ordered)
     assert len(union_owned) == len(union_owned_ordered)
 
-    # Reverse order lets unfile_ref use the tail fast path in each cache.
+    # Reverse order unfiles as late in each cache as it can, so every
+    # deletion shifts as little as possible.
     _scrub_owned_slots_via_backptrs(reversed(union_owned_ordered))
 
     # Body-tail invalidation on the parent chain, walking all the way to
     # the doc root: the popped slots' min bottom-depth is 0 (every popped
     # AoT entry includes a header), and a binding ref to an AoT entry
     # header lives at every prefix container.
-    _invalidate_body_tail_chain(parent, union_owned)
+    _invalidate_body_tail_chain(parent, union_owned, departing=True)
 
     for owned in owned_per_entry:
         # Unlink in reverse order so the entry's leftmost slot (the

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spmd_types"
-version = "0.2.4"
+version = "0.2.5"
 description = "A type system for distributed (SPMD) tensor computations in PyTorch"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -48,3 +48,10 @@ quote-style = "double"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["*_test.py"]
+
+[tool.test-selector.extra-deps]
+
+# BEGIN GENERATED buck-manual-deps -- do not edit by hand
+# Regenerate: export_buck_manual_deps.py
+"spmd_types/__init__.py" = ["../ops/interfaces/attn/triton_attention_fp32.py", "../ops/interfaces/gemm/gemm.py"]
+# END GENERATED buck-manual-deps

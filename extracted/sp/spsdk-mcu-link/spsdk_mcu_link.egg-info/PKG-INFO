@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spsdk_mcu_link
-Version: 0.6.9
+Version: 0.6.14
 Summary: SPSDK MCU-Link. A debugger probe plugin for SPSDK supporting LPC-Link/MCU-Link from NXP.
 Author: NXP
 Maintainer-email: Kelnar Michal <michal.kelnar@nxp.com>
@@ -13,17 +13,17 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wasmtime~=24.0.0
 Requires-Dist: pyusb~=1.3.1
-Requires-Dist: hidapi~=0.14.0.post2
+Requires-Dist: hidapi<0.16,>=0.15
 Requires-Dist: libusb_package
 Requires-Dist: spsdk<4,>=3.10.0.dev0
 Dynamic: license-file
@@ -45,6 +45,8 @@ Dynamic: license-file
     * Debug session management
     * SWD/JTAG interface support
     * Integration with SPSDK tools
+
+    Debug probe protocol can be selected in SPSDK applications with `-dp swd` or `-dp jtag`.
 
     Installation
     ------------

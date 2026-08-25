@@ -4,10 +4,9 @@
 #
 
 # pylint: disable=line-too-long, arguments-differ, redefined-builtin
-# ruff: noqa: E501
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -17,7 +16,7 @@ from pontos.errors import PontosError
 from pontos.models import ModelError
 from pontos.nvd.api import now
 from pontos.nvd.cpe_match.api import MAX_CPE_MATCHES_PER_PAGE, CPEMatchApi
-from tests import AsyncMock, IsolatedAsyncioTestCase, aiter, anext
+from tests import AsyncMock, IsolatedAsyncioTestCase
 from tests.nvd import get_cpe_match_data
 
 
@@ -31,14 +30,16 @@ def uuid_replace(uuid: UUID, iteration: int, number: int) -> UUID:
 
 
 def generate_cpe_name(iteration: int, number: int) -> str:
-    return f"cpe:2.3:a:acme:test-app:1.{iteration-1}.{number-1}:*:*:*:*:*:*:*"
+    return (
+        f"cpe:2.3:a:acme:test-app:1.{iteration - 1}.{number - 1}:*:*:*:*:*:*:*"
+    )
 
 
 def create_cpe_match_response(
     match_criteria_id: UUID,
     cpe_name_id: UUID,
     *,
-    update: Optional[dict[str, Any]] = None,
+    update: dict[str, Any] | None = None,
     results: int = 1,
     iteration: int = 1,
 ) -> MagicMock:
@@ -403,7 +404,7 @@ class CPEMatchApiTestCase(IsolatedAsyncioTestCase):
         )
         self.http_client.get.assert_not_called()
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             cpe_match = await anext(it)
 
     async def test_cpe_match_caching(self):
@@ -535,7 +536,7 @@ class CPEMatchApiWithTokenTestCase(IsolatedAsyncioTestCase):
         )
         self.http_client.get.assert_not_called()
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             cpe_match = await anext(it)
 
     @patch("pontos.nvd.api.time.monotonic", autospec=True)

@@ -47,6 +47,8 @@ from .type_defs import (
     GetDictionaryResponseTypeDef,
     GetFeedRequestTypeDef,
     GetFeedResponseTypeDef,
+    GetFixtureRequestTypeDef,
+    GetFixtureResponseTypeDef,
     ListDictionariesRequestTypeDef,
     ListDictionariesResponseTypeDef,
     ListFeedsRequestTypeDef,
@@ -203,6 +205,15 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_feed.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_feed)
+        """
+
+    def get_fixture(self, **kwargs: Unpack[GetFixtureRequestTypeDef]) -> GetFixtureResponseTypeDef:
+        """
+        Retrieves information about the specified fixture (a sports event, such as a
+        specific basketball game).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_fixture.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_fixture)
         """
 
     def list_dictionaries(

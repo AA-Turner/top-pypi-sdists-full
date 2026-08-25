@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class SearchEffortLevel(str, Enum):
     """
-    Public effort taxonomy for search and answer. FAST is the default. INSTANT serves cached embeds without a new data retrieval and works in all environments. DEEP widens Tako retrieval and adds an LLM rerank for higher-quality results; it is slower and bills at a premium tier.
+    Public effort taxonomy for search and answer. FAST is the default. INSTANT serves cached embeds without a new data retrieval and works in all environments. On /v1/answer it also writes the answer with the fastest synthesis model, so it trades answer quality for latency. On /v1/answer FAST and DEEP both write the answer with a stronger model. DEEP also widens Tako retrieval and adds an LLM rerank for higher-quality results; it's slower and bills at a premium tier.
     """
 
     """

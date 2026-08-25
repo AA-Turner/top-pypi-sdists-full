@@ -10,7 +10,7 @@ maintainers = [
     {name = "Felix Dittrich"},
 ]
 readme = "README.md"
-requires-python = ">=3.10.0,<4"
+requires-python = ">=3.11.0,<4"
 license = {file = "LICENSE"}
 keywords=["OCR", "deep learning", "computer vision", "onnx", "text detection", "text recognition", "docTR", "document analysis", "document processing", "document AI"]
 classifiers=[
@@ -22,9 +22,9 @@ classifiers=[
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = ["version"]
@@ -47,27 +47,27 @@ dependencies = [
 [project.optional-dependencies]
 cpu = [
     "onnxruntime>=1.18.0",
-    "opencv-python>=4.5.0,<5.0.0",
+    "opencv-python>=4.5.0,<6.0.0",
 ]
 gpu = [
     "onnxruntime-gpu>=1.18.0",
-    "opencv-python>=4.5.0,<5.0.0",
+    "opencv-python>=4.5.0,<6.0.0",
 ]
 openvino = [
     "onnxruntime-openvino>=1.18.0",
-    "opencv-python>=4.5.0,<5.0.0",
+    "opencv-python>=4.5.0,<6.0.0",
 ]
 cpu-headless = [
     "onnxruntime>=1.18.0",
-    "opencv-python-headless>=4.5.0,<5.0.0",
+    "opencv-python-headless>=4.5.0,<6.0.0",
 ]
 gpu-headless = [
     "onnxruntime-gpu>=1.18.0",
-    "opencv-python-headless>=4.5.0,<5.0.0",
+    "opencv-python-headless>=4.5.0,<6.0.0",
 ]
 openvino-headless = [
     "onnxruntime-openvino>=1.18.0",
-    "opencv-python-headless>=4.5.0,<5.0.0",
+    "opencv-python-headless>=4.5.0,<6.0.0",
 ]
 html = [
     "weasyprint>=55.0",
@@ -82,6 +82,8 @@ testing = [
     "requests>=2.20.0",
     "pytest-memray>=1.7.0",
     "psutil>=7.0.0",
+    "onnx>=1.18.0",
+    "pandas>=2.0.0",
 ]
 quality = [
     "ruff>=0.1.5",
@@ -91,7 +93,7 @@ quality = [
 dev = [
     # Runtime
     "onnxruntime>=1.18.0",
-    "opencv-python>=4.5.0,<5.0.0",
+    "opencv-python>=4.5.0,<6.0.0",
     # HTML
     "weasyprint>=55.0",
     # Visualization
@@ -103,11 +105,16 @@ dev = [
     "requests>=2.20.0",
     "pytest-memray>=1.7.0",
     "psutil>=7.0.0",
+    "onnx>=1.18.0",
+    "pandas>=2.0.0",
     # Quality
     "ruff>=0.1.5",
     "mypy>=0.812",
     "pre-commit>=2.17.0",
 ]
+
+[project.scripts]
+onnxtr-cli = "onnxtr.cli.main:main"
 
 [project.urls]
 repository = "https://github.com/felixdittrich92/OnnxTR"

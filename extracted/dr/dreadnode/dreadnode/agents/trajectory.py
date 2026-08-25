@@ -279,6 +279,31 @@ def trajectory_to_openai_format(trajectory: Trajectory) -> list[dict[str, t.Any]
     return messages
 
 
+_USAGE_INPUT_FIELDS = (
+    "input_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+)
+
+
+def _usage_from_dict(data: dict[str, t.Any]) -> Usage | None:
+    """Build a :class:`Usage` from a persisted per-message usage block.
+
+    Returns ``None`` for an empty block so callers fall back to a plain
+    ``AgentStep``. ``total_tokens`` is derived the same way
+    ``_platform_usage_totals`` does (input + cache buckets + output), since
+    the persisted block stores the buckets rather than the total.
+    """
+    fields = {k: v for k, v in data.items() if v is not None}
+    if not fields:
+        return None
+    if "total_tokens" not in fields:
+        fields["total_tokens"] = sum(
+            int(fields.get(name, 0) or 0) for name in (*_USAGE_INPUT_FIELDS, "output_tokens")
+        )
+    return Usage(**fields)
+
+
 def trajectory_from_openai_format(
     messages: list[dict[str, t.Any]],
     message_class: type | None = None,
@@ -324,9 +349,22 @@ def trajectory_from_openai_format(
         message = message_class(**kwargs)
         current_messages.append(message)
 
-        # Create a step when we see an assistant message (the natural boundary)
+        # Create a step when we see an assistant message (the natural boundary).
+        # When the source message carries a ``usage`` block, emit a
+        # ``GenerationStep`` so downstream token / cost roll-ups (see
+        # ``SessionRuntime._trajectory_usage_rollup``, which filters on
+        # ``GenerationStep``) survive a rebuild from message dicts — this is
+        # what keeps the cost footer populated across ``dn --resume``
+        # (ENG-7589). Plain ``AgentStep`` remains the fallback so every other
+        # caller (rewind, compaction, rollouts, judge CLI) is unaffected.
         if msg.get("role") == "assistant":
-            step = AgentStep(step=step_num, messages=list(current_messages))
+            raw_usage = msg.get("usage")
+            usage = _usage_from_dict(raw_usage) if isinstance(raw_usage, dict) else None
+            step: AgentStep = (
+                GenerationStep(step=step_num, messages=list(current_messages), usage=usage)
+                if usage is not None
+                else AgentStep(step=step_num, messages=list(current_messages))
+            )
             trajectory.add_event(step)
             current_messages = []
             step_num += 1

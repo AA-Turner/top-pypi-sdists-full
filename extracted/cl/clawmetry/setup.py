@@ -85,6 +85,11 @@ setup(
         "flask>=2.0,<4",
         "waitress>=2.0",
         "cryptography>=3.0",
+        # cffi 2.0.0 introduced a Python 3.9 finalizer regression that causes
+        # a SIGSEGV at sys.exit() when argparse prints --help text, crashing
+        # `clawmetry uninstall --help` on py3.9. Pin below 2.0 until cffi
+        # ships a fix upstream. See issue #5108.
+        "cffi<2",
         # Local store at ~/.clawmetry/clawmetry.duckdb. Holds events,
         # sessions, memory, heartbeats, system snapshots, traces. ~14 MB
         # wheel; columnar storage gives 10-100x speed vs SQLite for the
@@ -144,7 +149,13 @@ setup(
         "Topic :: Software Development :: Quality Assurance",
         "Topic :: System :: Monitoring",
     ],
-    keywords="clawmetry openclaw moltbot dashboard observability ai agent monitoring opentelemetry",
+    keywords=(
+        "clawmetry observability monitoring dashboard "
+        "ai agent llm llm-observability opentelemetry cost-tracking "
+        "claude-code codex cursor github-copilot gemini-cli cline openhands "
+        "opencode aider goose qwen devin kimi grok n8n antigravity deepseek "
+        "hermes exo openclaw nemoclaw nanoclaw picoclaw moltbot"
+    ),
     license="MIT",
     project_urls={
         "Homepage": "https://clawmetry.com",

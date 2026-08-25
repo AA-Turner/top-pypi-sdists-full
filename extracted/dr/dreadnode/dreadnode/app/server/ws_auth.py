@@ -45,12 +45,9 @@ class WsTicketStore:
     authorized the mint. Tickets are consumed (deleted) on first successful
     validation.
 
-    The token binding matters: a ticket outlives the request that minted it (up
-    to its TTL), so without it a client whose token was rotated out could still
-    redeem a pre-rotation ticket and open a socket — exactly the connection the
-    rotation was meant to sever. ``consume`` therefore reports *which* token
-    authorized the ticket, and ``purge_for_token`` drops the tickets belonging to
-    a token the moment it is retired.
+    The token binding matters because a ticket outlives the request that minted
+    it: ``consume`` reports which credential authorized the ticket so the
+    caller can confirm it is still the runtime's live one (RT-AUTH-009).
     """
 
     def __init__(self) -> None:
@@ -90,11 +87,7 @@ class WsTicketStore:
         return entry.token
 
     def purge_for_token(self, token: str) -> int:
-        """Drop every outstanding ticket minted with ``token``; returns the count.
-
-        Called when a token is retired, so a rotation also revokes the tickets
-        that token authorized.
-        """
+        """Revoke unused tickets minted with ``token`` and return their count."""
         with self._lock:
             stale = [digest for digest, entry in self._entries.items() if entry.token == token]
             for digest in stale:

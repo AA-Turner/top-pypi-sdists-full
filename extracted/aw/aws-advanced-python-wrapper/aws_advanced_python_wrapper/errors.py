@@ -14,7 +14,7 @@
 
 from typing import Optional
 
-from .pep249 import Error
+from .pep249 import Error, InterfaceError, NotSupportedError, OperationalError
 
 
 class AwsWrapperError(Error):
@@ -30,15 +30,15 @@ class AwsWrapperError(Error):
             self.driver_error = original_error
 
 
-class UnsupportedOperationError(AwsWrapperError):
+class UnsupportedOperationError(AwsWrapperError, NotSupportedError):
     __module__ = "aws_advanced_python_wrapper"
 
 
-class QueryTimeoutError(AwsWrapperError):
+class QueryTimeoutError(AwsWrapperError, OperationalError):
     __module__ = "aws_advanced_python_wrapper"
 
 
-class FailoverError(Error):
+class FailoverError(OperationalError):
     __module__ = "aws_advanced_python_wrapper"
 
 
@@ -51,12 +51,25 @@ class FailoverFailedError(FailoverError):
 
 
 class FailoverSuccessError(FailoverError):
+    # SA classification needs no help at the dialect boundary: ``FailoverError``
+    # derives from the wrapper's own ``pep249.OperationalError``, and SA's
+    # ``DBAPIError.instance`` matches ``orig.__class__.__mro__`` by class *name*,
+    # so this already maps to ``sqlalchemy.exc.OperationalError`` with
+    # ``DBAPIError.orig`` left as this exception.
+    #
+    # Do NOT add driver-native OperationalError classes
+    # (psycopg / mysql.connector / aiomysql) as bases here: Django's
+    # ``wrap_database_errors`` walks ``issubclass`` against the driver's
+    # own error module and would swallow FailoverSuccessError before any
+    # user ``except FailoverSuccessError:`` handler could see it
+    # (regression seen in tests/integration/container/django/
+    # test_django_plugins.py::test_django_failover_during_query).
     __module__ = "aws_advanced_python_wrapper"
 
 
-class ReadWriteSplittingError(AwsWrapperError):
+class ReadWriteSplittingError(AwsWrapperError, InterfaceError):
     __module__ = "aws_advanced_python_wrapper"
 
 
-class AwsConnectError(AwsWrapperError):
+class AwsConnectError(AwsWrapperError, OperationalError):
     __module__ = "aws_advanced_python_wrapper"

@@ -3,11 +3,11 @@ from __future__ import annotations
 import time
 import traceback
 import uuid
-from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from typing import TYPE_CHECKING, Any, Generic
 
 import numpy as np
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, field_serializer
 from renderers.base import MultiModalData
 from typing_extensions import TypeVar
 
@@ -25,6 +25,7 @@ from verifiers.v1.types import (
     AssistantMessage,
     FinishReason,
     KeptTokens,
+    Message,
     Messages,
     Sampling,
     Tool,
@@ -121,6 +122,14 @@ class TraceTask(BaseModel, Generic[DataT]):
     """The Task class name (`type(task).__name__`)."""
     data: DataT
     """The (immutable) row being solved."""
+    key: str | None = None
+    """Stable task identity (``Task.key``); defaults to the content hash unless overridden."""
+    hash: str | None = None
+    """Content hash of ``data`` (``Task.hash``)."""
+
+
+class InterceptRecord(BaseModel):
+    handler: str
 
 
 class Reward(BaseModel):
@@ -132,22 +141,13 @@ class Reward(BaseModel):
         return self.score * self.weight
 
 
-class EvalRunInfo(BaseModel):
-    type: Literal["eval"] = "eval"
+class PolicyEvent(BaseModel):
+    """A framework policy decision applied to a model call before inference."""
 
-    id: str
-    step: int | None = None
-
-
-class TrainRunInfo(BaseModel):
-    type: Literal["train"] = "train"
-
-    id: str
-    step: int | None = None
-
-
-RunInfo = Annotated[EvalRunInfo | TrainRunInfo, Field(discriminator="type")]
-"""The run a trace belongs to, discriminated on `type`."""
+    code: str
+    """Stable machine-readable reason for the decision."""
+    paths: list[str]
+    """Value-free native request paths affected by the decision."""
 
 
 class ModelCall(BaseModel):
@@ -169,6 +169,22 @@ class ModelCall(BaseModel):
     """Wall-clock span from sending the request to the fully received response."""
     error: Error | None = None
     """The failure that ended this call, coupled to the exchange that caused it."""
+    policy: PolicyEvent | None = None
+    """Policy mediation applied to the request before this call."""
+
+
+def min_new_input_tokens(calls: Iterable[ModelCall]) -> Iterator[tuple[ModelCall, int]]:
+    """Per-call lower bound on newly fed-in tokens: each call's prompt beyond the
+    previous call's final sequence, clamped at zero. Exact while the history is
+    append-only; tokens the engine drops between calls (stripped reasoning, truncated
+    history) register as an undercount of that call's new input rather than going
+    negative."""
+    prev_total = 0
+    for call in calls:
+        if call.usage is None:
+            continue
+        yield call, max(0, call.usage.input_tokens - prev_total)
+        prev_total = call.usage.total_tokens
 
 
 class Branch(BaseModel):
@@ -177,6 +193,8 @@ class Branch(BaseModel):
     index: int
     nodes: list[MessageNode]
     calls: list[ModelCall] = Field(default_factory=list)
+    mm_token_type_id_map: dict[int, int] = Field(default_factory=dict)
+    """The trace's `mm_token_type_id_map`, carried so `mm_token_type_ids` is self-contained."""
 
     @property
     def messages(self) -> Messages:
@@ -240,6 +258,34 @@ class Branch(BaseModel):
         return self.spread(lambda node: node.advantages)
 
     @property
+    def reference_logprobs(self) -> list[float] | None:
+        """Reference-model logprobs aligned to `token_ids`, or None when unscored."""
+        if all(node.reference_logprobs is None for node in self.nodes):
+            return None
+        return self.spread(lambda node: node.reference_logprobs)
+
+    def loss_weights(self, name: str) -> list[float] | None:
+        """One named loss-weight stream aligned to `token_ids`, or None when absent."""
+        if all(
+            node.loss_weights is None or name not in node.loss_weights
+            for node in self.nodes
+        ):
+            return None
+        weights: list[float] = []
+        for node in self.nodes:
+            node_weights = (node.loss_weights or {}).get(name)
+            if node_weights is None:
+                weights.extend([0.0] * len(node.token_ids))
+                continue
+            if len(node_weights) != len(node.token_ids):
+                raise ValueError(
+                    f"loss weight stream {name!r} must align with node token_ids: "
+                    f"got {len(node_weights)}, expected {len(node.token_ids)}"
+                )
+            weights.extend(node_weights)
+        return weights
+
+    @property
     def multi_modal_data(self) -> MultiModalData | None:
         """Node image data concatenated in token order for training; never persisted."""
         merged = MultiModalData()
@@ -254,6 +300,16 @@ class Branch(BaseModel):
             for modality, hashes in mmd.mm_hashes.items():
                 merged.mm_hashes.setdefault(modality, []).extend(hashes)
         return merged if found else None
+
+    @property
+    def mm_token_type_ids(self) -> list[int] | None:
+        """Per-token modality markers aligned to `token_ids` (0 = text, 1 = image
+        placeholder, 2 = video placeholder), driving the trainer's vision-encoder
+        slicing; None for branches carrying no multimodal data."""
+        if self.multi_modal_data is None:
+            return None
+        mapping = self.mm_token_type_id_map
+        return [mapping.get(t, 0) for t in self.token_ids]
 
     @property
     def routed_experts(self) -> np.ndarray | None:
@@ -311,7 +367,9 @@ class Branch(BaseModel):
 
     @property
     def num_input_tokens(self) -> int:
-        return self.num_total_tokens - self.num_output_tokens
+        """Fed-in tokens (system + user + tool), counted once; a lower bound whenever
+        the engine drops tokens between calls."""
+        return sum(increment for _, increment in min_new_input_tokens(self.calls))
 
 
 class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
@@ -321,9 +379,6 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
     """Unique ID for this trace, auto-generated."""
     verifiers: VersionInfo = Field(default_factory=_current_build)
     """The verifiers version that produced this trace."""
-    run: RunInfo | None = None
-    """The run this trace belongs to (eval or train), consumer-stamped."""
-
     task: TraceTask[DataT]
     """The task data that seeded this trace."""
     agent: AgentInfo[AgentConfigT]
@@ -335,6 +390,14 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
     """The message graph; branches are derived views and storage stays linear in turns."""
     calls: list[ModelCall] = Field(default_factory=list)
     """Every model call; automatically recorded at intercept time + linked into `nodes`."""
+    mm_token_type_id_map: dict[int, int] = Field(default_factory=dict)
+    """Special-token id -> modality marker (1 = image placeholder, 2 = video placeholder)
+    from the renderer that tokenized this trace, stamped at turn commit. Applied to a
+    branch's `token_ids` by `Branch.mm_token_type_ids`; empty for text-only renderers."""
+    request_rewrites: list[InterceptRecord] = Field(default_factory=list)
+    """Request changes made by `@intercept`, in execution order."""
+    response_rewrites: list[InterceptRecord] = Field(default_factory=list)
+    """Response changes made by `@intercept`, in execution order."""
 
     rewards: dict[str, Reward | None] = Field(default_factory=dict)
     """Named, weighted rewards; `None` means scoring didn't run (e.g. because of a
@@ -362,6 +425,12 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
     _head_index: dict = PrivateAttr(default_factory=dict)
     """`(parent, msg_hash) -> node_id` for the graph builder."""
 
+    @field_serializer("mm_token_type_id_map")
+    def serialize_mm_token_type_id_map(self, mapping: dict[int, int]) -> dict[str, int]:
+        """The wire unpacks with msgpack's `strict_map_key`, which forbids int map keys —
+        dump str keys; validation coerces them back to int."""
+        return {str(k): v for k, v in mapping.items()}
+
     @property
     def reward(self) -> float:
         return sum(r.value for r in self.rewards.values() if r is not None)
@@ -372,8 +441,18 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
 
     @property
     def num_input_tokens(self) -> int:
-        """Fed-in tokens (system + user + tool), counted once, summed across branches."""
-        return sum(branch.num_input_tokens for branch in self.branches)
+        """Fed-in tokens (system + user + tool), counted once across all branches —
+        calls on shared branch prefixes contribute once, not once per branch."""
+        seen: set[int] = set()
+        total = 0
+        for branch in self.branches:
+            # A call's predecessors are fixed by the graph, so its increment is the
+            # same in every branch containing it; keep the first occurrence.
+            for call, increment in min_new_input_tokens(branch.calls):
+                if id(call) not in seen:
+                    seen.add(id(call))
+                    total += increment
+        return total
 
     @property
     def num_output_tokens(self) -> int:
@@ -407,9 +486,23 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
                     index=i,
                     nodes=[self.nodes[n] for n in path],
                     calls=[by_node[n] for n in path if n in by_node],
+                    mm_token_type_id_map=self.mm_token_type_id_map,
                 )
             )
         return branches
+
+    @property
+    def messages(self) -> Messages:
+        """Messages on the final branch."""
+        branches = self.branches
+        return branches[-1].messages if branches else []
+
+    @property
+    def last_message(self) -> Message:
+        """The most recently stored message."""
+        if not self.nodes:
+            raise ValueError("trace has no messages")
+        return self.nodes[-1].message
 
     @property
     def num_branches(self) -> int:
@@ -497,12 +590,6 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
         if response.usage is not None:
             self.extra_usage.append(response.usage)
 
-    def record_run(self, run: RunInfo | None = None, **info: Any) -> None:
-        """Record the run identity (eval / train), and optional extra info."""
-        if run is not None:
-            self.run = run
-        self.info.update(info)
-
     def stop(self, condition: str) -> None:
         """Stop the trace, optionally with a stop condition."""
         self.is_completed = True
@@ -529,7 +616,7 @@ class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
                 # Keep full tracebacks for every other failure.
                 traceback=None
                 if isinstance(error, ProviderError)
-                else traceback.format_exc(),
+                else "".join(traceback.format_exception(error)),
             )
         )
         self.ok = False

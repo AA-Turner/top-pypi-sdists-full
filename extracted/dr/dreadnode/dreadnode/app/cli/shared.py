@@ -578,6 +578,45 @@ def _collect_pages(
     return collected[:limit]
 
 
+def _collect_cursor_pages(
+    fetch: t.Callable[[str | None, int], t.Any],
+    *,
+    limit: int,
+    page_size: int = 50,
+    items_key: str = "items",
+    cursor_key: str = "next_cursor",
+) -> list[dict[str, t.Any]]:
+    """Cursor-paginated sibling of :func:`_collect_pages`.
+
+    Same contract — walk server-side pages until *limit* items are collected —
+    for APIs that hand back an opaque continuation token instead of a page
+    number. Satisfies CLI-FLOW-005: the consumer asks for a count of items and
+    the cursor never reaches them.
+
+    Stops on a falsy cursor, and also when a page returns no items, so a server
+    that echoes a non-null cursor on an empty final page cannot spin forever.
+    """
+    collected: list[dict[str, t.Any]] = []
+    cursor: str | None = None
+    while len(collected) < limit:
+        result = fetch(cursor, min(page_size, limit - len(collected)))
+        payload = _to_payload(result)
+        if isinstance(payload, dict):
+            items = payload.get(items_key, [])
+            cursor = payload.get(cursor_key)
+        else:
+            items = payload
+            cursor = None
+        if not items:
+            break
+        collected.extend(
+            _to_payload(item) if not isinstance(item, dict) else item for item in items
+        )
+        if not cursor:
+            break
+    return collected[:limit]
+
+
 def _to_payload(obj: t.Any) -> t.Any:
     """Normalize a response object (Pydantic model or raw dict/list) to JSON-serializable form."""
     if hasattr(obj, "model_dump"):

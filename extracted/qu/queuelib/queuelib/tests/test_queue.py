@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -15,27 +14,7 @@ from queuelib.queue import (
     LifoMemoryQueue,
     LifoSQLiteQueue,
 )
-from queuelib.tests import QueuelibTestCase
-
-
-class DummyQueue:
-    def __init__(self) -> None:
-        self.q: list[Any] = []
-
-    def push(self, obj: Any) -> None:
-        self.q.append(obj)
-
-    def pop(self) -> Any | None:
-        return self.q.pop() if self.q else None
-
-    def peek(self) -> Any | None:
-        return self.q[-1] if self.q else None
-
-    def close(self) -> None:
-        pass
-
-    def __len__(self):
-        return len(self.q)
+from queuelib.tests import DummyQueue, QueuelibTestCase
 
 
 class InterfaceTest(QueuelibTestCase):
@@ -117,6 +96,20 @@ class QueueTestMixin:
         q.pop()
         q.pop()
         assert len(q) == 0
+        q.close()
+
+    def test_clear(self):
+        q = self.queue()
+        q.clear()
+        assert len(q) == 0
+        q.push(b"a")
+        q.push(b"b")
+        q.clear()
+        assert len(q) == 0
+        assert q.peek() is None
+        assert q.pop() is None
+        q.push(b"c")
+        assert q.pop() == b"c"
         q.close()
 
     def test_peek_one_element(self):
@@ -226,20 +219,24 @@ class LifoTestMixin:
 class PersistentTestMixin:
     chunksize = 100000
 
+    # Scrapy SerializableQueue doesn't raise TypeError for non-bytes objects,
+    # so this test fails when run for it.
     @pytest.mark.xfail(
         reason="Reenable once Scrapy.squeues stops extending from this testsuite"
     )
     def test_non_bytes_raises_typeerror(self):
         q = self.queue()
-        with pytest.raises(TypeError):
-            q.push(0)
-        with pytest.raises(TypeError):
-            q.push("")
-        with pytest.raises(TypeError):
-            q.push(None)
-        with pytest.raises(TypeError):
-            q.push(lambda x: x)
-        q.close()
+        try:
+            with pytest.raises(TypeError):
+                q.push(0)
+            with pytest.raises(TypeError):
+                q.push("")
+            with pytest.raises(TypeError):
+                q.push(None)
+            with pytest.raises(TypeError):
+                q.push(lambda x: x)
+        finally:
+            q.close()
 
     def test_text_in_windows(self):
         e1 = b"\r\n"
@@ -331,6 +328,14 @@ class FifoDiskQueueTest(
 
         chunks = list(self.qpath.glob("q*"))
         assert len(chunks) == 1
+        q.close()
+
+    def test_clear_removes_chunks(self):
+        q = self.queue()
+        for x in [b"0", b"1", b"2", b"3", b"4"]:
+            q.push(x)
+        q.clear()
+        assert list(self.qpath.glob("q*")) == [self.qpath / "q00000"]
         q.close()
 
 

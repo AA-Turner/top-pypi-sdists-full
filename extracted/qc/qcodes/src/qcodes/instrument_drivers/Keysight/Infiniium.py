@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from io import BytesIO
 from os.path import splitext
 from pathlib import Path
@@ -9,7 +9,6 @@ import numpy as np
 import numpy.typing as npt
 from pyvisa import VisaIOError
 from pyvisa.constants import StatusCode
-from typing_extensions import deprecated
 
 import qcodes.validators as vals
 from qcodes.instrument import (
@@ -28,12 +27,10 @@ from qcodes.parameters import (
     ParameterWithSetpoints,
     create_on_off_val_mapping,
 )
-from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
 
 class DSOTimeAxisParam(Parameter):
@@ -240,7 +237,7 @@ class DSOTraceParam(
         data: npt.NDArray
         data = root_instr.visa_handle.read_binary_values(  # type: ignore[assignment]
             "h",
-            container=npt.NDArray,
+            container=np.ndarray,
             header_fmt="empty",
             expect_termination=True,
             data_points=self._points,
@@ -490,19 +487,6 @@ class KeysightInfiniiumBoundMeasurement(AbstractMeasurementSubsystem):
         super().__init__(parent, name, channel=parent.channel_name, **kwargs)
 
 
-@deprecated(
-    "BoundMeasurement is deprecated. Please use qcodes.instrument_drivers.Keysight.KeysightInfiniiumBoundMeasurement instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class BoundMeasurement(KeysightInfiniiumBoundMeasurement):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
-
-
 class KeysightInfiniiumUnboundMeasurement(AbstractMeasurementSubsystem):
     def __init__(
         self,
@@ -578,19 +562,6 @@ class KeysightInfiniiumUnboundMeasurement(AbstractMeasurementSubsystem):
             source = self.ask(":MEAS:SOUR?")
             self._channel = source.strip().split(",")[0]
         return self._channel
-
-
-@deprecated(
-    "UnboundMeasurement is deprecated. Please use qcodes.instrument_drivers.Keysight.KeysightInfiniiumUnboundMeasurement instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class UnboundMeasurement(KeysightInfiniiumUnboundMeasurement):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
 
 
 class KeysightInfiniiumFunction(InstrumentChannel):
@@ -707,19 +678,6 @@ class KeysightInfiniiumFunction(InstrumentChannel):
             )
         finally:
             self.write(":SYST:HEAD OFF")
-
-
-@deprecated(
-    "InfiniiumFunction is deprecated. Please use qcodes.instrument_drivers.Keysight.KeysightInfiniiumFunction instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class InfiniiumFunction(KeysightInfiniiumFunction):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
 
 
 class KeysightInfiniiumChannel(InstrumentChannel["KeysightInfiniium"]):
@@ -839,19 +797,6 @@ class KeysightInfiniiumChannel(InstrumentChannel["KeysightInfiniium"]):
         whenever the scope parameters are changed.
         """
         self.trace.update_setpoints()
-
-
-@deprecated(
-    "InfiniiumChannel is deprecated. Please use qcodes.instrument_drivers.Keysight.KeysightInfiniiumChannel instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class InfiniiumChannel(KeysightInfiniiumChannel):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
 
 
 class KeysightInfiniium(VisaInstrument):
@@ -1321,7 +1266,9 @@ class KeysightInfiniium(VisaInstrument):
         if isinstance(path, Path):
             path = str(path)
 
-        time_str = datetime.now().strftime(time_fmt) if with_time else ""
+        time_str = (
+            datetime.now(UTC).astimezone().strftime(time_fmt) if with_time else ""
+        )
         img_name, img_type = splitext(path)
         img_path = (
             f"{img_name}{divider if with_time else ''}{time_str}{img_type.lower()}"
@@ -1340,16 +1287,3 @@ class KeysightInfiniium(VisaInstrument):
         except Exception as e:
             self.log.error(f"Failed to save screenshot, Error occurred: \n{e}")
             return None
-
-
-@deprecated(
-    "Infiniium is deprecated. Please use qcodes.instrument_drivers.Keysight.KeysightInfiniium instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class Infiniium(KeysightInfiniium):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass

@@ -27,6 +27,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+    DEFAULT_CUSTOMER_TIER_FILTER,
     apply_override,
     load_version_pins,
     resolve_scope_guid,
@@ -87,6 +88,8 @@ def _render_scope_section() -> None:
                 SetState("scope_type", ""),
                 SetState("scope_url", ""),
                 SetState("context_error", ""),
+                SetState("customer_tier_label", ""),
+                SetState("customer_tier_filter", DEFAULT_CUSTOMER_TIER_FILTER),
                 CallTool(
                     resolve_scope_guid,
                     arguments={
@@ -106,6 +109,11 @@ def _render_scope_section() -> None:
                         SetState(
                             "actor_workspace_id",
                             RESULT.actor_workspace_id,
+                        ),
+                        SetState("customer_tier_filter", RESULT.customer_tier),
+                        SetState(
+                            "customer_tier_label",
+                            RESULT.customer_tier_label,
                         ),
                     ],
                     on_error=[
@@ -135,6 +143,11 @@ def _render_scope_resolution_display() -> None:
     with Else(), If(STATE.resolved_context_label):
         Text(
             content=STATE.resolved_context_label,
+            css_class="text-[0.85rem] text-[#6b7280]",
+        )
+    with If(STATE.customer_tier_label):
+        Text(
+            content=STATE.customer_tier_label,
             css_class="text-[0.85rem] text-[#6b7280]",
         )
 

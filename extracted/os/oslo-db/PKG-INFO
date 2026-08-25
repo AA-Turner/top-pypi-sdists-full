@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.db
-Version: 18.1.0
+Version: 18.1.1
 Summary: Oslo Database library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0

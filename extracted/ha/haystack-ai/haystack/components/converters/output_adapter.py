@@ -10,11 +10,13 @@ from typing import Any, TypeAlias
 import jinja2.runtime
 from jinja2 import TemplateSyntaxError
 from jinja2.nativetypes import NativeEnvironment
-from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import component, default_from_dict, default_to_dict, logging
+from haystack.core.errors import DeserializationError
+from haystack.core.serialization_security import _is_unsafe_deserialization
 from haystack.utils import deserialize_callable, deserialize_type, serialize_callable, serialize_type
 from haystack.utils.jinja2_extensions import _extract_template_variables_and_assignments
+from haystack.utils.jinja2_sandbox import HaystackSandboxedEnvironment
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,9 @@ class OutputAdapter:
             )
             logger.warning(msg)
         self._env = (
-            NativeEnvironment() if self._unsafe else SandboxedEnvironment(undefined=jinja2.runtime.StrictUndefined)
+            NativeEnvironment()
+            if self._unsafe
+            else HaystackSandboxedEnvironment(undefined=jinja2.runtime.StrictUndefined)
         )
 
         try:
@@ -168,9 +172,26 @@ class OutputAdapter:
             The deserialized component.
         """
         init_params = data.get("init_parameters", {})
-        init_params["output_type"] = deserialize_type(init_params["output_type"])
+
+        # `unsafe=True` swaps the Jinja sandbox for a NativeEnvironment that executes arbitrary code.
+        # Honor it from serialized data only when the whole pipeline is being loaded in unsafe mode;
+        # otherwise a hostile pipeline could disable the sandbox on its own in default safe mode.
+        if init_params.get("unsafe") and not _is_unsafe_deserialization():
+            raise DeserializationError(
+                "Refusing to deserialize an OutputAdapter with unsafe=True while loading in safe mode. "
+                "If you trust the source of this data, load it with Pipeline.load(..., unsafe=True)."
+            )
 
         custom_filters = init_params.get("custom_filters", {})
+        if custom_filters and not _is_unsafe_deserialization():
+            raise DeserializationError(
+                "Refusing to deserialize an OutputAdapter with custom filters while loading in safe mode. "
+                "Custom filters are arbitrary callables that can execute during pipeline loading. "
+                "If you trust the source of this data, load it with Pipeline.load(..., unsafe=True)."
+            )
+
+        init_params["output_type"] = deserialize_type(init_params["output_type"])
+
         if custom_filters:
             init_params["custom_filters"] = {
                 name: deserialize_callable(filter_func) if filter_func else None

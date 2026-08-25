@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serialx
-Version: 1.8.2
+Version: 1.9.0
 Summary: Serial library with native sync and async support for Windows, Linux, macOS, and other platforms
 Author-email: puddly <puddly3@gmail.com>
 License-Expression: Apache-2.0
@@ -8,11 +8,12 @@ Project-URL: repository, https://github.com/puddly/serialx
 Project-URL: documentation, https://puddly.github.io/serialx/
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: async-timeout>=3.0.0; python_version < "3.11"
 Requires-Dist: pywin32; platform_system == "Windows"
 Provides-Extra: esphome
-Requires-Dist: aioesphomeapi>=44.17.0; python_version >= "3.11" and extra == "esphome"
+Requires-Dist: aioesphomeapi>=46.0.0; python_version >= "3.11" and extra == "esphome"
 Provides-Extra: dev
 Requires-Dist: uv>=0.11.14; extra == "dev"
 Requires-Dist: ruff>=0.14.6; extra == "dev"
@@ -30,7 +31,7 @@ Requires-Dist: async-timeout>=5.0.1; extra == "dev"
 Requires-Dist: types-psutil>=7.2.2.20260508; extra == "dev"
 Requires-Dist: types-pywin32>=311.0.0.20260508; extra == "dev"
 Requires-Dist: types-setuptools>=82.0.0.20260508; extra == "dev"
-Requires-Dist: aioesphomeapi>=44.17.0; python_version >= "3.11" and extra == "dev"
+Requires-Dist: aioesphomeapi>=46.0.0; python_version >= "3.11" and extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx<8.2.3,>=7; python_version < "3.11" and extra == "docs"
 Requires-Dist: sphinx>=8.2.3; python_version >= "3.11" and extra == "docs"
@@ -40,6 +41,7 @@ Requires-Dist: myst-parser>=5; python_version >= "3.11" and extra == "docs"
 Requires-Dist: sphinx-design>=0.6; extra == "docs"
 Requires-Dist: sphinx-autobuild>=2024.10.3; python_version < "3.11" and extra == "docs"
 Requires-Dist: sphinx-autobuild>=2025.08.25; python_version >= "3.11" and extra == "docs"
+Dynamic: license-file
 
 # Introduction
 Serialx is a no-compromise serial communication library for Python targeting common

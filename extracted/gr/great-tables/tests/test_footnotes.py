@@ -1762,3 +1762,60 @@ def test_kitchen_sink_footnote_no_row_group_col_snap(snapshot, summary_side, gra
     )
 
     assert_complete_html_without_style(snapshot, gt)
+
+
+def test_get_summary_locnum_summary_no_group_id():
+    from great_tables._utils_render_html import _get_summary_locnum
+    from great_tables._gt_data import FootnoteInfo
+    from great_tables._locations import LocSummary
+
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    gt = GT(df)
+    built = gt._build_data("html")
+
+    fn_info = FootnoteInfo(locname=LocSummary(columns="x"), grpname=None)
+    locnum = _get_summary_locnum(built, fn_info)
+    assert isinstance(locnum, (int, float))
+
+
+def test_get_summary_locnum_grand_summary_no_grand_rows():
+    from great_tables._utils_render_html import _get_summary_locnum
+    from great_tables._gt_data import FootnoteInfo
+    from great_tables._locations import LocGrandSummary
+
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    gt = GT(df)
+    built = gt._build_data("html")
+
+    fn_info = FootnoteInfo(locname=LocGrandSummary(columns="x"), grpname=None)
+    locnum = _get_summary_locnum(built, fn_info)
+
+    assert isinstance(locnum, (int, float))
+
+
+def test_get_summary_locnum_summary_empty_rows_for_group():
+    from great_tables._utils_render_html import _get_summary_locnum
+    from great_tables._gt_data import FootnoteInfo
+    from great_tables._locations import LocSummary
+
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    gt = GT(df)
+    built = gt._build_data("html")
+
+    fn_info = FootnoteInfo(locname=LocSummary(columns="x"), grpname="nonexistent_group")
+    locnum = _get_summary_locnum(built, fn_info)
+
+    assert isinstance(locnum, (int, float))
+
+
+def test_tab_footnote_none_in_locations_list():
+    """A None entry inside a locations list adds an unanchored footnote."""
+    df = pl.DataFrame({"col1": [10, 20], "col2": [30, 40]})
+    gt_table = GT(df).tab_footnote(
+        footnote="General note",
+        locations=[None, loc.column_labels(columns="col1")],
+    )
+
+    html = gt_table._render_as_html()
+
+    assert "General note" in html

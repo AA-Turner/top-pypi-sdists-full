@@ -13,6 +13,7 @@ Commands (autopilot subcommands are listed in cron execution order):
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Annotated
 
@@ -35,7 +36,9 @@ from airbyte_ops_mcp.connector_ops.rollouts import (
     run_auto_start,
     run_auto_triage_failed,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.audit import post_autopilot_audit
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
+from airbyte_ops_mcp.regression_tests.ci_output import write_github_summary
 
 # Hide Python-level members from pdoc
 __all__: list[str] = []
@@ -116,6 +119,13 @@ def _print_result(result: AutopilotResult) -> None:
             f"  {skip.connector_name} {skip.rc_version}{tier_label}: {skip.message}"
         )
 
+    for warning in result.warnings:
+        tier_label = f" ({warning.tier})" if warning.tier else ""
+        print_warning(
+            f"  {warning.connector_name} {warning.rc_version}{tier_label}: "
+            f"{warning.message}"
+        )
+
     for hold in result.holds:
         tier_label = f" ({hold.tier})" if hold.tier else ""
         print_warning(
@@ -127,6 +137,54 @@ def _print_result(result: AutopilotResult) -> None:
         print_error(
             f"  {error.connector_name} {error.rc_version}{tier_label}: {error.message}"
         )
+
+
+def _render_step_summary(result: AutopilotResult) -> str:
+    """Render the console result as a Markdown GitHub Step Summary."""
+    sections = [
+        ("Actions", result.actions),
+        ("Skipped", result.skipped),
+        ("Warnings", result.warnings),
+        ("Holds", result.holds),
+        ("Errors", result.errors),
+    ]
+    lines = [
+        f"## Rollout AutoPilot: `{result.command}`",
+        "",
+        f"**Summary:** {result.summary}",
+        "",
+    ]
+    for label, entries in sections:
+        lines.extend([f"### {label} ({len(entries)})", ""])
+        if not entries:
+            lines.append("_None._")
+        else:
+            for entry in entries:
+                tier = f" ({entry.tier})" if entry.tier else ""
+                lines.append(
+                    f"- `{entry.connector_name}` `{entry.rc_version}`{tier}: "
+                    f"{entry.message}"
+                )
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _write_step_summary(result: AutopilotResult) -> None:
+    """Write the AutoPilot result to the GitHub Step Summary when configured."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    try:
+        write_github_summary(_render_step_summary(result))
+    except OSError as exc:
+        print_warning(f"Could not write GitHub Step Summary: {exc}")
+
+
+def _present_result(result: AutopilotResult) -> None:
+    """Present an AutoPilot result on all configured output surfaces."""
+    _print_result(result)
+    _write_step_summary(result)
+    post_autopilot_audit(result)
 
 
 @autopilot_app.command(name="auto-start")
@@ -150,7 +208,7 @@ def auto_start(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_start(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)
 
 
 @autopilot_app.command(name="auto-advance")
@@ -180,7 +238,7 @@ def auto_advance(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_advance(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)
 
 
 @autopilot_app.command(name="auto-promote")
@@ -206,7 +264,7 @@ def auto_promote(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_promote(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)
 
 
 @autopilot_app.command(name="auto-triage-failed")
@@ -230,7 +288,7 @@ def auto_triage_failed(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_triage_failed(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)
 
 
 @autopilot_app.command(name="auto-close")
@@ -255,7 +313,7 @@ def auto_close(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_close(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)
 
 
 @autopilot_app.command(name="auto-rollback-failed")
@@ -279,4 +337,4 @@ def auto_rollback_failed(
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_rollback_failed(auth=auth, connector=connector, dry_run=dry_run)
-    _print_result(result)
+    _present_result(result)

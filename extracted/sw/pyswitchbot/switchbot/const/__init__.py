@@ -11,6 +11,7 @@ from .evaporative_humidifier import (
     HumidifierWaterLevel,
 )
 from .fan import (
+    CirculatorFanProMode,
     FanMode,
     HorizontalOscillationAngle,
     NightLightState,
@@ -82,10 +83,12 @@ class SwitchbotModel(StrEnum):
     RELAY_SWITCH_1PM = "Relay Switch 1PM"
     RELAY_SWITCH_1 = "Relay Switch 1"
     REMOTE = "WoRemote"
+    UNIVERSAL_REMOTE = "WoUniversalRemote"
     EVAPORATIVE_HUMIDIFIER = "Evaporative Humidifier"
     ROLLER_SHADE = "Roller Shade"
     HUBMINI_MATTER = "HubMini Matter"
     CIRCULATOR_FAN = "Circulator Fan"
+    CIRCULATOR_FAN_PRO = "Circulator Fan Pro"
     STANDING_FAN = "Standing Fan"
     K20_VACUUM = "K20 Vacuum"
     S10_VACUUM = "S10 Vacuum"
@@ -134,6 +137,7 @@ __all__ = [
     "AirQualityLevel",
     "BulbColorMode",
     "CeilingLightColorMode",
+    "CirculatorFanProMode",
     "ClimateAction",
     "ClimateMode",
     "ColorMode",

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 import os
 import shutil
@@ -143,7 +144,7 @@ if in_spark_sdk:
             shutil.rmtree(assembly_output_dir)
 
         p = subprocess.Popen(
-            ["sbt", f"-DSPARK_VERSION={patch_version}", "assembly"],
+            ["sbt", f"-DSPARK_VERSION={patch_version}", "set assembly / test := {}", "assembly"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=SCALA_SPARK_DIR,

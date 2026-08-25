@@ -38,6 +38,19 @@ LOGIC_V2_TABLE = "sys_hub_flow_logic_instance_v2"
 SUBFLOW_V2_TABLE = "sys_hub_sub_flow_instance_v2"
 FLOW_CONTEXT_TABLE = "sys_flow_context"
 TRIGGER_TABLE = "sys_hub_trigger_instance"
+# A flow's trigger is not always on the V1 table. On the measured instance this
+# flow's ONLY trigger row lives on the _v2 twin, and the V1 query returned zero —
+# so "what starts this flow", the whole reason to ask for triggers, came back as
+# "there are none" for a flow that runs on every record update. Both are read and
+# merged: which table a release writes to is a property of the release, and a
+# missing table costs one empty answer while a missed trigger costs the question.
+TRIGGER_TABLE_V2 = "sys_hub_trigger_instance_v2"
+# Its inputs are NOT in `values` like every other v2 row — the column is
+# `trigger_inputs`, same gzip+base64 JSON inside. A subflow instance is the same
+# story under `subflow_inputs`: the field list never asked for it, so what gets
+# PASSED IN to all 27 subflows of the measured flow was absent from the tree.
+_TRIGGER_VALUES_FIELD = "trigger_inputs"
+_SUBFLOW_VALUES_FIELD = "subflow_inputs"
 
 # Custom Action source retrieval (Action Designer).
 # The internal Script-step body of a custom action does NOT live on the action
@@ -84,6 +97,12 @@ _MIN_SCRIPT_LEN = 40
 # ids this reader holds — decoding the column beats joining, and costs no
 # round trip at all.
 _VALUES_FIELD = "values"
+# One page of flow components, and the hard ceiling paging stops at. A full page
+# says nothing about whether more exist, so the reader pages until a short one
+# proves the end — see _fetch_flow_structure. The ceiling is a runaway guard,
+# and reaching it is REPORTED, never absorbed.
+_COMPONENT_PAGE = 100
+_COMPONENT_CEILING = 1000
 # Per-step and per-response caps. Inputs are small (a name and a binding), but
 # a 66-step flow can carry hundreds; every cap that bites is reported.
 _MAX_INPUTS_PER_STEP = 25
@@ -157,6 +176,10 @@ class GetFlowDetailsParams(BaseModel):
     summary_format: bool = Field(
         default=True,
         description="Compact tree+warnings+index (default). Set False only if raw JSON needed.",
+    )
+    node_id: Optional[str] = Field(
+        default=None,
+        description="Read ONE step (ui_id or sys_id): full bindings + script bodies, no flow dump",
     )
 
 
@@ -538,6 +561,12 @@ def _summarize_node_inputs(
     screen disagreed about which step produced a value, on the path most people
     actually read (browser auth). Verified live: this summary already carried
     every binding, and every pill in it was unreadable.
+
+    An input whose value is computed by a script also gets a
+    ``"<input>.<field> (script)"`` key holding the body — see
+    ``_input_script_bodies`` for why the value alone is not an answer. Long
+    bodies are stubbed downstream by ``_humanize_input`` (include_scripts=False),
+    never here: this function does not truncate.
     """
     flat: Dict[str, str] = {}
     for inp in node.get("inputs", []) or []:
@@ -562,6 +591,11 @@ def _summarize_node_inputs(
             flat[name] = value_str
         else:
             flat[name] = display_str
+        # A scripted field's `value` is only the sentinel that says so. The body
+        # rides alongside it under its own key, so the row shows what the step
+        # actually does instead of stopping at "state=fd-scripted".
+        for body in _input_script_bodies(inp):
+            flat[_script_input_key(name, body)] = body["script"]
     return flat
 
 
@@ -872,12 +906,78 @@ _SCRIPT_INPUT_NAMES = frozenset({"script", "source", "client_script", "server_sc
 _SCRIPT_STUB_MIN_CHARS = 120
 
 
+# A flow input whose value is COMPUTED BY A SCRIPT does not store the script in
+# `value`. `value` holds the sentinel "<field>=fd-scripted" and the body lives
+# in a sibling `script` block, keyed by the field it feeds:
+#
+#   {"name": "values", "value": "state=fd-scripted", "scriptActive": true,
+#    "script": {"state": {"scriptActive": true,
+#                         "script": "<body>", "savedValue": "32"}}}
+#
+# Both readers here projected `value` alone, so a scripted field reported
+# `values = state=fd-scripted` — a confident, finished-looking value for a field
+# whose actual behaviour nobody had read, with no note saying so. Measured on a
+# live 36-action flow: 33 action rows carry a body, and all 33 were invisible.
+# Both the processflow payload and the compiled `values` blob carry it.
+_SCRIPT_SENTINEL = "fd-scripted"
+
+
+def _input_script_bodies(entry: Any) -> List[Dict[str, Any]]:
+    """Every script configured on ONE input, as {field, script, active, saved_value}.
+
+    An empty list means "this input is not scripted" — it is NOT "we could not
+    tell". A `script` block in a shape this does not recognise yields no entries
+    and the caller keeps the sentinel it already had, rather than inventing a
+    value for it.
+
+    ``active`` is carried because a script can be present but switched OFF, and
+    then ``saved_value`` is what actually runs. Reporting a dormant script as
+    the value would replace one false answer with another.
+    """
+    if not isinstance(entry, dict):
+        return []
+    block = entry.get("script")
+    if not isinstance(block, dict):
+        return []
+    bodies: List[Dict[str, Any]] = []
+    for field, cfg in block.items():
+        if not isinstance(cfg, dict):
+            continue
+        body = cfg.get("script")
+        if not isinstance(body, str) or not body.strip():
+            continue
+        item: Dict[str, Any] = {
+            "field": str(field),
+            "script": body,
+            "active": bool(cfg.get("scriptActive", entry.get("scriptActive", False))),
+        }
+        saved = cfg.get("savedValue")
+        if isinstance(saved, str) and saved:
+            item["saved_value"] = saved
+        bodies.append(item)
+    return bodies
+
+
+def _script_input_key(input_name: str, body: Dict[str, Any]) -> str:
+    """The tree key for one scripted field, stating whether it is live.
+
+    An inactive script names the value that runs INSTEAD of it, so the row can
+    never be read as "this script decides the field" when it does not.
+    """
+    base = f"{input_name}.{body['field']} (script"
+    if body.get("active"):
+        return base + ")"
+    saved = body.get("saved_value")
+    return base + (f", INACTIVE — value used: {saved})" if saved else ", INACTIVE)")
+
+
 def _script_stub(value: str) -> str:
     lines = value.count("\n") + 1
     digest = hashlib.sha1(value.encode("utf-8", "replace")).hexdigest()[:8]
     return (
         f"«script: {lines} lines, {len(value)} chars, sha1:{digest} — omitted from "
-        "tree; fetch full body via read_action or sn_query»"
+        "tree; full body: get_detail node_id=<this row's id>, or read_action / "
+        "get_action_source for an action's own source»"
     )
 
 
@@ -893,7 +993,7 @@ def _humanize_input(
     Script bodies are stubbed unless include_scripts=True (see _SCRIPT_INPUT_NAMES)."""
     if (
         not include_scripts
-        and name in _SCRIPT_INPUT_NAMES
+        and (name in _SCRIPT_INPUT_NAMES or name.endswith(")") and "(script" in name)
         and isinstance(value, str)
         and len(value) > _SCRIPT_STUB_MIN_CHARS
     ):
@@ -2013,7 +2113,11 @@ def list_flows(
             auth_manager,
             table=FLOW_TABLE,
             query=query_string,
-            fields="sys_id,name,status,active,trigger_type,sys_scope,sys_updated_on,sys_updated_by,description",
+            # No `trigger_type` here: it is not a column on sys_hub_flow, so the
+            # server simply omitted it and every listed flow came back without
+            # the field the list claimed to select. A trigger is read from the
+            # trigger tables (see _fetch_flow_triggers).
+            fields="sys_id,name,status,active,sys_scope,sys_updated_on,sys_updated_by,description",
             limit=min(params.limit, 100),
             offset=params.offset,
             display_value=True,
@@ -2081,6 +2185,164 @@ def _flow_runtime_status(
     }
 
 
+_PF_NODE_FAMILIES = (
+    ("action", "actionInstances"),
+    ("logic", "flowLogicInstances"),
+    ("subflow", "subFlowInstances"),
+)
+_TABLE_NODE_FAMILIES = (
+    ("action", ACTION_V2_TABLE, "action_type"),
+    ("logic", LOGIC_V2_TABLE, "logic_definition"),
+    ("subflow", SUBFLOW_V2_TABLE, "subflow"),
+)
+
+
+def _get_node_detail(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    flow_id: str,
+    node_id: str,
+) -> Dict[str, Any]:
+    """ONE step, in full — every binding, every script body, no truncation.
+
+    This is the read the flow-wide answer keeps pointing at ("get_one_step:
+    action='get_detail', node_id=<the `ui_id` on any row>"). It did not exist:
+    `node_id` was not on this params model and not in the multiplex's field set
+    for get_detail, so it was dropped before it arrived and the call fell through
+    to the whole-flow read — which answered with the flow record and its
+    label_cache, ~30KB, containing not one word about the node asked for.
+
+    Deliberately narrow: the node and nothing else. A caller who wants the tree
+    asks for the tree.
+    """
+    node_id = (node_id or "").strip()
+
+    pf_result = (
+        _try_processflow_api(config, auth_manager, flow_id) if _is_browser_auth(config) else None
+    )
+    if pf_result and pf_result.get("result"):
+        pf_data = pf_result["result"]
+        label_map = _build_label_map(pf_data)
+        for kind, key in _PF_NODE_FAMILIES:
+            for node in pf_data.get(key) or []:
+                if not isinstance(node, dict):
+                    continue
+                if node_id not in (
+                    str(node.get("uiUniqueIdentifier") or ""),
+                    str(node.get("id") or ""),
+                ):
+                    continue
+                inputs, note = _project_entries(
+                    [e for e in (node.get("inputs") or []) if isinstance(e, dict)],
+                    [_MAX_INPUTS_PER_RESPONSE],
+                    label_map,
+                    full_scripts=True,
+                )
+                out: Dict[str, Any] = {
+                    "success": True,
+                    "source": "processflow_api",
+                    "flow_id": flow_id,
+                    "node": {
+                        "id": node.get("uiUniqueIdentifier", ""),
+                        "sys_id": node.get("id", ""),
+                        "order": node.get("order", ""),
+                        "kind": kind,
+                        "name": node.get("displayText") or node.get("name") or "",
+                        "type": _pf_node_type(node),
+                        "parent": node.get("parent", ""),
+                        "inputs": inputs,
+                    },
+                }
+                if note:
+                    out["node"]["inputs_note"] = note
+                return out
+        return _node_not_found(flow_id, node_id, "processflow_api")
+
+    # Table API: the node lives on the compiled snapshot, and (identically, for
+    # scripts) on the design row. Try the snapshot first, then the design flow —
+    # an unpublished step exists only on the latter.
+    snapshot_id = _get_snapshot_id(config, auth_manager, flow_id)
+    for parent_id in [pid for pid in (snapshot_id, flow_id) if pid]:
+        for kind, table, type_field in _TABLE_NODE_FAMILIES:
+            for clause in (f"ui_id={node_id}", f"sys_id={node_id}"):
+                rows, _ = sn_query_page(
+                    config,
+                    auth_manager,
+                    table=table,
+                    query=f"flow={parent_id}^{clause}",
+                    fields=(
+                        f"sys_id,display_text,name,order,ui_id,parent_ui_id,{type_field},values"
+                    ),
+                    limit=1,
+                    offset=0,
+                    display_value=True,
+                    fail_silently=True,
+                )
+                if not rows:
+                    continue
+                row = rows[0]
+                inputs, note = _project_step_inputs(
+                    row.get(_VALUES_FIELD),
+                    [_MAX_INPUTS_PER_RESPONSE],
+                    None,
+                    full_scripts=True,
+                )
+                out = {
+                    "success": True,
+                    "source": "table_api",
+                    "flow_id": flow_id,
+                    "node": {
+                        "id": row.get("ui_id", ""),
+                        "sys_id": row.get("sys_id", ""),
+                        "order": row.get("order", ""),
+                        "kind": kind,
+                        "name": str(row.get("display_text") or row.get("name") or ""),
+                        "type": str(row.get(type_field) or ""),
+                        "parent": row.get("parent_ui_id", ""),
+                        "inputs": inputs,
+                    },
+                }
+                if note:
+                    out["node"]["inputs_note"] = note
+                return out
+    return _node_not_found(flow_id, node_id, "table_api")
+
+
+def _pf_node_type(node: Dict[str, Any]) -> str:
+    """A processflow node's type, whichever family it came from."""
+    action_type = node.get("actionType")
+    if isinstance(action_type, dict):
+        name = action_type.get("name") or action_type.get("label")
+        if name:
+            return str(name)
+    for key in ("flowLogicDefinition", "type", "internalName", "actionTypeSysId"):
+        value = node.get(key)
+        if isinstance(value, dict):
+            value = value.get("name") or value.get("label") or value.get("id")
+        if value:
+            return str(value)
+    return ""
+
+
+def _node_not_found(flow_id: str, node_id: str, source: str) -> Dict[str, Any]:
+    """Not found is reported as not found — never as a node with no bindings."""
+    return {
+        "success": False,
+        "source": source,
+        "flow_id": flow_id,
+        "node_id": node_id,
+        "error": (
+            f"No action, logic or subflow node with ui_id or sys_id '{node_id}' in flow "
+            f"{flow_id}. This is not evidence the step has no bindings — it says the "
+            "handle did not resolve."
+        ),
+        "how_to_find_it": (
+            "action='get_detail', flow_id=..., include_structure=true — every row's "
+            "`id` is the handle this takes."
+        ),
+    }
+
+
 def get_flow_details(
     config: ServerConfig,
     auth_manager: AuthManager,
@@ -2091,6 +2353,14 @@ def get_flow_details(
     Tries the processflow API first for complete data. Falls back to Table API.
     """
     flow_id = params.flow_id
+
+    # One step asked for, one step returned. Before any whole-flow work.
+    if params.node_id:
+        try:
+            return _get_node_detail(config, auth_manager, flow_id, params.node_id)
+        except Exception as e:  # noqa: BLE001 - a read must not raise at the tool edge
+            logger.error("Error reading node %s of flow %s: %s", params.node_id, flow_id, e)
+            return {"success": False, "error": str(e), "flow_id": flow_id}
 
     pf_error: Optional[str] = None
     needs_processflow = any(
@@ -2288,11 +2558,27 @@ def _decode_values_blob(blob: Any) -> Optional[List[Dict[str, Any]]]:
     except (ValueError, UnicodeDecodeError) as exc:
         logger.debug("Step values decoded but were not JSON: %s", exc)
         return None
-    return parsed if isinstance(parsed, list) else None
+    if isinstance(parsed, list):
+        return parsed
+    # TWO shapes, not one. An action row's blob is the bare input list; a LOGIC
+    # row's is an object that CONTAINS it: {"inputs": [...], "outputsToAssign": []}.
+    # Only the list was accepted, so every logic row decoded to None and was
+    # counted "unreadable" — measured live: 83 of 83 on one flow, which is every
+    # branch condition in it, while this module's own header says logic rows are
+    # "where branch conditions are". The bytes were there and read; the shape
+    # check threw them away.
+    if isinstance(parsed, dict):
+        inner = parsed.get("inputs")
+        if isinstance(inner, list):
+            return inner
+    return None
 
 
 def _project_step_inputs(
-    blob: Any, budget: List[int], label_map: Optional[Dict[str, str]] = None
+    blob: Any,
+    budget: List[int],
+    label_map: Optional[Dict[str, str]] = None,
+    full_scripts: bool = False,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """One step's bound inputs, at the level the Flow Designer canvas shows them.
 
@@ -2308,6 +2594,9 @@ def _project_step_inputs(
         rather than as a raw ``{{uuid.field}}``.
       * ``name`` — the machine name, kept because ``set_action_input`` takes it;
         dropping it would make everything readable and nothing writable.
+      * ``scripts`` — present only when the field is computed by a script, which
+        ``value`` can only say HAPPENED (``state=fd-scripted``), never what it
+        does. Bodies are stubbed unless ``full_scripts`` (the single-node read).
 
     Still dropped: the ``parameter`` metadata block minus its label (type,
     maxsize, hints — most of the bytes, none of the answer), and inputs nobody
@@ -2321,15 +2610,36 @@ def _project_step_inputs(
     entries = _decode_values_blob(blob)
     if entries is None:
         return [], ("unreadable" if blob else None)
+    return _project_entries(entries, budget, label_map, full_scripts)
 
+
+def _project_entries(
+    entries: List[Dict[str, Any]],
+    budget: List[int],
+    label_map: Optional[Dict[str, str]] = None,
+    full_scripts: bool = False,
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Project already-decoded input entries. The processflow payload hands these
+    over directly (same entry shape as the compiled blob), so both auth paths
+    render an input — scripts included — through exactly one implementation."""
     inputs: List[Dict[str, Any]] = []
     dropped_for_budget = 0
+    dropped_unrecognised = 0
     for entry in entries:
+        # A shape this cannot read is COUNTED, never just skipped: silently
+        # dropping it would shorten the parse by exactly the part nobody could
+        # explain, and the rest would still read as the complete set.
         if not isinstance(entry, dict):
+            dropped_unrecognised += 1
             continue
         name = str(entry.get("name") or "").strip()
         value = entry.get("value")
-        if not name or value in (None, "", [], {}):
+        # An empty value means "nobody configured this" — UNLESS a script does.
+        # The skip ran before the script was looked at, so an input whose stored
+        # value is blank while its body computes one dropped out of the parse
+        # entirely: not truncated, not noted, absent. Ask first, skip second.
+        scripts = _input_script_bodies(entry)
+        if not name or (value in (None, "", [], {}) and not scripts):
             continue
         if len(inputs) >= _MAX_INPUTS_PER_STEP or budget[0] <= 0:
             dropped_for_budget += 1
@@ -2350,6 +2660,18 @@ def _project_step_inputs(
             )
 
         item: Dict[str, Any] = {"name": name, "value": shown}
+        # The body behind a "<field>=fd-scripted" sentinel. Stubbed by default:
+        # a wide flow carries dozens, and a flow-wide read is not the place to
+        # ship them all. The stub states line and character counts, so a caller
+        # can see one IS there — and `node_id=<ui_id>` returns it in full.
+        if scripts:
+            item["scripts"] = [
+                {
+                    k: (v if k != "script" else (v if full_scripts else _script_stub(v)))
+                    for k, v in body.items()
+                }
+                for body in scripts
+            ]
         parameter = entry.get("parameter")
         label = (parameter or {}).get("label") if isinstance(parameter, dict) else None
         if isinstance(label, str) and label and label != name:
@@ -2361,8 +2683,12 @@ def _project_step_inputs(
         inputs.append(item)
         budget[0] -= 1
 
-    note = f"{dropped_for_budget} more input(s) not shown" if dropped_for_budget else None
-    return inputs, note
+    notes = []
+    if dropped_for_budget:
+        notes.append(f"{dropped_for_budget} more input(s) not shown")
+    if dropped_unrecognised:
+        notes.append(f"{dropped_unrecognised} entr(ies) in an unrecognised shape were not read")
+    return inputs, ("; ".join(notes) if notes else None)
 
 
 def _parse_label_cache(label_cache: str) -> List[str]:
@@ -2376,6 +2702,140 @@ def _parse_label_cache(label_cache: str) -> List[str]:
         if stripped:
             labels.append(stripped)
     return labels
+
+
+def _fetch_all_rows(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    table: str,
+    query: str,
+    fields: str,
+    display_value: Any = True,
+    first_page: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[List[Dict[str, Any]], bool]:
+    """Every row for a query, and whether the runaway ceiling cut it short.
+
+    A full page proves nothing about what comes after it. Each of these reads
+    used to stop at one page and hand the result on as the whole set, so a flow
+    past the cap produced a shorter tree, fewer subflow bindings, or a
+    "consistent" verdict computed over rows nobody fetched. Page until a short
+    page proves the end; return ``capped=True`` only when the ceiling itself was
+    reached, so the caller can say so instead of absorbing it.
+
+    ``first_page`` accepts rows already fetched (the batched read) so paging
+    continues from them rather than re-issuing the first request.
+    """
+    rows: List[Dict[str, Any]] = list(first_page or [])
+    if first_page is None:
+        rows, _ = sn_query_page(
+            config,
+            auth_manager,
+            table=table,
+            query=query,
+            fields=fields,
+            limit=_COMPONENT_PAGE,
+            offset=0,
+            display_value=display_value,
+        )
+    while rows and len(rows) % _COMPONENT_PAGE == 0 and len(rows) < _COMPONENT_CEILING:
+        more, _ = sn_query_page(
+            config,
+            auth_manager,
+            table=table,
+            query=query,
+            fields=fields,
+            limit=_COMPONENT_PAGE,
+            offset=len(rows),
+            display_value=display_value,
+            fail_silently=True,
+        )
+        if not more:
+            break
+        rows = rows + more
+    return rows, len(rows) >= _COMPONENT_CEILING
+
+
+# A flow's declared INPUTS, OUTPUTS and VARIABLES are dictionary-style rows on
+# their own tables, linked by `model` — NOT by `flow`, which is not a column
+# there at all (asking on `flow` drops the condition and returns the whole
+# table). The Table API structure never read them, so on that path a flow's
+# signature — what you must pass it and what it hands back — was absent, and
+# `compare` could not see two flows whose inputs differ.
+_SIGNATURE_TABLES = (
+    ("inputs", "sys_hub_flow_input"),
+    ("outputs", "sys_hub_flow_output"),
+    ("variables", "sys_hub_flow_variable"),
+)
+
+
+_SIGNATURE_RID = "sig_%s"
+_SIGNATURE_FIELDS = "sys_id,element,label,internal_type,order,mandatory"
+
+
+def _fetch_flow_signature(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    flow_id: str,
+    snapshot_id: str = "",
+    served: Optional[Dict[str, Any]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """The flow's declared inputs/outputs/variables, in the processflow shape.
+
+    The compiled snapshot and the design flow each own their OWN rows (distinct
+    sys_ids, same names), so one parent is asked at a time — the snapshot first
+    because that is what runs, the design flow when it has none. Verified live
+    against a bogus model id, which returns zero rows: the filter discriminates
+    rather than being dropped.
+
+    A table that cannot be read yields no entries for that kind; it never
+    fabricates an empty declaration for one that exists.
+    """
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for key, table in _SIGNATURE_TABLES:
+        # Served by the same batch the component families ride, when there is
+        # one: a flow's signature is not worth three extra round trips.
+        pre = batch_rows((served or {}).get(_SIGNATURE_RID % key))
+        if pre:
+            out[key] = _signature_entries(pre)
+            continue
+        # `pre == []` means the batch DID answer and that parent has none, so the
+        # only parent left to try is the other one; `pre is None` means it did
+        # not answer at all and both are still open.
+        parents = [flow_id] if pre == [] and snapshot_id else [snapshot_id, flow_id]
+        for parent_id in [pid for pid in parents if pid]:
+            try:
+                rows, _ = sn_query_page(
+                    config,
+                    auth_manager,
+                    table=table,
+                    query=f"model={parent_id}",
+                    fields=_SIGNATURE_FIELDS,
+                    limit=_COMPONENT_PAGE,
+                    offset=0,
+                    display_value=True,
+                    fail_silently=True,
+                )
+            except Exception as exc:  # noqa: BLE001 - one absent table is not a failed read
+                logger.debug("Flow %s table %s not readable: %s", key, table, exc)
+                continue
+            if not rows:
+                continue
+            out[key] = _signature_entries(rows)
+            break
+    return out
+
+
+def _signature_entries(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Declaration rows in the processflow shape, in declared order."""
+    return [
+        {
+            "name": str(r.get("element") or ""),
+            "label": str(r.get("label") or ""),
+            "type": str(r.get("internal_type") or ""),
+        }
+        for r in sorted(rows, key=lambda r: _safe_int(r.get("order")))
+        if r.get("element")
+    ]
 
 
 def _fetch_subflow_bindings(
@@ -2393,21 +2853,21 @@ def _fetch_subflow_bindings(
     label_cache labels against actual subflow references.
     """
     # 1. Get subflow instances with both raw and display values in one query
-    instances_all, _ = sn_query_page(
+    # (paged: a partial instance list makes the mismatch verdict below a claim
+    # about rows nobody read, and that verdict prints as "consistent").
+    instances_all, instances_capped = _fetch_all_rows(
         config,
         auth_manager,
-        table=SUBFLOW_V2_TABLE,
-        query=f"flow={snapshot_id}",
-        fields="sys_id,name,order,position,ui_id,parent_ui_id,nesting_parent,subflow",
-        limit=100,
-        offset=0,
+        SUBFLOW_V2_TABLE,
+        f"flow={snapshot_id}",
+        "sys_id,name,order,position,ui_id,parent_ui_id,nesting_parent,subflow",
         display_value="all",
     )
 
     if not instances_all:
         return {
             "subflow_bindings": [],
-            "mismatch_summary": {"mismatch_count": 0, "mismatches": []},
+            "mismatch_summary": {"mismatch_count": 0, "mismatches": [], "complete": True},
         }
 
     # With display_value=all, reference fields become {"value": "sys_id", "display_value": "name"}.
@@ -2452,7 +2912,9 @@ def _fetch_subflow_bindings(
             table=FLOW_SNAPSHOT_TABLE,
             query=f"sys_idIN{','.join(snapshot_ids)}",
             fields="sys_id,name,parent_flow",
-            limit=100,
+            # Sized to the ask: a fixed 100 against a longer IN-list silently
+            # resolved only the first 100 and left the rest looking unbound.
+            limit=max(_COMPONENT_PAGE, len(snapshot_ids)),
             offset=0,
             display_value="all",
         )
@@ -2505,7 +2967,7 @@ def _fetch_subflow_bindings(
             table=FLOW_TABLE,
             query=f"sys_idIN{','.join(remaining_ids)}",
             fields="sys_id,name",
-            limit=100,
+            limit=max(_COMPONENT_PAGE, len(remaining_ids)),
             offset=0,
             display_value=True,
         )
@@ -2578,6 +3040,10 @@ def _fetch_subflow_bindings(
         "mismatch_summary": {
             "mismatch_count": len(mismatches),
             "mismatches": mismatches,
+            # A mismatch count over a PARTIAL instance list is a lower bound, and
+            # the caller prints "verified — consistent" when it is zero. Carry
+            # the limit so that sentence cannot be built on unread rows.
+            "complete": not instances_capped,
         },
     }
 
@@ -2673,7 +3139,8 @@ def _fetch_flow_structure(
             (
                 "subflows",
                 SUBFLOW_V2_TABLE,
-                "sys_id,display_text,name,order,subflow,ui_id,parent_ui_id,nesting_parent",
+                "sys_id,display_text,name,order,subflow,ui_id,parent_ui_id,nesting_parent,"
+                + _SUBFLOW_VALUES_FIELD,
                 "subflow",
             ),
         )
@@ -2687,10 +3154,24 @@ def _fetch_flow_structure(
                     table_query_url(table, snapshot_query, fields, limit=100, display_value=True),
                 )
                 for rid, table, fields, _kind in families
+            ]
+            + [
+                (
+                    _SIGNATURE_RID % key,
+                    table_query_url(
+                        table,
+                        f"model={snapshot_id}",
+                        _SIGNATURE_FIELDS,
+                        limit=_COMPONENT_PAGE,
+                        display_value=True,
+                    ),
+                )
+                for key, table in _SIGNATURE_TABLES
             ],
         )
 
         fetched: Dict[str, List[Dict[str, Any]]] = {}
+        capped_families: List[str] = []
         for rid, table, fields, kind in families:
             rows = batch_rows((served or {}).get(rid))
             if rows is None:
@@ -2700,10 +3181,20 @@ def _fetch_flow_structure(
                     table=table,
                     query=snapshot_query,
                     fields=fields,
-                    limit=100,
+                    limit=_COMPONENT_PAGE,
                     offset=0,
                     display_value=True,
                 )
+            # A full page is not a finished read. Both fetches above stop at one
+            # page and neither reports a total, so a flow with more components
+            # than that returned a SHORTER TREE and called it the structure —
+            # the missing steps carried no marker of any kind. The flow this was
+            # measured on holds 83 logic nodes against a cap of 100.
+            rows, capped = _fetch_all_rows(
+                config, auth_manager, table, snapshot_query, fields, True, first_page=rows
+            )
+            if capped:
+                capped_families.append(rid)
             for row in rows:
                 row["component_type"] = kind
             fetched[rid] = rows
@@ -2737,7 +3228,7 @@ def _fetch_flow_structure(
         input_budget = [_MAX_INPUTS_PER_RESPONSE]
         unreadable_values = 0
         for comp in all_components:
-            blob = comp.pop(_VALUES_FIELD, None)
+            blob = comp.pop(_VALUES_FIELD, None) or comp.pop(_SUBFLOW_VALUES_FIELD, None)
             step_inputs, input_note = _project_step_inputs(blob, input_budget, step_label_map)
             if step_inputs:
                 comp["inputs"] = step_inputs
@@ -2801,6 +3292,11 @@ def _fetch_flow_structure(
                 entry["inputs_note"] = comp["inputs_note"]
             flat_summary.append(entry)
 
+        # What the flow ASKS FOR and HANDS BACK. The processflow path has carried
+        # these all along; this path did not read them at all, so the same flow
+        # looked signature-less depending on how you were logged in.
+        signature = _fetch_flow_signature(config, auth_manager, flow_id, snapshot_id, served)
+
         result: Dict[str, Any] = {
             "success": True,
             "source": "table_api_fallback",
@@ -2809,9 +3305,18 @@ def _fetch_flow_structure(
             "total_actions": len(actions),
             "total_logic": len(logic_nodes),
             "total_subflows": len(subflows),
+            "total_variables": len(signature.get("variables", [])),
+            "inputs": signature.get("inputs", []),
+            "outputs": signature.get("outputs", []),
             "flat_summary": flat_summary,
             "tree": tree,
         }
+
+        if capped_families:
+            result["components_truncated"] = (
+                f"{', '.join(capped_families)} hit the {_COMPONENT_CEILING}-row ceiling — "
+                "this tree is INCOMPLETE and its counts are lower bounds, not totals."
+            )
 
         # What the input read actually PROVED, carried with it. A step with no
         # `inputs` key means "binds nothing"; a column that would not decode is
@@ -2842,10 +3347,16 @@ def _fetch_flow_structure(
                     "Trust subflow_bindings (actual references) over label_cache (display metadata). "
                     "See mismatch_summary for details."
                 )
-            else:
+            elif binding_data["mismatch_summary"].get("complete", True):
                 result["note"] = (
                     "Retrieved via Table API. Subflow bindings verified — "
                     "label_cache and actual references are consistent."
+                )
+            else:
+                result["note"] = (
+                    "Retrieved via Table API. No mismatch was found in the subflow "
+                    "instances that were read, but the instance list hit its ceiling — "
+                    "this is NOT a clean verdict over the whole flow."
                 )
         else:
             # This used to read "Conditions and variable mappings are
@@ -2856,8 +3367,10 @@ def _fetch_flow_structure(
             result["note"] = (
                 "Retrieved via Table API. Step bindings (`inputs`) are decoded from each "
                 "node's compiled values — conditions, looked-up tables and data pills "
-                "included. Runtime-only detail (what a pill RESOLVED to on a given "
-                "execution) still needs get_executions."
+                "included. Triggers are NOT part of this path's structure (the "
+                "processflow one carries them): their absence here is not evidence the "
+                "flow has none — ask with include_triggers=true. Runtime-only detail "
+                "(what a pill RESOLVED to on a given execution) still needs get_executions."
             )
 
         return result
@@ -2941,22 +3454,81 @@ def _fetch_flow_triggers(
     """Get triggers for a flow (internal helper). Returns list of trigger records."""
     snapshot_id = _get_snapshot_id(config, auth_manager, flow_id)
 
-    query_parts = [f"flow={flow_id}"]
-    if snapshot_id:
-        query_parts.append(f"flow={snapshot_id}")
-    query_string = "^OR".join(query_parts)
+    # ONE parent, both tables. The compiled snapshot and the design flow each own
+    # a SEPARATE trigger row — different sys_ids, nothing linking them — so a
+    # `flow=a^ORflow=b` read lists the same trigger twice and no dedupe on sys_id
+    # can tell. Ask the snapshot first because that is what runs, and fall back
+    # to the design flow only when it has none (never published, or a draft).
+    #
+    # Both TABLES are then merged, because which one a release writes to is a
+    # property of the release: the measured flow's only trigger row is on the
+    # _v2 twin and the V1 query returned zero — "what starts this flow" answered
+    # "nothing" for a flow that fires on every record update.
+    triggers: List[Dict[str, Any]] = []
+    for parent_id in [pid for pid in (snapshot_id, flow_id) if pid]:
+        seen: set = set()
+        for table in (TRIGGER_TABLE_V2, TRIGGER_TABLE):
+            try:
+                rows, _ = _fetch_all_rows(config, auth_manager, table, f"flow={parent_id}", "")
+            except Exception as exc:  # noqa: BLE001 - a table a release lacks is not an error
+                logger.debug("Trigger table %s not readable: %s", table, exc)
+                continue
+            for row in rows or []:
+                sys_id = str(row.get("sys_id") or "")
+                if sys_id and sys_id in seen:
+                    continue
+                seen.add(sys_id)
+                triggers.append(row)
+        if triggers:
+            break
 
-    triggers, _ = sn_query_page(
-        config,
-        auth_manager,
-        table=TRIGGER_TABLE,
-        query=query_string,
-        fields="",
-        limit=20,
-        offset=0,
-        display_value=True,
-    )
-    return _attach_trigger_inputs(config, auth_manager, triggers)
+    # The v2 row carries its own inputs; only rows that came back without them
+    # need the sys_variable_value join below.
+    needs_join = []
+    for trigger in triggers:
+        inputs = _trigger_inputs_from_blob(trigger)
+        if inputs:
+            trigger["inputs"] = inputs
+        else:
+            needs_join.append(trigger)
+    if needs_join:
+        _attach_trigger_inputs(config, auth_manager, needs_join)
+    return triggers
+
+
+def _trigger_inputs_from_blob(trigger: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """A trigger's inputs decoded from its own row, in the processflow shape.
+
+    Same gzip+base64 JSON as every other node, under `trigger_inputs`. Returning
+    it in the shape `_compact_triggers` already reads means the watched table and
+    the fire condition print identically on both auth paths — which is the point:
+    the same fact was visible or not depending on how you were logged in.
+
+    `value` stays the STORED form and `displayValue` the shown one, because the
+    compactor prefers the display for the table and the raw for the condition.
+    """
+    entries = _decode_values_blob(trigger.pop(_TRIGGER_VALUES_FIELD, None))
+    inputs: List[Dict[str, Any]] = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            continue
+        value = entry.get("value")
+        if value in (None, "", [], {}):
+            continue
+        parameter = entry.get("parameter")
+        label = (parameter or {}).get("label") if isinstance(parameter, dict) else None
+        inputs.append(
+            {
+                "name": name,
+                "label": str(label or name),
+                "value": value if isinstance(value, str) else json.dumps(value, ensure_ascii=False),
+                "displayValue": str(entry.get("displayValue") or ""),
+            }
+        )
+    return inputs
 
 
 def _attach_trigger_inputs(
@@ -3191,6 +3763,13 @@ def _extract_comparable(flow_data: Dict[str, Any], include_label_cache: bool) ->
             for s in structure.get("flat_summary", [])
             if s.get("type") == "subflow"
         ]
+        # Two flows whose declared inputs differ are not the same flow. The
+        # processflow branch above compares these; this branch could not, because
+        # the structure it reads never carried them.
+        for key in ("inputs", "outputs"):
+            names = [i.get("name", "") for i in structure.get(key, []) if isinstance(i, dict)]
+            if names:
+                result[key] = names
         result["total_actions"] = structure.get("total_actions", 0)
         result["total_logic"] = structure.get("total_logic", 0)
         result["total_subflows"] = structure.get("total_subflows", 0)

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from verifiers.v1.clients import ModelContext
 from verifiers.v1.configs.agent import AgentConfig
+from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.errors import (
     HarnessError,
     RolloutError,
@@ -21,15 +22,16 @@ from verifiers.v1.harness import Harness, HarnessSession
 from verifiers.v1.interception import Interception, serve_interception
 from verifiers.v1.mcp import SharedToolServer, serve_tools
 from verifiers.v1.runtimes import (
+    ModalConfig,
     Runtime,
     RuntimeConfig,
     make_runtime,
 )
-from verifiers.v1.session import RolloutLimits, RolloutSession
+from verifiers.v1.session import RolloutLimits, RolloutSession, hook_boundary
 from verifiers.v1.state import state_cls
 from verifiers.v1.task import Task
 from verifiers.v1.trace import AgentInfo, Trace, TraceTask
-from verifiers.v1.types import Messages
+from verifiers.v1.types import Messages, Request, Response, SystemMessage, UserMessage
 from verifiers.v1.utils.decorators import discover_decorated, invoke
 
 logger = logging.getLogger(__name__)
@@ -79,10 +81,13 @@ class Rollout:
         self._interception = interception
         self.runtime = runtime
         self._owns_runtime = runtime is None
+        self._previous_runtime_env: dict[str, str] | None = None
         self.trace: Trace = Trace(
             task=TraceTask(
                 type=type(task).__name__,
                 data=task.data,
+                key=task.key,
+                hash=task.hash,
             ),
             state=state_cls(type(task))(),
             # The seat's resolved config, role overrides included — the agent
@@ -91,8 +96,34 @@ class Rollout:
         )
         if on_trace is not None:
             on_trace(self.trace)
+        interceptors = [
+            (hook_boundary(fn, allow_trace=False), fn)
+            for fn in discover_decorated(task, "intercept")
+        ]
+        stops = [(hook_boundary(fn, allow_trace=True), fn) for fn in task.hooks("stop")]
         self._session = RolloutSession(
-            ctx, self.trace, discover_decorated(task, "stop"), limits
+            ctx=ctx,
+            trace=self.trace,
+            network_policy=(
+                runtime_config
+                if isinstance(runtime_config, NetworkPolicyConfig)
+                else NetworkPolicyConfig(
+                    allow=[]
+                    if isinstance(runtime_config, ModalConfig)
+                    and not runtime_config.network_access
+                    else ["*"]
+                )
+            ),
+            trace_stops=[fn for boundary, fn in stops if boundary is Trace],
+            limits=limits,
+            request_interceptors=[
+                fn for boundary, fn in interceptors if boundary is Request
+            ],
+            response_interceptors=[
+                fn for boundary, fn in interceptors if boundary is Response
+            ],
+            request_stops=[fn for boundary, fn in stops if boundary is Request],
+            response_stops=[fn for boundary, fn in stops if boundary is Response],
         )
         self._stack = AsyncExitStack()
         self._failed = False
@@ -142,6 +173,12 @@ class Rollout:
         self._failure = error
         self.trace.record_error(error)
 
+    def _release_borrowed_runtime(self) -> None:
+        if self._previous_runtime_env is not None and self.runtime is not None:
+            self.runtime.env = self._previous_runtime_env
+            self._previous_runtime_env = None
+            self.runtime.borrow_lock.release()
+
     async def open(self) -> bool:
         """Boot the rollout's world up to the point where segments can run: start
         (or borrow) the runtime, run task + harness setup, bring up the
@@ -170,6 +207,15 @@ class Rollout:
             self.runtime_config.type,
         )
         try:
+            runtime_env = dict(self.task.runtime_env())
+            if self._owns_runtime:
+                runtime.env = runtime_env
+            else:
+                await runtime.borrow_lock.acquire()
+                self._previous_runtime_env = runtime.env
+                # The owner's defaults return after the borrow; they do not belong to
+                # this task and must not flow into its processes.
+                runtime.env = runtime_env
             if self.task.data.prompt is None and not self._has_user:
                 raise TaskError(
                     "task has no prompt and no user to open the conversation; set "
@@ -233,15 +279,66 @@ class Rollout:
             # execution policy while preserving the framework routes the agent uses.
             await runtime.prepare_execution([self._endpoint, *self._urls.values()])
             async with boundary(HarnessError, "opening harness session"):
-                self._harness_session = await self.harness.session(
-                    self.ctx,
-                    self.trace,
-                    runtime,
-                    self._endpoint,
-                    self._secret,
-                    self._urls,
-                    self.trace.task.data,
-                )
+                harness_data = self.trace.task.data
+                if (
+                    self._session.request_interceptors
+                    and harness_data.prompt is not None
+                ):
+                    prompt = harness_data.prompt
+                    system_prompt = harness_data.system_prompt
+                    if isinstance(prompt, str):
+                        system_prompt, prompt = self.harness.resolve_prompt(
+                            harness_data
+                        )
+                    messages = (
+                        [UserMessage(content=prompt)]
+                        if isinstance(prompt, str)
+                        else list(prompt)
+                    )
+                    has_system = system_prompt is not None
+                    if has_system:
+                        messages.insert(0, SystemMessage(content=system_prompt))
+                    prepared, rewrites = await self._session.prepare_users(
+                        Request(messages=messages)
+                    )
+                    messages = prepared.messages
+                    self.trace.request_rewrites.extend(rewrites)
+                    if has_system:
+                        messages = messages[1:]
+                    rewritten_prompt = (
+                        messages[0].content
+                        if isinstance(prompt, str)
+                        and len(messages) == 1
+                        and isinstance(messages[0], UserMessage)
+                        and isinstance(messages[0].content, str)
+                        else messages
+                    )
+                    harness_data = harness_data.model_copy(
+                        update={
+                            "prompt": rewritten_prompt,
+                            "system_prompt": system_prompt,
+                        }
+                    )
+                if not self._session.stopped:
+                    session_kwargs = (
+                        {"tool_interception_url": f"{runtime.host_url(base_url)}/tool"}
+                        if self.harness.SUPPORTS_TOOL_INTERCEPTION
+                        and (
+                            self._session.request_interceptors
+                            or self._session.request_stops
+                        )
+                        else {}
+                    )
+                    self._harness_session = await self.harness.session(
+                        self.ctx,
+                        self.trace,
+                        runtime,
+                        self._endpoint,
+                        self._secret,
+                        self._urls,
+                        harness_data,
+                        **session_kwargs,
+                    )
         except Exception as e:  # noqa: BLE001 - setup boundary records every rollout failure
             self.fail(e)
             return False
@@ -254,7 +351,7 @@ class Rollout:
         now = time.time()
         self.trace.timing.setup.end = now
         self.trace.timing.agent.start = now
-        return True
+        return not self._session.stopped
 
     async def step(self, messages: Messages | None = None) -> bool:
         """Run ONE segment: the harness program to its exit. With `messages`, the
@@ -279,6 +376,14 @@ class Rollout:
         try:
             async with asyncio.timeout_at(self.deadline_at):
                 assert self._harness_session is not None
+                if messages is not None and self._session.request_interceptors:
+                    prepared, rewrites = await self._session.prepare_users(
+                        Request(messages=messages)
+                    )
+                    messages = prepared.messages
+                    self.trace.request_rewrites.extend(rewrites)
+                    if self._session.stopped:
+                        return False
                 await self._harness_session.turn(messages)
         except TimeoutError as e:
             # An expired rollout deadline is the agent breaking its time budget —
@@ -295,6 +400,8 @@ class Rollout:
                 self.fail(e)
             return False
         except Exception as e:  # noqa: BLE001 - harness boundary records every rollout failure
+            if self._session.stopped:
+                return False
             real = self._session.error
             if real is not None and isinstance(e, RolloutError):
                 real.__cause__ = e
@@ -330,6 +437,7 @@ class Rollout:
         if self.runtime is not None:
             with contextlib.suppress(Exception):
                 await self.harness.cleanup(self.trace, self.runtime)
+        self._release_borrowed_runtime()
         if self._owns_runtime and self.runtime is not None:
             with contextlib.suppress(Exception):
                 await self.runtime.stop()
@@ -411,6 +519,7 @@ class Rollout:
                     logger.warning(
                         "harness cleanup failed (rollout %s)", trace.id, exc_info=True
                     )
+            self._release_borrowed_runtime()
             # Tear down here — the env's `score()` (later) needs only the traces,
             # not a live runtime. A borrowed runtime is its creator's to tear down,
             # not this rollout's.

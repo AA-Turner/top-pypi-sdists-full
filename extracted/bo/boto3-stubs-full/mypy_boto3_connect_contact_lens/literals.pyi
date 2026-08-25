@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_connect_contact_lens.literals import PostContactSummaryFailureCodeType
+    from mypy_boto3_connect_contact_lens.literals import ExtractedInformationFailureCodeType
 
-    data: PostContactSummaryFailureCodeType = "FAILED_SAFETY_GUIDELINES"
+    data: ExtractedInformationFailureCodeType = "FAILED_SAFETY_GUIDELINES"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ConnectContactLensServiceName",
+    "ExtractedInformationFailureCodeType",
     "PostContactSummaryFailureCodeType",
     "PostContactSummaryStatusType",
     "RegionName",
@@ -31,6 +32,13 @@ __all__ = (
     "ServiceName",
 )
 
+ExtractedInformationFailureCodeType = Literal[
+    "FAILED_SAFETY_GUIDELINES",
+    "INSUFFICIENT_CONVERSATION_CONTENT",
+    "INTERNAL_ERROR",
+    "MAX_PACKAGE_FEATURE_ONLY",
+    "QUOTA_EXCEEDED",
+]
 PostContactSummaryFailureCodeType = Literal[
     "FAILED_SAFETY_GUIDELINES",
     "INSUFFICIENT_CONVERSATION_CONTENT",

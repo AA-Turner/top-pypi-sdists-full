@@ -6,7 +6,7 @@ import sys
 import time
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -20,12 +20,9 @@ from .utils import TraceParameter
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
 logger = logging.getLogger(__name__)
-
-OutputType = TypeVar("OutputType")
 
 CtypesTypes = (
     type[ctypes.c_uint8]
@@ -309,7 +306,7 @@ class AlazarTechATS(Instrument):
         )
         return buffer
 
-    def acquire(  # noqa: D417 (missing args documentation)
+    def acquire[OutputType](  # noqa: D417 (missing args documentation)
         self,
         mode: str | None = None,
         samples_per_record: int | None = None,
@@ -569,14 +566,13 @@ class AlazarTechATS(Instrument):
         time_done_free_mem = time.perf_counter()
         # check if all parameters are up to date
         # Getting IDN is very slow so skip that
-        for _, p in self.parameters.items():
-            if isinstance(p, TraceParameter):
-                if p.synced_to_card is False:
-                    raise RuntimeError(
-                        f"TraceParameter {p} not synced to "
-                        f"Alazar card detected. Aborting. Data "
-                        f"may be corrupt"
-                    )
+        for p in self.parameters.values():
+            if isinstance(p, TraceParameter) and p.synced_to_card is False:
+                raise RuntimeError(
+                    f"TraceParameter {p} not synced to "
+                    f"Alazar card detected. Aborting. Data "
+                    f"may be corrupt"
+                )
 
         # Compute the total transfer time, and display performance information.
         end_time = time.perf_counter()
@@ -828,7 +824,7 @@ class Buffer:
             )
 
 
-class AcquisitionInterface(Generic[OutputType]):
+class AcquisitionInterface[OutputType]:
     """
     This class represents all choices that the end-user has to make regarding
     the data-acquisition. this class should be subclassed to program these
@@ -854,13 +850,11 @@ class AcquisitionInterface(Generic[OutputType]):
         The Alazar instrument will call this method right before
         'AlazarStartCapture' is called
         """
-        pass
 
     def pre_acquire(self) -> None:
         """
         This method is called immediately after 'AlazarStartCapture' is called
         """
-        pass
 
     def handle_buffer(
         self, buffer: npt.NDArray, buffer_number: int | None = None
@@ -901,10 +895,9 @@ class AcquisitionInterface(Generic[OutputType]):
                 to local memory at the time of this callback.
 
         """
-        pass
 
 
-class AcquisitionController(Instrument, AcquisitionInterface[Any], Generic[OutputType]):
+class AcquisitionController[OutputType](Instrument, AcquisitionInterface[Any]):
     """
     Compatibility class. The methods of :class:`AcquisitionController`
     have been extracted. This class is the base class fro AcquisitionInterfaces
@@ -933,3 +926,16 @@ class AcquisitionController(Instrument, AcquisitionInterface[Any], Generic[Outpu
         :return: reference to the Alazar instrument
         """
         return self._alazar
+
+
+if not TYPE_CHECKING:
+    from typing import TypeVar
+
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    __getattr__ = _make_deprecated_typevars_getattr(
+        __name__,
+        {
+            "OutputType": TypeVar("OutputType"),
+        },
+    )

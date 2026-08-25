@@ -215,6 +215,7 @@ def register_models(register):
             supports_thinking=True,
             supports_web_search=True,
             supports_code_execution=True,
+            use_structured_outputs=True,
             default_max_tokens=64000,
         ),
         AsyncClaudeMessages(
@@ -223,6 +224,7 @@ def register_models(register):
             supports_thinking=True,
             supports_web_search=True,
             supports_code_execution=True,
+            use_structured_outputs=True,
             default_max_tokens=64000,
         ),
         aliases=("claude-haiku-4.5",),
@@ -332,6 +334,7 @@ def register_models(register):
         ClaudeMessages(
             "claude-opus-4-8",
             supports_pdf=True,
+            supports_system_messages=True,
             supports_thinking=True,
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
@@ -343,6 +346,7 @@ def register_models(register):
         AsyncClaudeMessages(
             "claude-opus-4-8",
             supports_pdf=True,
+            supports_system_messages=True,
             supports_thinking=True,
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
@@ -358,6 +362,7 @@ def register_models(register):
         ClaudeMessages(
             "claude-fable-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             always_thinks=True,
             supports_thinking=True,
@@ -371,6 +376,7 @@ def register_models(register):
         AsyncClaudeMessages(
             "claude-fable-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             always_thinks=True,
             supports_thinking=True,
@@ -388,6 +394,7 @@ def register_models(register):
         ClaudeMessages(
             "claude-sonnet-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             supports_thinking=True,
             supports_thinking_effort=True,
@@ -400,6 +407,7 @@ def register_models(register):
         AsyncClaudeMessages(
             "claude-sonnet-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             supports_thinking=True,
             supports_thinking_effort=True,
@@ -416,6 +424,7 @@ def register_models(register):
         ClaudeMessages(
             "claude-opus-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             supports_thinking=True,
             supports_thinking_effort=True,
@@ -428,6 +437,7 @@ def register_models(register):
         AsyncClaudeMessages(
             "claude-opus-5",
             supports_pdf=True,
+            supports_system_messages=True,
             thinks_by_default=True,
             supports_thinking=True,
             supports_thinking_effort=True,
@@ -517,7 +527,7 @@ class ClaudeOptions(llm.Options):
     @field_validator("temperature")
     @classmethod
     def validate_temperature(cls, temperature):
-        if not (0.0 <= temperature <= 1.0):
+        if temperature is not None and not (0.0 <= temperature <= 1.0):
             raise ValueError("temperature must be in range 0.0-1.0")
         return temperature
 
@@ -537,7 +547,7 @@ class ClaudeOptions(llm.Options):
 
     @model_validator(mode="after")
     def validate_temperature_top_p(self):
-        if self.temperature != 1.0 and self.top_p is not None:
+        if self.temperature is not None and self.top_p is not None:
             raise ValueError("Only one of temperature and top_p can be set")
         return self
 
@@ -832,6 +842,7 @@ class _Shared:
         thinks_by_default=False,
         always_thinks=False,
         use_structured_outputs=False,
+        supports_system_messages=False,
         default_max_tokens=None,
         base_url=None,
     ):
@@ -865,6 +876,7 @@ class _Shared:
         self.supports_code_execution = supports_code_execution
         self.thinks_by_default = thinks_by_default
         self.always_thinks = always_thinks
+        self.supports_system_messages = supports_system_messages
 
     @property
     def supported_server_side_tools(self):
@@ -908,6 +920,20 @@ class _Shared:
             server_executed=True,
             tool_name=block_type.removesuffix("_tool_result"),
         )
+
+    def _block_part_index(self, chunk) -> Optional[int]:
+        """Explicit StreamEvent part_index for an Anthropic content block.
+
+        Each Anthropic block index gets its own part index so that
+        consecutive thinking / redacted_thinking blocks assemble into
+        distinct ReasoningParts instead of merging - merging would
+        concatenate their text and keep only the last signature, and
+        Anthropic rejects continuations whose thinking blocks don't
+        match what the model generated. Offset by 1 so the prefill
+        text event can use part_index 0 without colliding.
+        """
+        index = getattr(chunk, "index", None)
+        return None if index is None else index + 1
 
     def _apply_container(self, message_dict, container):
         """Store the code execution container on the response JSON.
@@ -961,6 +987,14 @@ class _Shared:
             block: Dict[str, Any] = {"type": "text", "text": part.text}
             return block
         if isinstance(part, ReasoningPart):
+            if (
+                isinstance(anthropic_pm, dict)
+                and anthropic_pm.get("type") == "redacted_thinking"
+                and anthropic_pm.get("data")
+            ):
+                # Safety-redacted reasoning: the opaque data must be
+                # replayed byte-for-byte as a redacted_thinking block.
+                return {"type": "redacted_thinking", "data": anthropic_pm["data"]}
             block = {"type": "thinking", "thinking": part.text}
             # Anthropic signed-thinking requires the signature echoed back.
             sig = (
@@ -1058,8 +1092,6 @@ class _Shared:
         """Append an Anthropic-shaped message, merging with the previous one
         if both would be user-side turns (tool_result + text in the same
         user message is the required shape for tool follow-ups)."""
-        if message.role == "system":
-            return  # system lives on the top-level kwargs["system"] field
         blocks = self._message_to_blocks(message)
         if not blocks:
             return
@@ -1070,6 +1102,35 @@ class _Shared:
             out[-1]["content"].extend(blocks)
         else:
             out.append({"role": anthropic_role, "content": blocks})
+
+    def _append_system_message(
+        self, out: List[Dict[str, Any]], message: Message, is_first: bool
+    ) -> None:
+        """Handle a system-role message from an explicit messages= chain.
+
+        The first message in the chain is hoisted to the top-level
+        kwargs["system"] field by _extract_system. Later ones become inline
+        role="system" entries on models that support mid-conversation
+        system messages (Opus 4.8 and the Claude 5 family)."""
+        if is_first:
+            return
+        if not self.supports_system_messages:
+            raise ValueError(
+                f"{self.claude_model_id} does not support mid-conversation "
+                "system messages - only the first message in messages= can "
+                "use role='system' with this model"
+            )
+        blocks = [
+            {"type": "text", "text": part.text}
+            for part in message.parts
+            if isinstance(part, TextPart)
+        ]
+        if not blocks:
+            return
+        if out and out[-1]["role"] == "system":
+            out[-1]["content"].extend(blocks)
+        else:
+            out.append({"role": "system", "content": blocks})
 
     def _append_prev_response_output(
         self, out: List[Dict[str, Any]], prev_response
@@ -1100,8 +1161,20 @@ class _Shared:
         # 0.32+ conversation and chain paths pre-bake the full input chain
         # here, so also walking conversation.responses would duplicate
         # prior turns and break tool-result ordering.
-        for message in prompt.messages:
-            self._append_message(messages, message)
+        for index, message in enumerate(prompt.messages):
+            if message.role == "system":
+                self._append_system_message(messages, message, index == 0)
+            else:
+                self._append_message(messages, message)
+
+        # The API requires an inline system entry to immediately follow a
+        # user turn (and precede an assistant turn or end the array), but
+        # authors naturally write new instructions before their next user
+        # message - so bubble each system entry past a directly following
+        # user turn.
+        for i in range(len(messages) - 1):
+            if messages[i]["role"] == "system" and messages[i + 1]["role"] == "user":
+                messages[i], messages[i + 1] = messages[i + 1], messages[i]
 
         # Cache control: apply to the last content block of the final
         # user-side turn, matching the pre-upgrade behavior.
@@ -1133,16 +1206,21 @@ class _Shared:
         """Pull the system prompt from prompt.messages or prompt.system.
 
         ``prompt.system`` already composes ``_system`` + ``system_fragments``;
-        if messages= was passed explicitly and it contains a system-role
-        message, fall back to reading that.
+        if messages= was passed explicitly and it *starts* with a system-role
+        message, fall back to reading that. Later system-role messages are
+        sent inline by _append_system_message instead, since the API forbids
+        a system entry in first position.
         """
         if prompt.system:
             return prompt.system
-        for message in prompt.messages:
-            if message.role == "system":
-                texts = [p.text for p in message.parts if isinstance(p, TextPart)]
-                if texts:
-                    return "\n\n".join(texts)
+        if prompt.messages and prompt.messages[0].role == "system":
+            texts = [
+                p.text
+                for p in prompt.messages[0].parts
+                if isinstance(p, TextPart)
+            ]
+            if texts:
+                return "\n\n".join(texts)
         return None
 
     def build_kwargs(self, prompt, conversation):
@@ -1158,17 +1236,23 @@ class _Shared:
         if prompt.options.user_id:
             kwargs["metadata"] = {"user_id": prompt.options.user_id}
 
-        if prompt.options.top_p:
-            kwargs["top_p"] = prompt.options.top_p
+        # anthropic>=1 removed temperature/top_p/top_k from the method
+        # signatures; the API still accepts them, so send via extra_body
+        extra_body = {}
+        if prompt.options.top_p is not None:
+            extra_body["top_p"] = prompt.options.top_p
         else:
-            kwargs["temperature"] = (
+            extra_body["temperature"] = (
                 prompt.options.temperature
                 if prompt.options.temperature is not None
                 else DEFAULT_TEMPERATURE
             )
 
         if prompt.options.top_k:
-            kwargs["top_k"] = prompt.options.top_k
+            extra_body["top_k"] = prompt.options.top_k
+
+        if extra_body:
+            kwargs["extra_body"] = extra_body
 
         system = self._extract_system(prompt)
         if system:
@@ -1240,7 +1324,7 @@ class _Shared:
         if max_tokens > 64000 and not self.supports_adaptive_thinking:
             betas.append("output-128k-2025-02-19")
             if "thinking" in kwargs:
-                kwargs["extra_body"] = {"thinking": kwargs.pop("thinking")}
+                kwargs.setdefault("extra_body", {})["thinking"] = kwargs.pop("thinking")
 
         # Check if we should use new structured outputs
         use_structured_outputs = prompt.schema and self.use_structured_outputs
@@ -1332,143 +1416,130 @@ class ClaudeMessages(_Shared, llm.KeyModel):
         else:
             messages_client = client.messages
 
-        if stream:
-            with messages_client.stream(**kwargs) as stream_obj:
-                current_block_id = None
-                current_block_name = None
-                is_server_tool = False
-                container = None
+        # Always use Anthropic's streaming transport, even when LLM has been
+        # asked to buffer the response for non-streaming presentation. The
+        # Anthropic SDK rejects non-streaming requests with large max_tokens
+        # values because they may take longer than ten minutes.
+        with messages_client.stream(**kwargs) as stream_obj:
+            current_block_id = None
+            current_block_name = None
+            is_server_tool = False
+            container = None
 
-                if prefill_text:
-                    yield StreamEvent(type="text", chunk=prefill_text)
+            if prefill_text:
+                # part_index 0 is reserved for the prefill so it can
+                # never collide with a content block's explicit index.
+                yield StreamEvent(type="text", chunk=prefill_text, part_index=0)
 
-                for chunk in stream_obj:
-                    if chunk.type == "content_block_start":
-                        block = chunk.content_block
-                        block_type = getattr(block, "type", None)
-                        current_block_id = getattr(block, "id", None)
-                        current_block_name = getattr(block, "name", None)
-                        is_server_tool = block_type in (
-                            "server_tool_use",
-                            "mcp_tool_use",
-                        ) or (block_type or "").endswith("_tool_result")
+            for chunk in stream_obj:
+                if chunk.type == "content_block_start":
+                    block = chunk.content_block
+                    block_type = getattr(block, "type", None)
+                    block_part_index = self._block_part_index(chunk)
+                    current_block_id = getattr(block, "id", None)
+                    current_block_name = getattr(block, "name", None)
+                    is_server_tool = block_type in (
+                        "server_tool_use",
+                        "mcp_tool_use",
+                    ) or (block_type or "").endswith("_tool_result")
 
-                        if block_type in (
-                            "tool_use",
-                            "server_tool_use",
-                            "mcp_tool_use",
-                        ):
-                            yield StreamEvent(
-                                type="tool_call_name",
-                                chunk=current_block_name or "",
-                                tool_call_id=current_block_id,
-                                server_executed=(block_type != "tool_use"),
-                                provider_metadata=(
-                                    {
-                                        "anthropic": {
-                                            "mcp_server_name": getattr(
-                                                block, "server_name", None
-                                            )
-                                        }
-                                    }
-                                    if block_type == "mcp_tool_use"
-                                    else None
-                                ),
-                            )
-                        elif block_type and block_type.endswith("_tool_result"):
-                            # Content is available inline on content_block_start
-                            yield self._server_tool_result_event(block_type, block)
-
-                    elif chunk.type == "content_block_delta":
-                        delta = chunk.delta
-                        delta_type = getattr(delta, "type", None)
-
-                        if delta_type == "thinking_delta":
-                            yield StreamEvent(type="reasoning", chunk=delta.thinking)
-                        elif delta_type == "signature_delta":
-                            yield StreamEvent(
-                                type="reasoning",
-                                chunk="",
-                                provider_metadata={
-                                    "anthropic": {"signature": delta.signature}
-                                },
-                            )
-                        elif delta_type == "text_delta":
-                            yield StreamEvent(type="text", chunk=delta.text)
-                        elif delta_type == "input_json_delta":
-                            yield StreamEvent(
-                                type="tool_call_args",
-                                chunk=delta.partial_json,
-                                tool_call_id=current_block_id,
-                                server_executed=is_server_tool,
-                            )
-
-                    elif chunk.type == "message_delta":
-                        chunk_container = getattr(chunk, "container", None) or getattr(
-                            getattr(chunk, "delta", None), "container", None
-                        )
-                        if chunk_container is not None:
-                            container = chunk_container
-
-                # This records usage and other data:
-                last_message = self._model_dump_suppress_warnings(
-                    stream_obj.get_final_message()
-                )
-                self._apply_container(last_message, container)
-                response.response_json = last_message
-
-                if self.add_tool_usage(response, last_message):
-                    # Avoid "can have dragons.Now that I " bug
-                    yield StreamEvent(type="text", chunk=" ")
-        else:
-            completion = messages_client.create(**kwargs)
-            for item in completion.content:
-                item_type = getattr(item, "type", None)
-                if item_type == "thinking":
-                    signature = getattr(item, "signature", None)
-                    yield StreamEvent(
-                        type="reasoning",
-                        chunk=item.thinking,
-                        provider_metadata=(
-                            {"anthropic": {"signature": signature}}
-                            if signature
-                            else None
-                        ),
-                    )
-                elif item_type == "text":
-                    text = (prefill_text + item.text) if prefill_text else item.text
-                    prefill_text = ""  # Only prepend once
-                    yield StreamEvent(type="text", chunk=text)
-                elif item_type in ("tool_use", "server_tool_use", "mcp_tool_use"):
-                    server_executed = item_type != "tool_use"
-                    yield StreamEvent(
-                        type="tool_call_name",
-                        chunk=item.name,
-                        tool_call_id=item.id,
-                        server_executed=server_executed,
-                        provider_metadata=(
-                            {
+                    if block_type == "redacted_thinking":
+                        # The opaque block arrives complete on
+                        # content_block_start; preserve it as a
+                        # metadata-only reasoning part so it replays
+                        # unchanged in continuation requests.
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk="",
+                            part_index=block_part_index,
+                            provider_metadata={
                                 "anthropic": {
-                                    "mcp_server_name": getattr(
-                                        item, "server_name", None
-                                    )
+                                    "type": "redacted_thinking",
+                                    "data": getattr(block, "data", ""),
                                 }
-                            }
-                            if item_type == "mcp_tool_use"
-                            else None
-                        ),
+                            },
+                        )
+                    elif block_type in (
+                        "tool_use",
+                        "server_tool_use",
+                        "mcp_tool_use",
+                    ):
+                        yield StreamEvent(
+                            type="tool_call_name",
+                            chunk=current_block_name or "",
+                            part_index=block_part_index,
+                            tool_call_id=current_block_id,
+                            server_executed=(block_type != "tool_use"),
+                            provider_metadata=(
+                                {
+                                    "anthropic": {
+                                        "mcp_server_name": getattr(
+                                            block, "server_name", None
+                                        )
+                                    }
+                                }
+                                if block_type == "mcp_tool_use"
+                                else None
+                            ),
+                        )
+                    elif block_type and block_type.endswith("_tool_result"):
+                        # Content is available inline on content_block_start
+                        event = self._server_tool_result_event(block_type, block)
+                        event.part_index = block_part_index
+                        yield event
+
+                elif chunk.type == "content_block_delta":
+                    delta = chunk.delta
+                    delta_type = getattr(delta, "type", None)
+                    block_part_index = self._block_part_index(chunk)
+
+                    if delta_type == "thinking_delta":
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk=delta.thinking,
+                            part_index=block_part_index,
+                        )
+                    elif delta_type == "signature_delta":
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk="",
+                            part_index=block_part_index,
+                            provider_metadata={
+                                "anthropic": {"signature": delta.signature}
+                            },
+                        )
+                    elif delta_type == "text_delta":
+                        yield StreamEvent(
+                            type="text",
+                            chunk=delta.text,
+                            part_index=block_part_index,
+                        )
+                    elif delta_type == "input_json_delta":
+                        yield StreamEvent(
+                            type="tool_call_args",
+                            chunk=delta.partial_json,
+                            part_index=block_part_index,
+                            tool_call_id=current_block_id,
+                            server_executed=is_server_tool,
+                        )
+
+                elif chunk.type == "message_delta":
+                    chunk_container = getattr(chunk, "container", None) or getattr(
+                        getattr(chunk, "delta", None), "container", None
                     )
-                    yield StreamEvent(
-                        type="tool_call_args",
-                        chunk=json.dumps(item.input),
-                        tool_call_id=item.id,
-                        server_executed=server_executed,
-                    )
-                elif item_type and item_type.endswith("_tool_result"):
-                    yield self._server_tool_result_event(item_type, item)
-            response.response_json = completion.model_dump()
-            self._apply_container(response.response_json, None)
-            self.add_tool_usage(response, response.response_json)
+                    if chunk_container is not None:
+                        container = chunk_container
+
+            # This records usage and other data:
+            last_message = self._model_dump_suppress_warnings(
+                stream_obj.get_final_message()
+            )
+            self._apply_container(last_message, container)
+            response.response_json = last_message
+
+            if self.add_tool_usage(response, last_message):
+                # Avoid "can have dragons.Now that I " bug
+                yield StreamEvent(type="text", chunk=" ")
         self.set_usage(response)
 
 
@@ -1482,136 +1553,125 @@ class AsyncClaudeMessages(_Shared, llm.AsyncKeyModel):
             messages_client = client.messages
         prefill_text = self.prefill_text(prompt)
 
-        if stream:
-            async with messages_client.stream(**kwargs) as stream_obj:
-                current_block_id = None
-                current_block_name = None
-                is_server_tool = False
-                container = None
+        # Always use Anthropic's streaming transport. LLM still controls
+        # whether the yielded events are displayed incrementally or buffered.
+        async with messages_client.stream(**kwargs) as stream_obj:
+            current_block_id = None
+            current_block_name = None
+            is_server_tool = False
+            container = None
 
-                if prefill_text:
-                    yield StreamEvent(type="text", chunk=prefill_text)
+            if prefill_text:
+                # part_index 0 is reserved for the prefill so it can
+                # never collide with a content block's explicit index.
+                yield StreamEvent(type="text", chunk=prefill_text, part_index=0)
 
-                async for chunk in stream_obj:
-                    if chunk.type == "content_block_start":
-                        block = chunk.content_block
-                        block_type = getattr(block, "type", None)
-                        current_block_id = getattr(block, "id", None)
-                        current_block_name = getattr(block, "name", None)
-                        is_server_tool = block_type in (
-                            "server_tool_use",
-                            "mcp_tool_use",
-                        ) or (block_type or "").endswith("_tool_result")
+            async for chunk in stream_obj:
+                if chunk.type == "content_block_start":
+                    block = chunk.content_block
+                    block_type = getattr(block, "type", None)
+                    block_part_index = self._block_part_index(chunk)
+                    current_block_id = getattr(block, "id", None)
+                    current_block_name = getattr(block, "name", None)
+                    is_server_tool = block_type in (
+                        "server_tool_use",
+                        "mcp_tool_use",
+                    ) or (block_type or "").endswith("_tool_result")
 
-                        if block_type in (
-                            "tool_use",
-                            "server_tool_use",
-                            "mcp_tool_use",
-                        ):
-                            yield StreamEvent(
-                                type="tool_call_name",
-                                chunk=current_block_name or "",
-                                tool_call_id=current_block_id,
-                                server_executed=(block_type != "tool_use"),
-                                provider_metadata=(
-                                    {
-                                        "anthropic": {
-                                            "mcp_server_name": getattr(
-                                                block, "server_name", None
-                                            )
-                                        }
-                                    }
-                                    if block_type == "mcp_tool_use"
-                                    else None
-                                ),
-                            )
-                        elif block_type and block_type.endswith("_tool_result"):
-                            yield self._server_tool_result_event(block_type, block)
-
-                    elif chunk.type == "content_block_delta":
-                        delta = chunk.delta
-                        delta_type = getattr(delta, "type", None)
-
-                        if delta_type == "thinking_delta":
-                            yield StreamEvent(type="reasoning", chunk=delta.thinking)
-                        elif delta_type == "signature_delta":
-                            yield StreamEvent(
-                                type="reasoning",
-                                chunk="",
-                                provider_metadata={
-                                    "anthropic": {"signature": delta.signature}
-                                },
-                            )
-                        elif delta_type == "text_delta":
-                            yield StreamEvent(type="text", chunk=delta.text)
-                        elif delta_type == "input_json_delta":
-                            yield StreamEvent(
-                                type="tool_call_args",
-                                chunk=delta.partial_json,
-                                tool_call_id=current_block_id,
-                                server_executed=is_server_tool,
-                            )
-
-                    elif chunk.type == "message_delta":
-                        chunk_container = getattr(chunk, "container", None) or getattr(
-                            getattr(chunk, "delta", None), "container", None
+                    if block_type == "redacted_thinking":
+                        # The opaque block arrives complete on
+                        # content_block_start; preserve it as a
+                        # metadata-only reasoning part so it replays
+                        # unchanged in continuation requests.
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk="",
+                            part_index=block_part_index,
+                            provider_metadata={
+                                "anthropic": {
+                                    "type": "redacted_thinking",
+                                    "data": getattr(block, "data", ""),
+                                }
+                            },
                         )
-                        if chunk_container is not None:
-                            container = chunk_container
+                    elif block_type in (
+                        "tool_use",
+                        "server_tool_use",
+                        "mcp_tool_use",
+                    ):
+                        yield StreamEvent(
+                            type="tool_call_name",
+                            chunk=current_block_name or "",
+                            part_index=block_part_index,
+                            tool_call_id=current_block_id,
+                            server_executed=(block_type != "tool_use"),
+                            provider_metadata=(
+                                {
+                                    "anthropic": {
+                                        "mcp_server_name": getattr(
+                                            block, "server_name", None
+                                        )
+                                    }
+                                }
+                                if block_type == "mcp_tool_use"
+                                else None
+                            ),
+                        )
+                    elif block_type and block_type.endswith("_tool_result"):
+                        event = self._server_tool_result_event(block_type, block)
+                        event.part_index = block_part_index
+                        yield event
 
-            response.response_json = self._model_dump_suppress_warnings(
+                elif chunk.type == "content_block_delta":
+                    delta = chunk.delta
+                    delta_type = getattr(delta, "type", None)
+                    block_part_index = self._block_part_index(chunk)
+
+                    if delta_type == "thinking_delta":
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk=delta.thinking,
+                            part_index=block_part_index,
+                        )
+                    elif delta_type == "signature_delta":
+                        yield StreamEvent(
+                            type="reasoning",
+                            chunk="",
+                            part_index=block_part_index,
+                            provider_metadata={
+                                "anthropic": {"signature": delta.signature}
+                            },
+                        )
+                    elif delta_type == "text_delta":
+                        yield StreamEvent(
+                            type="text",
+                            chunk=delta.text,
+                            part_index=block_part_index,
+                        )
+                    elif delta_type == "input_json_delta":
+                        yield StreamEvent(
+                            type="tool_call_args",
+                            chunk=delta.partial_json,
+                            part_index=block_part_index,
+                            tool_call_id=current_block_id,
+                            server_executed=is_server_tool,
+                        )
+
+                elif chunk.type == "message_delta":
+                    chunk_container = getattr(chunk, "container", None) or getattr(
+                        getattr(chunk, "delta", None), "container", None
+                    )
+                    if chunk_container is not None:
+                        container = chunk_container
+
+            # This records usage and other data:
+            last_message = self._model_dump_suppress_warnings(
                 await stream_obj.get_final_message()
             )
-            self._apply_container(response.response_json, container)
+            self._apply_container(last_message, container)
+            response.response_json = last_message
 
-            self.add_tool_usage(response, response.response_json)
-        else:
-            completion = await messages_client.create(**kwargs)
-            for item in completion.content:
-                item_type = getattr(item, "type", None)
-                if item_type == "thinking":
-                    signature = getattr(item, "signature", None)
-                    yield StreamEvent(
-                        type="reasoning",
-                        chunk=item.thinking,
-                        provider_metadata=(
-                            {"anthropic": {"signature": signature}}
-                            if signature
-                            else None
-                        ),
-                    )
-                elif item_type == "text":
-                    text = (prefill_text + item.text) if prefill_text else item.text
-                    prefill_text = ""
-                    yield StreamEvent(type="text", chunk=text)
-                elif item_type in ("tool_use", "server_tool_use", "mcp_tool_use"):
-                    server_executed = item_type != "tool_use"
-                    yield StreamEvent(
-                        type="tool_call_name",
-                        chunk=item.name,
-                        tool_call_id=item.id,
-                        server_executed=server_executed,
-                        provider_metadata=(
-                            {
-                                "anthropic": {
-                                    "mcp_server_name": getattr(
-                                        item, "server_name", None
-                                    )
-                                }
-                            }
-                            if item_type == "mcp_tool_use"
-                            else None
-                        ),
-                    )
-                    yield StreamEvent(
-                        type="tool_call_args",
-                        chunk=json.dumps(item.input),
-                        tool_call_id=item.id,
-                        server_executed=server_executed,
-                    )
-                elif item_type and item_type.endswith("_tool_result"):
-                    yield self._server_tool_result_event(item_type, item)
-            response.response_json = completion.model_dump()
-            self._apply_container(response.response_json, None)
-            self.add_tool_usage(response, response.response_json)
+            if self.add_tool_usage(response, last_message):
+                # Avoid "can have dragons.Now that I " bug
+                yield StreamEvent(type="text", chunk=" ")
         self.set_usage(response)

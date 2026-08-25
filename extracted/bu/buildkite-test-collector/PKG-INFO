@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: buildkite-test-collector
-Version: 1.8.0
+Version: 1.9.0
 Summary: Buildkite Test Engine collector
 Project-URL: Homepage, https://github.com/buildkite/test-collector-python
 Author-email: Buildkite <support@buildkite.com>

@@ -60,7 +60,7 @@ impl Display for Policy {
         } else {
             f.write_fmt(format_args!(
                 "{} (aka {})",
-                &self.name,
+                self.name,
                 self.aliases.join(",")
             ))
         }
@@ -94,7 +94,6 @@ impl Policy {
                 .iter()
                 .find(|p| p.name == "linux")
                 .cloned(),
-            PlatformTag::Pypi => unreachable!("pypi is not a policy"),
         }
     }
 

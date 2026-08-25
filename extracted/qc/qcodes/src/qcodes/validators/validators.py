@@ -9,7 +9,7 @@ import math
 import typing
 from collections import abc
 from collections.abc import Hashable
-from typing import Any, Generic, Literal, TypeVar, cast, get_args
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
 import numpy as np
 import numpy.typing as npt
@@ -62,10 +62,7 @@ def range_str(
         return ""
 
 
-T = TypeVar("T")
-
-
-class Validator(Generic[T]):
+class Validator[T]:
     """
     Base class for all value validators
     each validator should implement:
@@ -501,7 +498,7 @@ class Enum(Validator[Hashable]):
         return self._values.copy()
 
 
-class LiteralValidator(Validator[T]):
+class LiteralValidator[T](Validator[T]):
     """
 
     A validator that allows users to check that values supplied are in set of members
@@ -1020,20 +1017,26 @@ class Arrays(Validator[npt.NDArray]):
                 )
 
         # Only check if max is not inf as it can be expensive for large arrays
-        if self._max_value != (float("inf")) and self._max_value is not None:
-            if not (np.max(value) <= self._max_value):
-                raise ValueError(
-                    f"{value!r} is invalid: all values must be between "
-                    f"{self._min_value} and {self._max_value} inclusive; {context}"
-                )
+        if (
+            self._max_value != (float("inf"))
+            and self._max_value is not None
+            and not (np.max(value) <= self._max_value)
+        ):
+            raise ValueError(
+                f"{value!r} is invalid: all values must be between "
+                f"{self._min_value} and {self._max_value} inclusive; {context}"
+            )
 
         # Only check if min is not -inf as it can be expensive for large arrays
-        if self._min_value != (-float("inf")) and self._min_value is not None:
-            if not (self._min_value <= np.min(value)):
-                raise ValueError(
-                    f"{value!r} is invalid: all values must be between "
-                    f"{self._min_value} and {self._max_value} inclusive; {context}"
-                )
+        if (
+            self._min_value != (-float("inf"))
+            and self._min_value is not None
+            and not (self._min_value <= np.min(value))
+        ):
+            raise ValueError(
+                f"{value!r} is invalid: all values must be between "
+                f"{self._min_value} and {self._max_value} inclusive; {context}"
+            )
 
     is_numeric = True
 
@@ -1061,7 +1064,10 @@ class Arrays(Validator[npt.NDArray]):
         return float(self._max_value) if self._max_value is not None else None
 
 
-class Lists(Validator[list[T]]):
+_anything = Anything()  # singleton instance of Anything
+
+
+class Lists[T](Validator[list[T]]):
     """
     Validator for lists
 
@@ -1070,13 +1076,12 @@ class Lists(Validator[list[T]]):
 
     """
 
-    def __init__(self, elt_validator: Validator[T] = Anything()) -> None:
+    def __init__(self, elt_validator: Validator[T] = _anything) -> None:
         self._elt_validator = elt_validator
         self._valid_values = ([vval for vval in elt_validator._valid_values],)
 
     def __repr__(self) -> str:
-        msg = "<Lists : "
-        msg += self._elt_validator.__repr__() + ">"
+        msg = f"<Lists : {self._elt_validator!r} >"
         return msg
 
     def validate(self, value: list[T], context: str = "") -> None:
@@ -1117,7 +1122,7 @@ class Sequence(Validator[typing.Sequence[Any]]):
 
     def __init__(
         self,
-        elt_validator: Validator[Any] = Anything(),
+        elt_validator: Validator[Any] = _anything,
         length: int | None = None,
         require_sorted: bool = False,
     ) -> None:
@@ -1253,3 +1258,16 @@ class Dict(Validator[dict[Hashable, Any]]):
     @allowed_keys.setter
     def allowed_keys(self, keys: abc.Sequence[Hashable] | None) -> None:
         self._allowed_keys = keys
+
+
+if not TYPE_CHECKING:
+    from typing import TypeVar
+
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    __getattr__ = _make_deprecated_typevars_getattr(
+        __name__,
+        {
+            "T": TypeVar("T"),
+        },
+    )

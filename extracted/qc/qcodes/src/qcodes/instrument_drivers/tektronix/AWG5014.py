@@ -20,7 +20,6 @@ from typing import (
 import numpy as np
 import numpy.typing as npt
 from pyvisa.errors import VisaIOError
-from typing_extensions import deprecated
 
 from qcodes import validators as vals
 from qcodes.instrument import (
@@ -35,8 +34,7 @@ from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.parameters import Parameter
 
@@ -1356,12 +1354,10 @@ class TektronixAWG5014(VisaInstrument):
                 log.warning(f"AWG: {k} not recognized as valid AWG channel setting")
 
         # waveforms
-        ii = 21
-
         wf_record_str = BytesIO()
         wlist = list(packed_waveforms.keys())
         wlist.sort()
-        for wf in wlist:
+        for ii, wf in enumerate(wlist, start=21):
             wfdat = packed_waveforms[wf]
             lenwfdat = len(wfdat)
 
@@ -1374,13 +1370,11 @@ class TektronixAWG5014(VisaInstrument):
                 + self._pack_record(f"WAVEFORM_TIMESTAMP_{ii}", timetuple[:-1], "8H")
                 + self._pack_record(f"WAVEFORM_DATA_{ii}", wfdat, f"{lenwfdat}H")
             )
-            ii += 1
 
         # sequence
-        kk = 1
         seq_record_str = BytesIO()
 
-        for segment in wfname_l.transpose():
+        for kk, segment in enumerate(wfname_l.transpose(), start=1):
             seq_record_str.write(
                 self._pack_record(f"SEQUENCE_WAIT_{kk}", trig_wait[kk - 1], "h")
                 + self._pack_record(f"SEQUENCE_LOOP_{kk}", int(nrep[kk - 1]), "l")
@@ -1399,7 +1393,6 @@ class TektronixAWG5014(VisaInstrument):
                             "{}s".format(len(wfname + "\x00")),
                         )
                     )
-            kk += 1
 
         awg_file = (
             head_str.getvalue()
@@ -1969,16 +1962,3 @@ class TektronixAWG5014(VisaInstrument):
             except VisaIOError:
                 gotexception = True
         self.visa_handle.timeout = original_timeout
-
-
-@deprecated(
-    "Tektronix_AWG5014 is deprecated. Please use qcodes.instrument_drivers.tektronix.TektronixAWG5014 instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class Tektronix_AWG5014(TektronixAWG5014):
-    """
-    Alias with non-conformant name left for backwards compatibility
-    """
-
-    pass

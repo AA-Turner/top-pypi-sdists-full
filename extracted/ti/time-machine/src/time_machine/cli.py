@@ -5,8 +5,9 @@ import ast
 import sys
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Generator, Mapping, MutableMapping, Sequence
 from functools import partial
+from typing import NamedTuple
 
 from tokenize_rt import (
     NON_CODING_TOKENS,
@@ -21,6 +22,10 @@ from tokenize_rt import (
 CODE = "CODE"
 DEDENT = "DEDENT"
 INDENT = "INDENT"
+
+# The class of freezegun’s pytest fixture, often imported to annotate the
+# fixture argument, migrated to time-machine’s equivalent.
+FIXTURE_FACTORY = "FrozenDateTimeFactory"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -65,7 +70,7 @@ def migrate_file(filename: str) -> int:
         print(f"{filename} is non-utf-8 (not supported)")
         return 1
 
-    contents_text = migrate_contents(contents_text)
+    contents_text, reports = migrate_contents(contents_text)
 
     if filename == "-":
         print(contents_text, end="")
@@ -74,20 +79,38 @@ def migrate_file(filename: str) -> int:
         with open(filename, "w", encoding="UTF-8", newline="") as f:
             f.write(contents_text)
 
+    for report in reports:
+        print(
+            f"{filename}:{report.lineno}:{report.col}: {report.message}",
+            file=sys.stderr,
+        )
+
     return contents_text != contents_text_orig
 
 
-def migrate_contents(contents_text: str) -> str:
+class Report(NamedTuple):
+    """A freezegun-related usage that could not be migrated."""
+
+    lineno: int
+    col: int
+    message: str
+
+
+def migrate_contents(contents_text: str) -> tuple[str, list[Report]]:
     """Migrate a single text from freezegun to time-machine."""
     try:
         ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return contents_text
+    except (SyntaxError, ValueError) as exc:
+        # ValueError comes from e.g. null bytes in the source.
+        lineno = getattr(exc, "lineno", None) or 1
+        col = getattr(exc, "offset", None) or 1
+        msg = getattr(exc, "msg", None) or str(exc)
+        return contents_text, [Report(lineno, col, f"could not parse file: {msg}")]
 
-    callbacks = visit(ast_obj)
+    callbacks, reports = visit(ast_obj)
 
     if not callbacks:
-        return contents_text
+        return contents_text, reports
 
     tokens = src_to_tokens(contents_text)
 
@@ -102,7 +125,8 @@ def migrate_contents(contents_text: str) -> str:
             callback(tokens, i)
 
     # no types for tokenize-rt
-    return tokens_to_src(tokens)  # type: ignore [no-any-return]
+    new_text: str = tokens_to_src(tokens)
+    return new_text, reports
 
 
 def ast_parse(contents_text: str) -> ast.Module:
@@ -162,47 +186,67 @@ class TravellerVar:
         self.end_lineno = node.end_lineno
 
 
-def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
+def visit(
+    tree: ast.Module,
+) -> tuple[Mapping[Offset, list[TokenFunc]], list[Report]]:
     """
-    Visit the AST and return a list of callbacks to apply to the tokens.
+    Visit the AST and return a mapping of callbacks to apply to the tokens,
+    plus reports of freezegun-related usages that could not be migrated.
     """
     ret: defaultdict[Offset, list[TokenFunc]] = defaultdict(list)
-    freezegun_import_seen = False
-    freeze_time_import_seen = False
+    freezegun_module_names: set[str] = set()
+    freeze_time_names: set[str] = set()
+    report_module_names: set[str] = set()
+    freezegun_from_imports: list[ast.ImportFrom] = []
     freezer_functions: list[FreezerFunction] = []
     marker_class_methods: set[ast.FunctionDef | ast.AsyncFunctionDef] = set()
+    module_marker_seen = False
     traveller_vars: list[TravellerVar] = []
+    module_stmts = module_scope_stmts(tree)
     for node in ast.walk(tree):
         match node:
-            case ast.Import() if (
-                len(node.names) == 1
-                and (alias := node.names[0]).name == "freezegun"
-                and alias.asname is None
-            ):
-                freezegun_import_seen = True
-                ret[ast_start_offset(node)].append(replace_import)
+            case ast.Module():
+                for stmt in node.body:
+                    if maybe_migrate_pytestmark(ret, stmt):
+                        module_marker_seen = True
+            case ast.Import():
+                if (
+                    len(node.names) == 1
+                    and (alias := node.names[0]).name == "freezegun"
+                ):
+                    freezegun_module_names.add(alias.asname or "freezegun")
+                    if alias.asname is None:
+                        ret[ast_start_offset(node)].append(replace_import)
+                    else:
+                        ret[ast_start_offset(node)].append(
+                            partial(replace_aliased_import, node=node)
+                        )
+                else:
+                    # Imports of freezegun that cannot be migrated, like
+                    # `import freezegun, os` or `import freezegun.config`,
+                    # still have their bound names tracked for reporting.
+                    report_module_names.update(
+                        alias.asname or "freezegun"
+                        for alias in node.names
+                        if alias.name == "freezegun"
+                        or alias.name.startswith("freezegun.")
+                    )
             case ast.ImportFrom() if (
                 node.level == 0
-                and node.module == "freezegun"
+                and node.module in ("freezegun", "freezegun.api")
                 and any(
-                    alias.name == "freeze_time" and alias.asname is None
+                    alias.name in ("freeze_time", FIXTURE_FACTORY)
                     for alias in node.names
                 )
             ):
-                freeze_time_import_seen = True
-                ret[ast_start_offset(node)].append(
-                    partial(
-                        replace_import_from,
-                        node=node,
-                        keep=[
-                            unparse_alias(alias)
-                            for alias in node.names
-                            if alias.name != "freeze_time" or alias.asname is not None
-                        ],
-                    )
+                freeze_time_names.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "freeze_time"
                 )
+                freezegun_from_imports.append(node)
             case ast.FunctionDef() | ast.AsyncFunctionDef():
-                marker_seen = node in marker_class_methods
+                marker_seen = module_marker_seen or node in marker_class_methods
                 for decorator in node.decorator_list:
                     if maybe_migrate_marker(ret, decorator):
                         marker_seen = True
@@ -210,8 +254,8 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                         maybe_migrate_call(
                             ret,
                             decorator,
-                            freezegun_import_seen=freezegun_import_seen,
-                            freeze_time_import_seen=freeze_time_import_seen,
+                            freezegun_module_names=freezegun_module_names,
+                            freeze_time_names=freeze_time_names,
                             freezer_functions=freezer_functions,
                         )
 
@@ -227,23 +271,30 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                         FreezerFunction(node, marker_seen=marker_seen)
                     )
 
-            case ast.ClassDef() if node.decorator_list:
-                unittest_class = looks_like_unittest_class(node)
-                for decorator in node.decorator_list:
-                    if maybe_migrate_marker(ret, decorator):
-                        marker_class_methods.update(
-                            stmt
-                            for stmt in node.body
-                            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
-                        )
-                    elif unittest_class:
-                        maybe_migrate_call(
-                            ret,
-                            decorator,
-                            freezegun_import_seen=freezegun_import_seen,
-                            freeze_time_import_seen=freeze_time_import_seen,
-                            freezer_functions=freezer_functions,
-                        )
+            case ast.ClassDef():
+                class_marker_seen = False
+                if node.decorator_list:
+                    unittest_class = looks_like_unittest_class(node)
+                    for decorator in node.decorator_list:
+                        if maybe_migrate_marker(ret, decorator):
+                            class_marker_seen = True
+                        elif unittest_class:
+                            maybe_migrate_call(
+                                ret,
+                                decorator,
+                                freezegun_module_names=freezegun_module_names,
+                                freeze_time_names=freeze_time_names,
+                                freezer_functions=freezer_functions,
+                            )
+                for stmt in node.body:
+                    if maybe_migrate_pytestmark(ret, stmt):
+                        class_marker_seen = True
+                if class_marker_seen:
+                    marker_class_methods.update(
+                        stmt
+                        for stmt in node.body
+                        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    )
 
             case ast.With():
                 for item in node.items:
@@ -252,8 +303,8 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                             maybe_migrate_call(
                                 ret,
                                 item.context_expr,
-                                freezegun_import_seen=freezegun_import_seen,
-                                freeze_time_import_seen=freeze_time_import_seen,
+                                freezegun_module_names=freezegun_module_names,
+                                freeze_time_names=freeze_time_names,
                                 freezer_functions=freezer_functions,
                             )
                         case ast.Name(id=name) as binding:
@@ -262,8 +313,8 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                             ) and maybe_migrate_call(
                                 ret,
                                 item.context_expr,
-                                freezegun_import_seen=freezegun_import_seen,
-                                freeze_time_import_seen=freeze_time_import_seen,
+                                freezegun_module_names=freezegun_module_names,
+                                freeze_time_names=freeze_time_names,
                                 freezer_functions=freezer_functions,
                             ):
                                 traveller_vars.append(TravellerVar(name, node))
@@ -315,7 +366,169 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                         partial(add_tick_false, node=node)
                     )
 
-    return ret
+    # Process from-imports of freezegun after the main walk, since migrating
+    # FrozenDateTimeFactory uses depends on the rebindings and imports of the
+    # whole module.
+    fixture_bound: set[str] = set()
+    for import_node in freezegun_from_imports:
+        for alias in import_node.names:
+            if alias.name == FIXTURE_FACTORY:
+                fixture_bound.add(alias.asname or alias.name)
+
+    fixture_uses: dict[str, list[ast.Name]] = {name: [] for name in fixture_bound}
+    fixture_blocked: set[str] = set()
+    if fixture_bound:
+        fixture_blocked = fixture_rebindings(tree, fixture_bound)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id in fixture_bound:
+                if isinstance(node.ctx, ast.Load):
+                    fixture_uses[node.id].append(node)
+                else:
+                    fixture_blocked.add(node.id)
+            elif isinstance(node, ast.JoinedStr):
+                # On Python < 3.12, names within f-strings have no tokens to
+                # rewrite.
+                fixture_blocked.update(
+                    subnode.id
+                    for subnode in ast.walk(node)
+                    if isinstance(subnode, ast.Name) and subnode.id in fixture_bound
+                )
+
+    fixture_migratable: set[str] = set()
+    fixture_used: set[str] = set()
+    for name in fixture_bound:
+        if name in fixture_blocked:
+            continue
+        if fixture_uses[name]:
+            # Rewriting uses requires an import of the replacement, so needs a
+            # module-level carrier import (checked below).
+            fixture_used.add(name)
+        else:
+            # Imported but unused: drop from the import without rewrites.
+            fixture_migratable.add(name)
+
+    import_carrier: ast.ImportFrom | None = None
+    if fixture_used:
+        # The added `from time_machine import TimeMachineFixture` has to go at
+        # module level, replacing part of a rewritten module-level freezegun
+        # import.
+        for import_node in freezegun_from_imports:
+            if import_node in module_stmts and any(
+                alias.name == "freeze_time"
+                or (alias.asname or alias.name) in fixture_migratable
+                or (alias.asname or alias.name) in fixture_used
+                for alias in import_node.names
+            ):
+                import_carrier = import_node
+                break
+        if import_carrier is not None:
+            for name in fixture_used:
+                fixture_migratable.add(name)
+                for use in fixture_uses[name]:
+                    ret[ast_start_offset(use)].append(
+                        partial(replace_name, src="TimeMachineFixture")
+                    )
+
+    for import_node in freezegun_from_imports:
+        has_freeze_time = any(
+            alias.name == "freeze_time" for alias in import_node.names
+        )
+        if not has_freeze_time and not any(
+            (alias.asname or alias.name) in fixture_migratable
+            for alias in import_node.names
+        ):
+            # Nothing migrated from this import: leave it unchanged.
+            continue
+
+        keep = [
+            unparse_alias(alias)
+            for alias in import_node.names
+            if alias.name != "freeze_time"
+            and (alias.asname or alias.name) not in fixture_migratable
+        ]
+        new_stmts = []
+        if has_freeze_time:
+            new_stmts.append("import time_machine")
+        if import_node is import_carrier:
+            new_stmts.append("from time_machine import TimeMachineFixture")
+        if keep:
+            new_stmts.append(f"from {import_node.module} import {', '.join(keep)}")
+
+        if new_stmts:
+            ret[ast_start_offset(import_node)].append(
+                partial(replace_import_from, node=import_node, new_stmts=new_stmts)
+            )
+        elif len(containing_block(tree, import_node)) >= 2:
+            ret[ast_start_offset(import_node)].append(
+                partial(remove_statement, node=import_node)
+            )
+        else:
+            # The only statement in its block, so removing it would leave
+            # invalid syntax.
+            ret[ast_start_offset(import_node)].append(
+                partial(replace_import_from, node=import_node, new_stmts=["pass"])
+            )
+
+    if freeze_time_names or freezegun_module_names:
+        for assignment, use_scope in find_candidate_assignments(tree):
+            value = assignment.value
+            assert isinstance(value, ast.Call)
+            if not is_freeze_time_call(
+                value,
+                freezegun_module_names=freezegun_module_names,
+                freeze_time_names=freeze_time_names,
+            ):
+                continue
+            target = assignment.targets[0]
+            if isinstance(target, ast.Name):
+                compatible = name_target_uses_compatible(use_scope, target)
+            else:
+                assert isinstance(target, ast.Attribute)
+                compatible = self_attr_target_uses_compatible(use_scope, target)
+            if compatible:
+                maybe_migrate_call(
+                    ret,
+                    value,
+                    freezegun_module_names=freezegun_module_names,
+                    freeze_time_names=freeze_time_names,
+                    freezer_functions=freezer_functions,
+                )
+
+    unmigrated_fixture_names = fixture_bound - fixture_migratable
+
+    reports = []
+    for node in ast.walk(tree):
+        match node:
+            case ast.Name(id=name) if (
+                name in freeze_time_names
+                or name in freezegun_module_names
+                or name in report_module_names
+                or name in unmigrated_fixture_names
+            ) and ast_start_offset(node) not in ret:
+                reports.append(
+                    Report(
+                        node.lineno,
+                        node.col_offset + 1,
+                        f"{name} usage not migrated",
+                    )
+                )
+            case ast.Attribute(
+                attr="freeze_time",
+                value=ast.Attribute(
+                    attr="mark",
+                    value=ast.Name(id="pytest"),
+                ),
+            ) if ast_start_offset(node) not in ret:
+                reports.append(
+                    Report(
+                        node.lineno,
+                        node.col_offset + 1,
+                        "pytest.mark.freeze_time usage not migrated",
+                    )
+                )
+    reports.sort()
+
+    return ret, reports
 
 
 def find_freezer_function(
@@ -331,35 +544,230 @@ def find_freezer_function(
     return None
 
 
+def module_scope_stmts(tree: ast.Module) -> set[ast.stmt]:
+    """
+    Collect the statements that execute at module scope, including within
+    module-level compound statements like `if` and `try`, but not within
+    functions or classes.
+    """
+    result: set[ast.stmt] = set()
+
+    def add(body: list[ast.stmt]) -> None:
+        for stmt in body:
+            result.add(stmt)
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            for field in ("body", "orelse", "finalbody"):
+                sub_body = getattr(stmt, field, None)
+                if isinstance(sub_body, list):
+                    add(sub_body)
+            if isinstance(stmt, ast.Try):
+                for handler in stmt.handlers:
+                    add(handler.body)
+
+    add(tree.body)
+    return result
+
+
+def fixture_rebindings(tree: ast.Module, names: set[str]) -> set[str]:
+    """
+    Find which of the given FrozenDateTimeFactory names are also bound by
+    something other than their freezegun imports, such as function parameters,
+    def or class statements, or imports from other modules. Rewriting uses of
+    such names would be unsafe. (Heuristic: some rarer rebindings, like
+    ``except ... as`` names, are not detected.)
+    """
+    rebound = set()
+    for node in ast.walk(tree):
+        match node:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.Lambda():
+                if not isinstance(node, ast.Lambda) and node.name in names:
+                    rebound.add(node.name)
+                rebound.update(
+                    arg.arg
+                    for arg in (
+                        *node.args.posonlyargs,
+                        *node.args.args,
+                        *node.args.kwonlyargs,
+                    )
+                    if arg.arg in names
+                )
+            case ast.ClassDef(name=name) if name in names:
+                rebound.add(name)
+            case ast.Import() | ast.ImportFrom():
+                from_freezegun = isinstance(node, ast.ImportFrom) and node.module in (
+                    "freezegun",
+                    "freezegun.api",
+                )
+                for alias in node.names:
+                    bound = alias.asname or alias.name.split(".")[0]
+                    if bound in names and not (
+                        from_freezegun and alias.name == FIXTURE_FACTORY
+                    ):
+                        rebound.add(bound)
+    return rebound
+
+
+def is_freeze_time_call(
+    node: ast.Call,
+    *,
+    freezegun_module_names: set[str],
+    freeze_time_names: set[str],
+) -> bool:
+    """
+    Check if the given call is of freezegun’s freeze_time(), per the names
+    bound by the module’s imports.
+    """
+    func = node.func
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr == "freeze_time"
+        and isinstance(func.value, ast.Name)
+        and func.value.id in freezegun_module_names
+    ) or (isinstance(func, ast.Name) and func.id in freeze_time_names)
+
+
+def find_candidate_assignments(
+    tree: ast.Module,
+) -> Generator[tuple[ast.Assign, ast.AST], None, None]:
+    """
+    Yield assignments of call results that may be freeze_time() calls bound
+    for "raw use" with start() and stop(), paired with the node to search for
+    uses of the bound name: the enclosing function or module for plain names,
+    or the enclosing class for `self.` attributes.
+    """
+
+    def recurse(
+        node: ast.AST, scope: ast.AST | None, class_node: ast.ClassDef | None
+    ) -> Generator[tuple[ast.Assign, ast.AST], None, None]:
+        for child in ast.iter_child_nodes(node):
+            match child:
+                case ast.Assign(
+                    targets=[ast.Name()],
+                    value=ast.Call(),
+                ) if scope is not None:
+                    yield (child, scope)
+                case ast.Assign(
+                    targets=[ast.Attribute(value=ast.Name(id="self"))],
+                    value=ast.Call(),
+                ) if class_node is not None:
+                    yield (child, class_node)
+
+            match child:
+                case ast.FunctionDef() | ast.AsyncFunctionDef():
+                    yield from recurse(child, child, class_node)
+                case ast.ClassDef():
+                    # Plain-name assignments directly in a class body are not
+                    # tracked, since their uses cannot be checked simply.
+                    yield from recurse(child, None, child)
+                case _:
+                    yield from recurse(child, scope, class_node)
+
+    yield from recurse(tree, tree, None)
+
+
+def name_target_uses_compatible(scope: ast.AST, target: ast.Name) -> bool:
+    """
+    Check that a plain variable assigned a freeze_time() call is only used in
+    ways that work the same on time-machine's travel(): start() and stop()
+    calls as statements, and bare start / stop references passed as call
+    arguments, like `atexit.register(freezer.stop)`.
+    """
+    name = target.id
+    allowed: set[ast.AST] = {target}
+    for subnode in ast.walk(scope):
+        match subnode:
+            case ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id=receiver) as receiver_node,
+                        attr="start" | "stop",
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            ) if receiver == name:
+                allowed.add(receiver_node)
+            case ast.Call(args=args):
+                for arg in args:
+                    match arg:
+                        case ast.Attribute(
+                            value=ast.Name(id=receiver) as receiver_node,
+                            attr="start" | "stop",
+                        ) if receiver == name:
+                            allowed.add(receiver_node)
+    return all(
+        subnode in allowed
+        for subnode in ast.walk(scope)
+        if isinstance(subnode, ast.Name) and subnode.id == name
+    )
+
+
+def self_attr_target_uses_compatible(scope: ast.AST, target: ast.Attribute) -> bool:
+    """
+    As for name_target_uses_compatible(), but for a `self.` attribute
+    assigned a freeze_time() call, checked across the enclosing class, so
+    unittest setUp() / tearDown() / addCleanup() patterns are covered.
+    """
+    name = target.attr
+    allowed: set[ast.AST] = {target}
+    for subnode in ast.walk(scope):
+        match subnode:
+            case ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id="self"),
+                            attr=receiver,
+                        ) as receiver_node,
+                        attr="start" | "stop",
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            ) if receiver == name:
+                allowed.add(receiver_node)
+            case ast.Call(args=args):
+                for arg in args:
+                    match arg:
+                        case ast.Attribute(
+                            value=ast.Attribute(
+                                value=ast.Name(id="self"),
+                                attr=receiver,
+                            ) as receiver_node,
+                            attr="start" | "stop",
+                        ) if receiver == name:
+                            allowed.add(receiver_node)
+    return all(
+        subnode in allowed
+        for subnode in ast.walk(scope)
+        if isinstance(subnode, ast.Attribute)
+        and isinstance(subnode.value, ast.Name)
+        and subnode.value.id == "self"
+        and subnode.attr == name
+    )
+
+
 def maybe_migrate_call(
     ret: MutableMapping[Offset, list[TokenFunc]],
     node: ast.expr,
     *,
-    freezegun_import_seen: bool,
-    freeze_time_import_seen: bool,
+    freezegun_module_names: set[str],
+    freeze_time_names: set[str],
     freezer_functions: list[FreezerFunction],
 ) -> bool:
     """
     Add the callbacks to rewrite the given expression, if it is a migratable
     call to freezegun’s freeze_time(), returning whether that was the case.
     """
-    if not isinstance(node, ast.Call) or not migratable_call(node):
-        return False
-
-    func = node.func
-    if not (
-        (
-            freezegun_import_seen
-            and isinstance(func, ast.Attribute)
-            and func.attr == "freeze_time"
-            and isinstance(func.value, ast.Name)
-            and func.value.id == "freezegun"
+    if (
+        not isinstance(node, ast.Call)
+        or not is_freeze_time_call(
+            node,
+            freezegun_module_names=freezegun_module_names,
+            freeze_time_names=freeze_time_names,
         )
-        or (
-            freeze_time_import_seen
-            and isinstance(func, ast.Name)
-            and func.id == "freeze_time"
-        )
+        or not migratable_call(node)
     ):
         return False
 
@@ -369,9 +777,10 @@ def maybe_migrate_call(
         # resolve to it.
         return False
 
+    func = node.func
+    assert isinstance(func, (ast.Attribute, ast.Name))
     ret[ast_start_offset(func)].append(partial(switch_to_travel, node=func))
-    if not any(kw.arg == "tick" for kw in node.keywords):
-        ret[ast_start_offset(node)].append(partial(add_tick_false, node=node))
+    migrate_arguments(ret, node)
     return True
 
 
@@ -409,6 +818,37 @@ def traveller_var_uses_compatible(node: ast.With, binding: ast.Name) -> bool:
     )
 
 
+def maybe_migrate_pytestmark(
+    ret: MutableMapping[Offset, list[TokenFunc]],
+    node: ast.stmt,
+) -> bool:
+    """
+    Add the callbacks to rewrite any migratable pytest.mark.freeze_time()
+    markers in the given statement, if it is a ``pytestmark`` assignment,
+    returning whether any were migrated.
+    """
+    elements: list[ast.expr]
+    match node:
+        case ast.Assign(
+            targets=[ast.Name(id="pytestmark")],
+            value=ast.Call() as single,
+        ):
+            elements = [single]
+        case ast.Assign(
+            targets=[ast.Name(id="pytestmark")],
+            value=ast.List(elts=elements) | ast.Tuple(elts=elements),
+        ):
+            pass
+        case _:
+            return False
+
+    migrated = False
+    for element in elements:
+        if maybe_migrate_marker(ret, element):
+            migrated = True
+    return migrated
+
+
 def maybe_migrate_marker(
     ret: MutableMapping[Offset, list[TokenFunc]],
     node: ast.expr,
@@ -431,16 +871,62 @@ def maybe_migrate_marker(
         return False
 
     ret[ast_start_offset(node.func)].append(partial(switch_to_marker, node=node.func))
-    if not any(kw.arg == "tick" for kw in node.keywords):
-        ret[ast_start_offset(node)].append(partial(add_tick_false, node=node))
+    migrate_arguments(ret, node)
     return True
 
 
+def migrate_arguments(
+    ret: MutableMapping[Offset, list[TokenFunc]],
+    node: ast.Call,
+) -> None:
+    """
+    Add the callbacks to adjust the arguments of a migratable freeze_time()
+    call: add a None destination if there is no positional argument, add
+    tick=False if tick is not passed, and remove droppable keyword arguments.
+    """
+    tick_kwargs = [kw for kw in node.keywords if kw.arg == "tick"]
+    if not node.args:
+        if tick_kwargs:
+            ret[ast_start_offset(tick_kwargs[0])].append(insert_none_arg)
+        else:
+            ret[ast_start_offset(node)].append(partial(add_none_arg, node=node))
+    if not tick_kwargs:
+        ret[ast_start_offset(node)].append(partial(add_tick_false, node=node))
+    for kw in node.keywords:
+        if droppable_kwarg(kw):
+            ret[ast_start_offset(kw)].append(partial(remove_kwarg, node=kw))
+
+
 def migratable_call(node: ast.Call) -> bool:
-    return len(node.args) == 1 and (
-        len(node.keywords) == 0
-        or (len(node.keywords) == 1 and node.keywords[0].arg == "tick")
+    return len(node.args) <= 1 and all(
+        kw.arg == "tick" or droppable_kwarg(kw) for kw in node.keywords
     )
+
+
+def droppable_kwarg(kw: ast.keyword) -> bool:
+    """
+    Check if the given freeze_time() keyword argument can be dropped when
+    migrating, because its value makes it have no effect or requests
+    behaviour that time-machine always provides.
+    """
+    match kw.arg:
+        case "tz_offset":
+            # A zero offset has no effect.
+            return (
+                isinstance(kw.value, ast.Constant)
+                and type(kw.value.value) in (int, float)
+                and kw.value.value == 0
+            )
+        case "real_asyncio":
+            # time-machine does not mock time.monotonic(), so asyncio event
+            # loops always see real time, whatever the value.
+            return True
+        case "ignore":
+            # time-machine’s C-level mocking does not need workarounds, so
+            # ignores are hopefully unnecessary.
+            return True
+        case _:
+            return False
 
 
 def migratable_tick_call(node: ast.Call) -> bool:
@@ -552,6 +1038,16 @@ def replace_import(tokens: list[Token], i: int) -> None:
     tokens[i] = Token(name="NAME", src="time_machine")
 
 
+def replace_aliased_import(tokens: list[Token], i: int, node: ast.Import) -> None:
+    """
+    Replace an ``import freezegun as <name>`` statement with
+    ``import time_machine``, dropping the alias since calls of
+    ``<name>.freeze_time()`` are rewritten to ``time_machine.travel()``.
+    """
+    j = find_last_token(tokens, i, node=node)
+    tokens[i : j + 1] = [Token(name=CODE, src="import time_machine")]
+
+
 def unparse_alias(alias: ast.alias) -> str:
     if alias.asname is not None:
         return f"{alias.name} as {alias.asname}"
@@ -559,17 +1055,56 @@ def unparse_alias(alias: ast.alias) -> str:
 
 
 def replace_import_from(
-    tokens: list[Token], i: int, node: ast.ImportFrom, keep: list[str]
+    tokens: list[Token], i: int, node: ast.ImportFrom, new_stmts: list[str]
 ) -> None:
     """
-    Replace a from-import of freeze_time with `import time_machine`, re-adding
-    a from-import of any other names that were imported alongside it.
+    Replace a from-import of freezegun with the given statements, indented to
+    match.
     """
     j = find_last_token(tokens, i, node=node)
-    src = "import time_machine"
-    if keep:
-        src += f"\n{line_indent(tokens, i)}from {node.module} import {', '.join(keep)}"
+    src = f"\n{line_indent(tokens, i)}".join(new_stmts)
     tokens[i : j + 1] = [Token(name=CODE, src=src)]
+
+
+def remove_statement(tokens: list[Token], i: int, node: ast.stmt) -> None:
+    """
+    Remove the given statement, including its line when nothing else shares
+    it, otherwise replacing it with `pass`.
+    """
+    j = find_last_token(tokens, i, node=node)
+    j2 = j
+    while tokens[j2 + 1].name in (UNIMPORTANT_WS, "COMMENT"):
+        j2 += 1
+    k = i
+    while k > 0 and tokens[k - 1].name in (INDENT, UNIMPORTANT_WS):
+        k -= 1
+    starts_line = k == 0 or tokens[k - 1].name in (
+        "ENCODING",
+        "NEWLINE",
+        "NL",
+        DEDENT,
+    )
+    if starts_line and tokens[j2 + 1].name == "NEWLINE":
+        del tokens[k : j2 + 2]
+    else:
+        # Something else shares the line, like statements separated with `;`.
+        tokens[i : j + 1] = [Token(name=CODE, src="pass")]
+
+
+def containing_block(tree: ast.Module, stmt: ast.stmt) -> list[ast.stmt]:
+    """
+    Find the list of statements containing the given one.
+    """
+    for parent in ast.walk(tree):
+        for field in ("body", "orelse", "finalbody"):
+            block = getattr(parent, field, None)
+            if isinstance(block, list) and stmt in block:
+                return block
+    raise AssertionError(f"Statement not found in tree: {stmt!r}")  # pragma: no cover
+
+
+def replace_name(tokens: list[Token], i: int, *, src: str) -> None:
+    tokens[i] = Token(name=CODE, src=src)
 
 
 def line_indent(tokens: list[Token], i: int) -> str:
@@ -616,6 +1151,49 @@ def replace_tick_with_shift(tokens: list[Token], i: int, node: ast.Call) -> None
         while tokens[i].src != "(":
             i += 1
         tokens.insert(i + 1, Token(name=CODE, src="1"))
+
+
+def remove_kwarg(tokens: list[Token], i: int, node: ast.keyword) -> None:
+    """
+    Remove the given keyword argument, along with the comma that precedes it,
+    or, for a first argument, any comma and space that follow it.
+    """
+    j = find_last_token(tokens, i, node=node)
+    k = i - 1
+    while tokens[k].name in NON_CODING_TOKENS:
+        k -= 1
+    if tokens[k].src == ",":
+        del tokens[k : j + 1]
+        return
+    k = j + 1
+    while tokens[k].name in NON_CODING_TOKENS:
+        k += 1
+    if tokens[k].src == ",":
+        j = k
+        if tokens[j + 1].name == UNIMPORTANT_WS:
+            j += 1
+    del tokens[i : j + 1]
+
+
+def insert_none_arg(tokens: list[Token], i: int) -> None:
+    """
+    Insert a `None` argument before the token at the given index, the start of
+    the call’s tick keyword argument.
+    """
+    tokens.insert(i, Token(name=CODE, src="None, "))
+
+
+def add_none_arg(tokens: list[Token], i: int, node: ast.Call) -> None:
+    """
+    Add a `None` argument to the function call, which has no remaining
+    arguments, since any droppable keyword arguments were already removed.
+    """
+    j = find_last_token(tokens, i, node=node)
+    k = j - 1
+    while tokens[k].name in NON_CODING_TOKENS:
+        k -= 1
+    assert tokens[k].src == "("
+    tokens.insert(k + 1, Token(name=CODE, src="None"))
 
 
 def add_tick_false(tokens: list[Token], i: int, node: ast.Call) -> None:

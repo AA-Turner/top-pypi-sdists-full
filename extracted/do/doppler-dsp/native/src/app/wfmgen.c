@@ -16,6 +16,7 @@
  */
 #include <complex.h>
 #include <math.h>
+#include <signal.h>
 #include <stddef.h> /* offsetof — the option table names fields by offset */
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +24,7 @@
 #include <unistd.h> /* isatty */
 
 #include "doppler/version.h" /* DOPPLER_VERSION (configure-time stamp) */
+#include "dp_interrupt.h"
 #include "timing/timing_core.h"
 #include "wfm/wfm_compose.h"
 #include "wfm/wfm_sink.h"
@@ -1019,6 +1021,13 @@ drain_to_writer (const emit_ctx_t *e, wfm_writer_state_t *w, int paced)
         dp_sample_clock_pace (e->clk, n);
       if (n < BLK)
         break;
+      /* An interrupted capture must still be a VALID capture. The BLUE
+         header carries the final sample count and is written by
+         wfm_writer_close, so leaving the loop is what lets the file be
+         closed properly -- killing the process here would leave a capture
+         with no header at all, which is worse than a short one. */
+      if (dp_interrupted ())
+        break;
     }
   return total;
 }
@@ -1072,10 +1081,35 @@ emit_to_stream (const emit_ctx_t *e)
         dp_sample_clock_pace (e->clk, n);
       if (n < BLK)
         break;
+      if (dp_interrupted ())
+        break;
     }
   int rc = report_clip (wfm_stream_sink_peak (sink),
                         wfm_stream_sink_clip_fraction (sink), o->sample_type,
                         o->headroom, o->clip_report, o->clip_error);
+
+  /* Say the stream has ended BEFORE draining. The order matters: a drain
+     cannot be reversed and refuses sends once it reaches its
+     publish-flushing phase, so an EOS issued after one may simply not go.
+     Without this a subscriber has only silence to go on, and silence is
+     exactly what it cannot interpret. */
+  (void)wfm_stream_sink_send_eos (sink);
+
+  /* Drain BEFORE close, on every exit -- interrupted or finished. A send
+     returns once the client has the block, not once the server does, so
+     closing without this leaves the tail to the client's own best-effort
+     flush: 500 ms, no failure report, silently dropped beyond that. The
+     budget is reported rather than swallowed, because "wfmgen exited 0" has
+     to mean the samples arrived. */
+  int drc = wfm_stream_sink_drain (sink, 0);
+  if (drc != DP_OK)
+    {
+      (void)fprintf (stderr,
+                     "wfmgen: stream did not drain (error %d) -- the tail "
+                     "may not have reached the server\n",
+                     drc);
+      rc = 1;
+    }
   wfm_stream_sink_close (sink);
   return rc ? 1 : 0;
 }
@@ -1240,8 +1274,9 @@ emit_to_file (const emit_ctx_t *e)
 static void
 write_record (const emit_ctx_t *e, int repeating)
 {
-  char *json = wfm_spec_to_json (e->segs, e->n_segs, repeating, e->endless,
-                                 e->o->headroom);
+  char *json
+      = wfm_spec_to_json (e->segs, e->n_segs, repeating, e->endless,
+                          wfm_compose_seed_advance (e->comp), e->o->headroom);
   if (!json)
     return;
   FILE *rf = fopen (e->o->record_path, "w");
@@ -1373,6 +1408,18 @@ doppler_wfmgen (int argc, char *argv[])
 {
   wfm_compose_state_t *comp = NULL; /* wfm_compose_destroy tolerates NULL */
   int                  rc   = 0;
+
+  /* FIRST, before parsing or opening anything. A signal arriving before this
+   * is not ignored, it terminates the process -- and the window is real:
+   * measured at ~5 ms for a dynamically linked binary, which is long enough
+   * for a supervisor's stop signal to land inside it. Installing here rather
+   * than beside the emit loop is the difference between "Ctrl+C is handled"
+   * and "Ctrl+C is handled once we get that far".
+   *
+   * Both signals, because a container runtime sends SIGTERM and a terminal
+   * sends SIGINT, and losing the tail should not depend on which. */
+  (void)dp_interrupt_on_signal (SIGINT);
+  (void)dp_interrupt_on_signal (SIGTERM);
 
   /* --help / --version short-circuit before any spec is built, so they work
    * regardless of the other flags and never leak a partially-parsed source. */

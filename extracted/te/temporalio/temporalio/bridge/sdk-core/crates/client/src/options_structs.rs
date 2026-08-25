@@ -1,8 +1,11 @@
-use crate::{HttpConnectProxyOptions, RetryOptions, VERSION, callback_based};
+use crate::{
+    ClientInterceptor, ClientPlugin, ErasedClientPlugin, HttpConnectProxyOptions, RetryOptions,
+    RpcOptions, VERSION, callback_based,
+};
 use http::Uri;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use temporalio_common::{
-    RetryPolicy,
+    ActivityCloseTimeouts, RetryPolicy,
     data_converters::DataConverter,
     protos::temporal::api::{
         common::{
@@ -10,7 +13,9 @@ use temporalio_common::{
             v1::{Header, Payloads},
         },
         enums::v1::{
-            ArchivalState, HistoryEventFilterType, QueryRejectCondition, WorkflowIdConflictPolicy,
+            ActivityIdConflictPolicy as ProtoActivityIdConflictPolicy,
+            ActivityIdReusePolicy as ProtoActivityIdReusePolicy, ArchivalState,
+            HistoryEventFilterType, QueryRejectCondition, WorkflowIdConflictPolicy,
             WorkflowIdReusePolicy,
         },
         replication::v1::ClusterReplicationConfig,
@@ -19,6 +24,8 @@ use temporalio_common::{
     search_attributes::SearchAttributes,
     telemetry::metrics::TemporalMeter,
 };
+#[cfg(feature = "dynamic-tls")]
+use tokio_rustls::rustls::client::ResolvesClientCert;
 use tokio_rustls::rustls::client::danger::ServerCertVerifier;
 use url::Url;
 
@@ -49,6 +56,11 @@ pub struct ConnectionOptions {
     /// An API key to use for auth. If set, TLS will be enabled by default, but without any mTLS
     /// specific settings.
     pub api_key: Option<String>,
+    /// When set, limits the time allowed to establish the initial TCP/TLS connection to the
+    /// server. If the connection cannot be established within this duration, `connect` will
+    /// return an error. When `None` (the default), no explicit timeout is applied and the
+    /// connection attempt may block indefinitely (subject to OS-level TCP timeouts).
+    pub connect_timeout: Option<Duration>,
     /// Retry configuration for the server client. Default is [RetryOptions::default]
     #[builder(default)]
     pub retry_options: RetryOptions,
@@ -133,16 +145,78 @@ impl ConnectionOptions {
 }
 
 /// Options for [crate::Client::new].
-#[derive(Clone, Debug, bon::Builder)]
+#[derive(Clone, derive_more::Debug, bon::Builder)]
 #[non_exhaustive]
 #[builder(start_fn = new, on(String, into), state_mod(vis = "pub"))]
 pub struct ClientOptions {
     /// The namespace this client will be bound to.
     #[builder(start_fn)]
     pub namespace: String,
+
+    #[builder(field)]
+    #[debug(skip)]
+    plugins: Vec<ErasedClientPlugin>,
+
+    #[builder(field)]
+    #[debug(skip)]
+    client_plugins_applied: bool,
+
     /// The data converter used for serializing/deserializing payloads.
     #[builder(default)]
     pub data_converter: DataConverter,
+    /// Interceptors for high-level client operations, ordered outermost to innermost.
+    #[builder(default)]
+    #[debug(skip)]
+    pub client_interceptors: Vec<Arc<dyn ClientInterceptor>>,
+}
+
+impl<S: client_options_builder::State> ClientOptionsBuilder<S> {
+    /// Register a type-erased client plugin.
+    ///
+    /// **Experimental:** This API may change or be removed.
+    pub fn plugin<P: Into<ErasedClientPlugin>>(mut self, plugin: P) -> Self {
+        self.plugins.push(plugin.into());
+        self
+    }
+
+    /// Register type-erased client plugins in iteration order.
+    ///
+    /// **Experimental:** This API may change or be removed.
+    pub fn plugins<I, P>(mut self, plugins: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<ErasedClientPlugin>,
+    {
+        self.plugins.extend(plugins.into_iter().map(Into::into));
+        self
+    }
+
+    /// Register a client-only plugin.
+    ///
+    /// **Experimental:** This API may change or be removed.
+    pub fn client_plugin<P: ClientPlugin>(mut self, plugin: P) -> Self {
+        self.plugins.push(ErasedClientPlugin::new(plugin));
+        self
+    }
+}
+
+impl ClientOptions {
+    /// Return the registered plugins.
+    ///
+    /// This is intended for SDK integrations that propagate worker plugin registrations.
+    ///
+    /// **Experimental:** This API may change or be removed.
+    pub fn plugins(&self) -> &[ErasedClientPlugin] {
+        &self.plugins
+    }
+
+    pub(crate) fn client_plugins_applied(&self) -> bool {
+        self.client_plugins_applied
+    }
+
+    pub(crate) fn mark_client_plugins_applied(&mut self) {
+        self.client_plugins_applied = true;
+    }
 }
 
 /// Selects the transport-level compression used for gRPC calls. See
@@ -158,7 +232,8 @@ pub enum GrpcCompression {
 }
 
 /// Configuration options for TLS
-#[derive(Clone, Default)]
+#[derive(Clone, bon::Builder)]
+#[non_exhaustive]
 pub struct TlsOptions {
     /// Bytes representing the root CA certificate used by the server. If not set, and the server's
     /// cert is issued by someone the operating system trusts, verification will still work (ex:
@@ -168,6 +243,9 @@ pub struct TlsOptions {
     /// the domain name will be extracted from the URL used to connect.
     pub domain: Option<String>,
     /// TLS info for the client. If specified, core will attempt to use mTLS.
+    ///
+    /// Mutually exclusive with [`client_cert_resolver`](TlsOptions::client_cert_resolver).
+    /// Setting both is an error.
     pub client_tls_options: Option<ClientTlsOptions>,
     /// Optional custom server certificate verifier. When set, this replaces the default
     /// certificate verification and `server_root_ca_cert` is ignored.
@@ -186,30 +264,48 @@ pub struct TlsOptions {
     /// Note that `domain` is still respected for the `:authority` header / origin override
     /// even when a custom verifier is set.
     pub server_cert_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    /// Optional dynamic client certificate resolver for transparent mTLS certificate rotation.
+    ///
+    /// Mutually exclusive with [`client_tls_options`](TlsOptions::client_tls_options).
+    /// Setting both is an error.
+    #[cfg(feature = "dynamic-tls")]
+    pub client_cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
+}
+
+impl Default for TlsOptions {
+    fn default() -> Self {
+        Self::builder().build()
+    }
 }
 
 impl std::fmt::Debug for TlsOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TlsOptions")
-            .field(
-                "server_root_ca_cert",
-                &self
-                    .server_root_ca_cert
-                    .as_ref()
-                    .map(|c| format!("{} bytes", c.len())),
-            )
-            .field("domain", &self.domain)
-            .field("client_tls_options", &self.client_tls_options)
-            .field(
-                "server_cert_verifier",
-                &self.server_cert_verifier.as_ref().map(|_| "<custom>"),
-            )
-            .finish()
+        let mut s = f.debug_struct("TlsOptions");
+        s.field(
+            "server_root_ca_cert",
+            &self
+                .server_root_ca_cert
+                .as_ref()
+                .map(|c| format!("{} bytes", c.len())),
+        );
+        s.field("domain", &self.domain);
+        s.field("client_tls_options", &self.client_tls_options);
+        s.field(
+            "server_cert_verifier",
+            &self.server_cert_verifier.as_ref().map(|_| "<custom>"),
+        );
+        #[cfg(feature = "dynamic-tls")]
+        s.field(
+            "client_cert_resolver",
+            &self.client_cert_resolver.as_ref().map(|_| "<custom>"),
+        );
+        s.finish()
     }
 }
 
 /// If using mTLS, both the client cert and private key must be specified, this contains them.
-#[derive(Clone)]
+#[derive(Clone, bon::Builder)]
+#[non_exhaustive]
 pub struct ClientTlsOptions {
     /// The certificate for this client, encoded as PEM
     pub client_cert: Vec<u8>,
@@ -218,57 +314,56 @@ pub struct ClientTlsOptions {
 }
 
 /// Client keep alive configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, bon::Builder)]
+#[non_exhaustive]
 pub struct ClientKeepAliveOptions {
     /// Interval to send HTTP2 keep alive pings.
+    #[builder(default = Duration::from_secs(30))]
     pub interval: Duration,
     /// Timeout that the keep alive must be responded to within or the connection will be closed.
+    #[builder(default = Duration::from_secs(15))]
     pub timeout: Duration,
 }
 
 impl Default for ClientKeepAliveOptions {
     fn default() -> Self {
-        Self {
-            interval: Duration::from_secs(30),
-            timeout: Duration::from_secs(15),
-        }
+        Self::builder().build()
     }
 }
 
 /// Options for DNS-based load balancing.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, bon::Builder)]
 #[non_exhaustive]
 pub struct DnsLoadBalancingOptions {
     /// How often to re-resolve DNS. Defaults to 30 seconds.
+    #[builder(default = Duration::from_secs(30))]
     pub resolution_interval: Duration,
 }
 
 impl Default for DnsLoadBalancingOptions {
     fn default() -> Self {
-        Self {
-            resolution_interval: Duration::from_secs(30),
-        }
+        Self::builder().build()
     }
 }
 
 /// Payload size limit options for a connection.
 /// NOTE: Experimental
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, bon::Builder)]
+#[non_exhaustive]
 pub struct PayloadLimitsOptions {
     /// Warning threshold (bytes) for the size of an outbound payload-bearing field; over-threshold
     /// fields are logged but still sent to server. Defaults to 512 KiB. Set to `0` to disable.
+    #[builder(default = 512 * 1024)]
     pub payloads_warn_size: u64,
     /// Warning threshold (bytes) for outbound memo sizes; over-threshold memos are logged but still
     /// sent to server. Defaults to 2 KiB. Set to `0` to disable.
+    #[builder(default = 2 * 1024)]
     pub memo_warn_size: u64,
 }
 
 impl Default for PayloadLimitsOptions {
     fn default() -> Self {
-        Self {
-            payloads_warn_size: 512 * 1024,
-            memo_warn_size: 2 * 1024,
-        }
+        Self::builder().build()
     }
 }
 
@@ -351,6 +446,10 @@ pub struct WorkflowStartOptions {
 
     /// Multi-line static details for the workflow, shown in the Temporal UI.
     pub static_details: Option<String>,
+
+    /// Controls for the RPC used to start the workflow.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// A signal to send atomically when starting a workflow.
@@ -371,17 +470,23 @@ pub struct WorkflowStartSignal {
 pub use temporalio_common::Priority;
 
 /// Options for fetching workflow results
-#[derive(Debug, Clone, Copy, bon::Builder)]
+#[derive(Debug, Clone, bon::Builder)]
 #[non_exhaustive]
 pub struct WorkflowGetResultOptions {
     /// If true (the default), follows to the next workflow run in the execution chain while
     /// retrieving results.
     #[builder(default = true)]
     pub follow_runs: bool,
+    /// Controls for each history RPC used to retrieve the result.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 impl Default for WorkflowGetResultOptions {
     fn default() -> Self {
-        Self { follow_runs: true }
+        Self {
+            follow_runs: true,
+            rpc_options: RpcOptions::default(),
+        }
     }
 }
 
@@ -393,6 +498,9 @@ pub struct WorkflowExecuteUpdateOptions {
     pub update_id: Option<String>,
     /// Headers to include.
     pub header: Option<Header>,
+    /// Controls for the start-update and poll-update RPCs.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for sending a signal to a workflow.
@@ -403,6 +511,9 @@ pub struct WorkflowSignalOptions {
     pub request_id: Option<String>,
     /// Headers to include with the signal.
     pub header: Option<Header>,
+    /// Controls for the signal RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for querying a workflow.
@@ -414,6 +525,9 @@ pub struct WorkflowQueryOptions {
     pub reject_condition: Option<QueryRejectCondition>,
     /// Headers to include with the query.
     pub header: Option<Header>,
+    /// Controls for the query RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for cancelling a workflow.
@@ -426,6 +540,9 @@ pub struct WorkflowCancelOptions {
     pub reason: String,
     /// Request ID for idempotency. If not provided, a UUID will be generated.
     pub request_id: Option<String>,
+    /// Controls for the cancellation RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for terminating a workflow.
@@ -438,12 +555,19 @@ pub struct WorkflowTerminateOptions {
     pub reason: String,
     /// Additional details to include with the termination.
     pub details: Option<Payloads>,
+    /// Controls for the termination RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for describing a workflow.
 #[derive(Debug, Clone, Default, bon::Builder)]
 #[non_exhaustive]
-pub struct WorkflowDescribeOptions {}
+pub struct WorkflowDescribeOptions {
+    /// Controls for the describe RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
+}
 
 /// Default workflow execution retention for a Namespace is 3 days
 const DEFAULT_WORKFLOW_EXECUTION_RETENTION_PERIOD: Duration = Duration::from_secs(60 * 60 * 24 * 3);
@@ -451,6 +575,7 @@ const DEFAULT_WORKFLOW_EXECUTION_RETENTION_PERIOD: Duration = Duration::from_sec
 /// Helper struct for `register_namespace`.
 #[derive(Clone, Debug, bon::Builder)]
 #[builder(on(String, into))]
+#[non_exhaustive]
 pub struct RegisterNamespaceOptions {
     /// Name (required)
     pub namespace: String,
@@ -527,19 +652,9 @@ pub struct WorkflowFetchHistoryOptions {
     /// Specifies which kind of events will be retrieved. Defaults to all events.
     #[builder(default = HistoryEventFilterType::AllEvent)]
     pub event_filter_type: HistoryEventFilterType,
-}
-
-/// Which lifecycle stage to wait for when starting an update.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum WorkflowUpdateWaitStage {
-    /// This stage is reached when the server receives the update to process.
-    /// This is currently an invalid value on start.
-    Admitted,
-    /// Wait until the update is accepted by the workflow (validator passed).
-    #[default]
-    Accepted,
-    /// Wait until the update has completed.
-    Completed,
+    /// Controls for each history page RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for starting an update without waiting for completion.
@@ -550,9 +665,9 @@ pub struct WorkflowStartUpdateOptions {
     pub update_id: Option<String>,
     /// Headers to include with the update.
     pub header: Option<Header>,
-    /// The lifecycle stage to wait for before returning the handle.
+    /// Controls for the start-update RPC.
     #[builder(default)]
-    pub wait_for_stage: WorkflowUpdateWaitStage,
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for listing workflows.
@@ -562,9 +677,192 @@ pub struct WorkflowListOptions {
     /// Maximum number of workflows to return.
     /// If not specified, returns all matching workflows.
     pub limit: Option<usize>,
+    /// Controls for each list page RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
 }
 
 /// Options for counting workflows.
 #[derive(Debug, Clone, Default, bon::Builder)]
 #[non_exhaustive]
-pub struct WorkflowCountOptions {}
+pub struct WorkflowCountOptions {
+    /// Controls for the count RPC.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
+}
+
+/// Options for starting a standalone activity.
+#[derive(Clone, Debug, bon::Builder)]
+#[builder(start_fn = new, on(String, into))]
+#[non_exhaustive]
+pub struct ActivityStartOptions {
+    /// Task queue to run this activity on.
+    #[builder(start_fn)]
+    pub task_queue: String,
+    /// Activity ID of the started activity. It's recommended to use a meaningful business ID.
+    #[builder(start_fn)]
+    pub id: String,
+    /// Timeouts for activity completion.
+    ///
+    /// See [`ActivityCloseTimeouts`] for the meaning of each timeout variant.
+    #[builder(start_fn)]
+    pub close_timeouts: ActivityCloseTimeouts,
+    /// If set, specifies maximum time the activity can wait in the task queue before being picked
+    /// up by a worker. This timeout is non-retryable.
+    pub schedule_to_start_timeout: Option<Duration>,
+    /// If set, specifies maximum time between successful heartbeats.
+    pub heartbeat_timeout: Option<Duration>,
+    /// Controls how Activity is retried. If not set, the server will assign default retry policy.
+    #[builder(into)]
+    pub retry_policy: Option<RetryPolicy>,
+    /// Priority to use when starting this activity.
+    #[builder(default)]
+    pub priority: Priority,
+    /// Specifies behavior if there's a *closed* activity with the same ID.
+    #[builder(default)]
+    pub id_reuse_policy: ActivityIdReusePolicy,
+    /// Specifies behavior if there's a *running* activity with the same ID. Note that there can
+    /// only be one running activity for each Activity ID.
+    #[builder(default)]
+    pub id_conflict_policy: ActivityIdConflictPolicy,
+    /// Search attributes for the activity.
+    pub search_attributes: Option<SearchAttributes>,
+    /// Headers to include with the start request.
+    pub header: Option<Header>,
+    /// Single-line static summary for the activity, shown in the Temporal UI.
+    pub summary: Option<String>,
+    /// Multi-line static details for the activity, shown in the Temporal UI.
+    pub static_details: Option<String>,
+    /// Time to wait before dispatching the first activity task.
+    /// This delay is not applied to retry attempts.
+    pub start_delay: Option<Duration>,
+}
+
+impl ActivityStartOptions {
+    /// Returns a builder with `close_timeouts` set to [`ActivityCloseTimeouts::StartToClose`].
+    pub fn with_start_to_close_timeout(
+        task_queue: impl Into<String>,
+        activity_id: impl Into<String>,
+        start_to_close_timeout: Duration,
+    ) -> ActivityStartOptionsBuilder {
+        Self::new(
+            task_queue,
+            activity_id,
+            ActivityCloseTimeouts::StartToClose(start_to_close_timeout),
+        )
+    }
+
+    /// Returns a builder with `close_timeouts` set to [`ActivityCloseTimeouts::ScheduleToClose`].
+    pub fn with_schedule_to_close_timeout(
+        task_queue: impl Into<String>,
+        activity_id: impl Into<String>,
+        schedule_to_close_timeout: Duration,
+    ) -> ActivityStartOptionsBuilder {
+        Self::new(
+            task_queue,
+            activity_id,
+            ActivityCloseTimeouts::ScheduleToClose(schedule_to_close_timeout),
+        )
+    }
+}
+
+/// Specifies behavior when starting a standalone activity if there's a *closed* activity with
+/// the same ID. See [`ActivityStartOptions::id_reuse_policy`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum ActivityIdReusePolicy {
+    #[default]
+    /// Always allow starting an activity using the same activity ID. This is the default.
+    AllowDuplicate,
+    /// Allow starting an activity using the same ID only when the last execution did not complete
+    /// successfully.
+    AllowDuplicateFailedOnly,
+    /// Do not permit re-use of the ID for this activity.
+    RejectDuplicate,
+}
+
+impl From<ActivityIdReusePolicy> for ProtoActivityIdReusePolicy {
+    fn from(value: ActivityIdReusePolicy) -> Self {
+        match value {
+            ActivityIdReusePolicy::AllowDuplicate => Self::AllowDuplicate,
+            ActivityIdReusePolicy::AllowDuplicateFailedOnly => Self::AllowDuplicateFailedOnly,
+            ActivityIdReusePolicy::RejectDuplicate => Self::RejectDuplicate,
+        }
+    }
+}
+
+/// Specifies behavior when starting a standalone activity if there's a *running* activity with
+/// the same ID. See [`ActivityStartOptions::id_conflict_policy`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum ActivityIdConflictPolicy {
+    #[default]
+    /// Don't start a new activity; instead return
+    /// [`StartActivityError::AlreadyStarted`](crate::errors::StartActivityError::AlreadyStarted).
+    Fail,
+    /// Don't start a new activity; instead return a handle for the running activity.
+    UseExisting,
+}
+
+impl From<ActivityIdConflictPolicy> for ProtoActivityIdConflictPolicy {
+    fn from(value: ActivityIdConflictPolicy) -> Self {
+        match value {
+            ActivityIdConflictPolicy::Fail => Self::Fail,
+            ActivityIdConflictPolicy::UseExisting => Self::UseExisting,
+        }
+    }
+}
+
+/// Options for listing activities.
+#[derive(Debug, Clone, Default, bon::Builder)]
+#[non_exhaustive]
+pub struct ActivityListOptions {}
+
+/// Options for counting activities.
+#[derive(Debug, Clone, Default, bon::Builder)]
+#[non_exhaustive]
+pub struct ActivityCountOptions {}
+
+/// Controls which optional fields will be requested in
+/// [`ActivityHandle::describe`](crate::ActivityHandle::describe) operation. The fields will be
+/// present in returned [`ActivityExecutionDescription`](crate::ActivityExecutionDescription),
+/// subject to data availability and server support.
+///
+/// Note that these fields contain payloads that can be arbitrarily large. It's recommended not to
+/// include them unless they're needed.
+#[derive(Debug, Clone, Default, bon::Builder)]
+#[non_exhaustive]
+pub struct ActivityDescribeOptions {
+    /// If set and the activity received input, the input will be included.
+    #[builder(default)]
+    pub include_input: bool,
+    /// If set and the activity is closed, the activity outcome will be included.
+    #[builder(default)]
+    pub include_outcome: bool,
+    /// If set and the activity sent heartbeat details, the heartbeat details will be included.
+    #[builder(default)]
+    pub include_heartbeat_details: bool,
+    /// If set and the activity has a failed attempt, the last failure will be included.
+    #[builder(default)]
+    pub include_last_failure: bool,
+}
+
+/// Options for [`ActivityHandle::cancel`](crate::ActivityHandle::cancel).
+#[derive(Debug, Clone, Default, bon::Builder)]
+#[builder(on(String, into))]
+#[non_exhaustive]
+pub struct ActivityCancelOptions {
+    /// Reason for cancellation. Can be empty.
+    #[builder(default)]
+    pub reason: String,
+}
+
+/// Options for [`ActivityHandle::terminate`](crate::ActivityHandle::terminate).
+#[derive(Debug, Clone, Default, bon::Builder)]
+#[builder(on(String, into))]
+#[non_exhaustive]
+pub struct ActivityTerminateOptions {
+    /// Reason for termination. Can be empty.
+    #[builder(default)]
+    pub reason: String,
+}

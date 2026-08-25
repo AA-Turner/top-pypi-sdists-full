@@ -200,6 +200,10 @@ class EventType(str, Enum):
     TOOL_PROGRESS_STREAM = "tool_progress_stream"
     STREAM_ERROR = "stream_error"
     STREAM_END = "stream_end"
+    MODEL_FALLBACK_STREAM = "model_fallback_stream"
+    RETRY_STREAM = "retry_stream"
+    TODO_STREAM = "todo_stream"
+    TOOL_RESULT_STREAM = "tool_result_stream"
     
     # System events
     HEALTH = "health"
@@ -1095,6 +1099,10 @@ class GatewayProtocol(Protocol):
               :func:`compute_config_revision`) of the config the gateway is
               *actually running*, comparable against the on-disk revision to
               detect drift.
+            - pressure: Optional :class:`HealthPressure` dict (admission /
+              inbound / outbound backlog + event-loop lag and a derived
+              ``pressure`` classification), when the gateway runs back-pressure
+              machinery. See :class:`HealthPressure` and :func:`evaluate_pressure`.
         """
         ...
 
@@ -1188,6 +1196,165 @@ def compute_config_revision(config: Optional[Dict[str, Any]]) -> str:
         # rather than raising into the reload/health path.
         canonical = repr(config)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:12]
+
+
+# ---------------------------------------------------------------------------
+# Saturation / back-pressure observability (Issue #4265)
+#
+# The always-on gateway already *enforces* back-pressure — a concurrency
+# ceiling with a bounded fair wait-queue (``AdmissionGate``), a durable
+# outbound outbox with a dead-letter tier (``OutboundQueue``), and an
+# event-loop wedge watchdog (``LoopWatchdog``) — but it exposes no saturation
+# *telemetry*. The health surface reports liveness and config drift, yet never
+# reports how close the gateway is to its limits, so the first signal an
+# operator gets is dropped work (shed turns / stalled outbound) rather than a
+# forward warning. This is the small, canonical contract — mirroring
+# ``ReloadStatus`` exactly — that both the SDK's ``gateway.health()`` and the
+# bot's ``/health`` populate so saturation is a first-class, observable signal.
+# Core owns only the *shape* (a frozen dataclass) and a pure, deterministic
+# classification helper; the wrapper reads back the facts the enforcement layer
+# already computes and fills the block.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HealthPressure:
+    """Observable saturation snapshot of the gateway's back-pressure machinery.
+
+    Populated by the running gateway and surfaced in
+    :meth:`GatewayProtocol.health` so an operator (or an autoscaler / a
+    ``/ready``-driven load balancer) can ask "is the gateway backing up?"
+    *before* admission starts shedding turns — rather than inferring overload
+    post-mortem from shed-load log lines.
+
+    Attributes:
+        admission_max: Configured concurrency ceiling (``0`` when unbounded).
+        admission_in_flight: Turns currently running.
+        admission_queued: Turns currently waiting for a slot.
+        admission_shed_total: Cumulative turns shed since start.
+        inbox_pending: Aggregate pending inbound queue depth across sessions.
+        outbox_pending: Durable outbound backlog awaiting delivery.
+        outbox_dead_letter: Durable outbound entries in the dead-letter tier.
+        event_loop_lag_p99_ms: Recent event-loop scheduling lag (ms).
+        pressure: Single derived classification — ``"nominal"``,
+            ``"elevated"`` or ``"saturated"`` (closed vocabulary) — so an
+            orchestrator can branch on one field.
+    """
+
+    admission_max: int = 0
+    admission_in_flight: int = 0
+    admission_queued: int = 0
+    admission_shed_total: int = 0
+    inbox_pending: int = 0
+    outbox_pending: int = 0
+    outbox_dead_letter: int = 0
+    event_loop_lag_p99_ms: float = 0.0
+    pressure: Literal["nominal", "elevated", "saturated"] = "nominal"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serializable dict for the health surface."""
+        return {
+            "admission_max": self.admission_max,
+            "admission_in_flight": self.admission_in_flight,
+            "admission_queued": self.admission_queued,
+            "admission_shed_total": self.admission_shed_total,
+            "inbox_pending": self.inbox_pending,
+            "outbox_pending": self.outbox_pending,
+            "outbox_dead_letter": self.outbox_dead_letter,
+            "event_loop_lag_p99_ms": self.event_loop_lag_p99_ms,
+            "pressure": self.pressure,
+        }
+
+
+def evaluate_pressure(
+    *,
+    admission: Optional[Dict[str, Any]] = None,
+    inbox_pending: int = 0,
+    outbox_pending: int = 0,
+    outbox_dead_letter: int = 0,
+    loop_lag_p99_ms: float = 0.0,
+) -> HealthPressure:
+    """Pure, deterministic classification of gateway load. No I/O.
+
+    Reads back facts the enforcement layer already computes
+    (``AdmissionGate.stats()``, the outbox ``status`` counts, the watchdog's
+    measured lag) and folds them into a single :class:`HealthPressure`. Lives
+    in core — like :func:`compute_config_revision` — so the SDK and the bot
+    classify identically without divergence.
+
+    Classification (highest wins):
+
+    * ``"saturated"`` — admission is full *and* work is queuing, the outbound
+      dead-letter tier is non-empty, or the event loop is lagging badly
+      (``>= 500 ms``): shed / stall is imminent or occurring.
+    * ``"elevated"`` — admission is highly utilised (``>= 80 %``), the inbound
+      or outbound backlog is building, or the loop is lagging (``>= 100 ms``).
+    * ``"nominal"`` — none of the above.
+
+    Args:
+        admission: An :meth:`AdmissionGate.stats` snapshot (or ``None``).
+        inbox_pending: Aggregate pending inbound queue depth.
+        outbox_pending: Durable outbound backlog.
+        outbox_dead_letter: Durable outbound dead-letter depth.
+        loop_lag_p99_ms: Recent event-loop scheduling lag in ms.
+
+    Returns:
+        A frozen :class:`HealthPressure` ready for the health surface.
+    """
+    stats = admission or {}
+
+    def _int(value: Any) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    admission_max = _int(stats.get("max_concurrent_runs"))
+    in_flight = _int(stats.get("in_flight"))
+    queued = _int(stats.get("queued"))
+    shed_total = _int(stats.get("shed"))
+    inbox = max(0, _int(inbox_pending))
+    outbox = max(0, _int(outbox_pending))
+    dead_letter = max(0, _int(outbox_dead_letter))
+    try:
+        lag = float(loop_lag_p99_ms or 0.0)
+    except (TypeError, ValueError):
+        lag = 0.0
+    if lag < 0.0:
+        lag = 0.0
+
+    utilisation = (in_flight / admission_max) if admission_max > 0 else 0.0
+
+    saturated = (
+        (admission_max > 0 and in_flight >= admission_max and queued > 0)
+        or dead_letter > 0
+        or lag >= 500.0
+    )
+    elevated = (
+        utilisation >= 0.8
+        or queued > 0
+        or inbox > 0
+        or outbox > 0
+        or lag >= 100.0
+    )
+    if saturated:
+        pressure: Literal["nominal", "elevated", "saturated"] = "saturated"
+    elif elevated:
+        pressure = "elevated"
+    else:
+        pressure = "nominal"
+
+    return HealthPressure(
+        admission_max=admission_max,
+        admission_in_flight=in_flight,
+        admission_queued=queued,
+        admission_shed_total=shed_total,
+        inbox_pending=inbox,
+        outbox_pending=outbox,
+        outbox_dead_letter=dead_letter,
+        event_loop_lag_p99_ms=lag,
+        pressure=pressure,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1565,6 +1732,90 @@ class OutboundDeliveryProtocol(Protocol):
             Number of messages purged
         """
         ...
+
+
+@runtime_checkable
+class IdempotencyStoreProtocol(Protocol):
+    """Protocol for inbound webhook/trigger delivery deduplication.
+
+    The gateway's inbound HTTP hook surface must not start a second agent run
+    for an event a provider re-delivers (webhook providers routinely retry for
+    minutes to days). Deduplication is a three-step, restart-stable claim on the
+    deterministic idempotency key (``compute_idempotency_key``):
+
+      - ``reserve`` — atomically claim the key. Returns ``False`` when the key
+        was already recorded *or* is currently in flight, so both a redelivery
+        and a concurrent duplicate are rejected.
+      - ``record`` — commit the key after a successful run so future
+        redeliveries dedup.
+      - ``release`` — drop an in-flight reservation after a failed run so the
+        provider's retry can re-run.
+
+    This mirrors :class:`CallbackPayloadStoreProtocol`: the contract lives in
+    core so third-party gateways and a future ``redis`` backend interoperate;
+    core ships the bounded in-memory default (:class:`InMemoryIdempotencyStore`)
+    and the durable, restart-surviving SQLite backend lives in the
+    ``praisonai-bot`` runtime (as the ingress journal and outbound queue do).
+    """
+
+    def reserve(self, key: str) -> bool:
+        """Atomically claim ``key``; ``False`` if seen-or-in-flight."""
+        ...
+
+    def record(self, key: str) -> None:
+        """Commit ``key`` as processed after a successful run."""
+        ...
+
+    def release(self, key: str) -> None:
+        """Drop an in-flight reservation so a failed delivery can be retried."""
+        ...
+
+
+class InMemoryIdempotencyStore:
+    """Bounded, zero-dependency in-memory :class:`IdempotencyStoreProtocol`.
+
+    The default store for single-replica deployments — identical behaviour to
+    the gateway's original per-process ``OrderedDict`` + in-flight ``set``. It
+    is *not* durable: after a process restart the store is empty, so a durable
+    backend (SQLite/redis) must be injected for the restart/multi-replica case.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_entries: int = 10_000,
+        ttl_seconds: float = 86_400.0,
+    ) -> None:
+        self._max_entries = max(1, int(max_entries))
+        self._ttl_seconds = float(ttl_seconds)
+        # key -> insertion time (seconds); insertion-ordered for FIFO eviction.
+        self._seen: "Dict[str, float]" = {}
+        self._inflight: Set[str] = set()
+
+    def _purge_expired(self, now: float) -> None:
+        if not self._seen:
+            return
+        expired = [k for k, ts in self._seen.items() if now - ts > self._ttl_seconds]
+        for k in expired:
+            self._seen.pop(k, None)
+
+    def reserve(self, key: str) -> bool:
+        now = time.time()
+        self._purge_expired(now)
+        if key in self._seen or key in self._inflight:
+            return False
+        self._inflight.add(key)
+        return True
+
+    def record(self, key: str) -> None:
+        self._inflight.discard(key)
+        self._seen[key] = time.time()
+        while len(self._seen) > self._max_entries:
+            oldest = next(iter(self._seen))
+            self._seen.pop(oldest, None)
+
+    def release(self, key: str) -> None:
+        self._inflight.discard(key)
 
 
 # ---------------------------------------------------------------------------
@@ -6041,3 +6292,195 @@ def _register_core_gateway_methods() -> None:
 
 
 _register_core_gateway_methods()
+
+
+# ---------------------------------------------------------------------------
+# Global operator emergency-stop / pause brake (Issue #4220)
+# ---------------------------------------------------------------------------
+#
+# A single, durable, fail-safe operator brake: "stop admitting NEW agent work
+# everywhere, right now, but let in-flight runs finish — and resume later with
+# no restart." Every new-work admission seam (WebSocket inbound, HTTP/MCP
+# inbound, kanban dispatch cycle, scheduler due-loop) consults one shared
+# contract instead of each lane deciding independently.
+#
+# Design mirrors the drain / idle / admission / liveness policy family already
+# in this module: a pure ``Protocol`` in core plus a lightweight default and a
+# durable fail-safe backend. When no brake is engaged, ``is_engaged()`` is
+# ``False`` and behaviour is byte-for-byte today's — zero cost, no new
+# dependency, fully backward-compatible.
+
+
+@dataclass(frozen=True)
+class EmergencyStopState:
+    """Immutable snapshot of the operator brake, for status/audit surfaces.
+
+    ``engaged`` is the only field the hot path needs; ``reason``/``actor``/
+    ``at`` provide the optional audit trail surfaced in ``/health``/status.
+    """
+
+    engaged: bool
+    reason: str = ""
+    actor: str = ""
+    at: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "engaged": self.engaged,
+            "reason": self.reason,
+            "actor": self.actor,
+            "at": self.at,
+        }
+
+
+@runtime_checkable
+class EmergencyStopProtocol(Protocol):
+    """Pure contract for the global operator brake consulted at every seam.
+
+    Fail-safe rule: if the engaged state cannot be read with confidence (a
+    corrupt / unreadable durable sentinel), ``is_engaged()`` MUST return
+    ``True`` — an ambiguous brake holds new work rather than letting it run
+    freely. ``engage``/``disengage`` are idempotent.
+    """
+
+    def is_engaged(self) -> bool: ...
+
+    def engage(self, *, reason: str = "", actor: str = "") -> None: ...
+
+    def disengage(self) -> None: ...
+
+    def state(self) -> EmergencyStopState: ...
+
+
+class NullEmergencyStop:
+    """Default no-op brake: never engaged, no persistence.
+
+    Selected by ``backend: "off"`` (the default) so a gateway with no brake
+    configured behaves exactly as before — ``is_engaged()`` is always
+    ``False`` and ``engage``/``disengage`` are inert.
+    """
+
+    def is_engaged(self) -> bool:
+        return False
+
+    def engage(self, *, reason: str = "", actor: str = "") -> None:
+        return None
+
+    def disengage(self) -> None:
+        return None
+
+    def state(self) -> EmergencyStopState:
+        return EmergencyStopState(engaged=False)
+
+
+class FileEmergencyStop:
+    """Durable, fail-safe file-sentinel operator brake.
+
+    Engaging writes a small JSON sentinel at ``path``; disengaging removes it.
+    The engaged state therefore survives a crash/restart (durable) and is
+    shared by every lane that consults the same path.
+
+    Fail-safe: any error reading the sentinel — a partially written file,
+    corrupt JSON, a permission error — is treated as *engaged*. An ambiguous
+    brake holds new work; it never silently falls open to "run freely". The
+    common, unambiguous case (sentinel simply absent) reports not-engaged.
+
+    Pure-stdlib (``os``/``json``): no new dependency, safe to live in core.
+    """
+
+    def __init__(self, path: str) -> None:
+        if not path:
+            raise ValueError("FileEmergencyStop requires a non-empty sentinel path")
+        import os
+
+        self._path = os.path.expanduser(str(path))
+
+    def is_engaged(self) -> bool:
+        import os
+
+        if not os.path.exists(self._path):
+            return False
+        # Present but unreadable/corrupt => fail-safe engaged.
+        try:
+            with open(self._path, "r", encoding="utf-8") as fh:
+                fh.read()
+            return True
+        except OSError:
+            return True
+
+    def engage(self, *, reason: str = "", actor: str = "") -> None:
+        import json
+        import os
+
+        directory = os.path.dirname(self._path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        payload = {
+            "engaged": True,
+            "reason": str(reason or ""),
+            "actor": str(actor or ""),
+            "at": time.time(),
+        }
+        # Atomic replace so a reader never observes a half-written sentinel
+        # (which would fail-safe engaged anyway, but this keeps it clean).
+        # ``mkstemp`` in the sentinel's own directory yields an unpredictable
+        # name owned by us, so a local attacker cannot pre-create a symlink to
+        # redirect the write. fsync + parent-dir fsync make an engaged brake
+        # durable across an abrupt crash.
+        import tempfile
+
+        fd, tmp = tempfile.mkstemp(
+            dir=directory or ".", prefix=".gateway.pause.", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, self._path)
+        except BaseException:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
+        if directory:
+            try:
+                dir_fd = os.open(directory, os.O_RDONLY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
+            except OSError:
+                pass
+
+    def disengage(self) -> None:
+        import os
+
+        try:
+            os.remove(self._path)
+        except FileNotFoundError:
+            return None
+
+    def state(self) -> EmergencyStopState:
+        import json
+        import os
+
+        if not os.path.exists(self._path):
+            return EmergencyStopState(engaged=False)
+        try:
+            with open(self._path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, dict):
+                raise ValueError("sentinel is not a JSON object")
+            return EmergencyStopState(
+                engaged=True,
+                reason=str(data.get("reason", "")),
+                actor=str(data.get("actor", "")),
+                at=float(data.get("at", 0.0) or 0.0),
+            )
+        except (OSError, TypeError, ValueError):
+            # Fail-safe: unreadable/corrupt sentinel counts as engaged. A valid
+            # JSON object with a non-numeric ``at`` (e.g. a list) raises
+            # TypeError from ``float()`` and must also fail-safe engaged.
+            return EmergencyStopState(engaged=True, reason="unreadable-sentinel")

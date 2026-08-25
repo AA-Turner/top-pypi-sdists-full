@@ -26,6 +26,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import tracemalloc
 import types
 import zlib
@@ -61,6 +62,7 @@ from dulwich.pack import (
     load_pack_index,
     read_zlib_chunks,
     unpack_object,
+    unpack_object_at,
     write_pack,
     write_pack_header,
     write_pack_index,
@@ -282,6 +284,15 @@ class TestPackDeltas(TestCase):
         # check now turns it into a typed ApplyDeltaError.
         self.assertRaises(ApplyDeltaError, apply_delta, b"", b"\x80")
         self.assertRaises(ApplyDeltaError, apply_delta, b"", b"")
+
+    def test_apply_delta_truncated_copy_op(self) -> None:
+        # A copy op declares offset and size bytes via its command byte's
+        # low nibble but the delta ends before those bytes are present. Used
+        # to crash with a generic TypeError from ``ord(b"")`` in the copy-op
+        # parsing loop; now raises ApplyDeltaError.
+        # \x00 src_size=0, \x00 dest_size=0, \x81 copy op that expects one
+        # offset byte which is missing.
+        self.assertRaises(ApplyDeltaError, apply_delta, b"", b"\x00\x00\x81")
 
     def test_create_delta_insert_only(self) -> None:
         """Test create_delta when only insertions are required."""
@@ -523,6 +534,55 @@ class TestPackData(PackTests):
         with self.get_pack_data(pack1_sha) as p:
             self.assertSucceeds(p.check)
 
+    def test_check_rejects_missing_checksum(self) -> None:
+        pack_file = BytesIO()
+        write_pack_header(pack_file.write, 0)
+        pack_file.seek(0)
+        with self.assertRaisesRegex(
+            AssertionError, "truncated.pack is too small for a packfile"
+        ):
+            PackData(
+                "truncated.pack", file=pack_file, object_format=DEFAULT_OBJECT_FORMAT
+            )
+        # The file was handed to us, so it stays the caller's to close.
+        self.assertFalse(pack_file.closed)
+
+    def test_concurrent_reads(self) -> None:
+        """Reads from several threads must not interfere with each other."""
+        with self.get_pack_data(pack1_sha) as p:
+            offsets = [unpacked.offset for unpacked in p.iter_unpacked()]
+            expected = {o: p.get_unpacked_object_at(o).sha() for o in offsets}
+            results: list[bool] = []
+            errors: list[BaseException] = []
+
+            def read_repeatedly() -> None:
+                try:
+                    for _ in range(50):
+                        for offset in offsets:
+                            results.append(
+                                p.get_unpacked_object_at(offset).sha()
+                                == expected[offset]
+                            )
+                except BaseException as e:
+                    errors.append(e)
+
+            threads = [threading.Thread(target=read_repeatedly) for _ in range(8)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            self.assertEqual([], errors)
+            self.assertEqual(8 * 50 * len(offsets), len(results))
+            self.assertEqual([], [r for r in results if not r])
+
+    def test_rejects_wrong_size(self) -> None:
+        """A caller-supplied size that disagrees with the file is an error."""
+        with open(
+            os.path.join(self.datadir, f"pack-{pack1_sha.decode()}.pack"), "rb"
+        ) as f:
+            with self.assertRaisesRegex(AssertionError, "but caller said 42"):
+                PackData.from_file(f, DEFAULT_OBJECT_FORMAT, 42)
+
     def test_get_stored_checksum(self) -> None:
         """Test getting the stored checksum of the pack data."""
         with self.get_pack_data(pack1_sha) as p:
@@ -752,6 +812,50 @@ class TestPack(PackTests):
             self.assertEqual(obj.type_name, b"commit")
             self.assertEqual(obj.sha().hexdigest().encode("ascii"), commit_sha)
 
+    def test_get_raw_concurrent(self) -> None:
+        """Concurrent delta reads must not corrupt the offset cache."""
+        f = BytesIO()
+        specs = [(Blob.type_num, b"blob-0")]
+        specs.extend((OFS_DELTA, (0, f"blob-{i}".encode())) for i in range(1, 32))
+        entries = build_pack(f, specs)
+        data = PackData("test.pack", file=f, object_format=DEFAULT_OBJECT_FORMAT)
+        index = MemoryPackIndex.for_pack(data)
+        pack = Pack.from_objects(data, index)
+        self.addCleanup(pack.close)
+
+        expected = {entry[3]: (Blob.type_num, entry[2]) for entry in entries}
+        for sha, result in expected.items():
+            self.assertEqual(result, pack.get_raw(sha))
+
+        errors: list[BaseException] = []
+
+        def read_repeatedly(start: int) -> None:
+            try:
+                for i in range(2000):
+                    entry = entries[1 + (start + i) % (len(entries) - 1)]
+                    self.assertEqual(expected[entry[3]], pack.get_raw(entry[3]))
+            except BaseException as exc:
+                errors.append(exc)
+
+        old_switch_interval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-6)
+        try:
+            threads = [
+                threading.Thread(target=read_repeatedly, args=(i * 3,))
+                for i in range(8)
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        finally:
+            sys.setswitchinterval(old_switch_interval)
+
+        self.assertEqual([], errors)
+        self.assertEqual(
+            len(data._offset_cache), len(list(data._offset_cache._walk_lru()))
+        )
+
     def test_copy(self) -> None:
         with self.get_pack(pack1_sha) as origpack:
             self.assertSucceeds(origpack.index.check)
@@ -819,6 +923,25 @@ class TestPack(PackTests):
         with open(keepfile_name, "rb") as f:
             buf = f.read()
             self.assertEqual(msg + b"\n", buf)
+
+    def test_unkeep(self) -> None:
+        with self.get_pack(pack1_sha) as p:
+            p = self._copy_pack(p)
+
+        with p:
+            keepfile_name = p.keep()
+            self.assertTrue(os.path.exists(keepfile_name))
+
+            self.assertTrue(p.unkeep())
+            self.assertFalse(os.path.exists(keepfile_name))
+
+    def test_unkeep_no_keepfile(self) -> None:
+        with self.get_pack(pack1_sha) as p:
+            p = self._copy_pack(p)
+
+        # Removing a .keep file that was never created is not an error.
+        with p:
+            self.assertFalse(p.unkeep())
 
     def test_name(self) -> None:
         with self.get_pack(pack1_sha) as p:
@@ -1051,6 +1174,20 @@ class WritePackTests(TestCase):
             ApplyDeltaError,
             unpack_object,
             f.read,
+            DEFAULT_OBJECT_FORMAT.hash_func,
+        )
+
+    def test_unpack_object_at_rejects_zero_ofs_delta(self) -> None:
+        # Same guard as test_unpack_object_rejects_zero_ofs_delta, on the
+        # offset-based path.
+        header = bytes([(OFS_DELTA << 4) | 0])
+        ofs_bytes = bytes([0x00])
+        body = zlib.compress(b"")
+        self.assertRaises(
+            ApplyDeltaError,
+            unpack_object_at,
+            header + ofs_bytes + body,
+            0,
             DEFAULT_OBJECT_FORMAT.hash_func,
         )
 
@@ -1912,8 +2049,8 @@ class DeltaChainIteratorTests(TestCase):
             ],
             store=self.store,
         )
-        fsize = f.tell()
-        f.seek(0)
+        # build_pack rewinds f, so measure the buffer rather than tell().
+        fsize = len(f.getvalue())
         packdata = PackData.from_file(f, DEFAULT_OBJECT_FORMAT, fsize)
         td = tempfile.mkdtemp()
         idx_path = os.path.join(td, "test.idx")

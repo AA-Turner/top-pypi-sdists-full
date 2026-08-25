@@ -5,8 +5,7 @@ GEPA (Genetic-Pareto): alternating rollouts with a teacher LM reflecting on resu
 `verifiers.v1.gepa`. CLI resolution mirrors `eval`/`serve` (`verifiers.v1.cli.resolve`): a
 leading bare token is the taskset id, the `env` subconfig is narrowed from the ids so
 `--env.taskset.*` / `--env.<role>.*` stay typed and `-h` renders them, `@ file.toml` loads,
-and the actual parse is `pydantic_config.cli`. v1-native tasksets only — a legacy (v0) env is
-rejected; run those through the existing `vf-gepa` command instead.
+and the actual parse is `pydantic_config.cli`.
 """
 
 import logging
@@ -15,7 +14,7 @@ import sys
 from pydantic_config import cli
 
 import verifiers.v1 as vf
-from verifiers.v1.cli.output import output_path, write_config
+from verifiers.v1.cli.output import TRACES_FILE, output_path, write_config
 from verifiers.v1.cli.resolve import (
     extract_id,
     narrow_config,
@@ -43,11 +42,6 @@ def main(argv: list[str] | None = None) -> None:
                 narrow_config(GEPAConfig, argv)
             )  # full option help, narrowed to the given ids
         return
-    if any(a == "--id" or a.startswith("--id=") for a in argv):  # v0 env id
-        raise SystemExit(
-            "gepa optimizes native v1 tasksets; run a legacy (v0) environment through "
-            "`vf-gepa` instead of `gepa`."
-        )
     typed_axis = any(a.startswith(("--env.", "--taskset.", "--harness.")) for a in argv)
     if (
         not extract_id(argv, "env.taskset")
@@ -75,8 +69,20 @@ def main(argv: list[str] | None = None) -> None:
             "gepa optimizes one agent's prompt against per-trace rewards and can't "
             "drive a multi-agent interaction — only eval runs those"
         )
+    # A named run directory is never silently reused: any write into it — the dry-run
+    # config included, which would destroy the existing traces' config provenance —
+    # would overwrite the previous run.
+    traces_file = output_path(config) / TRACES_FILE
+    if traces_file.exists() and traces_file.stat().st_size > 0:
+        raise SystemExit(
+            f"run directory {output_path(config)} already contains results - "
+            "pick another --run.name or delete it"
+        )
+
     if config.dry_run:  # resolved + validated; write it to the output dir and exit
-        logger.info("wrote config to %s", write_config(config, output_path(config)))
+        logger.info(
+            "wrote config to %s", write_config(config, output_path(config), "gepa.json")
+        )
         return
 
     # First Ctrl-C / SIGTERM warns and raises KeyboardInterrupt so a killed/timed-out run still

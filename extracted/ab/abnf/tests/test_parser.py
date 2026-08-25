@@ -1,3 +1,4 @@
+import gc
 import json
 import pathlib
 import re
@@ -6,6 +7,7 @@ import sys
 import textwrap
 import threading
 import warnings
+import weakref
 from typing import cast
 
 import pytest
@@ -1698,3 +1700,368 @@ def test_199_too_old_extension_falls_back_instead_of_crashing():
     assert payload["parsed"] == "abc"
     assert any("set_exclude_hook" in m for m in payload["messages"])
     assert any("too old" in m for m in payload["messages"])
+
+
+# ---------------------------------------------------------------------------
+# Undefined rule references (issue #201).  A rule that was never defined is a
+# broken grammar, not input that failed to match.  The Rust engine returned an
+# ordinary ParseError, which is indistinguishable from "this alternative did
+# not match" -- so an enclosing Alternation or Repetition swallowed it as
+# backtracking and a typo'd rule name silently deleted that branch.
+#
+# The same defect was fixed for exclusions in 2.8.1; the plain definition
+# lookup one screen below it in rule.rs was missed.
+# ---------------------------------------------------------------------------
+
+
+def test_201_undefined_rule_in_an_alternation_raises():
+    """The reported case: the branch must not be silently dropped."""
+
+    class UndefinedInAlternation(Rule):
+        pass
+
+    UndefinedInAlternation.create('a = b / "x"')  # `b` is never defined
+
+    # Input that the *other* alternative matches must still raise: the
+    # grammar is broken regardless of which branch would have won.
+    with pytest.raises(GrammarError, match="Undefined rule"):
+        UndefinedInAlternation("a").parse_all("x")
+
+    with pytest.raises(GrammarError, match="Undefined rule"):
+        UndefinedInAlternation("a").parse_all("zz")
+
+
+def test_201_undefined_rule_in_a_repetition_raises():
+    class UndefinedInRepetition(Rule):
+        pass
+
+    UndefinedInRepetition.create("a = *b")
+
+    with pytest.raises(GrammarError, match="Undefined rule"):
+        UndefinedInRepetition("a").parse_all("")
+
+
+def test_201_undefined_rule_referenced_directly_raises():
+    class UndefinedDirect(Rule):
+        pass
+
+    UndefinedDirect.create("a = b")
+
+    with pytest.raises(GrammarError, match="Undefined rule"):
+        UndefinedDirect("a").parse_all("x")
+
+
+def test_201_forward_reference_still_works_once_defined():
+    """The check must fire on a missing definition, not on definition
+    order: a rule may be referenced before it is defined."""
+
+    class ForwardReference(Rule):
+        pass
+
+    ForwardReference.create('a = b / "x"')
+    ForwardReference.create('b = "y"')
+
+    assert ForwardReference("a").parse_all("y").value == "y"
+    assert ForwardReference("a").parse_all("x").value == "x"
+
+
+# ---------------------------------------------------------------------------
+# Re-entrant parses over a different source (issue #202).  Memoisation is
+# scoped by epoch, and cache entries are keyed by position alone, so an epoch
+# may only ever see one source.  Nested FFI entries shared the enclosing
+# parse's epoch on the reasoning that a callback re-entering the engine is
+# part of the same parse -- but the `Parser` protocol is public, and a custom
+# parser may parse anything it likes while it runs.  Entries made against the
+# inner source then answered lookups against the outer one.
+#
+# The pure-Python backend was never affected: its memo carries the source and
+# checks identity (`ctx[0] is source`) before use.
+# ---------------------------------------------------------------------------
+
+
+def test_202_re_entrant_parse_on_a_different_source():
+    """The reported case: parsing other text mid-parse must not change
+    what the enclosing parse matches."""
+    inner = Repetition(Repeat(0, None), Literal("a"))
+
+    class ReEnter:
+        def lparse(self, source, start):
+            list(inner.lparse("bbbb", 0))  # a different source, mid-parse
+            yield Match([], start)  # then match zero width
+
+    outer = Concatenation(cast(Parser, ReEnter()), inner)
+    assert max(m.start for m in outer.lparse("aaa", 0)) == 3
+
+
+def test_202_re_entrant_parse_on_the_same_source_is_unaffected():
+    """Same-source re-entry keeps sharing the epoch -- an epoch change
+    resets the caches it touches, so claiming one unconditionally would
+    wipe the enclosing parse's memo on every callback."""
+
+    class Ambiguous(Rule):
+        pass
+
+    Ambiguous.create('amb = 1*("a" / "aa")')
+    inner = Ambiguous("amb")
+
+    class SameSource:
+        def lparse(self, source, start):
+            inner.parse(source, 0)  # the same source object
+            yield Match([], start)
+
+    class Outer(Rule):
+        pass
+
+    Outer(
+        "loop",
+        Repetition(
+            Repeat(1, None),
+            Concatenation(cast(Parser, SameSource()), Ambiguous("amb")),
+        ),
+    )
+    source = "a" * 12
+    assert Outer("loop").parse(source, 0)[1] == len(source)
+
+
+def test_202_nested_different_sources_restore_the_outer_scope():
+    """Two levels of re-entry, each on its own text: unwinding must put
+    the enclosing parse back on its own entries."""
+    inner = Repetition(Repeat(0, None), Literal("a"))
+
+    class Deep:
+        def lparse(self, source, start):
+            list(inner.lparse("bb", 0))
+            list(inner.lparse("cccc", 0))
+            yield Match([], start)
+
+    outer = Concatenation(cast(Parser, Deep()), inner)
+    assert max(m.start for m in outer.lparse("aaaa", 0)) == 4
+
+
+# ---------------------------------------------------------------------------
+# Parser identification (issue #203).  The Rust layer decided that anything
+# with `name` and `lparse` was a Rule, and registered it in the bridge -- a
+# registry keyed by the Python object's *address*.  Two defects followed:
+# such an object became a definition-less `NamedRule` whose own `lparse` was
+# never called, and the registry's soundness argument (rules are immortal,
+# via `Rule._obj_map`) does not hold for an arbitrary user object, so a freed
+# one's address could be handed to a new `Rule` that inherited its handle.
+#
+# Rules are now identified by type.  Everything else with `lparse` goes to the
+# callback path, which holds a reference to the object -- so it cannot dangle.
+# ---------------------------------------------------------------------------
+
+
+def test_203_duck_typed_parser_with_a_name_attribute_is_called():
+    """`name` is an ordinary attribute; it must not change dispatch."""
+
+    class NamedDuck:
+        name = "descriptive"
+
+        def lparse(self, source, start):
+            if start < len(source):
+                yield Match(
+                    [cast(Node, LiteralNode(source[start], start, 1))], start + 1
+                )
+            else:
+                raise ParseError(self, start)
+
+    parser = Concatenation(Literal("x"), cast(Parser, NamedDuck()))
+    match = next(iter(parser.lparse("xz", 0)))
+    assert match.nodes[-1].value == "z"
+
+
+def test_203_a_parser_tree_keeps_its_python_parsers_alive():
+    """The property that makes the address-reuse hazard impossible: an
+    embedded parser is owned by the tree, so its address cannot be
+    recycled while the tree still refers to it."""
+
+    class Duck:
+        name = "duck"
+
+        def lparse(self, source, start):
+            yield Match([cast(Node, LiteralNode(source[start], start, 1))], start + 1)
+
+    duck = Duck()
+    ref = weakref.ref(duck)
+    tree = Concatenation(Literal("x"), cast(Parser, duck))
+    del duck
+    gc.collect()
+    assert ref() is not None, "the tree does not own the parser it was built from"
+
+    del tree
+    gc.collect()
+    assert ref() is None, "the parser outlived every tree referring to it"
+
+
+@pytest.mark.skipif(
+    _parser._BACKEND != "rust", reason="The bridge only exists under Rust."
+)
+def test_203_real_rules_still_take_the_bridge_fast_path():
+    """Identifying rules by type must not cost the optimisation the
+    attribute check existed for."""
+    from abnf_rust._ext import bridge_size  # type: ignore[import-not-found]
+
+    class BridgeFastPath(Rule):
+        pass
+
+    BridgeFastPath.create('inner = "a"')
+    before = bridge_size()
+    BridgeFastPath("outer", Concatenation(Literal("x"), BridgeFastPath("inner")))
+    assert bridge_size() > before
+
+
+# ---------------------------------------------------------------------------
+# Backend API parity (issue #204).  Four small divergences, grouped because
+# they share a cause: the Rust pyclasses reimplement parts of the Python API
+# surface and drifted from it.  The pure-Python implementation is the
+# reference in each case.
+# ---------------------------------------------------------------------------
+
+
+def test_204_repeat_bound_beyond_usize_is_not_an_error():
+    """Python's ints are unbounded, so this is odd but valid ABNF that
+    the reference backend parses happily -- the bound is never reached.
+    Raising `OverflowError` also escaped the documented exception
+    contract, being neither `GrammarError` nor `ParseError`."""
+
+    class HugeBound(Rule):
+        pass
+
+    HugeBound.create('a = 2*99999999999999999999"x"')
+    assert HugeBound("a").parse_all("xxx").value == "xxx"
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        ((3, 2), GrammarError),  # impossible range
+        ((0, -1), GrammarError),  # negative max is < min
+        ((0, "x"), TypeError),  # not a number at all
+    ],
+)
+def test_204_repeat_still_rejects_what_it_should(args, expected):
+    """Saturating a huge bound must not swallow the genuine errors."""
+    with pytest.raises(expected):
+        Repeat(*args)
+
+
+def test_204_range_literal_case_sensitivity_reads_the_same():
+    """A range compares by code point either way, so the attribute is
+    inert -- but it should read alike on both backends."""
+    assert Literal(("a", "z")).case_sensitive is False
+    assert Literal("a").case_sensitive is False
+    assert Literal("a", case_sensitive=True).case_sensitive is True
+
+
+def test_204_node_equality_is_structural():
+    """Comparing concatenated values called two different parse trees
+    equal whenever they spanned the same text."""
+
+    class Flat(Rule):
+        pass
+
+    class Nested(Rule):
+        pass
+
+    Flat.create('a = "xy" / ("x" "y")')
+    Nested.create('a = ("x" "y") / "xy"')
+
+    flat = Flat("a").parse_all("xy")
+    nested = Nested("a").parse_all("xy")
+    assert flat.value == nested.value == "xy"
+    assert len(flat.children) != len(nested.children)
+    assert flat != nested
+
+
+def test_204_node_equality_compares_children_recursively():
+    same = Node("r", cast(Node, Node("c", cast(Node, LiteralNode("a", 0, 1)))))
+    other = Node("r", cast(Node, Node("c", cast(Node, LiteralNode("b", 0, 1)))))
+    assert same == Node("r", cast(Node, Node("c", cast(Node, LiteralNode("a", 0, 1)))))
+    assert same != other
+    # ...and a node is never equal to something that is not one.
+    assert same != LiteralNode("a", 0, 1)
+    assert same != "r"
+
+
+def test_204_parse_tree_nodes_are_unhashable():
+    """`__eq__` without `__hash__` makes a class unhashable in Python,
+    and the reference `LiteralNode` does exactly that.  `Node` is
+    unhashable too, so no parse-tree node is hashable on either
+    backend."""
+    with pytest.raises(TypeError):
+        hash(LiteralNode("a", 0, 1))
+    with pytest.raises(TypeError):
+        hash(Node("x"))
+
+
+# ---------------------------------------------------------------------------
+# Offsets from a custom parser (issue #218).  A rule's definition may be a
+# Python parser, and the end offset it reports is not validated -- it can be
+# past the end of the source, or before where the match began.  The exclusion
+# check sliced the source with it, so a bad offset panicked, and a panic
+# crosses the FFI as `PanicException`: a `BaseException`, which `except
+# ParseError` -- or even `except Exception` -- does not catch.
+#
+# Text that is not in the source cannot be text the excluded rule matches, so
+# a nonsensical span means "not excluded"; the offset then fails naturally
+# further up, as it does on the pure-Python backend.
+# ---------------------------------------------------------------------------
+
+
+class _OffsetPast:
+    """Reports a match ending far beyond the source."""
+
+    def lparse(self, source, start):
+        yield Match([cast(Node, LiteralNode("a", start, 1))], 1000)
+
+
+class _OffsetBefore:
+    """Reports a match ending before it began."""
+
+    def lparse(self, source, start):
+        yield Match([cast(Node, LiteralNode("a", start, 1))], 0)
+
+
+@pytest.mark.parametrize("parser_cls", [_OffsetPast, _OffsetBefore])
+def test_218_bad_offset_under_an_exclusion_raises_parse_error(parser_cls):
+    class BadOffset(Rule):
+        pass
+
+    BadOffset.create('kw = "zzz"')
+    BadOffset("bad", cast(Parser, parser_cls()))
+    BadOffset("bad").exclude_rule(BadOffset("kw"))
+
+    # The contract is that parsing raises ParseError -- not that it raises
+    # something.  `PanicException` derives from BaseException, so a bare
+    # `except ParseError` would not have caught the old behaviour.
+    with pytest.raises(ParseError):
+        Concatenation(BadOffset("bad"), Literal("b")).lparse("ab", 0)
+        next(iter(Concatenation(BadOffset("bad"), Literal("b")).lparse("ab", 0)))
+
+
+def test_218_bad_offset_without_an_exclusion_is_unchanged():
+    """Only the exclusion path sliced unchecked; this shape always
+    degraded gracefully and must continue to."""
+
+    class NoExclusion(Rule):
+        pass
+
+    NoExclusion("bad", cast(Parser, _OffsetPast()))
+    with pytest.raises(ParseError):
+        next(iter(Concatenation(NoExclusion("bad"), Literal("b")).lparse("ab", 0)))
+
+
+def test_218_a_valid_exclusion_still_excludes():
+    """The guard must not turn every exclusion into a no-op."""
+
+    class StillExcludes(Rule):
+        pass
+
+    StillExcludes.create("word = 1*%x61-7A")
+    StillExcludes.create('kw = "stop"')
+    StillExcludes("word").exclude_rule(StillExcludes("kw"))
+
+    assert StillExcludes("word").parse_all("go").value == "go"
+    with pytest.raises(ParseError):
+        StillExcludes("word").parse_all("stop")

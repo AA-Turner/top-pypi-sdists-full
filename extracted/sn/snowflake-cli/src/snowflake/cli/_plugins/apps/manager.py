@@ -18,16 +18,21 @@ import glob
 import json
 import logging
 import re
+import socket
+import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from contextvars import copy_context
+from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -35,6 +40,9 @@ from typing import (
     Tuple,
     TypeVar,
 )
+from urllib.parse import urlparse
+
+from requests.utils import DEFAULT_CA_BUNDLE_PATH
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 # Shared workspace name used by ``snow app setup`` for the code-storage backend.
@@ -94,12 +102,87 @@ PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
 # to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
+# ``COMPUTE_RESOURCE`` value selecting the CNG (serverless) app-service backend.
+# CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
+# per-account TLS certificate to be provisioned for the account.
+SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
+
+# System function that triggers per-account URL certificate issuance for the
+# account. Issuance is asynchronous and can take up to ~3 hours, so the CLI
+# never blocks on it — it only advises the user to run it (or runs it on their
+# behalf with ``--provision-certs``) as a pre-check before creating a CNG app.
+PER_ACCOUNT_CERT_ISSUE_FUNCTION = "SYSTEM$ISSUE_PER_ACCOUNT_APP_SERVICE_CERTIFICATE"
+
+# Domain that per-account app URLs (Northstar URLs) are served from. Note this
+# is ``snowflake.app`` — distinct from the SQL/account host's
+# ``snowflakecomputing.com`` — and per-account certs are wildcards under it
+# (``*.<org>-<account>.<infra>.snowflake.app``).
+PER_ACCOUNT_APP_DOMAIN = "snowflake.app"
+
+# Synthetic single-label subdomain used to probe the account's per-account URL
+# certificate before any app exists. A per-account cert is a wildcard for
+# ``*.<org>-<account>.<infra>.snowflake.app``, so any single label exercises it —
+# no real app needs to exist, which lets the probe run as a genuine pre-check.
+# The label is intentionally obviously-synthetic.
+CERT_PROBE_LABEL = "snowflake-cli-cert-check"
+
+# Keep the TLS probe short so the deploy pre-check never hangs on a slow or
+# unreachable ingress. A timeout is treated as UNKNOWN (non-blocking).
+CERT_PROBE_TIMEOUT_SECONDS = 5
+
+# OpenSSL certificate-verification codes (``SSLCertVerificationError.verify_code``)
+# that prove the account is *not* serving a per-account wildcard certificate:
+#   62 = hostname mismatch — a cert is served but does not cover the per-account
+#        host (only the shallower deployment wildcard is present).
+#   10 = certificate expired.
+# Every other verification failure is a trust-chain problem (self-signed=18,
+# self-signed-in-chain=19, unable-to-get-local-issuer=20, unable-to-verify-leaf=21,
+# ...): a TLS-intercepting proxy or a custom corporate CA. Those say nothing
+# about which certificate the account serves, so they are treated as UNKNOWN
+# (inconclusive) rather than blocking the deploy.
+_CERT_ABSENT_VERIFY_CODES = frozenset({10, 62})
+
+
+class PerAccountCertStatus(Enum):
+    """Outcome of the client-side per-account URL certificate TLS probe.
+
+    There is no server-side function that authoritatively reports whether a
+    per-account certificate has been issued *and is being served* (the account
+    parameter only records intent), so the CLI probes the ingress directly and
+    classifies the result into three states.
+    """
+
+    # A certificate valid for the per-account host is served (chain + hostname
+    # verification passed) — the per-account wildcard is provisioned.
+    PROVISIONED = "provisioned"
+    # A certificate is served but is not valid for the per-account host
+    # (hostname mismatch — only the deployment wildcard is present — or an
+    # expired/untrusted cert). The browser would show a TLS warning.
+    NOT_PROVISIONED = "not_provisioned"
+    # Could not determine: DNS failure (e.g. a PrivateLink host that only
+    # resolves inside the customer VPC), connection timeout/refusal, or a proxy
+    # in the path. Callers must not block on this.
+    UNKNOWN = "unknown"
+
 
 if TYPE_CHECKING:
+    from snowflake.cli._plugins.apps.app_yml import AppYmlTarget
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
-from snowflake.cli._plugins.apps.events import EVENT_TABLE_FUNCTION
+import yaml
+from snowflake.cli._plugins.apps.events import (
+    DEFAULT_EVENT_TABLE_INLINE_LIMIT,
+    EVENT_TABLE_FUNCTION,
+    EVENT_TABLE_MAX_ROWS_PARAMETER,
+)
+from snowflake.cli._plugins.apps.snowflake_app_project_paths import (
+    SnowflakeAppProjectPaths,
+)
+from snowflake.cli._plugins.connection.util import (
+    get_account_identifier,
+    guess_regioned_host_from_allowlist,
+)
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -187,6 +270,25 @@ def app_fqn(
         database=to_identifier(str(database)) if database else None,
         schema=to_identifier(str(schema)) if schema else None,
         name=to_identifier(str(name)),
+    )
+
+
+def _qualify_object_name(
+    value: str, database: Optional[str], schema: Optional[str]
+) -> str:
+    """Qualify a schema-scoped object name with a default database/schema.
+
+    Accepts a bare name or a ``DB.SCHEMA.NAME`` identifier: the identifier's own
+    database/schema (when present) win, and any missing component falls back to
+    *database* / *schema*. Returns the value unchanged when it cannot be fully
+    qualified (no defaults supplied), matching how the CLI resolves its other
+    ``app.yml`` identifiers.
+    """
+    parsed = FQN.from_string(value)
+    return (
+        parsed.set_database(parsed.database or database)
+        .set_schema(parsed.schema or schema)
+        .identifier
     )
 
 
@@ -564,7 +666,7 @@ def _resolve_deploy_defaults(
     4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``compute_resource``, ``build_eai``,
+    ``service_compute_pool``, ``build_eai``,
     ``service_eai``, ``artifact_repository``,
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
@@ -597,10 +699,6 @@ def _resolve_deploy_defaults(
         "service_compute_pool": (
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
-        # Resolved only from snowflake.yml (tier 1); no account-parameter or
-        # session fallback. Emitted on CREATE only when the
-        # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is enabled.
-        "compute_resource": entity.compute_resource,
         "build_eai": entity.build_eai.name if entity.build_eai else None,
         "service_eai": entity.service_eai.name if entity.service_eai else None,
         "artifact_repository": (
@@ -741,7 +839,7 @@ def _get_entity(entity_id: str) -> SnowflakeAppEntityModel:
 def perform_bundle(
     resolved_entity_id: str,
     entity: "SnowflakeAppEntityModel",
-) -> ProjectPaths:
+) -> SnowflakeAppProjectPaths:
     """Bundle source artifacts for a snowflake-app entity.
 
     Resolves glob patterns and src/dest mappings defined in the entity's
@@ -752,14 +850,14 @@ def perform_bundle(
     ``snow app bundle`` and the bundling step of ``snow app deploy`` for
     ``snowflake-app`` entities.
 
-    Returns the :class:`ProjectPaths` instance so callers can inspect or
-    upload the bundle root, and are responsible for cleanup via
+    Returns the :class:`SnowflakeAppProjectPaths` instance so callers can
+    inspect or upload the bundle root, and are responsible for cleanup via
     ``project_paths.clean_up_output()`` when finished.
     """
     artifacts = entity.artifacts
 
     project_root = get_cli_context().project_root
-    project_paths = ProjectPaths(project_root=project_root)
+    project_paths = SnowflakeAppProjectPaths(project_root=project_root)
     project_paths.remove_up_bundle_root()
     SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
@@ -1079,10 +1177,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 return
             raise
 
-    def commit_workspace_live_version(self, workspace_fqn: FQN) -> None:
-        """Commit the current workspace live version."""
-        self.execute_query(f"ALTER WORKSPACE {workspace_fqn.sql_identifier} COMMIT")
-
     def clear_workspace(self, workspace_fqn: FQN) -> None:
         """Remove all files from the workspace's live version."""
         self.execute_query(
@@ -1101,23 +1195,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"/{WORKSPACE_LIVE_VERSION_PATH}"
         )
 
-    def workspace_last_uri(self, workspace_fqn: FQN) -> str:
-        """Return the ``snow://workspace/...`` URI pointing at the last committed version."""
-        return f"snow://workspace/{workspace_fqn.identifier}" f"/versions/last"
-
     def workspace_subdirectory_uri(
         self, workspace_fqn: FQN, directory_name: str
     ) -> str:
         """Return a workspace URI under the live version for *directory_name*."""
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_uri(workspace_fqn)}/{normalized_directory}"
-
-    def workspace_last_subdirectory_uri(
-        self, workspace_fqn: FQN, directory_name: str
-    ) -> str:
-        """Return a workspace URI under the last committed version for *directory_name*."""
-        normalized_directory = directory_name.strip("/")
-        return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
 
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str
@@ -1282,11 +1365,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         yield from self._run_uploads(uploads)
 
-    def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
+    def get_service_logs(
+        self,
+        service_fqn: FQN,
+        last: Optional[int] = None,
+        instance_id: Optional[int] = None,
+    ) -> str:
         """Fetch recent log output from an application service."""
-        cursor = self.execute_query(
-            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
-        )
+        if instance_id is not None:
+            # instance_id is a third positional arg — tail_lines must be present.
+            # Use the caller's value or fall back to the server default (500).
+            effective_last = last if last is not None else 500
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)"
+            params = [service_fqn.identifier, effective_last, instance_id]
+        elif last is not None:
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)"
+            params = [service_fqn.identifier, last]
+        else:
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)"
+            params = [service_fqn.identifier]
+        cursor = self.execute_query_with_params(sql, params)
         row = cursor.fetchone()
         return row[0] if row else ""
 
@@ -1296,6 +1394,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         event_type: str,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        limit: Optional[int] = None,
     ) -> str:
         """Fetch observability telemetry from an application service's event table.
 
@@ -1305,6 +1404,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         given the call is scoped to that ``[start_time, end_time]`` window;
         otherwise the function applies its own default window. There is a short
         ingestion delay before recent data appears.
+
+        The inline JSON payload is capped server-side at the
+        ``APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS`` records (read at runtime by
+        :meth:`_event_table_inline_cap`). When ``limit`` exceeds that cap the
+        function is instead called with its trailing ``return_uuid`` flag —
+        which returns the query id of its underlying result set — and the
+        newest ``limit`` records are read back via ``RESULT_SCAN`` (see
+        :meth:`_read_paged_event_table_data`), lifting the cap. Paging requires
+        a resolved ``[start_time, end_time]`` window because ``return_uuid`` is
+        the function's fifth positional argument.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -1312,12 +1421,107 @@ class SnowflakeAppManager(SqlExecutionMixin):
             to_string_literal(service_fqn.identifier),
             to_string_literal(event_type),
         ]
-        if start_time is not None and end_time is not None:
+        windowed = start_time is not None and end_time is not None
+        if windowed:
             args.append(to_string_literal(start_time))
             args.append(to_string_literal(end_time))
-        cursor = self.execute_query(f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})")
-        row = cursor.fetchone()
-        return row[0] if row else ""
+
+        # ``limit is None`` (the default) and unwindowed calls never page; only
+        # a windowed call with an explicit limit consults the server cap, so the
+        # common path avoids the extra parameter lookup.
+        if not windowed or limit is None or limit <= self._event_table_inline_cap():
+            cursor = self.execute_query(
+                f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})"
+            )
+            row = cursor.fetchone()
+            return row[0] if row else ""
+
+        uuid_cursor = self.execute_query(
+            f"CALL {EVENT_TABLE_FUNCTION}"
+            f"({', '.join(args + [to_string_literal('true')])})"
+        )
+        uuid_row = uuid_cursor.fetchone()
+        query_id = uuid_row[0] if uuid_row else None
+        if not query_id:
+            return ""
+        return self._read_paged_event_table_data(query_id, limit)
+
+    def _event_table_inline_cap(self) -> int:
+        """Return the server's inline row cap for the event-table function.
+
+        Reads the ``APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS`` parameter that
+        bounds the function's inline JSON payload, rather than assuming a fixed
+        value. Falls back to :data:`DEFAULT_EVENT_TABLE_INLINE_LIMIT` when the
+        parameter cannot be read or parsed (e.g. insufficient privileges, or an
+        account that predates it).
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW PARAMETERS LIKE '{EVENT_TABLE_MAX_ROWS_PARAMETER}'",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+            if row:
+                value = row.get("value") or row.get("VALUE")
+                if value:
+                    return int(value)
+        except (ProgrammingError, ValueError, TypeError):
+            log.debug(
+                "Could not read %s; using default inline cap of %s.",
+                EVENT_TABLE_MAX_ROWS_PARAMETER,
+                DEFAULT_EVENT_TABLE_INLINE_LIMIT,
+                exc_info=True,
+            )
+        return DEFAULT_EVENT_TABLE_INLINE_LIMIT
+
+    def _read_paged_event_table_data(self, query_id: str, limit: int) -> str:
+        """Read up to ``limit`` newest event-table rows back via ``RESULT_SCAN``.
+
+        ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` called with its
+        ``return_uuid`` flag yields the query id of its underlying result set
+        instead of the inline JSON payload. ``RESULT_SCAN`` exposes that full
+        result set as columns whose leading positions match the inline JSON
+        tuple layout the :mod:`~snowflake.cli._plugins.apps.events` parsers
+        expect — the only difference is the timestamp, a ``datetime`` here
+        versus epoch seconds inline. The newest ``limit`` rows are re-serialized
+        into that same JSON-array-of-tuples shape so the parsers remain the
+        single source of truth for decoding.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        cursor = self.execute_query(
+            f"SELECT * FROM TABLE(RESULT_SCAN({to_string_literal(query_id)})) "
+            f"ORDER BY TIMESTAMP DESC LIMIT {int(limit)}"
+        )
+        rows = cursor.fetchall()
+        # RESULT_SCAN returned the newest rows first; reverse to oldest-first so
+        # the reconstructed payload matches the inline function's ordering.
+        tuples = [self._event_table_row_to_tuple(row) for row in reversed(rows)]
+        return json.dumps(tuples, default=str)
+
+    @staticmethod
+    def _event_table_row_to_tuple(row: Iterable[Any]) -> list:
+        """Convert a ``RESULT_SCAN`` row into an inline-JSON positional tuple.
+
+        ``RESULT_SCAN`` returns native column types (e.g. an ``int`` instance
+        id, a naive UTC ``datetime`` timestamp), whereas the inline payload the
+        parsers were written against carries every field as a string (or JSON
+        ``null``). Normalize to that shape — timestamps to epoch seconds, other
+        values to strings, ``None`` preserved — so the parsed output is
+        identical whether the data came from the inline call or from paging.
+        """
+        normalized: list = []
+        for index, value in enumerate(row):
+            if value is None:
+                normalized.append(None)
+            elif index == 0 and isinstance(value, datetime):
+                # Event-table timestamps are naive UTC; assume UTC when naive,
+                # but honor an existing tzinfo rather than relabeling it.
+                ts = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+                normalized.append(str(ts.timestamp()))
+            else:
+                normalized.append(str(value))
+        return normalized
 
     def resolve_application_service_url_from_describe(
         self, desc: Dict[str, Any]
@@ -1627,6 +1831,212 @@ class SnowflakeAppManager(SqlExecutionMixin):
             row = cursor.fetchone()
             return row[0] if row else ""
 
+    def _org_account_slug(self) -> Optional[str]:
+        """Return ``<organization>-<account>`` as a DNS label, or ``None``.
+
+        This is the leading label of a per-account app URL (e.g.
+        ``sfengineering-gbloom``). It is resolved from the session (not the
+        connection host, which carries only the account locator) via the shared
+        :func:`get_account_identifier` helper, reused for the round-trip and its
+        ``_``→``-`` normalization rather than for error surfacing: the helper
+        raises on a NULL org/account, but the ``except`` below swallows that to
+        ``None`` so this fail-open advisory skips the check instead of erroring.
+
+        The label is lower-cased and underscores (legal in account names) are
+        mapped to hyphens, because per-account URLs render ``MY_ACCT`` as
+        ``my-acct`` and ``_`` is not a valid DNS-label character.
+        """
+        try:
+            identifier = get_account_identifier(get_cli_context().connection)
+        except Exception:
+            log.debug(
+                "Could not resolve organization/account name for cert probe.",
+                exc_info=True,
+            )
+            return None
+        slug = f"{identifier.organization_name}-{identifier.account_name}"
+        return slug.lower().replace("_", "-")
+
+    def _account_infra(self) -> Optional[str]:
+        """Return the ``<infra>`` segment of the per-account app host, or ``None``.
+
+        CNG apps are reached at ``<app>.<org>-<account>.<infra>.snowflake.app``
+        (e.g. ``qa6.us-west-2.aws`` for ``…qa6.us-west-2.aws.snowflake.app``).
+        The ``<infra>`` matches the region/deployment segment of the account's
+        *regioned* SQL host, so it is taken from the connection host by dropping
+        the leading account label and the trailing ``snowflakecomputing.com``.
+
+        Modern regionless account aliases (``myorg-myacct.snowflakecomputing.com``)
+        and legacy ``us-west-2`` accounts (whose connection host the connector
+        leaves region-less) carry no region, so this falls back to
+        :func:`guess_regioned_host_from_allowlist` (``SYSTEM$ALLOWLIST``) to
+        recover a regioned host — the same recovery the rest of the CLI uses.
+        """
+        try:
+            conn = get_cli_context().connection
+        except Exception:
+            log.debug(
+                "Could not resolve active connection for cert probe.", exc_info=True
+            )
+            return None
+
+        infra = self._infra_from_sql_host(getattr(conn, "host", None))
+        if infra:
+            return infra
+        # Region-less connection host: recover a regioned host via the allowlist.
+        return self._infra_from_sql_host(guess_regioned_host_from_allowlist(conn))
+
+    @staticmethod
+    def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
+        """Return the ``<infra>`` labels of a *regioned* SQL host, or ``None``.
+
+        A regioned host is ``<account>.<infra…>.snowflakecomputing.com`` (four or
+        more labels); the infra is everything between the account label and the
+        ``snowflakecomputing.com`` registrable domain. A trailing ``privatelink``
+        label is preserved, matching the per-account cert's PrivateLink SAN.
+        Region-less hosts (``<org>-<account>.snowflakecomputing.com``) have no
+        infra and return ``None`` so the caller can fall back to the allowlist.
+        """
+        if not host:
+            return None
+        labels = host.split(".")
+        if len(labels) < 4 or labels[-2:] != ["snowflakecomputing", "com"]:
+            return None
+        infra = ".".join(labels[1:-2])
+        return infra or None
+
+    def _per_account_app_hostname(self) -> Optional[str]:
+        """Build the per-account app URL base host, or ``None`` if it can't be derived.
+
+        Returns ``<org>-<account>.<infra>.snowflake.app`` — a different domain
+        (``snowflake.app``) and leading label (``<org>-<account>``) than the SQL
+        connection host — from :meth:`_account_infra` and :meth:`_org_account_slug`.
+        """
+        infra = self._account_infra()
+        if not infra:
+            return None
+        slug = self._org_account_slug()
+        if not slug:
+            return None
+        return f"{slug}.{infra}.{PER_ACCOUNT_APP_DOMAIN}"
+
+    @staticmethod
+    def _url_hostname(url: str) -> Optional[str]:
+        """Return the hostname component of *url* (adding a scheme if missing)."""
+        if "://" not in url:
+            url = f"https://{url}"
+        return urlparse(url).hostname
+
+    def _probe_cert_for_host(self, probe_host: str) -> PerAccountCertStatus:
+        """TLS-probe *probe_host* and classify the served certificate.
+
+        Opens a TLS connection with full chain and hostname verification against
+        the ``certifi`` trust store (the same bundle the Snowflake connector
+        uses, so a host the connector trusts is trusted here too); the bundle
+        path comes from ``requests`` (already a dependency, and it points at
+        certifi) to avoid a new direct dependency on ``certifi``. A per-account
+        certificate is a wildcard for ``*.<org>-<account>.<infra>.snowflake.app``,
+        while the fallback deployment certificate covers a shallower wildcard
+        that cannot match a per-account app host — so a clean handshake means the
+        per-account cert is provisioned and served.
+
+        A verification failure is classified by ``verify_code``: only a hostname
+        mismatch or an expired cert (:data:`_CERT_ABSENT_VERIFY_CODES`) proves
+        the per-account wildcard is absent (``NOT_PROVISIONED``). A trust-chain
+        failure — a TLS-intercepting proxy or a custom corporate CA — says
+        nothing about which cert the account serves and is inconclusive
+        (``UNKNOWN``), so it never blocks the deploy. Network/DNS failures
+        (PrivateLink hosts that only resolve inside the customer VPC, timeouts,
+        proxy-only egress) are likewise ``UNKNOWN``.
+        """
+        # Passing ``cafile`` makes CPython skip ``load_default_certs()``, so this
+        # verifies against certifi *only* (no system trust store) — matching the
+        # connector. This is deliberate: an internal CA present in the system
+        # store but not certifi yields a trust-chain failure → UNKNOWN →
+        # fail-open, which is the safe direction here. Do not re-add the default
+        # certs, or a private-CA (e.g. PrivateLink) handshake would verify and
+        # reintroduce the hostname-vs-trust ambiguity this classification removes.
+        context = ssl.create_default_context(cafile=DEFAULT_CA_BUNDLE_PATH)
+        try:
+            with socket.create_connection(
+                (probe_host, 443), timeout=CERT_PROBE_TIMEOUT_SECONDS
+            ) as sock:
+                with context.wrap_socket(sock, server_hostname=probe_host):
+                    return PerAccountCertStatus.PROVISIONED
+        except ssl.SSLCertVerificationError as exc:
+            if exc.verify_code in _CERT_ABSENT_VERIFY_CODES:
+                log.debug(
+                    "Per-account cert probe: %s does not serve a per-account "
+                    "certificate (verify_code=%s): %s",
+                    probe_host,
+                    exc.verify_code,
+                    exc,
+                )
+                return PerAccountCertStatus.NOT_PROVISIONED
+            log.debug(
+                "Per-account cert probe for %s failed trust validation "
+                "(inconclusive, verify_code=%s): %s",
+                probe_host,
+                exc.verify_code,
+                exc,
+            )
+            return PerAccountCertStatus.UNKNOWN
+        except OSError as exc:
+            # OSError covers socket errors, timeouts, DNS failures, and
+            # non-verification ssl.SSLError — all inconclusive.
+            log.debug("Per-account cert probe could not reach %s: %s", probe_host, exc)
+            return PerAccountCertStatus.UNKNOWN
+
+    def per_account_cert_probe_host(self) -> Optional[str]:
+        """Return the synthetic host to probe for a *pre-create* cert check.
+
+        Before ``CREATE APPLICATION SERVICE`` no app exists, so callers probe a
+        synthetic single label under the account's app host
+        (``<CERT_PROBE_LABEL>.<org>-<account>.<infra>.snowflake.app``); because
+        the per-account cert is a wildcard, any single label exercises it.
+        Returns ``None`` when the app host cannot be derived — the caller must
+        treat that as "no evidence" and skip the check rather than warn.
+        """
+        base = self._per_account_app_hostname()
+        if not base:
+            log.debug("Could not derive per-account app hostname; cannot probe cert.")
+            return None
+        return f"{CERT_PROBE_LABEL}.{base}"
+
+    def per_account_cert_status_for_host(self, host: str) -> PerAccountCertStatus:
+        """Probe the per-account URL certificate served for *host*.
+
+        Returns :data:`PerAccountCertStatus.UNKNOWN` for a host that is not a
+        per-account (``snowflake.app``) host — e.g. an SPCS app on
+        ``snowflakecomputing.app`` — since such a probe says nothing about the
+        per-account certificate and must not be attributed to it.
+        """
+        if not host or not host.endswith(f".{PER_ACCOUNT_APP_DOMAIN}"):
+            log.debug(
+                "Host %r is not a per-account URL host; skipping cert probe.", host
+            )
+            return PerAccountCertStatus.UNKNOWN
+        return self._probe_cert_for_host(host)
+
+    def per_account_cert_status_for_url(self, url: str) -> PerAccountCertStatus:
+        """Probe the per-account URL certificate for an existing app *url*.
+
+        Used by ``snow app open`` once the app exists: the resolved
+        ``DESCRIBE APPLICATION SERVICE`` URL is already a real per-account app
+        host, so this probes it directly — the exact certificate the browser
+        would see — rather than deriving/synthesizing a host.
+        """
+        return self.per_account_cert_status_for_host(self._url_hostname(url) or "")
+
+    def issue_per_account_url_cert(self) -> None:
+        """Trigger per-account URL certificate issuance for the account.
+
+        Calls :data:`PER_ACCOUNT_CERT_ISSUE_FUNCTION`. Issuance is asynchronous
+        and can take up to ~3 hours, so callers must not block on completion —
+        this only kicks off provisioning.
+        """
+        self.execute_query(f"SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}()")
+
     def create_app_service(
         self,
         service_fqn: FQN,
@@ -1637,17 +2047,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
         comment: Optional[str] = None,
-        compute_resource: Optional[str] = None,
     ) -> None:
         """Create an application service from an artifact repository package.
 
-        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
-        the write-once ``COMPUTE_RESOURCE`` DDL field. It can only be set at
-        CREATE time — it is immutable afterwards, so it is intentionally never
-        emitted on the ``ALTER ... UPGRADE`` path in
-        :meth:`upgrade_app_service`. Callers gate this behind the
-        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
-        field is omitted and the server defaults the backend.
+        The ``COMPUTE_RESOURCE`` DDL field (CNG/serverless) is intentionally not
+        emitted here: it is only supported through the ``app.yml`` v2 deploy
+        path (see :meth:`create_or_alter_app_service`).
         """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
@@ -1662,8 +2067,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
         if query_warehouse:
             parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
-        if compute_resource:
-            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
         if comment:
             escaped = comment.replace("'", "''")
             parts.append(f"COMMENT = '{escaped}'")
@@ -1681,6 +2084,130 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
+
+    @staticmethod
+    def build_service_specification(
+        target: "AppYmlTarget",
+        *,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
+        include_url_prefix: bool = False,
+    ) -> str:
+        """Render an inline application-service ``SPECIFICATION`` from a target.
+
+        The ``targets`` block in ``app.yml`` describes per-environment service
+        configuration (see :mod:`snowflake.cli._plugins.apps.app_yml`); this
+        maps the fields that belong to the service manifest to the YAML passed
+        inline on ``CREATE OR ALTER APPLICATION SERVICE ... SPECIFICATION =
+        $$...$$``. Field names match the manifest one-to-one
+        (``query_warehouse``, ``external_access_integrations``, ``secrets`` as a
+        list of ``{name, secret}``, ``environment_variables`` as a list of
+        ``{name, value}``, etc.).
+
+        Each ``secrets`` entry references a schema-scoped Snowflake secret; a
+        bare name is qualified with the deployment ``database`` / ``schema``
+        (the service's scope) so it resolves the same way the CLI's own
+        identifiers do, while a fully-qualified ``DB.SCHEMA.NAME`` is left as
+        written. When ``database`` / ``schema`` are omitted the value passes
+        through unchanged.
+
+        ``url_prefix`` is a CNG-only (serverless) field, so it is emitted only
+        when *include_url_prefix* is set — the caller gates it on the resolved
+        CNG compute resource (an ``app.yml`` v2-only feature) — and dropped
+        otherwise.
+
+        Deployment-location fields (``name`` / ``database`` / ``schema`` /
+        ``account``) locate and name the service and are not part of the
+        specification. Only fields the target actually sets are emitted;
+        ``CREATE OR ALTER`` is declarative, so any field omitted here is
+        cleared/reset on the service.
+        """
+        spec: Dict[str, Any] = {}
+        if target.query_warehouse:
+            spec["query_warehouse"] = target.query_warehouse
+        if include_url_prefix and target.url_prefix:
+            spec["url_prefix"] = target.url_prefix
+        if target.label:
+            spec["label"] = target.label
+        if target.description:
+            spec["description"] = target.description
+        if target.icon:
+            spec["icon"] = target.icon
+        if target.execute_as_role:
+            spec["execute_as_role"] = target.execute_as_role
+        if target.auto_resume is not None:
+            spec["auto_resume"] = target.auto_resume
+        if target.auto_suspend_secs is not None:
+            spec["auto_suspend_secs"] = target.auto_suspend_secs
+        if target.min_instances is not None:
+            spec["min_instances"] = target.min_instances
+        if target.max_instances is not None:
+            spec["max_instances"] = target.max_instances
+        if target.external_access_integrations:
+            spec["external_access_integrations"] = list(
+                target.external_access_integrations
+            )
+        if target.secrets:
+            spec["secrets"] = [
+                {
+                    "name": s.name,
+                    "secret": _qualify_object_name(s.secret, database, schema),
+                }
+                for s in target.secrets
+            ]
+        if target.environment_variables:
+            spec["environment_variables"] = [
+                {"name": e.name, "value": e.value} for e in target.environment_variables
+            ]
+        return yaml.safe_dump(spec, sort_keys=False, default_flow_style=False)
+
+    def create_or_alter_app_service(
+        self,
+        service_fqn: FQN,
+        artifact_repo_fqn: str,
+        package_name: str,
+        specification: str,
+        version: str = "LATEST",
+        compute_resource: Optional[str] = None,
+    ) -> None:
+        """Create or declaratively update an application service from a package.
+
+        Emits ``CREATE OR ALTER APPLICATION SERVICE`` with the target's
+        configuration supplied inline via ``SPECIFICATION = $$...$$``. Unlike
+        the ``CREATE`` + ``ALTER ... UPGRADE`` pair used by the ``snowflake.yml``
+        flow, ``CREATE OR ALTER`` converges the service to the full desired
+        state in a single statement, so it handles both first deploy and
+        redeploy.
+
+        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
+        the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
+        ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
+        the first deploy and is only reachable through the ``app.yml`` v2 deploy
+        path (CNG is an ``app.yml`` v2-only feature); when ``None`` the clause is
+        omitted and the server defaults the backend.
+
+        The specification is dollar-quoted (``$$...$$``) and embeds
+        user-supplied app.yml values verbatim (``label`` / ``description`` /
+        ``environment_variables`` values, ...); any of those can contain a
+        literal ``$$`` that would terminate the quote early, so it is rejected
+        up front. ``package_name`` is routed through :func:`to_identifier`
+        (a no-op for plain identifiers, quoting anything else) so an unusual
+        name cannot break out of the ``PACKAGE`` clause; ``service_fqn`` /
+        ``artifact_repo_fqn`` are already built via :func:`app_fqn`, which
+        quotes each component the same way.
+        """
+        if "$$" in specification:
+            raise CliError("Application service specification must not contain '$$'.")
+        parts = [
+            f"CREATE OR ALTER APPLICATION SERVICE {service_fqn.identifier}",
+            f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} "
+            f"PACKAGE {to_identifier(package_name)}",
+            f"VERSION {version}",
+        ]
+        if compute_resource:
+            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
+        parts.append(f"SPECIFICATION = $$\n{specification}$$")
+        self.execute_query("\n".join(parts))
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive

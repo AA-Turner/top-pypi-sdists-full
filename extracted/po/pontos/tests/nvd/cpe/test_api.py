@@ -4,11 +4,10 @@
 #
 
 # pylint: disable=line-too-long, arguments-differ, redefined-builtin
-# ruff: noqa: E501
 
 from datetime import datetime, timezone
 from itertools import repeat
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -18,7 +17,7 @@ from pontos.errors import PontosError
 from pontos.models import ModelError
 from pontos.nvd.api import now
 from pontos.nvd.cpe.api import MAX_CPES_PER_PAGE, CPEApi
-from tests import AsyncMock, IsolatedAsyncioTestCase, aiter, anext
+from tests import AsyncMock, IsolatedAsyncioTestCase
 from tests.nvd import get_cpe_data
 
 
@@ -36,7 +35,7 @@ def uuid_replace(uuid: UUID, iteration: int, number: int) -> UUID:
 def create_cpe_response(
     cpe_name_id: UUID,
     *,
-    update: Optional[dict[str, Any]] = None,
+    update: dict[str, Any] | None = None,
     results: int = 1,
     iteration: int = 1,
 ) -> MagicMock:
@@ -447,7 +446,7 @@ class CPEApiTestCase(IsolatedAsyncioTestCase):
 
         self.http_client.get.reset_mock()
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             cve = await anext(it)
 
     async def test_context_manager(self):
@@ -460,9 +459,9 @@ class CPEApiTestCase(IsolatedAsyncioTestCase):
     async def test_cpes_broken_response_return_exceptions(self):
         uuid = uuid4()
         responses = create_cpes_responses(uuid, 3)
-        responses[1].json.return_value["products"][0]["cpe"][
-            "cpe_name_id"
-        ] = "I'm an invalid UUID"
+        responses[1].json.return_value["products"][0]["cpe"]["cpe_name_id"] = (
+            "I'm an invalid UUID"
+        )
         self.http_client.get.side_effect = responses
 
         it = aiter(self.api.cpes(return_exceptions=True))
@@ -482,9 +481,9 @@ class CPEApiTestCase(IsolatedAsyncioTestCase):
     async def test_cpes_broken_response(self):
         uuid = uuid4()
         responses = create_cpes_responses(uuid, 3)
-        responses[1].json.return_value["products"][0]["cpe"][
-            "cpe_name_id"
-        ] = "I'm an invalid UUID"
+        responses[1].json.return_value["products"][0]["cpe"]["cpe_name_id"] = (
+            "I'm an invalid UUID"
+        )
         self.http_client.get.side_effect = responses
 
         it = aiter(self.api.cpes(return_exceptions=False))

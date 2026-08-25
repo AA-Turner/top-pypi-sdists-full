@@ -3743,6 +3743,61 @@ def test_all_of_with_a_boolean_branch_emits_a_conforming_value(pctx):
     assert values and all(isinstance(value, str) for value in values), values
 
 
+# Keywords beside a property's `$ref` constrain its value in the object template too.
+@pytest.mark.parametrize(
+    "property_schema",
+    [
+        {"$ref": f"#/{BUNDLE_STORAGE_KEY}/A", "anyOf": [{"type": "null"}]},
+        {"allOf": [{"$ref": f"#/{BUNDLE_STORAGE_KEY}/A", "anyOf": [{"type": "null"}]}]},
+    ],
+    ids=["ref-sibling", "ref-sibling-in-all-of"],
+)
+def test_positive_object_template_keeps_property_ref_sibling_keywords(ctx_factory, property_schema):
+    schema = {
+        "type": "object",
+        "properties": {"a": property_schema},
+        BUNDLE_STORAGE_KEY: {"A": {"type": "boolean"}},
+    }
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
+# Under Draft 2020-12 keywords beside a branch `$ref` constrain it; dropping them emits values off the set.
+def test_positive_all_of_ref_branch_keeps_sibling_keywords(ctx_factory):
+    schema = {
+        "allOf": [{"$ref": f"#/{BUNDLE_STORAGE_KEY}/A", "anyOf": [{"type": "null"}]}],
+        BUNDLE_STORAGE_KEY: {"A": {"type": "boolean"}},
+    }
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
+# Draft 4 ignores keywords beside `$ref`, so that branch admits `null` too and `oneOf` rejects it.
+def test_positive_one_of_ref_branch_sibling_keywords_judged_by_the_operation_draft(ctx_factory):
+    schema = {
+        "oneOf": [{"type": "null"}, {"$ref": f"#/{BUNDLE_STORAGE_KEY}/A", "anyOf": [{"type": "boolean"}]}],
+        BUNDLE_STORAGE_KEY: {"A": {"type": "null"}},
+    }
+    ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
@@ -4015,3 +4070,39 @@ def test_additional_property_key_skips_a_declared_name(ctx_factory):
 )
 def test_positive_allowed_values_intersect_as_json(pctx, schema, expected):
     assert cover_schema(pctx, schema) == expected
+
+
+# A `multipleOf` violation is a number; a `pattern` beside an open type must not turn it into a string.
+def test_negative_multiple_of_stays_numeric_beside_pattern(ctx_factory):
+    nctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    schema = {"type": ["number", "string"], "multipleOf": 1.0, "pattern": ""}
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = scenario_values(nctx, schema, CoverageScenario.NOT_MULTIPLE_OF)
+    assert values
+    for value in values:
+        assert not validator.is_valid(value), value
+
+
+# A `patternProperties` entry matching a declared name constrains that property's values too.
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "object", "properties": {"a": {"type": "null"}}, "patternProperties": {"a": False}},
+        {"type": "object", "properties": {"a": {"type": "string"}}, "patternProperties": {"^a$": {"minLength": 5}}},
+    ],
+    ids=["forbidding", "constraining"],
+)
+def test_positive_declared_property_meets_matching_pattern_properties(ctx_factory, schema):
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value

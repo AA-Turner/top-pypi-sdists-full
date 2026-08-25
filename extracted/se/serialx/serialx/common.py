@@ -13,15 +13,21 @@ import dataclasses
 from enum import Enum
 import functools
 import io
+import logging
 import os.path
 from pathlib import Path
 import time
 from types import TracebackType
-from typing import Any, Concatenate, NamedTuple, ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Concatenate, NamedTuple, ParamSpec, TypeVar, cast
 import urllib.parse
 import warnings
 
 from typing_extensions import Buffer, Self, TypedDict, Unpack
+
+if TYPE_CHECKING:
+    from aioesphomeapi.client import APIClient
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Platform(str, Enum):
@@ -52,6 +58,7 @@ class RegisteredUriHandler:
     list_serial_ports_func: Callable[..., list[SerialPortInfo]]
     async_list_serial_ports_func: Callable[..., Awaitable[list[SerialPortInfo]]]
     strip_uri_scheme: bool
+    connect_kwargs: frozenset[str] = frozenset()
 
 
 class _RegistryEntry(NamedTuple):
@@ -87,6 +94,7 @@ def register_uri_handler(
     ] = async_empty_port_list,
     weight: int = 1,
     strip_uri_scheme: bool = False,
+    connect_kwargs: frozenset[str] = frozenset(),
 ) -> Callable[[], None]:
     """Register a URI handler.
 
@@ -110,6 +118,7 @@ def register_uri_handler(
         strip_uri_scheme: If ``True``, the leading ``scheme`` / ``unique_scheme``
             is removed before the URL is passed to the sync class. Set this when
             the underlying class expects a bare device path rather than a URL.
+        connect_kwargs: Names of backend-specific connect kwargs this handler accepts.
 
     Returns:
         A callable that unregisters the handler.
@@ -140,6 +149,7 @@ def register_uri_handler(
             list_serial_ports_func=list_serial_ports_func,
             async_list_serial_ports_func=async_list_serial_ports_func,
             strip_uri_scheme=strip_uri_scheme,
+            connect_kwargs=connect_kwargs,
         ),
     )
     bisect.insort_right(_REGISTERED_URI_HANDLERS[scheme], item)
@@ -163,6 +173,36 @@ def get_uri_handler(uri: str) -> RegisteredUriHandler:
     if not handlers:
         raise UnknownUriScheme(f"No handler registered for URI scheme {scheme!r}")
     return handlers[-1].handler
+
+
+def route_backend_kwargs(
+    handler: RegisteredUriHandler, kwargs: dict[str, Any]
+) -> dict[str, Any]:
+    """Drop kwargs that belong to a different backend before dispatch."""
+    all_backend_specific_kwargs: set[str] = set()
+
+    for extras in BACKEND_CONNECT_KWARGS.values():
+        all_backend_specific_kwargs |= extras
+
+    for entries in _REGISTERED_URI_HANDLERS.values():
+        for entry in entries:
+            all_backend_specific_kwargs |= entry.handler.connect_kwargs
+
+    backend_specific_kwargs = (
+        BACKEND_CONNECT_KWARGS.get(handler.unique_scheme, set())
+        | handler.connect_kwargs
+    )
+
+    other_kwargs = all_backend_specific_kwargs - backend_specific_kwargs
+    dropped = other_kwargs & kwargs.keys()
+
+    if not dropped:
+        return dict(kwargs)
+
+    LOGGER.debug(
+        "Ignoring kwarg not accepted by %r backend: %s", handler.unique_scheme, dropped
+    )
+    return {key: value for key, value in kwargs.items() if key not in dropped}
 
 
 class SerialException(Exception):
@@ -195,18 +235,86 @@ class Parity(str, Enum):
     SPACE = "S"
 
 
-class ConnectKwargs(  # type: ignore[call-arg]  # PEP 728 not in mypy yet
-    TypedDict, total=False, extra_items=Any
-):
-    """Kwargs forwarded to BaseSerialTransport.connect / _connect."""
+class _CommonConnectKwargs(TypedDict, total=False):
+    """Connect kwargs accepted by every backend (see `BaseSerial.__init__`)."""
 
     baudrate: int
-    parity: Parity
-    stopbits: StopBits
+    parity: Parity | str | None
+    stopbits: StopBits | int | float
     xonxoff: bool
     rtscts: bool
-    exclusive: bool
+    dsrdtr: bool
     byte_size: int
+    read_timeout: float | None
+    write_timeout: float | None
+    dtr_on_open: PinState
+    rts_on_open: PinState
+    dtr_on_close: PinState
+    rts_on_close: PinState
+    exclusive: bool
+
+    # backwards compatibility kwargs
+    rtsdtr_on_open: PinState
+    rtsdtr_on_close: PinState
+
+    # pyserial compatibility kwargs
+    port: str | None
+    timeout: float | None
+    bytesize: int | None
+    writeTimeout: float | None
+    do_not_open: bool | None
+
+
+class ConnectKwargs(  # type: ignore[call-arg]  # PEP 728 not in mypy yet
+    _CommonConnectKwargs, total=False, extra_items=Any
+):
+    """Connect kwargs plumbed internally to `BaseSerialTransport.connect`."""
+
+
+class AllConnectKwargs(_CommonConnectKwargs, total=False):
+    """Every connect kwarg any built-in backend accepts, for typing."""
+
+    # linux://
+    low_latency: bool
+
+    # socket:// + tcp:// + rfc2217:// + esphome://
+    connect_timeout: float | None
+
+    # rfc2217://
+    receive_buffer_size: int
+
+    # windows://
+    read_buffer_size: int
+    write_buffer_size: int
+
+    # esphome://
+    api: APIClient | None
+    port_name: str | None
+    port_instance: int | None
+    key: str | None
+    password: str | None
+    noise_psk: str | None
+
+
+# Backend-specific connect kwargs per unique URI scheme
+BACKEND_CONNECT_KWARGS: dict[str, frozenset[str]] = {
+    "linux://": frozenset({"low_latency"}),
+    "windows://": frozenset({"read_buffer_size", "write_buffer_size"}),
+    "socket://": frozenset({"connect_timeout"}),
+    "tcp://": frozenset({"connect_timeout"}),
+    "rfc2217://": frozenset({"connect_timeout", "receive_buffer_size"}),
+    "esphome://": frozenset(
+        {
+            "api",
+            "connect_timeout",
+            "port_name",
+            "port_instance",
+            "key",
+            "password",
+            "noise_psk",
+        }
+    ),
+}
 
 
 class PinState(Enum):
@@ -308,7 +416,13 @@ def maybe_wrap_exceptions(
 
 
 class BaseSerial(io.RawIOBase):
-    """Base class for serial port communication."""
+    """Base class for serial port communication.
+
+    .. deprecated:: 1.9.0
+        The ``rtsdtr_on_open`` and ``rtsdtr_on_close`` constructor kwargs are
+        deprecated; use the per-pin ``dtr_on_open``, ``rts_on_open``,
+        ``dtr_on_close``, and ``rts_on_close`` instead.
+    """
 
     def __init__(
         self,
@@ -323,8 +437,10 @@ class BaseSerial(io.RawIOBase):
         byte_size: int = 8,
         read_timeout: float | None = None,
         write_timeout: float | None = None,
-        rtsdtr_on_open: PinState = PinState.HIGH,
-        rtsdtr_on_close: PinState = PinState.LOW,
+        dtr_on_open: PinState = PinState.HIGH,
+        rts_on_open: PinState = PinState.HIGH,
+        dtr_on_close: PinState = PinState.LOW,
+        rts_on_close: PinState = PinState.LOW,
         exclusive: bool = True,
         # pyserial compatibility kwargs
         port: str | None = None,
@@ -333,6 +449,9 @@ class BaseSerial(io.RawIOBase):
         do_not_open: bool | None = None,
         writeTimeout: float | None = None,
         inter_byte_timeout: int | None = None,
+        # Legacy kwargs
+        rtsdtr_on_open: PinState = PinState.UNDEFINED,
+        rtsdtr_on_close: PinState = PinState.UNDEFINED,
         # Internal pyserial compatibility signal
         _wrap_exceptions: bool = False,
     ) -> None:
@@ -362,8 +481,34 @@ class BaseSerial(io.RawIOBase):
         self._read_timeout = read_timeout
         self._write_timeout = write_timeout
 
-        self._rtsdtr_on_open = rtsdtr_on_open
-        self._rtsdtr_on_close = rtsdtr_on_close
+        if (
+            rtsdtr_on_open is not PinState.UNDEFINED
+            or rtsdtr_on_close is not PinState.UNDEFINED
+        ):
+            warnings.warn(
+                "`rtsdtr_on_open`/`rtsdtr_on_close` are deprecated; use the per-pin"
+                " `dtr_on_open`/`rts_on_open`/`dtr_on_close`/`rts_on_close` instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        self._rts_on_open: PinState = (
+            rts_on_open if rtsdtr_on_open is PinState.UNDEFINED else rtsdtr_on_open
+        )
+        self._rts_on_close: PinState = (
+            rts_on_close if rtsdtr_on_close is PinState.UNDEFINED else rtsdtr_on_close
+        )
+        self._dtr_on_open: PinState = (
+            dtr_on_open if rtsdtr_on_open is PinState.UNDEFINED else rtsdtr_on_open
+        )
+        self._dtr_on_close: PinState = (
+            dtr_on_close if rtsdtr_on_close is PinState.UNDEFINED else rtsdtr_on_close
+        )
+
+        # Last-written DTR/RTS output state, for readback on backends that can't
+        # report output lines from hardware
+        self._dtr_state = PinState.UNDEFINED
+        self._rts_state = PinState.UNDEFINED
 
         self._auto_close = False
 
@@ -397,7 +542,9 @@ class BaseSerial(io.RawIOBase):
             raise self._broken
 
     @classmethod
-    def from_url(cls, url: str, *args: Any, **kwargs: Any) -> BaseSerial:
+    def from_url(
+        cls, url: str, *args: Any, **kwargs: Unpack[AllConnectKwargs]
+    ) -> BaseSerial:
         """Create the appropriate serial port subclass for the given URL."""
         handler = get_uri_handler(url)
         target = url
@@ -405,7 +552,8 @@ class BaseSerial(io.RawIOBase):
             target = url.removeprefix(handler.scheme).removeprefix(
                 handler.unique_scheme
             )
-        return handler.sync_cls(target, *args, **kwargs)
+        routed = route_backend_kwargs(handler, dict(kwargs))
+        return handler.sync_cls(target, *args, **routed)
 
     @maybe_wrap_exceptions
     def open(self) -> None:
@@ -457,7 +605,26 @@ class BaseSerial(io.RawIOBase):
     def get_modem_pins(self) -> ModemPins:
         """Get modem control bits."""
         self._check_broken()
-        return self._get_modem_pins()
+        pins = self._get_modem_pins()
+        return dataclasses.replace(
+            pins,
+            dtr=pins.dtr if pins.dtr is not PinState.UNDEFINED else self._dtr_state,
+            rts=pins.rts if pins.rts is not PinState.UNDEFINED else self._rts_state,
+        )
+
+    def _modem_pins_on_open(self) -> ModemPins:
+        """DTR/RTS to apply on open."""
+        return ModemPins(
+            dtr=self._dtr_on_open if not self._dsrdtr else PinState.UNDEFINED,
+            rts=self._rts_on_open if not self._rtscts else PinState.UNDEFINED,
+        )
+
+    def _modem_pins_on_close(self) -> ModemPins:
+        """DTR/RTS to apply on close."""
+        return ModemPins(
+            dtr=self._dtr_on_close if not self._dsrdtr else PinState.UNDEFINED,
+            rts=self._rts_on_close if not self._rtscts else PinState.UNDEFINED,
+        )
 
     @maybe_wrap_exceptions
     def set_modem_pins(
@@ -491,7 +658,13 @@ class BaseSerial(io.RawIOBase):
                 dsr=PinState.convert(dsr),
             )
 
-        return self._set_modem_pins(pins)
+        self._set_modem_pins(pins)
+
+        if pins.dtr is not PinState.UNDEFINED:
+            self._dtr_state = pins.dtr
+
+        if pins.rts is not PinState.UNDEFINED:
+            self._rts_state = pins.rts
 
     @abstractmethod
     def _get_modem_pins(self) -> ModemPins:
@@ -569,14 +742,24 @@ class BaseSerial(io.RawIOBase):
         return self._stopbits
 
     @property
-    def rtsdtr_on_open(self) -> PinState:
-        """Get the RTS/DTR pin state (on open) setting."""
-        return self._rtsdtr_on_open
+    def dtr_on_open(self) -> PinState:
+        """Get the DTR pin state (on open) setting."""
+        return self._dtr_on_open
 
     @property
-    def rtsdtr_on_close(self) -> PinState:
-        """Get the RTS/DTR pin state (on close) setting."""
-        return self._rtsdtr_on_close
+    def rts_on_open(self) -> PinState:
+        """Get the RTS pin state (on open) setting."""
+        return self._rts_on_open
+
+    @property
+    def dtr_on_close(self) -> PinState:
+        """Get the DTR pin state (on close) setting."""
+        return self._dtr_on_close
+
+    @property
+    def rts_on_close(self) -> PinState:
+        """Get the RTS pin state (on close) setting."""
+        return self._rts_on_close
 
     @property
     def exclusive(self) -> bool:
@@ -858,21 +1041,31 @@ class BaseSerial(io.RawIOBase):
     @property
     def dtr(self) -> bool | None:
         """Get DTR modem bit."""
+        if not self.is_open:
+            return self._dtr_on_open.to_bool()
         return self.get_modem_pins().dtr.to_bool()
 
     @dtr.setter
     def dtr(self, value: bool) -> None:
         """Set DTR modem bit."""
+        if not self.is_open:
+            self._dtr_on_open = PinState.convert(value)
+            return
         self.set_modem_pins(dtr=bool(value))
 
     @property
     def rts(self) -> bool | None:
         """Get RTS modem bit."""
+        if not self.is_open:
+            return self._rts_on_open.to_bool()
         return self.get_modem_pins().rts.to_bool()
 
     @rts.setter
     def rts(self, value: bool) -> None:
         """Set RTS modem bit."""
+        if not self.is_open:
+            self._rts_on_open = PinState.convert(value)
+            return
         self.set_modem_pins(rts=bool(value))
 
     @property
@@ -1165,6 +1358,8 @@ async def async_list_serial_ports(
     return await handler.async_list_serial_ports_func(**kwargs)
 
 
-def serial_for_url(url: str, *args: Any, **kwargs: Any) -> BaseSerial:
+def serial_for_url(
+    url: str, *args: Any, **kwargs: Unpack[AllConnectKwargs]
+) -> BaseSerial:
     """Create the appropriate serial port subclass for the given URL."""
     return BaseSerial.from_url(url, *args, **kwargs)

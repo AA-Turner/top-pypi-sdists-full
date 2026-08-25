@@ -13,9 +13,8 @@ from networkx import MultiDiGraph
 
 from haystack import logging
 from haystack.core.errors import PipelineInvalidPipelineSnapshotError
-from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.dataclasses.breakpoints import Breakpoint, PipelineSnapshot, PipelineState
-from haystack.utils.base_serialization import _serialize_value_with_schema
+from haystack.dataclasses.breakpoints import INTERNAL_INPUTS_FORMAT, Breakpoint, PipelineSnapshot, PipelineState
+from haystack.utils.base_serialization import _serialize_with_field_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +226,8 @@ def _create_pipeline_snapshot(
     Create a snapshot of the pipeline at the point where the breakpoint was triggered.
 
     :param inputs: The current pipeline snapshot inputs.
-    :param component_inputs: The inputs to the component that triggered the breakpoint.
+    :param component_inputs: The inputs of the component that triggered the breakpoint, as they were before the
+        component consumed them.
     :param break_point: The breakpoint that triggered the snapshot.
     :param component_visits: The visit count of the component that triggered the breakpoint.
     :param original_input_data: The original input data.
@@ -240,10 +240,9 @@ def _create_pipeline_snapshot(
     component_name = break_point.component_name
 
     transformed_original_input_data = _transform_json_structure(original_input_data)
-    transformed_inputs = _transform_json_structure({**inputs, component_name: component_inputs})
 
     serialized_inputs = _serialize_with_field_fallback(
-        transformed_inputs, description="the inputs of the current pipeline state"
+        {**inputs, component_name: component_inputs}, description="the inputs of the current pipeline state"
     )
     serialized_original_input_data = _serialize_with_field_fallback(
         transformed_original_input_data, description="original input data for `pipeline.run`"
@@ -254,7 +253,10 @@ def _create_pipeline_snapshot(
 
     return PipelineSnapshot(
         pipeline_state=PipelineState(
-            inputs=serialized_inputs, component_visits=component_visits, pipeline_outputs=serialized_pipeline_outputs
+            inputs=serialized_inputs,
+            component_visits=component_visits,
+            pipeline_outputs=serialized_pipeline_outputs,
+            inputs_format=INTERNAL_INPUTS_FORMAT,
         ),
         timestamp=datetime.now(),
         break_point=break_point,
@@ -292,54 +294,3 @@ def _transform_json_structure(data: dict[str, Any] | list[Any] | Any) -> Any:
 
     # For other data types, just return the value as is.
     return data
-
-
-def _serialize_with_field_fallback(payload: Any, *, description: str) -> dict[str, Any]:
-    """
-    Serialize a payload and, on failure, retry field-by-field to preserve resumable fields.
-
-    If the whole payload serializes, the result is returned as-is. Otherwise, and if the payload is a
-    mapping, each top-level field is serialized individually and only the failing fields are omitted.
-    When the payload is not a mapping, or when every field fails to serialize, the helper returns a
-    structurally valid empty-object payload so that the downstream ``_deserialize_value_with_schema``
-    can still load it back instead of raising ``DeserializationError`` on a bare ``{}``.
-
-    :param payload: The value to serialize.
-    :param description: Short human-readable label used in warning messages, for example
-        ``"the agent's chat_generator inputs"`` or ``"the inputs of the current pipeline state"``.
-    :returns: A dict of the form ``{"serialization_schema": ..., "serialized_data": ...}``.
-    """
-    try:
-        return _serialize_value_with_schema(_deepcopy_with_exceptions(payload))
-    except Exception as error:
-        logger.warning(
-            "Failed to serialize {description}. "
-            "Haystack will omit only the non-serializable fields when possible. Error: {e}",
-            description=description,
-            e=error,
-        )
-
-    serialized_properties: dict[str, Any] = {}
-    serialized_data: dict[str, Any] = {}
-
-    if isinstance(payload, dict):
-        for field_name, value in payload.items():
-            try:
-                serialized_value = _serialize_value_with_schema(_deepcopy_with_exceptions(value))
-            except Exception as field_error:
-                logger.warning(
-                    "Failed to serialize the '{field_name}' field of {description}. "
-                    "The field will be omitted from the snapshot. Error: {e}",
-                    field_name=field_name,
-                    description=description,
-                    e=field_error,
-                )
-                continue
-
-            serialized_properties[field_name] = serialized_value["serialization_schema"]
-            serialized_data[field_name] = serialized_value["serialized_data"]
-
-    return {
-        "serialization_schema": {"type": "object", "properties": serialized_properties},
-        "serialized_data": serialized_data,
-    }

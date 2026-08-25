@@ -125,7 +125,12 @@ from airbyte_ops_mcp.regression_tests.connector_runner import (
     ensure_image_available,
 )
 from airbyte_ops_mcp.regression_tests.http_metrics import (
+    DEFAULT_MAX_REPLAY_DUMP_SIZE_MB,
+    DEFAULT_REPLAY_EXTRA,
+    DEFAULT_STREAM_LARGE_BODIES,
     MitmproxyManager,
+    ReplayOptions,
+    discard_oversized_dump,
     parse_http_dump,
 )
 from airbyte_ops_mcp.regression_tests.models import (
@@ -917,6 +922,7 @@ def _run_connector_command(
     catalog_path: Path | None = None,
     state_path: Path | None = None,
     proxy_url: str | None = None,
+    ca_cert_path: Path | None = None,
     enable_debug_logs: bool = False,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command and return its results and its declared objects.
@@ -937,6 +943,9 @@ def _run_connector_command(
         catalog_path: Path to configured catalog JSON file.
         state_path: Path to state JSON file.
         proxy_url: Optional HTTP proxy URL for traffic capture.
+        ca_cert_path: Path to the proxy's CA certificate, so the container trusts
+            it. Without it every HTTPS request through the proxy fails TLS
+            verification and the capture comes back near-empty.
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
 
     Returns:
@@ -967,7 +976,9 @@ def _run_connector_command(
         environment_variables=container_env or None,
     )
 
-    runner = ConnectorRunner(execution_inputs, proxy_url=proxy_url)
+    runner = ConnectorRunner(
+        execution_inputs, proxy_url=proxy_url, ca_cert_path=ca_cert_path
+    )
     result = runner.run()
 
     result.save_artifacts(output_dir)
@@ -1532,6 +1543,10 @@ def _run_with_optional_http_metrics(
     catalog_path: Path | None,
     state_path: Path | None,
     enable_debug_logs: bool = False,
+    replay_expected: bool = False,
+    replay_from: Path | None = None,
+    replay_options: ReplayOptions | None = None,
+    stream_large_bodies: str = DEFAULT_STREAM_LARGE_BODIES,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command with optional HTTP metrics capture.
 
@@ -1548,10 +1563,21 @@ def _run_with_optional_http_metrics(
         catalog_path: Path to configured catalog JSON file.
         state_path: Path to state JSON file.
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
+        replay_expected: Whether this run was *meant* to replay. Separate from
+            `replay_from`, which is only non-None once a recording actually
+            exists -- when the proxy is unavailable there is no recording to
+            point at, and that is exactly the case that has to be reported.
+        replay_from: A previous run's HTTP dump to serve responses from, so this
+            run sees the same upstream data the recorded one did. Requires
+            `enable_http_metrics`; ignored without it.
+        replay_options: Replay tuning; defaults apply when omitted.
+        stream_large_bodies: Body-size threshold above which mitmproxy streams
+            rather than records a body.
 
     Returns:
         What `_run_connector_command` returns, with `http_metrics` added to the
-        results dict when they were captured.
+        results dict when they were captured -- plus `http_dump_file`, the dump
+        this run recorded, which is what a subsequent run replays from.
     """
     if not enable_http_metrics:
         return _run_connector_command(
@@ -1565,10 +1591,26 @@ def _run_with_optional_http_metrics(
             enable_debug_logs=enable_debug_logs,
         )
 
-    with MitmproxyManager.start(output_dir) as session:
+    # The manager rather than `MitmproxyManager.start`: the reason a startup
+    # failed and the fact that a shutdown had to be killed are only reachable
+    # through it -- there is no session to carry the first, and the second is
+    # not known until the session is gone.
+    manager = MitmproxyManager(
+        output_dir,
+        replay_from=replay_from,
+        replay_options=replay_options,
+        stream_large_bodies=stream_large_bodies,
+    )
+    with manager.running() as session:
         if session is None:
-            print_error("Mitmproxy unavailable, running without HTTP metrics")
-            return _run_connector_command(
+            startup_failure = (
+                manager.startup_failure_reason or "mitmproxy is unavailable"
+            )
+            print_error(
+                f"Mitmproxy unavailable ({startup_failure}), "
+                "running without HTTP metrics"
+            )
+            result, comparable = _run_connector_command(
                 connector_image=connector_image,
                 command=command,
                 output_dir=output_dir,
@@ -1578,8 +1620,42 @@ def _run_with_optional_http_metrics(
                 state_path=state_path,
                 enable_debug_logs=enable_debug_logs,
             )
+            if replay_expected:
+                # The one skip path that produces no session, and so reported
+                # nothing at all: no metrics, no reason, an ordinary green
+                # comparison against live data. Keyed on `replay_expected` and
+                # not on `replay_from`: when mitmdump is missing the *control*
+                # run records no dump either, so there is nothing to point at
+                # and the condition that looks natural here is never true in
+                # the failure it defends against.
+                #
+                # The precise reason, not a fixed "mitmproxy is unavailable":
+                # `wait_for_proxy_listener` distinguishes a proxy that died on
+                # startup and a corpus that took longer than its ceiling to
+                # load, and those point at a code fix where the hardcoded
+                # string tells a reader to install mitmproxy.
+                result["http_metrics"] = {
+                    "replay_skipped_reason": (
+                        f"{startup_failure}, so nothing could be replayed"
+                    )
+                }
+            return result, comparable
 
-        print_success(f"Started mitmproxy on {session.proxy_url}")
+        if session.replay_source:
+            print_success(
+                f"Started mitmproxy on {session.proxy_url} "
+                f"(replaying {session.replay_source}, "
+                f"{session.unreplayable_flow_count} flow(s) not replayable)"
+            )
+        else:
+            print_success(f"Started mitmproxy on {session.proxy_url}")
+            if session.replay_skipped_reason:
+                print_warning(
+                    f"HTTP replay unavailable ({session.replay_skipped_reason}); "
+                    "this run hits the live API, so it cannot be compared against "
+                    "identical upstream data"
+                )
+
         result, comparable = _run_connector_command(
             connector_image=connector_image,
             command=command,
@@ -1589,25 +1665,120 @@ def _run_with_optional_http_metrics(
             catalog_path=catalog_path,
             state_path=state_path,
             proxy_url=session.proxy_url,
+            ca_cert_path=session.ca_cert_path,
             enable_debug_logs=enable_debug_logs,
         )
 
-        http_metrics = parse_http_dump(session.dump_file_path)
-        result["http_metrics"] = {
-            "flow_count": http_metrics.flow_count,
-            "duplicate_flow_count": http_metrics.duplicate_flow_count,
-            # Carried into the report because it is the number that tells a
-            # reviewer whether a record difference is a real regression or
-            # upstream drift. Today it is a duplicate-URL heuristic; it only
-            # becomes exact once HTTP replay lands.
-            "cache_hits_count": http_metrics.cache_hits_count,
-            "cache_hit_ratio": http_metrics.cache_hit_ratio,
-        }
+        # The path, not the metrics: this is what the next run replays from.
+        result["http_dump_file"] = str(session.dump_file_path)
+
+        # Everything the metrics are built from, carried out of the block. The
+        # dump itself cannot be read here: mitmproxy's `save` addon writes each
+        # flow through a block-buffered file and only flushes and closes it in
+        # `done()`, holding in-flight flows until shutdown -- so parsing inside
+        # the `with` misses the buffered tail, and `live_flow_count` is the
+        # feature's acceptance criterion, not a rough count.
+        dump_file_path = session.dump_file_path
+        replay_source = session.replay_source
+        replay_skipped_reason = session.replay_skipped_reason
+        unreplayable_flow_count = session.unreplayable_flow_count
+
+    http_metrics = parse_http_dump(dump_file_path, replay_source)
+    metrics_payload: dict[str, object] = {
+        "flow_count": http_metrics.flow_count,
+        "duplicate_flow_count": http_metrics.duplicate_flow_count,
+        # Carried into the report because it is the number that tells a
+        # reviewer whether a record difference is a real regression or
+        # upstream drift. Today it is a duplicate-URL heuristic; it only
+        # becomes exact once HTTP replay lands.
+        "cache_hits_count": http_metrics.cache_hits_count,
+        "cache_hit_ratio": http_metrics.cache_hit_ratio,
+        # On a replaying target run, `live_flow_count` is the acceptance
+        # criterion for replay -- so it belongs in the report rather than
+        # only in the raw dump.
+        "replayed_flow_count": http_metrics.replayed_flow_count,
+        "live_flow_count": http_metrics.live_flow_count,
+        "replay_hit_ratio": http_metrics.replay_hit_ratio,
+    }
+    if replay_from is not None:
+        # Keyed on replay having been *asked* for, not on a corpus having
+        # survived: when every recorded flow is unreplayable there is no
+        # corpus, and that is exactly the run whose dropped count matters.
+        # Poor replay coverage is usually this, and the fix is a bigger
+        # `--http-replay-max-body`.
+        metrics_payload["unreplayable_flow_count"] = unreplayable_flow_count
+    if replay_source:
+        metrics_payload["replay_source"] = str(replay_source)
+        # Only on a replaying run, where a live request is a request the corpus
+        # could not answer and so the one thing that explains a coverage
+        # shortfall. On a recording run every request is live, so the same list
+        # would be a request log, which is not a surface to widen for no
+        # diagnostic gain. Query-parameter values are masked either way -- these
+        # URLs reach the step summary, the workflow log and `report.html`, and
+        # plenty of APIs put credentials in the query string; see `redact_url`.
+        live_urls = http_metrics.top_live_urls()
+        if live_urls:
+            metrics_payload["live_urls"] = live_urls
+            metrics_payload["live_unique_url_count"] = len(http_metrics.live_url_counts)
+    if manager.metrics_incomplete_reason:
+        # Read after the block, not inside it: a killed shutdown is only known
+        # once `_stop` has run. Recorded because every count below is then a
+        # lower bound -- and short in the direction that makes a run look closer
+        # to the replay acceptance criterion than it was.
+        metrics_payload["metrics_incomplete"] = manager.metrics_incomplete_reason
+    skipped_reason = replay_skipped_reason
+    if replay_expected and replay_source is None and not skipped_reason:
+        # The proxy came up but there was no recording to replay -- the
+        # control run captured nothing. Same outcome as any other skip, so
+        # it has to read the same way rather than as a clean replayed run.
+        skipped_reason = "the control run recorded no HTTP dump to replay from"
+    if skipped_reason:
+        metrics_payload["replay_skipped_reason"] = skipped_reason
+    result["http_metrics"] = metrics_payload
+
+    print_success(
+        f"Captured {http_metrics.flow_count} HTTP flows "
+        f"({http_metrics.duplicate_flow_count} duplicates)"
+    )
+    if replay_source:
         print_success(
-            f"Captured {http_metrics.flow_count} HTTP flows "
-            f"({http_metrics.duplicate_flow_count} duplicates)"
+            f"Replayed {http_metrics.replayed_flow_count} of "
+            f"{http_metrics.flow_count} request(s) "
+            f"({http_metrics.replay_hit_ratio}); "
+            f"{http_metrics.live_flow_count} went live"
         )
-        return result, comparable
+    return result, comparable
+
+
+def _discard_oversized_http_dumps(*results: dict, max_bytes: int) -> None:
+    """Drop recorded dumps too large to keep, and say so in the report.
+
+    "Too large to keep" is about the runner's disk, not the artifact upload:
+    dumps are excluded from every upload step regardless of size.
+
+    Deleting is not silent: the size that was discarded lands in the run's
+    `http_metrics`, so a reader looking for the dump learns why it is not there
+    instead of finding a dangling path.
+    """
+    for result in results:
+        dump_file = result.get("http_dump_file")
+        if not dump_file:
+            continue
+
+        discarded = discard_oversized_dump(Path(dump_file), max_bytes)
+        if discarded is None:
+            continue
+
+        result.pop("http_dump_file", None)
+        metrics = result.get("http_metrics")
+        if isinstance(metrics, dict):
+            metrics["discarded_dump_mb"] = round(discarded / 1024 / 1024)
+        print_warning(
+            f"Discarded {dump_file}: {discarded / 1024 / 1024:.0f} MB exceeds the "
+            "retention cap, and a dump this large is what fills the runner's disk. "
+            "Dumps are never uploaded as artifacts; raise "
+            "--http-replay-max-dump-size-mb to keep it for a local run"
+        )
 
 
 def _compare_read_records(
@@ -1782,8 +1953,76 @@ def regression_test(
     enable_http_metrics: Annotated[
         bool,
         Parameter(
-            help="Capture HTTP traffic metrics via mitmproxy (experimental). "
-            "Requires mitmdump to be installed. Only used in comparison mode."
+            help="Capture HTTP traffic metrics via mitmproxy. Requires mitmdump to "
+            "be installed; without it the run proceeds without metrics. Only used "
+            "in comparison mode, where HTTP replay turns it on anyway -- set this "
+            "to record traffic while running both versions live "
+            "(--no-http-replay)."
+        ),
+    ] = False,
+    enable_http_replay: Annotated[
+        bool | None,
+        Parameter(
+            negative="--no-http-replay",
+            help="Replay the control run's recorded HTTP responses for the target "
+            "run, so both versions see identical upstream data. Implies "
+            "--enable-http-metrics. Defaults to `True` in comparison mode; has no "
+            "effect with `--skip-compare`, which has no control run to replay "
+            "from. Pass --no-http-replay to run both versions against the live "
+            "API, which is the fallback whenever replay cannot be delivered "
+            "anyway.",
+        ),
+    ] = None,
+    http_replay_max_body: Annotated[
+        str,
+        Parameter(
+            help="Response bodies larger than this are streamed rather than "
+            "recorded, and therefore re-fetched live instead of replayed. Raise it "
+            "for a connector with large pages, at the cost of replay memory. "
+            "Accepts a mitmproxy size such as '1m' or '10m' -- never a bare number, "
+            "which means bytes. Unlike the other --http-replay-* options this one "
+            "governs recording, so it applies with --enable-http-metrics alone."
+        ),
+    ] = DEFAULT_STREAM_LARGE_BODIES,
+    http_replay_max_dump_size_mb: Annotated[
+        int,
+        Parameter(
+            help="Skip replay and run the target live when the filtered replay "
+            "corpus is larger than this, and discard a recorded dump this large "
+            "once the run is done with it. mitmproxy holds the whole corpus in "
+            "memory for the entire run, and a dump grows with everything the "
+            "connector downloads, so this is what keeps a big connector from "
+            "exhausting the CI runner's memory and disk. Dumps are never "
+            "uploaded as artifacts, so on a local run -- where the dump is the "
+            "only thing that can diagnose a coverage shortfall offline -- raise "
+            "it to keep the dump."
+        ),
+    ] = DEFAULT_MAX_REPLAY_DUMP_SIZE_MB,
+    http_replay_reuse: Annotated[
+        bool,
+        Parameter(
+            help="Serve a recorded response more than once. By default each "
+            "recorded flow is consumed on first match, which preserves recorded "
+            "ordering and lets memory fall as the run proceeds; reuse keeps the "
+            "whole corpus resident for the entire run."
+        ),
+    ] = False,
+    http_replay_ignore_params: Annotated[
+        str | None,
+        Parameter(
+            help="Comma-separated query parameters to exclude from the replay match "
+            "key, for connectors that put a timestamp or nonce in the URL."
+        ),
+    ] = None,
+    strict_replay: Annotated[
+        bool,
+        Parameter(
+            help="Kill requests that match nothing in the replay corpus instead of "
+            "forwarding them upstream. Diagnostic only: it turns unmatched requests "
+            "into connector errors, which is how you count them. mitmproxy stops "
+            "intervening once its flowmap is empty, so combine this with "
+            "--http-replay-reuse to cover the whole run rather than only the part "
+            "before the corpus is consumed."
         ),
     ] = False,
     selected_streams: Annotated[
@@ -1848,6 +2087,44 @@ def regression_test(
     output_path.mkdir(parents=True, exist_ok=True)
 
     cmd = Command(command)
+
+    # On by default, but only where it can work: single-version mode has no
+    # control run to replay from. Asking for it there explicitly is a mistake
+    # worth naming; the default landing there is not, so it is not a warning.
+    if skip_compare:
+        if enable_http_replay:
+            print_warning("--enable-http-replay needs a control run; ignoring it")
+        replay_enabled = False
+    else:
+        replay_enabled = True if enable_http_replay is None else enable_http_replay
+
+    # Replay is a use of the capture, not a separate mechanism, so it turns the
+    # capture on rather than erroring.
+    if replay_enabled:
+        enable_http_metrics = True
+    elif (
+        http_replay_reuse
+        or strict_replay
+        or http_replay_ignore_params
+        or http_replay_max_dump_size_mb != DEFAULT_MAX_REPLAY_DUMP_SIZE_MB
+    ):
+        # Otherwise someone debugging poor coverage with --strict-replay alone
+        # concludes strict mode found nothing wrong. `--http-replay-max-body` is
+        # deliberately not in this list: it governs recording and applies anyway.
+        print_warning(
+            "Replay tuning flags do nothing with --no-http-replay; ignoring them"
+        )
+
+    replay_options = ReplayOptions(
+        reuse=http_replay_reuse,
+        extra="kill" if strict_replay else DEFAULT_REPLAY_EXTRA,
+        ignore_params=tuple(
+            param.strip()
+            for param in (http_replay_ignore_params or "").split(",")
+            if param.strip()
+        ),
+        max_dump_bytes=http_replay_max_dump_size_mb * 1024 * 1024,
+    )
 
     config_file: Path | None = None
     catalog_file: Path | None = None
@@ -2267,6 +2544,10 @@ def regression_test(
         # effect (applies to every command, not just read): a hanging or
         # timing-out control run means the target never runs, so such a
         # run says nothing about the version under test.
+        #
+        # HTTP replay needs the same order for its own reason: the target
+        # replays the dump the control run recorded, so that dump has to
+        # exist before the target starts.
         target_output = output_path / "target"
         control_output = output_path / "control"
 
@@ -2280,7 +2561,18 @@ def regression_test(
             catalog_path=catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
+            stream_large_bodies=http_replay_max_body,
         )
+
+        replay_from: Path | None = None
+        if replay_enabled:
+            control_dump = control_result.get("http_dump_file")
+            if control_dump:
+                replay_from = Path(control_dump)
+            else:
+                print_warning(
+                    "Control run recorded no HTTP dump; the target will run live"
+                )
 
         target_result, target_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_test_image,
@@ -2292,6 +2584,19 @@ def regression_test(
             catalog_path=catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
+            replay_expected=replay_enabled,
+            replay_from=replay_from,
+            replay_options=replay_options,
+            stream_large_bodies=http_replay_max_body,
+        )
+
+        # Both dumps have served their purpose by now -- metrics parsed, replay
+        # corpus built -- so anything too large to be a usable artifact goes,
+        # rather than being uploaded from a runner with ~14 GB of disk.
+        _discard_oversized_http_dumps(
+            control_result,
+            target_result,
+            max_bytes=http_replay_max_dump_size_mb * 1024 * 1024,
         )
 
         outcome = evaluate_comparison_outcome(command, target_result, control_result)

@@ -167,6 +167,7 @@ if TYPE_CHECKING:
         JoinBuildSide,
         JoinStrategy,
         JoinValidation,
+        JoinWhereStrategy,
         Label,
         MaintainOrderJoin,
         MultiColSelector,
@@ -5313,7 +5314,7 @@ class DataFrame:
         return (
             self.lazy()
             .rename(mapping, strict=strict)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def insert_column(self, index: int, column: IntoExprColumn) -> DataFrame:
@@ -5559,7 +5560,7 @@ class DataFrame:
         return (
             self.lazy()
             .filter(*predicates, **constraints)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def remove(
@@ -5706,7 +5707,7 @@ class DataFrame:
         return (
             self.lazy()
             .remove(*predicates, **constraints)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @overload
@@ -6183,7 +6184,7 @@ class DataFrame:
                 multithreaded=multithreaded,
                 maintain_order=maintain_order,
             )
-            .collect(optimizations=optimizations)
+            ._collect_eager(optimizations=optimizations)
         )
 
     def sql(self, query: str, *, table_name: str = "self") -> DataFrame:
@@ -6357,7 +6358,7 @@ class DataFrame:
         return (
             self.lazy()
             .top_k(k, by=by, reverse=reverse)
-            .collect(
+            ._collect_eager(
                 optimizations=QueryOptFlags(
                     projection_pushdown=False,
                     predicate_pushdown=False,
@@ -6446,7 +6447,7 @@ class DataFrame:
         return (
             self.lazy()
             .bottom_k(k, by=by, reverse=reverse)
-            .collect(
+            ._collect_eager(
                 optimizations=QueryOptFlags(
                     projection_pushdown=False,
                     predicate_pushdown=False,
@@ -6763,7 +6764,9 @@ class DataFrame:
         from polars.lazyframe.opt_flags import QueryOptFlags
 
         return (
-            self.lazy().drop_nans(subset).collect(optimizations=QueryOptFlags._eager())
+            self.lazy()
+            .drop_nans(subset)
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def drop_nulls(
@@ -6884,7 +6887,9 @@ class DataFrame:
         from polars.lazyframe.opt_flags import QueryOptFlags
 
         return (
-            self.lazy().drop_nulls(subset).collect(optimizations=QueryOptFlags._eager())
+            self.lazy()
+            .drop_nulls(subset)
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def pipe(
@@ -8009,6 +8014,11 @@ class DataFrame:
             if 'by' groups are provided. The `streaming` engine will only check the
             sortedness of the rows it processes.
 
+        See Also
+        --------
+        join
+        join_where
+
         Examples
         --------
         >>> from datetime import date
@@ -8244,7 +8254,7 @@ class DataFrame:
                 allow_exact_matches=allow_exact_matches,
                 check_sortedness=check_sortedness,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @deprecate_renamed_parameter("join_nulls", "nulls_equal", version="1.24")
@@ -8395,6 +8405,7 @@ class DataFrame:
         See Also
         --------
         join_asof
+        join_where
 
         Examples
         --------
@@ -8518,7 +8529,7 @@ class DataFrame:
                 maintain_order=maintain_order,
                 build_side=build_side,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @unstable()
@@ -8526,14 +8537,11 @@ class DataFrame:
         self,
         other: DataFrame,
         *predicates: Expr | Iterable[Expr],
+        how: JoinWhereStrategy = "inner",
         suffix: str = "_right",
     ) -> DataFrame:
         """
         Perform a join based on one or multiple (in)equality predicates.
-
-        This performs an inner join, so only rows where all predicates are true
-        are included in the result, and a row from either DataFrame may be included
-        multiple times in the result.
 
         .. note::
             The row order of the input DataFrames is not preserved.
@@ -8550,8 +8558,15 @@ class DataFrame:
             (In)Equality condition to join the two tables on.
             When a column name occurs in both tables, the proper suffix must
             be applied in the predicate.
+        how : {'inner', 'left', 'right'}
+            Join strategy.
         suffix
             Suffix to append to columns with a duplicate name.
+
+        See Also
+        --------
+        join
+        join_asof
 
         Examples
         --------
@@ -8610,6 +8625,29 @@ class DataFrame:
         │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
         │ 102 ┆ 160 ┆ 16  ┆ 4     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
         └─────┴─────┴─────┴───────┴──────┴──────┴──────┴─────────────┘
+
+        Pass `how="left"` to additionally keep left rows that match nothing, with the
+        right columns set to `null`.
+
+        >>> east.join_where(
+        ...     west,
+        ...     pl.col("dur") < pl.col("time"),
+        ...     pl.col("rev") < pl.col("cost"),
+        ...     how="left",
+        ... )
+        shape: (6, 8)
+        ┌─────┬─────┬─────┬───────┬──────┬──────┬──────┬─────────────┐
+        │ id  ┆ dur ┆ rev ┆ cores ┆ t_id ┆ time ┆ cost ┆ cores_right │
+        │ --- ┆ --- ┆ --- ┆ ---   ┆ ---  ┆ ---  ┆ ---  ┆ ---         │
+        │ i64 ┆ i64 ┆ i64 ┆ i64   ┆ i64  ┆ i64  ┆ i64  ┆ i64         │
+        ╞═════╪═════╪═════╪═══════╪══════╪══════╪══════╪═════════════╡
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 498  ┆ 130  ┆ 13   ┆ 2           │
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 676  ┆ 150  ┆ 15   ┆ 1           │
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
+        │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 676  ┆ 150  ┆ 15   ┆ 1           │
+        │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
+        │ 102 ┆ 160 ┆ 16  ┆ 4     ┆ null ┆ null ┆ null ┆ null        │
+        └─────┴─────┴─────┴───────┴──────┴──────┴──────┴─────────────┘
         """
         require_same_type(self, other)
 
@@ -8620,9 +8658,10 @@ class DataFrame:
             .join_where(
                 other.lazy(),
                 *predicates,
+                how=how,
                 suffix=suffix,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @unstable()
@@ -8680,7 +8719,7 @@ class DataFrame:
         return (
             self.lazy()
             .gather(indices, null_on_oob=null_on_oob)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def map_rows(
@@ -9024,7 +9063,7 @@ class DataFrame:
         return (
             self.lazy()
             .drop(*columns, strict=strict)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def drop_in_place(self, name: str) -> Series:
@@ -9151,7 +9190,7 @@ class DataFrame:
         return (
             self.lazy()
             .cast(dtypes, strict=strict)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def clear(self, n: int = 0) -> DataFrame:
@@ -9465,7 +9504,7 @@ class DataFrame:
         return (
             self.lazy()
             .fill_null(value, strategy, limit, matches_supertype=matches_supertype)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def fill_nan(self, value: Expr | int | float | None) -> DataFrame:
@@ -9514,7 +9553,11 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().fill_nan(value).collect(optimizations=QueryOptFlags._eager())
+        return (
+            self.lazy()
+            .fill_nan(value)
+            ._collect_eager(optimizations=QueryOptFlags._eager())
+        )
 
     def explode(
         self,
@@ -9589,7 +9632,7 @@ class DataFrame:
                 empty_as_null=empty_as_null,
                 keep_nulls=keep_nulls,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @deprecate_renamed_parameter("columns", "on", version="1.0.0")
@@ -9818,7 +9861,7 @@ class DataFrame:
                 separator=separator,
                 column_naming=column_naming,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def unpivot(
@@ -9885,11 +9928,17 @@ class DataFrame:
         │ z   ┆ c        ┆ 6     │
         └─────┴──────────┴───────┘
         """
-        on = None if on is None else _expand_selectors(self, on)
-        index_expanded = [] if index is None else _expand_selectors(self, index)
+        from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self._from_pydf(
-            self._df.unpivot(on, index_expanded, value_name, variable_name)
+        return (
+            self.lazy()
+            .unpivot(
+                on=on,
+                index=index,
+                variable_name=variable_name,
+                value_name=value_name,
+            )
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def unstack(
@@ -10286,7 +10335,7 @@ class DataFrame:
         return (
             self.lazy()
             .shift(n, fill_value=fill_value)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @unstable()
@@ -10533,7 +10582,7 @@ class DataFrame:
         return (
             self.lazy()
             .select(*exprs, **named_exprs)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def select_seq(
@@ -10564,7 +10613,7 @@ class DataFrame:
         return (
             self.lazy()
             .select_seq(*exprs, **named_exprs)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def with_columns(
@@ -10699,7 +10748,7 @@ class DataFrame:
         return (
             self.lazy()
             .with_columns(*exprs, **named_exprs)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def with_columns_seq(
@@ -10739,7 +10788,7 @@ class DataFrame:
         return (
             self.lazy()
             .with_columns_seq(*exprs, **named_exprs)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @overload
@@ -10809,7 +10858,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().max().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().max()._collect_eager(optimizations=QueryOptFlags._eager())
 
     def max_horizontal(self) -> Series:
         """
@@ -10864,7 +10913,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().min().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().min()._collect_eager(optimizations=QueryOptFlags._eager())
 
     def min_horizontal(self) -> Series:
         """
@@ -10919,7 +10968,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().sum().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().sum()._collect_eager(optimizations=QueryOptFlags._eager())
 
     def sum_horizontal(self, *, ignore_nulls: bool = True) -> Series:
         """
@@ -10983,7 +11032,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().mean().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().mean()._collect_eager(optimizations=QueryOptFlags._eager())
 
     def mean_horizontal(self, *, ignore_nulls: bool = True) -> Series:
         """
@@ -11062,7 +11111,9 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().std(ddof).collect(optimizations=QueryOptFlags._eager())
+        return (
+            self.lazy().std(ddof)._collect_eager(optimizations=QueryOptFlags._eager())
+        )
 
     def var(self, ddof: int = 1) -> DataFrame:
         """
@@ -11105,7 +11156,9 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().var(ddof).collect(optimizations=QueryOptFlags._eager())
+        return (
+            self.lazy().var(ddof)._collect_eager(optimizations=QueryOptFlags._eager())
+        )
 
     def median(self) -> DataFrame:
         """
@@ -11132,7 +11185,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().median().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().median()._collect_eager(optimizations=QueryOptFlags._eager())
 
     def product(self) -> DataFrame:
         """
@@ -11204,7 +11257,7 @@ class DataFrame:
         return (
             self.lazy()
             .quantile(quantile, interpolation)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def to_dummies(
@@ -11432,7 +11485,7 @@ class DataFrame:
         return (
             self.lazy()
             .unique(subset=subset, keep=keep, maintain_order=maintain_order)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def n_unique(self, subset: str | Expr | Sequence[str | Expr] | None = None) -> int:
@@ -11507,7 +11560,7 @@ class DataFrame:
         df = (
             self.lazy()
             .select(expr.n_unique())
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
         return 0 if df.is_empty() else df.row(0)[0]
 
@@ -11545,7 +11598,9 @@ class DataFrame:
         from polars.lazyframe.opt_flags import QueryOptFlags
 
         return (
-            self.lazy().approx_n_unique().collect(optimizations=QueryOptFlags._eager())
+            self.lazy()
+            .approx_n_unique()
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def rechunk(self) -> DataFrame:
@@ -12587,7 +12642,7 @@ class DataFrame:
         return (
             self.lazy()
             .unnest(columns, *more_columns, separator=separator)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def corr(self, *, label: str | None = None, **kwargs: Any) -> DataFrame:
@@ -12757,7 +12812,7 @@ class DataFrame:
         return (
             self.lazy()
             .merge_sorted(other.lazy(), key, maintain_order=maintain_order)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def set_sorted(
@@ -12794,7 +12849,7 @@ class DataFrame:
         return (
             self.lazy()
             .set_sorted(column, descending=descending, nulls_last=nulls_last)
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     @unstable()
@@ -12952,7 +13007,7 @@ class DataFrame:
                 include_nulls=include_nulls,
                 maintain_order=maintain_order,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def count(self) -> DataFrame:
@@ -12976,7 +13031,7 @@ class DataFrame:
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
-        return self.lazy().count().collect(optimizations=QueryOptFlags._eager())
+        return self.lazy().count()._collect_eager(optimizations=QueryOptFlags._eager())
 
     @deprecated(
         "`DataFrame.melt` is deprecated; use `DataFrame.unpivot` instead, with "
@@ -13392,7 +13447,7 @@ class DataFrame:
                 integer_cast=integer_cast,
                 float_cast=float_cast,
             )
-            .collect(optimizations=QueryOptFlags._eager())
+            ._collect_eager(optimizations=QueryOptFlags._eager())
         )
 
     def _to_metadata(

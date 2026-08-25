@@ -5,7 +5,7 @@ from qcodes.parameters import Parameter, create_on_off_val_mapping
 from qcodes.validators import Numbers
 
 if TYPE_CHECKING:
-    from typing_extensions import Unpack
+    from typing import Unpack
 
 
 class KeysightN51x1(VisaInstrument):
@@ -39,7 +39,7 @@ class KeysightN51x1(VisaInstrument):
         }
 
         frequency_option = None
-        for f_option in freq_dict.keys():
+        for f_option in freq_dict:
             if f_option in self._options:
                 frequency_option = f_option
         if frequency_option is None:

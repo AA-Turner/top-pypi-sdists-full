@@ -4,8 +4,11 @@
 import copy
 import itertools
 import logging
+import os
 import time
-from typing import List, Union
+from collections import deque
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -13,6 +16,31 @@ import faster_coco_eval.faster_eval_api_cpp as _C
 from faster_coco_eval.core.cocoeval import COCOeval as COCOevalBase
 
 logger = logging.getLogger(__name__)
+
+
+def _available_cpu_count() -> int:
+    """Return the logical CPU capacity available to this process."""
+    process_cpu_count = getattr(os, "process_cpu_count", None)
+    if callable(process_cpu_count):
+        try:
+            cpu_count = process_cpu_count()
+        except (NotImplementedError, OSError):
+            logger.debug("Unable to read the process CPU count; falling back to CPU affinity.", exc_info=True)
+        else:
+            if cpu_count is not None:
+                return cpu_count
+
+    sched_getaffinity = getattr(os, "sched_getaffinity", None)
+    if callable(sched_getaffinity):
+        try:
+            available_cpus = sched_getaffinity(0)
+        except (AttributeError, NotImplementedError, OSError):
+            logger.debug("Unable to read CPU affinity; falling back to the host CPU count.", exc_info=True)
+            available_cpus = set()
+        if available_cpus:
+            return len(available_cpus)
+
+    return os.cpu_count() or 1
 
 
 class COCOeval_faster(COCOevalBase):
@@ -53,9 +81,44 @@ class COCOeval_faster(COCOevalBase):
         else:
             raise ValueError(f"p.iouType must be segm, bbox, boundary or keypoints. Get {p.iouType}")
 
-        self.ious = {
-            (imgId, catId): computeIoU(imgId, catId) for (imgId, catId) in itertools.product(p.imgIds, catIds)
-        }  # bottleneck
+        all_iou_pairs = list(itertools.product(p.imgIds, catIds))
+        nonempty_iou_pairs = getattr(self, "_nonempty_iou_pairs", None)
+        pairs_to_compute = (
+            all_iou_pairs
+            if nonempty_iou_pairs is None
+            else [pair for pair in all_iou_pairs if pair in nonempty_iou_pairs]
+        )
+        self.ious = {pair: [] for pair in all_iou_pairs}
+
+        pair_count = len(pairs_to_compute)
+        max_workers = 1
+        if p.compute_rle and self.rle_iou_max_workers > 1 and pair_count > 1:
+            max_workers = min(_available_cpu_count(), self.rle_iou_max_workers, pair_count)
+        if max_workers > 1:
+            # Each task owns a distinct result key; consuming futures in input
+            # order preserves deterministic dictionary layout while the bounded
+            # queue prevents one future per image/category pair.
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                iou_pairs = iter(pairs_to_compute)
+                pending_ious = deque()
+                for _ in range(2 * max_workers):
+                    try:
+                        pair = next(iou_pairs)
+                    except StopIteration:
+                        break
+                    pending_ious.append((pair, executor.submit(computeIoU, *pair)))
+
+                while pending_ious:
+                    pair, future = pending_ious.popleft()
+                    self.ious[pair] = future.result()
+                    try:
+                        next_pair = next(iou_pairs)
+                    except StopIteration:
+                        continue
+                    pending_ious.append((next_pair, executor.submit(computeIoU, *next_pair)))
+        else:
+            for pair in pairs_to_compute:
+                self.ious[pair] = computeIoU(*pair)
 
         # Memory optimization: pass datasets directly instead of pre-loading all instances
 
@@ -127,8 +190,15 @@ class COCOeval_faster(COCOevalBase):
         Returns:
             None
         """
+        # The annotation dictionaries are shared across evaluations, so derived
+        # match flags must be removed before classifying the current result.
+        for anns in (self.cocoDt.anns.values(), self.cocoGt.anns.values()):
+            for ann in anns:
+                for key in ("tp", "fp", "fn", "gt_id", "dt_id", "iou"):
+                    ann.pop(key, None)
+
         for dt_gt, iou in self.eval["matched"].items():
-            dt_id, gt_id = dt_gt.split("_")
+            dt_id, gt_id = dt_gt.split("_", 1)
 
             dt_id = int(dt_id)
             gt_id = int(gt_id)
@@ -155,7 +225,12 @@ class COCOeval_faster(COCOevalBase):
         Returns:
             float: Mean IoU across all matched detections and ground truths.
         """
-        return sum(self.eval["matched"].values()) / len(self.eval["matched"])
+        matched = self.eval.get("matched")
+        if matched is None:
+            raise RuntimeError("Matching data is unavailable; run the evaluation and accumulation pipeline first")
+        if not matched:
+            return 0.0
+        return sum(matched.values()) / len(matched)
 
     def compute_mAUC(self) -> float:
         """Compute the mean Area Under Curve (mAUC) metric.
@@ -163,6 +238,9 @@ class COCOeval_faster(COCOevalBase):
         Returns:
             float: Mean AUC across all categories and area ranges.
         """
+        if "counts" not in self.eval or "precision" not in self.eval:
+            raise RuntimeError("Accumulation results are unavailable; call evaluate() and accumulate() first")
+
         aucs = []
 
         # K - category
@@ -180,7 +258,7 @@ class COCOeval_faster(COCOevalBase):
         if len(aucs):
             return sum(aucs) / len(aucs)
         else:
-            return 0
+            return 0.0
 
     def summarize(self):
         """Summarize and finalize the statistics of the evaluation.
@@ -248,14 +326,12 @@ class COCOeval_faster(COCOevalBase):
 
         # --- Compute actual (non-interpolated) precision/recall by sweeping confidence thresholds ---
         # Build set of TP detection IDs: detections matched to a GT with actual IoU >= 0.50
-        tp_dt_ids = {
-            int(k.split("_")[0])
-            for k, iou in self.eval["matched"].items()
-            if iou >= 0.5
-        }
+        tp_dt_ids = {int(k.split("_", 1)[0]) for k, iou in self.eval["matched"].items() if iou >= 0.5}
 
-        cat_ids_eval = self.params.catIds if self.params.useCats else list(
-            {ann["category_id"] for ann in self.cocoDt.anns.values()}
+        cat_ids_eval = (
+            self.params.catIds
+            if self.params.useCats
+            else list({ann["category_id"] for ann in self.cocoDt.anns.values()})
         )
 
         # Per-class: build sorted (descending) score arrays and cumulative TP counts
@@ -319,8 +395,7 @@ class COCOeval_faster(COCOevalBase):
                 macro_precision = float(np.mean(cat_precs))
                 macro_recall = float(np.mean(cat_recs))
                 best_class_metrics = {
-                    cid: {"precision": p, "recall": r}
-                    for cid, p, r in zip(cat_ids_valid, cat_precs, cat_recs)
+                    cid: {"precision": p, "recall": r} for cid, p, r in zip(cat_ids_valid, cat_precs, cat_recs)
                 }
 
         per_class = []
@@ -378,14 +453,26 @@ class COCOeval_faster(COCOevalBase):
 
         Returns:
             dict[str, float]: Dictionary mapping metric names to their values.
+
+        Custom maximum-detection counts use ``AR_<maxDets>`` labels. The
+        historical default and LVIS labels remain unchanged for compatibility.
         """
         if self.params.iouType in set(["segm", "bbox", "boundary"]):
             p = self.params
             AP_labels = [f"AP_{label}" for label in p.areaRngLbl if label != "all"]
             AR_labels = [f"AR_{label}" for label in p.areaRngLbl if label != "all"]
+            if self.lvis_style:
+                # LVIS has a legacy three-slot AR layout independent of maxDets.
+                ar_max_labels = ["AR_all", "AR_second", "AR_third"]
+                if len(p.maxDets) > len(ar_max_labels):
+                    ar_max_labels += [f"AR_{max_dets}" for max_dets in p.maxDets[3:]]
+            elif p.maxDets == [1, 10, 100]:
+                ar_max_labels = ["AR_all", "AR_second", "AR_third"]
+            else:
+                ar_max_labels = [f"AR_{max_dets}" for max_dets in p.maxDets]
             labels = ["AP_all", "AP_50", "AP_75"]
             labels += AP_labels
-            labels += ["AR_all", "AR_second", "AR_third"]
+            labels += ar_max_labels
             labels += AR_labels
             labels += [
                 "AR_50",
@@ -421,7 +508,7 @@ class COCOeval_faster(COCOevalBase):
                 "AP_hard",
             ]
         else:
-            ValueError(f"iouType must be bbox, segm, boundary or keypoints. Get {self.params.iouType}")
+            raise ValueError(f"iouType must be bbox, segm, boundary or keypoints. Get {self.params.iouType}")
 
         if self.matched:
             labels += [
@@ -433,8 +520,8 @@ class COCOeval_faster(COCOevalBase):
 
     @staticmethod
     def calc_auc(
-        recall_list: Union[List[float], np.ndarray],
-        precision_list: Union[List[float], np.ndarray],
+        recall_list: list[float] | np.ndarray,
+        precision_list: list[float] | np.ndarray,
         method: str = "c++",
     ):
         """Calculate area under precision recall curve.
@@ -451,8 +538,8 @@ class COCOeval_faster(COCOevalBase):
         if method == "c++":
             return round(_C.calc_auc(recall_list, precision_list), 15)
         else:
-            mrec = recall_list
-            mpre = precision_list
+            mrec = np.asarray(recall_list).copy()
+            mpre = np.asarray(precision_list).copy()
 
             for i in range(mpre.size - 1, 0, -1):
                 mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
@@ -470,4 +557,9 @@ class COCOeval(COCOeval_faster):
         Returns:
             Callable: The built-in print function.
         """
-        return print
+        return getattr(self, "_compat_print_function", print)
+
+    @print_function.setter
+    def print_function(self, value: Callable):
+        """Store a compatibility print function for temporary reassignment."""
+        self._compat_print_function = value

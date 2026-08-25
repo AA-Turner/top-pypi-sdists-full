@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.4.0"
+version = "1.4.1"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -79,7 +79,6 @@ dev = [
     "pytest-rerunfailures>=15.0",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=4.1.0",
-    "pyfakefs>=5.7.0",
 ]
 
 [tool.ruff]
@@ -104,6 +103,7 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
     "RUF", # ruff specific rules
+    "TID251", # flake8-tidy-imports (banned-api)
     "PLW1514", # unspecified-encoding (require encoding in open calls)
     "PLR0917", # too-many-positional-arguments
 ]
@@ -111,6 +111,10 @@ ignore = ["E501", "C901", "RUF001", "UP036", "RUF067", "RUF069"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR0917"]
+"src/google/agents/cli/_output.py" = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"rich.console.Console" = { msg = "Use `google.agents.cli._output.Console` instead to ensure project-wide defaults (soft_wrap=True) are applied." }
 
 [tool.ruff.lint.pylint]
 max-positional-args = 5

@@ -63,7 +63,7 @@ jobs:
 
     - name: Upload SARIF to Code Scanning
       if: always()
-      uses: github/codeql-action/upload-sarif@52485aec7be33610227643b0fe83936b8b5f061a  # v3
+      uses: github/codeql-action/upload-sarif@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3.37.7
       with:
         sarif_file: zizmor.sarif
         category: zizmor

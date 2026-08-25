@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skforecast
-Version: 0.23.0
+Version: 0.24.0
 Summary: Skforecast is a Python library for time series forecasting using scikit-learn compatible models, statistical methods, and foundation models. It works with any estimator compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
 Author-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
 Maintainer-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
@@ -56,16 +56,16 @@ Requires-Dist: matplotlib<3.12,>=3.7; extra == "all"
 Requires-Dist: statsmodels<0.15,>=0.13; extra == "all"
 Requires-Dist: keras<4.0,>=3.0; extra == "all"
 Requires-Dist: tensorflow<2.22,>=2.18; python_version < "3.14" and extra == "all"
-Requires-Dist: torch<2.13,>=2.4; extra == "all"
+Requires-Dist: torch<2.14,>=2.4; extra == "all"
 Provides-Extra: full
 Requires-Dist: skforecast[all]; extra == "full"
 Provides-Extra: docs
 Requires-Dist: mike==2.1.3; extra == "docs"
 Requires-Dist: mkdocs==1.6.1; extra == "docs"
 Requires-Dist: mkdocs-jupyter==0.26.3; extra == "docs"
-Requires-Dist: mkdocs-material==9.7.6; extra == "docs"
-Requires-Dist: mkdocstrings==1.0.4; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.5; extra == "docs"
+Requires-Dist: mkdocs-material==9.7.7; extra == "docs"
+Requires-Dist: mkdocstrings==1.0.6; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.7; extra == "docs"
 Requires-Dist: black==26.5.1; extra == "docs"
 Provides-Extra: test
 Requires-Dist: pytest>=9.1.0; extra == "test"
@@ -77,7 +77,7 @@ Requires-Dist: lightgbm<5.0,>=4.0; extra == "test"
 Requires-Dist: xgboost<4.0,>=2.1; extra == "test"
 Requires-Dist: catboost<2.0,>=1.2; extra == "test"
 Requires-Dist: keras<4.0,>=3.0; extra == "test"
-Requires-Dist: torch<2.13,>=2.4; extra == "test"
+Requires-Dist: torch<2.14,>=2.4; extra == "test"
 Requires-Dist: cloudpickle>=3.0; extra == "test"
 Requires-Dist: skops>=0.14; extra == "test"
 Requires-Dist: tomli>=2.0; extra == "test"
@@ -85,16 +85,17 @@ Requires-Dist: pandas[parquet]>=2.1; extra == "test"
 Dynamic: license-file
 
 <h1 align="left">
-    <img src="https://github.com/skforecast/skforecast/blob/master/images/banner-landing-page-skforecast.png?raw=true" style="margin-top: 0px;">
+    <img src="https://github.com/skforecast/skforecast/blob/main/images/banner-landing-page-skforecast.png?raw=true" style="margin-top: 0px;">
 </h1>
 
 
 | | |
 | --- | --- |
-| Package | ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue) [![PyPI](https://img.shields.io/pypi/v/skforecast)](https://pypi.org/project/skforecast/) [![Conda](https://img.shields.io/conda/v/conda-forge/skforecast?logo=Anaconda)](https://anaconda.org/conda-forge/skforecast) [![Downloads](https://static.pepy.tech/badge/skforecast)](https://pepy.tech/project/skforecast) [![Downloads](https://img.shields.io/pypi/dm/skforecast?style=flat-square&color=blue&label=downloads%2Fmonth)](https://pypistats.org/packages/skforecast) [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/skforecast/skforecast/graphs/commit-activity) [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
+| Package | ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue) [![PyPI](https://img.shields.io/pypi/v/skforecast)](https://pypi.org/project/skforecast/) [![Conda](https://img.shields.io/conda/v/conda-forge/skforecast?logo=Anaconda)](https://anaconda.org/conda-forge/skforecast) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/skforecast?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/skforecast) [![Downloads](https://img.shields.io/pypi/dm/skforecast?style=flat-square&color=blue&label=downloads%2Fmonth)](https://pypistats.org/packages/skforecast) [![Skforecast Docs](https://img.shields.io/badge/Skforecast-Documentation-f79939?logo=readthedocs)](https://skforecast.org/) [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/skforecast/skforecast/graphs/commit-activity) [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
+| AI assistant | [![Skforecast AI](https://img.shields.io/badge/Skforecast%20AI-Documentation-f79939?logo=readthedocs)](https://ai.skforecast.org/) [![PyPI](https://img.shields.io/pypi/v/skforecast-ai)](https://pypi.org/project/skforecast-ai/) [![GitHub](https://img.shields.io/badge/GitHub-skforecast--ai-181717?logo=github)](https://github.com/skforecast/skforecast-ai) |
 | App | [![Skforecast Studio](https://img.shields.io/badge/Skforecast%20Studio-Launch%20App-f79939?logo=rocket)](https://studio.skforecast.org/) |
-| Meta | [![License](https://img.shields.io/github/license/skforecast/skforecast)](https://github.com/skforecast/skforecast/blob/master/LICENSE) [![DOI](https://zenodo.org/badge/337705968.svg)](https://zenodo.org/doi/10.5281/zenodo.8382787) [![llms.txt](https://img.shields.io/badge/llms.txt-available-blue)](https://skforecast.org/latest/llms-full.txt) |
-| Testing | [![Build status](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml) [![codecov](https://codecov.io/gh/skforecast/skforecast/branch/master/graph/badge.svg)](https://codecov.io/gh/skforecast/skforecast) |
+| Meta | [![License](https://img.shields.io/github/license/skforecast/skforecast)](https://github.com/skforecast/skforecast/blob/main/LICENSE) [![DOI](https://zenodo.org/badge/337705968.svg)](https://zenodo.org/doi/10.5281/zenodo.8382787) [![llms.txt](https://img.shields.io/badge/llms.txt-available-blue)](https://skforecast.org/latest/llms-full.txt) |
+| Testing | [![Build status](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml) [![codecov](https://codecov.io/gh/skforecast/skforecast/branch/main/graph/badge.svg)](https://codecov.io/gh/skforecast/skforecast) |
 | Donation | [![paypal](https://img.shields.io/static/v1?style=social&amp;label=Donate&amp;message=%E2%9D%A4&amp;logo=Paypal&amp;color&amp;link=%3curl%3e)](https://www.paypal.com/donate/?hosted_button_id=D2JZSWRLTZDL6) [![buymeacoffee](https://img.shields.io/badge/-Buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/skforecast) ![GitHub Sponsors](https://img.shields.io/github/sponsors/joaquinamatrodrigo?logo=github&label=Github%20sponsors&link=https%3A%2F%2Fgithub.com%2Fsponsors%2FJoaquinAmatRodrigo) [![Open Collective](https://img.shields.io/badge/Open_Collective-2A3F54?logo=opencollective&logoColor=white)](https://opencollective.com/skforecast)|
 | Community | [![!linkedin](https://img.shields.io/static/v1?logo=linkedin&label=LinkedIn&message=news&color=lightblue)](https://www.linkedin.com/company/skforecast/) [![!discord](https://img.shields.io/static/v1?logo=discord&label=discord&message=chat&color=lightgreen)](https://discord.gg/3V52qpNkuj) [![Forecasting Python](https://img.shields.io/static/v1?logo=readme&logoColor=white&label=Blog&labelColor=%23333333&message=Forecasting%20Python&color=%23ffab40)](https://cienciadedatos.net/en/forecasting-python) |
 | Affiliation | [![NumFOCUS Affiliated](https://img.shields.io/badge/NumFOCUS-Affiliated%20Project-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org/sponsored-projects/affiliated-projects) [![GC.OS Affiliated](https://img.shields.io/badge/GC.OS-Affiliated%20Project-orange.svg?style=flat&colorA=0eac92&colorB=2077b4)](https://gc-os-ai.github.io/) |
@@ -130,7 +131,10 @@ Skforecast simplifies time series forecasting with machine learning by providing
 Whether you're building quick prototypes or deploying models in production, skforecast ensures a fast, reliable, and scalable experience.
 
 > [!TIP]
-> :computer: **Try [Skforecast Studio](https://studio.skforecast.org/)** — an interactive, no-code application to build time series forecasting models visually, while automatically generating production-ready Python code using skforecast.
+> :sparkles: **Try [skforecast-ai](https://ai.skforecast.org/)**, an **AI forecasting assistant** that pairs a deterministic engine, powered by [**skforecast**](https://skforecast.org/), with an **LLM reasoning layer**.
+
+> [!TIP]
+> :computer: **Try [Skforecast Studio](https://studio.skforecast.org/)**, an interactive, no-code application to build time series forecasting models visually, while automatically generating production-ready Python code using skforecast.
 
 ### Quick Example
 
@@ -166,7 +170,7 @@ predictions.head()
 We value your input! Here are a few ways you can participate:
 
 - **Report bugs** and suggest new features on our [GitHub Issues page](https://github.com/skforecast/skforecast/issues).
-- **Contribute** to the project by [submitting code](https://github.com/skforecast/skforecast/blob/master/CONTRIBUTING.md), adding new features, or improving the documentation.
+- **Contribute** to the project by [submitting code](https://github.com/skforecast/skforecast/blob/main/CONTRIBUTING.md), adding new features, or improving the documentation.
 - **Share your feedback** on LinkedIn to help spread the word about skforecast!
 
 Together, we can make time series forecasting accessible to everyone.
@@ -188,6 +192,7 @@ Explore the full capabilities of **skforecast** with our comprehensive documenta
 | :books: [API Reference]                 | Comprehensive reference for skforecast functions and classes |
 | :memo: [Releases]                       | Keep track of major updates and changes |
 | :mag: [More]                            | Discover more about skforecast and its creators |
+| :sparkles: [Skforecast AI]              | Create reproducible forecasts with an AI-assisted workflow |
 | :computer: [Skforecast Studio]          | Build forecasting models visually with no code |
 
 [Introduction to forecasting]: https://skforecast.org/latest/introduction-forecasting/introduction-forecasting.html
@@ -198,6 +203,7 @@ Explore the full capabilities of **skforecast** with our comprehensive documenta
 [API Reference]: https://skforecast.org/latest/api/forecasterrecursive.html
 [Releases]: https://skforecast.org/latest/releases/releases.html
 [More]: https://skforecast.org/latest/more/about-skforecast.html
+[Skforecast AI]: https://ai.skforecast.org/
 [Skforecast Studio]: https://studio.skforecast.org/
 
 
@@ -257,6 +263,8 @@ Explore our extensive list of examples and tutorials (English and Spanish) to ge
 
 Skforecast includes machine-readable context files so AI assistants (ChatGPT, Claude, Copilot, and others) can generate accurate code. Paste `https://skforecast.org/latest/llms-full.txt` into any LLM, or let your IDE pick up context automatically. Learn more in [AI-assisted forecasting](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html).
 
+For an end-to-end workflow, try [**skforecast-ai**](https://ai.skforecast.org/), an **AI forecasting assistant** that pairs a deterministic engine, powered by **skforecast**, with an **LLM reasoning layer**. The source code is available on [GitHub](https://github.com/skforecast/skforecast-ai).
+
 
 # How to contribute
 
@@ -269,7 +277,7 @@ Primarily, skforecast development consists of adding and creating new *Forecaste
 - Translate our documentation into another language.
 - Write a blog post, tweet, or share our project with others.
 
-For more information on how to contribute to skforecast, see our [Contribution Guide](https://github.com/skforecast/skforecast/blob/master/CONTRIBUTING.md).
+For more information on how to contribute to skforecast, see our [Contribution Guide](https://github.com/skforecast/skforecast/blob/main/CONTRIBUTING.md).
 
 Visit our [About section](https://skforecast.org/latest/more/about-skforecast.html) to meet the people behind **skforecast**.
 
@@ -281,12 +289,12 @@ If you use skforecast for a scientific publication, we would appreciate citation
 **Zenodo**
 
 ```
-Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2026). skforecast (v0.23.0). Zenodo. https://doi.org/10.5281/zenodo.8382787
+Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2026). skforecast (v0.24.0). Zenodo. https://doi.org/10.5281/zenodo.8382787
 ```
 
 **APA**:
 ```
-Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.23.0) [Computer software]. https://doi.org/10.5281/zenodo.8382787
+Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.24.0) [Computer software]. https://doi.org/10.5281/zenodo.8382787
 ```
 
 **BibTeX**:
@@ -294,8 +302,8 @@ Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.23.0) [Compu
 @software{skforecast,
   author  = {Amat Rodrigo, Joaquin and Escobar Ortiz, Javier},
   title   = {skforecast},
-  version = {0.23.0},
-  month   = {7},
+  version = {0.24.0},
+  month   = {8},
   year    = {2026},
   license = {BSD-3-Clause},
   url     = {https://skforecast.org/},
@@ -303,7 +311,7 @@ Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.23.0) [Compu
 }
 ```
 
-View the [citation file](https://github.com/skforecast/skforecast/blob/master/CITATION.cff).
+View the [citation file](https://github.com/skforecast/skforecast/blob/main/CITATION.cff).
 
 
 # Donating
@@ -334,7 +342,7 @@ If you found **skforecast** useful, you can support us with a donation. Your con
 
 # License
 
-**Skforecast software**: [BSD-3-Clause License](https://github.com/skforecast/skforecast/blob/master/LICENSE)
+**Skforecast software**: [BSD-3-Clause License](https://github.com/skforecast/skforecast/blob/main/LICENSE)
 
 **Skforecast documentation**: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 

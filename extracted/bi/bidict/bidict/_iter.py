@@ -1,4 +1,4 @@
-# Copyright 2009-2024 Joshua Bronson. All rights reserved.
+# Copyright 2009-2026 Joshua Bronson. All rights reserved.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections.abc import Mapping
 from operator import itemgetter
 
 from ._typing import KT
@@ -21,13 +22,17 @@ from ._typing import MapOrItems
 
 def iteritems(arg: MapOrItems[KT, VT] = (), /, **kw: VT) -> ItemsIter[KT, VT]:
     """Yield the items from *arg* and *kw* in the order given."""
-    if isinstance(arg, t.Mapping):
-        yield from arg.items()
-    elif isinstance(arg, Maplike):
-        yield from ((k, arg[k]) for k in arg.keys())
+    if isinstance(arg, Mapping):
+        yield from t.cast('Mapping[KT, VT]', arg).items()
+    # isinstance() against a runtime-checkable Protocol is cheap when it succeeds but expensive
+    # when it fails: it falls back to inspect.getattr_static() per member and caches nothing.
+    # It fails for an iterable of items, which is what every single-item write passes, so screen
+    # that case out first -- a Maplike has a keys attribute by definition.
+    elif hasattr(arg, 'keys') and isinstance(arg, Maplike):
+        yield from ((key, arg[key]) for key in arg.keys())
     else:
         yield from arg
-    yield from t.cast(ItemsIter[KT, VT], kw.items())
+    yield from t.cast('ItemsIter[KT, VT]', kw.items())
 
 
 swap: t.Final = itemgetter(1, 0)

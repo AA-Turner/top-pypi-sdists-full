@@ -16,13 +16,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from pydantic import Field, StrictBool, StrictInt, StrictStr, field_validator
-from typing import Optional
+from typing import List, Optional
 from typing_extensions import Annotated
 from tako.aio.models.answer_response import AnswerResponse
 from tako.aio.models.contents_request import ContentsRequest
 from tako.aio.models.contents_response import ContentsResponse
 from tako.aio.models.create_card_request import CreateCardRequest
 from tako.aio.models.graph_node import GraphNode
+from tako.aio.models.graph_node_type import GraphNodeType
 from tako.aio.models.graph_related_response import GraphRelatedResponse
 from tako.aio.models.graph_search_response import GraphSearchResponse
 from tako.aio.models.search_request import SearchRequest
@@ -50,7 +51,7 @@ class TakoApi:
     @validate_call
     async def answer(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,9 +67,9 @@ class TakoApi:
     ) -> AnswerResponse:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -121,7 +122,7 @@ class TakoApi:
     @validate_call
     async def answer_with_http_info(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,9 +138,9 @@ class TakoApi:
     ) -> ApiResponse[AnswerResponse]:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,7 +193,7 @@ class TakoApi:
     @validate_call
     async def answer_without_preload_content(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -208,9 +209,9 @@ class TakoApi:
     ) -> RESTResponseType:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -336,7 +337,7 @@ class TakoApi:
     @validate_call
     async def contents(
         self,
-        contents_request: Optional[ContentsRequest] = None,
+        contents_request: ContentsRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -354,7 +355,7 @@ class TakoApi:
 
         Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is truncated to `max_rows` like every other format, so Tako never delivers more record rows than it bills. A card whose record array is unbounded caps that array at the platform export ceiling and sets `truncated`. A card type without a card_json shape returns 422. A card returns 403 when Tako cannot export its data. A data provider that does not permit export and a card whose sources Tako cannot confirm both return 403, and the error message states which. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing, fetches nothing, and calls no data provider. Every format prices a quote from `max_rows`, so the quote is an upper bound on the charge and never falls below it.
 
-        :param contents_request:
+        :param contents_request: (required)
         :type contents_request: ContentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -408,7 +409,7 @@ class TakoApi:
     @validate_call
     async def contents_with_http_info(
         self,
-        contents_request: Optional[ContentsRequest] = None,
+        contents_request: ContentsRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -426,7 +427,7 @@ class TakoApi:
 
         Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is truncated to `max_rows` like every other format, so Tako never delivers more record rows than it bills. A card whose record array is unbounded caps that array at the platform export ceiling and sets `truncated`. A card type without a card_json shape returns 422. A card returns 403 when Tako cannot export its data. A data provider that does not permit export and a card whose sources Tako cannot confirm both return 403, and the error message states which. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing, fetches nothing, and calls no data provider. Every format prices a quote from `max_rows`, so the quote is an upper bound on the charge and never falls below it.
 
-        :param contents_request:
+        :param contents_request: (required)
         :type contents_request: ContentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -480,7 +481,7 @@ class TakoApi:
     @validate_call
     async def contents_without_preload_content(
         self,
-        contents_request: Optional[ContentsRequest] = None,
+        contents_request: ContentsRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -498,7 +499,7 @@ class TakoApi:
 
         Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is truncated to `max_rows` like every other format, so Tako never delivers more record rows than it bills. A card whose record array is unbounded caps that array at the platform export ceiling and sets `truncated`. A card type without a card_json shape returns 422. A card returns 403 when Tako cannot export its data. A data provider that does not permit export and a card whose sources Tako cannot confirm both return 403, and the error message states which. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing, fetches nothing, and calls no data provider. Every format prices a quote from `max_rows`, so the quote is an upper bound on the charge and never falls below it.
 
-        :param contents_request:
+        :param contents_request: (required)
         :type contents_request: ContentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -625,7 +626,7 @@ class TakoApi:
     @validate_call
     async def create_card(
         self,
-        create_card_request: Optional[CreateCardRequest] = None,
+        create_card_request: CreateCardRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -643,7 +644,7 @@ class TakoApi:
 
         Create a visualization card directly from component configurations. Supported component types: header, generic_timeseries, categorical_bar, stock_boxes, financial_boxes, table.
 
-        :param create_card_request:
+        :param create_card_request: (required)
         :type create_card_request: CreateCardRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -696,7 +697,7 @@ class TakoApi:
     @validate_call
     async def create_card_with_http_info(
         self,
-        create_card_request: Optional[CreateCardRequest] = None,
+        create_card_request: CreateCardRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -714,7 +715,7 @@ class TakoApi:
 
         Create a visualization card directly from component configurations. Supported component types: header, generic_timeseries, categorical_bar, stock_boxes, financial_boxes, table.
 
-        :param create_card_request:
+        :param create_card_request: (required)
         :type create_card_request: CreateCardRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -767,7 +768,7 @@ class TakoApi:
     @validate_call
     async def create_card_without_preload_content(
         self,
-        create_card_request: Optional[CreateCardRequest] = None,
+        create_card_request: CreateCardRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -785,7 +786,7 @@ class TakoApi:
 
         Create a visualization card directly from component configurations. Supported component types: header, generic_timeseries, categorical_bar, stock_boxes, financial_boxes, table.
 
-        :param create_card_request:
+        :param create_card_request: (required)
         :type create_card_request: CreateCardRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1576,7 +1577,7 @@ class TakoApi:
     async def graph_search(
         self,
         q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
-        types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
+        types: Annotated[Optional[List[GraphNodeType]], Field(description="Facets to include. Defaults to metric and entity.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
@@ -1599,8 +1600,8 @@ class TakoApi:
 
         :param q: Search text (min 1 char). (required)
         :type q: str
-        :param types: Comma-separated facets: metric,entity.
-        :type types: str
+        :param types: Facets to include. Defaults to metric and entity.
+        :type types: List[GraphNodeType]
         :param limit: Max results (default 20, max 50).
         :type limit: int
         :param label: Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.
@@ -1662,7 +1663,7 @@ class TakoApi:
     async def graph_search_with_http_info(
         self,
         q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
-        types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
+        types: Annotated[Optional[List[GraphNodeType]], Field(description="Facets to include. Defaults to metric and entity.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
@@ -1685,8 +1686,8 @@ class TakoApi:
 
         :param q: Search text (min 1 char). (required)
         :type q: str
-        :param types: Comma-separated facets: metric,entity.
-        :type types: str
+        :param types: Facets to include. Defaults to metric and entity.
+        :type types: List[GraphNodeType]
         :param limit: Max results (default 20, max 50).
         :type limit: int
         :param label: Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.
@@ -1748,7 +1749,7 @@ class TakoApi:
     async def graph_search_without_preload_content(
         self,
         q: Annotated[str, Field(min_length=1, strict=True, description="Search text (min 1 char).")],
-        types: Annotated[Optional[StrictStr], Field(description="Comma-separated facets: metric,entity.")] = None,
+        types: Annotated[Optional[List[GraphNodeType]], Field(description="Facets to include. Defaults to metric and entity.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Max results (default 20, max 50).")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.")] = None,
         infer_label: Annotated[Optional[StrictBool], Field(description="When true, Tako NER infers the label and grounded-node boosts from q. Set false to disable. Tako ignores this parameter when you supply label. Default true.")] = None,
@@ -1771,8 +1772,8 @@ class TakoApi:
 
         :param q: Search text (min 1 char). (required)
         :type q: str
-        :param types: Comma-separated facets: metric,entity.
-        :type types: str
+        :param types: Facets to include. Defaults to metric and entity.
+        :type types: List[GraphNodeType]
         :param limit: Max results (default 20, max 50).
         :type limit: int
         :param label: Prefer results with this NER label (boost, not a filter — matching nodes rank higher; others still return). Supplying label disables inference.
@@ -1842,6 +1843,7 @@ class TakoApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'types': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1915,7 +1917,7 @@ class TakoApi:
     @validate_call
     async def search(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1933,7 +1935,7 @@ class TakoApi:
 
         Fast-pipeline knowledge search. Returns Tako cards (and web results when requested) with no LLM synthesis.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1986,7 +1988,7 @@ class TakoApi:
     @validate_call
     async def search_with_http_info(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2004,7 +2006,7 @@ class TakoApi:
 
         Fast-pipeline knowledge search. Returns Tako cards (and web results when requested) with no LLM synthesis.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2057,7 +2059,7 @@ class TakoApi:
     @validate_call
     async def search_without_preload_content(
         self,
-        search_request: Optional[SearchRequest] = None,
+        search_request: SearchRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2075,7 +2077,7 @@ class TakoApi:
 
         Fast-pipeline knowledge search. Returns Tako cards (and web results when requested) with no LLM synthesis.
 
-        :param search_request:
+        :param search_request: (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

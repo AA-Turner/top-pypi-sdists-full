@@ -19,7 +19,7 @@ CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 ANTIGRAVITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "antigravity-pr-checks.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
 LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
-CLA_STATUS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "cla-status.yml"
+CODEQL_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "codeql.yml"
 PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
@@ -28,6 +28,23 @@ VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candid
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
 PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+CI_FOUNDATION_SHA = "93efc801c2f22e08e40000dec2541fd1cafa5f59"
+CI_FOUNDATION_SETUP_ACTION = "albumentations-team/ci-foundation/actions/setup-python-uv@" + CI_FOUNDATION_SHA
+CI_FOUNDATION_UNCACHED_SETUP_ACTION = (
+    "albumentations-team/ci-foundation/actions/setup-python-uv-uncached@" + CI_FOUNDATION_SHA
+)
+CI_FOUNDATION_TORCH_ACTION = "albumentations-team/ci-foundation/actions/torch-cpu@" + CI_FOUNDATION_SHA
+CI_FOUNDATION_ANTIGRAVITY_WORKFLOW = (
+    "albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@" + CI_FOUNDATION_SHA
+)
+DOCUMENTATION_ONLY_PATHS = (
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "MAINTAINERS.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/**",
+)
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -109,17 +126,51 @@ def _check_pyproject(errors: list[str]) -> set[str]:
     return versions
 
 
-def _check_ci_torch_backend(errors: list[str], text: str) -> None:
+def _check_ci_torch_install(errors: list[str], text: str) -> None:
     errors.extend(
-        f"CI {job_name} job must install Torch from the CPU backend"
+        f"CI {job_name} job must install Torch through the shared CPU-only action"
         for job_name in ("test", "macos-arm64-matmul", "declared-dependency-ranges")
-        if "--torch-backend cpu" not in _workflow_job(text, job_name)
+        if CI_FOUNDATION_TORCH_ACTION not in _workflow_job(text, job_name)
     )
+
+
+def _check_ci_docs_contract_routing(errors: list[str], change_scope_job: str) -> None:
+    if "run_docs_contract_checks: ${{ steps.classify.outputs.run_docs_contract_checks }}" not in change_scope_job:
+        errors.append("CI workflow does not expose docs contract check routing")
+    if (
+        "if: steps.classify.outputs.run_docs_contract_checks == 'true'" not in change_scope_job
+        or "python tools/ci_matrix.py check" not in change_scope_job
+    ):
+        errors.append("CI workflow does not verify contract documentation changes")
+
+
+def _check_shared_foundation_setup(errors: list[str]) -> None:
+    for workflow in (
+        CI_WORKFLOW,
+        BENCHMARK_PR_WORKFLOW,
+        LEGAL_INTEGRITY_WORKFLOW,
+        PUBLISH_WORKFLOW,
+        SECURITY_WORKFLOW,
+    ):
+        if not workflow.exists():
+            continue
+        _check_file_fragments(
+            errors,
+            workflow,
+            {"shared Python and uv setup": CI_FOUNDATION_SETUP_ACTION},
+        )
+    if RELEASE_CANDIDATE_WORKFLOW.exists():
+        _check_file_fragments(
+            errors,
+            RELEASE_CANDIDATE_WORKFLOW,
+            {"uncached release-candidate Python and uv setup": CI_FOUNDATION_UNCACHED_SETUP_ACTION},
+        )
 
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
     text = CI_WORKFLOW.read_text()
     macos_matmul_job = _workflow_job(text, "macos-arm64-matmul")
+    change_scope_job = _workflow_job(text, "change_scope")
     errors.extend(
         f"CI matrix does not mention Python {version}"
         for version in sorted(versions)
@@ -131,6 +182,7 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not run router contract check")
     if "python tools/classify_ci_changes.py" not in text:
         errors.append("CI workflow is missing version-only change classifier")
+    _check_ci_docs_contract_routing(errors, change_scope_job)
     if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 3:
         errors.append("CI workflow does not gate all three test jobs on change scope")
     if re.search(r"""runs-on:\s*["']?macos-latest["']?""", macos_matmul_job) is None:
@@ -152,7 +204,8 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
-    _check_ci_torch_backend(errors, text)
+    _check_ci_torch_install(errors, text)
+    _check_shared_foundation_setup(errors)
 
 
 def _check_support_policy(errors: list[str], versions: set[str]) -> None:
@@ -205,6 +258,15 @@ def _check_torch_pip_audits(errors: list[str], path: Path) -> None:
         errors.append(f"{path.relative_to(REPO_ROOT)} must pass the PyTorch CPU index to every pip-audit command")
 
 
+def _check_documentation_only_filter(errors: list[str], path: Path, event: str) -> None:
+    text = path.read_text()
+    event_block = _workflow_job(text, event)
+    if "paths-ignore:" not in event_block or any(
+        f"- {doc_path}" not in event_block for doc_path in DOCUMENTATION_ONLY_PATHS
+    ):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must ignore documentation-only pull requests")
+
+
 def _check_release_workflows(errors: list[str]) -> None:
     for workflow in (SECURITY_WORKFLOW, RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
         _check_torch_runtime_exports(errors, workflow)
@@ -218,6 +280,15 @@ def _check_release_workflows(errors: list[str]) -> None:
             "PR benchmark artifacts": "pr-router-benchmark-results",
         },
     )
+    legal_text = LEGAL_INTEGRITY_WORKFLOW.read_text()
+    install_python_index = legal_text.find("- name: Install uv and Python")
+    classify_change_scope_index = legal_text.find("- name: Classify change scope")
+    if (
+        install_python_index == -1
+        or classify_change_scope_index == -1
+        or install_python_index > classify_change_scope_index
+    ):
+        errors.append("Legal integrity workflow must install Python before classifying changes")
     if BENCHMARK_PR_WORKFLOW.exists():
         benchmark_text = BENCHMARK_PR_WORKFLOW.read_text()
         base_benchmark_command = (
@@ -235,6 +306,9 @@ def _check_release_workflows(errors: list[str]) -> None:
             "legal integrity job": "License, CLA, and package notices",
             "source-tree verifier step": "Verify source-tree legal integrity",
             "source-tree legal verifier": "python tools/verify_legal_integrity.py",
+            "change scope classifier": "python tools/classify_ci_changes.py",
+            "docs-only legal routing": "steps.classify.outputs.docs_only != 'true'",
+            "README metadata routing": "steps.classify.outputs.run_package_metadata_checks == 'true'",
             "legal verifier tests": "tests/test_legal_integrity.py",
             "distribution build": 'uv build --out-dir "${RUNNER_TEMP}/albucore-legal-dist"',
             "artifact verifier step": "Verify distribution license and CLA exclusion",
@@ -249,12 +323,14 @@ def _check_release_workflows(errors: list[str]) -> None:
         RELEASE_CANDIDATE_WORKFLOW,
         {
             "manual release candidate trigger": "workflow_dispatch:",
-            "exact commit input": "commit_sha:",
+            "main checkout": "ref: main",
+            "checked out candidate SHA": 'REQUESTED_COMMIT_SHA="$(git rev-parse HEAD)"',
+            "uncached bootstrap": CI_FOUNDATION_UNCACHED_SETUP_ACTION,
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
             "release validation Torch profile": "uv sync --frozen --extra headless --extra torch --group dev",
-            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
+            "shared CPU Torch action": CI_FOUNDATION_TORCH_ACTION,
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
@@ -265,6 +341,7 @@ def _check_release_workflows(errors: list[str]) -> None:
         errors,
         RELEASE_CANDIDATE_WORKFLOW,
         {
+            "caller-supplied candidate ref": "inputs.commit_sha",
             "release benchmark runner": "benchmarks/benchmark_router_synthetic.py",
             "release benchmark regression checker": "tools/check_benchmark_regressions.py",
             "accepted benchmark regression input": "accepted_regressions:",
@@ -290,7 +367,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "trusted publishing": "pypa/gh-action-pypi-publish",
             "release event publish job": "Publish from GitHub Release",
             "GitHub Release only after PyPI": "Create or update GitHub Release",
-            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
+            "shared CPU Torch action": CI_FOUNDATION_TORCH_ACTION,
         },
     )
     if PUBLISH_WORKFLOW.exists() and PUBLISH_WORKFLOW.read_text().count(LEGAL_ARTIFACT_VERIFY_COMMAND) == 1:
@@ -353,36 +430,12 @@ def _check_release_workflow(errors: list[str]) -> None:
 
 def _check_security_workflow(errors: list[str]) -> None:
     text = SECURITY_WORKFLOW.read_text()
+    _check_documentation_only_filter(errors, SECURITY_WORKFLOW, "pull_request")
     if "uv export --frozen --no-dev --no-emit-project" not in text:
         errors.append("Security workflow runtime audit must omit the editable project from exported requirements")
     if "uv export --frozen --no-emit-project" not in text:
         errors.append("Security workflow dev audit must omit the editable project from exported requirements")
     _check_torch_pip_audits(errors, SECURITY_WORKFLOW)
-
-
-def _check_cla_status_workflow(errors: list[str]) -> None:
-    _check_file_fragments(
-        errors,
-        CLA_STATUS_WORKFLOW,
-        {
-            "pull request trigger": "pull_request:",
-            "manual recovery trigger": "workflow_dispatch:",
-            "read-only status permission": "statuses: read",
-            "CLA reporter job": "CLA status reported",
-            "hosted CLA context": "license/cla",
-            "paginated status lookup": "--paginate --slurp",
-            "CLA Assistant recheck URL": "https://cla-assistant.io/check/",
-            "maintainer recovery procedure": "docs/maintaining/license-provenance.md",
-        },
-    )
-    _check_file_absent_fragments(
-        errors,
-        CLA_STATUS_WORKFLOW,
-        {
-            "status write permission": "statuses: write",
-            "pull-request write permission": "pull-requests: write",
-        },
-    )
 
 
 def _check_antigravity_workflow(errors: list[str]) -> None:
@@ -391,22 +444,37 @@ def _check_antigravity_workflow(errors: list[str]) -> None:
         ANTIGRAVITY_WORKFLOW,
         {
             "pull_request_target trigger": "pull_request_target:",
-            "trusted base checkout": "ref: ${{ github.event.pull_request.base.sha }}",
             "same-repository guard": "github.event.pull_request.head.repo.full_name == github.repository",
-            "Vertex AI authentication": 'use_vertex_ai: "true"',
-            "read-only Gemini tools": '"read_many_files"',
-            "Antigravity path selector": "python -m tools.antigravity_plan",
-            "validated review artifact": "python -m tools.antigravity_review",
-            "separate publisher job": "Publish Antigravity Review",
+            "shared trusted review workflow": CI_FOUNDATION_ANTIGRAVITY_WORKFLOW,
+            "data-only policy": "policy-path: .github/ci-foundation/antigravity.toml",
+            "workload identity permission": "id-token: write",
+            "review publication permission": "pull-requests: write",
         },
     )
     _check_file_absent_fragments(
         errors,
         ANTIGRAVITY_WORKFLOW,
         {
-            "PR head checkout": "ref: ${{ github.event.pull_request.head.sha }}",
             "Gemini API key": "secrets.GEMINI_API_KEY",
-            "Gemini shell tool": "run_shell_command",
+            "local Gemini runner": "google-github-actions/run-gemini-cli",
+        },
+    )
+
+
+def _check_codeql_workflow(errors: list[str]) -> None:
+    _check_documentation_only_filter(errors, CODEQL_WORKFLOW, "pull_request")
+    _check_file_fragments(
+        errors,
+        CODEQL_WORKFLOW,
+        {
+            "pull request trigger": "pull_request:",
+            "weekly schedule": 'cron: "0 4 * * 2"',
+            "manual transition trigger": "workflow_dispatch:",
+            "advanced setup transition gate": "if: vars.CODEQL_ADVANCED_SETUP == 'true'",
+            "CodeQL security upload permission": "security-events: write",
+            "CodeQL initialization": "github/codeql-action/init@",
+            "CodeQL analysis": "github/codeql-action/analyze@",
+            "Python analysis": "language: [actions, python]",
         },
     )
 
@@ -420,8 +488,8 @@ def check() -> list[str]:
         _check_support_policy(errors, versions)
         _check_release_workflow(errors)
         _check_security_workflow(errors)
-        _check_cla_status_workflow(errors)
         _check_antigravity_workflow(errors)
+        _check_codeql_workflow(errors)
     return errors
 
 

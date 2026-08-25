@@ -20,7 +20,7 @@ import contextlib
 import copy
 import os
 import pickle
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -42,7 +42,7 @@ class FasterCocoEvaluator:
     def __init__(
         self,
         coco_gt: COCO,
-        iou_types: List[str],
+        iou_types: list[str],
         lvis_style: bool = False,
         ranges={
             "small": [0**2, 32**2],
@@ -66,7 +66,7 @@ class FasterCocoEvaluator:
 
         self.iou_types = iou_types
         self.ranges = ranges
-        self.coco_eval: Dict[str, COCOeval_faster] = {}
+        self.coco_eval: dict[str, COCOeval_faster] = {}
         for iou_type in iou_types:
             self.coco_eval[iou_type] = COCOeval_faster(
                 coco_gt,
@@ -101,7 +101,7 @@ class FasterCocoEvaluator:
         self.img_ids = []
         self.eval_imgs = {k: [] for k in self.iou_types}
 
-    def update(self, predictions: Dict[Any, Any]) -> None:
+    def update(self, predictions: dict[Any, Any]) -> None:
         """Updates the evaluator with new predictions.
 
         Args:
@@ -166,7 +166,7 @@ class FasterCocoEvaluator:
             coco_eval.summarize()
             self.stats_as_dict[iou_type] = coco_eval.stats_as_dict
 
-    def prepare(self, predictions: Dict[Any, Any], iou_type: str) -> List[Dict[str, Any]]:
+    def prepare(self, predictions: dict[Any, Any], iou_type: str) -> list[dict[str, Any]]:
         """Prepares predictions for COCO evaluation.
 
         Args:
@@ -185,7 +185,7 @@ class FasterCocoEvaluator:
         else:
             raise ValueError(f"Unknown iou type {iou_type}")
 
-    def prepare_for_coco_detection(self, predictions: Dict[Any, Any]) -> List[Dict[str, Any]]:
+    def prepare_for_coco_detection(self, predictions: dict[Any, Any]) -> list[dict[str, Any]]:
         """Converts bounding box predictions to COCO detection format.
 
         Args:
@@ -218,7 +218,7 @@ class FasterCocoEvaluator:
             ])
         return coco_results
 
-    def prepare_for_coco_segmentation(self, predictions: Dict[Any, Any]) -> List[Dict[str, Any]]:
+    def prepare_for_coco_segmentation(self, predictions: dict[Any, Any]) -> list[dict[str, Any]]:
         """Converts mask predictions to COCO segmentation format.
 
         Args:
@@ -235,8 +235,6 @@ class FasterCocoEvaluator:
             if len(prediction) == 0:
                 continue
 
-            scores = prediction["scores"]
-            labels = prediction["labels"]
             masks = prediction["masks"]
 
             masks = masks > 0.5
@@ -261,7 +259,7 @@ class FasterCocoEvaluator:
             ])
         return coco_results
 
-    def prepare_for_coco_keypoint(self, predictions: Dict[Any, Any]) -> List[Dict[str, Any]]:
+    def prepare_for_coco_keypoint(self, predictions: dict[Any, Any]) -> list[dict[str, Any]]:
         """Converts keypoint predictions to COCO keypoint format.
 
         Args:
@@ -279,8 +277,6 @@ class FasterCocoEvaluator:
             if len(prediction) == 0:
                 continue
 
-            boxes = prediction["boxes"]
-            boxes = convert_to_xywh(boxes).tolist()
             scores = prediction["scores"].tolist()
             labels = prediction["labels"].tolist()
             keypoints = prediction["keypoints"]
@@ -312,7 +308,7 @@ def convert_to_xywh(boxes: torch.Tensor) -> torch.Tensor:
     return torch.stack((xmin, ymin, xmax - xmin, ymax - ymin), dim=1)
 
 
-def all_gather(data: Any, world_size: int = None) -> List[Any]:
+def all_gather(data: Any, world_size: int = None) -> list[Any]:
     """Run all_gather on arbitrary picklable data (not necessarily tensors).
 
     Args:
@@ -331,14 +327,17 @@ def all_gather(data: Any, world_size: int = None) -> List[Any]:
     if world_size == 1:
         return [data]
 
+    # Gloo and other non-NCCL backends only support CPU tensors.
+    device = torch.device("cuda") if dist.get_backend() == "nccl" else torch.device("cpu")
+
     # serialized to a Tensor
     buffer = pickle.dumps(data)
     byte_array = bytearray(buffer)
-    tensor = torch.ByteTensor(list(byte_array)).to("cuda")
+    tensor = torch.tensor(byte_array, dtype=torch.uint8, device=device)
 
     # obtain Tensor size of each rank
-    local_size = torch.tensor([tensor.numel()], device="cuda")
-    size_list = [torch.tensor([0], device="cuda") for _ in range(world_size)]
+    local_size = torch.tensor([tensor.numel()], device=device)
+    size_list = [torch.tensor([0], device=device) for _ in range(world_size)]
     dist.all_gather(size_list, local_size)
     size_list = [int(size.item()) for size in size_list]
     max_size = max(size_list)
@@ -348,9 +347,9 @@ def all_gather(data: Any, world_size: int = None) -> List[Any]:
     # gathering tensors of different shapes
     tensor_list = []
     for _ in size_list:
-        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
-    if local_size != max_size:
-        padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device="cuda")
+        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device=device))
+    if local_size.item() != max_size:
+        padding = torch.empty(size=(max_size - local_size.item(),), dtype=torch.uint8, device=device)
         tensor = torch.cat((tensor, padding), dim=0)
     dist.all_gather(tensor_list, tensor)
 
@@ -362,9 +361,7 @@ def all_gather(data: Any, world_size: int = None) -> List[Any]:
     return data_list
 
 
-def merge(
-    img_ids: Union[List[Any], np.ndarray], eval_imgs: List[Any], world_size: int = None
-) -> Tuple[List[Any], List[Any]]:
+def merge(img_ids: list[Any] | np.ndarray, eval_imgs: list[Any], world_size: int = None) -> tuple[list[Any], list[Any]]:
     """Merges evaluation results from all processes.
 
     Args:

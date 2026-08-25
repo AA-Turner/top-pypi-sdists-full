@@ -106,6 +106,11 @@ class MessageNode(BaseModel):
     consumer's RL algorithm assigns it, which is not the same as a credit of zero: a group whose
     rewards were all equal is assigned zeros and carries no gradient, while an unassigned node was
     never scored at all."""
+    reference_logprobs: list[float] | None = None
+    """Reference-model logprobs over the sampled tokens, in the same compact layout as
+    `logprobs`. None means no reference model scored this node."""
+    loss_weights: dict[str, list[float]] | None = None
+    """Named loss-weight streams aligned to `token_ids`, consumer-stamped."""
     multi_modal_data: SkipJsonSchema[MultiModalData | None] = None
     """The renderer items for the images this message's content introduces (pixel tensors,
     grids, hashes, placeholders) — the only carrier of the pixels from the env server to the
@@ -283,9 +288,14 @@ def message_hash(message: Message) -> str:
             add(json.dumps(state, sort_keys=True))
         for tc in message.tool_calls or []:
             add("tool_call")
+            add(tc.type)
             add(tc.id)
             add(tc.name)
-            add(_canonical_tool_arguments(tc.arguments))
+            add(
+                tc.arguments
+                if tc.type == "custom"
+                else _canonical_tool_arguments(tc.arguments)
+            )
     elif isinstance(message, ToolMessage):
         add("tool_call_id")
         add(message.tool_call_id)
@@ -374,6 +384,18 @@ class PendingTurn:
         if tools:
             self.trace.tools = tools
         return assistant_id
+
+    def commit_prompt(self, tools: list[Tool] | None = None) -> None:
+        """Record an input that terminated before model inference."""
+        parent = self.prefix_node_ids[-1] if self.prefix_node_ids else None
+        index = _head_index(self.trace)
+        for message in self.tail:
+            previous = parent
+            self.trace.nodes.append(MessageNode(parent=parent, message=message))
+            parent = len(self.trace.nodes) - 1
+            index[(previous, message_hash(message))] = parent
+        if tools:
+            self.trace.tools = tools
 
 
 def prepare_turn(trace: Trace, prompt: list[Message]) -> PendingTurn:
@@ -518,6 +540,9 @@ def _commit_turn(turn: PendingTurn, response: Response) -> int:
     prompt = turn.prompt
     tokens = response.tokens
     multi_modal_data = tokens.multi_modal_data if tokens else None
+    # Constant per renderer, so re-stamping every turn is idempotent.
+    if tokens is not None and tokens.mm_token_type_id_map:
+        trace.mm_token_type_id_map = tokens.mm_token_type_id_map
     prompt_ids = tokens.prompt_ids if tokens else []
     spans = tokens.message_spans if tokens else None
     is_content = tokens.is_content if tokens else None

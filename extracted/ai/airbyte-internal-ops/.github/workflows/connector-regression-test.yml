@@ -52,6 +52,11 @@ on:
         required: false
         type: boolean
         default: false
+      disable_http_replay:
+        description: "If true, run both connector versions against the live API instead of replaying the control run's recorded HTTP responses. Replay is on by default; disable it when a connector's traffic cannot be replayed faithfully."
+        required: false
+        type: boolean
+        default: false
       with_state:
         description: "Fetch and pass the connection's current state to the read command (warm read). Defaults to true when connection_id is provided."
         required: false
@@ -104,6 +109,11 @@ on:
         type: string
       enable_debug_logs:
         description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container."
+        required: false
+        type: boolean
+        default: false
+      disable_http_replay:
+        description: "If true, run both connector versions against the live API instead of replaying the control run's recorded HTTP responses. Replay is on by default; disable it when a connector's traffic cannot be replayed faithfully."
         required: false
         type: boolean
         default: false
@@ -162,7 +172,11 @@ jobs:
           java-version: "21"
 
       - name: Install dependencies
-        run: uv sync --group dev --all-packages
+        # `live-tests` carries mitmproxy: without it `mitmdump` is absent, HTTP
+        # replay silently cannot run, and every comparison goes live against a
+        # drifting upstream while the CLI default says replay is on.
+        # `--all-packages` selects workspace packages, not dependency groups.
+        run: uv sync --group dev --group live-tests --all-packages
 
       - name: Resolve connector repo ref
         id: resolve-connector-ref
@@ -256,6 +270,11 @@ jobs:
             ARGS+=" --enable-debug-logs"
           fi
           
+          # Replay is the CLI default, so this only ever needs to turn it off.
+          if [ "${{ inputs.disable_http_replay }}" = "true" ]; then
+            ARGS+=" --no-http-replay"
+          fi
+          
           echo "--- Common Args ---"
           echo "ARGS=$ARGS"
           
@@ -295,7 +314,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-spec-${{ github.run_id }}
-          path: ${{ steps.setup.outputs.spec_output_dir }}/
+          # Recorded HTTP dumps are deliberately excluded: they hold full
+          # upstream response bodies (i.e. real customer data) and grow with
+          # everything the connector downloaded. They are consumed during the
+          # run -- metrics, and the target's replay corpus -- and have no value
+          # in the zip.
+          path: |
+            ${{ steps.setup.outputs.spec_output_dir }}/
+            !${{ steps.setup.outputs.spec_output_dir }}/**/*.mitm
+            !${{ steps.setup.outputs.spec_output_dir }}/**/*.har
           retention-days: 2
 
       - name: Write Context Block to Summary
@@ -362,7 +389,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-check-${{ github.run_id }}
-          path: ${{ steps.setup.outputs.check_output_dir }}/
+          # Recorded HTTP dumps are deliberately excluded: they hold full
+          # upstream response bodies (i.e. real customer data) and grow with
+          # everything the connector downloaded. They are consumed during the
+          # run -- metrics, and the target's replay corpus -- and have no value
+          # in the zip.
+          path: |
+            ${{ steps.setup.outputs.check_output_dir }}/
+            !${{ steps.setup.outputs.check_output_dir }}/**/*.mitm
+            !${{ steps.setup.outputs.check_output_dir }}/**/*.har
           retention-days: 2
 
       - name: Run DISCOVER
@@ -381,7 +416,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-discover-${{ github.run_id }}
-          path: ${{ steps.setup.outputs.discover_output_dir }}/
+          # Recorded HTTP dumps are deliberately excluded: they hold full
+          # upstream response bodies (i.e. real customer data) and grow with
+          # everything the connector downloaded. They are consumed during the
+          # run -- metrics, and the target's replay corpus -- and have no value
+          # in the zip.
+          path: |
+            ${{ steps.setup.outputs.discover_output_dir }}/
+            !${{ steps.setup.outputs.discover_output_dir }}/**/*.mitm
+            !${{ steps.setup.outputs.discover_output_dir }}/**/*.har
           retention-days: 2
 
       - name: Generate Configured Catalog from Discover Output
@@ -442,7 +485,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-read-${{ github.run_id }}
-          path: ${{ steps.setup.outputs.read_output_dir }}/
+          # Recorded HTTP dumps are deliberately excluded: they hold full
+          # upstream response bodies (i.e. real customer data) and grow with
+          # everything the connector downloaded. They are consumed during the
+          # run -- metrics, and the target's replay corpus -- and have no value
+          # in the zip.
+          path: |
+            ${{ steps.setup.outputs.read_output_dir }}/
+            !${{ steps.setup.outputs.read_output_dir }}/**/*.mitm
+            !${{ steps.setup.outputs.read_output_dir }}/**/*.har
           retention-days: 2
 
       - name: Append READ Skipped Message to Summary

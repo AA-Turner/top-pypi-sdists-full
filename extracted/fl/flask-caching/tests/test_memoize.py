@@ -7,7 +7,7 @@ from flask_caching import Cache
 from flask_caching import function_namespace
 
 
-def test_memoize(app, cache):
+def test_memoize(app, cache, clock):
     with app.test_request_context():
 
         @cache.memoize(3)
@@ -16,23 +16,41 @@ def test_memoize(app, cache):
 
         result = big_foo(5, 2)
 
-        time.sleep(1)
+        clock.advance(1)
 
         assert big_foo(5, 2) == result
 
         result2 = big_foo(5, 3)
         assert result2 != result
 
-        time.sleep(3)
+        clock.advance(3)
 
         assert big_foo(5, 2) != result
 
-        time.sleep(1)
+        clock.advance(1)
 
         assert big_foo(5, 3) != result2
 
 
-def test_memoize_hashes(app, cache, hash_method):
+def test_memoize_falsy_default_argument(app, cache):
+    with app.test_request_context():
+        runs = []
+
+        @cache.memoize()
+        def f(a, b=0):
+            runs.append((a, b))
+            return f"{a}:{b}"
+
+        # A falsy default (0) must not collide with an explicit None.
+        assert f(1, None) == "1:None"
+        assert f(1) == "1:0"
+        assert f(1, 0) == "1:0"
+        assert f(1, b=0) == "1:0"
+        # None and the default 0 are distinct; the three b=0 forms share a key.
+        assert runs == [(1, None), (1, 0)]
+
+
+def test_memoize_hashes(app, cache, hash_method, clock):
     with app.test_request_context():
 
         @cache.memoize(3, hash_method=hash_method)
@@ -41,23 +59,23 @@ def test_memoize_hashes(app, cache, hash_method):
 
         result = big_foo(5, 2)
 
-        time.sleep(1)
+        clock.advance(1)
 
         assert big_foo(5, 2) == result
 
         result2 = big_foo(5, 3)
         assert result2 != result
 
-        time.sleep(3)
+        clock.advance(3)
 
         assert big_foo(5, 2) != result
 
-        time.sleep(1)
+        clock.advance(1)
 
         assert big_foo(5, 3) != result2
 
 
-def test_memoize_timeout(app):
+def test_memoize_timeout(app, clock):
     app.config["CACHE_DEFAULT_TIMEOUT"] = 1
     cache = Cache(app)
 
@@ -69,8 +87,89 @@ def test_memoize_timeout(app):
 
         result = big_foo(5, 2)
         assert big_foo(5, 2) == result
-        time.sleep(2)
+        clock.advance(2)
         assert big_foo(5, 2) != result
+
+
+def test_memoize_entry_written_late_keeps_its_own_timeout(app, cache, clock):
+    with app.test_request_context():
+        runs = []
+
+        @cache.memoize(timeout=60)
+        def f(param):
+            runs.append(param)
+            return param.upper()
+
+        assert f("icecream") == "ICECREAM"
+        clock.advance(59)
+        assert f("waffles") == "WAFFLES"
+
+        # t=61: the version key used to expire here and orphan both entries.
+        clock.advance(2)
+        assert f("waffles") == "WAFFLES"
+        assert runs == ["icecream", "waffles"]
+
+        # t=120: past this entry's own timeout, so it expires normally.
+        clock.advance(59)
+        assert f("waffles") == "WAFFLES"
+        assert runs == ["icecream", "waffles", "waffles"]
+
+
+def test_memoize_version_key_outlives_newest_entry(app, cache, clock):
+    with app.test_request_context():
+
+        @cache.memoize(timeout=60)
+        def f(param):
+            return param.upper()
+
+        version_key = cache._memvname(function_namespace(f.uncached)[0])
+
+        f("a")
+        clock.advance(50)
+        # t=50: this entry expires at t=110, so the version key has to as well.
+        f("b")
+
+        clock.advance(59)
+        # t=109: entry "b" still has a second left, so its version must be live.
+        assert cache.get(version_key) is not None
+
+
+def test_memoize_version_key_expires_once_its_entries_have(app, cache, clock):
+    with app.test_request_context():
+
+        @cache.memoize(timeout=60)
+        def f(param):
+            return param.upper()
+
+        f("a")
+        version_key = cache._memvname(function_namespace(f.uncached)[0])
+        assert cache.get(version_key) is not None
+
+        clock.advance(61)
+        assert cache.get(version_key) is None
+
+
+def test_memoize_delete_resets_version_key(app, cache, clock):
+    with app.test_request_context():
+        runs = []
+
+        @cache.memoize(timeout=60)
+        def f(param):
+            runs.append(param)
+            return param.upper()
+
+        f("a")
+        assert runs == ["a"]
+
+        cache.delete_memoized(f)
+        assert f("a") == "A"
+        assert runs == ["a", "a"]
+
+        clock.advance(3600)
+        f("b")
+        clock.advance(30)
+        assert f("b") == "B"
+        assert runs == ["a", "a", "b"]
 
 
 def test_memoize_annotated(app, cache):
@@ -87,8 +186,6 @@ def test_memoize_annotated(app, cache):
         }
 
         result = big_foo_annotated(5, 2)
-
-        time.sleep(1)
 
         assert big_foo_annotated(5, 2) == result
 
@@ -123,8 +220,6 @@ def test_memoize_delete(app, cache):
         result = big_foo(5, 2)
         result2 = big_foo(5, 3)
 
-        time.sleep(1)
-
         assert big_foo(5, 2) == result
         assert big_foo(5, 2) == result
         assert big_foo(5, 3) != result
@@ -134,6 +229,49 @@ def test_memoize_delete(app, cache):
 
         assert big_foo(5, 2) != result
         assert big_foo(5, 3) != result2
+
+
+def test_memoize_delete_via_attribute(app, cache):
+    with app.test_request_context():
+
+        @cache.memoize(5)
+        def big_foo(a, b):
+            return a + b + random.randrange(0, 100000)
+
+        result = big_foo(5, 2)
+        assert big_foo(5, 2) == result
+
+        big_foo.delete_memoized()
+
+        assert big_foo(5, 2) != result
+
+
+def test_memoize_classfunc_delete_via_attribute(app, cache):
+    with app.test_request_context():
+
+        class Adder:
+            def __init__(self, initial):
+                self.initial = initial
+
+            @cache.memoize(5)
+            def add(self, b):
+                return self.initial + b + random.random()
+
+        adder1 = Adder(1)
+        adder2 = Adder(2)
+
+        a1 = adder1.add(3)
+        a2 = adder2.add(3)
+
+        assert adder1.add(3) == a1
+        assert adder2.add(3) == a2
+
+        # the attribute takes no arguments, so it resets the version for
+        # every instance, not just adder1
+        adder1.add.delete_memoized()
+
+        assert adder1.add(3) != a1
+        assert adder2.add(3) != a2
 
 
 def test_memoize_no_timeout_delete(app, cache):
@@ -169,8 +307,6 @@ def test_memoize_verhash_delete(app, cache):
         result = big_foo(5, 2)
         result2 = big_foo(5, 3)
 
-        time.sleep(1)
-
         assert big_foo(5, 2) == result
         assert big_foo(5, 2) == result
         assert big_foo(5, 3) != result
@@ -199,8 +335,6 @@ def test_memoize_annotated_delete(app, cache):
 
         result = big_foo_annotated(5, 2)
         result2 = big_foo_annotated(5, 3)
-
-        time.sleep(1)
 
         assert big_foo_annotated(5, 2) == result
         assert big_foo_annotated(5, 2) == result
@@ -320,7 +454,7 @@ def test_memoize_classarg(app, cache):
     def bar(a):
         return a.value + random.random()
 
-    class Adder:  # noqa: B903
+    class Adder:
         def __init__(self, value):
             self.value = value
 
@@ -366,7 +500,7 @@ def test_memoize_classfunc_repr(app, cache):
 
         @cache.memoize()
         def add(self, b):
-            return self.initial + b
+            return self.initial + b + random.random()
 
         def __repr__(self):
             return "42"
@@ -430,6 +564,106 @@ def test_memoize_classfunc_delete(app, cache):
         # self.assertNotEqual(a4, a6)
 
 
+def test_memoize_classfunc_delete_with_args(app, cache):
+    """A bound method carries its own instance, so ``delete_memoized`` only
+    needs the arguments that follow it."""
+    with app.test_request_context():
+
+        class Adder:
+            @cache.memoize(5)
+            def add(self, b):
+                return b + random.random()
+
+        adder1 = Adder()
+        adder2 = Adder()
+
+        a1 = adder1.add(3)
+        a2 = adder1.add(4)
+        a3 = adder2.add(3)
+
+        cache.delete_memoized(adder1.add, 3)
+
+        # only ``adder1.add(3)`` is gone
+        assert adder1.add(3) != a1
+        assert adder1.add(4) == a2
+        assert adder2.add(3) == a3
+
+
+def test_memoize_classfunc_delete_with_explicit_instance(app, cache):
+    """Passing the instance explicitly keeps working, so that code written
+    against the previous behaviour is not broken."""
+    with app.test_request_context():
+
+        class Adder:
+            @cache.memoize(5)
+            def add(self, b):
+                return b + random.random()
+
+        adder1 = Adder()
+        adder2 = Adder()
+
+        a1 = adder1.add(3)
+        a2 = adder1.add(4)
+        a3 = adder2.add(3)
+
+        cache.delete_memoized(adder1.add, adder1, 3)
+
+        assert adder1.add(3) != a1
+        assert adder1.add(4) == a2
+        assert adder2.add(3) == a3
+
+        # ... and so does reaching the method through the class
+        a1 = adder1.add(3)
+        cache.delete_memoized(Adder.add, adder1, 3)
+
+        assert adder1.add(3) != a1
+        assert adder2.add(3) == a3
+
+
+def test_memoize_classfunc_delete_with_args_to_ignore_self(app, cache):
+    with app.test_request_context():
+
+        class Adder:
+            @cache.memoize(5, args_to_ignore=["self"])
+            def add(self, b):
+                return b + random.random()
+
+        adder1 = Adder()
+        adder2 = Adder()
+
+        a1 = adder1.add(3)
+        a2 = adder1.add(4)
+
+        # ``self`` is not part of the key, so both instances share it
+        assert adder2.add(3) == a1
+
+        cache.delete_memoized(adder1.add, 3)
+
+        assert adder1.add(3) != a1
+        assert adder1.add(4) == a2
+
+
+def test_memoize_classfunc_delete_with_kwargs_only(app, cache):
+    with app.test_request_context():
+
+        class Adder:
+            @cache.memoize(5)
+            def add(self, b):
+                return b + random.random()
+
+        adder1 = Adder()
+
+        a1 = adder1.add(3)
+
+        cache.delete_memoized(adder1.add, b=3)
+
+        assert adder1.add(3) != a1
+
+        # reached through the class there is no instance to fall back on
+        with pytest.raises(ValueError):
+            cache.delete_memoized(Adder.add, b=3)
+
+
 def test_memoize_classmethod_delete(app, cache):
     with app.test_request_context():
 
@@ -441,8 +675,6 @@ def test_memoize_classmethod_delete(app, cache):
 
         result = Mock.big_foo(5, 2)
         result2 = Mock.big_foo(5, 3)
-
-        time.sleep(1)
 
         assert Mock.big_foo(5, 2) == result
         assert Mock.big_foo(5, 2) == result
@@ -466,8 +698,6 @@ def test_memoize_classmethod_delete_with_args(app, cache):
 
         result = Mock.big_foo(5, 2)
         result2 = Mock.big_foo(5, 3)
-
-        time.sleep(1)
 
         assert Mock.big_foo(5, 2) == result
         assert Mock.big_foo(5, 2) == result
@@ -495,7 +725,6 @@ def test_memoize_forced_update(app, cache):
             return a + b + random.randrange(0, 100000)
 
         result = big_foo(5, 2)
-        time.sleep(1)
         assert big_foo(5, 2) == result
 
         forced_update = True
@@ -503,7 +732,6 @@ def test_memoize_forced_update(app, cache):
         assert new_result != result
 
         forced_update = False
-        time.sleep(1)
         assert big_foo(5, 2) == new_result
 
 
@@ -527,21 +755,17 @@ def test_memoize_forced_update_parameters(app, cache):
 
         # Save the value for later inspection
         result = memoized_func(5, 2)
-        # forced_update_func should have been called twice; once by memoize
-        # itself, once by _memoize_version…
-        assert call_counter[1] == 2
+        # forced_update_func should have been called once by memoize itself.
+        assert call_counter[1] == 1
         # …with the values we called the function with
         assert call_params[0] == (5, 2)
-        assert call_params[1] == (5, 2)
-        time.sleep(1)
 
         # Calling the function again should return the cached value
         assert memoized_func(5, 2) == result
-        # forced_update_func should have been called two more times…
-        assert call_counter[1] == 4
+        # forced_update_func should have been called one more time…
+        assert call_counter[1] == 2
         # …with the values we called the function with
-        assert call_params[2] == (5, 2)
-        assert call_params[3] == (5, 2)
+        assert call_params[1] == (5, 2)
 
         # Tell forced_update_func to return True next time
         forced_update = True
@@ -550,22 +774,71 @@ def test_memoize_forced_update_parameters(app, cache):
         # …which, due to the random number in the function, should be different
         # from the old one
         assert new_result != result
-        # forced_update_func should have been called two more times again…
-        assert call_counter[1] == 6
+        # forced_update_func should have been called one more time again…
+        assert call_counter[1] == 3
         # …with the values we called the function with
-        assert call_params[4] == (5, 2)
-        assert call_params[5] == (5, 2)
+        assert call_params[2] == (5, 2)
 
         # Now stop forced updating again
         forced_update = False
-        time.sleep(1)
         # The function should return the same value as it did last time
         assert memoized_func(5, 2) == new_result
-        # forced_update_func should have been called two more times again…
-        assert call_counter[1] == 8
+        # forced_update_func should have been called one more time again…
+        assert call_counter[1] == 4
         # …with the values we called the function with
-        assert call_params[6] == (5, 2)
-        assert call_params[7] == (5, 2)
+        assert call_params[3] == (5, 2)
+
+
+def test_memoize_is_stale(app, cache):
+    with app.test_request_context():
+        stale = False
+        cached_values = []
+
+        def is_stale(value):
+            cached_values.append(value)
+
+            return stale
+
+        @cache.memoize(5, is_stale=is_stale)
+        def big_foo(a, b):
+            return a + b + random.randrange(0, 100000)
+
+        result = big_foo(5, 2)
+        # is_stale is only consulted on a cache hit
+        assert cached_values == []
+
+        assert big_foo(5, 2) == result
+        assert cached_values == [result]
+
+        stale = True
+        new_result = big_foo(5, 2)
+        assert new_result != result
+        assert cached_values == [result, result]
+
+        stale = False
+        assert big_foo(5, 2) == new_result
+        assert cached_values == [result, result, new_result]
+
+
+def test_memoize_is_stale_parameters(app, cache):
+    with app.test_request_context():
+        call_params = []
+
+        def is_stale(value, a, b):
+            call_params.append((value, a, b))
+
+            return False
+
+        @cache.memoize(5, is_stale=is_stale)
+        def memoized_func(a, b):
+            return a + b + random.randrange(0, 100000)
+
+        result = memoized_func(5, 2)
+        assert call_params == []
+
+        assert memoized_func(5, 2) == result
+        # the cached value comes first, followed by the call's own arguments
+        assert call_params == [(result, 5, 2)]
 
 
 def test_memoize_multiple_arg_kwarg_calls(app, cache):
@@ -577,7 +850,7 @@ def test_memoize_multiple_arg_kwarg_calls(app, cache):
                 c = [1, 1]
             if d is None:
                 d = [1, 1]
-            return sum(a) + sum(b) + sum(c) + sum(d) + random.randrange(0, 100000)  # noqa
+            return sum(a) + sum(b) + sum(c) + sum(d) + random.randrange(0, 100000)
 
         result_a = big_foo([5, 3, 2], [1], c=[3, 3], d=[3, 3])
 
@@ -595,7 +868,7 @@ def test_memoize_multiple_arg_kwarg_delete(app, cache):
                 c = [1, 1]
             if d is None:
                 d = [1, 1]
-            return sum(a) + sum(b) + sum(c) + sum(d) + random.randrange(0, 100000)  # noqa
+            return sum(a) + sum(b) + sum(c) + sum(d) + random.randrange(0, 100000)
 
         result_a = big_foo([5, 3, 2], [1], c=[3, 3], d=[3, 3])
         cache.delete_memoized(big_foo, [5, 3, 2], [1], [3, 3], [3, 3])
@@ -704,8 +977,6 @@ def test_memoize_none(app, cache):
         def memoize_none(param):
             call_counter[param] += 1
 
-            return None
-
         memoize_none(1)
 
         # The memoized function should have been called
@@ -736,8 +1007,6 @@ def test_memoize_never_accept_none(app, cache):
         @cache.memoize()
         def memoize_none(param):
             call_counter[param] += 1
-
-            return None
 
         memoize_none(1)
 
@@ -808,6 +1077,68 @@ def test_memoize_with_source_check_disabled(app, cache):
         third_try = big_foo(5, 2)
 
         assert third_try == first_try
+
+
+def test_memoize_source_check_from_config(app):
+    """``CACHE_SOURCE_CHECK`` applies when the decorator doesn't override it."""
+    app.config["CACHE_SOURCE_CHECK"] = True
+    cache = Cache(app)
+
+    with app.test_request_context():
+
+        @cache.memoize()
+        def big_foo(a, b):
+            return str(time.time())
+
+        first_try = big_foo(5, 2)
+        assert big_foo(5, 2) == first_try
+
+        @cache.memoize()
+        def big_foo(a, b):  # noqa: F811
+            return str(time.time())
+
+        assert big_foo(5, 2) != first_try
+
+
+def test_memoize_delete_with_source_check_from_config(app):
+    """``CACHE_SOURCE_CHECK`` must reach the ``make_cache_key`` attribute.
+
+    ``delete_memoized`` builds the key through ``make_cache_key``, which is
+    created when the decorator is applied. Resolving the config value later
+    than that made the two keys disagree, so nothing was deleted.
+    """
+    app.config["CACHE_SOURCE_CHECK"] = True
+    cache = Cache(app)
+
+    with app.test_request_context():
+
+        @cache.memoize(50)
+        def big_foo(a, b):
+            return a + b + random.randrange(0, 100000)
+
+        first_try = big_foo(5, 2)
+        assert big_foo(5, 2) == first_try
+
+        cache.delete_memoized(big_foo, 5, 2)
+
+        assert big_foo(5, 2) != first_try
+
+
+def test_cached_source_check_from_config_applies_to_first_call(app):
+    """The source hash must be part of the key from the very first call."""
+    app.config["CACHE_SOURCE_CHECK"] = True
+    cache = Cache(app)
+
+    @cache.cached(key_prefix="MyBits")
+    def get_random_bits():
+        return [random.randrange(0, 2) for i in range(50)]
+
+    with app.test_request_context():
+        key_before_call = get_random_bits.make_cache_key()
+        get_random_bits()
+
+        assert key_before_call != "MyBits"
+        assert get_random_bits.make_cache_key() == key_before_call
 
 
 def test_memoize_ignore_args(app, cache):

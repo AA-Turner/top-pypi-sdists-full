@@ -56,6 +56,18 @@ def test_detect_env_with_github_actions_env_vars_returns_the_correct_environment
     assert run_env.job_id is None
     assert run_env.message == "excellent adventure"
 
+def test_detect_env_with_github_actions_missing_repository_or_run_id_omits_url():
+    run_env = RunEnvBuilder({
+        "GITHUB_ACTION": "bring-about-world-peace",
+        "GITHUB_RUN_NUMBER": "42",
+        "GITHUB_RUN_ATTEMPT": "1",
+    }).build()
+
+    assert run_env.ci == "github_actions"
+    assert run_env.url is None
+    assert "url" not in run_env.as_json()
+
+
 def test_detect_env_with_circle_ci_env_vars_returns_the_correct_environment():
     build_num = str(randint(0, 1000))
     workflow_id = str(uuid4())
@@ -106,3 +118,18 @@ def test_env_as_json(fake_env):
     expected_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     assert json["language_version"] == expected_version
     assert json["test_runner"] == "pytest"
+
+def test_worker_id_tag_with_agent_id():
+    tag = RunEnvBuilder({"BUILDKITE_AGENT_ID": "agent-123"}).worker_id_tag()
+
+    assert tag == {"ci.worker.id": "agent-123"}
+
+def test_worker_id_tag_without_agent_id():
+    tag = RunEnvBuilder({}).worker_id_tag()
+
+    assert tag == {}
+
+def test_worker_id_tag_with_blank_agent_id():
+    tag = RunEnvBuilder({"BUILDKITE_AGENT_ID": ""}).worker_id_tag()
+
+    assert tag == {}

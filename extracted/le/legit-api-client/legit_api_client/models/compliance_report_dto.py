@@ -78,22 +78,19 @@ class ComplianceReportDto(BaseModel):
         _items = []
         if self.workspaces:
             for _item_workspaces in self.workspaces:
-                if _item_workspaces:
-                    _items.append(_item_workspaces.to_dict())
+                _items.append(_item_workspaces.to_dict() if _item_workspaces is not None else None)
             _dict['workspaces'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in integrations (list)
         _items = []
         if self.integrations:
             for _item_integrations in self.integrations:
-                if _item_integrations:
-                    _items.append(_item_integrations.to_dict())
+                _items.append(_item_integrations.to_dict() if _item_integrations is not None else None)
             _dict['integrations'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in requirements (list)
         _items = []
         if self.requirements:
             for _item_requirements in self.requirements:
-                if _item_requirements:
-                    _items.append(_item_requirements.to_dict())
+                _items.append(_item_requirements.to_dict() if _item_requirements is not None else None)
             _dict['requirements'] = _items
         # set to None if workspaces (nullable) is None
         # and model_fields_set contains the field

@@ -7,9 +7,9 @@ Connects to an already-running runtime server over HTTP + WebSocket.
 import asyncio
 import contextlib
 import contextvars
+import ipaddress
 import json
 import os
-import time
 import typing as t
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -30,11 +30,20 @@ from dreadnode.app.client.transports import (
     _WebsocketsRuntimeSocket,
 )
 from dreadnode.app.env import read_env_with_deprecation
+from dreadnode.app.server.runtime_credentials import read_runtime_token
 from dreadnode.app.server.runtime_events import RuntimeEventEnvelope
-from dreadnode.app.server.runtime_token import read_runtime_token
+from dreadnode.core.tls import cached_platform_ssl_context, format_tls_error
 
 _SUBSCRIBE_RECONNECT_INITIAL_DELAY = 0.25
 _SUBSCRIBE_RECONNECT_MAX_DELAY = 15.0
+
+# Loopback polling budget, used while waiting on a local server to bind. The
+# managed client retries every 100ms, so this only has to beat a live socket.
+_LOCAL_HEALTH_TIMEOUT = 1.0
+# Remote runtimes are reached across the customer's WAN and ingress, with a TLS
+# handshake on the first request. The loopback budget above is not survivable
+# there, and a timeout here surfaces as "could not connect" with no cause.
+REMOTE_HEALTH_TIMEOUT_SECONDS = 15.0
 
 __all__ = [
     "DEFAULT_MODEL",
@@ -61,18 +70,17 @@ def _default_runtime_url() -> str:
 
 
 class _RuntimeTokenAuth(httpx.Auth):
-    """Attach the current runtime bearer token per request, refreshing on 401.
+    """Attach the runtime's bearer credential per request.
 
-    Resolving the token per request (instead of baking a header at client
-    construction) is what lets a *rotated* token reach a long-lived client — a
-    subprocess worker keeps calling back into the runtime across a reconnect
-    without being restarted. On a 401 the token is re-read once and the request
-    retried, covering a rotation that lands mid-request (just after the grace
-    window). A ``None`` resolver result sends the request unauthenticated, so a
-    server with auth disabled behaves as before.
+    SB-CRED-012: the credential never changes during the sandbox's life, so
+    there is nothing to re-read and no retry to make — a 401 means the caller
+    is genuinely not authorized. Resolution stays per-request only so a client
+    built before the environment was populated still picks it up. A ``None``
+    result sends the request unauthenticated, which is how a server with auth
+    disabled behaves.
     """
 
-    def __init__(self, resolve_token: "t.Callable[..., str | None]") -> None:
+    def __init__(self, resolve_token: "t.Callable[[], str | None]") -> None:
         self._resolve_token = resolve_token
 
     def auth_flow(
@@ -81,13 +89,7 @@ class _RuntimeTokenAuth(httpx.Auth):
         token = self._resolve_token()
         if token:
             request.headers["Authorization"] = f"Bearer {token}"
-        response = yield request
-        if response.status_code == 401:
-            # Bypass the client cache on a 401 — the token may have just rotated.
-            retry_token = self._resolve_token(force=True)
-            if retry_token and retry_token != token:
-                request.headers["Authorization"] = f"Bearer {retry_token}"
-                yield request
+        yield request
 
 
 # Resolved at import; consumers that spawn the server subprocess need the
@@ -130,23 +132,21 @@ class RuntimeClient:
         self.server_url = (server_url or _default_runtime_url()).rstrip("/")
         # A pinned token (explicitly passed, or set post-construction by
         # ManagedRuntimeClient once it owns the socket) is used verbatim.
-        # Otherwise the token is resolved dynamically per request so a rotation
-        # of the sandbox's runtime token reaches this client without a restart.
+        # Otherwise the runtime's own credential is read from the environment.
         self._auth_token = auth_token
-        # Small client-side cache so a long-lived worker doesn't stat+read the
-        # token file on every request; the 401 retry bypasses it (see auth flow).
-        self._token_cache: tuple[str | None, float] | None = None
-        self._token_cache_ttl = 1.0
-        self._http_client = httpx.AsyncClient(
-            base_url=self.server_url,
-            timeout=None,  # noqa: S113 - long-lived runtime client intentionally disables global timeout
-            transport=transport,
-            auth=_RuntimeTokenAuth(self._current_token),
-        )
+        # Remote runtimes on self-hosted installs are fronted by the customer's
+        # own certificate, frequently issued by an internal CA. httpx defaults to
+        # the certifi bundle, which never contains one; the platform client uses
+        # native trust (ENG-7742) and this client must match, or every runtime
+        # fails TLS on an install whose platform connection works fine.
+        # An injected transport owns its own trust decisions, so leave it alone.
+        self._injected_transport = transport
+        self._http_client = self._create_http_client(transport=transport)
         # Used as the fallback ``source`` on ``notify`` calls (CAP-WCLI-014).
         # Worker-hosted clients set this to ``capability.<name>``; standalone
         # clients leave it as None and must supply ``source`` explicitly.
         self._default_notify_source = default_notify_source
+
         # Reserved labels that this client stamps on every ``create_session``
         # call (CAP-WCLI-022). Worker-bound clients populate this with
         # ``worker:<name>``; standalone clients leave it empty.
@@ -178,24 +178,29 @@ class RuntimeClient:
         self._started = False
         self._interactive_transport: _RuntimeInteractiveTransport | None = None
 
-    def _current_token(self, *, force: bool = False) -> str | None:
-        """The bearer token to present now: the pinned one, else resolved live.
+    def _create_http_client(
+        self,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> httpx.AsyncClient:
+        """Create an HTTP client with the runtime's shared trust and auth policy."""
+        transport_kwargs: dict[str, t.Any] = (
+            {"transport": transport}
+            if transport is not None
+            else {"verify": cached_platform_ssl_context()}
+        )
+        return httpx.AsyncClient(
+            base_url=self.server_url,
+            timeout=None,  # noqa: S113 - long-lived runtime client intentionally disables global timeout
+            auth=_RuntimeTokenAuth(self._current_token),
+            **transport_kwargs,
+        )
 
-        Reading it live (from the rotatable token file, falling back to env) is
-        what lets a token rotation reach this client — used for both REST (via
-        :class:`_RuntimeTokenAuth`) and each WebSocket (re)connect below. The
-        live read is cached briefly so a busy worker isn't doing a filesystem
-        read per request; ``force=True`` (used by the 401 retry) bypasses it.
-        """
+    def _current_token(self) -> str | None:
+        """The bearer to present: the pinned one, else the runtime's own."""
         if self._auth_token is not None:
             return self._auth_token
-        now = time.monotonic()
-        cached = self._token_cache
-        if not force and cached is not None and (now - cached[1]) < self._token_cache_ttl:
-            return cached[0]
-        token = read_runtime_token()
-        self._token_cache = (token, now)
-        return token
+        return read_runtime_token()
 
     def _build_auth_headers(self) -> dict[str, str]:
         token = self._current_token()
@@ -207,6 +212,22 @@ class RuntimeClient:
         parsed = urlsplit(self.server_url)
         scheme = "wss" if parsed.scheme == "https" else "ws"
         return urlunsplit((scheme, parsed.netloc, "/api/ws", "", ""))
+
+    def _health_timeout(self) -> float:
+        """Pick the health budget from the destination, not the call site.
+
+        A standalone worker connects to a loopback runtime through this same
+        base ``start()``, and should fail fast rather than wait out a budget
+        sized for a customer's WAN.
+        """
+        host = urlsplit(self.server_url).hostname or ""
+        if host == "localhost" or host.endswith(".localhost"):
+            return _LOCAL_HEALTH_TIMEOUT
+        try:
+            is_loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            is_loopback = False
+        return _LOCAL_HEALTH_TIMEOUT if is_loopback else REMOTE_HEALTH_TIMEOUT_SECONDS
 
     def _get_interactive_transport(self) -> _RuntimeInteractiveTransport:
         if self._interactive_transport is None:
@@ -226,10 +247,7 @@ class RuntimeClient:
         """
         if self._started:
             return
-        if not await self._is_healthy():
-            raise RuntimeError(
-                f"Could not connect to Dreadnode runtime server at {self.server_url}"
-            )
+        await self._probe_health(self._health_timeout())
         self._started = True
 
     async def close(self) -> None:
@@ -240,15 +258,45 @@ class RuntimeClient:
             await interactive.close()
         await self._http_client.aclose()
 
-    async def _is_healthy(self) -> bool:
+    def _connect_error(self, cause: BaseException | str) -> RuntimeError:
+        """Build a connect failure that names the underlying cause.
+
+        The bare "could not connect" text this replaces was indistinguishable
+        across DNS, TLS, routing and auth failures, which left both operators
+        and support guessing at a self-hosted install.
+        """
+        detail = (
+            f"{type(cause).__name__}: {cause}" if isinstance(cause, BaseException) else str(cause)
+        )
+        message = f"Could not connect to Dreadnode runtime server at {self.server_url} ({detail})"
+        tls_hint = format_tls_error(cause)
+        return RuntimeError(f"{message}\n\n{tls_hint}" if tls_hint else message)
+
+    async def _probe_health(
+        self,
+        timeout: float,  # noqa: ASYNC109 - httpx owns the deadline
+    ) -> None:
+        """Verify ``/api/health``, raising a described failure on any error."""
         try:
-            response = await self._http_client.get("/api/health", timeout=1.0)
+            response = await self._http_client.get("/api/health", timeout=timeout)
         except httpx.HTTPError as exc:
+            logger.debug("Health check failed | url={} | error={}", self.server_url, exc)
+            raise self._connect_error(exc) from exc
+        if response.status_code != 200:
+            logger.debug("Health check | status={} | healthy=False", response.status_code)
+            raise self._connect_error(f"/api/health returned HTTP {response.status_code}")
+        logger.debug("Health check | status={} | healthy=True", response.status_code)
+
+    async def _is_healthy(
+        self,
+        timeout: float = _LOCAL_HEALTH_TIMEOUT,  # noqa: ASYNC109 - httpx owns the deadline
+    ) -> bool:
+        try:
+            await self._probe_health(timeout)
+        except RuntimeError as exc:
             logger.debug("Health check failed | error={}", exc)
             return False
-        healthy = response.status_code == 200
-        logger.debug("Health check | status={} | healthy={}", response.status_code, healthy)
-        return healthy
+        return True
 
     # ── Runtime discovery ─────────────────────────────────────────
 
@@ -998,18 +1046,27 @@ class RuntimeClient:
         http_transport = self._http_client._transport
         if isinstance(http_transport, StreamingASGITransport):
             return await http_transport.websocket_connect(url=url, headers=headers)
-        if http_transport is not None:
+        # Only a caller-supplied transport has no websocket equivalent. httpx
+        # always populates ``_transport``, so testing that attribute rejected
+        # every real socket -- local subprocess included -- and left the TUI's
+        # notify and component-state loops retrying a hard failure forever.
+        if self._injected_transport is not None:
             raise RuntimeError(
                 "Runtime event stream is unavailable with an injected HTTP transport"
             )
 
         from websockets.asyncio.client import connect
 
+        # Match the HTTP client's trust store so a wss:// runtime behind an
+        # internal CA does not fail after its https:// health check passed.
+        # websockets rejects a context on ws:// and rejects None on wss://,
+        # so this has to track the scheme exactly.
         connection = await connect(
             url,
             additional_headers=headers or None,
             ping_interval=20,
             ping_timeout=20,
+            ssl=cached_platform_ssl_context() if scheme == "wss" else None,
         )
         return _WebsocketsRuntimeSocket(connection)
 

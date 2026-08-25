@@ -26,6 +26,9 @@ pub enum Pep517Command {
         metadata_directory: PathBuf,
         #[command(flatten)]
         strip_opt: StripOption,
+        /// Build with Profile-Guided Optimization (PGO)
+        #[arg(long, env = "MATURIN_PGO", value_parser = clap::builder::FalseyValueParser::new())]
+        pgo: bool,
     },
     #[command(name = "build-wheel")]
     /// Implementation of build_wheel
@@ -34,6 +37,9 @@ pub enum Pep517Command {
         build_options: BuildOptions,
         #[command(flatten)]
         strip_opt: StripOption,
+        /// Build with Profile-Guided Optimization (PGO)
+        #[arg(long, env = "MATURIN_PGO", value_parser = clap::builder::FalseyValueParser::new())]
+        pgo: bool,
         /// Build editable wheels
         #[arg(long)]
         editable: bool,
@@ -48,6 +54,25 @@ pub enum Pep517Command {
         /// The path to the Cargo.toml
         manifest_path: Option<PathBuf>,
     },
+}
+
+/// Ensure a PEP 517 hook is scoped to the single interpreter running pip.
+///
+/// Duplicate interpreter paths can be supplied when user-set
+/// `MATURIN_PEP517_ARGS=--interpreter ...` combines with the auto-injected
+/// interpreter, so collapse duplicates first. Only genuinely different
+/// interpreters should error here, before later hook code can panic.
+fn require_single_interpreter(opts: &mut BuildOptions, cmd: &str) -> Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    opts.python.interpreter.retain(|p| seen.insert(p.clone()));
+    if opts.python.interpreter.len() > 1 {
+        bail!(
+            "`maturin pep517 {cmd}` expects exactly one --interpreter, got {}: {:?}",
+            opts.python.interpreter.len(),
+            opts.python.interpreter,
+        );
+    }
+    Ok(())
 }
 
 /// Dispatches into the native implementations of the PEP 517 functions
@@ -67,30 +92,14 @@ pub fn pep517(subcommand: Pep517Command) -> Result<()> {
             mut build_options,
             metadata_directory,
             strip_opt,
+            pgo,
         } => {
-            // PEP 517's `prepare_metadata_for_build_wheel` operates on a single
-            // interpreter (the one running pip). If duplicates of the same path
-            // were supplied (e.g. user-set `MATURIN_PEP517_ARGS=--interpreter ...`
-            // combined with the auto-injected one), collapse them. Otherwise
-            // bail with a clear message instead of panicking.
-            {
-                let mut seen = std::collections::HashSet::new();
-                build_options
-                    .python
-                    .interpreter
-                    .retain(|p| seen.insert(p.clone()));
-            }
-            if build_options.python.interpreter.len() > 1 {
-                bail!(
-                    "`maturin pep517 write-dist-info` expects exactly one --interpreter, got {}: {:?}",
-                    build_options.python.interpreter.len(),
-                    build_options.python.interpreter,
-                );
-            }
+            require_single_interpreter(&mut build_options, "write-dist-info")?;
             let mut context = build_options
                 .into_build_context()
                 .strip(strip_opt.strip)
                 .editable(false)
+                .pgo(pgo)
                 .build()?;
             ensure_release_profile(&mut context);
 
@@ -108,21 +117,39 @@ pub fn pep517(subcommand: Pep517Command) -> Result<()> {
             println!("{}", dist_info_dir.display());
         }
         Pep517Command::BuildWheel {
-            build_options,
+            mut build_options,
             strip_opt,
+            pgo,
             editable,
         } => {
+            require_single_interpreter(&mut build_options, "build-wheel")?;
             let mut build_context = build_options
                 .into_build_context()
                 .strip(strip_opt.strip)
                 .editable(editable)
+                .pgo(pgo)
                 .build()?;
             ensure_release_profile(&mut build_context);
 
             let orchestrator = BuildOrchestrator::new(&build_context);
             let wheels = orchestrator.build_wheels()?;
-            assert_eq!(wheels.len(), 1);
-            println!("{}", wheels[0].0.to_str().unwrap());
+            if wheels.len() != 1 {
+                bail!(
+                    "expected exactly one wheel to be built, got {}: {:?}",
+                    wheels.len(),
+                    wheels
+                        .iter()
+                        .map(|wheel| wheel.path.display().to_string())
+                        .collect::<Vec<_>>(),
+                );
+            }
+            let wheel_path = wheels[0].path.to_str().with_context(|| {
+                format!(
+                    "wheel path is not valid UTF-8: {}",
+                    wheels[0].path.display()
+                )
+            })?;
+            println!("{wheel_path}");
         }
         Pep517Command::WriteSDist {
             sdist_directory,
@@ -150,10 +177,10 @@ pub fn pep517(subcommand: Pep517Command) -> Result<()> {
                 .build()?;
 
             let orchestrator = BuildOrchestrator::new(&build_context);
-            let (path, _) = orchestrator
+            let sdist = orchestrator
                 .build_source_distribution()?
                 .context("Failed to build source distribution, pyproject.toml not found")?;
-            println!("{}", path.file_name().unwrap().to_str().unwrap());
+            println!("{}", sdist.path.file_name().unwrap().to_str().unwrap());
         }
     };
 

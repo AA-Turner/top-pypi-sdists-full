@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: airbyte-internal-ops
-Version: 0.103.0
+Version: 0.104.0
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp

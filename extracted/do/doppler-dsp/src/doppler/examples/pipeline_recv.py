@@ -3,12 +3,14 @@
 Connects to a PUSH sender's JetStream work-queue and processes packets as
 they arrive.  Multiple instances can run simultaneously, sharing the same
 durable consumer; each receives a share of the frames, load-balanced by
-the broker.  Requires a running nats-server (e.g. `nats-server -js`).
+the broker.  Requires a running nats-server (e.g. `nats-server -js`) whose
+work-queue stream already exists -- pipeline_send.py creates it, so start
+that first on a fresh broker.
 
 Usage:
-  python examples/python/pipeline_recv.py [endpoint] [worker-id]
-  python examples/python/pipeline_recv.py                        # worker 0
-  python examples/python/pipeline_recv.py nats://127.0.0.1:4222/work 1
+  python pipeline_recv.py [endpoint] [worker-id]
+  python pipeline_recv.py                        # worker 0
+  python pipeline_recv.py nats://127.0.0.1:4222/work 1
 
 Press Ctrl+C to stop.
 """

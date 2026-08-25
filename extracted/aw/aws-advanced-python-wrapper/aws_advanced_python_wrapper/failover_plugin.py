@@ -181,21 +181,24 @@ class FailoverPlugin(Plugin):
         if not self._enable_failover_setting:
             return
 
-        msg = ""
-        for key in changes:
-            msg += f"\n\tHost '{key}': {changes[key]}"
-        logger.debug("FailoverPlugin.Changes", msg)
+        try:
+            msg = ""
+            for key in changes:
+                msg += f"\n\tHost '{key}': {changes[key]}"
+            logger.debug("FailoverPlugin.Changes", msg)
 
-        current_host = self._plugin_service.current_host_info
-        if current_host is not None:
-            if self._is_host_still_valid(current_host.url, changes):
-                return
-
-            for alias in current_host.aliases:
-                if self._is_host_still_valid(alias + '/', changes):
+            current_host = self._plugin_service.current_host_info
+            if current_host is not None:
+                if self._is_host_still_valid(current_host.url, changes):
                     return
 
-            logger.debug("FailoverPlugin.InvalidHost", current_host)
+                for alias in current_host.aliases:
+                    if self._is_host_still_valid(alias + '/', changes):
+                        return
+
+                logger.debug("FailoverPlugin.InvalidHost", current_host)
+        finally:
+            self._stale_dns_helper.notify_host_list_changed(changes)
 
     def connect(
             self,
@@ -372,13 +375,13 @@ class FailoverPlugin(Plugin):
         if self._plugin_service.is_in_transaction:
             self._plugin_service.update_in_transaction(True)
             try:
-                driver_dialect.execute(DbApiMethod.CONNECTION_ROLLBACK.method_name, lambda: conn.rollback())
+                driver_dialect.execute(DbApiMethod.CONNECTION_ROLLBACK.method_name, lambda: conn.rollback(), conn=conn)
                 conn.rollback()
             except Exception:
                 pass
 
         try:
-            return driver_dialect.execute(DbApiMethod.CONNECTION_CLOSE.method_name, lambda: conn.close())
+            return driver_dialect.execute(DbApiMethod.CONNECTION_CLOSE.method_name, lambda: conn.close(), conn=conn)
         except Exception:
             pass
 

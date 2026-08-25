@@ -15,7 +15,7 @@ from __future__ import annotations
     Do not edit the class manually.
 """  # noqa: E501
 
-__version__ = "0.205.1"
+__version__ = "0.207.0"
 
 import importlib
 from typing import TYPE_CHECKING

@@ -61,6 +61,7 @@ import stat
 import sys
 import time
 import warnings
+from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from contextlib import closing, suppress
 from io import BytesIO
@@ -77,7 +78,7 @@ if TYPE_CHECKING:
     from .object_format import ObjectFormat
 
 from .errors import NotTreeError
-from .file import GitFile, _GitFile
+from .file import GitFile, SharedPerm, _GitFile, adjust_shared_perm
 from .midx import MultiPackIndex, load_midx
 from .objects import (
     DEFAULT_LOOSE_OBJECT_SIZE_LIMIT,
@@ -104,6 +105,7 @@ from .pack import (
     PackedObjectContainer,
     PackFileDisappeared,
     PackHint,
+    PackIndexEntry,
     PackIndexer,
     PackInflater,
     PackStreamCopier,
@@ -336,8 +338,17 @@ def find_shallow(
 
     not_shallow = set()
     shallow = set()
+    # A commit reachable along N distinct paths was popped and re-expanded N
+    # times, so a merge-heavy history walked in exponential time. Deduplicate
+    # on the (sha, depth) state: re-processing a state adds to the same set and
+    # pushes the same parents, so skipping repeats leaves the result unchanged.
+    seen: set[tuple[ObjectID, int]] = set()
     while todo:
-        sha, cur_depth = todo.pop()
+        state = todo.pop()
+        if state in seen:
+            continue
+        seen.add(state)
+        sha, cur_depth = state
         if cur_depth < depth:
             not_shallow.add(sha)
             new_depth = cur_depth + 1
@@ -368,11 +379,20 @@ def get_depth(
     if head not in store:
         return 0
     current_depth = 1
-    queue = [(head, current_depth)]
+    queue = deque([(head, current_depth)])
     commit_graph = store.get_commit_graph()
 
+    # Without deduplication a commit reachable along several paths is expanded
+    # once per path, so a merge-heavy history is walked in exponential time.
+    # Track the (sha, depth) states already queued; re-visiting one only
+    # recomputes the same max and re-queues the same parents. deque.popleft()
+    # keeps the O(1) breadth-first order that list.pop(0) made O(n).
+    seen: set[tuple[ObjectID, int]] = set()
     while queue and (max_depth is None or current_depth < max_depth):
-        e, depth = queue.pop(0)
+        e, depth = queue.popleft()
+        if (e, depth) in seen:
+            continue
+        seen.add((e, depth))
         current_depth = max(current_depth, depth)
 
         # Try to use commit graph for parent lookup if available
@@ -972,20 +992,20 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
           or graph traversal)
         """
         if prefer_bitmaps:
-            # Check if any packs have bitmaps
-            has_bitmap = False
+            # Check if any packs have bitmaps. ``self.packs`` rescans the pack
+            # directory, so a pack removed by a concurrent repack is dropped
+            # from the cache and its replacement, if any, is probed here too.
             for pack in self.packs:
                 try:
-                    # Try to access bitmap property
                     if pack.bitmap is not None:
-                        has_bitmap = True
-                        break
+                        return BitmapReachability(self)
                 except FileNotFoundError:
                     # Bitmap file doesn't exist for this pack
                     continue
-
-            if has_bitmap:
-                return BitmapReachability(self)
+                except PackFileDisappeared as exc:
+                    # The pack vanished between the scan and the bitmap probe.
+                    self._evict_pack(exc.obj)
+                    continue
 
         # Fall back to graph traversal
         return GraphTraversalReachability(self)
@@ -1604,10 +1624,10 @@ class DiskObjectStore(PackBasedObjectStore):
         pack_write_bitmaps: bool = False,
         pack_write_bitmap_hash_cache: bool = True,
         pack_write_bitmap_lookup_table: bool = True,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
         object_format: "ObjectFormat | None" = None,
         loose_object_size_limit: int | None = None,
+        alternates: "Iterable[str | os.PathLike[str]] | None" = None,
     ) -> None:
         """Open an object store.
 
@@ -1628,13 +1648,15 @@ class DiskObjectStore(PackBasedObjectStore):
           pack_write_bitmaps: whether to write bitmap indexes for packs
           pack_write_bitmap_hash_cache: whether to include name-hash cache in bitmaps
           pack_write_bitmap_lookup_table: whether to include lookup table in bitmaps
-          file_mode: File permission mask for shared repository
-          dir_mode: Directory permission mask for shared repository
+          shared_perm: Shared repository permission setting
           object_format: Hash algorithm to use (SHA1 or SHA256)
           loose_object_size_limit: Maximum inflated size of a single loose
             object. Defaults to core.bigFileThreshold's Git default (512 MiB)
             via :data:`DEFAULT_LOOSE_OBJECT_SIZE_LIMIT` when None. Guards against
             decompression-bomb attacks.
+          alternates: Extra alternate object directory paths to consult, in
+            addition to those listed in ``objects/info/alternates``. Used to
+            plumb ``GIT_ALTERNATE_OBJECT_DIRECTORIES`` through from porcelain.
         """
         # Import here to avoid circular dependency
         from .object_format import DEFAULT_OBJECT_FORMAT
@@ -1655,6 +1677,11 @@ class DiskObjectStore(PackBasedObjectStore):
         self.path = path
         self.pack_dir = os.path.join(self.path, PACKDIR)
         self._alternates = None
+        self._extra_alternate_paths: list[str] = (
+            [os.fsdecode(os.fspath(p)) for p in alternates]
+            if alternates is not None
+            else []
+        )
         self.loose_compression_level = loose_compression_level
         self.pack_compression_level = pack_compression_level
         self.pack_index_version = pack_index_version
@@ -1662,8 +1689,7 @@ class DiskObjectStore(PackBasedObjectStore):
         self.pack_write_bitmaps = pack_write_bitmaps
         self.pack_write_bitmap_hash_cache = pack_write_bitmap_hash_cache
         self.pack_write_bitmap_lookup_table = pack_write_bitmap_lookup_table
-        self.file_mode = file_mode
-        self.dir_mode = dir_mode
+        self.shared_perm = shared_perm
         self.loose_object_size_limit = (
             loose_object_size_limit
             if loose_object_size_limit is not None
@@ -1692,16 +1718,17 @@ class DiskObjectStore(PackBasedObjectStore):
         path: str | os.PathLike[str],
         config: "Config",
         *,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
+        alternates: "Iterable[str | os.PathLike[str]] | None" = None,
     ) -> "DiskObjectStore":
         """Create a DiskObjectStore from a configuration object.
 
         Args:
           path: Path to the object store directory
           config: Configuration object to read settings from
-          file_mode: Optional file permission mask for shared repository
-          dir_mode: Optional directory permission mask for shared repository
+          shared_perm: Optional shared repository permission setting
+          alternates: Extra alternate object directory paths to consult,
+            appended to those listed in ``objects/info/alternates``.
 
         Returns:
           New DiskObjectStore instance configured according to config
@@ -1842,10 +1869,10 @@ class DiskObjectStore(PackBasedObjectStore):
             pack_write_bitmaps=pack_write_bitmaps,
             pack_write_bitmap_hash_cache=pack_write_bitmap_hash_cache,
             pack_write_bitmap_lookup_table=pack_write_bitmap_lookup_table,
-            file_mode=file_mode,
-            dir_mode=dir_mode,
+            shared_perm=shared_perm,
             object_format=object_format,
             loose_object_size_limit=loose_object_size_limit,
+            alternates=alternates,
         )
         instance._use_commit_graph = use_commit_graph
         instance._use_midx = use_midx
@@ -1864,6 +1891,8 @@ class DiskObjectStore(PackBasedObjectStore):
             return self._alternates
         self._alternates = []
         for path in self._read_alternate_paths():
+            self._alternates.append(DiskObjectStore(path))
+        for path in self._extra_alternate_paths:
             self._alternates.append(DiskObjectStore(path))
         return self._alternates
 
@@ -1887,13 +1916,11 @@ class DiskObjectStore(PackBasedObjectStore):
         info_dir = os.path.join(self.path, INFODIR)
         try:
             os.mkdir(info_dir)
-            if self.dir_mode is not None:
-                os.chmod(info_dir, self.dir_mode)
+            adjust_shared_perm(info_dir, self.shared_perm)
         except FileExistsError:
             pass
         alternates_path = os.path.join(self.path, INFODIR, "alternates")
-        mask = self.file_mode if self.file_mode is not None else 0o644
-        with GitFile(alternates_path, "wb", mask=mask) as f:
+        with GitFile(alternates_path, "wb", shared_perm=self.shared_perm) as f:
             try:
                 orig_f = open(alternates_path, "rb")
             except FileNotFoundError:
@@ -2087,12 +2114,35 @@ class DiskObjectStore(PackBasedObjectStore):
         suffix = suffix_bytes.decode("ascii")
         return os.path.join(self.pack_dir, "pack-" + suffix)
 
+    def _index_pack(
+        self,
+        indexer: PackIndexer,
+        num_objects: int,
+        progress: Callable[..., None] | None = None,
+    ) -> tuple[list[PackIndexEntry], set[RawObjectID]]:
+        """Drain an indexer into index entries and the external refs it needs.
+
+        Args:
+          indexer: A PackIndexer over the pack being completed.
+          num_objects: Number of objects in the pack, for progress reporting.
+          progress: Optional progress reporting function.
+
+        Returns: Tuple of (index entries, external refs). ext_refs() is only
+            populated once the indexer has been drained.
+        """
+        entries = []
+        for i, entry in enumerate(indexer):
+            if progress is not None:
+                progress(f"generating index: {i}/{num_objects}\r".encode("ascii"))
+            entries.append(entry)
+        return entries, set(indexer.ext_refs())
+
     def _complete_pack(
         self,
         f: BinaryIO,
         path: str,
-        num_objects: int,
-        indexer: PackIndexer,
+        entries: list[PackIndexEntry],
+        ext_refs: set[RawObjectID],
         progress: Callable[..., None] | None = None,
         refs: dict[Ref, ObjectID] | None = None,
     ) -> Pack:
@@ -2101,23 +2151,23 @@ class DiskObjectStore(PackBasedObjectStore):
         Note: The file should be on the same file system as the
             packs directory.
 
+        This takes ownership of ``f``: it appends any missing base objects,
+        closes the file and renames it into place. Callers must have finished
+        reading the pack (see :meth:`_index_pack`) before calling this; on
+        Windows a mapping left over the file blocks both the write and the
+        rename.
+
         Args:
           f: Open file object for the pack.
           path: Path to the pack file.
-          num_objects: Number of objects in the pack.
-          indexer: A PackIndexer for indexing the pack.
+          entries: Index entries for the objects already in the pack.
+          ext_refs: Objects the pack deltas against that it does not contain.
           progress: Optional progress reporting function.
           refs: Optional dictionary of refs for bitmap generation.
         """
-        entries = []
-        for i, entry in enumerate(indexer):
-            if progress is not None:
-                progress(f"generating index: {i}/{num_objects}\r".encode("ascii"))
-            entries.append(entry)
-
         pack_sha, extra_entries = extend_pack(
             f,
-            set(indexer.ext_refs()),
+            ext_refs,
             get_raw=self.get_raw,
             compression_level=self.pack_compression_level,
             progress=progress,
@@ -2162,12 +2212,12 @@ class DiskObjectStore(PackBasedObjectStore):
         os.rename(path, target_pack_path)
 
         # Write the index.
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
         with GitFile(
             target_index_path,
             "wb",
-            mask=mask,
+            mask=PACK_MODE,
             fsync=self.fsync_object_files,
+            shared_perm=self.shared_perm,
         ) as index_file:
             write_pack_index(
                 index_file, entries, pack_sha, version=self.pack_index_version
@@ -2297,7 +2347,10 @@ class DiskObjectStore(PackBasedObjectStore):
                 delta_iter=indexer,  # type: ignore[arg-type]
             )
             copier.verify(progress=progress)
-            return self._complete_pack(f, path, len(copier), indexer, progress=progress)
+            entries, ext_refs = self._index_pack(
+                indexer, len(copier), progress=progress
+            )
+            return self._complete_pack(f, path, entries, ext_refs, progress=progress)
 
     def add_pack(
         self,
@@ -2312,19 +2365,23 @@ class DiskObjectStore(PackBasedObjectStore):
 
         fd, path = tempfile.mkstemp(dir=self.pack_dir, suffix=".pack")
         f = os.fdopen(fd, "w+b")
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
-        os.chmod(path, mask)
+        os.chmod(path, PACK_MODE)
+        adjust_shared_perm(path, self.shared_perm)
 
         def commit() -> "Pack | None":
             if f.tell() > 0:
                 f.seek(0)
 
+                # Scope the mapping to indexing: _complete_pack writes to and
+                # renames this same file, which a live mapping blocks on
+                # Windows. PackData.close() leaves f open for it to finish.
                 with PackData(path, file=f, object_format=self.object_format) as pd:
                     indexer = PackIndexer.for_pack_data(
                         pd,
                         resolve_ext_ref=self.get_raw,
                     )
-                    return self._complete_pack(f, path, len(pd), indexer)  # type: ignore[arg-type]
+                    entries, ext_refs = self._index_pack(indexer, len(pd))  # type: ignore[arg-type]
+                return self._complete_pack(f, path, entries, ext_refs)
             else:
                 f.close()
                 os.remove(path)
@@ -2348,14 +2405,30 @@ class DiskObjectStore(PackBasedObjectStore):
         dir = os.path.dirname(path)
         try:
             os.mkdir(dir)
-            if self.dir_mode is not None:
-                os.chmod(dir, self.dir_mode)
+            adjust_shared_perm(dir, self.shared_perm)
         except FileExistsError:
             pass
-        if os.path.exists(path):
-            return  # Already there, no need to write again
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
-        with GitFile(path, "wb", mask=mask, fsync=self.fsync_object_files) as f:
+        try:
+            # Refresh the mtime instead of just checking for existence. A
+            # loose object with a stale mtime is a candidate for age-based
+            # pruning, so a concurrent "git gc" could remove it before the
+            # caller has created a reference to it.
+            os.utime(path, None)
+        except FileNotFoundError:
+            pass  # Not there after all, write it out below.
+        except PermissionError:
+            # Owned by another user in a shared repository. The mtime stays
+            # stale, so write the object out to give it a fresh one.
+            pass
+        else:
+            return  # Already there and freshened, no need to write again
+        with GitFile(
+            path,
+            "wb",
+            mask=PACK_MODE,
+            fsync=self.fsync_object_files,
+            shared_perm=self.shared_perm,
+        ) as f:
             f.write(
                 obj.as_legacy_object(compression_level=self.loose_compression_level)
             )
@@ -2365,8 +2438,7 @@ class DiskObjectStore(PackBasedObjectStore):
         cls,
         path: str | os.PathLike[str],
         *,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
         object_format: "ObjectFormat | None" = None,
     ) -> "DiskObjectStore":
         """Initialize a new disk object store.
@@ -2375,8 +2447,7 @@ class DiskObjectStore(PackBasedObjectStore):
 
         Args:
           path: Path where the object store should be created
-          file_mode: Optional file permission mask for shared repository
-          dir_mode: Optional directory permission mask for shared repository
+          shared_perm: Optional shared repository permission setting
           object_format: Hash algorithm to use (SHA1 or SHA256)
 
         Returns:
@@ -2384,20 +2455,16 @@ class DiskObjectStore(PackBasedObjectStore):
         """
         try:
             os.mkdir(path)
-            if dir_mode is not None:
-                os.chmod(path, dir_mode)
+            adjust_shared_perm(path, shared_perm)
         except FileExistsError:
             pass
         info_path = os.path.join(path, "info")
         pack_path = os.path.join(path, PACKDIR)
         os.mkdir(info_path)
         os.mkdir(pack_path)
-        if dir_mode is not None:
-            os.chmod(info_path, dir_mode)
-            os.chmod(pack_path, dir_mode)
-        return cls(
-            path, file_mode=file_mode, dir_mode=dir_mode, object_format=object_format
-        )
+        adjust_shared_perm(info_path, shared_perm)
+        adjust_shared_perm(pack_path, shared_perm)
+        return cls(path, shared_perm=shared_perm, object_format=object_format)
 
     def iter_prefix(self, prefix: bytes) -> Iterator[ObjectID]:
         """Iterate over all object SHAs with the given prefix.
@@ -2686,13 +2753,11 @@ class DiskObjectStore(PackBasedObjectStore):
                 # Ensure the info directory exists
                 info_dir = os.path.join(self.path, "info")
                 os.makedirs(info_dir, exist_ok=True)
-                if self.dir_mode is not None:
-                    os.chmod(info_dir, self.dir_mode)
+                adjust_shared_perm(info_dir, self.shared_perm)
 
                 # Write using GitFile for atomic operation
                 graph_path = os.path.join(info_dir, "commit-graph")
-                mask = self.file_mode if self.file_mode is not None else 0o644
-                with GitFile(graph_path, "wb", mask=mask) as f:
+                with GitFile(graph_path, "wb", shared_perm=self.shared_perm) as f:
                     assert isinstance(
                         f, _GitFile
                     )  # GitFile in write mode always returns _GitFile

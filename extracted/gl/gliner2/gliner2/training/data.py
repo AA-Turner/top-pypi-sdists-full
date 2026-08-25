@@ -38,7 +38,7 @@ Create relation examples:
 
 Build and validate dataset:
     >>> dataset = TrainingDataset(examples)
-    >>> dataset.validate()  # Raises ValidationError if invalid
+    >>> dataset.validate()  # Raises DataValidationError if invalid
     >>> dataset.save("train.jsonl")
 
 Load from JSONL:
@@ -58,11 +58,13 @@ from collections import Counter
 from tqdm import tqdm
 
 if TYPE_CHECKING:
-    # Forward declarations for type checking only
-    pass
+    # Import-only (avoids a circular import with the trainer at runtime) so the
+    # ``'ExtractorDataset'`` forward reference in ``DataInput`` resolves for
+    # static type checkers / ``get_type_hints``.
+    from gliner2.training.trainer import ExtractorDataset
 
 
-class ValidationError(Exception):
+class DataValidationError(Exception):
     """Raised when training data validation fails."""
 
     def __init__(self, message: str, errors: List[str] = None):
@@ -497,10 +499,51 @@ class Structure:
     _fields: Dict[str, Any] = field(default_factory=dict)
     descriptions: Optional[Dict[str, str]] = None
 
-    def __init__(self, struct_name: str, _descriptions: Dict[str, str] = None, **fields):
+    def __init__(
+        self,
+        struct_name: str,
+        _descriptions: Dict[str, str] = None,
+        *,
+        mode: Optional[str] = "natural",
+        anchor: Optional[str] = None,
+        occurrence_policy: Optional[str] = None,
+        _field_values: Optional[Dict[str, Any]] = None,
+        **fields,
+    ):
         self.struct_name = struct_name
-        self._fields = fields
+        # JSONL structure fields can legitimately be named ``mode``, ``anchor``,
+        # or ``occurrence_policy``. ``InputExample.from_dict`` uses this private
+        # mapping path so those names remain ordinary data fields rather than
+        # colliding with boundary record metadata arguments.
+        if _field_values is not None:
+            if fields:
+                raise ValueError("_field_values cannot be combined with field keywords")
+            self._fields = dict(_field_values)
+        else:
+            self._fields = fields
         self.descriptions = _descriptions
+        # Basic pre-boundary JSON structures use natural record formation by
+        # default. When no anchor is provided, get_record_metadata selects the
+        # first declared structure field.
+        self.mode = mode
+        self.anchor = anchor
+        self.occurrence_policy = occurrence_policy
+
+    def get_record_metadata(self) -> Optional[Dict[str, Any]]:
+        """Return this structure's record-metadata entry, if any mode is set."""
+        if not self.mode:
+            return None
+        entry: Dict[str, Any] = {"mode": self.mode}
+        anchor = self.anchor
+        if self.mode == "natural" and not anchor:
+            # Default anchor = first declared field, in declaration order
+            # (kwargs order, captured before any training-time field shuffling).
+            anchor = next(iter(self._fields), None)
+        if anchor is not None:
+            entry["anchor"] = anchor
+        if self.occurrence_policy is not None:
+            entry["occurrence_policy"] = self.occurrence_policy
+        return {self.struct_name: entry}
 
     def validate(self, text: str) -> List[str]:
         """
@@ -526,11 +569,21 @@ class Structure:
                 errors.extend(value.validate(f"{self.struct_name}.{field_name}"))
             elif isinstance(value, list):
                 for i, v in enumerate(value):
-                    if v and v.lower() not in text.lower():
+                    if v is not None and not isinstance(v, str):
+                        errors.append(
+                            f"List value at index {i} in "
+                            f"'{self.struct_name}.{field_name}' must be a string"
+                        )
+                    elif v and v.lower() not in text.lower():
                         errors.append(f"List value '{v}' at index {i} in '{self.struct_name}.{field_name}' not found in text")
             elif isinstance(value, str):
                 if value and value.lower() not in text.lower():
                     errors.append(f"Value '{value}' for '{self.struct_name}.{field_name}' not found in text")
+            elif value is not None:
+                errors.append(
+                    f"Value for '{self.struct_name}.{field_name}' must be a string, "
+                    "list of strings, or ChoiceField"
+                )
         return errors
 
     def to_dict(self) -> Dict[str, Dict[str, Any]]:
@@ -746,7 +799,7 @@ class InputExample:
             for entity_type, mentions in self.entities.items():
                 if not entity_type:
                     types_to_remove.append(entity_type)
-                    warnings.append(f"Entity type is empty")
+                    warnings.append("Entity type is empty")
                     continue
                 
                 # Check if any mention is not in text
@@ -786,7 +839,7 @@ class InputExample:
             valid_structures = []
             for struct in self.structures:
                 if not struct.struct_name:
-                    warnings.append(f"Structure has empty name - dropping")
+                    warnings.append("Structure has empty name - dropping")
                     continue
                 
                 if not struct._fields:
@@ -831,7 +884,7 @@ class InputExample:
             valid_relations = []
             for rel in self.relations:
                 if not rel.name:
-                    warnings.append(f"Relation has empty name - dropping")
+                    warnings.append("Relation has empty name - dropping")
                     continue
                 
                 if not rel._fields:
@@ -873,12 +926,18 @@ class InputExample:
         if self.structures:
             output["json_structures"] = [struct.to_dict() for struct in self.structures]
             all_descriptions = {}
+            record_metadata: Dict[str, Any] = {}
             for struct in self.structures:
                 desc = struct.get_descriptions()
                 if desc:
                     all_descriptions.update(desc)
+                meta = struct.get_record_metadata()
+                if meta:
+                    record_metadata.update(meta)
             if all_descriptions:
                 output["json_descriptions"] = all_descriptions
+            if record_metadata:
+                output["record_metadata"] = record_metadata
         if self.relations:
             output["relations"] = [rel.to_dict() for rel in self.relations]
         return {"input": self.text, "output": output}
@@ -909,6 +968,7 @@ class InputExample:
 
         structures = []
         json_descriptions = output.get("json_descriptions", {})
+        record_metadata = output.get("record_metadata", {})
         for struct_data in output.get("json_structures", []):
             for struct_name, fields in struct_data.items():
                 parsed_fields = {}
@@ -917,7 +977,15 @@ class InputExample:
                         parsed_fields[field_name] = ChoiceField(value["value"], value["choices"])
                     else:
                         parsed_fields[field_name] = value
-                structures.append(Structure(struct_name, _descriptions=json_descriptions.get(struct_name), **parsed_fields))
+                meta = record_metadata.get(struct_name, {})
+                structures.append(Structure(
+                    struct_name,
+                    _descriptions=json_descriptions.get(struct_name),
+                    mode=meta.get("mode", "natural"),
+                    anchor=meta.get("anchor"),
+                    occurrence_policy=meta.get("occurrence_policy"),
+                    _field_values=parsed_fields,
+                ))
 
         relations = []
         for rel_data in output.get("relations", []):
@@ -997,7 +1065,7 @@ class TrainingDataset:
         Parameters
         ----------
         raise_on_error : bool, default=True
-            If True, raises ValidationError when invalid examples are found.
+            If True, raises DataValidationError when invalid examples are found.
             If False, returns validation report without raising.
         
         Returns
@@ -1027,7 +1095,7 @@ class TrainingDataset:
         }
 
         if all_errors and raise_on_error:
-            raise ValidationError(f"Dataset validation failed: {len(invalid_indices)} invalid examples", all_errors)
+            raise DataValidationError(f"Dataset validation failed: {len(invalid_indices)} invalid examples", all_errors)
 
         return report
 
@@ -1119,7 +1187,7 @@ class TrainingDataset:
         """Print formatted statistics."""
         s = self.stats()
         print(f"\n{'='*60}")
-        print(f"GLiNER2 Training Dataset Statistics")
+        print("GLiNER2 Training Dataset Statistics")
         print(f"{'='*60}")
         print(f"Total examples: {s['total_examples']}")
 
@@ -1127,7 +1195,7 @@ class TrainingDataset:
             tls = s['text_length_stats']
             print(f"\nText lengths: min={tls['min']}, max={tls['max']}, mean={tls['mean']:.1f}")
 
-        print(f"\nTask Distribution:")
+        print("\nTask Distribution:")
         for task, count in s['task_distribution'].items():
             if count > 0:
                 print(f"  {task}: {count} ({100*count/s['total_examples']:.1f}%)")
@@ -1138,7 +1206,7 @@ class TrainingDataset:
                 print(f"  {etype}: {count}")
 
         if s['classification_tasks']:
-            print(f"\nClassification Tasks:")
+            print("\nClassification Tasks:")
             for task, count in s['classification_tasks'].items():
                 print(f"  {task}: {count} examples")
                 if task in s['classification_labels']:
@@ -1146,12 +1214,12 @@ class TrainingDataset:
                         print(f"    - {label}: {lcount}")
 
         if s['structure_types']:
-            print(f"\nStructure Types:")
+            print("\nStructure Types:")
             for stype, count in s['structure_types'].items():
                 print(f"  {stype}: {count}")
 
         if s['relation_types']:
-            print(f"\nRelation Types:")
+            print("\nRelation Types:")
             for rtype, count in s['relation_types'].items():
                 print(f"  {rtype}: {count}")
 
@@ -1176,7 +1244,13 @@ class TrainingDataset:
         print(f"Saved {len(self.examples)} examples to {path}")
 
     @classmethod
-    def load(cls, paths: Union[str, Path, List[Union[str, Path]]], shuffle: bool = False, seed: int = 42) -> 'TrainingDataset':
+    def load(
+        cls,
+        paths: Union[str, Path, List[Union[str, Path]]],
+        shuffle: bool = False,
+        seed: int = 42,
+        on_error: str = "raise",
+    ) -> 'TrainingDataset':
         """
         Load dataset from JSONL file(s).
 
@@ -1188,15 +1262,22 @@ class TrainingDataset:
             Whether to shuffle the loaded examples.
         seed : int, default=42
             Random seed for shuffling.
+        on_error : {"raise", "skip"}, default="raise"
+            Whether malformed or unparseable non-empty JSONL rows raise
+            immediately or are skipped. Skipped rows are recorded in the
+            returned dataset's ``skipped_lines`` attribute.
 
         Returns
         -------
         TrainingDataset
         """
+        if on_error not in {"raise", "skip"}:
+            raise ValueError("on_error must be 'raise' or 'skip'")
         if isinstance(paths, (str, Path)):
             paths = [paths]
 
         examples = []
+        skipped_lines: List[str] = []
         for path in paths:
             path = Path(path)
             with open(path, 'r', encoding='utf-8') as f:
@@ -1207,16 +1288,26 @@ class TrainingDataset:
                             data = json.loads(line)
                             examples.append(InputExample.from_dict(data))
                         except json.JSONDecodeError as e:
-                            raise ValueError(f"Invalid JSON in {path} line {line_num}: {e}")
+                            message = f"Invalid JSON in {path} line {line_num}: {e}"
+                            if on_error == "raise":
+                                raise ValueError(message)
+                            skipped_lines.append(message)
                         except Exception as e:
-                            raise ValueError(f"Error parsing {path} line {line_num}: {e}")
+                            message = f"Error parsing {path} line {line_num}: {e}"
+                            if on_error == "raise":
+                                raise ValueError(message)
+                            skipped_lines.append(message)
             print(f"Loaded {len(examples)} examples from {path}")
 
         if shuffle:
             random.seed(seed)
             random.shuffle(examples)
 
-        return cls(examples)
+        dataset = cls(examples)
+        dataset.skipped_lines = skipped_lines
+        if skipped_lines:
+            print(f"Skipped {len(skipped_lines)} malformed examples")
+        return dataset
 
     @classmethod
     def from_records(cls, records: List[Dict[str, Any]]) -> 'TrainingDataset':

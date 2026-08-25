@@ -755,6 +755,7 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by. Defaults to 7 days ago if not specified.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by. Defaults to now if not specified.")] = None,
+        model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for alerts whose model ID is in this list. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -788,6 +789,8 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by. Defaults to now if not specified.
         :type time_to: datetime
+        :param model_ids: Filter for alerts whose model ID is in this list. Optional.
+        :type model_ids: List[str]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -822,6 +825,7 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            model_ids=model_ids,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -857,6 +861,7 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by. Defaults to 7 days ago if not specified.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by. Defaults to now if not specified.")] = None,
+        model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for alerts whose model ID is in this list. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -890,6 +895,8 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by. Defaults to now if not specified.
         :type time_to: datetime
+        :param model_ids: Filter for alerts whose model ID is in this list. Optional.
+        :type model_ids: List[str]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -924,6 +931,7 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            model_ids=model_ids,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -959,6 +967,7 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by. Defaults to 7 days ago if not specified.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by. Defaults to now if not specified.")] = None,
+        model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for alerts whose model ID is in this list. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -992,6 +1001,8 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by. Defaults to now if not specified.
         :type time_to: datetime
+        :param model_ids: Filter for alerts whose model ID is in this list. Optional.
+        :type model_ids: List[str]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1026,6 +1037,7 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            model_ids=model_ids,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1056,6 +1068,7 @@ class AlertsV1Api:
         bound,
         time_from,
         time_to,
+        model_ids,
         page,
         page_size,
         _request_auth,
@@ -1068,6 +1081,7 @@ class AlertsV1Api:
 
         _collection_formats: Dict[str, str] = {
             'alert_rule_ids': 'multi',
+            'model_ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1124,6 +1138,10 @@ class AlertsV1Api:
                 )
             else:
                 _query_params.append(('time_to', time_to))
+            
+        if model_ids is not None:
+            
+            _query_params.append(('model_ids', model_ids))
             
         if page is not None:
             

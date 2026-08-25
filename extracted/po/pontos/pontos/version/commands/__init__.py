@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-from typing import Iterable, Optional, Type
+from collections.abc import Iterable
 
 from pontos.enum import StrEnum
 
@@ -13,17 +13,21 @@ from ._command import VersionCommand
 from ._go import GoVersionCommand
 from ._java import JavaVersionCommand
 from ._javascript import JavaScriptVersionCommand
+from ._poetry import PoetryVersionCommand
 from ._python import PythonVersionCommand
+from ._uv import UvVersionCommand
 
 __all__ = (
-    "VersionCommand",
     "CMakeVersionCommand",
+    "CargoVersionCommand",
     "GoVersionCommand",
     "JavaScriptVersionCommand",
     "JavaVersionCommand",
-    "PythonVersionCommand",
-    "CargoVersionCommand",
+    "PoetryVersionCommand",
     "ProjectType",
+    "PythonVersionCommand",
+    "UvVersionCommand",
+    "VersionCommand",
     "get_commands",
 )
 
@@ -35,24 +39,33 @@ class ProjectType(StrEnum):
     JAVA = "java"
     NPM = "npm"
     PYPROJECT = "pyproject"
+    POETRY = "poetry"
+    UV = "uv"
 
 
-_COMMANDS: dict[ProjectType, Type[VersionCommand]] = {
+_COMMANDS: dict[ProjectType, type[VersionCommand]] = {
     ProjectType.CMAKE: CMakeVersionCommand,
     ProjectType.CARGO: CargoVersionCommand,
     ProjectType.GO: GoVersionCommand,
     ProjectType.JAVA: JavaVersionCommand,
     ProjectType.NPM: JavaScriptVersionCommand,
-    ProjectType.PYPROJECT: PythonVersionCommand,
+    ProjectType.PYPROJECT: PoetryVersionCommand,  # legacy project type for poetry projects
+    ProjectType.POETRY: PoetryVersionCommand,
+    ProjectType.UV: UvVersionCommand,
 }
 
 
 def get_commands(
-    names: Optional[Iterable[ProjectType]] = None,
-) -> list[Type[VersionCommand]]:
+    names: Iterable[ProjectType] | None = None,
+) -> list[type[VersionCommand]]:
     """
     Returns the available VersionCommands
     """
     if not names:
-        return list(_COMMANDS.values())
+        return [
+            command
+            for name, command in _COMMANDS.items()
+            # don't include poetry command twice
+            if name != ProjectType.PYPROJECT
+        ]
     return [command for name, command in _COMMANDS.items() if name in names]

@@ -23,9 +23,7 @@ from qcodes.validators import (
 )
 
 if TYPE_CHECKING:
-    from typing import assert_never
-
-    from typing_extensions import Unpack
+    from typing import Unpack, assert_never
 
     from qcodes.parameters import Parameter
 
@@ -182,8 +180,8 @@ class YokogawaGS200Monitor(InstrumentChannel["YokogawaGS200"]):
 
         # Set up mode cache. These will be filled in once the parent
         # is fully initialized.
-        self._range: None | float = None
-        self._unit: None | str = None
+        self._range: float | None = None
+        self._unit: str | None = None
 
         # Set up monitoring parameters
         if present:

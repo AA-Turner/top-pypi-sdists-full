@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.9.2"
+version = "1.9.3"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

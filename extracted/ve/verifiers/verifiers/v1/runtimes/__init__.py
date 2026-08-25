@@ -4,9 +4,9 @@ from typing import Annotated
 
 from pydantic import Field
 
+from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.runtimes.base import (
     BaseRuntimeInfo,
-    NetworkPolicyConfig,
     ProgramResult,
     Runtime,
     RuntimeProcess,
@@ -14,7 +14,12 @@ from verifiers.v1.runtimes.base import (
 )
 from verifiers.v1.runtimes.docker import DockerConfig, DockerRuntime, DockerRuntimeInfo
 from verifiers.v1.runtimes.modal import ModalConfig, ModalRuntime, ModalRuntimeInfo
-from verifiers.v1.runtimes.prime import PrimeConfig, PrimeRuntime, PrimeRuntimeInfo
+from verifiers.v1.runtimes.prime import (
+    PrimeConfig,
+    PrimeRuntime,
+    PrimeRuntimeInfo,
+    set_base_sandbox_labels,
+)
 from verifiers.v1.runtimes.subprocess import (
     SubprocessConfig,
     SubprocessRuntime,
@@ -50,13 +55,16 @@ def make_runtime(config: RuntimeConfig, name: str | None = None) -> Runtime:
 
 @asynccontextmanager
 async def provision_runtime(
-    config: RuntimeConfig, name: str | None = None
+    config: RuntimeConfig,
+    name: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> AsyncIterator[Runtime]:
     """Provision a box from `config` and tear it down on exit.
 
     `start()` sits inside the `try`: a failed start may already hold a paid sandbox, so
     it has to reach `stop()` (which is safe on a partially-started runtime)."""
     runtime = make_runtime(config, name)
+    runtime.env = dict(env or {})
     try:
         await runtime.start()
         yield runtime
@@ -93,4 +101,5 @@ __all__ = [
     "make_runtime",
     "provision_runtime",
     "runtime_is_local",
+    "set_base_sandbox_labels",
 ]

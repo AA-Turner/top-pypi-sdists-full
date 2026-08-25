@@ -9,7 +9,7 @@ import pathlib
 import time
 import warnings
 from collections import defaultdict
-from typing import Callable, List, Optional, Union
+from collections.abc import Callable
 
 import numpy as np
 
@@ -31,10 +31,31 @@ def _isArrayLike(obj):
     return hasattr(obj, "__iter__") and hasattr(obj, "__len__")
 
 
+def _normalize_ids(ids: list[int] | int | None) -> list[int]:
+    """Return integer IDs as a list and reject unsupported ID values.
+
+    Args:
+        ids: One ID, an iterable of IDs, or no IDs.
+
+    Returns:
+        Integer IDs in input order.
+
+    Raises:
+        TypeError: If an ID is not an integer.
+    """
+    if ids is None:
+        return []
+
+    values = list(ids) if _isArrayLike(ids) and not isinstance(ids, (str, bytes)) else [ids]
+    if any(isinstance(value, bool) or not isinstance(value, (int, np.integer)) for value in values):
+        raise TypeError("ids must be an int or an iterable of ints")
+    return values
+
+
 class COCO:
     def __init__(
         self,
-        annotation_file: Optional[Union[str, dict, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath]] = None,
+        annotation_file: str | dict | os.PathLike | pathlib.PosixPath | pathlib.WindowsPath | None = None,
         use_deepcopy: bool = False,
         print_function: Callable = logger.debug,
     ):
@@ -60,7 +81,7 @@ class COCO:
         if annotation_file is not None:
             self._print_function("loading annotations into memory...")
             tic = time.time()
-            if type(annotation_file) in [str, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath, dict, list]:
+            if isinstance(annotation_file, (str, os.PathLike, dict, list)):
                 self.dataset = COCO.load_json(annotation_file, self.use_deepcopy)
             else:
                 raise TypeError(f"type {type(annotation_file)} is not supported")
@@ -100,31 +121,45 @@ class COCO:
         anns, cats, imgs = {}, {}, {}
         imgToAnns, catToImgs = defaultdict(list), defaultdict(list)
 
-        annsImgIds_dict = set()
         if "images" in self.dataset:
             for img in self.dataset["images"]:
                 if type(img["id"]) is not int:
                     img["id"] = int(img["id"])
 
                 imgs[img["id"]] = img
-                annsImgIds_dict.add(img["id"])
 
         if "annotations" in self.dataset:
-            for ann in self.dataset["annotations"]:
-                if type(ann["image_id"]) is not int:
-                    ann["image_id"] = int(ann["image_id"])
+            # Preserve category-less datasets without branching for every normal COCO annotation.
+            if "categories" in self.dataset:
+                for ann in self.dataset["annotations"]:
+                    if type(ann["image_id"]) is not int:
+                        ann["image_id"] = int(ann["image_id"])
 
-                if ann["image_id"] in annsImgIds_dict:
                     imgToAnns[ann["image_id"]].append(ann)
                     anns[ann["id"]] = ann
+                    catToImgs[ann["category_id"]].append(ann["image_id"])
+            else:
+                for ann in self.dataset["annotations"]:
+                    if type(ann["image_id"]) is not int:
+                        ann["image_id"] = int(ann["image_id"])
+
+                    imgToAnns[ann["image_id"]].append(ann)
+                    anns[ann["id"]] = ann
+
+            if 0 in anns:
+                warnings.warn(
+                    "Found annotation id 0. Annotation ids are used as match "
+                    "markers during evaluation, where 0 also means 'unmatched' — "
+                    "an annotation with id 0 cannot be distinguished from an "
+                    "unmatched one, silently skewing precision/recall. Consider "
+                    "using 1-indexed annotation ids.",
+                    UserWarning,
+                    stacklevel=3,
+                )
 
         if "categories" in self.dataset:
             for cat in self.dataset["categories"]:
                 cats[cat["id"]] = cat
-
-        if "annotations" in self.dataset and "categories" in self.dataset:
-            for ann in self.dataset["annotations"]:
-                catToImgs[ann["category_id"]].append(ann["image_id"])
 
         self.print_function("index created!")
         self.print_function(f"Done (t={time.time() - tic:0.2f}s)")
@@ -147,22 +182,25 @@ class COCO:
 
     def getAnnIds(
         self,
-        imgIds: List[int] = [],
-        catIds: List[int] = [],
-        areaRng: List[float] = [],
-        iscrowd: bool = None,
-    ) -> List[int]:
+        imgIds: list[int] | None = None,
+        catIds: list[int] | None = None,
+        areaRng: list[float] | None = None,
+        iscrowd: bool | None = None,
+    ) -> list[int]:
         """Get ann ids that satisfy given filter conditions.
 
         Args:
-            imgIds (List[int], optional): Get anns for given images. Defaults to [].
-            catIds (List[int], optional): Get anns for given categories. Defaults to [].
-            areaRng (List[float], optional): Get anns for given area range (e.g. [0, inf]). Defaults to [].
+            imgIds (List[int], optional): Get anns for given images. Defaults to None.
+            catIds (List[int], optional): Get anns for given categories. Defaults to None.
+            areaRng (List[float], optional): Get anns for given area range (e.g. [0, inf]). Defaults to None.
             iscrowd (bool, optional): Get anns for given crowd label (False or True). Defaults to None.
 
         Returns:
             List[int]: Integer array of ann ids that satisfy the criteria.
         """
+        imgIds = [] if imgIds is None else imgIds
+        catIds = [] if catIds is None else catIds
+        areaRng = [] if areaRng is None else areaRng
         imgIds = set(imgIds if _isArrayLike(imgIds) else [imgIds])
         catIds = set(catIds if _isArrayLike(catIds) else [catIds])
 
@@ -206,20 +244,23 @@ class COCO:
 
     def getCatIds(
         self,
-        catNms: List[str] = [],
-        supNms: List[str] = [],
-        catIds: List[int] = [],
-    ) -> List[int]:
+        catNms: list[str] | None = None,
+        supNms: list[str] | None = None,
+        catIds: list[int] | None = None,
+    ) -> list[int]:
         """Get category ids that satisfy given filter conditions.
 
         Args:
-            catNms (List[str], optional): Get categories for given cat names. Defaults to [].
-            supNms (List[str], optional): Get categories for given supercategory names. Defaults to [].
-            catIds (List[int], optional): Get categories for given ids. Defaults to [].
+            catNms (List[str], optional): Get categories for given cat names. Defaults to None.
+            supNms (List[str], optional): Get categories for given supercategory names. Defaults to None.
+            catIds (List[int], optional): Get categories for given ids. Defaults to None.
 
         Returns:
             List[int]: Integer array of cat ids.
         """
+        catNms = [] if catNms is None else catNms
+        supNms = [] if supNms is None else supNms
+        catIds = [] if catIds is None else catIds
         catNms = set(catNms if _isArrayLike(catNms) else [catNms])
         supNms = set(supNms if _isArrayLike(supNms) else [supNms])
         catIds = set(catIds if _isArrayLike(catIds) else [catIds])
@@ -241,16 +282,18 @@ class COCO:
         ids = [cat["id"] for cat in cats]
         return ids
 
-    def getImgIds(self, imgIds: List[int] = [], catIds: List[int] = []) -> List[int]:
+    def getImgIds(self, imgIds: list[int] | None = None, catIds: list[int] | None = None) -> list[int]:
         """Get image ids that satisfy given filter conditions.
 
         Args:
-            imgIds (List[int], optional): Get images for given ids. Defaults to [].
-            catIds (List[int], optional): Get images with all given categories. Defaults to [].
+            imgIds (List[int], optional): Get images for given ids. Defaults to None.
+            catIds (List[int], optional): Get images with all given categories. Defaults to None.
 
         Returns:
             List[int]: Integer array of img ids.
         """
+        imgIds = [] if imgIds is None else imgIds
+        catIds = [] if catIds is None else catIds
         imgIds = imgIds if _isArrayLike(imgIds) else [imgIds]
         catIds = catIds if _isArrayLike(catIds) else [catIds]
 
@@ -265,52 +308,43 @@ class COCO:
                     ids &= set(self.catToImgs[catId])
         return list(ids)
 
-    def loadAnns(self, ids: Union[List[int], int] = []) -> List[dict]:
+    def loadAnns(self, ids: list[int] | int | None = None) -> list[dict]:
         """Load annotations with the specified ids.
 
         Args:
-            ids (Union[List[int], int], optional): Integer ids specifying annotations. Defaults to [].
+            ids (Union[List[int], int], optional): Integer ids specifying annotations. Defaults to None.
 
         Returns:
             List[dict]: Loaded annotation objects.
         """
-        if _isArrayLike(ids):
-            return [self.anns[i] for i in ids]
-        elif type(ids) is int:
-            return [self.anns[ids]]
+        return [self.anns[i] for i in _normalize_ids(ids)]
 
-    def loadCats(self, ids: Union[List[int], int] = []) -> List[dict]:
+    def loadCats(self, ids: list[int] | int | None = None) -> list[dict]:
         """Load categories with the specified ids.
 
         Args:
-            ids (Union[List[int], int], optional): Integer ids specifying categories. Defaults to [].
+            ids (Union[List[int], int], optional): Integer ids specifying categories. Defaults to None.
 
         Returns:
             List[dict]: Loaded category objects.
         """
-        if _isArrayLike(ids):
-            return [self.cats[i] for i in ids]
-        elif type(ids) is int:
-            return [self.cats[ids]]
+        return [self.cats[i] for i in _normalize_ids(ids)]
 
-    def loadImgs(self, ids: Union[List[int], int] = []) -> List[dict]:
+    def loadImgs(self, ids: list[int] | int | None = None) -> list[dict]:
         """Load images with the specified ids.
 
         Args:
-            ids (Union[List[int], int], optional): Integer ids specifying images. Defaults to [].
+            ids (Union[List[int], int], optional): Integer ids specifying images. Defaults to None.
 
         Returns:
             List[dict]: Loaded image objects.
         """
-        if _isArrayLike(ids):
-            return [self.imgs[i] for i in ids]
-        elif type(ids) is int:
-            return [self.imgs[ids]]
+        return [self.imgs[i] for i in _normalize_ids(ids)]
 
     @staticmethod
     def load_json(
-        json_file: Union[str, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath, dict, list],
-        use_deepcopy: Optional[bool] = False,
+        json_file: str | os.PathLike | pathlib.PosixPath | pathlib.WindowsPath | dict | list,
+        use_deepcopy: bool | None = False,
     ) -> dict:
         """Load a json file.
 
@@ -321,7 +355,7 @@ class COCO:
         Returns:
             dict: Loaded json data.
         """  # noqa: E501
-        if type(json_file) in [str, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath]:
+        if isinstance(json_file, (str, os.PathLike)):
             with open(json_file) as io:
                 _data = json.load(io)
         else:
@@ -333,7 +367,7 @@ class COCO:
 
     def loadRes(
         self,
-        resFile: Union[str, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath, dict, list, np.ndarray],
+        resFile: str | os.PathLike | pathlib.PosixPath | pathlib.WindowsPath | dict | list | np.ndarray,
         min_score: float = 0.0,
     ) -> "COCO":
         """Load result file and return a result api object.
@@ -351,7 +385,7 @@ class COCO:
 
         self.print_function("Loading and preparing results...")
         tic = time.time()
-        if type(resFile) in [str, os.PathLike, pathlib.PosixPath, pathlib.WindowsPath, dict, list]:
+        if isinstance(resFile, (str, os.PathLike, dict, list)):
             anns = COCO.load_json(resFile, getattr(self, "use_deepcopy", False))
         elif type(resFile) is np.ndarray:
             anns = self.loadNumpyAnnotations(resFile)
@@ -362,6 +396,14 @@ class COCO:
 
         if min_score != 0.0:
             anns = [ann for ann in anns if ann.get("score", 1) >= min_score]
+
+        if not anns:
+            # Preserve the source image/category metadata so an empty result is evaluable.
+            res.dataset["annotations"] = []
+            res.dataset["categories"] = copy.deepcopy(self.dataset.get("categories", []))
+            res.createIndex()
+            self.print_function(f"Done (t={time.time() - tic:0.2f}s)")
+            return res
 
         annsImgIds = [ann["image_id"] for ann in anns]
         assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), (
@@ -407,7 +449,7 @@ class COCO:
         res.createIndex()
         return res
 
-    def showAnns(self, anns: List[dict], draw_bbox: Optional[bool] = False):
+    def showAnns(self, anns: list[dict], draw_bbox: bool | None = False):
         """Display the specified annotations.
 
         Args:
@@ -500,19 +542,19 @@ class COCO:
             for ann in anns:
                 print(ann["caption"])
 
-    def download(self, tarDir=None, imgIds=[]):
-        """Deprecated: Download images (no longer supported).
+    def download(self, tarDir=None, imgIds: list[int] | None = None):
+        """Warn that image downloading is no longer supported.
 
         Args:
             tarDir (Any, optional): Target directory. Not used.
             imgIds (list, optional): Image ids. Not used.
 
-        Raises:
-            DeprecationWarning: Always raised, function is deprecated.
+        Warns:
+            DeprecationWarning: The method is deprecated and does not download images.
         """
         warnings.warn("download deprecated in 1.3.0", DeprecationWarning)
 
-    def loadNumpyAnnotations(self, data: np.ndarray) -> List[dict]:
+    def loadNumpyAnnotations(self, data: np.ndarray) -> list[dict]:
         """Convert result data from array to anns.
 
         Args:
@@ -581,17 +623,17 @@ class COCO:
 
     def get_ann_ids(
         self,
-        img_ids: List[int] = [],
-        cat_ids: List[int] = [],
-        area_rng: List[float] = [],
-        iscrowd: bool = None,
-    ) -> List[int]:
+        img_ids: list[int] | None = None,
+        cat_ids: list[int] | None = None,
+        area_rng: list[float] | None = None,
+        iscrowd: bool | None = None,
+    ) -> list[int]:
         """Get ann ids that satisfy given filter conditions.
 
         Args:
-            img_ids (List[int], optional): Get anns for given imgs. Defaults to [].
-            cat_ids (List[int], optional): Get anns for given cats. Defaults to [].
-            area_rng (List[float], optional): Get anns with area less than this. Defaults to [].
+            img_ids (List[int], optional): Get anns for given imgs. Defaults to None.
+            cat_ids (List[int], optional): Get anns for given cats. Defaults to None.
+            area_rng (List[float], optional): Get anns with area less than this. Defaults to None.
             iscrowd (bool, optional): Get anns for given crowd label. Defaults to None.
 
         Returns:
@@ -601,35 +643,35 @@ class COCO:
 
     def get_cat_ids(
         self,
-        cat_names: List[str] = [],
-        sup_names: List[str] = [],
-        cat_ids: List[int] = [],
-    ) -> List[int]:
+        cat_names: list[str] | None = None,
+        sup_names: list[str] | None = None,
+        cat_ids: list[int] | None = None,
+    ) -> list[int]:
         """Get cat ids that satisfy given filter conditions.
 
         Args:
-            cat_names (List[str], optional): Get cats for given names. Defaults to [].
-            sup_names (List[str], optional): Get cats for given supercategory names. Defaults to [].
-            cat_ids (List[int], optional): Get cats for given ids. Defaults to [].
+            cat_names (List[str], optional): Get cats for given names. Defaults to None.
+            sup_names (List[str], optional): Get cats for given supercategory names. Defaults to None.
+            cat_ids (List[int], optional): Get cats for given ids. Defaults to None.
 
         Returns:
             List[int]: Integer array of cat ids.
         """
         return self.getCatIds(cat_names, sup_names, cat_ids)
 
-    def get_img_ids(self, img_ids: List[int] = [], cat_ids: List[int] = []) -> List[int]:
+    def get_img_ids(self, img_ids: list[int] | None = None, cat_ids: list[int] | None = None) -> list[int]:
         """Get img ids that satisfy given filter conditions.
 
         Args:
-            img_ids (List[int], optional): Get imgs for given ids. Defaults to [].
-            cat_ids (List[int], optional): Get imgs with all given cats. Defaults to [].
+            img_ids (List[int], optional): Get imgs for given ids. Defaults to None.
+            cat_ids (List[int], optional): Get imgs with all given cats. Defaults to None.
 
         Returns:
             List[int]: Integer array of img ids.
         """
         return self.getImgIds(img_ids, cat_ids)
 
-    def load_anns(self, ids: List[int]) -> List[dict]:
+    def load_anns(self, ids: list[int]) -> list[dict]:
         """Load anns with the specified ids.
 
         Args:
@@ -640,7 +682,7 @@ class COCO:
         """
         return self.loadAnns(ids)
 
-    def load_cats(self, ids: List[int]) -> List[dict]:
+    def load_cats(self, ids: list[int]) -> list[dict]:
         """Load cats with the specified ids.
 
         Args:
@@ -651,7 +693,7 @@ class COCO:
         """
         return self.loadCats(ids)
 
-    def load_imgs(self, ids: List[int]) -> List[dict]:
+    def load_imgs(self, ids: list[int]) -> list[dict]:
         """Load imgs with the specified ids.
 
         Args:
@@ -718,8 +760,8 @@ class COCO:
         Returns:
             dict: Standard python dictionary containing the COCO data.
         """
-        cats = list(self.cats.values())
-        anns = list(self.anns.values())
+        cats = [dict(category) for category in self.cats.values()]
+        anns = [dict(annotation) for annotation in self.anns.values()]
 
         if separate_fn:
             max_category_id = max(cats, key=lambda x: x["id"])["id"]
@@ -756,7 +798,7 @@ class COCO:
         for key, val in self.to_dict().items():  # noqa: UP028
             yield key, val
 
-    def dump(self, output_file: Union[str, os.PathLike]):
+    def dump(self, output_file: str | os.PathLike):
         """Dump annotations to a json file.
 
         Args:

@@ -1,9 +1,9 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.63.3"
+jm_version = "0.68.0"
 name = "doppler"
-version = "0.1.0"
+version = "0.44.0"
 build = "cmake"
 # doppler does not target Windows (signal-processing users run WSL2/VM/container
 # — see docs). Omitting "windows" drops jm's per-component MinGW DLL-copy
@@ -361,6 +361,14 @@ create_fn = "wfm_plan_load"
 init_params = [{ name = "path", type = "path" }]
 
 [module.sample_clock]
+# timing_core's pace() consults dp_interrupted() so a paced loop can be
+# stopped; this extension embeds its objects rather than linking
+# libdoppler, so it needs the primitive's definitions too. Declared as a
+# `link = true` dependency rather than spliced as a raw
+# `$<TARGET_OBJECTS:>` genexpr, because jm can only see the linkage it
+# WROTE -- and `dp_interrupt_guard` is `process_global`, so a module jm
+# cannot see linking it is a module that silently keeps its own flag
+# (doppler#976). The core carries dp_interrupt.c's storage and accessors.
 kind            = "handle"
 backing         = "dp_sample_clock"
 handle_type     = "dp_sample_clock_t"
@@ -378,6 +386,10 @@ capsule         = "doppler.wfm.dp_sample_clock"
 # free(self->h) alone (no <backing>_close finalizer). init_fn makes jm own the
 # malloc/free.
 close_fn        = ""
+
+[[module.sample_clock.depends_on]]
+name = "dp_interrupt_guard"
+link = true
 
 [[module.sample_clock.create_args]]
 name = "fs"
@@ -546,7 +558,17 @@ context_manager = true
 close_fn        = "wfm_stream_sink_close"
 create_fn       = "wfm_stream_sink_open"
 # dp_tlm_core: stream_core_obj's tlm_sink.c references dp_tlm_read.
+# dp_interrupt_obj: stream_core.c's deprecated dp_stream_interrupt* forward
+# to the core primitive, and this extension embeds stream objects rather
+# than linking libdoppler, so it needs the definitions too.
 extra_link_libs = ["$<TARGET_OBJECTS:stream_core_obj>", "dp_tlm_core", "nats_vendor_static", "Threads::Threads", "m"]
+
+# The interrupt primitive, DECLARED rather than spliced -- see
+# [module.sample_clock]. It is `process_global`, and jm generates the
+# rendezvous only into modules whose link line it wrote.
+[[module.wfm_sink.depends_on]]
+name = "dp_interrupt_guard"
+link = true
 
 [[module.wfm_sink.create_args]]
 name = "endpoint"
@@ -580,6 +602,35 @@ name = "fc"
 type = "double"
 
 [[module.wfm_sink.methods]]
+name = "send_eos"
+fn = "wfm_stream_sink_send_eos"
+# `returns` is the C signature; `error = "OSError"` makes the binding RAISE
+# rather than hand the status back, so the stub is `-> None`. It read `-> int`
+# until the 0.67.1 pin: jm honoured `error` in the annotation only on the
+# arg-carrying branch, so this zero-arg method disagreed with the `drain`
+# below that declares the identical pair. just-makeit#1116, fixed in 0.67.0
+# and verified here -- the regenerated stub says `-> None`.
+returns = "int"
+error = "OSError"
+
+[[module.wfm_sink.methods]]
+name = "drain"
+fn = "wfm_stream_sink_drain"
+# returns="int", NOT status_return: on a HANDLE method jm rejects
+# status_return outright ("error requires an `int` status return"). The
+# object-method form in objects/dp_tlm_capture.toml is the other spelling.
+# The `Raises` half of just-makeit#1111 is fixed as of the 0.67.1 pin (0.66.1)
+# and the stub now carries one; `error_message` is honoured there too, though
+# neither method here declares one.
+returns = "int"
+error = "OSError"
+
+[[module.wfm_sink.methods.args]]
+name = "timeout_ms"
+type = "int"
+default = "0"
+
+[[module.wfm_sink.methods]]
 name = "track_clipping"
 fn = "wfm_stream_sink_track_clipping"
 
@@ -593,6 +644,9 @@ name = "clip_fraction"
 getter = "wfm_stream_sink_clip_fraction"
 type = "double"
 
+# `returns` types the `tmp` the `expr` below operates on, and jm REFUSES an
+# `expr` field without it (gh-333: defaulting `tmp` to the decoded `type`
+# truncates the getter's value before the expr runs, silently).
 [[module.wfm_sink.getters.fields]]
 name = "peak_dbfs"
 getter = "wfm_stream_sink_peak"
@@ -889,6 +943,12 @@ sample_type  = true
 # native/src/wfmcompose/CMakeLists.txt's test_wfm_compose link line.
 # wfm_keywords_core: the writer core's BLUE extended-header codec.
 extra_link_libs = ["wfm_draw_core", "wfm_cjson_core", "wfm_keywords_core", "m"]
+
+# The interrupt primitive, DECLARED rather than spliced -- see
+# [module.sample_clock].
+[[module.wfm_compose.depends_on]]
+name = "dp_interrupt_guard"
+link = true
 
 # The source type wraps wfm_source_t field-for-field (struct order); enum fields
 # cross as validated strings via the SSOT, `bits` as an owned bytes buffer.
@@ -1207,7 +1267,13 @@ header = "timing/timing_core.h"
 [module.wfm_compose.json]
 enabled = true
 to_json_fn = "wfm_spec_to_json"
-to_json_trailing = ["0.0"]
+# The trailing literals are spliced after (segs, n, repeat, continuous), so the
+# order here IS the C signature's. `self->state` is in scope in jm's generated
+# to_json, which is what lets the composer stay the SSOT for seed_advance --
+# without it the Python face emitted a spec that replayed a different waveform
+# (doppler#978). headroom is a writer gain, not composer state, so it is still
+# the literal 0.0: a Python Composer has none.
+to_json_trailing = ["wfm_compose_seed_advance (self->state)", "0.0"]
 
 [[module.wfm_compose.serializers]]
 name = "to_sigmf"
@@ -1491,6 +1557,20 @@ type = "double"
 [[module.measure.functions.params]]
 name = "N"
 type = "size_t"
+[module.interrupt]
+doc = """
+Stopping a run: the one flag every blocking wait in doppler consults, and the scoped guard that arms it.
+
+Examples
+--------
+>>> from doppler.interrupt import Interrupt
+>>> it = Interrupt([])
+>>> it.interrupted()
+0
+
+"""
+objects = ["dp_interrupt_guard"]
+
 [module.buffer]
 doc = """
 Sample buffering: lock-free ring buffers for handing IQ blocks between producer and consumer stages.
@@ -2544,6 +2624,13 @@ values = ["none", "xdelta", "core:sample_rate"]
 [[enum]]
 name = "t0_source"
 values = ["none", "timecode"]
+
+# How a following read ended (docs/design/end-of-capture.md). "none" is index
+# 0 and is the state while the capture is still live; the rest name the three
+# ways a wait can stop. Order matches wfm_follow_end_t (wfm_reader_core.h).
+[[enum]]
+name = "follow_end"
+values = ["none", "eof", "timeout", "interrupted"]
 
 [[enum]]
 name = "interp_method"

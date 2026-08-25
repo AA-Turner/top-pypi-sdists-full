@@ -9,9 +9,10 @@ sample type, sample_rate, center_freq, and a nanosecond timestamp.
 Zero-copy recv: the returned NumPy array holds a reference to the
 dp_msg_t until GC.
 
-Sample types supported by the Python binding: CI32, CF64, CF128.
-CI8/CI16/CF32 exist in the C wire protocol but the Python recv path
-does not decode them (raises ValueError on receipt).
+Sample types: CI8, CI16, CI32, CF32, CF64 (I/Q) and TLM16 (telemetry
+records, Publisher only). Every one round-trips through both faces. The
+wire values are append-only and 2 is retired -- it was CF128, whose
+representation differs between x86-64 and aarch64 at the same size.
 
 All tests use a random subject so they don't collide with each other or
 with a concurrent run on the same broker.
@@ -26,9 +27,9 @@ import time
 import numpy as np
 import pytest
 
+import doppler.stream
 from doppler.stream import (
     CF64,
-    CF128,
     CI32,
     Publisher,
     Pull,
@@ -265,23 +266,169 @@ def test_recv_array_is_valid_after_recv(push_pull_cf64):
 
 
 # ------------------------------------------------------------------ #
-# PUSH / PULL — CF128 (long double complex)                           #
+# Flushing a publisher                                                #
 # ------------------------------------------------------------------ #
 
 
-def test_push_pull_cf128_roundtrip():
+def test_flush_makes_the_send_observable():
+    """send() returns before the server has it; flush() is the round trip."""
     ep = _unique_endpoint()
-    push = Push(ep, CF128)
-    pull = Pull(ep)
+    sub = Subscriber(ep)
     time.sleep(0.05)
-    x = np.array([1 + 2j, -3 - 4j], dtype=np.clongdouble)
-    push.send(x)
-    samples, _hdr = pull.recv(timeout_ms=2000)
-    assert samples.dtype == np.clongdouble
-    np.testing.assert_array_almost_equal(samples.real, x.real)
-    np.testing.assert_array_almost_equal(samples.imag, x.imag)
-    push.__exit__(None, None, None)
-    pull.__exit__(None, None, None)
+    pub = Publisher(ep, CF64)
+    pub.send(np.ones(16, dtype=np.complex128), sample_rate=1e6)
+    pub.flush()
+    samples, _hdr = sub.recv(timeout_ms=1000)
+    assert len(samples) == 16
+    pub.flush(timeout_ms=500)  # nothing pending is still a round trip
+    pub.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        pub.flush()
+    sub.close()
+
+
+# ------------------------------------------------------------------ #
+# Interrupting a blocking receive                                     #
+# ------------------------------------------------------------------ #
+
+
+def _guard(latency_ms: int = 0):
+    """A guard that arms no handlers -- a handle to the process-wide flag.
+
+    The interrupt moved to `doppler.interrupt.Interrupt`; `doppler.stream`
+    no longer re-exports it. These tests stay here because what they pin
+    is the STREAM's half of the contract -- that a blocked recv() honours
+    the flag -- not the flag itself, which test_dp_interrupt_guard.py has.
+    """
+    import numpy as np
+
+    from doppler.interrupt import Interrupt
+
+    return Interrupt(np.array([], dtype=np.int32), latency_ms=latency_ms)
+
+
+def test_interrupt_unblocks_a_blocking_recv():
+    """A blocked recv() must come back when asked, not when a frame does.
+
+    recv() with no timeout waits inside the NATS client with the GIL
+    released. Nothing is published here, so without the interrupt this
+    call never returns -- which is exactly the defect the C receiver
+    example shipped with.
+    """
+    import threading
+
+    it = _guard()
+    sub = Subscriber(_unique_endpoint())
+    time.sleep(0.05)
+
+    timer = threading.Timer(0.4, it.interrupt)
+    timer.start()
+    t0 = time.monotonic()
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            sub.recv()  # no timeout: blocks
+        elapsed = time.monotonic() - t0
+        assert elapsed < 3.0, f"took {elapsed:.2f}s"
+
+        # Sticky: a recv STARTED while the flag is set refuses at once, so
+        # a signal cannot be missed by racing it.
+        with pytest.raises(KeyboardInterrupt):
+            sub.recv()
+
+        # And receiving works again once cleared.
+        it.resume()
+        with pytest.raises(TimeoutError):
+            sub.recv(timeout_ms=200)
+    finally:
+        timer.join()
+        it.resume()
+        sub.close()
+
+
+def test_interrupt_latency_is_the_callers_to_set():
+    """The wait slice is a knob, and it reaches a blocked receive.
+
+    Asserted as an upper bound rather than a measurement: a small latency
+    must not make the interrupt SLOWER, and the default must not be the
+    only value that works. The scaling itself (500 -> ~300 ms overshoot,
+    10 -> ~9 ms) is measurable but not worth a timing assertion in a
+    suite that runs on shared CI.
+    """
+    import threading
+
+    baseline = _guard()
+    assert baseline.latency_ms() > 0
+
+    it = _guard(latency_ms=10)
+    assert it.latency_ms() == 10
+    try:
+        sub = Subscriber(_unique_endpoint())
+        time.sleep(0.05)
+        timer = threading.Timer(0.2, it.interrupt)
+        timer.start()
+        t0 = time.monotonic()
+        with pytest.raises(KeyboardInterrupt):
+            sub.recv()
+        timer.join()
+        assert time.monotonic() - t0 < 2.0
+        sub.close()
+    finally:
+        it.resume()
+
+    # The override is the guard's, and dies with it.
+    #
+    # `timer` has to go too, and that is not tidiness: threading.Timer holds
+    # the BOUND METHOD `it.interrupt`, which holds `it`, so dropping only the
+    # `it` name leaves the guard alive and its latency override still in
+    # force. Nobody had seen that, because until doppler#976 was fixed this
+    # test never reached this line -- `it.interrupt()` set doppler.interrupt's
+    # flag while `sub.recv()` read doppler.stream's, so the recv above blocked
+    # forever and the run was killed rather than failed.
+    del timer, it
+    assert baseline.latency_ms() == 100
+
+
+def test_a_guard_scopes_the_latency_to_its_lifetime():
+    before = _guard().latency_ms()
+    with _guard(latency_ms=5) as inner:
+        assert inner.latency_ms() == 5
+    assert _guard().latency_ms() == before
+
+
+def test_arming_sigint_leaves_pythons_view_of_the_handler_alone():
+    """The guard installs underneath Python's handler and chains to it."""
+    import signal as _signal
+
+    import numpy as np
+
+    from doppler.interrupt import Interrupt
+
+    before = _signal.getsignal(_signal.SIGINT)
+    with Interrupt(np.array([_signal.SIGINT], dtype=np.int32)) as it:
+        assert not it.interrupted()
+    # Ours is installed at the C level underneath Python's, which is what
+    # keeps Ctrl+C working outside a receive.
+    assert _signal.getsignal(_signal.SIGINT) is before
+    assert not _guard().interrupted()
+
+
+# ------------------------------------------------------------------ #
+# Retired wire values                                                 #
+# ------------------------------------------------------------------ #
+
+
+def test_retired_sample_type_is_rejected():
+    """Wire value 2 was CF128 and is retired, not reusable.
+
+    A retired value sits INSIDE the enum's numeric range, so the ordinal
+    test this binding used to run (`type <= CF32`) accepted it and then
+    built zero-length frames. The constructor asks the C predicate
+    instead, which derives validity from `dp_sample_size()` -- one table,
+    and a type with no size is not a type.
+    """
+    assert not hasattr(doppler.stream, "CF128")
+    with pytest.raises(ValueError):
+        Push(_unique_endpoint(), 2)
 
 
 # ------------------------------------------------------------------ #
@@ -298,16 +445,27 @@ def test_push_pull_header_all_fields(push_pull_cf64):
     required = {
         "sample_rate",
         "center_freq",
-        "sample_type",
+        "format",
+        "kind",
+        "data_rep",
+        "flags",
+        "payload_bytes",
+        "version",
         "timestamp_ns",
         "sequence",
         "num_samples",
-        "protocol",
-        "stream_id",
     }
     assert required.issubset(hdr.keys()), (
         f"Missing keys: {required - hdr.keys()}"
     )
+    # `format` is the BLUE code, not an ordinal: "CD" for complex float64,
+    # the same two characters the same samples get in a BLUE file.
+    assert hdr["format"] == CF64
+    assert bytes([hdr["format"] & 0xFF, hdr["format"] >> 8]) == b"CD"
+    assert hdr["kind"] == 0  # DP_KIND_IQ
+    assert hdr["version"] == 2
+    assert hdr["data_rep"] in ("EEEI", "IEEE")
+    assert hdr["payload_bytes"] == 4 * 16
 
 
 def test_push_pull_header_num_samples(push_pull_cf64):
@@ -622,7 +780,10 @@ def test_pub_sub_tlm16_roundtrip():
 
     pub.send(recs)
     rx, hdr = sub.recv(timeout_ms=2000)
-    assert hdr["sample_type"] == TLM16
+    # A telemetry frame is a KIND; its format field carries no BLUE code
+    # because BLUE has none for a record stream.
+    assert hdr["kind"] == TLM16
+    assert hdr["format"] == 0
     assert hdr["num_samples"] == len(recs)
     assert rx.dtype == recs.dtype  # structured rows survive the wire
     np.testing.assert_array_equal(rx, recs)

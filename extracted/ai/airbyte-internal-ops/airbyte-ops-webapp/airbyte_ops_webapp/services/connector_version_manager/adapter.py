@@ -51,6 +51,7 @@ from airbyte_ops_mcp.registry.yank import get_yank_marker, list_yanked_versions
 from airbyte_ops_mcp.tier_cache import (
     enrich_rows_by_org,
     filter_rows_by_tier,
+    get_org_tier,
     resolve_workspace,
 )
 from airbyte_ops_mcp.version_summaries import (
@@ -58,6 +59,8 @@ from airbyte_ops_mcp.version_summaries import (
     TierSummary,
     summarize_population,
 )
+from google.api_core.exceptions import GoogleAPICallError
+from google.auth.exceptions import GoogleAuthError
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
@@ -1139,6 +1142,27 @@ class OpsMcpAdapter:
             or ""
         )
 
+    def resolve_customer_tier(self, organization_id: str) -> str:
+        """Return the org's customer tier, for use as an override tier filter.
+
+        A degraded tier export yields `UNKNOWN`, the only filter the override
+        guardrail accepts while tiers are indeterminable. An empty return means
+        the tier could not be resolved at all, and callers must not infer one.
+        Credential resolution happens here rather than inside `tier_cache`, so
+        its failures are absorbed too — an unavailable tier export must not
+        break scope resolution.
+        """
+        if not organization_id:
+            return ""
+        try:
+            return get_org_tier(
+                organization_id,
+                credentials=get_gcp_credentials_for_tier_gcs_ro(),
+                allow_degraded=True,
+            ).customer_tier
+        except (RuntimeError, GoogleAuthError, GoogleAPICallError):
+            return ""
+
     def resolve_context_guid(
         self,
         *,
@@ -1436,6 +1460,7 @@ class OpsMcpAdapter:
             organization_name=org_resolution.scope_name if org_resolution else "",
             actor_id=context_guid,
             actor_type=connector.connector_type,
+            customer_tier=workspace_resolution.customer_tier,
         )
 
     def _resolve_workspace_context(
@@ -1482,6 +1507,11 @@ class OpsMcpAdapter:
             workspace_id=context_guid,
             workspace_name=workspace_name,
             organization_name=org_resolution.scope_name if org_resolution else "",
+            customer_tier=(
+                org_resolution.customer_tier
+                if org_resolution
+                else self.resolve_customer_tier(organization_id)
+            ),
         )
 
     def _resolve_organization_context(
@@ -1508,6 +1538,7 @@ class OpsMcpAdapter:
             organization_id=context_guid,
             scope_name=organization.organization_name,
             organization_name=organization.organization_name,
+            customer_tier=self.resolve_customer_tier(context_guid),
         )
 
     def _connector_from_definition_id(

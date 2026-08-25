@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from renderers.base import MultiModalData
 from typing_extensions import TypedDict
 
@@ -65,9 +65,10 @@ class UserMessage(BaseModel):
 
 class ToolCall(BaseModel):
     id: str
+    type: Literal["function", "custom"] = "function"
     name: str
     arguments: str
-    """Raw JSON string of arguments, exactly as the model emitted it."""
+    """Raw function arguments or custom-tool input, exactly as the model emitted it."""
 
 
 class AssistantMessage(BaseModel):
@@ -99,6 +100,13 @@ class Tool(BaseModel):
     description: str
     parameters: dict[str, Any]
     strict: bool | None = None
+
+
+class Request(BaseModel):
+    """The typed conversation about to cross a model or harness boundary."""
+
+    messages: Messages
+    tools: list[Tool] | None = None
 
 
 FinishReason = Literal["stop", "length", "tool_calls"] | None
@@ -205,6 +213,10 @@ class TurnTokens(BaseModel):
     # Transient carrier (excluded): the renderer's multimodal sidecar (image tensors + offsets),
     # attributed per node by the turn's `commit`, then dropped — never persisted.
     multi_modal_data: MultiModalData | None = Field(default=None, exclude=True)
+    # Transient carrier (excluded): the renderer's special-token id -> modality marker map,
+    # stamped onto `Trace.mm_token_type_id_map` by the turn's `commit`. None unless the
+    # rendering renderer is multimodal.
+    mm_token_type_id_map: dict[int, int] | None = Field(default=None, exclude=True)
     # Transient carrier (excluded): the MoE expert-routing data from `generate` (expert ids
     # per token), attributed per node by the turn's `commit` into `MessageNode.routed_experts`,
     # then dropped. None unless the engine ran with `enable_return_routed_experts`.
@@ -239,17 +251,21 @@ class SamplingConfig(BaseModel):
         None, validation_alias=AliasChoices("max_tokens", "max_completion_tokens")
     )
 
+    def wire_args(self) -> dict[str, Any]:
+        """Flatten OpenAI-style ``extra_body`` before building a provider request."""
+        args = self.model_dump(exclude_none=True)
+        extra_body = {
+            key: value
+            for key, value in (args.pop("extra_body", None) or {}).items()
+            if value is not None
+        }
+        if "max_tokens" in args:
+            extra_body.pop("max_completion_tokens", None)
+        return {**extra_body, **args}
+
 
 Sampling = SamplingConfig
 
 
-def _validate_id(plugin_id: str) -> str:
-    from verifiers.utils.install_utils import is_hub_env, parse_env_id
-
-    if is_hub_env(plugin_id):
-        parse_env_id(plugin_id)  # raises ValueError on a malformed org/name[@version]
-    return plugin_id
-
-
-ID = Annotated[str, AfterValidator(_validate_id)]
-"""Plugin id: `name`, `org/name`, or `org/name@version`."""
+ID = str
+"""Plugin id: the name of an installed package exporting the plugin."""

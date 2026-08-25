@@ -24,7 +24,7 @@ if(NOT WIN32)
     add_executable(bench_stream
         ${CMAKE_SOURCE_DIR}/native/benchmarks/bench_stream.c)
     target_link_libraries(bench_stream PRIVATE
-        $<TARGET_OBJECTS:stream_core_obj>
+        $<TARGET_OBJECTS:stream_core_obj> $<TARGET_OBJECTS:dp_interrupt_obj>
         dp_tlm_core
         nats_vendor_static
         m pthread)
@@ -34,11 +34,25 @@ if(NOT WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/native/benchmarks")
 endif()
 
+# The wire format itself: layout, magic, BLUE codes, flag mask. No broker,
+# so unlike the round-trip tests below it runs everywhere -- which is the
+# point, since the layout is what a third party implements from stream.h.
+add_executable(test_stream_wire
+    ${CMAKE_SOURCE_DIR}/native/tests/test_stream_wire.c)
+target_link_libraries(test_stream_wire PRIVATE
+    $<TARGET_OBJECTS:stream_core_obj> $<TARGET_OBJECTS:dp_interrupt_obj>
+    dp_tlm_core
+    nats_vendor_static
+    m pthread)
+target_include_directories(test_stream_wire PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc)
+add_test(NAME test_stream_wire COMMAND test_stream_wire)
+
 if(NOT WIN32)
     add_executable(test_stream_nats_core
         ${CMAKE_SOURCE_DIR}/native/tests/test_stream_nats_core.c)
     target_link_libraries(test_stream_nats_core PRIVATE
-        $<TARGET_OBJECTS:stream_core_obj>
+        $<TARGET_OBJECTS:stream_core_obj> $<TARGET_OBJECTS:dp_interrupt_obj>
         dp_tlm_core
         nats_vendor_static
         m pthread)
@@ -53,7 +67,7 @@ if(NOT WIN32)
     add_executable(test_tlm_sink
         ${CMAKE_SOURCE_DIR}/native/tests/test_tlm_sink.c)
     target_link_libraries(test_tlm_sink PRIVATE
-        $<TARGET_OBJECTS:stream_core_obj>
+        $<TARGET_OBJECTS:stream_core_obj> $<TARGET_OBJECTS:dp_interrupt_obj>
         dp_tlm_core
         nats_vendor_static
         m pthread)
@@ -67,7 +81,7 @@ endif()
 if(BUILD_PYTHON)
     Python3_add_library(stream MODULE WITH_SOABI stream_ext.c)
     target_link_libraries(stream PRIVATE
-        $<TARGET_OBJECTS:stream_core_obj>
+        $<TARGET_OBJECTS:stream_core_obj> $<TARGET_OBJECTS:dp_interrupt_obj>
         dp_tlm_core
         nats_vendor_static
         Python3::NumPy

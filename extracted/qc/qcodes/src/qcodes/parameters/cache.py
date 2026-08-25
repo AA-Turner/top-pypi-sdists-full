@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, overload
 
 from typing_extensions import TypeVar
 
-# due to circular imports we cannot import the TypeVar from parameter_base
+# Cannot convert to PEP 695: uses default= which requires PEP 696 (Python 3.13+).
+# Due to circular imports we cannot import the TypeVar from parameter_base.
 ParameterDataTypeVar = TypeVar("ParameterDataTypeVar", default=Any)
 
 if TYPE_CHECKING:
@@ -186,7 +187,7 @@ class _Cache(Generic[ParameterDataTypeVar]):
         self._value = value
         self._raw_value = raw_value
         if timestamp is None:
-            self._timestamp = datetime.now()
+            self._timestamp = datetime.now(UTC).astimezone()
         else:
             self._timestamp = timestamp
         self._marked_valid = True
@@ -198,16 +199,11 @@ class _Cache(Generic[ParameterDataTypeVar]):
         if self._max_val_age is None:
             # parameter cannot expire
             return False
-        oldest_accepted_timestamp = datetime.now() - timedelta(
+        oldest_accepted_timestamp = datetime.now(UTC).astimezone() - timedelta(
             seconds=self._max_val_age
         )
-        if self._timestamp < oldest_accepted_timestamp:
-            # Time of last get exceeds max_val_age seconds, need to
-            # perform new .get()
-            return True
-        else:
-            # parameter is still valid
-            return False
+        too_old = self._timestamp < oldest_accepted_timestamp
+        return too_old
 
     @overload
     def get(self, get_if_invalid: Literal[True]) -> ParameterDataTypeVar: ...

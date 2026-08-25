@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
@@ -52,18 +53,30 @@ from lintro.ai.review.checklist_display import (
     enrich_review_result,
     resolve_checklist_display,
 )
+from lintro.ai.review.cost_cap import cap_is_enforced
 from lintro.ai.review.custom_agents import (
     CustomAgentSpec,
     discover_custom_agents,
     format_custom_agent_listing,
 )
+from lintro.ai.review.enums.changed_file_status import ChangedFileStatus
 from lintro.ai.review.enums.custom_agent_mode import CustomAgentMode
 from lintro.ai.review.enums.review_strictness import ReviewStrictness
 from lintro.ai.review.error_display import render_review_error
 from lintro.ai.review.exceptions import ReviewContextError
+from lintro.ai.review.models.review_state import ReviewState
 from lintro.ai.review.orchestrator import run_review
 from lintro.ai.review.output import render_review_output
 from lintro.ai.review.sensitivity import resolve_sensitivity_policy
+from lintro.ai.review.state_store import (
+    load_ci_state,
+    load_local_state,
+    local_ledger_key,
+    migrate_legacy_sticky,
+    state_dir,
+    write_local_state,
+    write_state_part,
+)
 from lintro.ai.transport import (
     apply_cli_overrides,
     apply_resolved_transport,
@@ -102,6 +115,7 @@ def _fail_review_command(
     resolved_pr: int | None,
     effective_repo: str | None,
     console: Console | None = None,
+    prior_state: ReviewState | None = None,
 ) -> NoReturn:
     """Render a review failure and exit with the review-error contract.
 
@@ -116,6 +130,7 @@ def _fail_review_command(
         resolved_pr: PR number when posting is requested.
         effective_repo: ``owner/repo`` when posting is requested.
         console: Terminal console; created on demand for non-JSON output.
+        prior_state: Prior resume state forwarded to the error sticky.
 
     Raises:
         SystemExit: Always, with the review-error exit code.
@@ -129,6 +144,7 @@ def _fail_review_command(
                 provider=provider_label,
                 pr_number=resolved_pr,
                 repo=effective_repo,
+                prior_state=prior_state,
             )
     from lintro.ai.review.error_contract import (
         REVIEW_ERROR_EXIT_CODE,
@@ -292,13 +308,27 @@ def _advisory_failure_error(results: list[ToolResult]) -> AIError:
     help="Override ai.model for this invocation.",
 )
 @click.option(
+    "--review/--no-review",
+    "review_override",
+    default=None,
+    help="Override ai.review for this invocation.",
+)
+@click.option(
     "--max-cost-usd",
     "max_cost_usd_override",
     default=None,
     help=(
         "Override ai.max_cost_usd for this invocation. A positive number is "
-        "the USD cap; 0 means uncapped (not a $0 cap)."
+        "the USD cap; 'uncapped' lifts the ceiling. 0 is rejected as "
+        "ambiguous."
     ),
+)
+@click.option(
+    "--full",
+    "force_full",
+    is_flag=True,
+    default=False,
+    help="Discard carried coverage and review every eligible file again.",
 )
 @click.option(
     "--timeout",
@@ -374,7 +404,9 @@ def review_command(
     transport: str | None,
     provider_override: str | None,
     model_override: str | None,
+    review_override: bool | None,
     max_cost_usd_override: str | None,
+    force_full: bool,
     list_agents: bool,
     advisory_tools: str | None,
     tool_options: str | None,
@@ -409,6 +441,7 @@ def review_command(
             provider=provider_override,
             model=model_override,
             transport=transport,
+            review=review_override,
             max_cost_usd=max_cost_usd_override,
         )
     except AIConfigOverrideError as exc:
@@ -441,8 +474,9 @@ def review_command(
 
     if not ai_config.review_enabled:
         raise click.UsageError(
-            "AI review is disabled in configuration. Set ai.review: true "
-            "(and ai.enabled: true) in .lintro-config.yaml",
+            "AI review is disabled. Set ai.review: true, LINTRO_AI_REVIEW=1, "
+            "or pass --review (and enable ai.enabled via config or "
+            "LINTRO_AI_ENABLED=1).",
         )
 
     effective_repo = repo or os.environ.get("GITHUB_REPOSITORY")
@@ -579,6 +613,17 @@ def review_command(
 
         progress_tracker = RichReviewProgress(console=console)
 
+    cap, cap_source = resolve_max_cost_with_source(resolved_ai)
+    enforce_cap = cap_is_enforced(
+        source=cap_source,
+        basis=resolved_profile.cost_basis,
+    )
+    prior_state = _load_prior_review_state(
+        pr_number=pr,
+        head_ref=context.head_ref,
+        repo=effective_repo or os.environ.get("GITHUB_REPOSITORY", ""),
+        post=post,
+    )
     try:
         provider = get_provider(effective_ai_config, workspace_root=workspace_root)
         result = run_review(
@@ -598,6 +643,9 @@ def review_command(
             run_builtin_checklist=custom_agent_mode != CustomAgentMode.ONLY,
             workspace_root=workspace_root,
             context_collection_seconds=context_collection_seconds,
+            prior_state=prior_state,
+            force_full=force_full,
+            enforce_cost_cap=enforce_cap,
         )
         from dataclasses import replace as dc_replace
 
@@ -614,7 +662,6 @@ def review_command(
         ):
             effective_basis = CostBasis.ESTIMATED
 
-        cap, cap_source = resolve_max_cost_with_source(resolved_ai)
         result = dc_replace(
             result,
             metadata=dc_replace(
@@ -629,6 +676,34 @@ def review_command(
                 max_cost_usd_source=cap_source.value,
             ),
         )
+        if post and prior_state is not None and not force_full:
+            from lintro.ai.review.finding_matcher import (
+                review_findings_from_unposted,
+            )
+
+            replayed = review_findings_from_unposted(
+                prior=prior_state,
+                current=result.findings,
+                reviewed_paths=frozenset(result.metadata.reviewed_paths),
+            )
+            if replayed:
+                result = dc_replace(
+                    result,
+                    findings=(*result.findings, *replayed),
+                )
+        try:
+            _persist_review_state(
+                result=result,
+                context=context,
+                prior=prior_state,
+                force_full=force_full,
+                pr_number=pr,
+                repo=effective_repo or os.environ.get("GITHUB_REPOSITORY", ""),
+            )
+        except Exception:
+            logger.warning(
+                "Could not persist review-resume state; next round re-reviews",
+            )
     except (AIError, ValueError) as exc:
         _fail_review_command(
             exc,
@@ -638,6 +713,7 @@ def review_command(
             resolved_pr=resolved_pr,
             effective_repo=effective_repo,
             console=console,
+            prior_state=prior_state,
         )
 
     result = enrich_review_result(result=result, question_map=question_map)
@@ -673,10 +749,13 @@ def review_command(
     if post:
         from lintro.ai.review.github import post_review_to_github
 
+        captured_comment_ids: dict[str, int] = {}
         posted = post_review_to_github(
             result=result,
             pr_number=resolved_pr,
             repo=effective_repo,
+            prior_state=prior_state,
+            departed_paths=_departed_paths(context=context),
             checklist_display=checklist_display,
             question_map=question_map,
             transport=resolved_profile.transport.value,
@@ -693,6 +772,7 @@ def review_command(
                     transport=transport,
                     provider=provider_override,
                     model=model_override,
+                    review=review_override,
                     max_cost_usd=max_cost_usd_override,
                     timeout=timeout,
                     context_window=context_window,
@@ -700,7 +780,24 @@ def review_command(
                     paths=paths,
                 ),
             ),
+            captured_comment_ids=captured_comment_ids,
         )
+        if captured_comment_ids:
+            try:
+                _persist_review_state(
+                    result=result,
+                    context=context,
+                    prior=prior_state,
+                    force_full=force_full,
+                    pr_number=pr,
+                    repo=effective_repo or os.environ.get("GITHUB_REPOSITORY", ""),
+                    inline_comment_ids=captured_comment_ids,
+                )
+            except Exception:
+                logger.warning(
+                    "Could not persist posted inline comment ids; next "
+                    "round may replay those findings",
+                )
         if not posted:
             logger.warning("GitHub review posting skipped or failed")
 
@@ -717,6 +814,7 @@ def _cli_overrides(
     transport: str | None,
     provider: str | None,
     model: str | None,
+    review: bool | None,
     max_cost_usd: float | str | None,
     timeout: float | None,
     context_window: int | None,
@@ -735,6 +833,7 @@ def _cli_overrides(
         transport: ``--transport`` value, or None when unset.
         provider: ``--provider`` value, or None when unset.
         model: ``--model`` value, or None when unset.
+        review: ``--review/--no-review`` value, or None when unset.
         max_cost_usd: ``--max-cost-usd`` value, or None when unset.
         timeout: ``--timeout`` value, or None when unset.
         context_window: ``--context-window`` value, or None when unset.
@@ -755,6 +854,8 @@ def _cli_overrides(
         overrides.append(f"--provider {provider}")
     if model is not None:
         overrides.append(f"--model {model}")
+    if review is not None:
+        overrides.append("--review" if review else "--no-review")
     if max_cost_usd is not None:
         overrides.append(f"--max-cost-usd {max_cost_usd}")
     if timeout is not None:
@@ -994,6 +1095,134 @@ def _resolve_custom_agents(
             "agent file or change review.custom_agents.",
         )
     return discovery.agents
+
+
+def _load_prior_review_state(
+    *,
+    pr_number: int | None,
+    head_ref: str,
+    repo: str,
+    post: bool,
+) -> ReviewState:
+    """Load CI artifact, local ledger, or a one-time sticky migration."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        return load_ci_state(
+            directory=state_dir(ci=True),
+            repo=repo,
+            pr_number=pr_number or 0,
+        )
+    key = local_ledger_key(pr_number=pr_number, head_ref=head_ref)
+    local = load_local_state(
+        key=key,
+        repo=repo,
+        pr_number=pr_number,
+    )
+    if local.coverage or local.runs or local.findings:
+        return local
+    if post:
+        migrated = _migrate_sticky_state(pr_number=pr_number, repo=repo)
+        if migrated.runs or migrated.findings:
+            return migrated
+    return ReviewState()
+
+
+def _migrate_sticky_state(*, pr_number: int | None, repo: str) -> ReviewState:
+    """Seed findings and runs from a legacy v2 sticky blob, never coverage."""
+    with suppress(Exception):
+        from lintro.ai.integrations.github_pr import GitHubPRReporter
+        from lintro.ai.review.github_constants import STICKY_MARKER
+
+        reporter = GitHubPRReporter(pr_number=pr_number, repo=repo or None)
+        found = reporter.find_issue_comment(marker=STICKY_MARKER)
+        if found is None:
+            return ReviewState()
+        return migrate_legacy_sticky(body=found[1])
+    return ReviewState()
+
+
+def _persist_review_state(
+    *,
+    result: object,
+    context: object,
+    prior: ReviewState | None,
+    force_full: bool,
+    pr_number: int | None,
+    repo: str,
+    inline_comment_ids: dict[str, int] | None = None,
+) -> None:
+    """Write coverage parts for the artifact upload and local ledger."""
+    from dataclasses import replace
+    from importlib.metadata import version as pkg_version
+
+    from lintro.ai.review.github_sticky import advance_review_state
+    from lintro.ai.review.models.review_result import ReviewResult
+
+    del force_full
+    if not isinstance(result, ReviewResult):
+        return
+    advanced = advance_review_state(
+        result=result,
+        prior_state=prior,
+        head_sha=str(getattr(context, "head_ref", "") or ""),
+        transport=result.metadata.transport,
+        auth_mode=result.metadata.auth_mode,
+        cost_basis=result.metadata.cost_basis,
+        inline_comment_ids=inline_comment_ids,
+        departed_paths=_departed_paths(context=context),
+    )
+    state = replace(
+        advanced,
+        repo=repo,
+        pr_number=pr_number,
+        base_sha=str(getattr(context, "base_ref", "") or ""),
+        head_sha=str(getattr(context, "head_ref", "") or ""),
+        workflow="ai-review.yml",
+        event=os.environ.get("GITHUB_EVENT_NAME", ""),
+        run_id=os.environ.get("GITHUB_RUN_ID", ""),
+        lintro_version=_lintro_version(pkg_version),
+    )
+    directory = state_dir(ci=os.environ.get("GITHUB_ACTIONS") == "true")
+    write_state_part(
+        state=state,
+        directory=directory,
+        sequence=1,
+        final=True,
+    )
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        write_local_state(
+            state=state,
+            key=local_ledger_key(
+                pr_number=pr_number,
+                head_ref=str(getattr(context, "head_ref", "") or ""),
+            ),
+        )
+
+
+def _departed_paths(*, context: object) -> frozenset[str]:
+    """Return paths that left the diff (deletes and rename sources)."""
+    changed = getattr(context, "changed_files", ())
+    departed: set[str] = set()
+    for item in changed:
+        status = item.status
+        if not isinstance(status, ChangedFileStatus):
+            try:
+                status = ChangedFileStatus(str(status))
+            except ValueError:
+                continue
+        if status is ChangedFileStatus.DELETED:
+            departed.add(item.path)
+        previous = getattr(item, "previous_path", None)
+        if previous and status is ChangedFileStatus.RENAMED:
+            departed.add(previous)
+    return frozenset(departed)
+
+
+def _lintro_version(pkg_version: Callable[[str], str]) -> str:
+    """Return the installed lintro version, or empty."""
+    try:
+        return str(pkg_version("lintro"))
+    except Exception:
+        return ""
 
 
 def _detect_pr_number_from_env() -> int | None:

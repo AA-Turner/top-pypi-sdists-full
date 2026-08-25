@@ -764,6 +764,7 @@ GetDbClusterOutputTypeDef = TypedDict(
         "engineType": EngineTypeType,
         "publiclyAccessible": bool,
         "dbParameterGroupIdentifier": str,
+        "effectiveDbParameterGroupIdentifier": str,
         "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,

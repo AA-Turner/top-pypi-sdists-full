@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyinstaller-hooks-contrib
-Version: 2026.6
+Version: 2026.7
 Summary: Community maintained hooks for PyInstaller
 Home-page: https://github.com/pyinstaller/pyinstaller-hooks-contrib
 Download-URL: https://pypi.org/project/pyinstaller-hooks-contrib
@@ -77,7 +77,7 @@ If you've been here before then you may want to skip to the [summary checklist](
 Clone and `cd` inside your fork by running the following (replacing `bob-the-barnacle` with your github username):
 
 ```
-git clone https://github.com/bob-the-barnacle/pyinstaller-hoooks-contrib.git
+git clone https://github.com/bob-the-barnacle/pyinstaller-hooks-contrib.git
 cd pyinstaller-hooks-contrib
 ```
 

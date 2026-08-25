@@ -79,15 +79,13 @@ class ContainerImageDto(BaseModel):
         _items = []
         if self.correlated_repositories:
             for _item_correlated_repositories in self.correlated_repositories:
-                if _item_correlated_repositories:
-                    _items.append(_item_correlated_repositories.to_dict())
+                _items.append(_item_correlated_repositories.to_dict() if _item_correlated_repositories is not None else None)
             _dict['correlatedRepositories'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in correlated_cloud_instances (list)
         _items = []
         if self.correlated_cloud_instances:
             for _item_correlated_cloud_instances in self.correlated_cloud_instances:
-                if _item_correlated_cloud_instances:
-                    _items.append(_item_correlated_cloud_instances.to_dict())
+                _items.append(_item_correlated_cloud_instances.to_dict() if _item_correlated_cloud_instances is not None else None)
             _dict['correlatedCloudInstances'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

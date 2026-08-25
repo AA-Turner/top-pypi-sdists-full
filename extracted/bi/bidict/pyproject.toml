@@ -1,11 +1,15 @@
 [project]
 name = "bidict"
-dynamic = ["version"]
+version = "0.24.0"
 description = "The bidirectional mapping library for Python."
 authors = [{ name = "Joshua Bronson", email = "jabronson@gmail.com" }]
-license = { text = "MPL 2.0" }
-dependencies = []
-requires-python = ">=3.8"
+license = "MPL-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+  # bidict/_typing.py's `typing`/`typing_extensions` imports branch on python<3.12
+  "typing_extensions>=4.0; python_version<'3.12'",
+]
+requires-python = ">=3.11"
 readme = "README.rst"
 keywords = [
   "bidict",
@@ -25,34 +29,75 @@ classifiers = [
 ]
 
 [project.urls]
+# https://github.com/pypi/warehouse/blob/main/warehouse/templates/packaging/detail.html#L20-L62
 Changelog = "https://bidict.readthedocs.io/changelog.html"
 Documentation = "https://bidict.readthedocs.io"
-Funding = "https://bidict.readthedocs.io/#sponsoring"
+Sponsor = "https://bidict.readthedocs.io/#sponsoring"
 Repository = "https://github.com/jab/bidict"
 
+[dependency-groups]
+test = [
+  "coverage",
+  "hypothesis",
+  "pytest",
+  "pytest-benchmark",
+  "pytest-sphinx",
+  "pytest-xdist",
+  "sortedcollections",
+  "sortedcontainers",
+  "ty>=0.0.72",
+  "typing_extensions",
+]
+dev = [
+  "pytest-clarity",
+  "pytest-icdiff",
+  "pytest-sugar",
+  "tox",
+  "tox-uv",
+]
+docs = [
+  "sphinx",
+  "sphinx-copybutton",
+  "furo",
+]
+
+[tool.uv]
+default-groups = ["test", "dev", "docs"]
+
+[tool.uv.build-backend]
+module-root = ""
+source-exclude = [".mypy_cache"]
+
 [build-system]
-requires = ["setuptools >= 40.9.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.7.13,<0.8.0"]
+build-backend = "uv_build"
 
-[tool.setuptools]
-packages = ["bidict"]
+[tool.ty.src]
+include = ["bidict", "tests"]
 
-[tool.setuptools.dynamic]
-version = {attr = "bidict.metadata.__version__"}
+[tool.ty.terminal]
+error-on-warning = true
 
-[tool.mypy]
-strict = true
-show_error_codes = true
-show_error_context = true
-show_column_numbers = true
-pretty = true
+[tool.ty.rules]
+# ty has no `strict`-mode bundle like mypy's; instead, ratchet up the rules that
+# default to `warn`/`ignore` but that we want enforced as errors. `error-on-warning`
+# above already makes the `warn`-level rules fatal; the following promote rules that
+# default to `ignore` (so are otherwise silent even under `error-on-warning`).
+missing-type-argument = "error"       # analogous to mypy's disallow_any_generics
+missing-override-decorator = "error"  # require @override on overriding methods
 
 [tool.ruff]
 preview = true
 line-length = 121
+# Ruff's default rule set grows between minor versions, so an older ruff than the one pinned in
+# .pre-commit-config.yaml lints with fewer rules and passes code that CI rejects. Fail on that
+# rather than let it be discovered in CI. ./update_dev_dependencies checks these two stay in step.
+required-version = ">=0.16.4"
 
 [tool.ruff.lint]
-# https://beta.ruff.rs/docs/rules/
+# https://docs.astral.sh/ruff/rules/
+# Whole linters, selected by prefix. Individual rules are selected by name below, since
+# a name says what it checks where a code does not.
 extend-select = [
   "A",
   "ARG",
@@ -80,7 +125,22 @@ extend-select = [
   "UP",
   "W",
   "YTT",
+  # Individual rules, from linters whose other rules do not suit this codebase:
+  "debugger",
+  "runtime-cast-value",   # keeps cast()'s type expression from being evaluated at runtime
+  "unspecified-encoding",  # text I/O should not depend on the machine's locale
 ]
+ignore = [
+  "in-dict-keys",                          # https://github.com/astral-sh/ruff/issues/4481
+  "non-empty-init-module",                 # Allow __init__.py to set __module__ on re-exported classes
+  "unaliased-collections-abc-set-import",  # Prefer `Set` over `AbstractSet` for readability
+  "useless-import-alias",                  # Allow explicit re-exports (import X as X)
+]
+# Rules that know about typing should treat what bidict._typing re-exports the same way.
+typing-modules = ["bidict._typing"]
+
+[tool.ruff.lint.per-file-ignores]
+"cachegrind.py" = ["print"]  # printing its results is what this script is for
 
 [tool.ruff.lint.isort]
 force-single-line = true
@@ -90,4 +150,26 @@ lines-after-imports = 2
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
 preview = true
-quote-style = "single"
+quote-style = "single"  # Keep the code (especially in the docs' doctests) matching Python's output
+
+[tool.pytest]
+addopts = [
+  "-vv",
+  "--doctest-modules",
+  "--doctest-glob=docs/*.rst",
+  "--durations=5",
+  "--hypothesis-profile=less-examples",
+  "--numprocesses=auto",
+  # Benchmarks are run separately (see the benchmark tox env and workflow, which
+  # invoke pytest with `-c /dev/null` to bypass this config), so unload
+  # pytest-benchmark here. Otherwise, being installed, it loads on every run and
+  # warns under xdist (which addopts enables above) that it is auto-disabling itself.
+  "-p", "no:benchmark",
+]
+doctest_optionflags = ["ELLIPSIS"]
+# Treat warnings as errors so deprecations etc. fail the suite instead of going
+# unnoticed. (The benchmark plugin is unloaded above so its xdist warning
+# doesn't trip this.)
+filterwarnings = ["error"]
+strict = true
+testpaths = ["bidict", "tests", "docs"]

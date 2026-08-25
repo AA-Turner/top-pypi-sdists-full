@@ -21,7 +21,7 @@ Set the timeout to ``None`` for no timeout, but with custom keys::
     ...
     {% endcache %}
 
-Set timeout to ``del`` to delete cached value::
+Set the timeout to ``del`` to delete the cached value::
 
     {% cache 'del' key1 %}
     ...
@@ -42,10 +42,16 @@ Considering we have ``render_form_field`` and ``render_submit`` macros::
 :license: BSD, see LICENSE for more details.
 """
 
+from collections.abc import Callable
+from typing import Any
+
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
 
 from flask_caching import make_template_fragment_key
+from flask_caching.utils import _Timeout
+from flask_caching.utils import normalize_timeout
 
 JINJA_CACHE_ATTR_NAME = "_template_fragment_cache"
 
@@ -53,7 +59,7 @@ JINJA_CACHE_ATTR_NAME = "_template_fragment_cache"
 class CacheExtension(Extension):
     tags = {"cache"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         lineno = next(parser.stream).lineno
 
         #: Parse timeout
@@ -61,7 +67,7 @@ class CacheExtension(Extension):
 
         #: Parse fragment name
         #: Grab the fragment name if it exists
-        #: otherwise, default to the old method of using the templates
+        #: otherwise, default to the old method of using the template's
         #: lineno to maintain backwards compatibility.
         if parser.stream.skip_if("comma"):
             args.append(parser.parse_expression())
@@ -69,7 +75,7 @@ class CacheExtension(Extension):
             args.append(nodes.Const(f"{parser.filename}{lineno}"))
 
         #: Parse vary_on parameters
-        vary_on = []
+        vary_on: list[nodes.Expr] = []
         while parser.stream.skip_if("comma"):
             vary_on.append(parser.parse_expression())
 
@@ -78,26 +84,41 @@ class CacheExtension(Extension):
         else:
             args.append(nodes.Const([]))
 
-        body = parser.parse_statements(["name:endcache"], drop_needle=True)
+        body = parser.parse_statements(("name:endcache",), drop_needle=True)
         return nodes.CallBlock(
             self.call_method("_cache", args), [], [], body
         ).set_lineno(lineno)
 
-    def _cache(self, timeout, fragment_name, vary_on, caller):
-        try:
-            cache = getattr(self.environment, JINJA_CACHE_ATTR_NAME)
-        except AttributeError as e:
-            raise e
-
+    def _cache(
+        self,
+        timeout: _Timeout | str | None,
+        fragment_name: str,
+        vary_on: list[str],
+        caller: Callable[[], str],
+    ) -> Any:
+        cache = getattr(self.environment, JINJA_CACHE_ATTR_NAME)
         key = make_template_fragment_key(fragment_name, vary_on=vary_on)
 
         #: Delete key if timeout is 'del'
         if timeout == "del":
-            cache.delete(key)
-            return caller()
+            try:
+                cache.delete(key)
+                return caller()
+            except Exception as e:
+                if cache.app.debug:
+                    raise e
+                else:
+                    return caller()
 
-        rv = cache.get(key)
-        if rv is None:
-            rv = caller()
-            cache.set(key, rv, timeout)
-        return rv
+        try:
+            rv = cache.get(key)
+            if rv is None:
+                rv = caller()
+                seconds = normalize_timeout(timeout)
+                cache.set(key, rv, timeout=seconds)
+            return rv
+        except Exception as e:
+            if cache.app.debug:
+                raise e
+            else:
+                return caller()

@@ -12,24 +12,22 @@ import pyvisa
 import pyvisa.constants as vi_const
 import pyvisa.resources
 from pyvisa.errors import InvalidSession
-from typing_extensions import deprecated
 
 import qcodes.validators as vals
 from qcodes.logger import get_instrument_logger
-from qcodes.utils import DelayedKeyboardInterrupt, QCoDeSDeprecationWarning
+from qcodes.utils import DelayedKeyboardInterrupt
 
 from .instrument import Instrument
 from .instrument_base import InstrumentBase, InstrumentBaseKWArgs
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import NotRequired
+    from typing import NotRequired, Unpack
 
-    from typing_extensions import Unpack
-
+    from qcodes.metadatable import SnapshotUpdate
     from qcodes.parameters.parameter import Parameter
 
-VISA_LOGGER = ".".join((InstrumentBase.__module__, "com", "visa"))
+VISA_LOGGER = f"{InstrumentBase.__module__}.com.visa"
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +152,7 @@ class VisaInstrument(Instrument):
         self,
         name: str,
         address: str | None = None,
-        timeout: float | None | Literal["Unset"] = "Unset",
+        timeout: float | Literal["Unset"] | None = "Unset",
         terminator: str | Literal["Unset"] | None = "Unset",  # noqa: PYI051
         # while unset is redundant here we add it to communicate to the user that unset has special meaning
         device_clear: bool = True,
@@ -215,8 +213,6 @@ class VisaInstrument(Instrument):
             visa_handle = self._connect_and_handle_error(address, visalib)
         finalize(self, _close_visa_handle, visa_handle, str(self.name))
 
-        self._legacy_address = address
-
         self._visa_handle: pyvisa.resources.MessageBasedResource = visa_handle
 
         if device_clear:
@@ -224,17 +220,6 @@ class VisaInstrument(Instrument):
 
         self.set_terminator(terminator)
         self.timeout.set(timeout)
-
-    @property
-    @deprecated(
-        "The _address property is deprecated, use the address property instead.",
-        category=QCoDeSDeprecationWarning,
-    )
-    def _address(self) -> str | None:
-        """
-        DEPRECATED: USE self.address INSTEAD.
-        """
-        return self._legacy_address
 
     @property
     def address(self) -> str | None:
@@ -278,26 +263,15 @@ class VisaInstrument(Instrument):
             )
             return "ivi"
 
-    @property
-    @deprecated(
-        "The visalib property is deprecated, use the visabackend property instead.",
-        category=QCoDeSDeprecationWarning,
-    )
-    def visalib(self) -> str | None:
-        """
-        The VISA library used by this instrument.
-        """
-        return f"{self.visa_handle.visalib.library_path}@{self.visabackend}"
-
     def _connect_and_handle_error(
         self, address: str, visalib: str | None
     ) -> pyvisa.resources.MessageBasedResource:
         try:
             visa_handle = self._open_resource(address, visalib)
-        except Exception as e:
+        except Exception:
             self.visa_log.exception(f"Could not connect at {address}")
             self.close()
-            raise e
+            raise
         return visa_handle
 
     def _open_resource(
@@ -343,7 +317,6 @@ class VisaInstrument(Instrument):
 
         """
         self._visa_handle = self._open_resource(address, visalib)
-        self._legacy_address = address
 
     def device_clear(self) -> None:
         """Clear the buffers of the device"""
@@ -478,7 +451,7 @@ class VisaInstrument(Instrument):
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         """
@@ -487,13 +460,13 @@ class VisaInstrument(Instrument):
         supports).
 
         Args:
-            update: If True, update the state by querying the
-                instrument. If None only update if the state is known to be
-                invalid. If False, just use the latest values in memory and
-                never update.
+            update: If ``"All"``, update the state by querying the instrument.
+                If ``"Only_invalid"`` (the default) only update values whose
+                cache is invalid. If ``"Never"``, just use the latest values in
+                memory and never update.
             params_to_skip_update: List of parameter names that will be skipped
-                in update even if update is True. This is useful if you have
-                parameters that are slow to update but can be updated in a
+                in update even if update is ``"All"``. This is useful if you
+                have parameters that are slow to update but can be updated in a
                 different way (as in the qdac). If you want to skip the
                 update of certain parameters in all snapshots, use the
                 ``snapshot_get``  attribute of those parameters instead.

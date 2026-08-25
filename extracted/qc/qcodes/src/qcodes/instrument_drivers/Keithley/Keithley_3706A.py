@@ -10,7 +10,7 @@ from qcodes.instrument import VisaInstrument, VisaInstrumentKWArgs
 from qcodes.parameters import Parameter, create_on_off_val_mapping
 
 if TYPE_CHECKING:
-    from typing_extensions import Unpack
+    from typing import Unpack
 
 
 class Keithley3706AUnknownOrEmptySlot(Exception):
@@ -222,9 +222,10 @@ class Keithley3706A(VisaInstrument):
     def _is_backplane_channel(self, channel_id: str) -> bool:
         if len(channel_id) != 4:
             raise Keithley3706AInvalidValue(f"{channel_id} is not a valid channel id")
-        if channel_id[1] == "9":
-            return True
-        return False
+
+        is_backplane_channel = channel_id[1] == "9"
+
+        return is_backplane_channel
 
     def exclusive_close(self, val: str) -> None:
         """

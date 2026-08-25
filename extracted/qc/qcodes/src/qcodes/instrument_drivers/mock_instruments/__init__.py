@@ -27,8 +27,9 @@ from qcodes.validators import Sequence as ValidatorSequence
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
+    from typing import Unpack
 
-    from typing_extensions import Unpack
+    from qcodes.metadatable import SnapshotUpdate
 
 log = logging.getLogger(__name__)
 
@@ -1068,7 +1069,7 @@ class SnapShotTestInstrument(DummyBase):
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         if params_to_skip_update is None:
@@ -1079,11 +1080,14 @@ class SnapShotTestInstrument(DummyBase):
         return snap
 
 
+_default_numbers = Numbers(min_value=-1.0, max_value=1.0)
+
+
 class MockField(DummyBase):
     def __init__(
         self,
         name: str,
-        vals: Numbers = Numbers(min_value=-1.0, max_value=1.0),
+        vals: Numbers = _default_numbers,
         **kwargs: Unpack[InstrumentBaseKWArgs],
     ):
         """Mock instrument for emulating a magnetic field axis
@@ -1131,7 +1135,7 @@ class MockField(DummyBase):
             self._field = val
         return self._field
 
-    def set_field(self, value: float, block: bool = True) -> None | float:
+    def set_field(self, value: float, block: bool = True) -> float | None:
         if self._field == value:
             return value
 

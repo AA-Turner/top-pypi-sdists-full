@@ -83,15 +83,13 @@ class WorkspaceGroupTreeNodeDto(BaseModel):
         _items = []
         if self.sub_groups:
             for _item_sub_groups in self.sub_groups:
-                if _item_sub_groups:
-                    _items.append(_item_sub_groups.to_dict())
+                _items.append(_item_sub_groups.to_dict() if _item_sub_groups is not None else None)
             _dict['subGroups'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in workspaces (list)
         _items = []
         if self.workspaces:
             for _item_workspaces in self.workspaces:
-                if _item_workspaces:
-                    _items.append(_item_workspaces.to_dict())
+                _items.append(_item_workspaces.to_dict() if _item_workspaces is not None else None)
             _dict['workspaces'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

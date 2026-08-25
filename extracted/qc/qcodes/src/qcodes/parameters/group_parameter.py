@@ -13,8 +13,7 @@ from .parameter import Parameter, ParameterKWArgs
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.instrument import InstrumentBase
 
@@ -179,9 +178,8 @@ class Group:
         for p in parameters:
             p._group = self
 
-        if single_instrument:
-            if len({p.root_instrument for p in parameters}) > 1:
-                raise ValueError("All parameters should belong to the same instrument")
+        if single_instrument and len({p.root_instrument for p in parameters}) > 1:
+            raise ValueError("All parameters should belong to the same instrument")
 
         self._instrument = parameters[0].root_instrument
 

@@ -566,7 +566,7 @@ Author: Björn Ricks <bjoern.ricks@greenbone.net>
 Date:   Wed Apr 8 14:28:53 2020 +0200
 
     Initial commit
-"""  # noqa: E501
+"""
 
         git = Git()
         logs = git.log()
@@ -693,7 +693,7 @@ Initial commit"""
     def test_version_runs(self):
         """Getting the git version should not raise an error"""
         git = Git()
-        git.version
+        git.version  # noqa: B018
 
     @patch("pontos.git._git.exec_git")
     def test_show_with_online_and_objects(self, exec_git_mock: MagicMock):

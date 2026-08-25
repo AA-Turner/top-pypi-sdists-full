@@ -5,9 +5,9 @@
 
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType
-from typing import Optional, Type
 
 import httpx
+from typing_extensions import Self
 
 from pontos.github.api.artifacts import GitHubAsyncRESTArtifacts
 from pontos.github.api.billing import GitHubAsyncRESTBilling
@@ -52,10 +52,10 @@ class GitHubAsyncRESTApi(AbstractAsyncContextManager):
 
     def __init__(
         self,
-        token: Optional[str] = None,
-        url: Optional[str] = DEFAULT_GITHUB_API_URL,
+        token: str | None = None,
+        url: str | None = DEFAULT_GITHUB_API_URL,
         *,
-        timeout: Optional[httpx.Timeout] = DEFAULT_TIMEOUT_CONFIG,
+        timeout: httpx.Timeout | None = DEFAULT_TIMEOUT_CONFIG,
     ) -> None:
         """
         Args:
@@ -207,14 +207,14 @@ class GitHubAsyncRESTApi(AbstractAsyncContextManager):
         """
         return GitHubAsyncRESTUsers(self._client)
 
-    async def __aenter__(self) -> "GitHubAsyncRESTApi":
+    async def __aenter__(self) -> Self:
         await self._client.__aenter__()
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Optional[bool]:
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
         return await self._client.__aexit__(exc_type, exc_value, traceback)

@@ -107,15 +107,13 @@ class PatchProductUnitDto(BaseModel):
         _items = []
         if self.attach_repository_directories:
             for _item_attach_repository_directories in self.attach_repository_directories:
-                if _item_attach_repository_directories:
-                    _items.append(_item_attach_repository_directories.to_dict())
+                _items.append(_item_attach_repository_directories.to_dict() if _item_attach_repository_directories is not None else None)
             _dict['attachRepositoryDirectories'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in detach_repository_directories (list)
         _items = []
         if self.detach_repository_directories:
             for _item_detach_repository_directories in self.detach_repository_directories:
-                if _item_detach_repository_directories:
-                    _items.append(_item_detach_repository_directories.to_dict())
+                _items.append(_item_detach_repository_directories.to_dict() if _item_detach_repository_directories is not None else None)
             _dict['detachRepositoryDirectories'] = _items
         # override the default output from pydantic by calling `to_dict()` of patch_security_champion_id
         if self.patch_security_champion_id:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cohere_melody
-Version: 0.13.3
+Version: 0.13.4
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

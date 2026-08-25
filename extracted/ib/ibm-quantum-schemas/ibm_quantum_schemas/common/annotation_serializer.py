@@ -19,7 +19,7 @@ from types import NotImplementedType
 from typing import Any, cast
 
 from qiskit.circuit.annotation import Annotation, OpenQASM3Serializer, QPYSerializer
-from samplomatic.annotations import ChangeBasis, InjectNoise, Twirl
+from samplomatic.annotations import ChangeBasis, InjectNoise, Tag, Twirl
 from samplomatic.annotations.change_basis_mode import ChangeBasisLiteral
 from samplomatic.annotations.decomposition_mode import DecompositionLiteral
 from samplomatic.annotations.dressing_mode import DressingLiteral
@@ -38,6 +38,10 @@ CHANGE_BASIS_ANNOTATION = namedtuple(
 INJECT_NOISE_ANNOTATION_PACK = "!QQ"
 INJECT_NOISE_ANNOTATION_SIZE = struct.calcsize(INJECT_NOISE_ANNOTATION_PACK)
 INJECT_NOISE_ANNOTATION = namedtuple("INJECT_NOISE_ANNOTATION", ["ref_size", "modifier_ref_size"])
+
+TAG_ANNOTATION_PACK = "!Q"
+TAG_ANNOTATION_SIZE = struct.calcsize(TAG_ANNOTATION_PACK)
+TAG_ANNOTATION = namedtuple("TAG_ANNOTATION", ["ref_size"])
 
 TWIRL_ANNOTATION_PACK = "!QQQ"
 TWIRL_ANNOTATION_SIZE = struct.calcsize(TWIRL_ANNOTATION_PACK)
@@ -74,6 +78,10 @@ class AnnotationSerializer(QPYSerializer):
             modifier_ref = annotation.modifier_ref.encode()
             annotation_raw = struct.pack(INJECT_NOISE_ANNOTATION_PACK, len(ref), len(modifier_ref))
             return samplomatic_annotation + annotation_raw + ref + modifier_ref
+        if isinstance(annotation, Tag):
+            ref = annotation.ref.encode()
+            annotation_raw = struct.pack(TAG_ANNOTATION_PACK, len(ref))
+            return samplomatic_annotation + annotation_raw + ref
         if isinstance(annotation, Twirl):
             group = annotation.group.encode()
             dressing = annotation.dressing.encode()
@@ -117,6 +125,15 @@ class AnnotationSerializer(QPYSerializer):
             ref = buff.read(inject_noise.ref_size).decode()
             modifier_ref = buff.read(inject_noise.modifier_ref_size).decode()
             return InjectNoise(ref, modifier_ref)
+        if name == "Tag":
+            tag = TAG_ANNOTATION._make(
+                struct.unpack(
+                    TAG_ANNOTATION_PACK,
+                    buff.read(TAG_ANNOTATION_SIZE),
+                )
+            )
+            ref = buff.read(tag.ref_size).decode()
+            return Tag(ref)
         if name == "Twirl":
             twirl = TWIRL_ANNOTATION._make(
                 struct.unpack(TWIRL_ANNOTATION_PACK, buff.read(TWIRL_ANNOTATION_SIZE))
@@ -155,6 +172,10 @@ class OpenQASM3AnnotationSerializer(OpenQASM3Serializer):
             modifier_ref = annotation.modifier_ref.encode()
             annotation_raw = struct.pack(INJECT_NOISE_ANNOTATION_PACK, len(ref), len(modifier_ref))
             return (samplomatic_annotation + annotation_raw + ref + modifier_ref).decode()
+        if isinstance(annotation, Tag):
+            ref = annotation.ref.encode()
+            annotation_raw = struct.pack(TAG_ANNOTATION_PACK, len(ref))
+            return (samplomatic_annotation + annotation_raw + ref).decode()
         if isinstance(annotation, Twirl):
             group = annotation.group.encode()
             dressing = annotation.dressing.encode()
@@ -200,6 +221,15 @@ class OpenQASM3AnnotationSerializer(OpenQASM3Serializer):
             ref = buff.read(inject_noise.ref_size).decode()
             modifier_ref = buff.read(inject_noise.modifier_ref_size).decode()
             return InjectNoise(ref, modifier_ref)
+        if name == "Tag":
+            tag = TAG_ANNOTATION._make(
+                struct.unpack(
+                    TAG_ANNOTATION_PACK,
+                    buff.read(TAG_ANNOTATION_SIZE),
+                )
+            )
+            ref = buff.read(tag.ref_size).decode()
+            return Tag(ref)
         if name == "Twirl":
             twirl = TWIRL_ANNOTATION._make(
                 struct.unpack(TWIRL_ANNOTATION_PACK, buff.read(TWIRL_ANNOTATION_SIZE))

@@ -56,7 +56,17 @@ class TestEnginePerformanceResponse(unittest.TestCase):
                     p95_latency_ms = 1.337, 
                     p99_latency_ms = 1.337, 
                     max_latency_ms = 1.337, 
-                    total_time_seconds = 1.337, )
+                    total_time_seconds = 1.337, ),
+                service_health = mixpeek.models.service_health.ServiceHealth(
+                    availability = 1.337, 
+                    degraded_rate = 1.337, 
+                    partial_rate = 1.337, 
+                    timeout_rate = 1.337, 
+                    throttle_rate = 1.337, 
+                    dependency_health = { }, 
+                    window_end_ts = 1.337, 
+                    freshness_seconds = 56, 
+                    reconciliation = 'Rates come from the unsampled per-execution `_signals` ledger (one doc per execution) folded into the latest complete rollup window. They reconcile to request logs within one rollup window (default 60 minutes); executions in the in-progress window may not be folded yet.', )
             )
         else:
             return EnginePerformanceResponse(

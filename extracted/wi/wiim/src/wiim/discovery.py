@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from aiohttp import ClientSession, TCPConnector
@@ -85,12 +85,10 @@ async def verify_wiim_device(
     ) as err:
         logger.debug("Failed to verify device at %s: %s", location, err)
         return None
-    except Exception as err:  # pylint: disable=broad-except
-        logger.error(
-            "Unexpected error verifying device at %s: %s",
+    except Exception:
+        logger.exception(
+            "Unexpected error verifying device at %s",
             location,
-            err,
-            exc_info=True,
         )
         return None
 
@@ -118,7 +116,7 @@ async def async_create_http_api_endpoint(
     )
     try:
         await http_api.json_request(WiimHttpCommand.DEVICE_STATUS)
-    except Exception as err:  # pylint: disable=broad-except
+    except Exception as err:  # noqa: BLE001
         logger.warning(
             "Could not establish default HTTP API for %s, some features might be limited: %s",
             host,
@@ -204,7 +202,7 @@ async def async_discover_wiim_devices_upnp(
     session: ClientSession,
     timeout: int = DISCOVERY_TIMEOUT,
     target_device_type: str = UPNP_DEVICE_TYPE,
-) -> List[WiimDevice]:
+) -> list[WiimDevice]:
     """Discover WiiM devices on the network using UPnP."""
     logger = SDK_LOGGER
     discovered_devices: dict[str, WiimDevice] = {}
@@ -246,9 +244,9 @@ async def async_discover_wiim_devices_upnp(
 
 async def async_discover_wiim_devices_zeroconf(
     session: ClientSession,
-    zeroconf_instance: "Zeroconf",
+    zeroconf_instance: Zeroconf,
     service_type: str = "_linkplay._tcp.local.",
-) -> List[WiimDevice]:
+) -> list[WiimDevice]:
     """Discover WiiM devices using Zeroconf and then verify them via UPnP."""
     del session
     del zeroconf_instance

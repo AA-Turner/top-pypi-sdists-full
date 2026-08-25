@@ -104,6 +104,7 @@ from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema im
 from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema_aggregate_args_inner import CustomAggregationVersionSpecSchemaAggregateArgsInner
 from arthur_client.api_bindings.models.d_type import DType
 from arthur_client.api_bindings.models.dashboard import Dashboard
+from arthur_client.api_bindings.models.dashboard_template import DashboardTemplate
 from arthur_client.api_bindings.models.dashboard_visibility import DashboardVisibility
 from arthur_client.api_bindings.models.data_plane import DataPlane
 from arthur_client.api_bindings.models.data_plane_association import DataPlaneAssociation

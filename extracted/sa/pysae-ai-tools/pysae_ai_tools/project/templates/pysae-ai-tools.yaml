@@ -103,9 +103,12 @@ version: 1
 #     support/*: deploy/support/*  # branch; the * on both sides corresponds. No deploy branch
 #                               # for a line → merged tickets on it close directly.
 #                               # (omit the key to use this same default mapping)
-#   to_deploy: true       # repo manages the `workflow::To deploy` column. false = the repo
-#                         # ships at merge (CI applies from the MR pipeline: Terraform,
-#                         # ArgoCD…), so a merged ticket is closed at once instead of parked.
+#   to_deploy: true       # repo manages the `workflow::To deploy` column, whatever its
+#                         # branches look like (a package repo whose deploy/prod appears
+#                         # only at its first release). false = the repo ships at merge (CI
+#                         # applies from the MR pipeline: Terraform, ArgoCD…), so a merged
+#                         # ticket is closed at once instead of parked. Omit the key to let
+#                         # the deploy branches decide (no deploy branch = ships at merge).
 
 # autopilot:
 #   enabled: false       # participate in code-autopilot-batch

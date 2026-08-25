@@ -22,9 +22,7 @@ from .sweep_values import SweepFixedValues
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
-    from typing import NotRequired
-
-    from typing_extensions import Unpack
+    from typing import NotRequired, Unpack
 
     from qcodes.logger.instrument_logger import InstrumentLoggerAdapter
     from qcodes.parameters import ParamSpecBase
@@ -36,7 +34,9 @@ log = logging.getLogger(__name__)
 
 class ParameterKWArgs(
     TypedDict,
-    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],  # noqa: UP046
 ):
     """
     This TypedDict defines the type of the kwargs that can be passed to
@@ -200,7 +200,9 @@ class ParameterKWArgs(
 
 class Parameter(
     ParameterBase[ParameterDataTypeVar, InstrumentTypeVar_co],
-    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],  # noqa: UP046
 ):
     """
     A parameter represents a single degree of freedom. Most often,

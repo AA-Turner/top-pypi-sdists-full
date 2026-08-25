@@ -12,8 +12,8 @@ use crate::{
             FailedActivationWFTReport, HeartbeatTimeoutMsg, HistoryUpdate,
             LocalActivityRequestSink, LocalResolution, NextPageReq, OutstandingActivation,
             OutstandingTask, PermittedWFT, RequestEvictMsg, RunBasics,
-            ServerCommandsWithWorkflowInfo, WFCommand, WFCommandVariant, WFMachinesError,
-            WFT_HEARTBEAT_TIMEOUT_FRACTION, WFTReportStatus, WorkflowTaskInfo,
+            ServerCommandsWithWorkflowInfo, TaskStorageMetrics, WFCommand, WFCommandVariant,
+            WFMachinesError, WFT_HEARTBEAT_TIMEOUT_FRACTION, WFTReportStatus, WorkflowTaskInfo,
             history_update::HistoryPaginator,
             machines::{MachinesWFTResponseContent, WorkflowMachines},
         },
@@ -31,6 +31,7 @@ use std::{
 use temporalio_common::protos::{
     TaskToken,
     coresdk::{
+        common::ExternalStorageMetrics,
         workflow_activation::{
             WorkflowActivation, create_evict_activation, query_to_job,
             remove_from_cache::EvictionReason, workflow_activation_job,
@@ -139,6 +140,10 @@ impl ManagedRun {
         self.wft.is_some() && self.wfm.machines.has_pending_jobs()
     }
 
+    pub(super) fn waiting_on_local_activities(&self) -> bool {
+        self.waiting_on_la.is_some()
+    }
+
     pub(super) fn have_seen_terminal_event(&self) -> bool {
         self.wfm.machines.have_seen_terminal_event
     }
@@ -222,6 +227,10 @@ impl ManagedRun {
             start_time,
             permit: pwft.permit,
         });
+        if let Some(waiting) = self.waiting_on_la.as_mut() {
+            waiting.hb_timeout_handle.abort();
+            waiting.heartbeat_timeout_pending = false;
+        }
 
         if was_legacy_query
             && work.update.wft_started_id == 0
@@ -258,9 +267,6 @@ impl ManagedRun {
                 // If the activation has no jobs but there are outstanding LAs, we need to restart
                 // the WFT heartbeat.
                 if let Some(ref mut lawait) = self.waiting_on_la {
-                    if lawait.completion_dat.is_some() {
-                        panic!("Should not have completion dat when getting new wft & empty jobs")
-                    }
                     lawait.hb_timeout_handle.abort();
                     lawait.hb_timeout_handle = sink_heartbeat_timeout_start(
                         self.wfm.machines.run_id.clone(),
@@ -292,6 +298,7 @@ impl ManagedRun {
     pub(super) fn mark_wft_complete(
         &mut self,
         report_status: WFTReportStatus,
+        task_storage_metrics: &TaskStorageMetrics,
     ) -> Option<OutstandingTask> {
         debug!("Marking WFT completed");
         let retme = self.wft.take();
@@ -299,7 +306,17 @@ impl ManagedRun {
         if let Some(ot) = &retme
             && let Some(ct) = report_status.completion_time()
         {
-            self.metrics.wf_task_latency(ct.sub(ot.start_time));
+            let task_duration = ct.sub(ot.start_time);
+            self.metrics.wf_task_latency(task_duration);
+            log_workflow_task_duration(
+                &self.wfm.machines.run_id,
+                &self.wfm.machines.workflow_type,
+                self.wfm.machines.last_processed_event + 1,
+                ot.info.attempt,
+                self.wfm.machines.history_size_bytes(),
+                task_duration,
+                task_storage_metrics,
+            );
         }
 
         if let WFTReportStatus::Reported {
@@ -350,6 +367,17 @@ impl ManagedRun {
             Ok(Some(ActivationOrAuto::LangActivation(
                 self.wfm.get_next_activation()?,
             )))
+        } else if self.waiting_on_la.is_some()
+            && self.wfm.machines.outstanding_local_activity_count() == 0
+        {
+            self.waiting_on_la
+                .take()
+                .expect("waiting_on_la was just checked")
+                .hb_timeout_handle
+                .abort();
+            Ok(Some(ActivationOrAuto::Autocomplete {
+                run_id: self.run_id().to_string(),
+            }))
         } else {
             if !self.am_broken {
                 let has_pending_queries = self
@@ -363,7 +391,15 @@ impl ManagedRun {
                     )));
                 }
             }
-            if let Some(wte) = self.trying_to_evict.clone() {
+            if self
+                .waiting_on_la
+                .as_ref()
+                .is_some_and(|waiting| waiting.heartbeat_timeout_pending)
+            {
+                Ok(Some(ActivationOrAuto::Autocomplete {
+                    run_id: self.run_id().to_string(),
+                }))
+            } else if let Some(wte) = self.trying_to_evict.clone() {
                 let act =
                     create_evict_activation(self.run_id().to_string(), wte.message, wte.reason);
                 Ok(Some(ActivationOrAuto::LangActivation(act)))
@@ -625,12 +661,11 @@ impl ManagedRun {
                 warn!(failure=?failure, "Failing workflow due to nondeterminism error");
                 return self
                     .successful_completion(
-                        vec![WFCommand {
-                            variant: WFCommandVariant::FailWorkflow(FailWorkflowExecution {
+                        vec![WFCommand::new(WFCommandVariant::FailWorkflow(
+                            FailWorkflowExecution {
                                 failure: failure.failure,
-                            }),
-                            metadata: None,
-                        }],
+                            },
+                        ))],
                         vec![],
                         VersioningBehavior::Unspecified, // Doesn't matter since we're failing wf
                         resp_chan,
@@ -707,6 +742,14 @@ impl ManagedRun {
         completion: RunActivationCompletion,
         update_from_new_page: Option<HistoryUpdate>,
     ) -> Result<Option<FulfillableActivationComplete>, RunUpdateErr> {
+        let completing_heartbeat_autocomplete =
+            matches!(self.activation, Some(OutstandingActivation::Autocomplete))
+                && self.waiting_on_la.is_some();
+        let completing_la_heartbeat = completing_heartbeat_autocomplete
+            || self
+                .waiting_on_la
+                .as_ref()
+                .is_some_and(|waiting| waiting.heartbeat_timeout_pending);
         let data = CompletionDataForWFT {
             task_token: completion.task_token,
             query_responses: completion.query_responses,
@@ -762,26 +805,62 @@ impl ManagedRun {
         })();
 
         match outcome {
-            Ok(None) => Ok(Some(self.prepare_complete_resp(
-                completion.resp_chan,
-                data,
-                false,
-            ))),
+            Ok(None) => {
+                if let Some(waiting) = self.waiting_on_la.take() {
+                    waiting.hb_timeout_handle.abort();
+                }
+                Ok(Some(self.prepare_complete_resp(
+                    completion.resp_chan,
+                    data,
+                    completing_heartbeat_autocomplete,
+                )))
+            }
             Ok(Some((start_t, wft_timeout))) => {
                 if let Some(wola) = self.waiting_on_la.as_mut() {
                     wola.hb_timeout_handle.abort();
                 }
-                self.waiting_on_la = Some(WaitingOnLAs {
-                    wft_timeout,
-                    completion_dat: Some((data, completion.resp_chan)),
-                    hb_timeout_handle: sink_heartbeat_timeout_start(
+                if completing_la_heartbeat || !data.query_responses.is_empty() {
+                    // Reporting a query while an LA is still running must request another WFT;
+                    // otherwise the LA could resolve without a task on which to deliver its job.
+                    let hb_timeout_handle = sink_heartbeat_timeout_start(
                         self.run_id().to_string(),
                         self.local_activity_request_sink.as_deref(),
                         start_t,
                         wft_timeout,
-                    ),
-                });
-                Ok(None)
+                    );
+                    hb_timeout_handle.abort();
+                    self.waiting_on_la = Some(WaitingOnLAs {
+                        wft_timeout,
+                        hb_timeout_handle,
+                        // Keep this set until the replacement WFT arrives. If pending workflow
+                        // jobs prevent this completion from being reported, the heartbeat still
+                        // needs to be honored after those jobs are processed.
+                        heartbeat_timeout_pending: completing_la_heartbeat,
+                    });
+                    Ok(Some(self.prepare_complete_resp(
+                        completion.resp_chan,
+                        data,
+                        true,
+                    )))
+                } else {
+                    self.waiting_on_la = Some(WaitingOnLAs {
+                        wft_timeout,
+                        hb_timeout_handle: sink_heartbeat_timeout_start(
+                            self.run_id().to_string(),
+                            self.local_activity_request_sink.as_deref(),
+                            start_t,
+                            wft_timeout,
+                        ),
+                        heartbeat_timeout_pending: false,
+                    });
+                    Ok(Some(FulfillableActivationComplete {
+                        result: ActivationCompleteResult {
+                            outcome: ActivationCompleteOutcome::DoNothing,
+                            replaying: self.wfm.machines.replaying,
+                        },
+                        resp_chan: completion.resp_chan,
+                    }))
+                }
             }
             Err(e) => Err(RunUpdateErr {
                 source: e,
@@ -793,23 +872,14 @@ impl ManagedRun {
     fn _local_resolution(
         &mut self,
         res: LocalResolution,
-    ) -> Result<Option<FulfillableActivationComplete>, RunUpdateErr> {
+    ) -> Result<Option<ActivationOrAuto>, RunUpdateErr> {
         debug!(resolution=?res, "Applying local resolution");
         self.wfm.notify_of_local_result(res)?;
-        if self.wfm.machines.outstanding_local_activity_count() == 0
-            && let Some(mut wait_dat) = self.waiting_on_la.take()
-        {
-            // Cancel the heartbeat timeout
-            wait_dat.hb_timeout_handle.abort();
-            if let Some((completion_dat, resp_chan)) = wait_dat.completion_dat.take() {
-                return Ok(Some(self.prepare_complete_resp(
-                    resp_chan,
-                    completion_dat,
-                    false,
-                )));
-            }
+        if self.activation.is_none() {
+            self._check_more_activations()
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
     pub(super) fn heartbeat_timeout(&mut self) -> RunUpdateAct {
@@ -822,22 +892,12 @@ impl ManagedRun {
         };
         self.update_to_acts(Ok(maybe_act.into()))
     }
-    /// Returns `true` if autocompletion should be issued, which will actually cause us to end up
-    /// in [completion] again, at which point we'll start a new heartbeat timeout, which will
-    /// immediately trigger and thus finish the completion, forcing a new task as it should.
+    /// Returns `true` if autocompletion should be issued to report the heartbeat WFT completion.
     fn _heartbeat_timeout(&mut self) -> bool {
         if let Some(ref mut wait_dat) = self.waiting_on_la {
-            // Cancel the heartbeat timeout
             wait_dat.hb_timeout_handle.abort();
-            if let Some((completion_dat, resp_chan)) = wait_dat.completion_dat.take() {
-                let compl = self.prepare_complete_resp(resp_chan, completion_dat, true);
-                // Immediately fulfill the completion since the run update will already have
-                // been replied to
-                compl.fulfill();
-            } else {
-                // Auto-reply WFT complete
-                return true;
-            }
+            wait_dat.heartbeat_timeout_pending = true;
+            return self.activation.is_none();
         }
         false
     }
@@ -1339,19 +1399,14 @@ fn sink_heartbeat_timeout_start(
     abort_handle
 }
 
-/// If an activation completion needed to wait on LA completions (or heartbeat timeout) we use
-/// this struct to store the data we need to finish the completion once that has happened
+/// Tracks the heartbeat while a workflow task has outstanding local activities.
 struct WaitingOnLAs {
     wft_timeout: Duration,
-    /// If set, we are waiting for LAs to complete as part of a just-finished workflow activation.
-    /// If unset, we already had a heartbeat timeout and got a new WFT without any new work while
-    /// there are still incomplete LAs.
-    completion_dat: Option<(
-        CompletionDataForWFT,
-        Option<oneshot::Sender<ActivationCompleteResult>>,
-    )>,
     /// Can be used to abort heartbeat timeouts
     hb_timeout_handle: AbortHandle,
+    /// Defers the heartbeat when lang must finish an outstanding activation before Core can safely
+    /// complete the workflow task.
+    heartbeat_timeout_pending: bool,
 }
 #[derive(Debug)]
 struct CompletionDataForWFT {
@@ -1529,12 +1584,233 @@ impl From<WFMachinesError> for RunUpdateErr {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn log_workflow_task_duration(
+    run_id: &str,
+    workflow_type: &str,
+    event_id: i64,
+    attempt: u32,
+    history_size_bytes: u64,
+    duration: Duration,
+    storage: &TaskStorageMetrics,
+) {
+    let threshold = wft_duration_warn_threshold();
+    if duration <= threshold {
+        return;
+    }
+    let dl = storage.download.as_ref();
+    let ul = storage.upload.as_ref();
+    let duration_millis = |d: Duration| d.as_millis() as u64;
+    let storage_millis = |m: Option<&ExternalStorageMetrics>| -> u64 {
+        m.and_then(|m| m.total_duration)
+            .and_then(|d| Duration::try_from(d).ok())
+            .map(duration_millis)
+            .unwrap_or_default()
+    };
+    warn!(
+        workflow_type = %workflow_type,
+        event_id = event_id,
+        attempt = attempt,
+        workflow_task_duration = duration_millis(duration),
+        workflow_history_size = history_size_bytes,
+        payload_download_count = dl.map(|m| m.payload_count).unwrap_or_default(),
+        payload_download_size = dl.map(|m| m.total_size_bytes).unwrap_or_default(),
+        payload_download_duration = storage_millis(dl),
+        payload_download_drivers = ?dl.map(|m| sorted(&m.driver_names)).unwrap_or_default(),
+        payload_upload_count = ul.map(|m| m.payload_count).unwrap_or_default(),
+        payload_upload_size = ul.map(|m| m.total_size_bytes).unwrap_or_default(),
+        payload_upload_duration = storage_millis(ul),
+        payload_upload_drivers = ?ul.map(|m| sorted(&m.driver_names)).unwrap_or_default(),
+        "[TMPRL1104] {run_id}:{event_id}:{attempt} Workflow task duration exceeded {} seconds.",
+        threshold.as_secs()
+    );
+}
+
+fn wft_duration_warn_threshold() -> Duration {
+    static THRESHOLD: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+    *THRESHOLD.get_or_init(|| {
+        parse_wft_duration_warn_threshold(
+            std::env::var("TEMPORAL_WORKFLOW_TASK_DURATION_WARN_SECONDS").ok(),
+        )
+    })
+}
+
+// Separated from the env read so the parse + default fallback can be unit-tested without mutating
+// the process environment.
+fn parse_wft_duration_warn_threshold(value: Option<String>) -> Duration {
+    value
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(Duration::from_secs)
+        .unwrap_or(Duration::from_secs(5))
+}
+
+fn sorted(names: &[String]) -> Vec<String> {
+    let mut v = names.to_vec();
+    v.sort();
+    v
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{
+        TaskStorageMetrics, log_workflow_task_duration, parse_wft_duration_warn_threshold,
+    };
     use crate::worker::workflow::{WFCommand, WFCommandVariant};
-    use std::mem::{Discriminant, discriminant};
+    use std::{
+        fmt::Write,
+        mem::{Discriminant, discriminant},
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+    use temporalio_common::protos::coresdk::common::ExternalStorageMetrics;
+    use tracing::{
+        Event, Level, Metadata, Subscriber,
+        field::{Field, Visit},
+        span,
+    };
 
     use command_utils::*;
+
+    #[derive(Default)]
+    struct CapturedEvent {
+        level: Option<Level>,
+        fields: String,
+    }
+    #[derive(Default, Clone)]
+    struct CapturingSub {
+        events: Arc<Mutex<Vec<CapturedEvent>>>,
+    }
+    struct FieldVisitor(String);
+    impl Visit for FieldVisitor {
+        fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+            let _ = write!(self.0, "{}={:?};", field.name(), value);
+        }
+        fn record_u64(&mut self, field: &Field, value: u64) {
+            let _ = write!(self.0, "{}={};", field.name(), value);
+        }
+        fn record_i64(&mut self, field: &Field, value: i64) {
+            let _ = write!(self.0, "{}={};", field.name(), value);
+        }
+        fn record_str(&mut self, field: &Field, value: &str) {
+            let _ = write!(self.0, "{}={};", field.name(), value);
+        }
+    }
+    impl Subscriber for CapturingSub {
+        fn enabled(&self, _: &Metadata<'_>) -> bool {
+            true
+        }
+        fn new_span(&self, _: &span::Attributes<'_>) -> span::Id {
+            span::Id::from_u64(1)
+        }
+        fn record(&self, _: &span::Id, _: &span::Record<'_>) {}
+        fn record_follows_from(&self, _: &span::Id, _: &span::Id) {}
+        fn event(&self, event: &Event<'_>) {
+            let mut v = FieldVisitor(String::new());
+            event.record(&mut v);
+            self.events.lock().unwrap().push(CapturedEvent {
+                level: Some(*event.metadata().level()),
+                fields: v.0,
+            });
+        }
+        fn enter(&self, _: &span::Id) {}
+        fn exit(&self, _: &span::Id) {}
+    }
+
+    fn capture(duration: Duration, storage: &TaskStorageMetrics) -> Option<CapturedEvent> {
+        let sub = CapturingSub::default();
+        tracing::subscriber::with_default(sub.clone(), || {
+            log_workflow_task_duration("run-1", "MyWorkflow", 12, 3, 4096, duration, storage);
+        });
+        sub.events.lock().unwrap().drain(..).next()
+    }
+
+    #[test]
+    fn tmprl1104_warns_only_over_threshold() {
+        let none = TaskStorageMetrics::default();
+        assert!(capture(Duration::from_secs(2), &none).is_none());
+        let warn_ev = capture(Duration::from_secs(7), &none).expect("warn emitted");
+        assert_eq!(warn_ev.level, Some(Level::WARN));
+        assert!(
+            warn_ev.fields.contains("[TMPRL1104]"),
+            "fields: {}",
+            warn_ev.fields
+        );
+    }
+
+    #[test]
+    fn tmprl1104_threshold_parsing() {
+        assert_eq!(
+            parse_wft_duration_warn_threshold(None),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            parse_wft_duration_warn_threshold(Some("10".to_string())),
+            Duration::from_secs(10)
+        );
+        assert_eq!(
+            parse_wft_duration_warn_threshold(Some("0".to_string())),
+            Duration::from_secs(0)
+        );
+        // Unparseable / empty / negative values fall back to the default (parsed as u64, so a
+        // negative can never yield a threshold).
+        assert_eq!(
+            parse_wft_duration_warn_threshold(Some("nope".to_string())),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            parse_wft_duration_warn_threshold(Some(String::new())),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            parse_wft_duration_warn_threshold(Some("-5".to_string())),
+            Duration::from_secs(5)
+        );
+    }
+
+    #[test]
+    fn tmprl1104_fields_present() {
+        let storage = TaskStorageMetrics {
+            download: Some(ExternalStorageMetrics {
+                payload_count: 2,
+                total_size_bytes: 1024,
+                total_duration: Some(prost_types::Duration {
+                    seconds: 0,
+                    nanos: 5_000_000,
+                }),
+                driver_names: vec!["s3".to_string()],
+            }),
+            upload: None,
+        };
+        let ev = capture(Duration::from_secs(6), &storage).expect("warn emitted");
+        assert!(ev.fields.contains("attempt=3"), "fields: {}", ev.fields);
+        assert!(
+            ev.fields.contains("[TMPRL1104] run-1:12:3"),
+            "fields: {}",
+            ev.fields
+        );
+        // The message names the (default) threshold it exceeded.
+        assert!(
+            ev.fields.contains("exceeded 5 seconds"),
+            "fields: {}",
+            ev.fields
+        );
+        assert!(
+            ev.fields.contains("workflow_history_size=4096"),
+            "fields: {}",
+            ev.fields
+        );
+        assert!(
+            ev.fields.contains("payload_download_count=2"),
+            "fields: {}",
+            ev.fields
+        );
+        // No upload occurred; that group must still be present as zero.
+        assert!(
+            ev.fields.contains("payload_upload_count=0"),
+            "fields: {}",
+            ev.fields
+        );
+    }
 
     #[rstest::rstest]
     #[case::empty(
@@ -1628,39 +1904,27 @@ mod tests {
         use super::*;
 
         pub(crate) fn complete() -> WFCommand {
-            WFCommand {
-                variant: WFCommandVariant::CompleteWorkflow(CompleteWorkflowExecution {
-                    result: None,
-                }),
-                metadata: None,
-            }
+            WFCommand::new(WFCommandVariant::CompleteWorkflow(
+                CompleteWorkflowExecution { result: None },
+            ))
         }
 
         pub(crate) fn cancel() -> WFCommand {
-            WFCommand {
-                variant: WFCommandVariant::CancelWorkflow(CancelWorkflowExecution {}),
-                metadata: None,
-            }
+            WFCommand::new(WFCommandVariant::CancelWorkflow(CancelWorkflowExecution {}))
         }
 
         pub(crate) fn query_response() -> WFCommand {
-            WFCommand {
-                variant: WFCommandVariant::QueryResponse(QueryResult {
-                    query_id: "".into(),
-                    variant: None,
-                }),
-                metadata: None,
-            }
+            WFCommand::new(WFCommandVariant::QueryResponse(QueryResult {
+                query_id: "".into(),
+                variant: None,
+            }))
         }
 
         pub(crate) fn update_response() -> WFCommand {
-            WFCommand {
-                variant: WFCommandVariant::UpdateResponse(UpdateResponse {
-                    protocol_instance_id: "".into(),
-                    response: None,
-                }),
-                metadata: None,
-            }
+            WFCommand::new(WFCommandVariant::UpdateResponse(UpdateResponse {
+                protocol_instance_id: "".into(),
+                response: None,
+            }))
         }
 
         pub(crate) fn command_types(commands: &[WFCommand]) -> Vec<Discriminant<WFCommand>> {

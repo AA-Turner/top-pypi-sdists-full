@@ -59,17 +59,36 @@ app = typer.Typer(
     ),
 )
 
-# `comfy build version <verb>` — the resource-verb surface for versions
-# (a version is an immutable build cut of a distribution).
+# `comfy build release <verb>`: the resource-verb surface for releases
+# (a release is an immutable build cut of a distribution; the builder's public
+# API renamed build versions to releases). The module keeps the version_app
+# name so internal references stay put.
 version_app = typer.Typer(
     no_args_is_help=True,
-    help="Inspect and cut build versions.",
+    help="Inspect and cut build releases.",
 )
-app.add_typer(version_app, name="version")
+app.add_typer(version_app, name="release")
+
+
+def _warn_version_deprecated() -> None:
+    """One stderr warning per invocation of the retired `comfy build version`
+    spelling, same wiring as cmdline.py's _add_deprecated_alias. No envelope
+    re-stamp is needed here: the root callback stamps only the top-level group
+    name ("build", identical for both spellings), and every command in this
+    group passes its canonical `build release ...` label to emit explicitly."""
+    renderer = get_renderer()
+    renderer.stderr_console().print(
+        "[yellow]`comfy build version` is deprecated; use `comfy build release` instead.[/yellow]"
+    )
+
+
+# `comfy build version` was the subgroup's name before the builder's public API
+# renamed build versions to releases; kept as a warning alias for old scripts.
+app.add_typer(version_app, name="version", hidden=True, callback=_warn_version_deprecated)
 
 # `comfy build artifact <verb>` / `blob <verb>` — the per-target build
 # outputs and the workspace's private uploaded content.
-artifact_app = typer.Typer(no_args_is_help=True, help="Build artifacts (per-target outputs of a cut version).")
+artifact_app = typer.Typer(no_args_is_help=True, help="Build artifacts (per-target outputs of a cut release).")
 app.add_typer(artifact_app, name="artifact")
 blob_app = typer.Typer(no_args_is_help=True, help="Workspace private blobs (uploaded models / nodes).")
 app.add_typer(blob_app, name="blob")
@@ -696,7 +715,11 @@ def plan_create(definition: dict, resolver=resolve_model_source) -> dict:
             for key in ("gitRef", "commit"):
                 if n.get(key):
                     entry[key] = n[key]
-        elif n.get("registryVersion") and n.get("id"):
+        elif n.get("registryVersion"):
+            # A hand-written node often names the pack once. scan writes id and
+            # name the same for a registry pack, and the builder prefers id then
+            # name, so the name is the id when no other is given.
+            entry["id"] = n.get("id") or n["name"]
             entry["registryVersion"] = n["registryVersion"]
         elif n.get("blobId"):
             entry["blobId"] = n["blobId"]
@@ -738,7 +761,8 @@ def execute_create(plan: dict, *, client, name: str, locate_bytes, targets=None)
     ``locate_bytes(upload) -> Path`` finds the local file for a model upload.
     node_zip uploads (hand-dropped local nodes) aren't packaged yet — raises
     NotImplementedError so the caller can surface a clear message. Returns
-    ``{distributionId, versionId, statusUrl, uploaded}``."""
+    ``{distributionId, versionId, releaseId, statusUrl, uploaded}`` (releaseId
+    is the canonical name for the cut; versionId stays because user scripts pin it)."""
     definition = plan["definition"]
     # Preflight the whole upload list before any bytes move: an unsupported local
     # node, or a model whose file can't be found (missing --models-dir), must fail
@@ -764,7 +788,13 @@ def execute_create(plan: dict, *, client, name: str, locate_bytes, targets=None)
         # command can surface it (the user can then delete or retry it, not orphan it).
         e.distribution_id = dist_id
         raise
-    return {"distributionId": dist_id, "versionId": version_id, "statusUrl": status_url, "uploaded": uploaded}
+    return {
+        "distributionId": dist_id,
+        "versionId": version_id,
+        "releaseId": version_id,
+        "statusUrl": status_url,
+        "uploaded": uploaded,
+    }
 
 
 def _resolve_models_dir(models_dir: str | None) -> Path | None:
@@ -1127,7 +1157,6 @@ def _create_execute(
     name: str,
     builder_url: str | None,
     models_dir: str | None,
-    repair: bool = False,
 ) -> None:
     """The live --execute path: auth, resolve, upload, create, cut. Maps every
     failure class to a single error envelope + exit(1)."""
@@ -1222,7 +1251,7 @@ def _create_execute(
     if renderer.is_pretty():
         renderer.success(f"Created build '{name}'")
         renderer.print(f"  build:   {result['distributionId']}")
-        renderer.print(f"  version: {result['versionId']}  (uploaded {result['uploaded']} blob(s))")
+        renderer.print(f"  release: {result['releaseId']}  (uploaded {result['uploaded']} blob(s))")
         renderer.print(f"  status:  {result['statusUrl']}")
     renderer.emit({"name": name, "executed": True, **result}, command="build create", changed=True)
 
@@ -1344,26 +1373,27 @@ def get_cmd(
     renderer.emit(dist, command="build get")
 
 
-@version_app.command("create", help="Cut a new version of a build.")
+@version_app.command("create", help="Cut a new release of a build.")
 @tracking.track_command("build")
 def version_create(
-    distribution_id: Annotated[str, typer.Argument(help="Build id to cut a version of.")],
+    distribution_id: Annotated[str, typer.Argument(help="Build id to cut a release of.")],
     builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None,
 ):
     renderer = get_renderer()
     client = _builder_client(renderer, builder_url)
-    version_id, status_url = _builder_call(renderer, lambda: client.cut_version(distribution_id))
+    release_id, status_url = _builder_call(renderer, lambda: client.cut_version(distribution_id))
     if renderer.is_pretty():
-        renderer.success(f"Cut version {version_id}")
+        renderer.success(f"Cut release {release_id}")
         renderer.print(f"  status: {status_url}")
+    # releaseId is the canonical name; versionId stays because user scripts pin it.
     renderer.emit(
-        {"distributionId": distribution_id, "versionId": version_id, "statusUrl": status_url},
-        command="build version create",
+        {"distributionId": distribution_id, "versionId": release_id, "releaseId": release_id, "statusUrl": status_url},
+        command="build release create",
         changed=True,
     )
 
 
-@version_app.command("list", help="List a build's versions.")
+@version_app.command("list", help="List a build's releases.")
 @tracking.track_command("build")
 def version_list(
     distribution_id: Annotated[str, typer.Argument(help="Build id.")],
@@ -1374,16 +1404,16 @@ def version_list(
     versions = _builder_call(renderer, lambda: client.list_distribution_versions(distribution_id))
     if renderer.is_pretty():
         if not versions:
-            renderer.info("No versions yet.")
+            renderer.info("No releases yet.")
         for v in versions:
             renderer.print(f"  {v.get('id', '?')}  {v.get('status', '')}")
-    renderer.emit({"versions": versions}, command="build version list")
+    renderer.emit({"versions": versions}, command="build release list")
 
 
-@version_app.command("get", help="Show a version's build status.")
+@version_app.command("get", help="Show a release's build status.")
 @tracking.track_command("build")
 def version_get(
-    version_id: Annotated[str, typer.Argument(help="Build version id.")],
+    version_id: Annotated[str, typer.Argument(help="Build release id.")],
     builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None,
 ):
     renderer = get_renderer()
@@ -1391,13 +1421,13 @@ def version_get(
     version = _builder_call(renderer, lambda: client.get_version(version_id))
     if renderer.is_pretty():
         renderer.console().print_json(json.dumps(version))
-    renderer.emit(version, command="build version get")
+    renderer.emit(version, command="build release get")
 
 
-@version_app.command("logs", help="Read a version's build log for one target.")
+@version_app.command("logs", help="Read a release's build log for one target.")
 @tracking.track_command("build")
 def version_logs(
-    version_id: Annotated[str, typer.Argument(help="Build version id.")],
+    version_id: Annotated[str, typer.Argument(help="Build release id.")],
     os_target: Annotated[
         str | None, typer.Option("--os", help="Target OS to read (linux/windows/mac); builder picks one if omitted.")
     ] = None,
@@ -1407,12 +1437,18 @@ def version_logs(
     renderer = get_renderer()
     client = _builder_client(renderer, builder_url)
     content = _builder_call(renderer, lambda: client.get_version_logs(version_id, os=os_target, gpu=gpu))
+    # The contract carries both spellings of the id: releaseId is canonical and
+    # versionId stays because user scripts pin it. Mirror whichever the builder
+    # returned into the other so either server generation yields both keys.
+    log_id = content.get("releaseId") or content.get("versionId")
+    if log_id:
+        content = {**content, "versionId": log_id, "releaseId": log_id}
     if renderer.is_pretty():
         log = content.get("log", "")
         renderer.print(log if log else "(no build log captured yet)")
         if content.get("truncated"):
             renderer.warn("log truncated (head and tail kept; middle dropped)")
-    renderer.emit(content, command="build version logs")
+    renderer.emit(content, command="build release logs")
 
 
 @app.command("validate", help="Dry-run resolve a build's definition (nothing is built).")
@@ -1556,7 +1592,11 @@ def from_snapshot_cmd(
     path = Path(from_).expanduser()
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        # `null`, a list and a bare scalar all parse. Caught here so the caller
+        # gets the error envelope rather than an AttributeError from the wrapper.
+        if not isinstance(snapshot, dict):
+            raise ValueError(f"expected a JSON object, got {type(snapshot).__name__}")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as e:
         renderer.error(
             code="build_definition_invalid",
             message=f"could not read {path}: {e}",
@@ -1577,7 +1617,7 @@ def from_snapshot_cmd(
         renderer.success(f"Created build {distribution_id} from {path.name}")
         for line in report_advisories(result.get("report") or {}):
             renderer.warn(line)
-        renderer.info(f"cut a build with `comfy build version create {distribution_id}`")
+        renderer.info(f"cut a build with `comfy build release create {distribution_id}`")
     renderer.emit(result, command="build from-snapshot", changed=True)
 
 
@@ -1599,7 +1639,7 @@ def blob_upload_cmd(
     file_path = Path(path).expanduser()
     if not file_path.is_file():
         renderer.error(
-            code="build_models_dir_missing",
+            code="build_definition_invalid",
             message=f"no file at {file_path}",
             details={"path": str(file_path)},
         )
@@ -1652,7 +1692,7 @@ def base_images_cmd(builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None)
     renderer.emit({"baseImages": images}, command="build base-images")
 
 
-@app.command("build-targets", help="List the build targets (os/gpu) a version can be cut for.")
+@app.command("build-targets", help="List the build targets (os/gpu) a release can be cut for.")
 @tracking.track_command("build")
 def build_targets_cmd(builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None):
     renderer = get_renderer()
@@ -1675,10 +1715,10 @@ def model_dirs_cmd(builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None):
     renderer.emit({"directories": dirs}, command="build model-dirs")
 
 
-@version_app.command("manifest", help="Show a version's models and runtime policies.")
+@version_app.command("manifest", help="Show a release's models and runtime policies.")
 @tracking.track_command("build")
 def version_manifest(
-    version_id: Annotated[str, typer.Argument(help="Build version id.")],
+    version_id: Annotated[str, typer.Argument(help="Build release id.")],
     builder_url: Annotated[str | None, _BUILDER_URL_OPT] = None,
 ):
     renderer = get_renderer()
@@ -1686,7 +1726,7 @@ def version_manifest(
     manifest = _builder_call(renderer, lambda: client.get_version_manifest(version_id))
     if renderer.is_pretty():
         renderer.console().print_json(json.dumps(manifest))
-    renderer.emit(manifest, command="build version manifest")
+    renderer.emit(manifest, command="build release manifest")
 
 
 @artifact_app.command("download", help="Get a signed download link for a build artifact.")

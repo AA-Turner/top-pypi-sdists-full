@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.40"
+version = "2.0.41"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -186,6 +186,14 @@ testpaths = ["tests"]
 norecursedirs = ["dreadnode", ".venv", "*.egg-info"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# Live post-deploy tests drive real write journeys -- projects, sandboxes,
+# runtimes, secrets -- against whatever API_BASE_URL points at. Selecting a
+# path under tests/deploy/ must not pick them up by accident: an ordinary
+# `pytest tests/deploy/`, run by hand or by the affected-tests selector when a
+# helper module beside them changes, would otherwise hit staging or prod from
+# a developer's shell. The API package has had this filter since it grew the
+# same suite. `ci-sdk-deploy` passes its own -m, which overrides this.
+addopts = "-m 'not deploy'"
 markers = [
     "integration: self-contained integration tests (spawn local subprocesses)",
     "ray_integration: tests that require a properly configured Ray cluster",

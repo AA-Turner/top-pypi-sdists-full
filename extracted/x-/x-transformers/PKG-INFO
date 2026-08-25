@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x-transformers
-Version: 2.27.2
+Version: 2.27.4
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -2861,6 +2861,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.LG},
     url     = {https://arxiv.org/abs/2608.17981},
+}
+```
+
+```bibtex
+@misc{ndubuaku2026controlledstudyattentiononlytransformers,
+    title   = {A Controlled Study of Attention-Only Transformers},
+    author  = {Henry Ndubuaku and Karen Mosoyan and Jakub Mroz and Noah Cylich and Satyajit Kumar and Parkirat Sandhu and Roman Shemet and Justin H Lee},
+    year    = {2026},
+    eprint  = {2607.18363},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2607.18363},
 }
 ```
 

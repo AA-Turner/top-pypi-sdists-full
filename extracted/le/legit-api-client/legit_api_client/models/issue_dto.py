@@ -141,15 +141,13 @@ class IssueDto(BaseModel):
         _items = []
         if self.comments:
             for _item_comments in self.comments:
-                if _item_comments:
-                    _items.append(_item_comments.to_dict())
+                _items.append(_item_comments.to_dict() if _item_comments is not None else None)
             _dict['comments'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in tags (list)
         _items = []
         if self.tags:
             for _item_tags in self.tags:
-                if _item_tags:
-                    _items.append(_item_tags.to_dict())
+                _items.append(_item_tags.to_dict() if _item_tags is not None else None)
             _dict['tags'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

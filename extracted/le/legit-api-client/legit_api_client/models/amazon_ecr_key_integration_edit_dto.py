@@ -117,7 +117,7 @@ class AmazonEcrKeyIntegrationEditDto(BaseModel):
             "accessKeyId": obj.get("accessKeyId"),
             "secretAccessKey": obj.get("secretAccessKey"),
             "workspaceId": obj.get("workspaceId"),
-            "ignoreWarnings": obj.get("ignoreWarnings") if obj.get("ignoreWarnings") is not None else False
+            "ignoreWarnings": obj.get("ignoreWarnings") if "ignoreWarnings" in obj else False
         })
         return _obj
 

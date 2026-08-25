@@ -10,6 +10,8 @@ import cv2
 import numpy as np
 import pyclipper
 
+from onnxtr.utils import order_points
+
 from ..core import DetectionPostProcessor
 
 __all__ = ["GeneralDetectionPostProcessor"]
@@ -75,7 +77,7 @@ class GeneralDetectionPostProcessor(DetectionPostProcessor):
         return (
             cv2.boundingRect(expanded_points)  # type: ignore[return-value]
             if self.assume_straight_pages
-            else np.roll(cv2.boxPoints(cv2.minAreaRect(expanded_points)), -1, axis=0)
+            else order_points(cv2.boxPoints(cv2.minAreaRect(expanded_points)))
         )
 
     def bitmap_to_boxes(
@@ -93,7 +95,7 @@ class GeneralDetectionPostProcessor(DetectionPostProcessor):
 
         Returns:
             np tensor boxes for the bitmap, each box is a 6-element list
-            containing x, y, w, h, alpha, score for the box
+                containing x, y, w, h, alpha, score for the box
         """
         height, width = bitmap.shape[:2]
         boxes: list[np.ndarray | list[float]] = []
@@ -118,6 +120,9 @@ class GeneralDetectionPostProcessor(DetectionPostProcessor):
                 _box = self.polygon_to_box(points)
             else:
                 _box = self.polygon_to_box(np.squeeze(contour))
+
+            if _box is None:  # pragma: no cover
+                continue
 
             if self.assume_straight_pages:
                 # compute relative polygon to get rid of img shape

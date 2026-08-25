@@ -38,6 +38,7 @@ from mcp.types import ToolAnnotations
 from late import Late, MediaType, PostStatus
 
 from .auth import build_auth_provider
+from .resources import register_resources
 from .tool_definitions import TOOL_DEFINITIONS
 
 if TYPE_CHECKING:
@@ -67,7 +68,7 @@ _PINNED_TOOLS = [
     "posts_list", "posts_get", "posts_create", "posts_publish_now", "posts_cross_post",
     "posts_update", "posts_delete", "posts_retry", "posts_list_failed", "posts_retry_all_failed",
     "media_generate_upload_link", "media_check_upload_status",
-    "docs_search",
+    "docs_search", "zernio_overview",
     # Posting operations not covered by the ergonomic set
     "posts_bulk_upload_posts", "posts_unpublish_post", "posts_edit_post",
     # Scheduling queue
@@ -168,6 +169,8 @@ of silently picking the first matching account has been removed.
     # pinned ergonomic tools remain always-visible.
     transforms=[_AnnotatedBM25SearchTransform(always_visible=_PINNED_TOOLS, max_results=8)],
 )
+
+register_resources(mcp)
 
 
 # Hand-written tools that only read data. Everything else is treated as a

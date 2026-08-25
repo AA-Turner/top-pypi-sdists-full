@@ -74,10 +74,14 @@ class RunEnvBuilder:
         repo = self._get_env("GITHUB_REPOSITORY")
         run_id = self._get_env("GITHUB_RUN_ID")
 
+        url = None
+        if repo is not None and run_id is not None:
+            url = f"https://github.com/{repo}/actions/runs/{run_id}"
+
         return RunEnv(
             ci="github_actions",
             key=f"{action}-{run_number}-{run_attempt}",
-            url=f"https://github.com/{repo}/actions/runs/{run_id}",
+            url=url,
             branch=self._get_env("GITHUB_REF"),
             commit_sha=self._get_env("GITHUB_SHA"),
             number=run_number,
@@ -102,6 +106,15 @@ class RunEnvBuilder:
             job_id=None,
             message=self._get_env("TEST_ANALYTICS_COMMIT_MESSAGE"),
         )
+
+    def worker_id_tag(self) -> Dict[str, str]:
+        """Tags every execution in the upload with the ID of the agent running it,
+        so failures can be grouped by worker. Empty when the agent doesn't expose
+        an ID (e.g. outside Buildkite)."""
+        agent_id = self._get_env("BUILDKITE_AGENT_ID")
+        if agent_id is None:
+            return {}
+        return {"ci.worker.id": agent_id}
 
     def _generic_env(self) -> 'RunEnv':
         return RunEnv(

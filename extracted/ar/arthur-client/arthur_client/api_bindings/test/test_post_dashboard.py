@@ -49,7 +49,8 @@ class TestPostDashboard(unittest.TestCase):
                     ],
                 model_ids = [
                     ''
-                    ]
+                    ],
+                template = 'WORKSPACE'
             )
         else:
             return PostDashboard(

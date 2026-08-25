@@ -1,6 +1,7 @@
 import random
 import time
 
+import flask
 import pytest
 
 from flask_caching import Cache
@@ -40,13 +41,14 @@ def test_cache_delete(app, cache):
 
 def test_cache_delete_many(app, cache):
     cache.set("hi", "hello")
+    # "ho" was never set, so it counts as deleted and "hi" is still removed.
     cache.delete_many("ho", "hi")
-    assert cache.get("hi") is not None
+    assert cache.get("hi") is None
 
 
 @pytest.mark.skipif(HAS_NOT_REDIS, reason="requires Redis")
 def test_cache_unlink(app, redis_server):
-    cache = Cache(config={"CACHE_TYPE": "RedisCache"})
+    cache = Cache(config={"CACHE_TYPE": "RedisCache", "CACHE_REDIS_PORT": 6360})
     cache.init_app(app)
     cache.set("biggerkey", "test" * 100)
     cache.unlink("biggerkey")
@@ -83,7 +85,7 @@ def test_cache_delete_many_ignored(app):
     assert cache.get("hi") is None
 
 
-def test_cache_cached_function(app, cache):
+def test_cache_cached_function(app, cache, clock):
     with app.test_request_context():
 
         @cache.cached(1, key_prefix="MyBits")
@@ -95,7 +97,7 @@ def test_cache_cached_function(app, cache):
 
         assert my_list == his_list
 
-        time.sleep(2)
+        clock.advance(2)
 
         his_list = get_random_bits()
 
@@ -158,7 +160,7 @@ def test_cache_cached_function_with_source_check_disabled(app, cache):
         assert third_attempt == first_attempt
 
 
-def test_cache_accepts_multiple_ciphers(app, cache, hash_method):
+def test_cache_accepts_multiple_ciphers(app, cache, hash_method, clock):
     with app.test_request_context():
 
         @cache.cached(1, key_prefix="MyBits", hash_method=hash_method)
@@ -170,7 +172,7 @@ def test_cache_accepts_multiple_ciphers(app, cache, hash_method):
 
         assert my_list == his_list
 
-        time.sleep(2)
+        clock.advance(2)
 
         his_list = get_random_bits()
 
@@ -315,6 +317,78 @@ def test_cache_forced_update_params(app, cache):
         assert cached_call_counter[1] == 2
 
 
+def test_cache_is_stale(app, cache):
+    from collections import Counter
+
+    with app.test_request_context():
+        call_counter = Counter()
+        cached_values = []
+
+        def is_stale(value):
+            cached_values.append(value)
+
+            return value < 2
+
+        @cache.cached(5, key_prefix="is_stale", is_stale=is_stale)
+        def cached_function():
+            call_counter[1] += 1
+
+            return call_counter[1]
+
+        assert cached_function() == 1
+        # is_stale is only accessed on a cache hit
+        assert cached_values == []
+
+        # the cached 1 is stale so the function runs again and caches 2
+        assert cached_function() == 2
+        assert cached_values == [1]
+        assert call_counter[1] == 2
+
+        # 2 is not stale so the cached value is returned as is
+        assert cached_function() == 2
+        assert cached_values == [1, 2]
+        assert call_counter[1] == 2
+
+
+def test_cache_is_stale_params(app, cache):
+    with app.test_request_context():
+        call_params = []
+
+        def is_stale(value, param):
+            call_params.append((value, param))
+
+            return False
+
+        @cache.cached(5, key_prefix="is_stale_params", is_stale=is_stale)
+        def cached_function(param):
+            return param
+
+        assert cached_function(1) == 1
+        assert call_params == []
+
+        assert cached_function(1) == 1
+        # the cached value comes first followed by the calls own arguments
+        assert call_params == [(1, 1)]
+
+
+def test_cache_is_stale_not_called_on_forced_update(app, cache):
+    with app.test_request_context():
+        called = []
+
+        @cache.cached(
+            5,
+            key_prefix="is_stale_forced",
+            forced_update=lambda: True,
+            is_stale=lambda value: called.append(value) or True,
+        )
+        def cached_function():
+            return 1
+
+        cached_function()
+        cached_function()
+        assert called == []
+
+
 def test_generator(app, cache):
     """test function return generator"""
     with app.test_request_context():
@@ -324,7 +398,6 @@ def test_generator(app, cache):
             return (str(time.time()) for i in range(2))
 
         time_str = gen()
-        time.sleep(1)
         assert gen() == time_str
 
         @cache.cached()
@@ -333,5 +406,70 @@ def test_generator(app, cache):
             yield str(time.time())
 
         time_str = gen_yield()
-        time.sleep(1)
         assert gen_yield() == time_str
+
+
+def test_generator_of_strings_is_joined(app, cache):
+    """A generator of strings is cached as one string, not a list."""
+    with app.test_request_context():
+
+        @cache.cached()
+        def gen():
+            yield "<p>"
+            yield "hello"
+            yield "</p>"
+
+        assert gen() == "<p>hello</p>"
+        assert gen() == "<p>hello</p>"
+
+
+def test_generator_of_bytes_is_joined(app, cache):
+    with app.test_request_context():
+
+        @cache.cached()
+        def gen():
+            yield b"<p>"
+            yield b"hello"
+            yield b"</p>"
+
+        assert gen() == b"<p>hello</p>"
+        assert gen() == b"<p>hello</p>"
+
+
+def test_generator_of_other_types_stays_a_list(app, cache):
+    with app.test_request_context():
+
+        @cache.cached()
+        def gen():
+            yield 1
+            yield 2
+
+        assert gen() == [1, 2]
+        assert gen() == [1, 2]
+
+
+def test_cached_view_returning_stream_template(app, cache):
+    """See issue #511, a streamed view must not be cached as a JSON array."""
+
+    @app.route("/stream")
+    @cache.cached()
+    def stream():
+        return flask.stream_template("test_stream.html", somevar="hello")
+
+    client = app.test_client()
+
+    for _ in range(2):
+        response = client.get("/stream")
+        assert response.content_type == "text/html; charset=utf-8"
+        assert response.get_data(as_text=True) == "<html><body>hello</body></html>"
+
+
+def test_memoized_generator_of_strings_is_joined(app, cache):
+    @cache.memoize()
+    def gen(prefix):
+        yield prefix
+        yield "hello"
+
+    assert gen("a") == "ahello"
+    assert gen("a") == "ahello"
+    assert gen("b") == "bhello"

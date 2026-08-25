@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.errors import ToolsetError
 from verifiers.v1.interception.tunnel import PrimeTunnel
 from verifiers.v1.mcp.server import (
@@ -26,7 +27,6 @@ from verifiers.v1.mcp.server import (
     state_signature,
 )
 from verifiers.v1.runtimes import (
-    NetworkPolicyConfig,
     Runtime,
     make_runtime,
 )
@@ -279,7 +279,12 @@ async def serve_in_runtime(
         env["MCP_PORT_FILE"] = port_file
     python = sys.executable
     if runtime.type != "subprocess":
-        python = await _install_in_sandbox(server, runtime)
+        # Prebuilt runtime images may already contain the server and its Python
+        # environment. Let those servers bypass redundant per-launch source
+        # uploads and installation while preserving the existing default.
+        python = getattr(type(server), "RUNTIME_PYTHON", None)
+        if python is None:
+            python = await _install_in_sandbox(server, runtime)
     command = [python, "-m", type(server).__module__]
     if runtime.type != "subprocess":
         # Providers may invoke uv after the install shell exits, so preserve its PATH.
@@ -298,7 +303,7 @@ async def serve_in_runtime(
         except ToolsetError as e:
             raise ToolsetError(f"{e}: {await log_tail(runtime, log)}") from e
     probe = await runtime.run(
-        ["python3", "-c", _PROBE, f"http://127.0.0.1:{port}/mcp"], {}
+        [python, "-c", _PROBE, f"http://127.0.0.1:{port}/mcp"], {}
     )
     if probe.exit_code != 0:
         raise ToolsetError(

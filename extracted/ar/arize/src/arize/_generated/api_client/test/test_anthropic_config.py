@@ -45,6 +45,7 @@ class TestAnthropicConfig(unittest.TestCase):
                 is_function_calling_enabled = True,
                 provider = 'ANTHROPIC',
                 has_api_key = True,
+                base_url = '',
         )
         """
 

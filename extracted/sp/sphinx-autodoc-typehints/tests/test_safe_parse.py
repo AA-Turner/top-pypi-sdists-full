@@ -1,4 +1,4 @@
-"""Tests that snippet parsing doesn't trigger extension directive side-effects."""
+"""Tests that the throwaway snippet parse leaves the real build untouched."""
 
 from __future__ import annotations
 
@@ -68,3 +68,21 @@ class _TrackingDirective(Directive):
     def run(self) -> list:
         _TrackingDirective.executions.append(self.content[0] if self.content else "")
         return []
+
+
+@pytest.mark.sphinx("text", testroot="intersphinx-external-role")
+def test_intersphinx_role_resolves_during_snippet_parse(
+    app: SphinxTestApp, status: StringIO, warning: StringIO
+) -> None:
+    """Neither the snippet parse nor the type role may shadow the intersphinx dispatcher (#753)."""
+    app.build()
+    assert "build succeeded" in status.getvalue()
+    assert not warning.getvalue()
+
+
+@pytest.mark.sphinx("text", testroot="intersphinx-missing-inventory")
+def test_snippet_parse_stays_quiet(app: SphinxTestApp, status: StringIO, warning: StringIO) -> None:
+    """A reference the role cannot resolve is reported by the real parse alone (#753)."""
+    app.build()
+    assert "build succeeded" in status.getvalue()
+    assert warning.getvalue().count("inventory for external cross-reference not found") == 1

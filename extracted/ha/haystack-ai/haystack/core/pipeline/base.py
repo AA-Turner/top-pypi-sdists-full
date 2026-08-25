@@ -27,7 +27,7 @@ from haystack.core.errors import (
     PipelineValidationError,
 )
 from haystack.core.pipeline.component_checks import (
-    _NO_OUTPUT_PRODUCED,
+    _NoOutputProduced,
     all_predecessors_executed,
     are_all_sockets_ready,
     can_component_run,
@@ -40,7 +40,11 @@ from haystack.core.serialization import (
     component_to_dict,
     generate_qualified_class_name,
 )
-from haystack.core.serialization_security import _check_module_allowed, _deserialization_context
+from haystack.core.serialization_security import (
+    _check_module_allowed,
+    _deserialization_context,
+    mark_deserialization_internal,
+)
 from haystack.core.type_utils import (
     ConversionStrategyType,
     _convert_value,
@@ -173,6 +177,7 @@ class PipelineBase:  # noqa: PLW1641
         }
 
     @classmethod
+    @mark_deserialization_internal
     def from_dict(
         cls: type[T],
         data: dict[str, Any],
@@ -309,6 +314,7 @@ class PipelineBase:  # noqa: PLW1641
         fp.write(marshaller.marshal(self.to_dict()))
 
     @classmethod
+    @mark_deserialization_internal
     def loads(
         cls: type[T],
         data: str | bytes | bytearray,
@@ -351,6 +357,7 @@ class PipelineBase:  # noqa: PLW1641
         return cls.from_dict(deserialized_data, callbacks, allowed_modules=allowed_modules, unsafe=unsafe)
 
     @classmethod
+    @mark_deserialization_internal
     def load(
         cls: type[T],
         fp: TextIO,
@@ -468,6 +475,22 @@ class PipelineBase:  # noqa: PLW1641
                 ", ".join(n for n in self.graph.nodes),
             ) from exc
 
+        # Remove this component's name from its neighbors' sockets before the edges are gone,
+        # otherwise the surviving components are left holding dangling references to it.
+        for _, _, edge_data in self.graph.in_edges(name, data=True):
+            sender_socket = edge_data["from_socket"]
+            sender_socket.receivers = [r for r in sender_socket.receivers if r != name]
+        for _, _, edge_data in self.graph.out_edges(name, data=True):
+            receiver_socket = edge_data["to_socket"]
+            receiver_socket.senders = [s for s in receiver_socket.senders if s != name]
+            if (
+                len(receiver_socket.senders) <= 1
+                and receiver_socket.is_lazy_variadic
+                and not receiver_socket.wrap_input_in_list
+            ):
+                receiver_socket.is_lazy_variadic = False
+                receiver_socket.wrap_input_in_list = True
+
         # Delete component from the graph, deleting all its connections
         self.graph.remove_node(name)
 
@@ -475,6 +498,9 @@ class PipelineBase:  # noqa: PLW1641
         input_sockets = instance.__haystack_input__._sockets_dict  # type: ignore[attr-defined]
         for socket in input_sockets.values():
             socket.senders = []
+            if socket.is_lazy_variadic and not socket.wrap_input_in_list:
+                socket.is_lazy_variadic = False
+                socket.wrap_input_in_list = True
 
         output_sockets = instance.__haystack_output__._sockets_dict  # type: ignore[attr-defined]
         for socket in output_sockets.values():
@@ -1207,6 +1233,8 @@ class PipelineBase:  # noqa: PLW1641
         :param component_name: The name of a component.
         :param component: Component with component metadata.
         :param inputs: Global inputs state.
+        :param is_resume: Whether the component is being resumed from a breakpoint. If True, the inputs
+            have already been consumed, so the first available value is returned for each socket.
         :returns: The inputs for the component.
         """
         component_inputs = inputs.get(component_name, {})
@@ -1214,7 +1242,9 @@ class PipelineBase:  # noqa: PLW1641
         greedy_inputs_to_remove = set()
         for socket_name, socket in component["input_sockets"].items():
             socket_inputs = component_inputs.get(socket_name, [])
-            socket_inputs_values = [sock["value"] for sock in socket_inputs if sock["value"] is not _NO_OUTPUT_PRODUCED]
+            socket_inputs_values = [
+                sock["value"] for sock in socket_inputs if not isinstance(sock["value"], _NoOutputProduced)
+            ]
 
             # if we are resuming a component, the inputs are already consumed, so we just return the first input
             if is_resume:
@@ -1537,12 +1567,12 @@ class PipelineBase:  # noqa: PLW1641
         :param include_outputs_from: Set of component names that should always return an output from the pipeline.
         """
         for receiver_name, sender_socket, receiver_socket, conversion_strategy in receivers:
-            # We either get the value that was produced by the actor or we use the _NO_OUTPUT_PRODUCED class to indicate
+            # We either get the value that was produced by the actor or we use a _NoOutputProduced marker to indicate
             # that the sender did not produce an output for this socket.
             # This allows us to track if a predecessor already ran but did not produce an output.
-            value = component_outputs.get(sender_socket.name, _NO_OUTPUT_PRODUCED)
+            value = component_outputs.get(sender_socket.name, _NoOutputProduced())
 
-            if value is not _NO_OUTPUT_PRODUCED and conversion_strategy:
+            if not isinstance(value, _NoOutputProduced) and conversion_strategy:
                 try:
                     value = _convert_value(value=value, conversion_strategy=conversion_strategy)
                 except Exception as e:
@@ -1579,7 +1609,8 @@ class PipelineBase:  # noqa: PLW1641
                 )
             else:
                 # If the receiver socket is not lazy variadic, it is greedy variadic or non-variadic.
-                # We overwrite with the new input if it's not _NO_OUTPUT_PRODUCED or if the current value is None.
+                # We overwrite with the new input if it's not a _NoOutputProduced marker, or if the current value
+                # is None.
                 _write_to_standard_socket(
                     inputs=inputs,
                     receiver_name=receiver_name,
@@ -1852,5 +1883,5 @@ def _write_to_standard_socket(
     current_value = inputs[receiver_name].get(receiver_socket_name)
 
     # Only overwrite if there's no existing value, or we have a new value to provide
-    if current_value is None or value is not _NO_OUTPUT_PRODUCED:
+    if current_value is None or not isinstance(value, _NoOutputProduced):
         inputs[receiver_name][receiver_socket_name] = [{"sender": component_name, "value": value}]

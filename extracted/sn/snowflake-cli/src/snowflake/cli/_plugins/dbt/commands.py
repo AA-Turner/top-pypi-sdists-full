@@ -212,14 +212,10 @@ def deploy_dbt(
     ),
     profiles_dir: Optional[str] = typer.Option(
         help=(
-            f"Path to directory containing {PROFILES_FILENAME}"
-            + (
-                f" (or {DBT_PROJECTS_PROFILES_FILENAME}, which takes precedence over "
-                f"{PROFILES_FILENAME} and is staged under its own name)"
-                if FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE.is_enabled()
-                else ""
-            )
-            + ". Defaults to directory provided in --source or current working directory"
+            f"Path to directory containing {PROFILES_FILENAME} or "
+            f"{DBT_PROJECTS_PROFILES_FILENAME} (the latter takes precedence and "
+            "is staged under its own name). Defaults to directory provided in "
+            "--source or current working directory"
         ),
         show_default=False,
         default=None,
@@ -268,7 +264,7 @@ def deploy_dbt(
         False,
         "--install-local-deps",
         show_default=False,
-        help="Installs local dependencies from project that don't require external access.",
+        help="Sets EXTERNAL_ACCESS_INTEGRATIONS = () on the dbt project. Snowflake still runs dbt deps at compile; Hub or Git packages in packages.yml still need network access.",
     ),
     dbt_version: Optional[str] = typer.Option(
         None,

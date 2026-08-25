@@ -12,7 +12,7 @@
 
 """Tests for annotation serializers."""
 
-from samplomatic import ChangeBasis, InjectNoise, Twirl
+from samplomatic import ChangeBasis, InjectNoise, Tag, Twirl
 
 from ibm_quantum_schemas.common.annotation_serializer import (
     AnnotationSerializer,
@@ -48,6 +48,27 @@ class TestInjectNoise:
         """Test that round trips work correctly."""
         annotation = InjectNoise("ref")
         namespace = "samplomatic.inject_noise"
+
+        qpy_serializer = AnnotationSerializer()
+        payload = qpy_serializer.dump_annotation(namespace, annotation)
+        annotation_out = qpy_serializer.load_annotation(payload)
+
+        assert annotation == annotation_out
+
+        qasm_serializer = OpenQASM3AnnotationSerializer()
+        payload = qasm_serializer.dump(annotation)
+        annotation_out = qasm_serializer.load("", payload)
+
+        assert annotation == annotation_out
+
+
+class TestTag:
+    """Tests for ``Tag``."""
+
+    def test_roundtrip(self):
+        """Test that round trips work correctly."""
+        annotation = Tag("ref")
+        namespace = "samplomatic.tag"
 
         qpy_serializer = AnnotationSerializer()
         payload = qpy_serializer.dump_annotation(namespace, annotation)

@@ -80,7 +80,7 @@ type FooProduct struct {
 	Version       string     `json:"version"`
 	SPDXLicenseID string     `json:"spdx-license-identifier"`
 	Copyright     string     `json:"copyright"`
-"""  # noqa: E501
+"""
 
         # Full match
         found, match = find_copyright(
@@ -457,9 +457,9 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
-        expected_content = f"""# SPDX-FileCopyrightText: 2021-{str(datetime.datetime.now().year)} Greenbone AG
+        expected_content = f"""# SPDX-FileCopyrightText: 2021-{datetime.datetime.now(tz=datetime.timezone.utc).year!s} Greenbone AG
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -468,14 +468,13 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
         company = "Greenbone AG"
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.py") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -497,10 +496,10 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
         expected_content = f"""
-# SPDX-FileCopyrightText: 2021-{str(datetime.datetime.now().year)} Greenbone AG
+# SPDX-FileCopyrightText: 2021-{datetime.datetime.now(tz=datetime.timezone.utc).year!s} Greenbone AG
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -508,14 +507,13 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
         company = "Greenbone AG"
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.py") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -537,10 +535,10 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
         expected_content = f"""
-# SPDX-FileCopyrightText: 2021-{str(datetime.datetime.now().year)} ACME Inc.
+# SPDX-FileCopyrightText: 2021-{datetime.datetime.now(tz=datetime.timezone.utc).year!s} ACME Inc.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -548,14 +546,13 @@ import foo
 import bar
 
 foo.baz(bar.boing)
-"""  # noqa: E501
+"""
 
         company = "ACME Inc."
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.py") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -569,21 +566,20 @@ foo.baz(bar.boing)
 
     def test_handle_file_with_shebang(self):
         test_content = """#!/bin/bash
-"""  # noqa: E501
+"""
 
         expected_content = f"""#!/bin/bash
-# SPDX-FileCopyrightText: {str(datetime.datetime.now().year)} Greenbone AG
+# SPDX-FileCopyrightText: {datetime.datetime.now(tz=datetime.timezone.utc).year!s} Greenbone AG
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""  # noqa: E501
+"""
 
         company = "Greenbone AG"
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.sh") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -597,23 +593,22 @@ foo.baz(bar.boing)
 
     def test_handle_file_xml_with_xml_declaration(self):
         test_content = """<?xml version="1.0"?>
-"""  # noqa: E501
+"""
 
         expected_content = f"""<?xml version="1.0"?>
 <!--
-SPDX-FileCopyrightText: {str(datetime.datetime.now().year)} Greenbone AG
+SPDX-FileCopyrightText: {datetime.datetime.now(tz=datetime.timezone.utc).year!s} Greenbone AG
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-"""  # noqa: E501
+"""
 
         company = "Greenbone AG"
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.xml") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -627,23 +622,22 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     def test_handle_file_xml_without_xml_declaration(self):
         test_content = """<greeting>Hello, world!</greeting>
-"""  # noqa: E501
+"""
 
         expected_content = f"""<!--
-SPDX-FileCopyrightText: {str(datetime.datetime.now().year)} Greenbone AG
+SPDX-FileCopyrightText: {datetime.datetime.now(tz=datetime.timezone.utc).year!s} Greenbone AG
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 <greeting>Hello, world!</greeting>
-"""  # noqa: E501
+"""
 
         company = "Greenbone AG"
-        year = str(datetime.datetime.now().year)
+        year = str(datetime.datetime.now(tz=datetime.timezone.utc).year)
         license_id = "GPL-3.0-or-later"
 
         with temp_file(content=test_content, name="foo.xml") as tmp:
-
             update_file(
                 tmp,
                 year,
@@ -673,7 +667,9 @@ class ParseArgsTestCase(TestCase):
         self.assertEqual(args.directories, ["."])
         self.assertEqual(args.company, "Greenbone AG")
         self.assertTrue(args.changed)
-        self.assertEqual(args.year, str(datetime.datetime.now().year))
+        self.assertEqual(
+            args.year, str(datetime.datetime.now(tz=datetime.timezone.utc).year)
+        )
         self.assertEqual(args.license_id, "AGPL-3.0-or-later")
 
     def test_defaults(self):
@@ -683,7 +679,9 @@ class ParseArgsTestCase(TestCase):
         self.assertFalse(args.quiet)
         self.assertIsNone(args.log_file)
         self.assertFalse(args.changed)
-        self.assertEqual(args.year, str(datetime.date.today().year))
+        self.assertEqual(
+            args.year, str(datetime.datetime.now(tz=datetime.timezone.utc).year)
+        )
         self.assertEqual(args.license_id, "GPL-3.0-or-later")
         self.assertEqual(args.company, "Greenbone AG")
         self.assertEqual(args.files, ["foo.txt"])
@@ -803,7 +801,7 @@ class RemoveOutdatedLinesTestCase(TestCase):
 # modify it under the terms of the GNU General Public License
 # This program is free software; you can redistribute it and/or
 # version 2 as published by the Free Software Foundation.
-This program is free software: you can redistribute it and/or modify"""  # noqa: E501
+This program is free software: you can redistribute it and/or modify"""
 
         new_content = remove_outdated_lines(
             content=test_content, cleanup_regexes=self.compiled_regexes
@@ -820,7 +818,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # -*- coding: utf-8 -*-
 along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA."""  # noqa: E501
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA."""
 
         new_content = remove_outdated_lines(
             content=test_content, cleanup_regexes=self.compiled_regexes

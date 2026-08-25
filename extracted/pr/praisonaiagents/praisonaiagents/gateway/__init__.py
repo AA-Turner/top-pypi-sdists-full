@@ -29,11 +29,16 @@ from .protocols import (
     # Config hot-reload observability (Issue #3049)
     ReloadStatus,
     compute_config_revision,
+    # Saturation / back-pressure observability (Issue #4265)
+    HealthPressure,
+    evaluate_pressure,
     # Push protocols and dataclasses
     PushChannelProtocol,
     PresenceProtocol,
     DeliveryGuaranteeProtocol,
     OutboundDeliveryProtocol,
+    IdempotencyStoreProtocol,
+    InMemoryIdempotencyStore,
     ChannelInfo,
     PresenceInfo,
     # Home channel and delivery protocols
@@ -159,6 +164,11 @@ from .protocols import (
     TurnPlacement,
     TurnExecutorProtocol,
     InProcessTurnExecutor,
+    # Global operator emergency-stop / pause brake (Issue #4220)
+    EmergencyStopState,
+    EmergencyStopProtocol,
+    NullEmergencyStop,
+    FileEmergencyStop,
     # Schema-validated inbound frame codec (Issue #2831)
     HelloParams,
     HelloResult,
@@ -209,6 +219,7 @@ from .config import (
     GatewayConfig,
     SessionConfig,
     ApiConfig,
+    EmergencyStopConfig,
     ChannelRouteConfig,
     MultiChannelGatewayConfig,
     # Config version stamp + doctor-driven migration (Issue #3841)
@@ -303,11 +314,15 @@ __all__ = [
     # Config hot-reload observability (Issue #3049)
     "ReloadStatus",
     "compute_config_revision",
+    "HealthPressure",
+    "evaluate_pressure",
     # Push protocols (always available)
     "PushChannelProtocol",
     "PresenceProtocol",
     "DeliveryGuaranteeProtocol",
     "OutboundDeliveryProtocol",
+    "IdempotencyStoreProtocol",
+    "InMemoryIdempotencyStore",
     "ChannelInfo",
     "PresenceInfo",
     # Home channel and delivery protocols
@@ -429,6 +444,11 @@ __all__ = [
     "TurnPlacement",
     "TurnExecutorProtocol",
     "InProcessTurnExecutor",
+    # Global operator emergency-stop / pause brake (Issue #4220)
+    "EmergencyStopState",
+    "EmergencyStopProtocol",
+    "NullEmergencyStop",
+    "FileEmergencyStop",
     # Schema-validated inbound frame codec (Issue #2831)
     "HelloParams",
     "HelloResult",
@@ -473,6 +493,7 @@ __all__ = [
     "GatewayConfig",
     "SessionConfig",
     "ApiConfig",
+    "EmergencyStopConfig",
     "ChannelRouteConfig",
     "MultiChannelGatewayConfig",
     # Config version stamp + doctor-driven migration (Issue #3841)

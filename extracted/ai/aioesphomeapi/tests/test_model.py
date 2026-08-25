@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import TYPE_CHECKING
 
 import pytest
@@ -159,6 +160,7 @@ from aioesphomeapi.model import (
     SensorState,
     SerialProxyDataReceived,
     SerialProxyInfo,
+    SerialProxyLineStateFlag,
     SerialProxyModemPins,
     SerialProxyParity,
     SerialProxyPortType,
@@ -198,6 +200,7 @@ from aioesphomeapi.model import (
     ZWaveProxyFrame,
     ZWaveProxyRequest,
     ZWaveProxyRequestType,
+    ZWaveProxyStatus,
     build_device_unique_id,
     build_unique_id,
     converter_field,
@@ -299,6 +302,28 @@ def test_api_model_base_from_dict():
     ) == DummyAPIModel(val1=-1)
     assert ListAPIModel.from_dict({}) == ListAPIModel()
     assert ListAPIModel.from_dict({"val": []}) == ListAPIModel()
+
+
+def test_entity_state_with_device_id() -> None:
+    """Test with_device_id returns a copy with only the device id changed."""
+    state = SensorState(key=1, state=4.5, device_id=1)
+    moved = state.with_device_id(2)
+    assert moved == SensorState(key=1, state=4.5, device_id=2)
+    assert state.device_id == 1
+
+
+def test_api_model_base_from_dict_null_float_becomes_nan() -> None:
+    """Test a null float field (how JSON encodes NaN) is restored as NaN."""
+    restored = SensorState.from_dict({"key": 1, "state": None})
+    assert math.isnan(restored.state)
+    assert math.isnan(
+        ClimateState.from_dict(
+            {"key": 1, "target_temperature": None}
+        ).target_temperature
+    )
+    assert restored.key == 1
+    assert SensorState.from_dict({"key": 1, "state": 4.5}).state == 4.5
+    assert DummyAPIModel.from_dict({"val1": None}).val1 is None
 
 
 def test_api_model_base_from_pb():
@@ -726,6 +751,18 @@ def test_zwave_proxy_frame_conversion() -> None:
     # Test from_dict
     frame_from_dict = ZWaveProxyFrame.from_dict({"data": b"\x05\x06\x07\x08"})
     assert frame_from_dict.data == b"\x05\x06\x07\x08"
+
+
+def test_zwave_proxy_status_enum() -> None:
+    """Test ZWaveProxyStatus enum values."""
+    assert ZWaveProxyStatus.OK == 0
+    assert ZWaveProxyStatus.IN_USE == 1
+    assert ZWaveProxyStatus.NOT_SUPPORTED == 2
+
+    assert ZWaveProxyStatus.convert(0) == ZWaveProxyStatus.OK
+    assert ZWaveProxyStatus.convert(1) == ZWaveProxyStatus.IN_USE
+    assert ZWaveProxyStatus.convert(2) == ZWaveProxyStatus.NOT_SUPPORTED
+    assert ZWaveProxyStatus.convert(-1) is None
 
 
 def test_zwave_proxy_request_type_enum() -> None:
@@ -2235,11 +2272,21 @@ def test_serial_proxy_request_type_enum() -> None:
     assert SerialProxyRequestType.SUBSCRIBE == 0
     assert SerialProxyRequestType.UNSUBSCRIBE == 1
     assert SerialProxyRequestType.FLUSH == 2
+    assert SerialProxyRequestType.CONFIGURE == 3
+    assert SerialProxyRequestType.SET_MODEM_PINS == 4
 
     assert SerialProxyRequestType.convert(0) == SerialProxyRequestType.SUBSCRIBE
     assert SerialProxyRequestType.convert(1) == SerialProxyRequestType.UNSUBSCRIBE
     assert SerialProxyRequestType.convert(2) == SerialProxyRequestType.FLUSH
+    assert SerialProxyRequestType.convert(3) == SerialProxyRequestType.CONFIGURE
+    assert SerialProxyRequestType.convert(4) == SerialProxyRequestType.SET_MODEM_PINS
     assert SerialProxyRequestType.convert(-1) is None
+
+
+def test_serial_proxy_line_state_flag_enum() -> None:
+    """Test SerialProxyLineStateFlag bit values."""
+    assert SerialProxyLineStateFlag.RTS == 1
+    assert SerialProxyLineStateFlag.DTR == 2
 
 
 def test_serial_proxy_data_received_conversion() -> None:
@@ -2280,9 +2327,19 @@ def test_serial_proxy_modem_pins_conversion() -> None:
     model_with_pins = SerialProxyModemPins.from_pb(pb_msg_with_pins)
     assert model_with_pins.instance == 1
     assert model_with_pins.line_states == 3
+    assert model_with_pins.status == SerialProxyStatus.OK
 
-    # Test to_dict
-    assert model_with_pins.to_dict() == {"instance": 1, "line_states": 3}
+    pb_msg_error = SerialProxyGetModemPinsResponsePb(
+        instance=9, status=SerialProxyStatus.INVALID_ARGUMENT
+    )
+    model_error = SerialProxyModemPins.from_pb(pb_msg_error)
+    assert model_error.status == SerialProxyStatus.INVALID_ARGUMENT
+
+    assert model_with_pins.to_dict() == {
+        "instance": 1,
+        "line_states": 3,
+        "status": SerialProxyStatus.OK,
+    }
 
     # Test from_dict
     model_from_dict = SerialProxyModemPins.from_dict({"instance": 3, "line_states": 1})
@@ -2311,13 +2368,19 @@ def test_serial_proxy_info_conversion() -> None:
     assert model.port_type == SerialProxyPortType.TTL
 
     # With values
-    pb_msg = SerialProxyInfoPb(name="UART1", port_type=SerialProxyPortType.RS485)
+    pb_msg = SerialProxyInfoPb(
+        name="UART1", port_type=SerialProxyPortType.RS485, configured_line_states=3
+    )
     model = SerialProxyInfo.from_pb(pb_msg)
     assert model.name == "UART1"
     assert model.port_type == SerialProxyPortType.RS485
+    assert model.configured_line_states == 3
 
-    # to_dict / from_dict
-    assert model.to_dict() == {"name": "UART1", "port_type": 2}
+    assert model.to_dict() == {
+        "name": "UART1",
+        "port_type": 2,
+        "configured_line_states": 3,
+    }
     model_from_dict = SerialProxyInfo.from_dict(
         {"name": "RS485 Port", "port_type": SerialProxyPortType.RS485}
     )
@@ -2371,9 +2434,12 @@ def test_serial_proxy_status_enum() -> None:
     assert SerialProxyStatus.ERROR == 2
     assert SerialProxyStatus.TIMEOUT == 3
     assert SerialProxyStatus.NOT_SUPPORTED == 4
+    assert SerialProxyStatus.PORT_IN_USE == 5
+    assert SerialProxyStatus.INVALID_ARGUMENT == 6
 
     assert SerialProxyStatus.convert(0) == SerialProxyStatus.OK
     assert SerialProxyStatus.convert(4) == SerialProxyStatus.NOT_SUPPORTED
+    assert SerialProxyStatus.convert(6) == SerialProxyStatus.INVALID_ARGUMENT
     assert SerialProxyStatus.convert(-1) is None
 
 

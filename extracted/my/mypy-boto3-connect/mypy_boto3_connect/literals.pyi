@@ -224,6 +224,7 @@ __all__ = (
     "QueueStatusType",
     "QueueTypeType",
     "QuickConnectTypeType",
+    "RealTimeContactAnalysisExtractedInformationFailureCodeType",
     "RealTimeContactAnalysisOutputTypeType",
     "RealTimeContactAnalysisPostContactSummaryFailureCodeType",
     "RealTimeContactAnalysisPostContactSummaryStatusType",
@@ -1020,6 +1021,13 @@ QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]
 QuickConnectTypeType = Literal["FLOW", "PHONE_NUMBER", "QUEUE", "USER"]
+RealTimeContactAnalysisExtractedInformationFailureCodeType = Literal[
+    "FAILED_SAFETY_GUIDELINES",
+    "INSUFFICIENT_CONVERSATION_CONTENT",
+    "INTERNAL_ERROR",
+    "MAX_PACKAGE_FEATURE_ONLY",
+    "QUOTA_EXCEEDED",
+]
 RealTimeContactAnalysisOutputTypeType = Literal["Raw", "Redacted"]
 RealTimeContactAnalysisPostContactSummaryFailureCodeType = Literal[
     "FAILED_SAFETY_GUIDELINES",
@@ -1030,7 +1038,13 @@ RealTimeContactAnalysisPostContactSummaryFailureCodeType = Literal[
 ]
 RealTimeContactAnalysisPostContactSummaryStatusType = Literal["COMPLETED", "FAILED"]
 RealTimeContactAnalysisSegmentTypeType = Literal[
-    "Attachments", "Categories", "Event", "Issues", "PostContactSummary", "Transcript"
+    "Attachments",
+    "Categories",
+    "Event",
+    "ExtractedInformation",
+    "Issues",
+    "PostContactSummary",
+    "Transcript",
 ]
 RealTimeContactAnalysisSentimentLabelType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
 RealTimeContactAnalysisStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]

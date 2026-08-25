@@ -33,11 +33,11 @@ pydantic = ["pydantic>=2.0.0"]
 
 [dependency-groups]
 dev = [
-  "mypy[faster-cache]==1.19.1",
-  "pre-commit==4.5.1",
-  "pytest==9.0.2",
-  "pytest-cov==7.0.0",
-  "ruff==0.15.4",
+  "prek>=0.4.11",
+  "pyrefly>=1.1.0",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.4",
   "typing-extensions>=4.15.0; python_version < '3.11'",
 ]
 
@@ -51,18 +51,15 @@ addopts = "--cov=camel_converter --cov-report term-missing --no-cov-on-fail"
 [tool.coverage.report]
 exclude_lines = ["if __name__ == .__main__.:", "if TYPE_CHECKING:", "pragma: no cover"]
 
-[tool.mypy]
-check_untyped_defs = true
-disallow_untyped_defs = true
+[tool.pyrefly]
 
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_defs = false
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+check-unannotated-defs = false
 
 [tool.ruff]
 line-length = 100
 fix = true
-target-version = "py310"
 
 [tool.ruff.lint]
 select=[

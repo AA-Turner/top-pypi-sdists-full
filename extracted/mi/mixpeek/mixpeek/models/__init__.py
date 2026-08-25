@@ -242,6 +242,7 @@ from mixpeek.models.collection_feature_descriptor import CollectionFeatureDescri
 from mixpeek.models.collection_list_stats import CollectionListStats
 from mixpeek.models.collection_model import CollectionModel
 from mixpeek.models.collection_overview_response import CollectionOverviewResponse
+from mixpeek.models.collection_reconciliation_response import CollectionReconciliationResponse
 from mixpeek.models.collection_response import CollectionResponse
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig
 from mixpeek.models.column_source import ColumnSource
@@ -339,6 +340,7 @@ from mixpeek.models.date_trunc_unit import DateTruncUnit
 from mixpeek.models.datetime_index_params import DatetimeIndexParams
 from mixpeek.models.dbscan_parameters import DbscanParameters
 from mixpeek.models.dedup_strategy import DedupStrategy
+from mixpeek.models.degenerate import Degenerate
 from mixpeek.models.dependency_graph import DependencyGraph
 from mixpeek.models.dependency_node import DependencyNode
 from mixpeek.models.deploy_request import DeployRequest
@@ -346,6 +348,8 @@ from mixpeek.models.deploy_response import DeployResponse
 from mixpeek.models.deploy_status_response import DeployStatusResponse
 from mixpeek.models.describe_collection_features_response import DescribeCollectionFeaturesResponse
 from mixpeek.models.detect_intent_request import DetectIntentRequest
+from mixpeek.models.diagnostic_history import DiagnosticHistory
+from mixpeek.models.diagnostic_history_entry import DiagnosticHistoryEntry
 from mixpeek.models.diff_item import DiffItem
 from mixpeek.models.diff_result import DiffResult
 from mixpeek.models.disable_org_model_response import DisableOrgModelResponse
@@ -362,6 +366,7 @@ from mixpeek.models.document_aggregation_request import DocumentAggregationReque
 from mixpeek.models.document_aggregation_response import DocumentAggregationResponse
 from mixpeek.models.document_count_response import DocumentCountResponse
 from mixpeek.models.document_create_request import DocumentCreateRequest
+from mixpeek.models.document_diagnostics_response import DocumentDiagnosticsResponse
 from mixpeek.models.document_graph_extractor_params import DocumentGraphExtractorParams
 from mixpeek.models.document_group import DocumentGroup
 from mixpeek.models.document_id_strategy import DocumentIdStrategy
@@ -819,8 +824,12 @@ from mixpeek.models.rate_limit_tier import RateLimitTier
 from mixpeek.models.raw_inference_request import RawInferenceRequest
 from mixpeek.models.raw_inference_response import RawInferenceResponse
 from mixpeek.models.recent_error import RecentError
+from mixpeek.models.recent_failure import RecentFailure
+from mixpeek.models.recent_failures import RecentFailures
 from mixpeek.models.recommendation_coverage import RecommendationCoverage
 from mixpeek.models.reconcile_settings import ReconcileSettings
+from mixpeek.models.reconciliation_discrepancy import ReconciliationDiscrepancy
+from mixpeek.models.reconciliation_reason import ReconciliationReason
 from mixpeek.models.redeem_promo_request import RedeemPromoRequest
 from mixpeek.models.redeem_promo_response import RedeemPromoResponse
 from mixpeek.models.reminder_preferences import ReminderPreferences
@@ -909,6 +918,7 @@ from mixpeek.models.secret_response import SecretResponse
 from mixpeek.models.secrets_list_response import SecretsListResponse
 from mixpeek.models.section_config import SectionConfig
 from mixpeek.models.send_message_request import SendMessageRequest
+from mixpeek.models.service_health import ServiceHealth
 from mixpeek.models.session_filter_input import SessionFilterInput
 from mixpeek.models.session_filter_output import SessionFilterOutput
 from mixpeek.models.session_quotas import SessionQuotas
@@ -1252,6 +1262,7 @@ from mixpeek.models.version_record import VersionRecord
 from mixpeek.models.video_response import VideoResponse
 from mixpeek.models.video_upload_url_request import VideoUploadUrlRequest
 from mixpeek.models.video_upload_url_response import VideoUploadUrlResponse
+from mixpeek.models.visibility_reason import VisibilityReason
 from mixpeek.models.vitals_summary import VitalsSummary
 from mixpeek.models.web_scraper_extractor_params import WebScraperExtractorParams
 from mixpeek.models.webhook_channel_input import WebhookChannelInput

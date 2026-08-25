@@ -149,6 +149,25 @@ def _version_with_date(tag: str, raw_date: str) -> str:
     return f"{tag} ({formatted})" if formatted else tag
 
 
+DEFAULT_CUSTOMER_TIER_FILTER = "TIER_2"
+SENSITIVE_CUSTOMER_TIERS: frozenset[str] = frozenset({"TIER_0", "TIER_1"})
+
+
+def _customer_tier_label(customer_tier: str) -> str:
+    """Build the scope's customer-tier line for the pin modal."""
+    if not customer_tier:
+        return (
+            "Customer tier: unresolved \u2014 the pin will be submitted as "
+            f"{DEFAULT_CUSTOMER_TIER_FILTER}."
+        )
+    if customer_tier in SENSITIVE_CUSTOMER_TIERS:
+        return (
+            f"Customer tier: {customer_tier} \u2014 sensitive customer, "
+            "human approval required before pinning."
+        )
+    return f"Customer tier: {customer_tier}"
+
+
 def _override_plan(
     *,
     adapter: OpsMcpAdapter,
@@ -188,7 +207,9 @@ def _override_plan(
         override_reason_reference_url=reference_url,
         approval_comment_url=approval_comment_url,
         user_email=user_email,
-        customer_tier_filter=customer_tier_filter,
+        # An unresolved tier keeps the conservative default rather than widening
+        # the filter, so the guardrail still rejects sensitive-tier targets.
+        customer_tier_filter=customer_tier_filter or DEFAULT_CUSTOMER_TIER_FILTER,
         force=force,
     )
 
@@ -332,6 +353,8 @@ def resolve_scope_guid(
         workspace_url=workspace_url,
         organization_name=resolution.organization_name,
         organization_url=organization_url,
+        customer_tier=resolution.customer_tier,
+        customer_tier_label=_customer_tier_label(resolution.customer_tier),
     )
 
 
@@ -373,6 +396,7 @@ def _build_context_result(
     scope_type: ScopeType = "workspace",
     scope_id: str = "",
     actor_workspace_id: str = "",
+    customer_tier: str | None = None,
     adapter: OpsMcpAdapter | None = None,
     include_rollout_sync_summary: bool = False,
 ) -> ConnectorContextResult:
@@ -523,6 +547,12 @@ def _build_context_result(
         scope_type=scope_type,
         scope_id=scope_id,
         actor_workspace_id=actor_workspace_id,
+        customer_tier=customer_tier or "",
+        # `None` means no scope was resolved, so there is no tier to talk about;
+        # an empty string means resolution ran and could not determine one.
+        customer_tier_label=(
+            "" if customer_tier is None else _customer_tier_label(customer_tier)
+        ),
     )
 
 
@@ -588,6 +618,7 @@ def load_connector_context(
                 scope_type=scope_type,
                 scope_id=scope_id,
                 actor_workspace_id=actor_workspace_id,
+                customer_tier=resolution.customer_tier,
             )
             if resolution.scope_name:
                 resolved_context_label = (

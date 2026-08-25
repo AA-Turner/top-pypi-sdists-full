@@ -11,7 +11,6 @@ def mannwhitneyu_tableone(*args,**kwargs):
 
 def tabletwo(df, groupby='animaltype', mannwhitneyu=True):
     cont_cols = df.columns.tolist()
-    [cont_cols.remove(col) for col in exp_cols if col in cont_cols]
     if groupby in cont_cols: cont_cols.remove(groupby)
 
     ttest_equal_var = False

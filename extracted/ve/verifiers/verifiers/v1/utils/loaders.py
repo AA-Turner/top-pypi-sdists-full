@@ -1,11 +1,13 @@
-"""Resolve taskset, harness, judge, and environment plugins."""
+"""Resolve taskset, harness, judge, hook, and environment plugins."""
 
-import contextvars
+import functools
 import importlib
 import importlib.util
 import pkgutil
 from collections.abc import Callable
+from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from pydantic import ValidationError
 from pydantic_config import BaseConfig
@@ -13,6 +15,7 @@ from pydantic_config import BaseConfig
 from verifiers.v1.configs.env import EnvConfig
 from verifiers.v1.configs.harness import HarnessConfig
 from verifiers.v1.configs.judge import JudgeConfig
+from verifiers.v1.configs.task import DecoratedFunctionConfig, RewardFunctionConfig
 from verifiers.v1.configs.taskset import TasksetConfig
 from verifiers.v1.env import Env
 from verifiers.v1.envs.single_agent import SingleAgentEnv
@@ -21,7 +24,6 @@ from verifiers.v1.judge import Judge, judge_config_cls
 from verifiers.v1.task import Task
 from verifiers.v1.taskset import Taskset
 from verifiers.v1.utils.generic import concrete_type, prefix_validation_error
-from verifiers.v1.utils.install import ensure_installed
 
 
 def builtin_harness_ids() -> list[str]:
@@ -30,12 +32,6 @@ def builtin_harness_ids() -> list[str]:
     from verifiers.v1 import harnesses
 
     return sorted(m.name for m in pkgutil.iter_modules(harnesses.__path__))
-
-
-skip_plugin_install: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "skip_plugin_install", default=False
-)
-"""Skip installing envs from the Hub during config parse (for callers that read the config but never run the env)."""
 
 
 def narrow_plugin_field(
@@ -62,10 +58,6 @@ def narrow_plugin_field(
             f"{field}.id needs an id, and none was given (got {ident!r}); "
             f"pass the id right after the flag{hint}"
         )
-    if skip_plugin_install.get():
-        # keep the plugin id-only; don't import/install from the Hub
-        data[field] = {"id": ident}
-        return
     try:
         data[field] = resolve(ident).model_validate({**raw, "id": ident})
     except ValidationError as e:
@@ -76,7 +68,10 @@ def narrow_plugin_field(
 
 
 def _import_plugin(plugin_id: str, kind: str, group: str) -> ModuleType:
-    module = ensure_installed(plugin_id)
+    # Hub ids are `owner/name[@version]` (installed as just `name`); strip both
+    # before normalizing so a hub id imports the same module a bare id would.
+    name = plugin_id.rsplit("/", 1)[-1].split("@", 1)[0]
+    module = name.replace("-", "_").lower()
     namespaced = f"{group}.{module}"
     target = namespaced if importlib.util.find_spec(namespaced) else module
     try:
@@ -96,8 +91,8 @@ def _import_plugin(plugin_id: str, kind: str, group: str) -> ModuleType:
         raise ModuleNotFoundError(
             f"{kind} {plugin_id!r} not found (tried to import {target!r}). {article} {kind} is a "
             f"package exporting its {kind.capitalize()} subclass via `__all__` — the built-in "
-            f"ones ship with verifiers in the `{group}` package, installed from "
-            f"the Environments Hub (`org/name`), or authored yourself.{hint}"
+            f"ones ship with verifiers in the `{group}` package; any other package "
+            f"must already be installed.{hint}"
         ) from e
 
 
@@ -156,8 +151,7 @@ def judge_class(judge_id: str) -> type[Judge]:
 
 
 def default_harness_id(taskset_id: str) -> str:
-    # In skip mode, don't import the taskset to probe for a bundled harness.
-    if not taskset_id or skip_plugin_install.get():
+    if not taskset_id:
         return "bash"
     try:
         module = import_taskset(taskset_id)
@@ -205,6 +199,78 @@ def load_judge(config: JudgeConfig) -> Judge:
     return judge_class(config.id)(config)
 
 
+@functools.cache
+def file_module(path: str) -> ModuleType:
+    """Import a standalone `.py` file, cached by path so repeated plugged-fn loads
+    share one module object."""
+    resolved = Path(path).resolve()
+    spec = importlib.util.spec_from_file_location(resolved.stem, resolved)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot import module from {path!r}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def plugged_fn(path: str) -> Callable[..., Any]:
+    """Resolve a plugged function's import path: `pkg.module.function`,
+    `pkg.module:function`, or `path/to/file.py:function`."""
+    module_path, _, attr = path.rpartition(":")
+    if not module_path:
+        module_path, _, attr = path.rpartition(".")
+    if not module_path or not attr:
+        raise ValueError(
+            f"fn {path!r} must be `pkg.module.function`, `pkg.module:function`, "
+            "or `path/to/file.py:function`"
+        )
+    if module_path.endswith(".py"):
+        module = file_module(module_path)
+    else:
+        module = importlib.import_module(module_path)
+    fn = getattr(module, attr, None)
+    if not callable(fn):
+        raise TypeError(f"fn {path!r} is not a function (got {fn!r})")
+    return fn
+
+
+def load_plugged_fn(
+    name: str,
+    config: DecoratedFunctionConfig,
+    attr: str,
+    decorated: Callable[..., Any] | None = None,
+) -> Callable[..., Any]:
+    """Build a task hook from a config entry: the imported async function — or, with
+    no `fn`, the task's `decorated` method it overrides — wrapped under the plugged
+    `name`, tagged like its `@vf.<attr>` equivalent. Unset metadata fields keep the
+    wrapped function's tags."""
+    if config.fn:
+        fn = plugged_fn(config.fn)
+    elif decorated is not None:
+        fn = decorated
+    else:
+        raise ValueError(
+            f"{attr} {name!r} plugs no `fn` and the task has no @vf.{attr} "
+            f"method named {name!r} to override"
+        )
+
+    @functools.wraps(fn)
+    def plugged(*args: Any, **kwargs: Any) -> Any:
+        return fn(*args, **kwargs)
+
+    plugged.__name__ = name
+    setattr(plugged, attr, True)
+    priority = config.priority
+    if priority is None:
+        priority = getattr(fn, f"{attr}_priority", 0)
+    setattr(plugged, f"{attr}_priority", priority)
+    if isinstance(config, RewardFunctionConfig):
+        weight = config.weight
+        if weight is None:
+            weight = getattr(fn, "_vf_weight", 1.0)
+        plugged._vf_weight = weight
+    return plugged
+
+
 def taskset_config_type(taskset_id: str) -> type[TasksetConfig]:
     """Resolve the taskset's config specialization through its MRO."""
     return (
@@ -215,10 +281,7 @@ def taskset_config_type(taskset_id: str) -> type[TasksetConfig]:
 
 def harness_config_type(harness_id: str) -> type[HarnessConfig]:
     """Resolve the harness's config specialization through its MRO."""
-    return (
-        concrete_type(harness_class(harness_id), HarnessConfig, origin=Harness)
-        or HarnessConfig
-    )
+    return concrete_type(harness_class(harness_id), HarnessConfig) or HarnessConfig
 
 
 def judge_config_type(judge_id: str) -> type[JudgeConfig]:

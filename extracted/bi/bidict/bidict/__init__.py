@@ -1,4 +1,4 @@
-# Copyright 2009-2024 Joshua Bronson. All rights reserved.
+# Copyright 2009-2026 Joshua Bronson. All rights reserved.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -47,7 +47,7 @@ if you are reading this elsewhere.
 
 ----
 
-.. :copyright: (c) 2009-2024 Joshua Bronson.
+.. :copyright: (c) 2009-2026 Joshua Bronson.
 .. :license: MPLv2. See LICENSE for details.
 """
 
@@ -80,12 +80,6 @@ from ._frozen import frozenbidict as frozenbidict
 from ._iter import inverted as inverted
 from ._orderedbase import OrderedBidictBase as OrderedBidictBase
 from ._orderedbidict import OrderedBidict as OrderedBidict
-from .metadata import __author__ as __author__
-from .metadata import __copyright__ as __copyright__
-from .metadata import __description__ as __description__
-from .metadata import __license__ as __license__
-from .metadata import __url__ as __url__
-from .metadata import __version__ as __version__
 
 
 # Set __module__ of re-exported classes to the 'bidict' top-level module, so that e.g.

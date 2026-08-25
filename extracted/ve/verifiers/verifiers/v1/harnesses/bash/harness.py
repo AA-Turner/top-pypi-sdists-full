@@ -42,6 +42,7 @@ class BashHarness(Harness[BashHarnessConfig]):
     APPENDS_SYSTEM_PROMPT = True
     SUPPORTS_MCP = True
     SUPPORTS_RESUME = True
+    SUPPORTS_TOOL_INTERCEPTION = True
     NEEDS_CONTAINER = False
 
     async def setup(self, runtime: Runtime) -> None:
@@ -56,6 +57,7 @@ class BashHarness(Harness[BashHarnessConfig]):
         secret: str,
         mcp_urls: dict[str, str],
         data: TaskData,
+        tool_interception_url: str | None = None,
     ) -> ProgramResult:
         system_prompt, prompt = self.resolve_prompt(data)
         fragments = [BASH_SYSTEM_PROMPT]
@@ -73,6 +75,8 @@ class BashHarness(Harness[BashHarnessConfig]):
             f"--model={ctx.model}",
             f"--system-prompt={system_prompt}",
         ]
+        if tool_interception_url:
+            args.append(f"--tool-interception-url={tool_interception_url}")
         if self.config.edit:
             args.append("--edit")
         if self.config.search:
@@ -118,6 +122,6 @@ class BashHarness(Harness[BashHarnessConfig]):
             )
             args.append(f"--initial-messages-file={path}")
         program = await runtime.prepare_uv_script(
-            PROGRAM_SOURCE, self.config.resolved_env
+            PROGRAM_SOURCE, self.config.resolved_env, activate=False
         )
         return await runtime.run_program([*program, *args], env)

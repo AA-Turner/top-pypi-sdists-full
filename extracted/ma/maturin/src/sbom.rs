@@ -1,6 +1,8 @@
 use crate::BuildContext;
 use crate::module_writer::ModuleWriter;
-use anyhow::{Context, Result, anyhow};
+#[cfg(feature = "sbom")]
+use anyhow::anyhow;
+use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use tracing::instrument;
@@ -24,10 +26,8 @@ impl SbomData {
     /// Generate Rust SBOMs from the build context.
     #[instrument(skip_all)]
     pub(crate) fn generate(context: &BuildContext) -> Result<Option<SbomData>> {
-        let sbom_config = context.artifact.sbom.as_ref();
-
         // Check if Rust SBOM generation is explicitly disabled
-        let rust_sbom_enabled = sbom_config.and_then(|c| c.rust).unwrap_or(true);
+        let rust_sbom_enabled = context.artifact.sbom.rust.unwrap_or(true);
 
         #[cfg(feature = "sbom")]
         {
@@ -45,7 +45,7 @@ impl SbomData {
             // cargo_metadata 0.23. The Metadata structs are incompatible at the
             // type level but share the same JSON representation, so we bridge
             // them via a serde round-trip.
-            let json = serde_json::to_value(&context.project.cargo_metadata)?;
+            let json = serde_json::to_value(context.project.cargo_metadata.as_ref())?;
             let metadata = serde_json::from_value(json)
                 .context("Failed to convert cargo metadata for SBOM generation")?;
             let sboms = SbomGenerator::create_sboms(metadata, &config)
@@ -83,8 +83,6 @@ impl SbomData {
         writer: &mut impl ModuleWriter,
         dist_info_dir: &Path,
     ) -> Result<()> {
-        let sbom_config = context.artifact.sbom.as_ref();
-
         // 1. Write pre-generated Rust SBOMs
         if let Some(data) = sbom_data {
             for (package_name, json_bytes) in &data.rust_sboms {
@@ -94,7 +92,7 @@ impl SbomData {
         }
 
         // 2. Include additional SBOM files (only when explicitly configured)
-        if let Some(include) = sbom_config.and_then(|c| c.include.as_ref()) {
+        if let Some(include) = context.artifact.sbom.include.as_ref() {
             // Canonicalize project root once and enforce all includes stay within it.
             let project_root = context
                 .project

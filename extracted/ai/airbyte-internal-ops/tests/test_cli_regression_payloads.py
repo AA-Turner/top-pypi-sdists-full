@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 
@@ -15,6 +16,10 @@ from airbyte_protocol.models import (
 )
 
 from airbyte_ops_mcp.cli import cloud
+from airbyte_ops_mcp.regression_tests.http_metrics import (
+    HttpMetrics,
+    MitmproxySession,
+)
 from airbyte_ops_mcp.regression_tests.models import Command, ComparableOutputs
 
 pytestmark = pytest.mark.unit
@@ -290,16 +295,26 @@ def stub_comparison_run(monkeypatch, tmp_path):
         target_outputs: ComparableOutputs | None = None,
         control_outputs: ComparableOutputs | None = None,
     ) -> dict[str, object]:
-        def _fake_run(*, command: Command, target_or_control, output_dir, **_kwargs):
+        calls: list[dict] = []
+        seen["calls"] = calls
+
+        def _fake_run(*, command: Command, target_or_control, output_dir, **kwargs):
             output_dir.mkdir(parents=True, exist_ok=True)
             is_target = target_or_control is cloud.TargetOrControl.TARGET
             side = target if is_target else control
             declared = target_outputs if is_target else control_outputs
 
-            return (
-                {"command": command.value, **side},
-                declared or ComparableOutputs(),
-            )
+            calls.append({"role": target_or_control, **kwargs})
+            result = {"command": command.value, **side}
+            if kwargs.get("enable_http_metrics"):
+                # Mirrors the real runner: the dump and its metrics only exist
+                # when the proxy ran.
+                result["http_dump_file"] = str(output_dir / "http_traffic.mitm")
+                result["http_metrics"] = {
+                    "flow_count": 0,
+                    "duplicate_flow_count": 0,
+                }
+            return result, declared or ComparableOutputs()
 
         monkeypatch.setattr(cloud, "_run_with_optional_http_metrics", _fake_run)
         return seen
@@ -1115,3 +1130,545 @@ def test_an_errored_comparison_is_inconclusive_not_a_regression(
     assert "tooling failure, not evidence of a regression" in " ".join(
         captured.err.split()
     )
+
+
+# --------------------------------------------------------------------------
+# HTTP replay: the target run is served the control run's recorded responses
+# --------------------------------------------------------------------------
+
+_CLEAN_SIDE = {
+    "success": True,
+    "exit_code": 0,
+    "message_counts": {"RECORD": 5},
+    "record_counts_per_stream": {"users": 5},
+}
+
+
+def test_the_target_replays_the_dump_the_control_run_recorded(
+    tmp_path, capsys, stub_comparison_run
+):
+    """Getting this wiring wrong disables replay silently rather than failing.
+
+    The control-before-target order it depends on is pinned separately by
+    `test_control_runs_before_target_in_comparison_mode`.
+    """
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=True,
+    )
+    capsys.readouterr()
+
+    control_call, target_call = seen["calls"]
+    assert control_call["role"] is cloud.TargetOrControl.CONTROL
+    # Replay is a use of the capture, so asking for it turns the capture on.
+    assert control_call["enable_http_metrics"] is True
+    assert control_call.get("replay_from") is None
+    assert target_call["replay_from"] == tmp_path / "control" / "http_traffic.mitm"
+
+
+def test_replay_is_on_by_default_in_comparison_mode(
+    tmp_path, capsys, stub_comparison_run
+):
+    """No flag at all still replays, and turns the capture on to do it."""
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+    capsys.readouterr()
+
+    control_call, target_call = seen["calls"]
+    assert control_call["enable_http_metrics"] is True
+    assert target_call["replay_from"] == tmp_path / "control" / "http_traffic.mitm"
+
+
+def test_no_http_replay_runs_both_versions_live(tmp_path, capsys, stub_comparison_run):
+    """The opt-out has to reach the runs, not just the flag parser."""
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+    )
+    capsys.readouterr()
+
+    assert [call.get("replay_from") for call in seen["calls"]] == [None, None]
+
+
+def test_single_version_mode_does_not_complain_about_the_replay_default(
+    tmp_path, capsys, stub_run
+):
+    """Replay is comparison-only, so `--skip-compare` simply has none of it.
+
+    The default landing somewhere it cannot apply is not worth a warning on
+    every single-version run; only an explicit request is.
+    """
+    stub_run(
+        {
+            "success": True,
+            "exit_code": 0,
+            "message_counts": {},
+            "record_counts_per_stream": {},
+        }
+    )
+
+    cloud.regression_test(
+        skip_compare=True,
+        test_image="airbyte/source-test:2.0.0",
+        command="spec",
+        output_dir=str(tmp_path),
+    )
+
+    printed = " ".join(_ANSI_ESCAPE.sub("", capsys.readouterr().out).split())
+    assert "needs a control run" not in printed
+
+
+def test_replay_tuning_reaches_the_target_run(tmp_path, capsys, stub_comparison_run):
+    """The knobs exist for connectors that need them; pin that they arrive."""
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=True,
+        http_replay_max_body="10m",
+        http_replay_max_dump_size_mb=64,
+        http_replay_reuse=True,
+        http_replay_ignore_params="timestamp, nonce",
+        strict_replay=True,
+    )
+    capsys.readouterr()
+
+    control_call, target_call = seen["calls"]
+    options = target_call["replay_options"]
+    assert options.reuse is True
+    assert options.extra == "kill"
+    assert options.ignore_params == ("timestamp", "nonce")
+    assert options.max_dump_bytes == 64 * 1024 * 1024
+    # The body threshold governs recording, so both sides get it.
+    assert control_call["stream_large_bodies"] == "10m"
+    assert target_call["stream_large_bodies"] == "10m"
+
+
+def test_replay_tuning_without_replay_says_it_is_being_ignored(
+    tmp_path, capsys, stub_comparison_run
+):
+    """Silence here reads as "strict mode found nothing wrong"."""
+    stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+        strict_replay=True,
+    )
+
+    printed = " ".join(_ANSI_ESCAPE.sub("", capsys.readouterr().out).split())
+    assert "do nothing with --no-http-replay" in printed
+
+
+def test_the_recording_threshold_is_not_reported_as_an_ignored_replay_flag(
+    tmp_path, capsys, stub_comparison_run
+):
+    """`--http-replay-max-body` governs recording, so it applies on its own.
+
+    Pinned with replay explicitly off, the only case where the ignored-flags
+    warning can fire at all.
+    """
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+        enable_http_metrics=True,
+        http_replay_max_body="10m",
+    )
+
+    printed = " ".join(_ANSI_ESCAPE.sub("", capsys.readouterr().out).split())
+    assert "do nothing with --no-http-replay" not in printed
+    assert all(call["stream_large_bodies"] == "10m" for call in seen["calls"])
+
+
+def test_an_oversized_dump_is_not_left_on_the_runners_disk(
+    tmp_path, capsys, monkeypatch, stub_comparison_run
+):
+    """Recording bodies makes dumps grow with everything the run downloads.
+
+    Two of them, on a runner with ~14 GB of disk shared with the connector
+    container. What the run leaves behind has to be bounded even though the peak
+    during capture cannot be. Disk is the reason, not the artifact upload: dumps
+    are excluded from every upload step at any size, so a warning that says
+    otherwise sends the reader looking for the wrong cap.
+    """
+    seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
+    written: list = []
+
+    def _fake_discard(dump_path, max_bytes):
+        written.append((dump_path, max_bytes))
+        return 900 * 1024 * 1024
+
+    monkeypatch.setattr(cloud, "discard_oversized_dump", _fake_discard)
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=True,
+        http_replay_max_dump_size_mb=64,
+    )
+    printed = " ".join(_ANSI_ESCAPE.sub("", capsys.readouterr().out).split())
+
+    assert [call[1] for call in written] == [64 * 1024 * 1024] * 2
+    assert "exceeds the retention cap" in printed
+    assert "never uploaded as artifacts" in printed
+    # No dangling path to a file that is gone, and the report says how big it was.
+    payload = seen["json_output"]
+    assert "http_dump_file" not in payload["control"]
+    assert payload["control"]["http_metrics"]["discarded_dump_mb"] == 900
+
+
+def test_a_runner_without_mitmdump_does_not_report_a_clean_replayed_run(
+    tmp_path, capsys, monkeypatch
+):
+    """Drives the whole comparison, because the gap is in how the sides compose.
+
+    When `mitmdump` is missing the *control* run also gets no session, so it
+    records no dump, so the target is handed `replay_from=None` and takes the
+    same no-session branch. Each side is individually well-behaved; between
+    them, a run that was supposed to replay ran entirely live and reported an
+    ordinary green comparison. Keying the report off `replay_from` looks right
+    and is never true in this failure.
+    """
+    monkeypatch.setattr(cloud, "ensure_image_available", lambda _image: True)
+    monkeypatch.setattr(cloud, "track_regression_test", lambda **_kwargs: None)
+    monkeypatch.setattr(cloud, "write_github_outputs", lambda _outputs: None)
+    monkeypatch.setattr(cloud, "write_github_summary", lambda _text: None)
+    monkeypatch.setattr(cloud, "write_json_output", lambda _key, _data: None)
+    # No mitmdump on PATH: `MitmproxyManager.running` yields no session at all.
+    monkeypatch.setattr(
+        cloud.MitmproxyManager,
+        "running",
+        lambda _self: contextlib.nullcontext(None),
+    )
+
+    def _fake_run(*, output_dir, **_kwargs):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return (
+            {
+                "success": True,
+                "exit_code": 0,
+                "message_counts": {"RECORD": 5},
+                "record_counts_per_stream": {"users": 5},
+            },
+            ComparableOutputs(),
+        )
+
+    monkeypatch.setattr(cloud, "_run_connector_command", _fake_run)
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    reason = payload["target"]["http_metrics"]["replay_skipped_reason"]
+    assert "mitmproxy is unavailable" in reason
+    # The control run was recording, not replaying; nothing to report there.
+    assert "http_metrics" not in payload["control"]
+
+
+def test_a_control_run_that_captured_nothing_is_reported_as_a_skip(
+    tmp_path, capsys, monkeypatch
+):
+    """The proxy came up, but there was no recording to replay from.
+
+    A third way replay silently does not happen, and it has to read like the
+    other two rather than like a clean replayed run.
+    """
+    session = MitmproxySession(
+        proxy_host="host.docker.internal",
+        proxy_port=8080,
+        dump_file_path=tmp_path / "target" / "http_traffic.mitm",
+        ca_cert_path=None,
+    )
+    monkeypatch.setattr(
+        cloud.MitmproxyManager,
+        "running",
+        lambda _self: contextlib.nullcontext(session),
+    )
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+    monkeypatch.setattr(
+        cloud, "parse_http_dump", lambda *_args, **_kwargs: HttpMetrics.empty()
+    )
+
+    result, _outputs = cloud._run_with_optional_http_metrics(
+        connector_image="airbyte/source-test:2.0.0",
+        command=Command.READ,
+        output_dir=tmp_path / "target",
+        target_or_control=cloud.TargetOrControl.TARGET,
+        enable_http_metrics=True,
+        config_path=None,
+        catalog_path=None,
+        state_path=None,
+        replay_expected=True,
+        replay_from=None,
+    )
+    capsys.readouterr()
+
+    assert (
+        result["http_metrics"]["replay_skipped_reason"]
+        == "the control run recorded no HTTP dump to replay from"
+    )
+
+
+def _replaying_session(tmp_path, corpus_name="http_replay_corpus.mitm"):
+    """A session that came up and is replaying from a corpus."""
+    return MitmproxySession(
+        proxy_host="host.docker.internal",
+        proxy_port=8080,
+        dump_file_path=tmp_path / "target" / "http_traffic.mitm",
+        ca_cert_path=None,
+        replay_source=tmp_path / corpus_name,
+    )
+
+
+def _run_target(tmp_path, **kwargs):
+    return cloud._run_with_optional_http_metrics(
+        connector_image="airbyte/source-test:2.0.0",
+        command=Command.READ,
+        output_dir=tmp_path / "target",
+        target_or_control=cloud.TargetOrControl.TARGET,
+        enable_http_metrics=True,
+        config_path=None,
+        catalog_path=None,
+        state_path=None,
+        **kwargs,
+    )
+
+
+def test_a_replaying_run_reports_which_urls_went_live(tmp_path, capsys, monkeypatch):
+    """The one field that can explain a coverage shortfall after the fact.
+
+    `unreplayable_flow_count` covers exclusion from the corpus and nothing else,
+    so a request that reached mitmproxy and matched nothing was only ever visible
+    as the aggregate live count -- and the dumps that hold the URLs are excluded
+    from the uploaded artifacts by design.
+    """
+    session = _replaying_session(tmp_path)
+    monkeypatch.setattr(
+        cloud.MitmproxyManager, "running", lambda _self: contextlib.nullcontext(session)
+    )
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+    monkeypatch.setattr(
+        cloud,
+        "parse_http_dump",
+        lambda *_args, **_kwargs: HttpMetrics(
+            flow_count=4,
+            duplicate_flow_count=1,
+            unique_urls=["https://example.com/a"],
+            replayed_flow_count=1,
+            live_flow_count=3,
+            live_url_counts={
+                "https://example.com/job/1": 2,
+                "https://example.com/b": 1,
+            },
+        ),
+    )
+
+    result, _outputs = _run_target(
+        tmp_path, replay_expected=True, replay_from=tmp_path / "control.mitm"
+    )
+    capsys.readouterr()
+
+    metrics = result["http_metrics"]
+    assert metrics["live_urls"] == [
+        {"url": "https://example.com/job/1", "count": 2},
+        {"url": "https://example.com/b", "count": 1},
+    ]
+    assert metrics["live_unique_url_count"] == 2
+
+
+def test_a_recording_run_does_not_carry_a_request_log(tmp_path, capsys, monkeypatch):
+    """Every request on a recording run is live, so the list explains nothing.
+
+    URLs can carry credentials in their query strings; that is not a surface to
+    widen where there is no diagnostic value in return.
+    """
+    session = MitmproxySession(
+        proxy_host="host.docker.internal",
+        proxy_port=8080,
+        dump_file_path=tmp_path / "target" / "http_traffic.mitm",
+        ca_cert_path=None,
+    )
+    monkeypatch.setattr(
+        cloud.MitmproxyManager, "running", lambda _self: contextlib.nullcontext(session)
+    )
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+    monkeypatch.setattr(
+        cloud,
+        "parse_http_dump",
+        lambda *_args, **_kwargs: HttpMetrics(
+            flow_count=2,
+            duplicate_flow_count=0,
+            unique_urls=["https://example.com/a"],
+            live_flow_count=2,
+            live_url_counts={"https://example.com/a?token=secret": 2},
+        ),
+    )
+
+    result, _outputs = _run_target(tmp_path)
+    capsys.readouterr()
+
+    assert "live_urls" not in result["http_metrics"]
+
+
+def test_a_killed_shutdown_is_recorded_on_the_run(tmp_path, capsys, monkeypatch):
+    """`SIGKILL` costs the dump its unflushed tail, always in the flattering
+    direction -- the counts have to say they are a lower bound."""
+    session = _replaying_session(tmp_path)
+
+    @contextlib.contextmanager
+    def _running(manager):
+        yield session
+        # What `_stop` does when `SIGINT` was not serviced in time; only knowable
+        # after the block, which is why it lives on the manager.
+        manager.metrics_incomplete_reason = "mitmproxy ... was killed"
+
+    monkeypatch.setattr(cloud.MitmproxyManager, "running", _running)
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+    monkeypatch.setattr(
+        cloud, "parse_http_dump", lambda *_args, **_kwargs: HttpMetrics.empty()
+    )
+
+    result, _outputs = _run_target(
+        tmp_path, replay_expected=True, replay_from=tmp_path / "control.mitm"
+    )
+    capsys.readouterr()
+
+    assert result["http_metrics"]["metrics_incomplete"] == "mitmproxy ... was killed"
+
+
+def test_a_startup_failure_is_reported_as_itself_not_as_a_missing_mitmproxy(
+    tmp_path, capsys, monkeypatch
+):
+    """A proxy that died on startup, or a corpus slower to load than the ceiling,
+    points at a code fix -- the fixed string sent a reader to install mitmproxy."""
+
+    @contextlib.contextmanager
+    def _running(manager):
+        manager.startup_failure_reason = (
+            "mitmproxy did not accept connections on port 4242 in 60s"
+        )
+        yield None
+
+    monkeypatch.setattr(cloud.MitmproxyManager, "running", _running)
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+
+    result, _outputs = _run_target(
+        tmp_path, replay_expected=True, replay_from=tmp_path / "control.mitm"
+    )
+    capsys.readouterr()
+
+    assert result["http_metrics"]["replay_skipped_reason"] == (
+        "mitmproxy did not accept connections on port 4242 in 60s, so nothing "
+        "could be replayed"
+    )
+
+
+def test_the_dump_is_parsed_only_after_mitmproxy_has_flushed_it(
+    tmp_path, capsys, monkeypatch
+):
+    """mitmproxy's `save` addon only flushes and closes the dump in `done()`.
+
+    It writes each flow through a block-buffered file and holds in-flight flows
+    until shutdown, so parsing inside the `with` block misses the buffered tail
+    -- and `live_flow_count` is the acceptance criterion for replay, not a rough
+    count.
+    """
+    session = MitmproxySession(
+        proxy_host="host.docker.internal",
+        proxy_port=8080,
+        dump_file_path=tmp_path / "target" / "http_traffic.mitm",
+        ca_cert_path=None,
+    )
+    events: list[str] = []
+
+    @contextlib.contextmanager
+    def _fake_start(*_args, **_kwargs):
+        try:
+            yield session
+        finally:
+            events.append("mitmproxy stopped")
+
+    monkeypatch.setattr(
+        cloud.MitmproxyManager,
+        "running",
+        lambda _self: _fake_start(),
+    )
+    monkeypatch.setattr(
+        cloud,
+        "_run_connector_command",
+        lambda **_kwargs: ({"success": True, "exit_code": 0}, ComparableOutputs()),
+    )
+
+    def _parse(*_args, **_kwargs):
+        events.append("dump parsed")
+        return HttpMetrics.empty()
+
+    monkeypatch.setattr(cloud, "parse_http_dump", _parse)
+
+    cloud._run_with_optional_http_metrics(
+        connector_image="airbyte/source-test:2.0.0",
+        command=Command.READ,
+        output_dir=tmp_path / "target",
+        target_or_control=cloud.TargetOrControl.TARGET,
+        enable_http_metrics=True,
+        config_path=None,
+        catalog_path=None,
+        state_path=None,
+    )
+    capsys.readouterr()
+
+    assert events == ["mitmproxy stopped", "dump parsed"]

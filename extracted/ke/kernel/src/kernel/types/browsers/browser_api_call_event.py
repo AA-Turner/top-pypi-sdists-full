@@ -14,7 +14,10 @@ class Data(BaseModel):
     """Wall-clock duration of the handler in milliseconds."""
 
     operation_id: str
-    """OpenAPI operationId of the matched route (e.g. processExec, takeScreenshot)."""
+    """Matched route's operation, named as the in-VM API names its handler (e.g.
+
+    ProcessExec, TakeScreenshot).
+    """
 
     request_id: str
     """Per-request identifier from the in-VM API request middleware."""
@@ -22,9 +25,18 @@ class Data(BaseModel):
     status: int
     """HTTP response status code."""
 
+    code: Optional[str] = None
+    """
+    Source submitted to the Playwright code-execution endpoint, capped at 8192 bytes
+    like every other captured string. A capped value is cut on a character boundary
+    and ends in `...[truncated]`. Absent for every other operation.
+    """
+
 
 class BrowserAPICallEvent(BaseModel):
-    """An agent-driven HTTP call handled by the in-VM API server."""
+    """
+    An agent-driven HTTP call that drives the browser, handled by the in-VM API server. Calls that manage the VM instead emit platform_api_call.
+    """
 
     category: Literal["control"]
 

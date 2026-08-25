@@ -391,6 +391,7 @@ class ContextResolution:
     organization_name: str = ""
     actor_id: str | None = None
     actor_type: str = ""
+    customer_tier: str = ""
 
 
 @dataclass(frozen=True)

@@ -64,6 +64,7 @@ use temporalio_common::{
     protos::{
         TaskToken,
         coresdk::{
+            common::ExternalStorageMetrics,
             workflow_activation::{
                 QueryWorkflow, WorkflowActivation, WorkflowActivationJob,
                 remove_from_cache::EvictionReason, workflow_activation_job,
@@ -82,7 +83,7 @@ use temporalio_common::{
             failure::v1::{ApplicationFailureInfo, failure::FailureInfo},
             protocol::v1::Message as ProtocolMessage,
             query::v1::WorkflowQuery,
-            sdk::v1::{UserMetadata, WorkflowTaskCompletedMetadata},
+            sdk::v1::{EventGroupMarker, UserMetadata, WorkflowTaskCompletedMetadata},
             taskqueue::v1::StickyExecutionAttributes,
             workflowservice::v1::{PollActivityTaskQueueResponse, get_system_info_response},
         },
@@ -110,7 +111,7 @@ pub const LEGACY_QUERY_ID: &str = "legacy_query";
 const WFT_HEARTBEAT_TIMEOUT_FRACTION: f32 = 0.8;
 
 type Result<T, E = WFMachinesError> = result::Result<T, E>;
-type BoxedActivationStream = BoxStream<'static, Result<ActivationOrAuto, PollError>>;
+type BoxedActivationStream = BoxStream<'static, Result<WorkflowStreamAction, PollError>>;
 type InternalFlagsRef = Rc<RefCell<InternalFlags>>;
 
 /// Centralizes all state related to workflows and workflow tasks
@@ -241,9 +242,9 @@ impl Workflows {
                                         .send(fetchreq)
                                         .expect("Fetch channel must not be dropped");
                                 }
-                                for act in o.activations {
+                                for action in o.actions {
                                     activation_tx
-                                        .send(Ok(act))
+                                        .send(Ok(action))
                                         .expect("Activation processor channel not dropped");
                                 }
                             }
@@ -279,7 +280,7 @@ impl Workflows {
     pub(super) async fn next_workflow_activation(&self) -> Result<WorkflowActivation, PollError> {
         self.ever_polled.store(true, atomic::Ordering::Release);
         loop {
-            let al = {
+            let action = {
                 let mut lock = self.activation_stream.lock().await;
                 let (stream, beginner) = lock.deref_mut();
                 if let Some(beginner) = beginner.take() {
@@ -287,49 +288,66 @@ impl Workflows {
                 }
                 stream.next().await.unwrap_or(Err(PollError::ShutDown))?
             };
-            match al {
-                ActivationOrAuto::LangActivation(mut act)
-                | ActivationOrAuto::ReadyForQueries(mut act) => {
-                    prepare_to_ship_activation(&mut act);
-                    debug!(activation=%act, "Sending activation to lang");
-                    break Ok(act);
-                }
-                ActivationOrAuto::Autocomplete { run_id } => {
-                    if let Err(e) = self
-                        .activation_completed(
-                            WorkflowActivationCompletion {
-                                run_id,
-                                status: Some(
-                                    workflow_completion::Success::from_variants(vec![]).into(),
-                                ),
-                            },
-                            true,
-                            // We need to say a type, but the type is irrelevant, so imagine some
-                            // boxed function we'll never call.
-                            Option::<Box<dyn Fn(PostActivateHookData) + Send>>::None,
-                        )
-                        .await
-                    {
-                        error!(error=?e, "Error while auto-completing workflow task");
+            match action {
+                WorkflowStreamAction::Activation(al) => match al {
+                    ActivationOrAuto::LangActivation(mut act)
+                    | ActivationOrAuto::ReadyForQueries(mut act) => {
+                        prepare_to_ship_activation(&mut act);
+                        debug!(activation=%act, "Sending activation to lang");
+                        break Ok(act);
                     }
-                }
-                ActivationOrAuto::AutoFail {
+                    ActivationOrAuto::Autocomplete { run_id } => {
+                        if let Err(e) = self
+                            .activation_completed(
+                                WorkflowActivationCompletion {
+                                    run_id,
+                                    status: Some(
+                                        workflow_completion::Success::from_variants(vec![]).into(),
+                                    ),
+                                    ..Default::default()
+                                },
+                                true,
+                                // We need to say a type, but the type is irrelevant, so imagine some
+                                // boxed function we'll never call.
+                                Option::<Box<dyn Fn(PostActivateHookData) + Send>>::None,
+                            )
+                            .await
+                        {
+                            error!(error=?e, "Error while auto-completing workflow task");
+                        }
+                    }
+                    ActivationOrAuto::AutoFail {
+                        run_id,
+                        machines_err,
+                    } => {
+                        if let Err(e) = self
+                            .activation_completed(
+                                WorkflowActivationCompletion {
+                                    run_id,
+                                    status: Some(machines_err.as_failure().into()),
+                                    ..Default::default()
+                                },
+                                true,
+                                Option::<Box<dyn Fn(PostActivateHookData) + Send>>::None,
+                            )
+                            .await
+                        {
+                            error!(error=?e, "Error while auto-failing workflow task");
+                        }
+                    }
+                },
+                WorkflowStreamAction::FailUnstoredWft {
                     run_id,
-                    machines_err,
+                    task_token,
+                    cause,
+                    failure,
                 } => {
-                    if let Err(e) = self
-                        .activation_completed(
-                            WorkflowActivationCompletion {
-                                run_id,
-                                status: Some(machines_err.as_failure().into()),
-                            },
-                            true,
-                            Option::<Box<dyn Fn(PostActivateHookData) + Send>>::None,
-                        )
-                        .await
-                    {
-                        error!(error=?e, "Error while auto-failing workflow task");
-                    }
+                    self.handle_activation_failed(
+                        &run_id,
+                        Instant::now(),
+                        FailedActivationWFTReport::Report(task_token, cause, failure),
+                    )
+                    .await;
                 }
             }
         }
@@ -546,6 +564,7 @@ impl Workflows {
         post_activate_hook: Option<impl Fn(PostActivateHookData)>,
     ) -> Result<(), CompleteWfError> {
         let is_empty_completion = completion.is_empty();
+        let task_storage_metrics = TaskStorageMetrics::from_completion(&completion);
         let completion = validate_completion(completion, is_autocomplete)?;
         let run_id = completion.run_id().to_string();
         let (tx, rx) = oneshot::channel();
@@ -615,6 +634,7 @@ impl Workflows {
             wft_report_status,
             wft_from_complete: maybe_pwft,
             is_autocomplete,
+            task_storage_metrics,
         });
 
         Ok(())
@@ -905,8 +925,22 @@ struct NextPageReq {
 
 #[derive(Debug)]
 struct WFStreamOutput {
-    activations: VecDeque<ActivationOrAuto>,
+    actions: VecDeque<WorkflowStreamAction>,
     fetch_histories: VecDeque<HistoryFetchReq>,
+}
+
+#[derive(Debug, derive_more::Display)]
+enum WorkflowStreamAction {
+    Activation(ActivationOrAuto),
+    /// Fail a WFT that could not be associated with a run and therefore cannot use the normal
+    /// activation completion path.
+    #[display("FailUnstoredWft(run_id={run_id})")]
+    FailUnstoredWft {
+        run_id: String,
+        task_token: TaskToken,
+        cause: WorkflowTaskFailedCause,
+        failure: Failure,
+    },
 }
 
 #[derive(Debug, derive_more::Display)]
@@ -1131,7 +1165,24 @@ struct PostActivationMsg {
     wft_report_status: WFTReportStatus,
     wft_from_complete: Option<WFTWithPaginator>,
     is_autocomplete: bool,
+    task_storage_metrics: TaskStorageMetrics,
 }
+
+#[derive(Debug, Default, Clone)]
+struct TaskStorageMetrics {
+    download: Option<ExternalStorageMetrics>,
+    upload: Option<ExternalStorageMetrics>,
+}
+
+impl TaskStorageMetrics {
+    fn from_completion(completion: &WorkflowActivationCompletion) -> Self {
+        Self {
+            download: completion.payload_download_metrics.clone(),
+            upload: completion.payload_upload_metrics.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct RequestEvictMsg {
     run_id: String,
@@ -1363,6 +1414,17 @@ struct EmptyWorkflowCommandErr;
 struct WFCommand {
     variant: WFCommandVariant,
     metadata: Option<UserMetadata>,
+    event_group_markers: Vec<EventGroupMarker>,
+}
+
+impl WFCommand {
+    fn new(variant: WFCommandVariant) -> Self {
+        Self {
+            variant,
+            metadata: None,
+            event_group_markers: vec![],
+        }
+    }
 }
 
 #[derive(Debug, derive_more::From, derive_more::Display)]
@@ -1457,6 +1519,7 @@ impl TryFrom<WorkflowCommand> for WFCommand {
         Ok(Self {
             variant,
             metadata: c.user_metadata,
+            event_group_markers: c.event_group_markers,
         })
     }
 }
@@ -1770,6 +1833,30 @@ mod tests {
         payload_limits::{LimitClass, LimitSeverity},
         protos::coresdk::workflow_activation::SignalWorkflow,
     };
+
+    #[test]
+    fn task_storage_metrics_from_completion_keeps_directions_distinct() {
+        let download = ExternalStorageMetrics {
+            payload_count: 2,
+            total_size_bytes: 1024,
+            driver_names: vec!["s3".to_string()],
+            ..Default::default()
+        };
+        let upload = ExternalStorageMetrics {
+            payload_count: 3,
+            total_size_bytes: 2048,
+            driver_names: vec!["gcs".to_string()],
+            ..Default::default()
+        };
+        let completion = WorkflowActivationCompletion {
+            payload_download_metrics: Some(download.clone()),
+            payload_upload_metrics: Some(upload.clone()),
+            ..Default::default()
+        };
+        let metrics = TaskStorageMetrics::from_completion(&completion);
+        assert_eq!(metrics.download, Some(download));
+        assert_eq!(metrics.upload, Some(upload));
+    }
 
     #[test]
     fn payloads_too_large_wft_failure_is_retryable() {

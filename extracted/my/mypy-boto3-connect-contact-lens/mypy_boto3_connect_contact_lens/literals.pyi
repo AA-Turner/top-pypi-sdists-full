@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_connect_contact_lens.literals import PostContactSummaryFailureCodeType
+    from mypy_boto3_connect_contact_lens.literals import ExtractedInformationFailureCodeType
 
-    data: PostContactSummaryFailureCodeType = "FAILED_SAFETY_GUIDELINES"
+    data: ExtractedInformationFailureCodeType = "FAILED_SAFETY_GUIDELINES"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ConnectContactLensServiceName",
+    "ExtractedInformationFailureCodeType",
     "PostContactSummaryFailureCodeType",
     "PostContactSummaryStatusType",
     "RegionName",
@@ -31,6 +32,13 @@ __all__ = (
     "ServiceName",
 )
 
+ExtractedInformationFailureCodeType = Literal[
+    "FAILED_SAFETY_GUIDELINES",
+    "INSUFFICIENT_CONVERSATION_CONTENT",
+    "INTERNAL_ERROR",
+    "MAX_PACKAGE_FEATURE_ONLY",
+    "QUOTA_EXCEEDED",
+]
 PostContactSummaryFailureCodeType = Literal[
     "FAILED_SAFETY_GUIDELINES",
     "INSUFFICIENT_CONVERSATION_CONTENT",
@@ -44,8 +52,11 @@ ConnectContactLensServiceName = Literal["connect-contact-lens"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -234,8 +245,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -262,6 +271,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -329,10 +340,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -350,6 +361,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -365,6 +377,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -392,6 +405,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -413,7 +427,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -434,6 +447,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -2,10 +2,12 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from collections.abc import Iterator
 from datetime import datetime, timedelta
-from typing import Any, Iterator, Optional, Union
+from typing import Any
 
 from httpx import Timeout
+from typing_extensions import Self
 
 from pontos.errors import PontosError
 from pontos.nvd.api import (
@@ -16,7 +18,6 @@ from pontos.nvd.api import (
     Params,
     format_date,
     now,
-    return_or_raise,
 )
 from pontos.nvd.models.cve_change import CVEChange, EventName
 
@@ -34,10 +35,13 @@ def _result_iterator(
 ) -> Iterator[CVEChange | Exception]:
     results: list[dict[str, Any]] = data.get("cve_changes", [])  # type: ignore
     for result in results:
-        yield return_or_raise(
-            lambda: CVEChange.from_dict(result["change"]),
-            return_exceptions,
-        )
+        try:
+            yield CVEChange.from_dict(result["change"])
+        except Exception as exception:
+            if return_exceptions:
+                yield exception
+            else:
+                raise
 
 
 class CVEChangesApi(NVDApi):
@@ -59,8 +63,8 @@ class CVEChangesApi(NVDApi):
     def __init__(
         self,
         *,
-        token: Optional[str] = None,
-        timeout: Optional[Timeout] = DEFAULT_TIMEOUT_CONFIG,
+        token: str | None = None,
+        timeout: Timeout | None = DEFAULT_TIMEOUT_CONFIG,
         rate_limit: bool = True,
         request_attempts: int = 1,
     ) -> None:
@@ -90,13 +94,13 @@ class CVEChangesApi(NVDApi):
     def changes(
         self,
         *,
-        change_start_date: Optional[datetime] = None,
-        change_end_date: Optional[datetime] = None,
-        cve_id: Optional[str] = None,
-        event_name: Optional[Union[EventName, str]] = None,
-        request_results: Optional[int] = None,
+        change_start_date: datetime | None = None,
+        change_end_date: datetime | None = None,
+        cve_id: str | None = None,
+        event_name: EventName | str | None = None,
+        request_results: int | None = None,
         start_index: int = 0,
-        results_per_page: Optional[int] = None,
+        results_per_page: int | None = None,
         return_exceptions: bool = False,
     ) -> NVDResults[CVEChange]:
         """
@@ -176,6 +180,6 @@ class CVEChangesApi(NVDApi):
             return_exceptions=return_exceptions,
         )
 
-    async def __aenter__(self) -> "CVEChangesApi":
+    async def __aenter__(self) -> Self:
         await super().__aenter__()
         return self

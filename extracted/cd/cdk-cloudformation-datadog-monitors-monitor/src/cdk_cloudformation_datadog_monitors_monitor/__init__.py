@@ -1,11 +1,11 @@
 r'''
 # datadog-monitors-monitor
 
-> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.0.
+> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.1.
 
 ## Description
 
-Datadog Monitor 4.11.0
+Datadog Monitor 4.11.1
 
 ## Usage
 
@@ -33,13 +33,15 @@ You can find more information about activating this type in the [AWS CloudFormat
 
 This library is auto-generated and published to all supported programming languages by the [cdklabs/cdk-cloudformation](https://github.com/cdklabs/cdk-cloudformation) project based on the API schema published for `Datadog::Monitors::Monitor`.
 
-* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.0).
+* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.1).
 * Issues related to `Datadog::Monitors::Monitor` should be reported to the [publisher](undefined).
 
 ## License
 
 Distributed under the Apache-2.0 License.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -53,27 +55,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class CfnMonitor(
@@ -121,7 +125,7 @@ class CfnMonitor(
         :param tags: Tags associated with the monitor.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f282a849d0258c7c00bf6bb5adfaf5888d8d58a6ea859cf96cb55870363cea9)
+            type_hints = cached_type_hints(_typecheckingstub__9f282a849d0258c7c00bf6bb5adfaf5888d8d58a6ea859cf96cb55870363cea9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMonitorProps(
@@ -222,7 +226,7 @@ class CfnMonitorProps:
         restricted_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''Datadog Monitor 4.11.0.
+        '''Datadog Monitor 4.11.1.
 
         :param query: The monitor query.
         :param type: The type of the monitor.
@@ -245,7 +249,7 @@ class CfnMonitorProps:
         if isinstance(options, dict):
             options = MonitorOptions(**options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b250b503cf3a08db9d357fada826dc16015ba9e60db0e9ae681c949469261fd)
+            type_hints = cached_type_hints(_typecheckingstub__1b250b503cf3a08db9d357fada826dc16015ba9e60db0e9ae681c949469261fd)
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument cloudformation_options", value=cloudformation_options, expected_type=type_hints["cloudformation_options"])
@@ -464,7 +468,7 @@ class CloudformationOptions:
         :schema: CloudformationOptions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98590a687a31b5d4477e712130bcebbddba886b5dd298e667d974c7f1b680d62)
+            type_hints = cached_type_hints(_typecheckingstub__98590a687a31b5d4477e712130bcebbddba886b5dd298e667d974c7f1b680d62)
             check_type(argname="argument lowercase_query", value=lowercase_query, expected_type=type_hints["lowercase_query"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if lowercase_query is not None:
@@ -512,7 +516,7 @@ class Creator:
         :schema: Creator
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5afe2b8f1151f0f40371462dd579b9cfa7efda301b6f260a034f1526916e4b)
+            type_hints = cached_type_hints(_typecheckingstub__9d5afe2b8f1151f0f40371462dd579b9cfa7efda301b6f260a034f1526916e4b)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument handle", value=handle, expected_type=type_hints["handle"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -715,7 +719,7 @@ class MonitorOptions:
         if isinstance(threshold_windows, dict):
             threshold_windows = MonitorThresholdWindows(**threshold_windows)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f4431522a5d2fdafd31ea8fca3d54dc4a7c104d932702aadab68b0c39f8666)
+            type_hints = cached_type_hints(_typecheckingstub__78f4431522a5d2fdafd31ea8fca3d54dc4a7c104d932702aadab68b0c39f8666)
             check_type(argname="argument enable_logs_sample", value=enable_logs_sample, expected_type=type_hints["enable_logs_sample"])
             check_type(argname="argument enable_samples", value=enable_samples, expected_type=type_hints["enable_samples"])
             check_type(argname="argument escalation_message", value=escalation_message, expected_type=type_hints["escalation_message"])
@@ -1105,7 +1109,7 @@ class MonitorSchedulingOptions:
         if isinstance(evaluation_window, dict):
             evaluation_window = MonitorSchedulingOptionsEvaluationWindow(**evaluation_window)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df3bd89691b70fe1f6861c110d4d796b098ad9203d69d599177be23be28d32c3)
+            type_hints = cached_type_hints(_typecheckingstub__df3bd89691b70fe1f6861c110d4d796b098ad9203d69d599177be23be28d32c3)
             check_type(argname="argument evaluation_window", value=evaluation_window, expected_type=type_hints["evaluation_window"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if evaluation_window is not None:
@@ -1161,7 +1165,7 @@ class MonitorSchedulingOptionsEvaluationWindow:
         :schema: MonitorSchedulingOptionsEvaluationWindow
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbea4e24a36be3bbaaa00e68ad56410a6c88f9a6db8c6e0ae6834bb09f5597d3)
+            type_hints = cached_type_hints(_typecheckingstub__cbea4e24a36be3bbaaa00e68ad56410a6c88f9a6db8c6e0ae6834bb09f5597d3)
             check_type(argname="argument day_starts", value=day_starts, expected_type=type_hints["day_starts"])
             check_type(argname="argument hour_starts", value=hour_starts, expected_type=type_hints["hour_starts"])
             check_type(argname="argument month_starts", value=month_starts, expected_type=type_hints["month_starts"])
@@ -1236,7 +1240,7 @@ class MonitorThresholdWindows:
         :schema: MonitorThresholdWindows
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bec5c7b2de332869828ae048461bfc40d78182b11c4ac0f0ae4e194e397145b)
+            type_hints = cached_type_hints(_typecheckingstub__4bec5c7b2de332869828ae048461bfc40d78182b11c4ac0f0ae4e194e397145b)
             check_type(argname="argument recovery_window", value=recovery_window, expected_type=type_hints["recovery_window"])
             check_type(argname="argument trigger_window", value=trigger_window, expected_type=type_hints["trigger_window"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1306,7 +1310,7 @@ class MonitorThresholds:
         :schema: MonitorThresholds
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e289f3046fe353d6356bef23b661cea846ef3def854667c6aaeba7a3e4bf9c9d)
+            type_hints = cached_type_hints(_typecheckingstub__e289f3046fe353d6356bef23b661cea846ef3def854667c6aaeba7a3e4bf9c9d)
             check_type(argname="argument critical", value=critical, expected_type=type_hints["critical"])
             check_type(argname="argument critical_recovery", value=critical_recovery, expected_type=type_hints["critical_recovery"])
             check_type(argname="argument ok", value=ok, expected_type=type_hints["ok"])

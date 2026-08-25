@@ -11,10 +11,14 @@ The memcache caching backend.
 
 import pickle
 import re
+from functools import partial
+from typing import Any
 
 from cachelib import MemcachedCache as CachelibMemcachedCache
+from flask import Flask
 
 from flask_caching.backends.base import BaseCache
+from flask_caching.utils import _Timeout
 
 _test_memcached_key = re.compile(r"[^\x00-\x21\xff]{1,250}$").match
 
@@ -23,8 +27,8 @@ class MemcachedCache(BaseCache, CachelibMemcachedCache):
     """A cache that uses memcached as backend.
 
     The first argument can either be an object that resembles the API of a
-    :class:`memcache.Client` or a tuple/list of server addresses. In the
-    event that a tuple/list is passed, Werkzeug tries to import the best
+    ``memcache.Client`` or a tuple/list of server addresses. In the
+    event that a tuple/list is passed, CacheLib tries to import the best
     available memcache library.
 
     This cache looks into the following packages/modules to find bindings for
@@ -35,82 +39,117 @@ class MemcachedCache(BaseCache, CachelibMemcachedCache):
         - ``memcached``
         - ``libmc``
 
-    Implementation notes:  This cache backend works around some limitations in
-    memcached to simplify the interface.  For example unicode keys are encoded
-    to utf-8 on the fly.  Methods such as :meth:`~BaseCache.get_dict` return
+    Implementation notes:
+    This cache backend works around some limitations in memcached to
+    simplify the interface. For example unicode keys are encoded to
+    UTF-8 on the fly. Methods such as :meth:`~.BaseCache.get_dict` return
     the keys in the same format as passed.  Furthermore all get methods
     silently ignore key errors to not cause problems when untrusted user data
     is passed to the get methods which is often the case in web applications.
+    This cache doesn't have a serializer since the underlying memcached client
+    libraries handle serialization internally."
 
     :param servers: a list or tuple of server addresses or alternatively
-                    a :class:`memcache.Client` or a compatible client.
+        a ``memcache.Client`` or a compatible client.
     :param default_timeout: the default timeout that is used if no timeout is
-                            specified on :meth:`~BaseCache.set`. A timeout of
-                            0 indicates that the cache never expires.
+        specified on :meth:`~BaseCache.set`. A timeout of
+        0 indicates that the cache never expires.
     :param key_prefix: a prefix that is added before all keys.  This makes it
-                       possible to use the same memcached server for different
-                       applications.  Keep in mind that
-                       :meth:`~BaseCache.clear` will also clear keys with a
-                       different prefix.
+        possible to use the same memcached server for different
+        applications.  Keep in mind that
+        :meth:`~.BaseCache.clear` will also clear keys with a
+        different prefix.
+    :param pool_size: the size of the connection pool.  This is only used if
+        the memcached client library supports connection pooling.
+
+        .. versionadded:: 2.5.0
+    :param pool_blocking: if the connection pool is exhausted, should the
+        client block until a connection is available or raise
+        an exception.  This is only used if the memcached
+        client library supports connection pooling.
+
+        .. versionadded:: 2.5.0
+    :param ignore_delete_many_errors: If set to ``False`` the ``delete_many``
+                                      method raises a ``RuntimeError`` in case
+                                      a key couldn't be deleted.
+                                      Defaults to ``False``.
+
+        .. versionadded:: 2.5.0
     """
 
-    def __init__(self, servers=None, default_timeout=300, key_prefix=None):
-        BaseCache.__init__(self, default_timeout=default_timeout)
+    def __init__(
+        self,
+        servers: Any = None,
+        default_timeout: int = 300,
+        key_prefix: str | None = None,
+        pool_size: int = 1,
+        pool_blocking: bool = True,
+        ignore_delete_many_errors: bool = False,
+    ) -> None:
         CachelibMemcachedCache.__init__(
             self,
             servers=servers,
             default_timeout=default_timeout,
             key_prefix=key_prefix,
+            pool_size=pool_size,
+            pool_blocking=pool_blocking,
+            ignore_delete_many_errors=ignore_delete_many_errors,
         )
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "MemcachedCache":
         args.append(config["CACHE_MEMCACHED_SERVERS"])
         kwargs.update(dict(key_prefix=config["CACHE_KEY_PREFIX"]))
         return cls(*args, **kwargs)
-
-    def delete_many(self, *keys):
-        new_keys = []
-        for key in keys:
-            key = self._normalize_key(key)
-            if _test_memcached_key(key):
-                new_keys.append(key)
-        return self._client.delete_multi(new_keys)
-
-    def inc(self, key, delta=1):
-        key = self._normalize_key(key)
-        return self._client.incr(key, delta)
-
-    def dec(self, key, delta=1):
-        key = self._normalize_key(key)
-        return self._client.decr(key, delta)
 
 
 class SASLMemcachedCache(MemcachedCache):
     def __init__(
         self,
-        servers=None,
-        default_timeout=300,
-        key_prefix=None,
-        username=None,
-        password=None,
-        **kwargs,
-    ):
-        super().__init__(default_timeout=default_timeout)
+        servers: Any = None,
+        default_timeout: int = 300,
+        key_prefix: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        pool_size: int = 1,
+        pool_blocking: bool = True,
+        ignore_delete_many_errors: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            default_timeout=default_timeout,
+            ignore_delete_many_errors=ignore_delete_many_errors,
+        )
 
         if servers is None:
             servers = ["127.0.0.1:11211"]
 
-        import pylibmc
+        import pylibmc  # # type: ignore pyright: ignore[reportMissingImports]
 
-        self._client = pylibmc.Client(
+        client = pylibmc.Client(
             servers, username=username, password=password, binary=True, **kwargs
         )
+        pool = pylibmc.ClientPool(client, pool_size)
+        reserve = partial(pool.reserve, block=pool_blocking)
+        self._client = pool
+        self._client_context = reserve
 
         self.key_prefix = key_prefix
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "SASLMemcachedCache":
         args.append(config["CACHE_MEMCACHED_SERVERS"])
         kwargs.update(
             dict(
@@ -130,7 +169,7 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
     impact the performance.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Kwargs:
             chunksize (int): max length of a pickled object that can fit in
@@ -142,7 +181,13 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
         super().__init__(*args, **kwargs)
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "SpreadSASLMemcachedCache":
         args.append(config["CACHE_MEMCACHED_SERVERS"])
         kwargs.update(
             dict(
@@ -154,11 +199,17 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
 
         return cls(*args, **kwargs)
 
-    def delete(self, key):
+    def delete(self, key: str) -> Any:
         for skey in self._genkeys(key):
             super().delete(skey)
 
-    def set(self, key, value, timeout=None, chunk=True):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        timeout: _Timeout | None = None,
+        chunk: bool = True,
+    ) -> bool | None:
         """Set a value in cache, potentially spreading it across multiple key.
 
         :param key: The cache key.
@@ -171,11 +222,12 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
                       spread.
         """
         if chunk:
-            return self._set(key, value, timeout=timeout)
+            self._set(key, value, timeout=timeout)
+            return None
         else:
             return super().set(key, value, timeout=timeout)
 
-    def _set(self, key, value, timeout=None):
+    def _set(self, key: str, value: Any, timeout: _Timeout | None = None) -> None:
         # pickling/unpickling add an overhead,
         # I didn't found a good way to avoid pickling/unpickling if
         # key is smaller than chunksize, because in case or <werkzeug.requests>
@@ -193,7 +245,7 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
 
         super().set_many(values, timeout)
 
-    def get(self, key, chunk=True):
+    def get(self, key: str, chunk: bool = True) -> Any:
         """Get a cached value.
 
         :param chunk: If set to ``False``, it will return a cached value
@@ -204,10 +256,10 @@ class SpreadSASLMemcachedCache(SASLMemcachedCache):
         else:
             return super().get(key)
 
-    def _genkeys(self, key):
+    def _genkeys(self, key: str) -> list[str]:
         return [f"{key}.{i}" for i in range(self.maxchunk)]
 
-    def _get(self, key):
+    def _get(self, key: str) -> Any:
         to_get = [f"{key}.{i}" for i in range(self.maxchunk)]
         result = super().get_many(*to_get)
         serialized = b"".join(v for v in result if v is not None)

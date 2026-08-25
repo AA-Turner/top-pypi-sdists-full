@@ -56,21 +56,26 @@ class WrapperProperty:
         return props.get(self.name)
 
     def get_type(self, props: Properties, type_class: Type[T]) -> T:
+        # Runtime dispatch by ``type_class``: mypy can't prove that the
+        # concrete returned value matches the generic T, so narrow each
+        # branch's suppression to [return-value] rather than a bare
+        # ``# type: ignore`` -- that way new type errors elsewhere in
+        # the function still get surfaced.
         value = props.get(self.name, self.default_value) if self.default_value else props.get(self.name)
         if value is None:
             if type_class == int:
-                return -1  # type: ignore
+                return -1  # type: ignore[return-value]
             elif type_class == float:
-                return -1.0  # type: ignore
+                return -1.0  # type: ignore[return-value]
             elif type_class == bool:
-                return False  # type: ignore
+                return False  # type: ignore[return-value]
             else:
-                return None  # type: ignore
+                return None  # type: ignore[return-value]
         if type_class == bool:
             if isinstance(value, bool):
-                return value  # type: ignore
-            return value.lower() == "true" if isinstance(value, str) else bool(value)  # type: ignore
-        return type_class(value)  # type: ignore
+                return value  # type: ignore[return-value]
+            return value.lower() == "true" if isinstance(value, str) else bool(value)  # type: ignore[return-value]
+        return type_class(value)  # type: ignore[call-arg]
 
     def get_int(self, props: Properties) -> int:
         return self.get_type(props, int)
@@ -289,6 +294,27 @@ class WrapperProperties:
         "enable_connect_failover",
         "Enable/disable cluster-aware failover if the initial connection to the database fails due to a network exception.",
         False)
+
+    # GdbFailoverPlugin properties
+    FAILOVER_HOME_REGION = WrapperProperty(
+        "failover_home_region",
+        """Defines the home region for Global Database failover. Examples: 'us-west-2', 'us-east-1'.
+        If omitted, the value is parsed from the connection url when the endpoint includes a region.
+        This parameter is required when connecting using an IP address, custom domain, or Global Database
+        endpoint that has no region.""")
+    ACTIVE_HOME_FAILOVER_MODE = WrapperProperty(
+        "active_home_failover_mode",
+        """The failover mode to use when the Global Database primary region is the home region.
+        Possible values: strict-writer, strict-home-reader, strict-out-of-home-reader, strict-any-reader,
+        home-reader-or-writer, out-of-home-reader-or-writer, any-reader-or-writer. If omitted, the default
+        depends on the connection url (strict-writer for a writer/global writer cluster endpoint, otherwise
+        home-reader-or-writer).""")
+    INACTIVE_HOME_FAILOVER_MODE = WrapperProperty(
+        "inactive_home_failover_mode",
+        """The failover mode to use when the Global Database primary region is not the home region.
+        Possible values are the same as for active_home_failover_mode. If omitted, the default depends on
+        the connection url (strict-writer for a writer/global writer cluster endpoint, otherwise
+        home-reader-or-writer).""")
 
     # ClusterTopologyMonitor properties
     CLUSTER_TOPOLOGY_HIGH_REFRESH_RATE_MS = WrapperProperty(
@@ -559,10 +585,47 @@ class WrapperProperties:
         False,
     )
 
+    # Deprecated. Use INITIAL_CONNECTION_HOST_SELECTOR_STRATEGY instead.
     READER_INITIAL_HOST_SELECTOR_STRATEGY = WrapperProperty(
         "reader_initial_connection_host_selector_strategy",
         "The strategy that should be used to select a new reader host while opening a new connection.",
         "random",
+    )
+
+    INITIAL_CONNECTION_HOST_SELECTOR_STRATEGY = WrapperProperty(
+        "initial_connection_host_selector_strategy",
+        "The strategy that should be used to select a host while opening a new connection.",
+        "random",
+    )
+
+    ENDPOINT_SUBSTITUTION_ROLE = WrapperProperty(
+        "endpoint_substitution_role",
+        "Defines whether or not the initial connection URL should be replaced with an instance URL from the "
+        "topology info when available, and if so, the role of the instance URL that should be selected. "
+        "Valid values are 'writer', 'reader', 'any', or 'none'.",
+        None,
+    )
+
+    INACTIVE_CLUSTER_WRITER_SUBSTITUTION_ROLE = WrapperProperty(
+        "inactive_cluster_writer_endpoint_substitution_role",
+        "Defines whether or not the inactive cluster writer endpoint in the initial connection URL should "
+        "be replaced with a writer instance URL from the topology info when available. "
+        "Valid values are 'writer' or 'none'.",
+        "writer",
+    )
+
+    VERIFY_OPENED_CONNECTION_TYPE = WrapperProperty(
+        "verify_opened_connection_type",
+        "Defines whether an opened connection should be verified to be a writer or reader, "
+        "or if no role verification should be performed. Valid values are 'writer', 'reader', or 'none'.",
+        None,
+    )
+
+    VERIFY_INACTIVE_CLUSTER_WRITER_CONNECTION_ROLE = WrapperProperty(
+        "verify_inactive_cluster_writer_endpoint_connection_type",
+        "Defines whether inactive cluster writer connection should be verified to be a writer, "
+        "or if no role verification should be performed. Valid values are 'writer' or 'none'.",
+        "writer",
     )
 
     OPEN_CONNECTION_RETRY_TIMEOUT_MS = WrapperProperty(
@@ -575,6 +638,19 @@ class WrapperProperties:
         "open_connection_retry_interval_ms",
         "Time between each retry of opening a connection.",
         1000,
+    )
+
+    WAIT_FOR_INITIAL_TOPOLOGY_MS = WrapperProperty(
+        "wait_for_initial_topology_ms",
+        "Maximum allowed time, in milliseconds, to wait for the cluster topology to be fetched before opening a new "
+        "connection. When set to a value greater than 0 and the topology is not yet available, the plugin will block "
+        "until the topology has been discovered (or this timeout is reached) instead of falling back to connecting via "
+        "the initial endpoint in the connection string. This ensures host selection strategies such as 'round_robin' "
+        "distribute concurrent and connection-pool prefill connections across instances rather than routing them all "
+        "to a single instance resolved through DNS. The wait is scoped to the cluster the connection belongs to; "
+        "connections to other clusters are not affected. When set to 0 (the default) the previous behavior is "
+        "preserved.",
+        0,
     )
 
     # Simple Read/Write Splitting
@@ -613,6 +689,58 @@ class WrapperProperties:
         "srw_connect_retry_interval_ms",
         "Time in milliseconds between each retry of opening a connection.",
         1000,
+    )
+
+    # Global Database Read/Write Splitting
+    GDB_RW_HOME_REGION = WrapperProperty(
+        "gdb_rw_home_region",
+        "Specifies the home region for read/write splitting in a Global Database setup.",
+        None,
+    )
+
+    GDB_RW_RESTRICT_WRITER_TO_HOME_REGION = WrapperProperty(
+        "gdb_rw_restrict_writer_to_home_region",
+        "Prevents connections to a writer instance outside of the defined home region.",
+        True,
+    )
+
+    GDB_RW_RESTRICT_READER_TO_HOME_REGION = WrapperProperty(
+        "gdb_rw_restrict_reader_to_home_region",
+        "Prevents connections to a reader instance outside of the defined home region.",
+        True,
+    )
+
+    GDB_ENABLE_GLOBAL_WRITE_FORWARDING = WrapperProperty(
+        "gdb_enable_global_write_forwarding",
+        "Set to True to enable Global Write Forwarding when connected to a "
+        "reader connection in a secondary global region.",
+        False,
+    )
+
+    GDB_ACCESSIBLE_REGIONS = WrapperProperty(
+        "gdb_accessible_regions",
+        "Comma-separated list of AWS regions accessible by the application. "
+        "When set, failover, topology monitoring, and read/write splitting "
+        "will only consider hosts in these regions.",
+        None,
+    )
+
+    MONITORING_CONNECTION_PRIORITY = WrapperProperty(
+        "monitoring_connection_priority",
+        "Comma-separated priority list for the topology monitor's background "
+        "connection. Values: 'strict-writer', 'strict-reader', "
+        "'writer-or-reader'. The monitor accepts any connection initially, "
+        "then asynchronously upgrades to a higher-priority one.",
+        "strict-writer",
+    )
+
+    GDB_MONITORING_CONNECTION_PRIORITY = WrapperProperty(
+        "gdb_monitoring_connection_priority",
+        "Comma-separated, region-aware priority list for the Global Database "
+        "topology monitor's background connection. Values combine role, region, "
+        "and primary/secondary awareness, e.g. 'strict-writer-primary', "
+        "'strict-reader-secondary', 'strict-reader-us-east-1', 'us-west-2' ",
+        "strict-writer-primary",
     )
 
 
@@ -785,11 +913,19 @@ class PropertiesUtils:
 
         return f"\n{props}"
 
+    _SECRET_NAME_MARKERS = ("password", "passwd")
+
+    @staticmethod
+    def _is_secret_property(key: str) -> bool:
+        lowered = key.lower()
+        return any(marker in lowered for marker in PropertiesUtils._SECRET_NAME_MARKERS)
+
     @staticmethod
     def mask_properties(props: Properties) -> Properties:
         masked_properties = Properties(props.copy())
-        if WrapperProperties.PASSWORD.name in masked_properties:
-            masked_properties[WrapperProperties.PASSWORD.name] = "***"
+        for key in masked_properties:
+            if PropertiesUtils._is_secret_property(key):
+                masked_properties[key] = "***"
 
         return masked_properties
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.26.0
+Version: 0.27.1
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -36,6 +36,7 @@ Requires-Dist: backoff==2.2.1
 Requires-Dist: tenacity>=8.2
 Requires-Dist: typing-extensions<5,>=4.14.1
 Requires-Dist: pydantic==2.12.5
+Requires-Dist: email-validator>=2.0
 Requires-Dist: PyYAML>=6.0.2
 Requires-Dist: python-frontmatter>=1.1.0
 Requires-Dist: marko>=2.0
@@ -62,7 +63,7 @@ Requires-Dist: proxylists>=0.12.0
 Requires-Dist: prance>=25.4.8.0
 Requires-Dist: openapi-schema-validator==0.6.3
 Requires-Dist: openapi-spec-validator>=0.7.1
-Requires-Dist: async-notify>=1.4.2
+Requires-Dist: async-notify>=1.6.0
 Requires-Dist: ddgs>=9.5.2
 Requires-Dist: python-statemachine==2.5.0
 Requires-Dist: cel-python>=0.4
@@ -74,7 +75,7 @@ Requires-Dist: numexpr==2.10.2
 Requires-Dist: faiss-cpu>=1.9.0
 Requires-Dist: navigator-eventbus>=0.2.1
 Provides-Extra: notify-all
-Requires-Dist: async-notify[all]>=1.4.2; extra == "notify-all"
+Requires-Dist: async-notify[all]>=1.6.0; extra == "notify-all"
 Provides-Extra: db
 Requires-Dist: querysource>=4.1.11; extra == "db"
 Requires-Dist: psycopg-binary==3.2.6; extra == "db"
@@ -98,6 +99,7 @@ Provides-Extra: flowtask
 Requires-Dist: flowtask>=5.12.3; extra == "flowtask"
 Provides-Extra: graphindex
 Requires-Dist: rustworkx>=0.15; extra == "graphindex"
+Requires-Dist: networkx>=3.0; extra == "graphindex"
 Requires-Dist: tree-sitter>=0.23; extra == "graphindex"
 Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
 Requires-Dist: pathspec>=0.12; extra == "graphindex"
@@ -109,13 +111,22 @@ Requires-Dist: tree-sitter-php>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-typescript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-javascript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-rust>=0.23; extra == "wiki-languages"
+Requires-Dist: tree-sitter-perl>=0.23; extra == "wiki-languages"
 Provides-Extra: leiden
 Requires-Dist: leidenalg>=0.10; extra == "leiden"
 Requires-Dist: python-igraph>=0.10; extra == "leiden"
+Provides-Extra: wiki
+Requires-Dist: ai-parrot[graphindex,leiden,wiki-languages]; extra == "wiki"
+Requires-Dist: pymupdf>=1.27; extra == "wiki"
+Provides-Extra: scheduler
+Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
 Provides-Extra: server
 Requires-Dist: ai-parrot-server[all]; extra == "server"
 Provides-Extra: reddit
 Requires-Dist: praw>=7.8.1; extra == "reddit"
+Provides-Extra: jira
+Requires-Dist: jira==3.10.5; extra == "jira"
+Requires-Dist: html2text==2025.4.15; extra == "jira"
 Provides-Extra: retrieval
 Requires-Dist: rank_bm25==0.2.2; extra == "retrieval"
 Provides-Extra: tokenizer
@@ -199,7 +210,7 @@ Requires-Dist: branca==0.8.2; extra == "agents-lite"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents-lite"
 Provides-Extra: mcp
 Requires-Dist: google-genai>=2.18.1; extra == "mcp"
-Requires-Dist: openai==2.41.0; extra == "mcp"
+Requires-Dist: openai==3.3.1; extra == "mcp"
 Requires-Dist: yfinance==0.2.54; extra == "mcp"
 Requires-Dist: youtube_search==2.1.2; extra == "mcp"
 Requires-Dist: wikipedia==1.4.0; extra == "mcp"
@@ -248,8 +259,13 @@ Provides-Extra: bedrock-native
 Requires-Dist: aioboto3>=13.2.0; extra == "bedrock-native"
 Provides-Extra: claude-agent
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "claude-agent"
+Provides-Extra: codex-agent
+Requires-Dist: openai-codex>=0.1.0; extra == "codex-agent"
+Requires-Dist: mcp<2,>=1.28.1; extra == "codex-agent"
+Requires-Dist: starlette>=0.37; extra == "codex-agent"
+Requires-Dist: uvicorn>=0.30; extra == "codex-agent"
 Provides-Extra: openai
-Requires-Dist: openai==2.41.0; extra == "openai"
+Requires-Dist: openai==3.3.1; extra == "openai"
 Requires-Dist: tiktoken==0.9.0; extra == "openai"
 Provides-Extra: google
 Requires-Dist: google-api-python-client<=2.177.0,>=2.166.0; extra == "google"
@@ -262,7 +278,7 @@ Provides-Extra: zai
 Requires-Dist: zai-sdk>=0.2.3; extra == "zai"
 Provides-Extra: llms
 Requires-Dist: google-genai>=2.18.1; extra == "llms"
-Requires-Dist: openai==2.41.0; extra == "llms"
+Requires-Dist: openai==3.3.1; extra == "llms"
 Requires-Dist: groq==0.33.0; extra == "llms"
 Requires-Dist: ai-parrot[anthropic,bedrock]; extra == "llms"
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
@@ -270,13 +286,15 @@ Requires-Dist: xai-sdk>=1.12.0; extra == "llms"
 Requires-Dist: zai-sdk>=0.2.3; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
-Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
+Requires-Dist: async-notify[all]>=1.6.0; extra == "integrations"
 Provides-Extra: grpc
 Requires-Dist: navigator-eventbus[grpc]; extra == "grpc"
 Provides-Extra: eda
 Requires-Dist: sweetviz==2.1.4; extra == "eda"
 Provides-Extra: security
 Requires-Dist: pytector==0.2.0; extra == "security"
+Requires-Dist: onnxruntime>=1.16; extra == "security"
+Requires-Dist: huggingface_hub<1.0,>=0.24; extra == "security"
 Provides-Extra: xai
 Requires-Dist: xai-sdk>=1.12.0; extra == "xai"
 Provides-Extra: gemma4
@@ -316,13 +334,17 @@ Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
 Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
 Requires-Dist: ruff>=0.4; extra == "dev"
 Requires-Dist: hypothesis>=6.100; extra == "dev"
+Requires-Dist: onnx>=1.22; extra == "dev"
+Requires-Dist: optimum[onnxruntime]>=2.0; extra == "dev"
 Provides-Extra: remote-tools
 Requires-Dist: kubernetes_asyncio>=29.0.0; extra == "remote-tools"
 Requires-Dist: aiodocker>=0.24.0; extra == "remote-tools"
 Provides-Extra: visualizations
 Requires-Dist: ai-parrot-visualizations[all]; extra == "visualizations"
+Provides-Extra: rust
+Requires-Dist: parrot_codec>=0.1.0; extra == "rust"
 Provides-Extra: all
-Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,visualizations]; extra == "all"
+Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,rust,visualizations]; extra == "all"
 Requires-Dist: ai-parrot-embeddings[all]; extra == "all"
 Requires-Dist: ai-parrot-integrations[all]; extra == "all"
 Requires-Dist: ai-parrot-server[all]; extra == "all"

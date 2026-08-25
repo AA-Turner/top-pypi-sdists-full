@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.198
+Version: 2.3.201
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aenum (>=3.1.11,<4.0.0)
-Requires-Dist: aiohttp (>=3.13.4,<4.0.0)
+Requires-Dist: aiohttp (>=3.14.2,<4.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: requests (>=2,<3)
@@ -1780,6 +1780,8 @@ Class | Method | HTTP request | Description
  - [PortfolioGroupProperties](docs/PortfolioGroupProperties.md)
  - [PortfolioGroupSearchResult](docs/PortfolioGroupSearchResult.md)
  - [PortfolioHolding](docs/PortfolioHolding.md)
+ - [PortfolioHoldingDataset](docs/PortfolioHoldingDataset.md)
+ - [PortfolioHoldingResult](docs/PortfolioHoldingResult.md)
  - [PortfolioId](docs/PortfolioId.md)
  - [PortfolioIdComplianceParameter](docs/PortfolioIdComplianceParameter.md)
  - [PortfolioIdList](docs/PortfolioIdList.md)

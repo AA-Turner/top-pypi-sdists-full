@@ -12,7 +12,7 @@ from typing import Any, ClassVar, TypeVar
 from openai import OpenAIError
 from renderers import OverlongPromptError as RendererOverlongPromptError
 from renderers import RenderedTokens, Renderer, RendererConfig
-from renderers.base import ToolCallParseStatus
+from renderers.base import ToolCallParseStatus, is_multimodal
 
 from verifiers.v1.clients.base import build_async_openai
 from verifiers.v1.clients.client import SESSION_ID_HEADER, Client
@@ -59,8 +59,11 @@ def serialize_completion(response: Response, model: str) -> dict:
         message["tool_calls"] = [
             {
                 "id": c.id,
-                "type": "function",
-                "function": {"name": c.name, "arguments": c.arguments},
+                "type": c.type,
+                c.type: {
+                    "name": c.name,
+                    "input" if c.type == "custom" else "arguments": c.arguments,
+                },
             }
             for c in response.message.tool_calls
         ]
@@ -97,7 +100,10 @@ def serialize_completion(response: Response, model: str) -> dict:
 
 
 def response_from_generate(
-    result: dict, model: str, bridged_turn: PendingTurn | None = None
+    result: dict,
+    model: str,
+    bridged_turn: PendingTurn | None = None,
+    mm_token_type_id_map: dict[int, int] | None = None,
 ) -> Response:
     """Parse a `renderers.client.generate` result dict into a typed `Response`,
     mirroring the chat client's `response_from_wire` (plus the token encoding)."""
@@ -154,6 +160,7 @@ def response_from_generate(
             message_spans=message_spans,
             is_content=attribution.is_content if attribution is not None else None,
             multi_modal_data=result.get("multi_modal_data"),
+            mm_token_type_id_map=mm_token_type_id_map,
             routed_experts=result.get("routed_experts"),
             kept_tokens=KeptTokens(**kept)
             if (kept := result.get("kept_tokens"))
@@ -319,8 +326,7 @@ class TrainClient(Client):
         self,
         dialect: Dialect,
         body: dict,
-        model: str,
-        sampling_args: SamplingConfig,
+        sampling: SamplingConfig,
         session_id: str | None = None,
         turn: PendingTurn | None = None,
         headers: Mapping[str, str] | None = None,
@@ -343,7 +349,9 @@ class TrainClient(Client):
             prompt = turn.prompt
             tools = parse_tools(body.get("tools"))
         else:
-            prompt, tools = dialect.parse_request(body)
+            request = dialect.parse_request(body)
+            prompt = request.messages
+            tools = request.tools
         from renderers.client import generate
 
         wire_tools = [tool_to_wire(t) for t in tools] if tools else None
@@ -353,12 +361,9 @@ class TrainClient(Client):
         prompt_ids: list[int] | None = None
         multi_modal_data = None
         prompt_attribution: RenderedTokens | None = None
-        raw_sampling = sampling_args.model_dump(exclude_none=True)
-        sampling_params: dict[str, Any] = dict(
-            raw_sampling.pop("extra_body", None) or {}
-        )
+        model = body["model"]
+        sampling_params = sampling.wire_args()
         chat_template_kwargs = sampling_params.pop("chat_template_kwargs", None)
-        sampling_params.update(raw_sampling)
         pool = ElasticRendererPool(
             self.config.renderer_model_name or model,
             self.config.renderer,
@@ -369,6 +374,9 @@ class TrainClient(Client):
 
         async with pool.acquire() as slot:
             renderer = slot.renderer
+            mm_token_type_id_map = (
+                renderer.mm_token_type_id_map if is_multimodal(renderer) else None
+            )
             # Only build the (O(context)) previous-turn token ids once the cheap guards pass — a
             # multimodal prompt or a tail that isn't a clean `[tool*, user?]` extension can't bridge.
             can_bridge = (
@@ -432,7 +440,9 @@ class TrainClient(Client):
                 raise OverlongPromptError(str(e)) from e
             except OpenAIError as e:
                 raise model_error(e) from e
-        response = response_from_generate(result, model, bridged_turn)
+        response = response_from_generate(
+            result, model, bridged_turn, mm_token_type_id_map
+        )
         # No provider response to relay (we generated), so serialize one for the program; the
         # interception server hands `Response.raw` back regardless of client.
         response.raw = serialize_completion(response, model)

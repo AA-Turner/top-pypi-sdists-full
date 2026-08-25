@@ -17,29 +17,51 @@ import uuid
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable
+from collections.abc import Iterable
 from typing import Any
-from typing import Union
+from typing import cast
+from typing import Concatenate
+from typing import overload
+from typing import ParamSpec
+from typing import Protocol
+from typing import TypeAlias
+from typing import TypeVar
 
+from cachelib.serializers import BaseSerializer
 from flask import current_app
 from flask import Flask
 from flask import g
 from flask import request
 from flask import Response
 from flask import url_for
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import import_string
 
-from flask_caching.backends.base import BaseCache
-from flask_caching.backends.simplecache import SimpleCache
-from flask_caching.utils import function_namespace
-from flask_caching.utils import get_arg_default
-from flask_caching.utils import get_arg_names
-from flask_caching.utils import get_id
-from flask_caching.utils import make_template_fragment_key  # noqa: F401
-from flask_caching.utils import wants_args
-
-__version__ = "2.4.1"
+from .backends.base import BaseCache
+from .backends.simplecache import SimpleCache
+from .signals import cache_memoize_hit as cache_memoize_hit
+from .signals import cache_memoize_miss as cache_memoize_miss
+from .signals import cache_view_hit as cache_view_hit
+from .signals import cache_view_miss as cache_view_miss
+from .utils import _QueryArgs
+from .utils import _Timeout
+from .utils import function_namespace
+from .utils import get_arg_default
+from .utils import get_arg_names
+from .utils import get_id
+from .utils import join_generator
+from .utils import make_template_fragment_key as make_template_fragment_key
+from .utils import normalize_timeout
+from .utils import query_args_as_pairs
+from .utils import wants_args
+from .utils import wants_extra_args
 
 logger = logging.getLogger(__name__)
+
+
+# The initial version timeout of a memoize version key. Will be overwritten on the first
+# write with the memoize value timeout
+VERSION_TIMEOUT = 0
 
 SUPPORTED_HASH_FUNCTIONS = [
     hashlib.sha1,
@@ -51,6 +73,103 @@ SUPPORTED_HASH_FUNCTIONS = [
 ]
 
 
+P = ParamSpec("P")
+# The parameters left over after ``__get__`` binds the instance.
+P2 = ParamSpec("P2")
+R = TypeVar("R")
+T = TypeVar("T")
+# ``uncached`` is read-only on the bound protocols, so their instance and
+# return types are contravariant and covariant respectively.
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+
+
+class _BoundCachedFunction(Protocol[T_contra, P, T_co]):
+    """The type of a :meth:`Cache.cached` method accessed on an instance."""
+
+    cache_timeout: _Timeout | None
+    make_cache_key: Callable[..., str]
+
+    @property
+    def uncached(self) -> Callable[Concatenate[T_contra, P], T_co]: ...
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T_co: ...
+
+
+class _CachedFunction(Protocol[P, R]):
+    """The type of the callable returned by :meth:`Cache.cached`."""
+
+    uncached: Callable[P, R]
+    cache_timeout: _Timeout | None
+    make_cache_key: Callable[..., str]
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+    # The decorator returns a function, so decorating a method keeps working
+    # at runtime. Without ``__get__`` type checkers see a plain attribute
+    # instead of a descriptor and never bind ``self``.
+    @overload
+    def __get__(
+        self, instance: None, owner: type | None = None, /
+    ) -> "_CachedFunction[P, R]": ...
+    @overload
+    def __get__(
+        self: "_CachedFunction[Concatenate[T, P2], R]",
+        instance: T,
+        owner: type | None = None,
+        /,
+    ) -> _BoundCachedFunction[T, P2, R]: ...
+    def __get__(self, instance: Any, owner: type | None = None, /) -> Any: ...
+
+
+class _BoundMemoizedFunction(Protocol[T_contra, P, T_co]):
+    """The type of a :meth:`Cache.memoize` method accessed on an instance."""
+
+    cache_timeout: _Timeout | None
+    make_cache_key: Callable[..., str]
+    delete_memoized: Callable[[], None]
+
+    @property
+    def uncached(self) -> Callable[Concatenate[T_contra, P], T_co]: ...
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T_co: ...
+
+
+class _MemoizedFunction(Protocol[P, R]):
+    """The type of the callable returned by :meth:`Cache.memoize`."""
+
+    uncached: Callable[P, R]
+    cache_timeout: _Timeout | None
+    make_cache_key: Callable[..., str]
+    delete_memoized: Callable[[], None]
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+    @overload
+    def __get__(
+        self, instance: None, owner: type | None = None, /
+    ) -> "_MemoizedFunction[P, R]": ...
+    @overload
+    def __get__(
+        self: "_MemoizedFunction[Concatenate[T, P2], R]",
+        instance: T,
+        owner: type | None = None,
+        /,
+    ) -> _BoundMemoizedFunction[T, P2, R]: ...
+    def __get__(self, instance: Any, owner: type | None = None, /) -> Any: ...
+
+
+# A memoized function, however it was reached: a plain function, a method
+# accessed on the class, or a method accessed on an instance.
+_AnyMemoizedFunction: TypeAlias = (
+    "_MemoizedFunction[..., Any] | _BoundMemoizedFunction[Any, ..., Any]"
+)
+
+_AnyCachedFunction: TypeAlias = (
+    "_CachedFunction[..., Any] | _BoundCachedFunction[Any, ..., Any]"
+)
+
+
 class CachedResponse(Response):
     """
     views wraped by @cached can return this (which inherits from flask.Response)
@@ -59,13 +178,13 @@ class CachedResponse(Response):
 
     timeout: int | None = None
 
-    def __init__(self, response: Response, timeout: int | None) -> None:
+    def __init__(self, response: Response, timeout: _Timeout | None) -> None:
         # ``CachedResponse`` adopts the state of an existing Response in
         # place rather than calling ``Response.__init__``; copying
         # ``__dict__`` preserves headers, status and body without having
         # to round-trip the response through Werkzeug's constructor.
         self.__dict__ = response.__dict__
-        self.timeout = timeout
+        self.timeout = normalize_timeout(timeout)
 
 
 class Cache:
@@ -75,7 +194,7 @@ class Cache:
         self,
         app: Flask | None = None,
         with_jinja2_ext: bool = True,
-        config=None,
+        config: dict[str, Any] | None = None,
     ) -> None:
         if not (config is None or isinstance(config, dict)):
             raise ValueError("`config` must be an instance of dict or None")
@@ -84,11 +203,14 @@ class Cache:
         self.config = config
 
         self.source_check = None
+        self.hash_method: Callable[..., Any] | None = None
+        self.serializer: BaseSerializer | None = None
+        self.enable_signals = False
 
         if app is not None:
             self.init_app(app, config)
 
-    def init_app(self, app: Flask, config=None) -> None:
+    def init_app(self, app: Flask, config: dict[str, Any] | None = None) -> None:
         """This is used to initialize cache with your app object"""
         if not (config is None or isinstance(config, dict)):
             raise ValueError("`config` must be an instance of dict or None")
@@ -112,23 +234,24 @@ class Cache:
         config.setdefault("CACHE_KEY_PREFIX", "flask_cache_")
         config.setdefault("CACHE_MEMCACHED_SERVERS", None)
         config.setdefault("CACHE_DIR", None)
+        config.setdefault("CACHE_FILE_HASH_METHOD", hashlib.sha256)
+        config.setdefault("CACHE_HASH_METHOD", hashlib.sha256)
         config.setdefault("CACHE_OPTIONS", None)
         config.setdefault("CACHE_ARGS", [])
-        config.setdefault("CACHE_TYPE", "null")
+        config.setdefault("CACHE_TYPE", "NullCache")
         config.setdefault("CACHE_NO_NULL_WARNING", False)
         config.setdefault("CACHE_SOURCE_CHECK", False)
+        config.setdefault("CACHE_ENABLE_SIGNALS", False)
+        config.setdefault("CACHE_SERIALIZER", None)
 
-        if config["CACHE_TYPE"] == "null" and not config["CACHE_NO_NULL_WARNING"]:
+        if config["CACHE_TYPE"] == "NullCache" and not config["CACHE_NO_NULL_WARNING"]:
             warnings.warn(
-                "Flask-Caching: CACHE_TYPE is set to null, "
+                "Flask-Caching: CACHE_TYPE is set to NullCache, "
                 "caching is effectively disabled.",
                 stacklevel=2,
             )
 
-        if (
-            config["CACHE_TYPE"] in ["filesystem", "FileSystemCache"]
-            and config["CACHE_DIR"] is None
-        ):
+        if config["CACHE_TYPE"] == "FileSystemCache" and config["CACHE_DIR"] is None:
             warnings.warn(
                 f"Flask-Caching: CACHE_TYPE is set to {config['CACHE_TYPE']} but no "
                 "CACHE_DIR is set.",
@@ -136,6 +259,16 @@ class Cache:
             )
 
         self.source_check = config["CACHE_SOURCE_CHECK"]
+        self.enable_signals = config["CACHE_ENABLE_SIGNALS"]
+        # Validated here rather than lazily so that a bad hash method is
+        # reported at startup instead of on the first cached call.
+        if not callable(config["CACHE_HASH_METHOD"]):
+            raise ValueError(
+                "`CACHE_HASH_METHOD` must be a hash constructor, for example "
+                f"`hashlib.sha256`, not {config['CACHE_HASH_METHOD']!r}"
+            )
+        self.hash_method = config["CACHE_HASH_METHOD"]
+        self.serializer = self._get_serializer(config["CACHE_SERIALIZER"])
 
         if self.with_jinja2_ext:
             from .jinja2ext import CacheExtension
@@ -146,73 +279,136 @@ class Cache:
 
         self._set_cache(app, config)
 
-    def _set_cache(self, app: Flask, config) -> None:
+    def _set_cache(self, app: Flask, config: dict[str, Any]) -> None:
         import_me = config["CACHE_TYPE"]
         if "." not in import_me:
-            plain_name_used = True
             import_me = "flask_caching.backends." + import_me
-        else:
-            plain_name_used = False
 
         cache_factory = import_string(import_me)
         cache_args = config["CACHE_ARGS"][:]
-        cache_options = {"default_timeout": config["CACHE_DEFAULT_TIMEOUT"]}
+        cache_options = {
+            "default_timeout": config["CACHE_DEFAULT_TIMEOUT"],
+            "ignore_delete_many_errors": config["CACHE_IGNORE_ERRORS"],
+        }
 
         if isinstance(cache_factory, type) and issubclass(cache_factory, BaseCache):
             cache_factory = cache_factory.factory
-        elif plain_name_used:
-            warnings.warn(
-                "Using the initialization functions in flask_caching.backend "
-                "is deprecated.  Use the a full path to backend classes "
-                "directly.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
 
         if config["CACHE_OPTIONS"]:
             cache_options.update(config["CACHE_OPTIONS"])
+
+        cache_options["default_timeout"] = normalize_timeout(
+            cache_options["default_timeout"]
+        )
+
+        # Backends that are not created from cachelib read the timeout from
+        # config instead of cache_options.
+        config["CACHE_DEFAULT_TIMEOUT"] = cache_options["default_timeout"]
 
         if not hasattr(app, "extensions"):
             app.extensions = {}
 
         app.extensions.setdefault("cache", {})
-        app.extensions["cache"][self] = cache_factory(
-            app, config, cache_args, cache_options
-        )
+        if import_me.find("cachelib") > -1:
+            cache = cache_factory(*cache_args, **cache_options)
+        else:
+            cache = cache_factory(app, config, cache_args, cache_options)
+
+        if self.serializer is not None:
+            if hasattr(cache, "serializer"):
+                cache.serializer = self.serializer  # pyright: ignore[reportAttributeAccessIssue]
+            else:
+                warnings.warn(
+                    f"CACHE_SERIALIZER is set but {type(cache).__name__} does not use"
+                    "a serializer.",
+                    stacklevel=2,
+                )
+
+        app.extensions["cache"][self] = cache
         self.app = app
 
-    def _call_fn(self, fn, *args, **kwargs):
+    def _get_serializer(self, serializer: Any) -> BaseSerializer | None:
+        """Returns the serializer instance for the caching backend.
+        If None, it will use the default one.
+        """
+        if serializer is None:
+            return None
+
+        if isinstance(serializer, type) and issubclass(serializer, BaseSerializer):
+            try:
+                return serializer()
+            except TypeError as e:
+                raise ValueError(
+                    f"Couldn't instantiate serializer: {serializer!r}!"
+                ) from e
+
+        if not isinstance(serializer, BaseSerializer):
+            raise ValueError(
+                "`CACHE_SERIALIZER` must be a `cachelib.serializers.BaseSerializer` "
+                "subclass or instance!"
+            )
+
+        return serializer
+
+    def _get_hash_method(
+        self, hash_method: Callable[..., Any] | None
+    ) -> Callable[..., Any]:
+        """Returns the hash method for the cache keys. Defaults to hashlib.sha256"""
+        if hash_method is not None:
+            return hash_method
+        return self.hash_method or hashlib.sha256
+
+    def _get_source_check(self, source_check: bool | None) -> bool | None:
+        """Resolve whether the function's source belongs in the cache key."""
+        if source_check is not None:
+            return source_check
+        return self.source_check
+
+    def _call_fn(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         ensure_sync = getattr(self.app, "ensure_sync", None)
         if ensure_sync is not None:
             return ensure_sync(fn)(*args, **kwargs)
         return fn(*args, **kwargs)
 
+    def _call_fn_or_exception(
+        self, fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        """Returns an ``HTTPException`` instead of propagating it."""
+        try:
+            return self._call_fn(fn, *args, **kwargs)
+        except HTTPException as e:
+            return e
+
     @property
     def cache(self) -> SimpleCache:
+        """The backend instance the proxy methods delegate to. Use this to
+        reach backend specific functionality that ``Cache`` does not proxy.
+        Requires an application context.
+        """
         app = current_app or self.app
-        return app.extensions["cache"][self]
+        return cast("SimpleCache", app.extensions["cache"][self])
 
-    def get(self, *args, **kwargs) -> Any:
+    def get(self, *args: Any, **kwargs: Any) -> Any:
         """Proxy function for internal cache object."""
         return self.cache.get(*args, **kwargs)
 
-    def has(self, *args, **kwargs) -> bool:
+    def has(self, *args: Any, **kwargs: Any) -> bool:
         """Proxy function for internal cache object."""
         return self.cache.has(*args, **kwargs)
 
-    def set(self, *args, **kwargs) -> bool | None:
+    def set(self, *args: Any, **kwargs: Any) -> bool | None:
         """Proxy function for internal cache object."""
         return self.cache.set(*args, **kwargs)
 
-    def add(self, *args, **kwargs) -> bool:
+    def add(self, *args: Any, **kwargs: Any) -> bool:
         """Proxy function for internal cache object."""
         return self.cache.add(*args, **kwargs)
 
-    def delete(self, *args, **kwargs) -> bool:
+    def delete(self, *args: Any, **kwargs: Any) -> bool:
         """Proxy function for internal cache object."""
         return self.cache.delete(*args, **kwargs)
 
-    def delete_many(self, *args, **kwargs) -> list[str]:
+    def delete_many(self, *args: Any, **kwargs: Any) -> list[str]:
         """Proxy function for internal cache object."""
         return self.cache.delete_many(*args, **kwargs)
 
@@ -220,41 +416,42 @@ class Cache:
         """Proxy function for internal cache object."""
         return self.cache.clear()
 
-    def get_many(self, *args, **kwargs):
+    def get_many(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Proxy function for internal cache object."""
         return self.cache.get_many(*args, **kwargs)
 
-    def set_many(self, *args, **kwargs) -> list[Any]:
+    def set_many(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Proxy function for internal cache object."""
         return self.cache.set_many(*args, **kwargs)
 
-    def get_dict(self, *args, **kwargs) -> dict[str, Any]:
+    def get_dict(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """Proxy function for internal cache object."""
         return self.cache.get_dict(*args, **kwargs)
 
-    def unlink(self, *args, **kwargs) -> list[str]:
+    def unlink(self, *args: Any, **kwargs: Any) -> list[str]:
         """Proxy function for internal cache object
         only support Redis
         """
         unlink = getattr(self.cache, "unlink", None)
         if unlink is not None and callable(unlink):
-            return unlink(*args, **kwargs)
+            return cast("list[str]", unlink(*args, **kwargs))
         return self.delete_many(*args, **kwargs)
 
     def cached(
         self,
-        timeout: int | None = None,
-        key_prefix: str = "view/%s",
-        unless: Callable | None = None,
-        forced_update: Callable | None = None,
-        response_filter: Callable | None = None,
+        timeout: _Timeout | None = None,
+        key_prefix: str | Callable[[], str] = "view/%s",
+        unless: Callable[..., Any] | None = None,
+        forced_update: Callable[..., Any] | None = None,
+        is_stale: Callable[..., Any] | None = None,
+        response_filter: Callable[..., Any] | None = None,
         query_string: bool = False,
-        hash_method: Callable = hashlib.md5,
+        hash_method: Callable[..., Any] | None = None,
         cache_none: bool = False,
-        make_cache_key: Callable | None = None,
+        make_cache_key: Callable[..., Any] | None = None,
         source_check: bool | None = None,
         response_hit_indication: bool | None = False,
-    ) -> Callable:
+    ) -> Callable[[Callable[P, R]], _CachedFunction[P, R]]:
         """Decorator. Use this to cache a function. By default the cache key
         is `view/request.path`. You are able to use this decorator with any
         function by changing the `key_prefix`. If the token `%s` is located
@@ -296,8 +493,24 @@ class Cache:
 
                     readable and writable
 
+                    Outside of a request context, pass ``path`` to build the
+                    key for a given ``request.path`` and, for
+                    ``query_string=True``, ``query_args`` to build the key for
+                    a given query string::
+
+                        key = view.make_cache_key(
+                            path="/works", query_args="limit=15&mock=true"
+                        )
+                        cache.delete(key)
+
+                    ``query_args`` accepts a query string, a mapping or an
+                    iterable of ``(key, value)`` pairs. See
+                    :meth:`delete_cached` for the shorthand.
+
         :param timeout: Default None. If set to an integer, will cache for that
-                        amount of time. Unit of time is in seconds.
+                        amount of time. Unit of time is in seconds. A
+                        ``datetime.timedelta`` is also accepted and is rounded
+                        up to whole seconds.
 
         :param key_prefix: Default 'view/%(request.path)s'. Beginning key to .
                            use for the cache key. `request.path` will be the
@@ -320,6 +533,12 @@ class Cache:
                               is expired or not. Useful for background
                               renewal of cached functions.
 
+        :param is_stale: Default None. Called on a cache hit with the cached
+                         value as its first argument. If it is true the cached
+                         value will be recomputed. If the callable accepts more
+                         than one argument, the calls own arguments are passed
+                         after the cached value.
+
         :param response_filter: Default None. If not None, the callable is
                                 invoked after the cached function evaluation,
                                 and is given one argument, the response
@@ -336,7 +555,12 @@ class Cache:
                              _make_cache_key_query_string() for more
                              details.
 
-        :param hash_method: Default hashlib.md5. The hash method used to
+        .. versionchanged:: 2.5.0
+            Include ``key_prefix`` when building query string cache keys.
+
+        :param hash_method: Default None. If None will use the value set by
+                            ``CACHE_HASH_METHOD``, which defaults to
+                            ``hashlib.sha256``. The hash method used to
                             generate the keys for cached results.
         :param cache_none: Default False. If set to True, add a key exists
                            check when cache.get returns None. This will likely
@@ -358,40 +582,35 @@ class Cache:
         :param response_hit_indication: Default False.
                              If True, it will add to response header field 'hit_cache'
                              if used cache.
+
+        .. versionchanged:: 2.5.0
+            A ``werkzeug.exceptions.HTTPException`` raised by the decorated
+            function, for example through Flask's ``abort()``, is now cached
+            like a returned response and re-raised on a cache hit. Use
+            ``response_filter``, which is given the exception's response, to
+            keep it out of the cache.
         """
 
-        def decorator(f):
+        def decorator(f: Callable[P, R]) -> _CachedFunction[P, R]:
             @functools.wraps(f)
-            def decorated_function(*args, **kwargs):
+            def decorated_function(*args: Any, **kwargs: Any) -> Any:
                 #: Bypass the cache entirely.
                 if self._bypass_cache(unless, f, *args, **kwargs):
                     return self._call_fn(f, *args, **kwargs)
-
-                nonlocal source_check
-                if source_check is None:
-                    source_check = self.source_check
 
                 try:
                     if make_cache_key is not None and callable(make_cache_key):
                         cache_key = make_cache_key(*args, **kwargs)
                     else:
-                        cache_key = decorated_function.make_cache_key(
+                        cache_key = cached_fn.make_cache_key(
                             *args, use_request=True, **kwargs
                         )
 
-                    if (
-                        callable(forced_update)
-                        and (
-                            forced_update(*args, **kwargs)
-                            if wants_args(forced_update)
-                            else forced_update()
-                        )
-                        is True
-                    ):
+                    if self._forced_update(forced_update, *args, **kwargs):
                         rv = None
                         found = False
                     else:
-                        rv = self.cache.get(cache_key)
+                        rv = self.get(cache_key)
                         found = True
 
                         # If the value returned by cache.get() is None, it
@@ -407,7 +626,11 @@ class Cache:
                             if not cache_none:
                                 found = False
                             else:
-                                found = self.cache.has(cache_key)
+                                found = self.has(cache_key)
+
+                        if found and self._is_stale(is_stale, rv, *args, **kwargs):
+                            rv = None
+                            found = False
                 except Exception:
                     if self.app.debug:
                         raise
@@ -418,25 +641,41 @@ class Cache:
                 if response_hit_indication:
                     g.flask_caching_hit_cache = found
 
-                    def apply_caching(response):
+                    def apply_caching(response: Response) -> Response:
                         if g.get("flask_caching_hit_cache"):
                             response.headers["hit_cache"] = g.flask_caching_hit_cache
                         return response
 
-                    if "apply_caching" not in self.app.after_request_funcs[None]:
-                        self.app.after_request_funcs[None].append(apply_caching)
+                    after_request_funcs = self.app.after_request_funcs[None]
+                    if not any(
+                        getattr(func, "__name__", None) == "apply_caching"
+                        for func in after_request_funcs
+                    ):
+                        after_request_funcs.append(apply_caching)
+
+                if self.enable_signals:
+                    signal = cache_view_hit if found else cache_view_miss
+                    signal.send(
+                        cache=self, cache_key=cache_key, args=args, kwargs=kwargs
+                    )
+
+                if found and isinstance(rv, HTTPException):
+                    raise rv
 
                 if not found:
-                    rv = self._call_fn(f, *args, **kwargs)
+                    rv = self._call_fn_or_exception(f, *args, **kwargs)
                     if inspect.isgenerator(rv):
-                        rv = [val for val in rv]
+                        rv = join_generator(rv)
 
-                    if response_filter is None or response_filter(rv):
-                        cache_timeout = decorated_function.cache_timeout
+                    if response_filter is None or response_filter(
+                        rv.get_response() if isinstance(rv, HTTPException) else rv
+                    ):
+                        cache_timeout = normalize_timeout(cached_fn.cache_timeout)
                         if isinstance(rv, CachedResponse):
                             cache_timeout = rv.timeout or cache_timeout
+
                         try:
-                            self.cache.set(
+                            self.set(
                                 cache_key,
                                 rv,
                                 timeout=cache_timeout,
@@ -445,9 +684,12 @@ class Cache:
                             if self.app.debug:
                                 raise
                             logger.exception("Exception possibly due to cache backend.")
+
+                    if isinstance(rv, HTTPException):
+                        raise rv
                 return rv
 
-            def default_make_cache_key(*args, **kwargs):
+            def default_make_cache_key(*args: Any, **kwargs: Any) -> str:
                 # Convert non-keyword arguments (which is the way
                 # `make_cache_key` expects them) to keyword arguments
                 # (the way `url_for` expects them)
@@ -457,9 +699,20 @@ class Cache:
                     kwargs[arg_name] = arg
 
                 use_request = kwargs.pop("use_request", False)
-                return _make_cache_key(args, kwargs, use_request=use_request)
+                path = kwargs.pop("path", None)
+                query_args = kwargs.pop("query_args", None)
+                return _make_cache_key(
+                    args,
+                    kwargs,
+                    use_request=use_request,
+                    path=path,
+                    query_args=query_args,
+                )
 
-            def _make_cache_key_query_string():
+            def _make_cache_key_query_string(
+                path: str | None = None,
+                query_args: _QueryArgs | None = None,
+            ) -> str:
                 """Create consistent keys for query string arguments.
 
                 Produces the same cache key regardless of argument order, e.g.,
@@ -478,58 +731,115 @@ class Cache:
                 # are the same, regardless of the order in which they are
                 # provided.
 
-                args_as_sorted_tuple = tuple(
-                    sorted(pair for pair in request.args.items(multi=True))
-                )
+                if query_args is None:
+                    pairs: Iterable[tuple[str, str]] = request.args.items(multi=True)
+                else:
+                    pairs = query_args_as_pairs(query_args)
+
+                args_as_sorted_tuple = tuple(sorted(pair for pair in pairs))
                 # ... now hash the sorted (key, value) tuple so it can be
                 # used as a key for cache. Turn them into bytes so that the
                 # hash function will accept them
                 args_as_bytes = str(args_as_sorted_tuple).encode()
-                cache_hash = hash_method(args_as_bytes)
+                cache_hash = self._get_hash_method(hash_method)(args_as_bytes)
 
                 # Use the source code if source_check is True and update the
                 # cache_hash before generating the hashing and using it in
                 # cache_key
-                if source_check and callable(f):
+                if self._get_source_check(source_check) and callable(f):
                     func_source_code = inspect.getsource(f)
                     cache_hash.update(func_source_code.encode("utf-8"))
 
                 cache_hash = str(cache_hash.hexdigest())
 
-                cache_key = request.path + cache_hash
-
-                return cache_key
-
-            def _make_cache_key(args, kwargs, use_request) -> str:
-                if query_string:
-                    return _make_cache_key_query_string()
+                if callable(key_prefix):
+                    cache_key = key_prefix()
+                elif "%s" in key_prefix:
+                    cache_key = key_prefix % (request.path if path is None else path)
                 else:
+                    cache_key = key_prefix
+
+                return cache_key + cache_hash
+
+            def _make_cache_key(
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any],
+                use_request: bool,
+                path: str | None = None,
+                query_args: _QueryArgs | None = None,
+            ) -> str:
+                if query_string:
+                    return _make_cache_key_query_string(path, query_args)
+                else:
+                    cache_key: str
                     if callable(key_prefix):
                         cache_key = key_prefix()
                     elif "%s" in key_prefix:
-                        if use_request:
+                        if path is not None:
+                            cache_key = key_prefix % path
+                        elif use_request:
                             cache_key = key_prefix % request.path
                         else:
-                            cache_key = key_prefix % url_for(f.__name__, **kwargs)
+                            # Outside of a request context ``url_for``
+                            # defaults to an external URL, which would not
+                            # match the key the request stored.
+                            cache_key = key_prefix % url_for(
+                                f.__name__, _external=False, **kwargs
+                            )
                     else:
                         cache_key = key_prefix
 
-                if source_check and callable(f):
+                if self._get_source_check(source_check) and callable(f):
                     func_source_code = inspect.getsource(f)
-                    func_source_hash = hash_method(func_source_code.encode("utf-8"))
+                    func_source_hash = self._get_hash_method(hash_method)(
+                        func_source_code.encode("utf-8")
+                    )
                     func_source_hash = str(func_source_hash.hexdigest())
 
                     cache_key += func_source_hash
 
                 return cache_key
 
-            decorated_function.uncached = f
-            decorated_function.cache_timeout = timeout
-            decorated_function.make_cache_key = default_make_cache_key
-
-            return decorated_function
+            cached_fn = cast("_CachedFunction[P, R]", decorated_function)
+            cached_fn.uncached = f
+            cached_fn.cache_timeout = timeout
+            cached_fn.make_cache_key = default_make_cache_key
+            return cached_fn
 
         return decorator
+
+    def delete_cached(
+        self,
+        f: _AnyCachedFunction,
+        path: str | None = None,
+        query_args: _QueryArgs | None = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Delete the cached value of a :meth:`cached` decorated function.
+
+        Example::
+
+            @app.route("/works")
+            @cache.cached(query_string=True)
+            def view_works():
+                return do_search(request.args)
+
+            cache.delete_cached(view_works, "/works", {"limit": 15})
+
+        If you are calling this outside of a request context pass ``path`` and
+        when the function was decorated with ``query_string=True`` you also
+        have to pass ``query_args``.
+
+        :param f: The decorated function whose cached value to delete.
+        :param path: The ``request.path`` the value was cached for.
+        :param query_args: The query string the value was cached for, as a
+                           query string, a mapping or an iterable of
+                           ``(key, value)`` pairs. Only used when the function
+                           was decorated with ``query_string=True``.
+        :param kwargs: The view arguments, passed to ``url_for()`` to build
+                       the path when ``path`` is not given.
+        """
+        return self.delete(f.make_cache_key(path=path, query_args=query_args, **kwargs))
 
     def _memvname(self, funcname: str) -> str:
         return funcname + "_memver"
@@ -539,15 +849,15 @@ class Cache:
 
     def _memoize_version(
         self,
-        f: Callable,
+        f: Callable[..., Any],
         args: Any | None = None,
-        kwargs=None,
+        kwargs: dict[str, Any] | None = None,
         reset: bool = False,
         delete: bool = False,
-        timeout: int | None = None,
-        forced_update: Union[bool, Callable] | None = False,
-        args_to_ignore: Any | None = None,
-    ) -> Union[tuple[str, str], tuple[str, None]]:
+        refresh: bool = False,
+        timeout: int | None = VERSION_TIMEOUT,
+        args_to_ignore: list[str] | None = None,
+    ) -> tuple[str, str] | tuple[str, None]:
         """Updates the hash version associated with a memoized function or
         method.
         """
@@ -566,23 +876,11 @@ class Cache:
         # Only delete the per-instance version key or per-function version
         # key but not both.
         if delete:
-            self.cache.delete_many(fetch_keys[-1])
+            self.delete_many(fetch_keys[-1])
             return fname, None
 
-        version_data_list = list(self.cache.get_many(*fetch_keys))
-        dirty = False
-
-        if (
-            callable(forced_update)
-            and (
-                forced_update(*(args or ()), **(kwargs or {}))
-                if wants_args(forced_update)
-                else forced_update()
-            )
-            is True
-        ):
-            # Mark key as dirty to update its TTL
-            dirty = True
+        version_data_list = list(self.get_many(*fetch_keys))
+        dirty = refresh
 
         if version_data_list[0] is None:
             version_data_list[0] = self._memoize_make_version_hash()
@@ -600,31 +898,27 @@ class Cache:
             dirty = True
 
         if dirty:
-            self.cache.set_many(
-                dict(zip(fetch_keys, version_data_list, strict=False)), timeout=timeout
+            self.set_many(
+                dict(zip(fetch_keys, version_data_list, strict=False)),
+                timeout=timeout,
             )
 
         return fname, "".join(version_data_list)
 
     def _memoize_make_cache_key(
         self,
-        make_name: Callable | None = None,
-        timeout: Callable | None = None,
-        forced_update: bool = False,
-        hash_method: Callable = hashlib.md5,
-        source_check: bool | None = False,
-        args_to_ignore: Any | None = None,
-    ) -> Callable:
+        make_name: Callable[..., str] | None = None,
+        hash_method: Callable[..., Any] | None = None,
+        source_check: bool | None = None,
+        args_to_ignore: list[str] | None = None,
+    ) -> Callable[..., str]:
         """Function used to create the cache_key for memoized functions."""
 
-        def make_cache_key(f, *args, **kwargs):
-            _timeout = getattr(timeout, "cache_timeout", timeout)
+        def make_cache_key(f: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
             fname, version_data = self._memoize_version(
                 f,
                 args=args,
                 kwargs=kwargs,
-                timeout=_timeout,
-                forced_update=forced_update,
                 args_to_ignore=args_to_ignore,
             )
 
@@ -641,24 +935,25 @@ class Cache:
 
             updated = f"{altfname}{keyargs}{keykwargs}"
 
-            cache_key = hash_method()
-            cache_key.update(updated.encode("utf-8"))
+            cache_hash = self._get_hash_method(hash_method)()
+            cache_hash.update(updated.encode("utf-8"))
 
             # Use the source code if source_check is True and update the
             # cache_key with the function's source.
-            if source_check and callable(f):
+            if self._get_source_check(source_check) and callable(f):
                 func_source_code = inspect.getsource(f)
-                cache_key.update(func_source_code.encode("utf-8"))
+                cache_hash.update(func_source_code.encode("utf-8"))
 
-            cache_key = base64.b64encode(cache_key.digest())[:16]
-            cache_key = cache_key.decode("utf-8")
-            cache_key += version_data
+            cache_key = base64.b64encode(cache_hash.digest())[:16].decode("utf-8")
+            cache_key += version_data or ""
 
             return cache_key
 
         return make_cache_key
 
-    def _memoize_kwargs_to_args(self, f: Callable, *args, **kwargs) -> Any:
+    def _memoize_kwargs_to_args(
+        self, f: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
         #: Inspect the arguments to the function
         #: This allows the memoization to be the same
         #: whether the function was called with
@@ -669,7 +964,7 @@ class Cache:
 
         # If the function uses VAR_KEYWORD type of parameters,
         # we need to pass these further
-        kw_keys_remaining = [key for key in kwargs.keys() if key not in args_to_ignore]
+        kw_keys_remaining = [key for key in kwargs if key not in args_to_ignore]
         arg_names = get_arg_names(f)
         args_len = len(arg_names)
 
@@ -683,6 +978,13 @@ class Cache:
                 #: this supports instance methods for
                 #: the memoized functions, giving more
                 #: flexibility to developers
+                if not args:
+                    raise ValueError(
+                        "When using `delete_memoized` on a "
+                        f"`{'classmethod' if arg_names[i] == 'cls' else 'method'}` "
+                        f"you must provide the `{arg_names[i]}` argument "
+                        "as the first positional argument."
+                    )
                 arg = get_id(args[0])
                 arg_num += 1
             elif arg_names[i] in kwargs:
@@ -691,7 +993,7 @@ class Cache:
             elif arg_num < len(args):
                 arg = args[arg_num]
                 arg_num += 1
-            elif arg_default:
+            elif arg_default is not None:
                 arg = arg_default
                 arg_num += 1
             else:
@@ -728,7 +1030,11 @@ class Cache:
         )
 
     def _bypass_cache(
-        self, unless: Callable | None, f: Callable, *args, **kwargs
+        self,
+        unless: Callable[..., Any] | None,
+        f: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
     ) -> bool:
         """Determines whether or not to bypass the cache by calling unless().
         Supports both unless() that takes in arguments and unless()
@@ -746,18 +1052,50 @@ class Cache:
 
         return bypass_cache
 
+    def _forced_update(
+        self,
+        forced_update: Callable[..., Any] | None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        if not callable(forced_update):
+            return False
+
+        # If forced_update() takes args, pass them in.
+        if wants_args(forced_update):
+            return forced_update(*args, **kwargs) is True
+
+        return forced_update() is True
+
+    def _is_stale(
+        self,
+        is_stale: Callable[..., Any] | None,
+        rv: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> bool:
+        if not callable(is_stale):
+            return False
+
+        # If is_stale() takes args besides the cached value, pass them in.
+        if wants_extra_args(is_stale):
+            return is_stale(rv, *args, **kwargs) is True
+
+        return is_stale(rv) is True
+
     def memoize(
         self,
-        timeout: int | None = None,
-        make_name: Callable | None = None,
-        unless: Callable | None = None,
-        forced_update: Callable | None = None,
-        response_filter: Callable | None = None,
-        hash_method: Callable = hashlib.md5,
+        timeout: _Timeout | None = None,
+        make_name: Callable[..., str] | None = None,
+        unless: Callable[..., bool] | None = None,
+        forced_update: Callable[..., bool] | None = None,
+        is_stale: Callable[..., bool] | None = None,
+        response_filter: Callable[..., Any] | None = None,
+        hash_method: Callable[..., Any] | None = None,
         cache_none: bool = False,
         source_check: bool | None = None,
-        args_to_ignore: Any | None = None,
-    ) -> Callable:
+        args_to_ignore: list[str] | None = None,
+    ) -> Callable[[Callable[P, R]], _MemoizedFunction[P, R]]:
         """Use this to cache the result of a function, taking its arguments
         into account in the cache key.
 
@@ -800,26 +1138,41 @@ class Cache:
 
 
         :param timeout: Default None. If set to an integer, will cache for that
-                        amount of time. Unit of time is in seconds.
+                        amount of time. Unit of time is in seconds. A
+                        ``datetime.timedelta`` is also accepted and is rounded
+                        up to whole seconds.
+
         :param make_name: Default None. If set this is a function that accepts
                           a single argument, the function name, and returns a
                           new string to be used as the function name.
                           If not set then the function name is used.
+
         :param unless: Default None. Cache will *always* execute the caching
                        facilities unless this callable is true.
                        This will bypass the caching entirely.
+
         :param forced_update: Default None. If this callable is true,
                               cache value will be updated regardless cache
                               is expired or not. Useful for background
                               renewal of cached functions.
+
+        :param is_stale: Default None. Called on a cache hit with the cached
+                         value as its first argument. If it is true the cached
+                         value will be recomputed. If the callable accepts more
+                         than one argument, the calls own arguments are passed
+                         after the cached value.
+
         :param response_filter: Default None. If not None, the callable is
                                 invoked after the cached funtion evaluation,
                                 and is given one arguement, the response
                                 content. If the callable returns False, the
                                 content will not be cached. Useful to prevent
                                 caching of code 500 responses.
-        :param hash_method: Default hashlib.md5. The hash method used to
+        :param hash_method: Default None. If ``None``, the value is set by
+                            ``CACHE_HASH_METHOD``, which itself defaults to
+                            ``hashlib.sha256``. The hash method used to
                             generate the keys for cached results.
+
         :param cache_none: Default False. If set to True, add a key exists
                            check when cache.get returns None. This will likely
                            lead to wrongly returned None values in concurrent
@@ -834,6 +1187,7 @@ class Cache:
                              formed with the function's source code hash in
                              addition to other parameters that may be included
                              in the formation of the key.
+
         :param args_to_ignore: List of arguments that will be ignored while
                                generating the cache key. Default to None.
                                This means that those arguments may change
@@ -847,33 +1201,30 @@ class Cache:
             params ``args_to_ignore``
         """
 
-        def memoize(f):
+        def memoize(f: Callable[P, R]) -> _MemoizedFunction[P, R]:
             @functools.wraps(f)
-            def decorated_function(*args, **kwargs):
+            def decorated_function(*args: Any, **kwargs: Any) -> Any:
                 #: bypass cache
                 if self._bypass_cache(unless, f, *args, **kwargs):
                     return self._call_fn(f, *args, **kwargs)
 
-                nonlocal source_check
-                if source_check is None:
-                    source_check = self.source_check
-
                 try:
-                    cache_key = decorated_function.make_cache_key(f, *args, **kwargs)
+                    forced_update_result = self._forced_update(
+                        forced_update, *args, **kwargs
+                    )
 
-                    if (
-                        callable(forced_update)
-                        and (
-                            forced_update(*args, **kwargs)
-                            if wants_args(forced_update)
-                            else forced_update()
-                        )
-                        is True
-                    ):
+                    cache_key = self._memoize_make_cache_key(
+                        make_name=make_name,
+                        hash_method=hash_method,
+                        source_check=source_check,
+                        args_to_ignore=args_to_ignore,
+                    )(f, *args, **kwargs)
+
+                    if forced_update_result:
                         rv = None
                         found = False
                     else:
-                        rv = self.cache.get(cache_key)
+                        rv = self.get(cache_key)
                         found = True
 
                         # If the value returned by cache.get() is None, it
@@ -889,24 +1240,45 @@ class Cache:
                             if not cache_none:
                                 found = False
                             else:
-                                found = self.cache.has(cache_key)
+                                found = self.has(cache_key)
+
+                        if found and self._is_stale(is_stale, rv, *args, **kwargs):
+                            rv = None
+                            found = False
                 except Exception:
                     if self.app.debug:
                         raise
                     logger.exception("Exception possibly due to cache backend.")
                     return self._call_fn(f, *args, **kwargs)
 
+                if self.enable_signals:
+                    signal = cache_memoize_hit if found else cache_memoize_miss
+                    signal.send(
+                        cache=self, cache_key=cache_key, f=f, args=args, kwargs=kwargs
+                    )
+
                 if not found:
                     rv = self._call_fn(f, *args, **kwargs)
                     if inspect.isgenerator(rv):
-                        rv = [val for val in rv]
+                        rv = join_generator(rv)
 
                     if response_filter is None or response_filter(rv):
+                        cache_timeout = normalize_timeout(memoized_fn.cache_timeout)
+
                         try:
-                            self.cache.set(
+                            self.set(
                                 cache_key,
                                 rv,
-                                timeout=decorated_function.cache_timeout,
+                                timeout=cache_timeout,
+                            )
+                            # update the memoize version with the new cache_timeout
+                            self._memoize_version(
+                                f,
+                                args=args,
+                                kwargs=kwargs,
+                                refresh=True,
+                                timeout=cache_timeout,
+                                args_to_ignore=args_to_ignore,
                             )
                         except Exception:
                             if self.app.debug:
@@ -914,23 +1286,26 @@ class Cache:
                             logger.exception("Exception possibly due to cache backend.")
                 return rv
 
-            decorated_function.uncached = f
-            decorated_function.cache_timeout = timeout
-            decorated_function.make_cache_key = self._memoize_make_cache_key(
+            memoized_fn = cast("_MemoizedFunction[P, R]", decorated_function)
+            memoized_fn.uncached = f
+            memoized_fn.cache_timeout = timeout
+            memoized_fn.make_cache_key = self._memoize_make_cache_key(
                 make_name=make_name,
-                timeout=decorated_function,
-                forced_update=forced_update,
                 hash_method=hash_method,
                 source_check=source_check,
                 args_to_ignore=args_to_ignore,
             )
-            decorated_function.delete_memoized = lambda: self.delete_memoized(f)
-
-            return decorated_function
+            # Equivalent to passing ``f``: ``function_namespace`` reads only
+            # dunders copied by ``functools.wraps`` and a signature that
+            # follows ``__wrapped__``.
+            memoized_fn.delete_memoized = lambda: self.delete_memoized(memoized_fn)
+            return memoized_fn
 
         return memoize
 
-    def delete_memoized(self, f, *args, **kwargs) -> None:
+    def delete_memoized(
+        self, f: _AnyMemoizedFunction, *args: Any, **kwargs: Any
+    ) -> None:
         """Deletes the specified functions caches, based by given parameters.
         If parameters are given, only the functions that were memoized
         with them will be erased. Otherwise all versions of the caches
@@ -1002,6 +1377,26 @@ class Cache:
             >>> adder2.add(3)
             3.72341788
 
+        Arguments narrow the deletion down to a single call. A bound method
+        supplies its own instance, so only the remaining arguments are given:
+
+        .. code-block:: pycon
+
+            >>> cache.delete_memoized(adder1.add, 3)
+
+        When the function is reached through the class instead, the instance
+        has to be passed explicitly, the same way a class is passed for a
+        ``@classmethod``:
+
+        .. code-block:: pycon
+
+            >>> cache.delete_memoized(Adder.add, adder1, 3)
+
+        .. versionchanged:: 2.5.0
+
+            A bound method no longer needs to be given its own instance as the
+            first argument. Passing it explicitly keeps working.
+
         :param fname: The memoized function.
         :param \\*args: A list of positional parameters used with
                        memoized function.
@@ -1045,10 +1440,39 @@ class Cache:
         if not (args or kwargs):
             self._memoize_version(f, reset=True)
         else:
+            args = self._ensure_self_arg(f, args)
             cache_key = f.make_cache_key(f.uncached, *args, **kwargs)
-            self.cache.delete(cache_key)
+            self.delete(cache_key)
 
-    def delete_memoized_verhash(self, f: Callable, *args) -> None:
+    @staticmethod
+    def _ensure_self_arg(
+        f: _AnyMemoizedFunction, args: tuple[Any, ...]
+    ) -> tuple[Any, ...]:
+        """Supply the ``self`` argument when a bound method is passed.
+
+        ``make_cache_key`` works on the undecorated function, so the instance
+        has to be part of ``args`` to compute the same key that was used when
+        the value was cached. A bound method already carries it, so passing it
+        again is redundant::
+
+            cache.delete_memoized(adder.add, 3)
+
+        Passing it explicitly keeps working, so that the form previously
+        required for instance methods is not broken.
+        """
+        instance = getattr(f, "__self__", None)
+
+        if instance is None or inspect.isclass(instance):
+            return args
+
+        arg_names = get_arg_names(f.uncached)
+
+        if not arg_names or arg_names[0] != "self" or (args and args[0] is instance):
+            return args
+
+        return (instance, *args)
+
+    def delete_memoized_verhash(self, f: _AnyMemoizedFunction, *args: Any) -> None:
         """Delete the version hash associated with the function.
 
         .. warning::
@@ -1066,3 +1490,19 @@ class Cache:
             )
 
         self._memoize_version(f, delete=True)
+
+
+def __getattr__(name: str) -> Any:
+    if name == "__version__":
+        import importlib.metadata
+
+        warnings.warn(
+            "The '__version__' attribute is deprecated and will be removed in"
+            " Flask-Caching 3.0. Use feature detection or"
+            " 'importlib.metadata.version(\"flask-caching\")' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return importlib.metadata.version("flask-caching")
+
+    raise AttributeError(name)

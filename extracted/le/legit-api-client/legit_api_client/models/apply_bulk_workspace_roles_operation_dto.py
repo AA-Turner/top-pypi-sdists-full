@@ -78,8 +78,7 @@ class ApplyBulkWorkspaceRolesOperationDto(BaseModel):
         _items = []
         if self.permissions:
             for _item_permissions in self.permissions:
-                if _item_permissions:
-                    _items.append(_item_permissions.to_dict())
+                _items.append(_item_permissions.to_dict() if _item_permissions is not None else None)
             _dict['permissions'] = _items
         return _dict
 

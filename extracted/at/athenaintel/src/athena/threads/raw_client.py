@@ -187,7 +187,11 @@ class RawThreadsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_status(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        thread_id: str,
+        *,
+        include_messages: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ThreadStatusResponseOut]:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
@@ -196,6 +200,9 @@ class RawThreadsClient:
         ----------
         thread_id : str
             The unique thread ID to check status for
+
+        include_messages : typing.Optional[bool]
+            Whether to materialize checkpoint messages. By default, deployments with lightweight active reads enabled omit messages while a run is scheduled, queued, or running, and include them once it is terminal. Set true to force messages or false to skip them.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -208,6 +215,9 @@ class RawThreadsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v0/threads/{jsonable_encoder(thread_id)}/status",
             method="GET",
+            params={
+                "include_messages": include_messages,
+            },
             request_options=request_options,
         )
         try:
@@ -547,7 +557,11 @@ class AsyncRawThreadsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_status(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        thread_id: str,
+        *,
+        include_messages: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ThreadStatusResponseOut]:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
@@ -556,6 +570,9 @@ class AsyncRawThreadsClient:
         ----------
         thread_id : str
             The unique thread ID to check status for
+
+        include_messages : typing.Optional[bool]
+            Whether to materialize checkpoint messages. By default, deployments with lightweight active reads enabled omit messages while a run is scheduled, queued, or running, and include them once it is terminal. Set true to force messages or false to skip them.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -568,6 +585,9 @@ class AsyncRawThreadsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v0/threads/{jsonable_encoder(thread_id)}/status",
             method="GET",
+            params={
+                "include_messages": include_messages,
+            },
             request_options=request_options,
         )
         try:

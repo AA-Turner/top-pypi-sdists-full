@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: time-machine
-Version: 3.4.0
+Version: 3.5.0
 Summary: Travel through time in your tests.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT

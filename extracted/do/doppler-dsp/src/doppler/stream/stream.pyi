@@ -1,78 +1,33 @@
 # stream/stream.pyi — type stubs for the stream C extension.
+from contextlib import AbstractContextManager
 from typing import Any, Dict, Tuple
 from numpy.typing import NDArray
 
 # ---------------------------------------------------------------------------
 # Sample-type constants
 #
-# These map to dp_sample_type_t values on the wire.  Only CI32, CF64, and
-# CF128 are fully supported by the Python binding (send + recv decode).
-# CI8, CI16, and CF32 exist in the C wire protocol but the Python recv path
-# raises ValueError if it encounters them; do not use those values here.
+# These map to dp_sample_type_t values on the wire, and every one of them
+# round-trips through both faces (send and recv decode).  The values are
+# append-only so an older receiver keeps decoding what it already knew;
+# 2 is absent because it was CF128, retired for being unreadable across
+# architectures, and a retired value is never reused.
 # ---------------------------------------------------------------------------
-
-CI32: int
-"""Complex int32 — interleaved ``int32_t`` I/Q (8 bytes/sample).
-
-Each complex sample occupies two consecutive ``int32_t`` elements in the
-array: element 2k is I, element 2k+1 is Q.  For *n* complex samples the
-send functions expect a C-contiguous ``numpy.int32`` array of length
-``2*n``; recv returns the same flat layout.
-
-Wire value: ``0``.
-
-Examples
---------
->>> from doppler.stream import CI32
->>> CI32
-0
-
-"""
-
-CF64: int
-"""Complex float64 — ``double _Complex`` (16 bytes/sample).
-
-Sent and received as ``numpy.complex128``.  Default sample type for all
-sender socket types.
-
-Wire value: ``1``.
-
-Examples
---------
->>> from doppler.stream import CF64
->>> CF64
-1
-
-"""
-
-CF128: int
-"""Complex long double — ``long double _Complex`` (32 bytes/sample).
-
-Sent and received as ``numpy.clongdouble`` (``complex256`` on x86-64
-Linux where ``long double`` is 80-bit extended precision stored in 16
-bytes, giving an effective 128-byte-per-pair wire format).
-
-Wire value: ``2``.
-
-Examples
---------
->>> from doppler.stream import CF128
->>> CF128
-2
-
-"""
 
 CI8: int
 """Complex int8 — interleaved ``int8_t`` I/Q (2 bytes/sample).
 
-Sent and received as a ``numpy.int8`` array of ``2*n`` interleaved
-elements. Wire value: ``3``.
+Each complex sample occupies two consecutive ``int8`` elements: element
+2k is I, 2k+1 is Q.  For *n* complex samples the send functions expect a
+C-contiguous ``numpy.int8`` array of length ``2*n``; recv returns the
+same flat layout.
+
+Wire value: the BLUE format code ``"CB"``, packed little-endian.
 
 Examples
 --------
 >>> from doppler.stream import CI8
->>> CI8
-3
+>>> bytes([CI8 & 0xFF, CI8 >> 8])
+b'CB'
 
 """
 
@@ -80,48 +35,156 @@ CI16: int
 """Complex int16 — interleaved ``int16_t`` I/Q (4 bytes/sample).
 
 Sent and received as a ``numpy.int16`` array of ``2*n`` interleaved
-elements. Wire value: ``4``.
+elements.  Wire value: the BLUE format code ``"CI"``.
 
 Examples
 --------
 >>> from doppler.stream import CI16
->>> CI16
-4
+>>> bytes([CI16 & 0xFF, CI16 >> 8])
+b'CI'
+
+"""
+
+CI32: int
+"""Complex int32 — interleaved ``int32_t`` I/Q (8 bytes/sample).
+
+Sent and received as a ``numpy.int32`` array of ``2*n`` interleaved
+elements.  Wire value: the BLUE format code ``"CL"``.
+
+Examples
+--------
+>>> from doppler.stream import CI32
+>>> bytes([CI32 & 0xFF, CI32 >> 8])
+b'CL'
 
 """
 
 CF32: int
 """Complex float32 — ``float _Complex`` (8 bytes/sample).
 
-Sent and received as ``numpy.complex64``. Wire value: ``5``.
+Sent and received as ``numpy.complex64``.  Wire value: the BLUE format
+code ``"CF"``.
 
 Examples
 --------
 >>> from doppler.stream import CF32
->>> CF32
-5
+>>> bytes([CF32 & 0xFF, CF32 >> 8])
+b'CF'
+
+"""
+
+CF64: int
+"""Complex float64 — ``double _Complex`` (16 bytes/sample).
+
+Sent and received as ``numpy.complex128``.  Default sample type for all
+sender socket types.  Wire value: the BLUE format code ``"CD"``.
+
+Examples
+--------
+>>> from doppler.stream import CF64
+>>> bytes([CF64 & 0xFF, CF64 >> 8])
+b'CD'
 
 """
 
 TLM16: int
-"""16-byte telemetry records (``dp_tlm_rec_t``) — not I/Q samples.
+"""16-byte telemetry records (``dp_tlm_rec_t``) — a frame KIND, not a
+sample format.
 
-A TLM16 frame's payload is packed telemetry records; ``num_samples``
-counts records. ``Publisher(ep, TLM16).send(recs)`` publishes the
-structured array ``doppler.telemetry.Telemetry.read()`` returns, and
-``Subscriber.recv()`` decodes the frame back into the same structured
-dtype ``[("n", "<u8"), ("value", "<f4"), ("probe", "<u2"),
-("flags", "<u2")]``. The C-side producer face is the ``dp_tlm_sink_*``
-helper (``stream/tlm_sink.h``) in ``libdoppler_stream``. Wire
-value: ``6``.
+Telemetry is not a sample encoding, so it does not have a BLUE format
+code and it does not sit alongside the five above on the wire: a frame
+says ``kind = TLM16`` and leaves ``format`` at 0.  It reaches the API
+through the same constructor argument because "what does this socket
+publish" is one question to a caller, and the two vocabularies cannot
+collide — a BLUE code is two ASCII characters packed into 16 bits, so
+every one of them is at least 0x4200.
+
+``Publisher(ep, TLM16).send(recs)`` publishes the structured array
+``doppler.telemetry.Telemetry.read()`` returns, and ``Subscriber.recv()``
+decodes it back into the same dtype ``[("n", "<u8"), ("value", "<f4"),
+("probe", "<u2"), ("flags", "<u2")]``.  The C-side producer face is the
+``dp_tlm_sink_*`` helper (``stream/tlm_sink.h``).  Publisher only.
 
 Examples
 --------
 >>> from doppler.stream import TLM16
 >>> TLM16
-6
+1
 
 """
+
+
+def mean_power(samples: NDArray[Any]) -> float:
+    """Mean power of a complex sample block, normalised to full scale.
+
+    ``mean(|x|**2)``, with the integer formats divided by their full
+    scale first, so the answer means the same thing whatever the wire
+    carried and ``10*log10()`` of it is dBFS in every case.
+
+    This is the same ``dp_mean_power()`` the C examples call -- one
+    implementation, so the Python and C receivers cannot report
+    different numbers for one frame, and neither has to spell the loop
+    out again.
+
+    Parameters
+    ----------
+    samples : ndarray
+        C-contiguous block: ``complex64``/``complex128`` for
+        :data:`CF32`/:data:`CF64`, or ``int8``/``int16``/``int32``
+        interleaved I/Q (length ``2*n``) for :data:`CI8`/:data:`CI16`/
+        :data:`CI32`.
+
+    Returns
+    -------
+    float
+        Mean power, 0.0 for an empty block.
+
+    Raises
+    ------
+    TypeError
+        If the dtype is not one of the wire formats.
+    ValueError
+        If ``samples`` is not C-contiguous.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.stream import mean_power
+    >>> mean_power(np.ones(4, dtype=np.complex64))
+    1.0
+    >>> round(mean_power(np.full(8, 16384, dtype=np.int16)), 4)
+    0.5
+
+    """
+    ...
+
+
+def format_name(code: int) -> str:
+    """The name of a wire format code.
+
+    The same ``dp_sample_type_str()`` the C face prints, so a Python
+    receiver names a format exactly as the C one does rather than
+    carrying a private code-to-name table.
+
+    Parameters
+    ----------
+    code : int
+        A wire format, e.g. :data:`CF64`.
+
+    Returns
+    -------
+    str
+        The format's name, or ``"UNKNOWN"`` for a code this build does
+        not know.
+
+    Examples
+    --------
+    >>> from doppler.stream import format_name, CF64, CI8
+    >>> format_name(CF64), format_name(CI8)
+    ('CF64', 'CI8')
+
+    """
+    ...
 
 
 def get_timestamp_ns() -> int:
@@ -174,8 +237,10 @@ class Publisher:
         (``host:port/subject``; the subject defaults to ``"default"``
         if omitted). Requires a running ``nats-server``.
     sample_type : int
-        Wire encoding.  One of :data:`CI32`, :data:`CF64` (default),
-        :data:`CF128`.  Raises :exc:`ValueError` for any other value.
+        Wire encoding.  One of :data:`CI8`, :data:`CI16`,
+        :data:`CI32`, :data:`CF32`, :data:`CF64` (default), or (on a
+        :class:`Publisher`) :data:`TLM16`.  Raises :exc:`ValueError` for
+        any other value.
 
     Raises
     ------
@@ -225,8 +290,8 @@ class Publisher:
         endpoint : str
             NATS endpoint, e.g. ``"nats://127.0.0.1:4222/iq"``.
         sample_type : int, optional
-            Wire encoding: :data:`CI32`, :data:`CF64` (default), or
-            :data:`CF128`.
+            Wire encoding: :data:`CI8`, :data:`CI16`, :data:`CI32`,
+            :data:`CF32`, or :data:`CF64` (default).
         """
         ...
 
@@ -268,9 +333,11 @@ class Publisher:
         ----------
         samples : ndarray
             C-contiguous array whose dtype must match the socket's
-            ``sample_type``: ``numpy.complex128`` for :data:`CF64`,
-            ``numpy.clongdouble`` for :data:`CF128`, ``numpy.int32``
-            for :data:`CI32` (interleaved I/Q, length ``2*n_samples``).
+            ``sample_type``: ``numpy.complex64`` for :data:`CF32`,
+            ``numpy.complex128`` for :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` for :data:`CI8` /
+            :data:`CI16` / :data:`CI32` (interleaved I/Q, length
+            ``2*n_samples``).
         sample_rate : float, optional
             Samples per second written into the header (default 0).
         center_freq : float, optional
@@ -301,6 +368,119 @@ class Publisher:
         ...          sample_rate=int(48000),             # doctest: +SKIP
         ...          center_freq=int(433e6))             # doctest: +SKIP
         >>> pub.close()                                 # doctest: +SKIP
+        """
+        ...
+
+    def drain(self, timeout_ms: int = 5000) -> None:
+        """Shut down gracefully: stop new work, finish, flush, close.
+
+        This **waits** for the connection to close, which is the part
+        worth having: the underlying drain returns immediately and
+        finishes in the background, so a process that exits when it
+        returns abandons exactly the work the drain was for.
+
+        Drain **last**, after you have stopped producing. It cannot be
+        reversed, and a send issued while one is in progress races its
+        phases -- it may slip through, or be refused. Because this waits,
+        a single-threaded caller need not reason about that: afterwards a
+        send raises ``RuntimeError`` deterministically.
+
+        Against :meth:`flush`: flush asks whether the server has what you
+        published and leaves the publisher usable; drain ends it. A
+        drained shutdown needs no flush of its own -- the drain's final
+        phase *is* that flush.
+
+        Size ``timeout_ms`` to the slowest thing the drain waits for,
+        with margin. doppler's receive is synchronous, so there is no
+        handler to finish and the wait is dominated by flushing what is
+        buffered; the default is generous for a link that is keeping up.
+
+        Parameters
+        ----------
+        timeout_ms : int, optional
+            How long to wait for the close (default 5000).
+
+        Raises
+        ------
+        TimeoutError
+            If the drain did not complete in the budget.
+        RuntimeError
+            If the publisher is already closed, or the drain failed.
+
+        Examples
+        --------
+        >>> from doppler.stream import Publisher, CF64   # doctest: +SKIP
+        >>> pub = Publisher("nats://127.0.0.1:4222/iq", CF64)  # doctest: +SKIP
+        >>> pub.drain()      # stopped producing, so shut down  # doctest: +SKIP
+        >>> pub.close()                                         # doctest: +SKIP
+
+        """
+        ...
+
+    def send_eos(self) -> None:
+        """Tell subscribers the stream has ended.
+
+        A subscriber's :meth:`Subscriber.recv` raises :class:`EOFError`
+        instead of waiting out a timeout -- which means only "nothing
+        yet", and cannot be told from "nothing ever" without this.
+
+        Send it **before** :meth:`drain`, not after: a drain cannot be
+        reversed and refuses sends once it reaches its publish-flushing
+        phase. The order is stop producing, ``send_eos()``, ``drain()``,
+        ``close()``.
+
+        Notes
+        -----
+        PUB/SUB is at-most-once, so this frame can be dropped like any
+        other. It makes the common case end promptly, not reliably, and a
+        subscriber that must not hang on a lost marker still needs a
+        timeout. PUSH/PULL delivers it at-least-once, so handling it must
+        be idempotent.
+
+        Examples
+        --------
+        >>> from doppler.stream import Publisher, CF32
+        >>> pub = Publisher("nats://127.0.0.1:4222/demo", CF32)  # doctest: +SKIP
+        >>> pub.send_eos()                                        # doctest: +SKIP
+        >>> pub.drain()                                           # doctest: +SKIP
+
+        """
+    def flush(self, timeout_ms: int = 2000) -> None:
+        """Wait until the server has everything published so far.
+
+        :meth:`send` hands the frame to the client and returns; the client
+        writes it in the background, so "the send returned" is not "the
+        server has it".  This waits for a round trip.
+
+        You do **not** need it before :meth:`close`: the NATS client
+        flushes what is buffered when the connection closes.  But it does
+        so best-effort with a 500 ms cap and no way to report failure, so
+        a backlog that cannot drain in half a second is dropped silently
+        -- and on a link slower than loopback that is not a large backlog.
+        Call this when losing the tail would matter, and you get a budget
+        you chose and an answer you can act on.  It is also the only way
+        to ask the question *without* closing.
+
+        Parameters
+        ----------
+        timeout_ms : int, optional
+            How long to wait (default 2000).
+
+        Raises
+        ------
+        TimeoutError
+            If the budget ran out with data still buffered.
+        RuntimeError
+            If the publisher is closed, or the flush failed outright.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.stream import Publisher, CF64   # doctest: +SKIP
+        >>> with Publisher("nats://127.0.0.1:4222/iq", CF64) as pub:
+        ...     pub.send(np.zeros(8, dtype=np.complex128))  # doctest: +SKIP
+        ...     pub.flush()                                 # doctest: +SKIP
+
         """
         ...
 
@@ -420,9 +600,11 @@ class Subscriber:
         Returns
         -------
         samples : ndarray
-            Decoded sample data.  dtype is ``numpy.complex128``
-            (:data:`CF64`), ``numpy.clongdouble`` (:data:`CF128`), or
-            ``numpy.int32`` flat interleaved I/Q (:data:`CI32`).
+            Decoded sample data.  dtype follows the frame's own
+            ``sample_type``: ``numpy.complex64`` / ``numpy.complex128``
+            for :data:`CF32` / :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` flat interleaved I/Q for
+            :data:`CI8` / :data:`CI16` / :data:`CI32`.
         header : dict
             Decoded ``dp_header_t`` fields:
 
@@ -431,8 +613,9 @@ class Subscriber:
             ``center_freq`` : float
                 Centre frequency in Hz as reported by the sender.
             ``sample_type`` : int
-                Wire sample type (one of :data:`CI32`, :data:`CF64`,
-                :data:`CF128`).
+                Wire sample type (one of :data:`CI8`, :data:`CI16`,
+                :data:`CI32`, :data:`CF32`, :data:`CF64`,
+                :data:`TLM16`).
             ``timestamp_ns`` : int
                 Frame timestamp (``CLOCK_REALTIME`` nanoseconds) set
                 by the sender at the moment of the send call.
@@ -441,7 +624,8 @@ class Subscriber:
                 gaps indicate dropped frames.
             ``num_samples`` : int
                 Number of IQ samples in the frame (``len(samples)``
-                for CF64/CF128; ``len(samples)//2`` for CI32).
+                for CF32/CF64; ``len(samples)//2`` for the interleaved
+                integer types).
             ``protocol`` : int
                 Wire protocol (0 = SIGS, 1 = DIFI/VITA 49).
             ``stream_id`` : int
@@ -502,8 +686,10 @@ class Push:
     endpoint : str
         NATS endpoint, e.g. ``"nats://127.0.0.1:4222/work"``.
     sample_type : int
-        Wire encoding.  One of :data:`CI32`, :data:`CF64` (default),
-        :data:`CF128`.  Raises :exc:`ValueError` for any other value.
+        Wire encoding.  One of :data:`CI8`, :data:`CI16`,
+        :data:`CI32`, :data:`CF32`, :data:`CF64` (default), or (on a
+        :class:`Publisher`) :data:`TLM16`.  Raises :exc:`ValueError` for
+        any other value.
 
     Raises
     ------
@@ -546,8 +732,8 @@ class Push:
         endpoint : str
             NATS endpoint, e.g. ``"nats://127.0.0.1:4222/work"``.
         sample_type : int, optional
-            Wire encoding: :data:`CI32`, :data:`CF64` (default), or
-            :data:`CF128`.
+            Wire encoding: :data:`CI8`, :data:`CI16`, :data:`CI32`,
+            :data:`CF32`, or :data:`CF64` (default).
         """
         ...
 
@@ -586,9 +772,11 @@ class Push:
         ----------
         samples : ndarray
             C-contiguous array whose dtype must match the socket's
-            ``sample_type``: ``numpy.complex128`` for :data:`CF64`,
-            ``numpy.clongdouble`` for :data:`CF128`, ``numpy.int32``
-            for :data:`CI32` (interleaved I/Q, length ``2*n``).
+            ``sample_type``: ``numpy.complex64`` for :data:`CF32`,
+            ``numpy.complex128`` for :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` for :data:`CI8` /
+            :data:`CI16` / :data:`CI32` (interleaved I/Q, length
+            ``2*n``).
         sample_rate : float, optional
             Samples per second written into the header (default 0).
         center_freq : float, optional
@@ -737,9 +925,11 @@ class Pull:
         Returns
         -------
         samples : ndarray
-            Decoded sample data.  dtype is ``numpy.complex128``
-            (:data:`CF64`), ``numpy.clongdouble`` (:data:`CF128`), or
-            ``numpy.int32`` flat interleaved I/Q (:data:`CI32`).
+            Decoded sample data.  dtype follows the frame's own
+            ``sample_type``: ``numpy.complex64`` / ``numpy.complex128``
+            for :data:`CF32` / :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` flat interleaved I/Q for
+            :data:`CI8` / :data:`CI16` / :data:`CI32`.
         header : dict
             Decoded ``dp_header_t`` fields — see
             :meth:`Subscriber.recv` for the full key list.
@@ -833,7 +1023,8 @@ class Requester:
         NATS endpoint, e.g. ``"nats://127.0.0.1:4222/ctrl"``.
     sample_type : int
         Wire encoding of frames *sent* by this socket.  One of
-        :data:`CI32`, :data:`CF64` (default), :data:`CF128`.  The
+        :data:`CI8`, :data:`CI16`, :data:`CI32`, :data:`CF32`, or
+        :data:`CF64` (default).  The
         reply frame's type is determined by the :class:`Replier`.
 
     Raises
@@ -882,7 +1073,8 @@ class Requester:
             ``"nats://127.0.0.1:4222/ctrl"``.
         sample_type : int, optional
             Wire encoding of frames sent by this socket:
-            :data:`CI32`, :data:`CF64` (default), or :data:`CF128`.
+            :data:`CI8`, :data:`CI16`, :data:`CI32`, :data:`CF32`, or
+            :data:`CF64` (default).
         """
         ...
 
@@ -922,9 +1114,10 @@ class Requester:
         ----------
         samples : ndarray
             C-contiguous array whose dtype must match the socket's
-            ``sample_type``: ``numpy.complex128`` for :data:`CF64`,
-            ``numpy.clongdouble`` for :data:`CF128`, ``numpy.int32``
-            for :data:`CI32`.
+            ``sample_type``: ``numpy.complex64`` for :data:`CF32`,
+            ``numpy.complex128`` for :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` for :data:`CI8` /
+            :data:`CI16` / :data:`CI32`.
         sample_rate : float, optional
             Samples per second written into the header (default 0).
         center_freq : float, optional
@@ -1032,7 +1225,8 @@ class Replier:
         NATS endpoint, e.g. ``"nats://127.0.0.1:4222/ctrl"``.
     sample_type : int
         Wire encoding of frames *sent* by this socket (the reply).  One
-        of :data:`CI32`, :data:`CF64` (default), :data:`CF128`.  The
+        of :data:`CI8`, :data:`CI16`, :data:`CI32`, :data:`CF32`, or
+        :data:`CF64` (default).  The
         request frame's type is determined by the :class:`Requester`.
 
     Raises
@@ -1079,7 +1273,8 @@ class Replier:
             NATS endpoint, e.g. ``"nats://127.0.0.1:4222/ctrl"``.
         sample_type : int, optional
             Wire encoding of reply frames sent by this socket:
-            :data:`CI32`, :data:`CF64` (default), or :data:`CF128`.
+            :data:`CI8`, :data:`CI16`, :data:`CI32`, :data:`CF32`, or
+            :data:`CF64` (default).
         """
         ...
 
@@ -1159,9 +1354,10 @@ class Replier:
         ----------
         samples : ndarray
             C-contiguous array whose dtype must match the socket's
-            ``sample_type``: ``numpy.complex128`` for :data:`CF64`,
-            ``numpy.clongdouble`` for :data:`CF128`, ``numpy.int32``
-            for :data:`CI32`.
+            ``sample_type``: ``numpy.complex64`` for :data:`CF32`,
+            ``numpy.complex128`` for :data:`CF64`, or ``numpy.int8`` /
+            ``numpy.int16`` / ``numpy.int32`` for :data:`CI8` /
+            :data:`CI16` / :data:`CI32`.
         sample_rate : float, optional
             Samples per second written into the reply header
             (default 0).

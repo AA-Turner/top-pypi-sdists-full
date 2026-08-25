@@ -28,6 +28,7 @@ from xpander_sdk.media.files import (
     _looks_like_pdf,
     _pdf_markdown_or_none,
     _sniff_image,
+    document_names,
     fetch_file,
     fetch_image,
 )
@@ -233,14 +234,14 @@ def _extract_pdf_text(data: bytes, pypdf_module) -> Tuple[str, int]:
     return text, max(1, len(pages))
 
 
-def _agno_file_from_bytes(content: bytes, url: str):
+def _agno_file_from_bytes(content: bytes, url: str) -> Any:
     from agno.media import File
 
-    filename = os.path.basename(url.split("?")[0])
+    filename, name = document_names(url)
     return File.from_base64(
         base64_content=base64.b64encode(content).decode("utf-8"),
         filename=filename,
-        name=os.path.splitext(filename)[0].replace("_", " "),
+        name=name,
         format="pdf",
         mime_type="application/pdf",
     )

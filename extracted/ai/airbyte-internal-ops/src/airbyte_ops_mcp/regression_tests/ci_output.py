@@ -649,15 +649,31 @@ def generate_action_test_comparison_report(
 
     control_http = control_result.get("http_metrics") or {}
     target_http = target_result.get("http_metrics") or {}
-    if control_http or target_http:
+    # Counts only when a capture actually recorded something. A payload holding
+    # just `replay_skipped_reason` describes a proxy that never ran, and an
+    # all-zero table -- `spec`, and `check` on plenty of connectors -- is noise
+    # either way. The skip reason still prints below, outside the table.
+    if control_http.get("flow_count") or target_http.get("flow_count"):
         lines.extend(
             [
                 "#### HTTP Metrics",
                 "",
-                "| Version | Flow Count | Duplicate Flows | Cache Hit Ratio |",
-                "|---------|------------|-----------------|-----------------|",
-                f"| Control | {control_http.get('flow_count', 0)} | {control_http.get('duplicate_flow_count', 0)} | {control_http.get('cache_hit_ratio', 'N/A')} |",
-                f"| Target | {target_http.get('flow_count', 0)} | {target_http.get('duplicate_flow_count', 0)} | {target_http.get('cache_hit_ratio', 'N/A')} |",
+                "| Version | Flow Count | Duplicate Flows | Replayed | Live | Unreplayable | Cache Hit Ratio |",
+                "|---------|------------|-----------------|----------|------|--------------|-----------------|",
+                f"| Control | {control_http.get('flow_count', 0)} | {control_http.get('duplicate_flow_count', 0)} | {control_http.get('replayed_flow_count', 0)} | {control_http.get('live_flow_count', 0)} | {control_http.get('unreplayable_flow_count', 0)} | {control_http.get('cache_hit_ratio', 'N/A')} |",
+                f"| Target | {target_http.get('flow_count', 0)} | {target_http.get('duplicate_flow_count', 0)} | {target_http.get('replayed_flow_count', 0)} | {target_http.get('live_flow_count', 0)} | {target_http.get('unreplayable_flow_count', 0)} | {target_http.get('cache_hit_ratio', 'N/A')} |",
+                "",
+            ]
+        )
+
+    # Outside the table: the reason is the whole story when the proxy never ran,
+    # and there are no counts to hang it off.
+    if target_http.get("replay_skipped_reason"):
+        lines.extend(
+            [
+                "HTTP replay was requested and skipped: "
+                f"{target_http['replay_skipped_reason']}. The target ran "
+                "against live data.",
                 "",
             ]
         )

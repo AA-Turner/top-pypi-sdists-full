@@ -1,5 +1,8 @@
 #!/usr/bin/python3
+"""Exercise native dataset and evaluator bindings."""
+
 import unittest
+from types import SimpleNamespace
 
 import faster_coco_eval.faster_eval_api_cpp as _C
 import numpy as np
@@ -13,6 +16,40 @@ class TestBaseCoco(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_accumulate_avoids_repeated_python_list_length_queries(self):
+        """Bound native length queries for converted parameter lists."""
+
+        class LengthCountingList(list):
+            """Record calls to the Python list length protocol."""
+
+            length_calls = 0
+
+            def __len__(self):
+                """Count and return the current list length."""
+                self.length_calls += 1
+                return super().__len__()
+
+        recall_thresholds = LengthCountingList([0.0, 0.5, 1.0])
+        max_detections = LengthCountingList([1, 10, 100])
+        params = SimpleNamespace(
+            recThrs=recall_thresholds,
+            maxDets=max_detections,
+            iouThrs=[],
+            useCats=1,
+            catIds=[],
+            areaRng=[],
+            imgIds=[],
+        )
+
+        result = _C.COCOevalAccumulate(params, [])
+
+        # Accumulation queries each list once for conversion and once for its
+        # output dimension; the conversion loop must not add further queries.
+        self.assertEqual(recall_thresholds.length_calls, 2)
+        self.assertEqual(max_detections.length_calls, 2)
+        self.assertEqual(result["counts"], [0, 3, 0, 0, 3])
+        self.assertEqual(result["precision"].shape, (0, 3, 0, 0, 3))
 
     def test_append(self):
         dataset = _C.Dataset()
@@ -247,6 +284,195 @@ class TestBaseCoco(unittest.TestCase):
 
         # Verify C++ annotation object exists and is correct type
         self.assertIsInstance(cpp_ann, _C.InstanceAnnotation)
+
+    @parameterized.expand([
+        ("missing_iou_rows", [[[]]]),
+        ("missing_iou_columns", [[[[]]]]),
+    ])
+    def test_evaluate_images_rejects_iou_shape_mismatch(self, _, ious):
+        """Reject IoU rows that do not match the dataset instance counts."""
+        gt_dataset = _C.Dataset()
+        dt_dataset = _C.Dataset()
+        gt_dataset.append(1, 1, {"id": 1, "area": 1.0, "ignore": False, "is_crowd": False})
+        dt_dataset.append(1, 1, {"id": 2, "score": 1.0, "area": 1.0, "ignore": False, "is_crowd": False})
+
+        with self.assertRaisesRegex(RuntimeError, "image_category_ious"):
+            _C.COCOevalEvaluateImages(
+                [[0.0, float("inf")]],
+                100,
+                [0.5],
+                ious,
+                gt_dataset,
+                dt_dataset,
+                [1],
+                [1],
+                True,
+            )
+
+    def test_evaluate_images_accepts_empty_ground_truth_iou_shape(self):
+        """Accept the empty IoU result used when an image has no ground
+        truth."""
+        gt_dataset = _C.Dataset()
+        dt_dataset = _C.Dataset()
+        dt_dataset.append(1, 1, {"id": 2, "score": 1.0, "area": 1.0, "ignore": False, "is_crowd": False})
+
+        evaluations = _C.COCOevalEvaluateImages(
+            [[0.0, float("inf")]],
+            100,
+            [0.5],
+            [[[]]],
+            gt_dataset,
+            dt_dataset,
+            [1],
+            [1],
+            True,
+        )
+
+        self.assertEqual(len(evaluations), 1)
+
+    def test_evaluate_images_matches_independent_image_category_calls(self):
+        """Match multi-pair evaluation to the equivalent independent calls."""
+        gt_dataset = _C.Dataset()
+        dt_dataset = _C.Dataset()
+        image_ids = [1, 2]
+        category_ids = [1, 2]
+        ious_by_pair = {}
+
+        for image_id in image_ids:
+            for category_id in category_ids:
+                annotation_offset = image_id * 100 + category_id * 10
+                for index in range(2):
+                    gt_dataset.append(
+                        image_id,
+                        category_id,
+                        {
+                            "id": annotation_offset + index,
+                            "area": 25.0 + index * 100.0,
+                            "ignore": False,
+                            "is_crowd": False,
+                        },
+                    )
+                    dt_dataset.append(
+                        image_id,
+                        category_id,
+                        {
+                            "id": 1000 + annotation_offset + index,
+                            "score": 0.9 - index * 0.1,
+                            "area": 25.0 + index * 100.0,
+                            "ignore": False,
+                            "is_crowd": False,
+                        },
+                    )
+                ious_by_pair[image_id, category_id] = [[0.9, 0.1], [0.2, 0.8]]
+
+        area_ranges = [[0.0, float("inf")], [0.0, 50.0]]
+        all_ious = [[ious_by_pair[image_id, category_id] for category_id in category_ids] for image_id in image_ids]
+        combined = _C.COCOevalEvaluateImages(
+            area_ranges,
+            100,
+            [0.5, 0.75],
+            all_ious,
+            gt_dataset,
+            dt_dataset,
+            image_ids,
+            category_ids,
+            True,
+        )
+
+        independent = {}
+        for image_id in image_ids:
+            for category_id in category_ids:
+                independent[image_id, category_id] = _C.COCOevalEvaluateImages(
+                    area_ranges,
+                    100,
+                    [0.5, 0.75],
+                    [[ious_by_pair[image_id, category_id]]],
+                    gt_dataset,
+                    dt_dataset,
+                    [image_id],
+                    [category_id],
+                    True,
+                )
+
+        expected = [
+            independent[image_id, category_id][area_index].__getstate__()
+            for category_id in category_ids
+            for area_index in range(len(area_ranges))
+            for image_id in image_ids
+        ]
+        self.assertEqual([evaluation.__getstate__() for evaluation in combined], expected)
+
+    def test_evaluate_images_stably_partitions_ignored_ground_truth(self):
+        """Preserve ground-truth order within non-ignored and ignored
+        buckets."""
+        gt_dataset = _C.Dataset()
+        dt_dataset = _C.Dataset()
+        for annotation in [
+            {"id": 11, "area": 100.0, "ignore": False, "is_crowd": False},
+            {"id": 12, "area": 1.0, "ignore": False, "is_crowd": False},
+            {"id": 13, "area": 100.0, "ignore": True, "is_crowd": False},
+            {"id": 14, "area": 100.0, "ignore": False, "is_crowd": False},
+        ]:
+            gt_dataset.append(1, 1, annotation)
+        for annotation in [
+            {"id": 21, "score": 0.9, "area": 100.0, "ignore": False, "is_crowd": False},
+            {"id": 22, "score": 0.8, "area": 100.0, "ignore": False, "is_crowd": False},
+        ]:
+            dt_dataset.append(1, 1, annotation)
+
+        evaluation = _C.COCOevalEvaluateImages(
+            [[10.0, 200.0]],
+            100,
+            [0.5],
+            [[[[0.9] * 4, [0.1, 0.9, 0.9, 0.9]]]],
+            gt_dataset,
+            dt_dataset,
+            [1],
+            [1],
+            True,
+        )[0]
+
+        self.assertEqual(
+            evaluation.__getstate__(),
+            (
+                [14, 13],
+                [0, 21, 0, 22],
+                [0.9, 0.8],
+                [False, False, True, True],
+                [False, True],
+                [(21, 14, 0.9), (22, 13, 0.9)],
+            ),
+        )
+
+    def test_evaluate_images_validates_merged_category_iou_shape(self):
+        """Validate IoU dimensions after categories are merged."""
+        gt_dataset = _C.Dataset()
+        dt_dataset = _C.Dataset()
+        for category_id, annotation_id in [(1, 1), (2, 2)]:
+            gt_dataset.append(
+                1,
+                category_id,
+                {"id": annotation_id, "area": 1.0, "ignore": False, "is_crowd": False},
+            )
+            dt_dataset.append(
+                1,
+                category_id,
+                {"id": annotation_id + 10, "score": 1.0, "area": 1.0, "ignore": False, "is_crowd": False},
+            )
+
+        evaluations = _C.COCOevalEvaluateImages(
+            [[0.0, float("inf")]],
+            100,
+            [0.5],
+            [[[[0.5, 0.5], [0.5, 0.5]]]],
+            gt_dataset,
+            dt_dataset,
+            [1],
+            [1, 2],
+            False,
+        )
+
+        self.assertEqual(len(evaluations), 1)
 
 
 if __name__ == "__main__":

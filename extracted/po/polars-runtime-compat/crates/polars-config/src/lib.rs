@@ -47,6 +47,10 @@ const DEFAULT_PRUNE_PARQUET_METADATA: bool = false;
 
 const RESOLVE_METADATA_LEVEL: &str = "POLARS_RESOLVE_METADATA_LEVEL";
 
+const RESOLVE_SAMPLE_LIMIT: &str = "POLARS_RESOLVE_SAMPLE_LIMIT";
+// 0 = auto (see `resolve_sample_limit()`).
+const DEFAULT_RESOLVE_SAMPLE_LIMIT: u64 = 0;
+
 // Private.
 const VERBOSE_SENSITIVE: &str = "POLARS_VERBOSE_SENSITIVE";
 const DEFAULT_VERBOSE_SENSITIVE: bool = false;
@@ -99,6 +103,15 @@ const DNS_LOG_THRESHOLD_MS: &str = "POLARS_DNS_LOG_THRESHOLD_MS";
 /// Sentinel meaning "env var not set / logging disabled".
 const DNS_LOG_THRESHOLD_DISABLED: u64 = u64::MAX;
 
+const NUMA_AWARE: &str = "POLARS_NUMA_AWARE";
+const DEFAULT_NUMA_AWARE: bool = false;
+
+const NUMA_MOCK_REGIONS: &str = "POLARS_NUMA_MOCK_REGIONS";
+const DEFAULT_NUMA_MOCK_REGIONS: u64 = 0;
+
+const DISABLE_HTTP_RATE_LIMIT: &str = "POLARS_DISABLE_HTTP_RATE_LIMIT";
+const DEFAULT_DISABLE_HTTP_RATE_LIMIT: bool = false;
+
 static KNOWN_OPTIONS: &[&str] = &[
     // Public.
     VERBOSE,
@@ -112,6 +125,7 @@ static KNOWN_OPTIONS: &[&str] = &[
     PRUNE_PARQUET_METADATA,
     ALLOW_NESTED_CSPE,
     RESOLVE_METADATA_LEVEL,
+    RESOLVE_SAMPLE_LIMIT,
     /*
     Not yet supported public options:
 
@@ -149,6 +163,9 @@ static KNOWN_OPTIONS: &[&str] = &[
     JOIN_SAMPLE_LIMIT,
     PROJECTION_PUSHDOWN_PRUNE_STRICT_HCONCAT_INPUTS,
     DNS_LOG_THRESHOLD_MS,
+    NUMA_AWARE,
+    NUMA_MOCK_REGIONS,
+    DISABLE_HTTP_RATE_LIMIT,
 ];
 
 pub struct Config {
@@ -163,6 +180,7 @@ pub struct Config {
     prune_parquet_metadata: AtomicBool,
     allow_nested_cspe: AtomicBool,
     resolve_metadata_level: AtomicU8,
+    resolve_sample_limit: AtomicU64,
 
     // Private.
     verbose_sensitive: AtomicBool,
@@ -178,6 +196,9 @@ pub struct Config {
     join_sample_limit: AtomicU64,
     projection_pushdown_prune_strict_hconcat_inputs: AtomicBool,
     dns_log_threshold_ms: AtomicU64,
+    numa_aware: AtomicBool,
+    numa_mock_regions: AtomicU64,
+    disable_http_rate_limit: AtomicBool,
 }
 
 impl Config {
@@ -195,6 +216,7 @@ impl Config {
             ),
             prune_parquet_metadata: AtomicBool::new(DEFAULT_PRUNE_PARQUET_METADATA),
             resolve_metadata_level: AtomicU8::new(ResolveMode::default() as u8),
+            resolve_sample_limit: AtomicU64::new(DEFAULT_RESOLVE_SAMPLE_LIMIT),
 
             // Private.
             verbose_sensitive: AtomicBool::new(DEFAULT_VERBOSE_SENSITIVE),
@@ -219,6 +241,9 @@ impl Config {
             ),
             allow_nested_cspe: AtomicBool::new(DEFAULT_ALLOW_NESTED_CSPE),
             dns_log_threshold_ms: AtomicU64::new(DNS_LOG_THRESHOLD_DISABLED),
+            numa_aware: AtomicBool::new(DEFAULT_NUMA_AWARE),
+            numa_mock_regions: AtomicU64::new(DEFAULT_NUMA_MOCK_REGIONS),
+            disable_http_rate_limit: AtomicBool::new(DEFAULT_DISABLE_HTTP_RATE_LIMIT),
         };
         cfg.reload_env_vars();
         cfg
@@ -292,6 +317,11 @@ impl Config {
             RESOLVE_METADATA_LEVEL => self.resolve_metadata_level.store(
                 val.and_then(|x| parse::parse_resolve_mode(var, x))
                     .unwrap_or_default() as u8,
+                Ordering::Relaxed,
+            ),
+            RESOLVE_SAMPLE_LIMIT => self.resolve_sample_limit.store(
+                val.and_then(|x| parse::parse_u64(var, x))
+                    .unwrap_or(DEFAULT_RESOLVE_SAMPLE_LIMIT),
                 Ordering::Relaxed,
             ),
 
@@ -371,6 +401,21 @@ impl Config {
                     .unwrap_or(DNS_LOG_THRESHOLD_DISABLED),
                 Ordering::Relaxed,
             ),
+            NUMA_AWARE => self.numa_aware.store(
+                val.and_then(|x| parse::parse_bool(var, x))
+                    .unwrap_or(DEFAULT_NUMA_AWARE),
+                Ordering::Relaxed,
+            ),
+            NUMA_MOCK_REGIONS => self.numa_mock_regions.store(
+                val.and_then(|x| parse::parse_u64(var, x))
+                    .unwrap_or(DEFAULT_NUMA_MOCK_REGIONS),
+                Ordering::Relaxed,
+            ),
+            DISABLE_HTTP_RATE_LIMIT => self.disable_http_rate_limit.store(
+                val.and_then(|x| parse::parse_bool(var, x))
+                    .unwrap_or(DEFAULT_DISABLE_HTTP_RATE_LIMIT),
+                Ordering::Relaxed,
+            ),
             _ => {
                 if var.starts_with("POLARS_") {
                     if self.warn_unknown_config.load(Ordering::Relaxed) {
@@ -439,6 +484,17 @@ impl Config {
     #[inline(always)]
     pub fn resolve_metadata_level(&self) -> ResolveMode {
         ResolveMode::from_discriminant(self.resolve_metadata_level.load(Ordering::Relaxed))
+    }
+
+    /// Caps how many footers a `Sampled` metadata resolve reads. `None` (the
+    /// default) leaves the cap to the resolver; an explicit value is
+    /// authoritative, even a low one.
+    #[inline(always)]
+    pub fn resolve_sample_limit(&self) -> Option<u64> {
+        match self.resolve_sample_limit.load(Ordering::Relaxed) {
+            0 => None,
+            n => Some(n),
+        }
     }
 
     /// Whether we should do verbose printing on sensitive information.
@@ -522,6 +578,21 @@ impl Config {
             DNS_LOG_THRESHOLD_DISABLED => None,
             ms => Some(Duration::from_millis(ms)),
         }
+    }
+
+    #[inline(always)]
+    pub fn numa_aware(&self) -> bool {
+        self.numa_aware.load(Ordering::Relaxed)
+    }
+
+    #[inline(always)]
+    pub fn numa_mock_regions(&self) -> u64 {
+        self.numa_mock_regions.load(Ordering::Relaxed)
+    }
+
+    #[inline(always)]
+    pub fn disable_http_rate_limit(&self) -> bool {
+        self.disable_http_rate_limit.load(Ordering::Relaxed)
     }
 }
 

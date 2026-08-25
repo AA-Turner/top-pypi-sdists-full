@@ -1,4 +1,4 @@
-# Copyright 2009-2024 Joshua Bronson. All rights reserved.
+# Copyright 2009-2026 Joshua Bronson. All rights reserved.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,9 +17,11 @@
 from __future__ import annotations
 
 import typing as t
+from collections.abc import Mapping
 
 from ._abc import MutableBidirectionalMapping
 from ._base import BidictBase
+from ._base import Unwrites
 from ._dup import ON_DUP_DROP_OLD
 from ._dup import ON_DUP_RAISE
 from ._dup import OnDup
@@ -29,6 +31,7 @@ from ._typing import MISSING
 from ._typing import ODT
 from ._typing import VT
 from ._typing import MapOrItems
+from ._typing import override
 
 
 class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
@@ -37,20 +40,36 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
     if t.TYPE_CHECKING:
 
         @property
+        @override
         def inverse(self) -> MutableBidict[VT, KT]: ...
 
         @property
+        @override
         def inv(self) -> MutableBidict[VT, KT]: ...
 
     def _pop(self, key: KT) -> VT:
-        val = self._fwdm.pop(key)
-        del self._invm[val]
+        return self._pop_invm(key, self._fwdm.pop(key))
+
+    def _pop_invm(self, key: KT, val: VT) -> VT:
+        """Remove *val* from _invm, *key* having already been removed from _fwdm.
+
+        Puts (key, val) back if _invm refuses the removal, so that a backing mapping
+        rejecting one half of a removal cannot leave the two disagreeing. This is the
+        removing counterpart of the unwrites that :meth:`BidictBase._write` records.
+        """
+        try:
+            del self._invm[val]
+        except Exception:
+            self._fwdm[key] = val
+            raise
         return val
 
+    @override
     def __delitem__(self, key: KT) -> None:
         """*x.__delitem__(y)　⟺　del x[y]*"""
         self._pop(key)
 
+    @override
     def __setitem__(self, key: KT, val: VT) -> None:
         """Set the value for *key* to *val*.
 
@@ -103,7 +122,20 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
             duplicates another existing item's, and *on_dup.val* is
             :attr:`~bidict.RAISE`.
         """
-        self._update(((key, val),), on_dup=on_dup)
+        # Rather than self._update(((key, val),), on_dup=on_dup): a single item needs none of
+        # the argument-type dispatch, iteration, or bulk fast paths that _update() provides, and
+        # they cost several times what writing the item does. Rollback is still required, since
+        # OrderedBidictBase._write() can fail after the write it delegates to has succeeded.
+        dedup_result = self._dedup(key, val, on_dup)
+        if dedup_result is None:
+            return
+        unwrites: Unwrites = []
+        try:
+            self._write(key, val, *dedup_result, unwrites=unwrites)
+        except Exception:
+            for fn, *args in reversed(unwrites):
+                fn(*args)
+            raise
 
     def forceput(self, key: KT, val: VT) -> None:
         """Associate *key* with *val* unconditionally.
@@ -113,6 +145,7 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
         """
         self.put(key, val, on_dup=ON_DUP_DROP_OLD)
 
+    @override
     def clear(self) -> None:
         """Remove all items."""
         self._fwdm.clear()
@@ -122,7 +155,7 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
     def pop(self, key: KT, /) -> VT: ...
     @t.overload
     def pop(self, key: KT, default: DT = ..., /) -> VT | DT: ...
-
+    @override
     def pop(self, key: KT, default: ODT[DT] = MISSING, /) -> VT | DT:
         """*x.pop(k[, d]) → v*
 
@@ -137,6 +170,7 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
                 raise
             return default
 
+    @override
     def popitem(self) -> tuple[KT, VT]:
         """*x.popitem() → (k, v)*
 
@@ -145,9 +179,9 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
         :raises KeyError: if *x* is empty.
         """
         key, val = self._fwdm.popitem()
-        del self._invm[val]
-        return key, val
+        return key, self._pop_invm(key, val)
 
+    @override
     def update(self, arg: MapOrItems[KT, VT] = (), /, **kw: VT) -> None:
         """Like calling :meth:`putall` with *self.on_dup* passed for *on_dup*."""
         self._update(arg, kw=kw)
@@ -166,7 +200,7 @@ class MutableBidict(BidictBase[KT, VT], MutableBidirectionalMapping[KT, VT]):
 
     # other's type is Mapping rather than Maplike since bidict() |= SupportsKeysAndGetItem({})
     # raises a TypeError, just like dict() |= SupportsKeysAndGetItem({}) does.
-    def __ior__(self, other: t.Mapping[KT, VT]) -> MutableBidict[KT, VT]:
+    def __ior__(self, other: Mapping[KT, VT]) -> t.Self:
         """Return self|=other."""
         self.update(other)
         return self
@@ -182,9 +216,11 @@ class bidict(MutableBidict[KT, VT]):
     if t.TYPE_CHECKING:
 
         @property
+        @override
         def inverse(self) -> bidict[VT, KT]: ...
 
         @property
+        @override
         def inv(self) -> bidict[VT, KT]: ...
 
 

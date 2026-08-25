@@ -56,16 +56,49 @@ class RegexValidator:
 # Schema Builder
 # =============================================================================
 
+@dataclass
+class AttributeGroup:
+    """Labels assigned as attributes of extracted entity spans.
+
+    Args:
+        labels: Values available in this attribute group.
+        multi_label: Use independent sigmoid decisions instead of forcing one value.
+        threshold: Selection cutoff for multi-label groups.
+        applies_to: Optional entity types to which this group applies.
+        qualify_labels: Prefix model-facing values with the group name to reduce
+            ambiguity, while keeping returned values unqualified.
+    """
+
+    labels: List[str]
+    multi_label: bool = False
+    threshold: float = 0.5
+    applies_to: Optional[List[str]] = None
+    qualify_labels: bool = False
+
+
 class StructureBuilder:
     """Builder for structured data schemas."""
 
-    def __init__(self, schema: 'Schema', parent: str):
+    def __init__(
+        self,
+        schema: 'Schema',
+        parent: str,
+        *,
+        mode: Optional[str] = None,
+        anchor: Optional[str] = None,
+        occurrence_policy: Optional[str] = None,
+    ):
         self.schema = schema
         self.parent = parent
         self.fields = OrderedDict()
         self.descriptions = OrderedDict()
         self.field_order = []
         self._finished = False
+        # Instance Formation metadata (optional; absence == legacy behavior).
+        self._mode = mode
+        self._anchor = anchor
+        self._occurrence_policy = occurrence_policy
+        self._field_records: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 
     def field(
         self,
@@ -74,14 +107,29 @@ class StructureBuilder:
         choices: Optional[List[str]] = None,
         description: Optional[str] = None,
         threshold: Optional[float] = None,
-        validators: Optional[List[RegexValidator]] = None
+        validators: Optional[List[RegexValidator]] = None,
+        cardinality: Optional[str] = None,
+        exclusive: bool = False,
     ) -> 'StructureBuilder':
-        """Add a field to the structure."""
+        """Add a field to the structure.
+
+        ``cardinality`` (``"optional_one" | "required_one" | "zero_or_more" |
+        "one_or_more"``) and ``exclusive`` refine record decoding when the
+        structure declares a record ``mode``; they are ignored otherwise.
+        """
         self.fields[name] = {"value": "", "choices": choices} if choices else ""
         self.field_order.append(name)
 
         if description:
             self.descriptions[name] = description
+
+        if cardinality is not None or exclusive:
+            entry: Dict[str, Any] = {}
+            if cardinality is not None:
+                entry["cardinality"] = cardinality
+            if exclusive:
+                entry["exclusive"] = True
+            self._field_records[name] = entry
 
         self.schema._store_field_metadata(self.parent, name, dtype, threshold, choices, validators)
         return self
@@ -95,6 +143,15 @@ class StructureBuilder:
                 if "json_descriptions" not in self.schema.schema:
                     self.schema.schema["json_descriptions"] = {}
                 self.schema.schema["json_descriptions"][self.parent] = self.descriptions
+
+            if self._mode is not None:
+                self.schema._store_record_metadata(
+                    self.parent,
+                    mode=self._mode,
+                    anchor=self._anchor,
+                    occurrence_policy=self._occurrence_policy,
+                    fields=dict(self._field_records),
+                )
 
             self._finished = True
 
@@ -115,14 +172,19 @@ class Schema:
             "entities": OrderedDict(),
             "relations": [],
             "json_descriptions": {},
-            "entity_descriptions": OrderedDict()
+            "entity_descriptions": OrderedDict(),
+            "relation_descriptions": OrderedDict(),
         }
         self._field_metadata = {}
         self._entity_metadata = {}
         self._relation_metadata = {}
+        self._record_metadata: Dict[str, Dict[str, Any]] = {}
         self._field_orders = {}
         self._entity_order = []
         self._relation_order = []
+        self._entity_attribute_groups: Dict[str, AttributeGroup] = {}
+        self._entity_attribute_prompt_labels: Dict[str, str] = {}
+        self._entity_attribute_labels = set()
         self._active_builder = None
 
     def _store_field_metadata(self, parent, field, dtype, threshold, choices, validators=None):
@@ -133,19 +195,73 @@ class Schema:
             "validators": validators or []
         }
 
-    def _store_entity_metadata(self, entity, dtype, threshold):
+    def _store_entity_metadata(
+        self, entity, dtype, threshold, validators=None
+    ):
         if threshold is not None and not 0 <= threshold <= 1:
             raise ValueError(f"Threshold must be 0-1, got {threshold}")
-        self._entity_metadata[entity] = {"dtype": dtype, "threshold": threshold}
+        self._entity_metadata[entity] = {
+            "dtype": dtype,
+            "threshold": threshold,
+            "validators": validators or [],
+        }
 
     def _store_field_order(self, parent, order):
         self._field_orders[parent] = order
 
-    def structure(self, name: str) -> StructureBuilder:
-        """Start building a structure schema."""
+    def _store_record_metadata(self, parent, *, mode, anchor, occurrence_policy, fields):
+        from gliner2.processing.records import VALID_MODES, VALID_OCCURRENCE_POLICIES
+        if mode not in VALID_MODES:
+            raise ValueError(f"structure mode must be one of {VALID_MODES}, got {mode!r}")
+        if mode == "natural":
+            order = self._field_orders.get(parent, [])
+            if not anchor:
+                # Default anchor = first declared field, in declaration order
+                # (captured before any training-time field shuffling).
+                if not order:
+                    raise ValueError(
+                        f"structure {parent!r} mode='natural' requires at least one field"
+                    )
+                anchor = order[0]
+            if anchor not in order:
+                raise ValueError(
+                    f"structure {parent!r} anchor {anchor!r} is not a declared field"
+                )
+        elif anchor:
+            raise ValueError(f"structure {parent!r} mode={mode!r} must not set an anchor")
+        if occurrence_policy is not None and occurrence_policy not in VALID_OCCURRENCE_POLICIES:
+            raise ValueError(
+                f"structure {parent!r} occurrence_policy must be one of "
+                f"{VALID_OCCURRENCE_POLICIES}, got {occurrence_policy!r}"
+            )
+        entry: Dict[str, Any] = {"mode": mode}
+        if anchor is not None:
+            entry["anchor"] = anchor
+        if occurrence_policy is not None:
+            entry["occurrence_policy"] = occurrence_policy
+        if fields:
+            entry["fields"] = fields
+        self._record_metadata[parent] = entry
+
+    def structure(
+        self,
+        name: str,
+        *,
+        mode: Optional[str] = None,
+        anchor: Optional[str] = None,
+        occurrence_policy: Optional[str] = None,
+    ) -> StructureBuilder:
+        """Start building a structure schema.
+
+        ``mode`` selects Instance Formation behavior: ``"natural"`` (requires
+        ``anchor``), ``"latent"``, or ``"anchorless"``. Omitting ``mode`` keeps
+        the legacy structure behavior.
+        """
         if self._active_builder:
             self._active_builder._auto_finish()
-        self._active_builder = StructureBuilder(self, name)
+        self._active_builder = StructureBuilder(
+            self, name, mode=mode, anchor=anchor, occurrence_policy=occurrence_policy
+        )
         return self._active_builder
 
     def classification(
@@ -179,7 +295,8 @@ class Schema:
         self,
         entity_types: Union[str, List[str], Dict[str, Union[str, Dict]]],
         dtype: Literal["str", "list"] = "list",
-        threshold: Optional[float] = None
+        threshold: Optional[float] = None,
+        validators: Optional[List[RegexValidator]] = None,
     ) -> 'Schema':
         """Add entity extraction task."""
         if self._active_builder:
@@ -196,12 +313,97 @@ class Schema:
             self._store_entity_metadata(
                 name,
                 config.get("dtype", dtype),
-                config.get("threshold", threshold)
+                config.get("threshold", threshold),
+                config.get("validators", validators),
             )
 
             if "description" in config:
                 self.schema["entity_descriptions"][name] = config["description"]
 
+        return self
+
+    def entity_attributes(
+        self, groups: Dict[str, AttributeGroup]
+    ) -> 'Schema':
+        """Attach attribute groups to entities declared by this schema.
+
+        Model-facing attribute labels are added to the internal entity schema, but
+        are excluded from the public entity order and decoded as span attributes.
+        """
+        if self._active_builder:
+            self._active_builder._auto_finish()
+            self._active_builder = None
+        if not self._entity_order:
+            raise ValueError("entity_attributes() requires entities() to be called first")
+
+        groups = groups or {}
+        reserved = {"text", "confidence", "start", "end"}
+        seen: Dict[str, str] = {}
+        content_entities = set(self._entity_order)
+        for group_name, group in groups.items():
+            if not isinstance(group, AttributeGroup):
+                raise TypeError(
+                    f"Attribute group '{group_name}' must be an AttributeGroup"
+                )
+            if not group_name or group_name in reserved:
+                raise ValueError(
+                    f"Invalid attribute group name {group_name!r}: must be non-empty "
+                    f"and not one of {sorted(reserved)}"
+                )
+            if not group.labels:
+                raise ValueError(f"Attribute group '{group_name}' has no labels")
+            if not 0.0 <= group.threshold <= 1.0:
+                raise ValueError(
+                    f"Attribute group '{group_name}' threshold must be in [0, 1], "
+                    f"got {group.threshold}"
+                )
+            if group.applies_to is not None:
+                unknown = set(group.applies_to) - content_entities
+                if unknown:
+                    raise ValueError(
+                        f"Attribute group '{group_name}' applies to unknown entities: "
+                        f"{sorted(unknown)}"
+                    )
+            group_seen = set()
+            for label in group.labels:
+                if not label or not label.strip():
+                    raise ValueError(f"Attribute group '{group_name}' has an empty label")
+                if label in group_seen:
+                    raise ValueError(
+                        f"Label '{label}' is duplicated within group '{group_name}'"
+                    )
+                group_seen.add(label)
+                if label in seen:
+                    raise ValueError(
+                        f"Label '{label}' is in both '{seen[label]}' and '{group_name}'"
+                    )
+                seen[label] = group_name
+
+        prompt_labels = {
+            label: f"{group_name}: {label}" if group.qualify_labels else label
+            for group_name, group in groups.items()
+            for label in group.labels
+        }
+        attribute_labels = set(prompt_labels.values())
+        collisions = attribute_labels & content_entities
+        if collisions:
+            raise ValueError(
+                "Attribute labels collide with entity labels: "
+                f"{sorted(collisions)}; use qualify_labels=True"
+            )
+
+        # Replace prior configuration cleanly when this method is called again.
+        for label in self._entity_attribute_labels:
+            if label not in content_entities:
+                self.schema["entities"].pop(label, None)
+                self._entity_metadata.pop(label, None)
+        for label in sorted(attribute_labels):
+            self.schema["entities"].setdefault(label, "")
+            self._store_entity_metadata(label, "list", None)
+
+        self._entity_attribute_groups = dict(groups)
+        self._entity_attribute_prompt_labels = prompt_labels
+        self._entity_attribute_labels = attribute_labels
         return self
 
     def _parse_entity_input(self, entity_types):
@@ -252,6 +454,9 @@ class Schema:
             if rel_threshold is not None and not 0 <= rel_threshold <= 1:
                 raise ValueError(f"Threshold must be 0-1, got {rel_threshold}")
             self._relation_metadata[name] = {"threshold": rel_threshold}
+            description = config.get("description")
+            if description:
+                self.schema["relation_descriptions"][name] = description
 
         return self
 
@@ -260,6 +465,8 @@ class Schema:
         if self._active_builder:
             self._active_builder._auto_finish()
             self._active_builder = None
+        if self._record_metadata:
+            self.schema["record_metadata"] = self._record_metadata
         return self.schema
 
     @classmethod
@@ -303,13 +510,20 @@ class Schema:
 
         if validated.structures is not None:
             for struct_name, struct_input in validated.structures.items():
-                builder = schema.structure(struct_name)
+                builder = schema.structure(
+                    struct_name,
+                    mode=struct_input.mode,
+                    anchor=struct_input.anchor,
+                    occurrence_policy=struct_input.occurrence_policy,
+                )
                 for field_input in struct_input.fields:
                     builder.field(
                         name=field_input.name,
                         dtype=field_input.dtype,
                         choices=field_input.choices,
-                        description=field_input.description
+                        description=field_input.description,
+                        cardinality=field_input.cardinality,
+                        exclusive=field_input.exclusive,
                     )
                 builder._auto_finish()
 
@@ -366,6 +580,9 @@ class Schema:
             >>> schema_dict = schema.to_dict()
             >>> # schema_dict can be used with Schema.from_dict()
         """
+        if self._active_builder:
+            self._active_builder._auto_finish()
+            self._active_builder = None
         result = {}
 
         if self.schema["entities"]:
@@ -402,9 +619,24 @@ class Schema:
                         if desc:
                             field_def["description"] = desc
 
+                        rec_fields = self._record_metadata.get(struct_name, {}).get("fields", {})
+                        fmeta = rec_fields.get(field_name, {})
+                        if fmeta.get("cardinality") is not None:
+                            field_def["cardinality"] = fmeta["cardinality"]
+                        if fmeta.get("exclusive"):
+                            field_def["exclusive"] = True
+
                         fields.append(field_def)
 
-                    result["structures"][struct_name] = {"fields": fields}
+                    struct_out: Dict[str, Any] = {"fields": fields}
+                    rec_meta = self._record_metadata.get(struct_name)
+                    if rec_meta:
+                        struct_out["mode"] = rec_meta["mode"]
+                        if rec_meta.get("anchor") is not None:
+                            struct_out["anchor"] = rec_meta["anchor"]
+                        if rec_meta.get("occurrence_policy") is not None:
+                            struct_out["occurrence_policy"] = rec_meta["occurrence_policy"]
+                    result["structures"][struct_name] = struct_out
 
         if self.schema["classifications"]:
             result["classifications"] = []
@@ -418,8 +650,23 @@ class Schema:
                 result["classifications"].append(cls_def)
 
         if self.schema["relations"]:
-            result["relations"] = self._relation_order if self._relation_order else [
+            relation_order = self._relation_order if self._relation_order else [
                 list(rel_dict.keys())[0] for rel_dict in self.schema["relations"]
             ]
+            relation_configs = {}
+            for name in relation_order:
+                config = {}
+                description = self.schema["relation_descriptions"].get(name)
+                if description:
+                    config["description"] = description
+                rel_threshold = self._relation_metadata.get(name, {}).get("threshold")
+                if rel_threshold is not None:
+                    config["threshold"] = rel_threshold
+                relation_configs[name] = config
+            result["relations"] = (
+                relation_configs
+                if any(relation_configs.values())
+                else relation_order
+            )
 
         return result

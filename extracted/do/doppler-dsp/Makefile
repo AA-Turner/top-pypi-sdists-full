@@ -908,23 +908,68 @@ uvx diff-cover $(COV_DIR)/coverage.lcov \
 endef
 
 # ── Release ──────────────────────────────────────────────────────────────────
-# Five places carry the version; `version-check` probes three of them (uv.lock's
-# copy is re-synced by `uv lock` in the bump, and CHANGELOG is prose).
-define VERSION_PROBES
-pyproject.toml|grep '^version' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/'
-CMakeLists.txt|grep '^project(doppler VERSION' CMakeLists.txt | sed 's/.*VERSION \([0-9.]*\).*/\1/'
-Cargo.toml|grep '^version' $(RUST_DIR)/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/'
-endef
+# ONE declaration of the version sites, in scripts/version_sites.py, with one
+# reader and one writer over it. Both directions used to be spelled out here,
+# per site, and they differed by more than a filename: five bespoke
+# `grep | sed` reads and five bespoke `sed -i` writes, so the two spellings of
+# one site could disagree about which line they meant, and a site in one list
+# and not the other was invisible.
+#
+# They DID disagree. The writer stripped a pre-release suffix on the way into
+# CMakeLists.txt and Cargo.toml (CMake and Cargo reject `1.2.3rc1`) while the
+# reader read back whatever was there and `version-check` demanded every site
+# match. Measured 2026-08-24:
+#
+#     $ make bump-version VERSION=0.44.0rc1
+#     $ make version-check
+#     ERROR: CMakeLists.txt has 0.44.0, but pyproject.toml has 0.44.0rc1
+#
+# A bump that cannot pass its own check, in the exact step release.yml runs
+# against the tag. Each rule was locally reasonable; jointly they were
+# impossible. Pre-releases are now REFUSED with that reason rather than
+# half-supported -- doppler has cut zero of them -- and supporting them needs a
+# change in the vendored standard.mk: just-buildit/just-buildit.github.io#30.
+#
+# uv.lock's copy is re-synced by the `uv lock` below; CHANGELOG is prose.
+VERSION_SITES_CMD = python3 scripts/version_sites.py
 
-# CMake and Cargo reject a Python pre-release suffix (1.2.3rc1), so those two
-# get the numeric prefix while pyproject keeps the full string.
+# The labels, once. The probe COMMAND is identical for every site, so this
+# derives the whole VERSION_PROBES block standard.mk wants instead of carrying
+# five hand-written pipelines. `$(shell)` is deliberately absent: standard.mk
+# EXPORTS VERSION_PROBES, so a shell in it would run once per recipe, on every
+# target -- this is pure make text and costs nothing.
+VERSION_SITE_LABELS = pyproject.toml CMakeLists.txt Cargo.toml \
+                      bootstrap.toml just-makeit.toml
+
+define VERSION_PROBE_NEWLINE
+
+
+endef
+# The newline leads each entry rather than trailing it: `foreach` joins with a
+# SPACE, and a space after the newline lands inside the next entry's label
+# (standard.mk splits on `|` only, so it would print as indentation). Leading
+# it puts that space after the command, where the shell ignores it, and the
+# empty first line is dropped by standard.mk's own blank-line filter.
+VERSION_PROBES := $(foreach L,$(VERSION_SITE_LABELS),$(VERSION_PROBE_NEWLINE)$(L)|$(VERSION_SITES_CMD) --read $(L))
+
+# `--write` sets every DECLARED site and reads them all back, so a site missing
+# from VERSION_SITE_LABELS above is still written and still verified -- the
+# silent direction of the old two-list arrangement cannot recur.
 define BUMP_VERSION_CMD
-sed -i 's/^version = "[^"]*"/version = "$(VERSION)"/' pyproject.toml
-sed -i "s/^version = \"[0-9.]*/version = \"$$(echo $(VERSION) | sed 's/[^0-9.].*//g')/" $(RUST_DIR)/Cargo.toml
-sed -i "s/^project(doppler VERSION [0-9.]*/project(doppler VERSION $$(echo $(VERSION) | sed 's/[^0-9.].*//g')/" CMakeLists.txt
+$(VERSION_SITES_CMD) --write $(VERSION)
 uv lock
 @$(MAKE) --no-print-directory docs-relink
 endef
+
+# PROJECT names the namespaced env var standard.mk accepts a version from:
+# JUST_BUILDIT_DOPPLER_VERSION. A BARE exported VERSION is refused for the
+# release targets, because that name carries no evidence anyone meant it --
+# measured before the guard existed, `VERSION=9.9.9 make -n bump-version`
+# rewrote every manifest from a variable nobody typed, and `release-branch`
+# would have branched on it. Set here rather than guarded here: the guard is
+# generic to every repo on standard.mk and lives there, not in a private copy
+# (just-buildit/just-buildit.github.io#29). Inert until that lands.
+PROJECT = DOPPLER
 
 define RELEASE_BRANCH_NOTES
 @echo "  - if perf-relevant code changed since the last release (release.md"
@@ -971,6 +1016,7 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 print-jm-version nats-up nats-down \
                 docs-relink docs-drift-check drift-check changelog-check \
                 release-notes-size-check workflow-syntax-check \
+                jm-pin \
                 issue-link-check \
                 validate validate-c validate-check \
                 characterize characterization-check \
@@ -1020,8 +1066,16 @@ include standard.mk
 # a gate this repo believed it had was executed by nothing on every PR for as
 # long as it has existed. Being inert (#705) was only half the problem; not
 # running was the other half, and `gates` is a local convenience, not CI.
+#
+# `release-notes-size-check` joined for the SAME reason, one release later. It
+# was still GATES_DEPS-only, so the two-sentences-above paragraph described it
+# exactly: a gate the repo believed it had, run by nothing on any PR. It now
+# also enforces the per-entry length that changelog.d/README.md asks for, and
+# guidance without a gate is the thing this repo keeps re-learning -- v0.44.0
+# assembled to 72,636 characters at a median of 24 lines per entry while a
+# README asked politely for less.
 lint: tests-ssot characterization-check validation-report-check changelog-check \
-      workflow-syntax-check \
+      workflow-syntax-check release-notes-size-check \
       issue-link-check deps-budget-check ci-image-check cargo-floor-check \
       bench-coverage-check kwarg-parity-check doc-sections-check
 
@@ -1083,7 +1137,7 @@ doc-sections-check: ## Verify every `docs/x.md` section citation resolves
 # never set uv up -- `make: uv: No such file or directory`, exit 127, which
 # is a gate that cannot run rather than one that fails. The script imports
 # nothing outside the standard library precisely so it does not need one.
-installed-headers-check: build ## Verify installed headers declare only what the libraries define
+installed-headers-check: build ## Verify installed headers declare only what the libraries define, and define no feature-test macro
 	@command -v python3 >/dev/null 2>&1 || { \
 	    echo "installed-headers-check: no python3 — this gate has not run,"; \
 	    echo "  so it has not passed."; exit 1; }
@@ -1384,7 +1438,7 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 	    printf "  %-45s" "$$script"; \
 	    uv run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
 	done
-	@for png in agc_convergence.png ccsds_link_demo.png agc_settling_design.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png mpsk_telemetry_capture_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png; do \
+	@for png in agc_convergence.png ccsds_link_demo.png agc_settling_design.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png mpsk_telemetry_capture_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png awgn_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png; do \
 	    [ -e "$$png" ] && mv -f "$$png" docs/assets/ || true; \
 	done
 	# The demos that WRITE a capture leave it in the repo root. burst.blue
@@ -1949,6 +2003,37 @@ characterization-check: ## Verify every characterization subject is runnable and
 # every time rather than written down somewhere.
 JM_APPLY_ARGS ?=
 
+# The jm pin lives in three files and a lock. `just-makeit.toml` is the SSOT,
+# `gen_jm_pin.py --write` (via docs-relink) propagates to pyproject.toml and the
+# downstream example, and `uv lock` re-resolves the dev group the pin names.
+# Before this target that sequence had no home, so every bump improvised it --
+# which is how the 0.63.3 -> 0.65.0 bump came to be done with a raw `sed`, a
+# direct script call and a bare `uv lock`, in a repo whose rule is that make is
+# the SSOT. `gen_jm_pin.py --check` already gates that the sites agree; this
+# gates HOW they get there.
+jm-pin: ## JM=x.y.z — move the just-makeit pin everywhere and re-lock
+ifndef JM
+	@echo "usage: make jm-pin JM=<x.y.z>"; exit 1
+endif
+# Pre-flight BEFORE touching anything, because the failure mode is asymmetric:
+# `docs-relink` runs under `uv run`, so once pyproject.toml names a version uv
+# cannot resolve, the environment is broken and this target can no longer run
+# to fix itself. Measured while writing it -- `make jm-pin JM=9.9.9` left three
+# files moved, a stale lock, and no way back through make.
+#
+# It also answers the question actually being asked most of the time: has the
+# version been released yet? `jm status` says CLOSED, and a closed issue is not
+# a release.
+	@curl -fsS -o /dev/null "https://pypi.org/pypi/just-makeit/$(JM)/json" || { \
+	    echo "jm-pin: just-makeit $(JM) is not on PyPI — nothing changed."; \
+	    echo "  A merged fix is not a release. Check:"; \
+	    echo "    gh release list --repo just-buildit/just-makeit --limit 3"; \
+	    exit 1; }
+	@sed -i 's/^jm_version = ".*"/jm_version = "$(JM)"/' just-makeit.toml
+	@$(MAKE) --no-print-directory docs-relink
+	@uv lock
+	@echo "jm-pin: pinned $(JM). Next: make jm-apply, then make drift-check."
+
 jm-apply: ## Regenerate jm-owned glue from the manifest (then run drift-check)
 	uv sync --group dev --no-install-project
 	uv run just-makeit apply $(JM_APPLY_ARGS)
@@ -2132,8 +2217,8 @@ doxygen-warn-gate: ## The doxygen warning gate proper (re-entered in Docker)
 # Smoke-test every standalone C example. Excluded (each needs a live NATS peer
 # or terminal interaction, not just a broker): transmitter, receiver,
 # pipeline_demo, spectrum_analyzer.
-EXAMPLE_BIN_DIR := $(BUILD_DIR)/examples/c
-STANDALONE_BUILD_DIR := examples/standalone/build
+EXAMPLE_BIN_DIR := $(BUILD_DIR)/native/examples
+STANDALONE_BUILD_DIR := example-projects/standalone/build
 DOWNSTREAM_DIR := examples/downstream-jm
 # Build trees live under doppler's BUILD_DIR, not inside the example: the
 # example is a jm project and `jm status` walks its tree, so a build dir there
@@ -2148,7 +2233,7 @@ DOWNSTREAM_BUILD_DIR := $(BUILD_DIR)/downstream-jm
 # and names the wrong thing. A deadline turns that into a FAIL with the
 # example's name on it.
 C_EXAMPLE_TIMEOUT ?= 120
-C_EXAMPLE_SKIPS   := examples/c/.examples-skip
+C_EXAMPLE_SKIPS   := native/examples/.examples-skip
 
 test-examples-c: build ## Smoke-test every standalone C example
 # DISCOVERED, never listed. This used to iterate a hand-written list of nine
@@ -2160,12 +2245,12 @@ test-examples-c: build ## Smoke-test every standalone C example
 	@echo "Running C example smoke tests..."
 	@bash scripts/smoke-c-examples.sh $(EXAMPLE_BIN_DIR) $(C_EXAMPLE_TIMEOUT)
 	@echo "Building standalone example..."
-	@cmake -B $(STANDALONE_BUILD_DIR) examples/standalone \
+	@cmake -B $(STANDALONE_BUILD_DIR) example-projects/standalone \
 	    -DDOPPLER_BUILD_DIR=$(abspath $(BUILD_DIR)) \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    > /dev/null 2>&1
 	@cmake --build $(STANDALONE_BUILD_DIR) > /dev/null 2>&1
-	@printf "  %-20s" "awgn_example"; \
+	@printf "  %-24s" "awgn_example"; \
 	if $(STANDALONE_BUILD_DIR)/awgn_example > /dev/null 2>&1; then \
 	    echo "PASS"; \
 	else \
@@ -2197,7 +2282,7 @@ test-example-downstream: build ## Build the downstream jm example (C only)
 	@cmake --build $(DOWNSTREAM_BUILD_DIR) --parallel $(NPROC) \
 	    > $(DOWNSTREAM_BUILD_DIR).log 2>&1 \
 	    || { echo "  build FAILED"; cat $(DOWNSTREAM_BUILD_DIR).log; exit 1; }
-	@printf "  %-20s" "downstream-jm"; \
+	@printf "  %-24s" "downstream-jm"; \
 	if $(CTEST) --test-dir $(DOWNSTREAM_BUILD_DIR) > /dev/null 2>&1; then \
 	    echo "PASS"; \
 	else \
@@ -2336,7 +2421,7 @@ abi-check: ## Verify the built libraries are portable and C++-free (Linux)
 # still links, which is exactly why a gate that names it is worth having.
 link-check: ## Smoke-test that a downstream links libdoppler.a with -lm -lpthread
 	@t=$$(mktemp -d); \
-	 if cc examples/consumer/main.c -Inative/inc -I$(BUILD_DIR)/native/inc \
+	 if cc example-projects/consumer/main.c -Inative/inc -I$(BUILD_DIR)/native/inc \
 	       $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/consumer_smoke" \
 	    && ( cd "$$t" && ./consumer_smoke > /dev/null ); then \
 	     echo "link-check: OK — libdoppler.a links with -lm -lpthread."; \
@@ -2375,7 +2460,7 @@ consumer-faces-check: build ## Build a consumer via cc/CMake/pkg-config, assert 
 # evidence away. The list is globbed, never enumerated, so a new example is
 # covered the moment it builds.
 GLIBC_MAX ?= 2.28
-GLIBC_EXAMPLE_DIR = $(BUILD_DIR)/examples/c
+GLIBC_EXAMPLE_DIR = $(BUILD_DIR)/native/examples
 glibc-check: ## Verify no glibc symbol newer than $(GLIBC_MAX) (needs an old-glibc build)
 # Fail-closed on BOTH ways of reading nothing, because "no bad symbols found"
 # and "no symbols found" produced the identical green line: pointed at a dir
@@ -2526,8 +2611,15 @@ ccache-stats: ## Print compiler-cache hit statistics (no-op without ccache)
 	    echo "ccache-stats: ccache not installed — builds are uncached"; \
 	 fi
 
+# Plain `python3`, not `$(UV) run python`, and deliberately: the script is
+# stdlib-only, and ci-image.yml shells out to THIS target so the workflow and
+# the check cannot compute different numbers. That workflow builds the image
+# the rest of CI runs inside, so it is the one place that cannot assume a
+# synced uv environment -- it has neither a setup-python nor a uv install step.
+# Nothing is unpinned by this: `uv run` pins dependencies, and this script has
+# none.
 ci-image-source-hash: ## Print the hash of the CI image's inputs (plumbing)
-	@cat bootstrap.toml $(CI_DOCKERFILE) | sha256sum | cut -d' ' -f1
+	@python3 scripts/ci_image_source_hash.py
 
 ci-image: ## Build the CI toolchain image locally, one per base
 	@for b in $(CI_IMAGE_BASES); do \
@@ -2617,8 +2709,10 @@ ci-image-check: ## Fail when the pinned CI image no longer matches its inputs
 	 fi; \
 	 have=$$($(MAKE) -s ci-image-source-hash); \
 	 if [ "$$have" != "$(CI_IMAGE_SOURCE_HASH)" ]; then \
-	     echo "ci-image-check: bootstrap.toml or $(CI_DOCKERFILE) changed"; \
-	     echo "  since the pinned image was built."; \
+	     echo "ci-image-check: the CI image's inputs changed since the"; \
+	     echo "  pinned image was built (bootstrap.toml's package/tool"; \
+	     echo "  tables, or $(CI_DOCKERFILE) -- NOT [project], which"; \
+	     echo "  no layer reads; see scripts/ci_image_source_hash.py)."; \
 	     echo "    pinned inputs: $(CI_IMAGE_SOURCE_HASH)"; \
 	     echo "    this tree:     $$have"; \
 	     echo "  Push the branch (ci-image.yml builds on those paths), then"; \
@@ -2789,9 +2883,16 @@ test-snippets: ## Run the python/C/shell doc-fence gates
 # names a script and the registry stays the only place a name appears.
 #
 # Override with PYTEST_ARGS="-n 0" to force serial, matching `test-python`.
+# test_c_example_pairs.py runs here rather than under test-examples-c for
+# two reasons that are both about this being the only place it can actually
+# run: the C examples it drives need a live broker AND the built binaries,
+# and this is the gate CI reaches with both (test-examples-c also runs in
+# the macOS build job, where there is no nats-server to start). It
+# self-skips without either.
 test-examples-python: ## Run the Python example gate (requires pyext)
 	uv run pytest -m "examples and not examples_serial" -q -n auto \
-	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py
+	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py \
+	    src/doppler/tests/test_c_example_pairs.py
 	@# Exit 5 is pytest's "no tests collected", which is what an EMPTY
 	@# .examples-serial produces -- every item deselected. That is the
 	@# registry doing its job (the constraint was fixed and the line

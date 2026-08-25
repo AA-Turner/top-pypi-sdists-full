@@ -249,10 +249,38 @@ def test_system_executable_from_existing_base(mocker: MockerFixture, tmp_path: P
     assert PythonInfo().system_executable == str(base)
 
 
+@pytest.mark.usefixtures("no_framework")
+@pytest.mark.parametrize(
+    "same_file",
+    [
+        pytest.param(False, id="distinct"),
+        pytest.param(True, id="alias"),
+    ],
+)
+def test_system_executable_prefers_exact_version(mocker: MockerFixture, tmp_path: Path, *, same_file: bool) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    versioned = bin_dir / "python3.13"
+    versioned.touch()
+    generic = bin_dir / "python3"
+    if same_file:
+        generic.symlink_to(versioned.name)
+        landmark = tmp_path / "lib" / Path(os.__file__).parent.name / "os.py"
+        landmark.parent.mkdir(parents=True)
+        landmark.touch()
+    else:
+        generic.touch()
+    _venv(mocker)
+    mocker.patch.object(sys, "_base_executable", str(generic), create=True)
+    mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
+    assert PythonInfo().system_executable == str(generic if same_file else versioned)
+
+
 def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv_missing_base_no_candidates(mocker, tmp_path)
-    versioned = tmp_path / "python3"
+    versioned = tmp_path / "python3.12"
     versioned.touch()
+    (tmp_path / "python3").touch()
     assert PythonInfo().system_executable == str(versioned)
 
 

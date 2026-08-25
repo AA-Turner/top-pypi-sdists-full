@@ -1439,6 +1439,7 @@ class ModelsV1Api:
         onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter the results for models whose 'onboarding_identifier' matches the provided string.")] = None,
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1474,6 +1475,8 @@ class ModelsV1Api:
         :type infrastructure: Infrastructure
         :param model_problem_type: Filter for models by problem type.
         :type model_problem_type: ModelProblemType
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1509,6 +1512,7 @@ class ModelsV1Api:
             onboarding_identifier=onboarding_identifier,
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1545,6 +1549,7 @@ class ModelsV1Api:
         onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter the results for models whose 'onboarding_identifier' matches the provided string.")] = None,
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1580,6 +1585,8 @@ class ModelsV1Api:
         :type infrastructure: Infrastructure
         :param model_problem_type: Filter for models by problem type.
         :type model_problem_type: ModelProblemType
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1615,6 +1622,7 @@ class ModelsV1Api:
             onboarding_identifier=onboarding_identifier,
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1651,6 +1659,7 @@ class ModelsV1Api:
         onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter the results for models whose 'onboarding_identifier' matches the provided string.")] = None,
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1686,6 +1695,8 @@ class ModelsV1Api:
         :type infrastructure: Infrastructure
         :param model_problem_type: Filter for models by problem type.
         :type model_problem_type: ModelProblemType
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1721,6 +1732,7 @@ class ModelsV1Api:
             onboarding_identifier=onboarding_identifier,
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1752,6 +1764,7 @@ class ModelsV1Api:
         onboarding_identifier,
         infrastructure,
         model_problem_type,
+        exclude_model_problem_types,
         page,
         page_size,
         _request_auth,
@@ -1763,6 +1776,7 @@ class ModelsV1Api:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'exclude_model_problem_types': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1805,6 +1819,10 @@ class ModelsV1Api:
         if model_problem_type is not None:
             
             _query_params.append(('model_problem_type', model_problem_type.value))
+            
+        if exclude_model_problem_types is not None:
+            
+            _query_params.append(('exclude_model_problem_types', exclude_model_problem_types))
             
         if page is not None:
             
@@ -1863,6 +1881,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[Optional[StrictStr]], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1900,6 +1919,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[Optional[str]]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1936,6 +1957,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1973,6 +1995,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[Optional[StrictStr]], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2010,6 +2033,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[Optional[str]]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2046,6 +2071,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2083,6 +2109,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[Optional[StrictStr]], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2120,6 +2147,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[Optional[str]]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2156,6 +2185,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2188,6 +2218,7 @@ class ModelsV1Api:
         infrastructure,
         model_problem_type,
         model_ids,
+        exclude_model_problem_types,
         page,
         page_size,
         _request_auth,
@@ -2200,6 +2231,7 @@ class ModelsV1Api:
 
         _collection_formats: Dict[str, str] = {
             'model_ids': 'multi',
+            'exclude_model_problem_types': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2246,6 +2278,10 @@ class ModelsV1Api:
         if model_ids is not None:
             
             _query_params.append(('model_ids', model_ids))
+            
+        if exclude_model_problem_types is not None:
+            
+            _query_params.append(('exclude_model_problem_types', exclude_model_problem_types))
             
         if page is not None:
             
@@ -2303,6 +2339,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2338,6 +2375,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[str]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2373,6 +2412,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2409,6 +2449,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2444,6 +2485,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[str]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2479,6 +2522,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2515,6 +2559,7 @@ class ModelsV1Api:
         infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
         model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
         model_ids: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=50)]], Field(description="Filter for models whose ID is in this list. Optional.")] = None,
+        exclude_model_problem_types: Annotated[Optional[List[ModelProblemType]], Field(description="Exclude models linked to any dataset with these problem types. Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2550,6 +2595,8 @@ class ModelsV1Api:
         :type model_problem_type: ModelProblemType
         :param model_ids: Filter for models whose ID is in this list. Optional.
         :type model_ids: List[str]
+        :param exclude_model_problem_types: Exclude models linked to any dataset with these problem types. Optional.
+        :type exclude_model_problem_types: List[ModelProblemType]
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2585,6 +2632,7 @@ class ModelsV1Api:
             infrastructure=infrastructure,
             model_problem_type=model_problem_type,
             model_ids=model_ids,
+            exclude_model_problem_types=exclude_model_problem_types,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2616,6 +2664,7 @@ class ModelsV1Api:
         infrastructure,
         model_problem_type,
         model_ids,
+        exclude_model_problem_types,
         page,
         page_size,
         _request_auth,
@@ -2628,6 +2677,7 @@ class ModelsV1Api:
 
         _collection_formats: Dict[str, str] = {
             'model_ids': 'multi',
+            'exclude_model_problem_types': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2672,6 +2722,10 @@ class ModelsV1Api:
         if model_ids is not None:
             
             _query_params.append(('model_ids', model_ids))
+            
+        if exclude_model_problem_types is not None:
+            
+            _query_params.append(('exclude_model_problem_types', exclude_model_problem_types))
             
         if page is not None:
             

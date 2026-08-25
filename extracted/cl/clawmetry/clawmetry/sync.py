@@ -645,6 +645,70 @@ def encrypt_payload(data: dict, key_b64: str) -> str:
     return base64.urlsafe_b64encode(nonce + ct).decode()
 
 
+# ── The no-key rule ─────────────────────────────────────────────────────────
+# Every content-bearing upload goes through this gate. Content means anything
+# carrying what the user or the agent actually said or did: prompts, replies,
+# tool arguments, file contents, log lines, cron prompts, session subjects.
+#
+# SECURITY (2026-08-24 review, finding 3): these call sites used to read
+#
+#     if enc_key: post(encrypted blob)
+#     else:       post(payload)          # ← full plaintext
+#
+# so a node in cloud mode with no key uploaded everything in the clear. The
+# relay READ path already had the right instinct — it fails closed with no key
+# — and this makes the write path agree with it. Refusing to send is always
+# the correct answer here: the local DuckDB store is the source of truth and
+# the cloud is a hot cache, so skipping an upload costs a cache miss, while
+# sending costs the guarantee the product is sold on.
+_NO_KEY_REFUSALS: dict = {}
+
+
+def content_egress_permitted(enc_key: str | None, endpoint: str) -> bool:
+    """False when content must not leave this machine for ``endpoint``.
+
+    Callers must skip the upload entirely rather than falling back to a
+    plaintext POST. Logged once per endpoint per process so a keyless node
+    says so plainly at startup without flooding the log every tick.
+    """
+    if enc_key:
+        return True
+    if not _NO_KEY_REFUSALS.get(endpoint):
+        _NO_KEY_REFUSALS[endpoint] = True
+        log.warning(
+            "No encryption key on this node — skipping cloud upload to %s. "
+            "Session content is never sent unencrypted. Your local dashboard "
+            "is unaffected; run `clawmetry connect` to set a key and restore "
+            "the cloud view.",
+            endpoint,
+        )
+    return False
+
+
+def split_session_title(title: str, enc_key: str | None, fallback: str) -> tuple:
+    """Return ``(cleartext_label, encrypted_blob_or_None)`` for a session title.
+
+    SECURITY (2026-08-24 review, finding 4): a session's display name is
+    content. It comes from the transcript's own ``label`` frame or, for chat
+    channels, the conversation's subject line — "Reset prod DB password",
+    "Draft the layoff email". The ``/ingest/sessions`` row is server-parsed
+    (the cloud queries and sorts on it), so the row itself cannot be one
+    opaque blob; instead the title rides in an encrypted companion field and
+    the cleartext row carries a neutral identifier.
+
+    A node with no key sends only the fallback — never the title.
+    """
+    title = (title or "").strip()
+    if not title or title == fallback:
+        return fallback, None
+    if not enc_key:
+        return fallback, None
+    try:
+        return fallback, encrypt_payload({"display_name": title}, enc_key)
+    except Exception:
+        return fallback, None
+
+
 def decrypt_payload(blob: str, key_b64: str) -> dict:
     """Decrypt a blob produced by encrypt_payload. Used by clients."""
     cipher = _get_aesgcm(key_b64)
@@ -784,12 +848,12 @@ def _dlq_replay(api_key: str, enc_key: str | None) -> int:
                     pass
                 continue
         else:
-            # post_failure row with no encryption configured — replay as plain POST.
-            try:
-                _post(row["endpoint"], payload, api_key)
-            except Exception as _post_e:
+            # No key — leave the row parked rather than replaying it in the
+            # clear. It drains on the next tick after the user sets a key;
+            # until then the batch stays on this machine.
+            if not content_egress_permitted(enc_key, row["endpoint"]):
                 try:
-                    store.dlq_mark_attempt(dlq_id, f"post: {_post_e}")
+                    store.dlq_mark_attempt(dlq_id, "no encryption key configured")
                 except Exception:
                     pass
                 continue
@@ -3297,6 +3361,8 @@ def _flush_session_batch(
                     fname, _enc_e,
                 )
             return
+    if blob is None and not content_egress_permitted(enc_key, "/ingest/events"):
+        return
     try:
         if blob is not None:
             _post(
@@ -3304,8 +3370,6 @@ def _flush_session_batch(
                 {"node_id": node_id, "encrypted": True, "blob": blob},
                 api_key,
             )
-        else:
-            _post("/ingest/events", payload, api_key)
     except Exception as _cloud_e:
         try:
             _dlq_enqueue_encryption_failure(
@@ -6334,18 +6398,17 @@ def _flush_log_batch(
     entries: list, fname: str, api_key: str, enc_key: str | None, node_id: str
 ) -> None:
     payload = {"log_file": fname, "node_id": node_id, "lines": entries}
-    if enc_key:
-        _post(
-            "/ingest/logs",
-            {
-                "node_id": node_id,
-                "encrypted": True,
-                "blob": encrypt_payload(payload, enc_key),
-            },
-            api_key,
-        )
-    else:
-        _post("/ingest/logs", payload, api_key)
+    if not content_egress_permitted(enc_key, "/ingest/logs"):
+        return
+    _post(
+        "/ingest/logs",
+        {
+            "node_id": node_id,
+            "encrypted": True,
+            "blob": encrypt_payload(payload, enc_key),
+        },
+        api_key,
+    )
 
 
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
@@ -6810,6 +6873,49 @@ def _outcomes_slice_for_snapshot(runtime: str | None = None) -> dict:
         return agg
     except Exception as e:
         log.debug("snapshot: outcomes slice failed: %s", e)
+        return {}
+
+
+def _outcomes_trend_slice_for_snapshot(runtime: str | None = None) -> dict:
+    """7d-over-7d outcome + cost trend for the Quality tab's "is it getting
+    better?" line on the hosted dashboard.
+
+    Mirrors ``routes/sessions.api_outcomes_trend``: ONE 14-day read split into
+    two 7-day periods, compared by
+    ``clawmetry.outcome_classifier.outcome_trend``. Without this slice the
+    hosted card fetches an /api/outcomes/trend the cloud container cannot
+    answer (no local DuckDB) and renders blank — the failure mode FLYWHEEL
+    §0a.1 exists to stop.
+
+    Best-effort; ``{}`` on any error so the snapshot never fails.
+    """
+    try:
+        from clawmetry import local_store as _ls_tr
+        from clawmetry.outcome_classifier import outcome_trend
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+        now = _dt.now(_tz.utc)
+
+        def _iso(delta_days):
+            return (now - _td(days=delta_days)).isoformat().replace("+00:00", "Z")
+
+        cur_since = _iso(7)
+        rows = _ls_tr.get_store().query_outcomes(
+            agent_type="openclaw", since=_iso(14), runtime=runtime,
+            limit=4000) or []
+        current, previous = [], []
+        for r in rows:
+            ts = (r or {}).get("last_active_at") or (r or {}).get("ended_at") or ""
+            if not ts:
+                continue
+            (current if ts >= cur_since else previous).append(r)
+        payload = outcome_trend(current, previous)
+        payload["window"] = "7d"
+        payload["runtime"] = runtime or "all"
+        payload["store_available"] = True
+        return payload
+    except Exception as e:
+        log.debug("snapshot: outcomes trend slice failed: %s", e)
         return {}
 
 
@@ -8112,9 +8218,33 @@ def _read_claude_oauth_token():
     return None
 
 
+def _claude_limit_probe_enabled() -> bool:
+    """True when the user has opted into the Claude rate-limit probe.
+
+    SECURITY (2026-08-24 review, finding 7): the probe reads Claude Code's
+    stored OAuth token out of the keychain (or ~/.claude/.credentials.json)
+    and spends one Haiku token every ~5 minutes on the user's own billing,
+    purely to scrape the rate-limit response headers that feed the limits
+    meter. Using another product's credential is not something to do by
+    default, however useful the meter is — so it is now off unless asked for.
+    """
+    env = str(os.environ.get("CLAWMETRY_CLAUDE_LIMIT_PROBE", "")).strip().lower()
+    if env in ("1", "true", "yes"):
+        return True
+    if env in ("0", "false", "no"):
+        return False
+    try:
+        with open(os.path.expanduser("~/.clawmetry/config.json")) as _f:
+            return bool((json.load(_f) or {}).get("claude_limit_probe"))
+    except Exception:
+        return False
+
+
 def _probe_claude_limits():
     """One 1-token Haiku call -> unified limit headers. Returns the
-    heartbeat payload dict or None (no creds / no headers / any error)."""
+    heartbeat payload dict or None (not enabled / no creds / any error)."""
+    if not _claude_limit_probe_enabled():
+        return None
     token = _read_claude_oauth_token()
     if not token:
         return None
@@ -8131,7 +8261,9 @@ def _probe_claude_limits():
                 "anthropic-version": "2023-06-01",
                 "anthropic-beta": "oauth-2025-04-20",
                 "Content-Type": "application/json",
-                "User-Agent": "claude-code/2.1.5",
+                # Our own identity. Sending claude-code's User-Agent was
+                # impersonation of another product against its own API.
+                "User-Agent": "clawmetry-daemon",
                 "Authorization": "Bearer " + token,
             })
         try:
@@ -9536,6 +9668,35 @@ _PENDING_ACTIONS = frozenset({
 })
 
 
+# ── Prompt-bearing relayed actions ──────────────────────────────────────────
+# SECURITY (2026-08-24 review, finding 10): most relayed actions are writes
+# into local tables, or reads whose SQL is sandboxed. These three are not —
+# they interpolate SERVER-SUPPLIED strings into a prompt and hand it to a
+# local agent that has file-system and network tools. That makes a compromised
+# (or merely mistaken) server able to act on this machine, which is a much
+# stronger power than "show me a dashboard".
+#
+# It is a vendor-trust risk rather than a network-attacker one — argv lists,
+# TLS verification on — but the fix is the same either way: default it off and
+# make turning it on a local, per-node decision the operator takes knowingly.
+# Local-only installs never had this exposure; they have no relay at all.
+_PROMPT_BEARING_ACTIONS = frozenset({
+    "selfevolve_fix",
+    "cron_create",
+    "cron_fix",
+})
+
+
+def _remote_prompts_enabled(config: dict) -> bool:
+    """True when this node has opted into server-supplied prompts. Default False."""
+    env = str(os.environ.get("CLAWMETRY_ALLOW_REMOTE_PROMPTS", "")).strip().lower()
+    if env in ("1", "true", "yes"):
+        return True
+    if env in ("0", "false", "no"):
+        return False
+    return bool(config.get("remote_prompts"))
+
+
 def _build_channel_config_status_cache_pushes(config: dict) -> list:
     """Build the heartbeat cache_push entries for channel adapter status.
 
@@ -9698,6 +9859,16 @@ def _dispatch_pending_action(config: dict, action: dict) -> None:
     raise — one bad action must not block the heartbeat batch."""
     atype = action.get("type")
     if atype not in _PENDING_ACTIONS:
+        return
+    if atype in _PROMPT_BEARING_ACTIONS and not _remote_prompts_enabled(config):
+        log.warning(
+            "Refusing relayed action %r: it would run a server-supplied prompt "
+            "through a local agent with tools enabled. Turn it on for this node "
+            "with `clawmetry config set remote_prompts true` (or "
+            "CLAWMETRY_ALLOW_REMOTE_PROMPTS=1) if you want the cloud "
+            "\"Fix with AI\" and cloud-authored cron prompts.",
+            atype,
+        )
         return
     if atype == "channel_config_upsert":
         _action_channel_config_upsert(config, action)
@@ -11525,23 +11696,30 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
                 expr = ""
             job_state = j.get("state", {})
             job_id = j.get("id", "")
+            # SECURITY (2026-08-24 review, finding 4): this event is NOT
+            # encrypted — it feeds the cloud's cron table server-side. So it
+            # carries no content: `task` is the job's prompt text and
+            # `watchedCommand` is a shell command line, and both used to ship
+            # here in the clear. The cloud cron view gets them from the
+            # encrypted `crons_list` cache_push instead
+            # (`_build_crons_cache_pushes`), which fails closed without a key;
+            # the full text is also kept locally by the `ingest_cron` call
+            # below. `lastError` goes too — agent error strings quote prompts
+            # and paths.
             event_data = {
                 "job_id": job_id,
                 "name": j.get("name", ""),
                 "enabled": j.get("enabled", True),
                 "expr": expr,
                 "schedule": sched,
-                "task": (j.get("task") or "")[:200],
                 "model": j.get("model", ""),
                 "state": {
                     "lastStatus": job_state.get("lastStatus"),
                     "lastRunAtMs": job_state.get("lastRunAtMs"),
                     "nextRunAtMs": job_state.get("nextRunAtMs"),
                     "lastDurationMs": job_state.get("lastDurationMs"),
-                    "lastError": job_state.get("lastError"),
                     "consecutiveFailures": job_state.get("consecutiveFailures"),
                     # on-exit trigger / detached-run metadata (openclaw #92037 / #98755)
-                    "watchedCommand":  job_state.get("watchedCommand"),
                     "lastExitCode":    job_state.get("lastExitCode") or job_state.get("exitCode"),
                     "targetSessionId": job_state.get("targetSessionId"),
                     "detachedAt":      job_state.get("detachedAt"),
@@ -12684,7 +12862,10 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
                 # Resolve display name from session key when available
                 _sk = _sid_to_key.get(sid, "")
                 _sm = _sid_to_meta.get(sid, {})
-                _dn = label or _sm.get("subject") or _sk or sid[:8]
+                _dn_full = label or _sm.get("subject") or _sk or sid[:8]
+                _dn, _dn_blob = split_session_title(
+                    _dn_full, config.get("encryption_key"), _sk or sid[:8]
+                )
                 # OpenClaw is the one runtime that emits a REAL end signal:
                 # the transcript's ``type=="session"`` frame carries
                 # endReason/end_reason (parsed just above). Honour it — an
@@ -12700,6 +12881,7 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
                     {
                         "session_id": sid,
                         "display_name": _dn,
+                        "display_name_blob": _dn_blob,
                         "session_key": _sk,
                         "channel": _sm.get("provider", ""),
                         "chat_type": _sm.get("chatType", ""),
@@ -12937,7 +13119,7 @@ def sync_memory(config: dict, state: dict, paths: dict) -> int:
         except Exception as _le:
             log.warning("local-store memory ingest failed (cloud sync continues): %s", _le)
 
-        if enc_key:
+        if content_egress_permitted(enc_key, "/ingest/memory"):
             from clawmetry.sync import encrypt_payload
 
             _post(
@@ -12949,8 +13131,8 @@ def sync_memory(config: dict, state: dict, paths: dict) -> int:
                 },
                 api_key,
             )
-        else:
-            _post("/ingest/memory", payload, api_key)
+        # The local DuckDB ingest above already ran — a keyless node keeps a
+        # complete local memory view, it just doesn't populate the cloud one.
         synced = len(changed_files)
     except Exception as e:
         log.warning(f"Memory sync error: {e}")
@@ -14363,12 +14545,21 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # shows it (top-level sessions only; children ride the
                 # snapshot subagents[] slice instead).
                 if not _is_child:
+                    # SECURITY (2026-08-24 review, finding 4): `_ftitle` is
+                    # derived from the session's first real user prompt, so it
+                    # is content and must not ride in the server-parsed row.
+                    # The readable title goes in an encrypted companion field;
+                    # the cleartext row falls back to the session id.
+                    _t_clear, _t_blob = split_session_title(
+                        _ftitle, config.get("encryption_key"), s.id
+                    )
                     cloud_session_rows.append({
                     "agent_type": "openclaw",
                     "session_id": ns_id,
                     "node_id": node_id,
                     "agent_id": "main",
-                    "title": _ftitle,
+                    "title": _t_clear,
+                    "title_blob": _t_blob,
                     "started_at": started,
                     "last_active_at": ended or started,
                     "ended_at": _fended,
@@ -14754,6 +14945,38 @@ def _runtime_of_session(sid: str) -> str:
         if p in _RUNTIME_PREFIXES:
             return p
     return "openclaw"
+
+
+def _build_runtime_records():
+    """Per-runtime "what does this runtime record" verdicts for the snapshot.
+
+    The Cost tab and the Efficiency card are call-event driven: with no
+    per-call cost rows they render $0.00 / "grade appears after about a day".
+    For a runtime that never writes per-call cost, both are false. Locally the
+    handlers attach the verdict themselves; on cloud there are no handlers, so
+    the verdict has to travel in the snapshot for the interceptor to attach.
+
+    Static (a declared table, not a measurement) and small. Best-effort: any
+    failure yields ``{}`` and the UI keeps its older, vaguer wording.
+    """
+    try:
+        from clawmetry.runtime_records import RUNTIME_RECORDS, SIGNALS, coverage_payload
+        out = {}
+        for rt in RUNTIME_RECORDS:
+            base = coverage_payload(rt, has_data=False)
+            out[rt] = {
+                "runtime_label": base["runtime_label"],
+                "records": {s: base["records"][s] for s in SIGNALS},
+                "headline": base["headline"],
+                "detail": base["detail"],
+                "suppress_zero": base["suppress_zero"],
+                "cost_is_estimate": base["cost_is_estimate"],
+                "status_when_empty": base["status"],
+            }
+        return out
+    except Exception as _e:
+        log.debug("runtimeRecords slice failed: %s", _e)
+        return {}
 
 
 def _build_runtime_summary(limit: int = 20000):
@@ -19872,6 +20095,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     # ?runtime= and serve byRuntime[rt], falling back to the node-wide slice.
     _runtime_summary = _build_runtime_summary()
     _outcomes_by_rt: dict = {}
+    _outcomes_trend_by_rt: dict = {}
     _activity_by_rt: dict = {}
     try:
         _rt_keys = list(_runtime_summary.keys()) if isinstance(_runtime_summary, dict) else []
@@ -19880,6 +20104,9 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
                 _o = _outcomes_slice_for_snapshot(runtime=_rtk)
                 if _o:
                     _outcomes_by_rt[_rtk] = _o
+                _ot = _outcomes_trend_slice_for_snapshot(runtime=_rtk)
+                if _ot:
+                    _outcomes_trend_by_rt[_rtk] = _ot
                 _a = _collect_activity_counters_today(runtime=_rtk)
                 if _a:
                     _activity_by_rt[_rtk] = _a
@@ -20037,6 +20264,11 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "activityTodayByRuntime": _activity_by_rt,
         "outcomes": _outcomes_slice_for_snapshot(),
         "outcomesByRuntime": _outcomes_by_rt,
+        # 7d-over-7d trend behind the Quality tab's "is it getting better?"
+        # line. Read by the cloud cm-cloud-outcomes-trend interceptor, which
+        # serves trendByRuntime[rt] for ?runtime= and falls back to node-wide.
+        "outcomesTrend": _outcomes_trend_slice_for_snapshot(),
+        "outcomesTrendByRuntime": _outcomes_trend_by_rt,
         # Agent Inventory roster: node-wide roster (one row per runtime) + a
         # per-runtime slice the cloud cm-cloud-inventory interceptor returns for
         # ?runtime=<rt> (only that runtime's row — the no-leak contract).
@@ -20081,6 +20313,12 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "diagnostics": _build_diagnostics(paths.get("workspace")),
         "modelAttribution": _build_model_attribution(),
         "runtimeSummary": _runtime_summary,
+        # What each runtime actually records (clawmetry/runtime_records.py).
+        # Rides the snapshot so the HOSTED dashboard can tell "this runtime
+        # was idle" apart from "this runtime keeps no cost record" — without
+        # it the cloud goes back to promising a number that will never
+        # arrive. Static, tiny (26 short entries), and content-free.
+        "runtimeRecords": _build_runtime_records(),
         "transcripts": _build_transcripts(
             extra_sids=[
                 s["sessionId"]
@@ -20301,6 +20539,12 @@ def start_log_streamer(config: dict, paths: dict) -> threading.Thread:
     """Start a background thread that tails the local log file and POSTs lines to cloud in real-time."""
     api_key = config["api_key"]
     node_id = config["node_id"]
+    # SECURITY (2026-08-24 review, finding 4): raw agent log lines are content
+    # — they quote prompts, tool arguments and file paths — and this path used
+    # to POST them as plain JSON every few seconds even on a node with a key
+    # configured. They now travel inside the same AES-GCM envelope as every
+    # other content upload, and a keyless node streams nothing.
+    enc_key = config.get("encryption_key")
     log_dir = paths.get("log_dir", "")
 
     def _find_latest_log():
@@ -20368,14 +20612,21 @@ def start_log_streamer(config: dict, paths: dict) -> threading.Thread:
                 # Push batch every STREAM_INTERVAL seconds
                 now = time.time()
                 if batch and (now - last_push >= STREAM_INTERVAL or len(batch) >= 50):
-                    try:
-                        _post(
-                            "/ingest/stream",
-                            {"node_id": node_id, "lines": batch},
-                            api_key,
-                        )
-                    except Exception as e:
-                        log.debug(f"Stream push error: {e}")
+                    if content_egress_permitted(enc_key, "/ingest/stream"):
+                        try:
+                            _post(
+                                "/ingest/stream",
+                                {
+                                    "node_id": node_id,
+                                    "encrypted": True,
+                                    "blob": encrypt_payload(
+                                        {"node_id": node_id, "lines": batch}, enc_key
+                                    ),
+                                },
+                                api_key,
+                            )
+                        except Exception as e:
+                            log.debug(f"Stream push error: {e}")
                     batch = []
                     last_push = now
 
@@ -21293,27 +21544,29 @@ def run_daemon() -> None:
             interval_secs = max(60.0, interval_hours * 3600.0)
             while not _retention_stop.is_set():
                 try:
-                    from clawmetry import entitlements as _ent
                     from clawmetry import local_store as _ls
+                    from clawmetry import retention as _ret
 
-                    # effective_retention_days() folds in the
-                    # CLAWMETRY_RETENTION_DAYS env override (shrink-only —
-                    # never extends past the tier cap). Single source of truth
-                    # so /api/entitlement and the prune loop report the same
-                    # number.
-                    days = _ent.get_entitlement().effective_retention_days()
+                    # One resolver for the whole product: the tier cap, the
+                    # operator's own setting, and the env override, folded
+                    # shrink-only. The daemon prunes to the same number the
+                    # settings panel shows, because both call this — a
+                    # retention control the prune loop ignored would be worse
+                    # than no control at all.
+                    store = _ls.get_store()
+                    _rr = _ret.resolve(store=store)
+                    days = _rr.get("effective_days")
                     if days is None or days <= 0:
                         # Enterprise / unlimited — nothing to do.
-                        log.debug("retention prune: tier=unlimited, skip")
+                        log.debug("retention prune: unlimited, skip")
                     else:
-                        store = _ls.get_store()
                         if store is not None:
                             res = store.prune_events_by_age(days)
                             if res.get("deleted_rows"):
                                 log.info(
                                     "retention prune: deleted %d events older than %d days "
-                                    "(before=%d after=%d)",
-                                    res["deleted_rows"], days,
+                                    "[%s] (before=%d after=%d)",
+                                    res["deleted_rows"], days, _rr.get("source"),
                                     res.get("before_rows", 0),
                                     res.get("after_rows", 0),
                                 )

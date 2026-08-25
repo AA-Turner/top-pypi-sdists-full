@@ -125,12 +125,31 @@ MAX_DEEPDIFF_LINE_CHARS = 100_000
 # report. A check's `summary` cell names the first few inline; this is the rest
 # of the answer to "what changed", for the reader who never opens the artifact.
 MAX_INLINE_FINDINGS = 15
+# Share of a replaying target run's requests that may still hit the live API
+# before the comparison stops being a comparison against identical data.
+#
+# 20% is the plan's deliberately loose starting value, chosen while replay is
+# experimental and the check is diagnostic: the point today is to make poor
+# coverage visible without warning on every run that refreshes a token. It is
+# *not* the acceptance criterion, which is `live_flow_count` at or near zero --
+# on a 2,000-flow read, 20% is 400 live requests, easily enough upstream drift
+# to produce the false regression this whole feature exists to remove.
+#
+# Tighten it, most likely to a small absolute allowance rather than a ratio,
+# before this check is ever promoted from diagnostic to strict.
+MAX_LIVE_FLOW_RATIO = 0.2
+# Unmatched URLs a failing coverage check names inline. Enough to see whether the
+# shortfall is one shape of request -- a per-run job id, a clock-derived window --
+# with the rest of the list left in the run's `http_metrics` payload.
+MAX_LIVE_URLS_NAMED = 5
 
 _TRUNCATION_SUFFIX = " …"
 
 # The one check every run has: did the command itself succeed. Named because the
 # verdict fold treats it as already accounted for.
 _RUN_CHECK = "Command execution"
+# Reported whenever the target run was asked to replay the control run's traffic.
+_REPLAY_CHECK = "HTTP replay coverage"
 
 # Glyphs for the inline summary, keyed by `CheckResult.status` so the step
 # summary and the HTML report classify a check identically.
@@ -824,13 +843,26 @@ def _http_metrics_table(
     """
     control_http = control_result.get("http_metrics") or {}
     target_http = target_result.get("http_metrics") or {}
-    if not control_http and not target_http:
+    # Only when a capture actually recorded something. Two ways it does not:
+    # a payload holding just `replay_skipped_reason`, which describes a proxy
+    # that never ran, and a command that made no requests -- `spec`, and
+    # `check` on plenty of connectors. A table of zeroes reads as "no traffic"
+    # in the first case and is noise in the second; the reason, where there is
+    # one, surfaces as a check instead.
+    if not control_http.get("flow_count") and not target_http.get("flow_count"):
         return None
 
-    # Counts only: `cache_hit_ratio` is a formatted percentage rather than a
-    # number, so it is shown per side under Execution details, where it sits
-    # next to the counts it is derived from.
-    keys = ("flow_count", "duplicate_flow_count", "cache_hits_count")
+    # Counts only: the ratios and `replay_source` are formatted strings rather
+    # than numbers, so they are shown per side under Execution details, where
+    # they sit next to the counts they are derived from.
+    keys = (
+        "flow_count",
+        "duplicate_flow_count",
+        "cache_hits_count",
+        "replayed_flow_count",
+        "live_flow_count",
+        "unreplayable_flow_count",
+    )
     rows = tuple(
         MetricRow(
             label=key.replace("_", " ").title(),
@@ -1508,6 +1540,160 @@ def _apply_record_comparison(
     return tuple(updated)
 
 
+def _live_url_detail(http_metrics: dict[str, Any]) -> str:
+    """The URLs a replaying run fetched live, for a failing coverage check.
+
+    The counts alone say a shortfall happened and nothing about why. These are
+    the requests the corpus could not answer, and the recorded dumps are kept out
+    of the uploaded artifacts on purpose -- so if the check does not name them,
+    nothing does, and the run has to be re-run to be diagnosed.
+    """
+    live_urls = http_metrics.get("live_urls") or []
+    if not live_urls:
+        return ""
+
+    shown = [str(entry.get("url")) for entry in live_urls[:MAX_LIVE_URLS_NAMED]]
+    total = int(http_metrics.get("live_unique_url_count", len(live_urls)) or 0)
+    detail = "; unmatched: " + ", ".join(shown)
+    if total > len(shown):
+        detail += f" and {total - len(shown)} more"
+
+    return detail
+
+
+def _replay_coverage_check(
+    target_result: dict[str, Any],
+    control_result: dict[str, Any],
+) -> CheckResult | None:
+    """Report how much of a replaying target run still hit the live API.
+
+    The epic's rule is that an inconclusive run must never read as a pass. A
+    target that was supposed to replay the control run's traffic and instead
+    fetched a large share of it live was compared against *different* upstream
+    data, so a record difference cannot be attributed to the version under test.
+
+    Diagnostic on purpose, and re-argued now that replay is the default -- the
+    old reasoning was that replay was opt-in, which no longer holds. Every way
+    this check fires is a property of the environment or the data rather than
+    of the version under test: no `mitmdump` on the runner, a corpus over the
+    memory cap, a control run that captured nothing, a proxy killed before it
+    flushed its dump, or bodies deliberately excluded by
+    `--http-replay-max-body` and refetched live. Failing the verdict
+    on any of those would block a connector PR for a reason unrelated to its
+    code -- and would fail every local run made without the `live-tests`
+    dependency group. So it explains a record difference rather than
+    independently causing a failure.
+
+    That leaves it as the main signal that the acceptance criterion held, which
+    is why it has to be prominent and accurate even while it is advisory.
+    Promoting it to strict wants a threshold grounded in real numbers first --
+    see `MAX_LIVE_FLOW_RATIO`.
+
+    Both sides' metrics are read, because either run's proxy can be killed
+    before it flushed. A short *control* dump is the worse of the two: the flows
+    it lost are the ones the target then refetches live, so the check would
+    otherwise report the drift it causes -- and name the URLs that went live --
+    with nothing saying the recording was short. That is exactly the
+    misattribution `metrics_incomplete` exists to prevent, and the per-side
+    execution details are not where anyone looks after reading a red check.
+
+    Args:
+        target_result: The target run's payload, whose counts the check reads.
+        control_result: The control run's payload, for its `metrics_incomplete`
+            marker only -- the recording the target replayed from came from it.
+
+    Returns:
+        The check, or `None` when the run was not replaying at all.
+    """
+    http_metrics = target_result.get("http_metrics") or {}
+
+    # A run that made no HTTP requests has nothing to replay and no upstream to
+    # drift: `spec` never calls out at all, so its control run records an empty
+    # dump, the target finds nothing to replay from, and every stage of every
+    # run would otherwise carry a failed diagnostic whose reasoning is vacuous.
+    # That is how a check gets ignored on `read`, where it does carry meaning.
+    #
+    # Keyed on the *target* having recorded no traffic rather than on the
+    # control having captured none: control capturing nothing while the target
+    # calls out is the asymmetry worth shouting about, and silencing on the
+    # control alone would hide it. A missing `flow_count` is not zero traffic --
+    # it means no capture happened at all (see the mitmproxy-unavailable path),
+    # which is the one thing this check exists to surface.
+    if http_metrics.get("flow_count") == 0:
+        return None
+
+    skipped_reason = http_metrics.get("replay_skipped_reason")
+    if skipped_reason:
+        return CheckResult(
+            name=_REPLAY_CHECK,
+            passed=False,
+            severity="diagnostic",
+            summary=(
+                f"HTTP replay was requested and skipped ({skipped_reason}); the "
+                "target ran against live data, so upstream drift is not ruled out"
+            ),
+        )
+
+    if not http_metrics.get("replay_source"):
+        return None
+
+    flow_count = int(http_metrics.get("flow_count", 0) or 0)
+    if not flow_count:
+        return None
+
+    live = int(http_metrics.get("live_flow_count", 0) or 0)
+    replayed = flow_count - live
+    summary = (
+        f"{replayed} of {flow_count} target request(s) served from the control "
+        f"run's recording; {live} went live"
+    )
+
+    # Named per side: a killed control means a short *recording*, so the live
+    # count it produces is real drift with a known cause, while a killed target
+    # means the counts themselves are short. Pointing at the wrong one sends the
+    # reader after the wrong fix.
+    incomplete = "; ".join(
+        f"{side} run: {reason}"
+        for side, reason in (
+            (
+                "control",
+                (control_result.get("http_metrics") or {}).get("metrics_incomplete"),
+            ),
+            ("target", http_metrics.get("metrics_incomplete")),
+        )
+        if reason
+    )
+    if incomplete:
+        # The counts are a lower bound, and short in the direction that flatters
+        # the run: a killed shutdown loses the flows mitmproxy had not flushed,
+        # which can only lower `live_flow_count` on the target and can only
+        # shrink the corpus the control recorded. Below the ratio it would
+        # otherwise read as a clean replayed run.
+        return CheckResult(
+            name=_REPLAY_CHECK,
+            passed=False,
+            severity="diagnostic",
+            summary=(
+                f"{summary} -- HTTP metrics are incomplete ({incomplete}), so "
+                "replay coverage cannot be read as exact"
+            ),
+        )
+
+    if live / flow_count <= MAX_LIVE_FLOW_RATIO:
+        return CheckResult(name=_REPLAY_CHECK, passed=True, summary=summary)
+
+    return CheckResult(
+        name=_REPLAY_CHECK,
+        passed=False,
+        severity="diagnostic",
+        summary=(
+            f"{summary} ({live / flow_count:.0%}, above "
+            f"{MAX_LIVE_FLOW_RATIO:.0%}) -- the two versions did not see the "
+            f"same upstream data{_live_url_detail(http_metrics)}"
+        ),
+    )
+
+
 def build_comparison_report_model(
     *,
     target_image: str,
@@ -1583,6 +1769,7 @@ def build_comparison_report_model(
         if record_comparison is not None
         else ()
     )
+    replay_coverage = _replay_coverage_check(target_result, control_result)
 
     metric_tables = tuple(
         table
@@ -1613,6 +1800,8 @@ def build_comparison_report_model(
         ),
         *([coverage] if coverage is not None else []),
         *comparison_checks,
+        # Diagnostic, so deliberately not folded into the verdict below.
+        *([replay_coverage] if replay_coverage is not None else []),
         *extra_checks,
     )
     passed, verdict_label, verdict_detail = _fold_check_results(

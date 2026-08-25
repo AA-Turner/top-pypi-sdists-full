@@ -1,7 +1,6 @@
 # wiim/__main__.py
 import asyncio
 import logging
-from typing import Dict
 
 from aiohttp import ClientSession
 from zeroconf import ServiceInfo
@@ -19,7 +18,7 @@ class ZeroconfListener:
     """
 
     def __init__(self) -> None:
-        self.discovered_devices: Dict[str, ServiceInfo] = {}
+        self.discovered_devices: dict[str, ServiceInfo] = {}
 
     def remove_service(self, zeroconf: "Zeroconf", type: str, name: str) -> None:
         """Called when a service is removed."""
@@ -164,5 +163,5 @@ if __name__ == "__main__":
         asyncio.run(main_cli())
     except KeyboardInterrupt:
         SDK_LOGGER.info("Discovery process interrupted by user.")
-    except Exception as e:
-        SDK_LOGGER.error(f"An error occurred: {e}", exc_info=True)
+    except Exception:  # noqa: BLE001
+        SDK_LOGGER.exception("An error occurred")

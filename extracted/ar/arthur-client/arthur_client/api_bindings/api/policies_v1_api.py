@@ -959,6 +959,7 @@ class PoliciesV1Api:
         self,
         workspace_id: StrictStr,
         metrics_calculation_job_spec: MetricsCalculationJobSpec,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Check only this policy's assignments within the workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -974,12 +975,14 @@ class PoliciesV1Api:
     ) -> JobsBatch:
         """Check Workspace Policies Compliance
 
-        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Requires workspace_check_all_policies_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Pass policy_id to narrow the sweep to a single policy's assignments within the workspace. Requires workspace_check_all_policies_compliance permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
         :param metrics_calculation_job_spec: (required)
         :type metrics_calculation_job_spec: MetricsCalculationJobSpec
+        :param policy_id: Check only this policy's assignments within the workspace.
+        :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1005,6 +1008,7 @@ class PoliciesV1Api:
         _param = self._check_workspace_policies_compliance_serialize(
             workspace_id=workspace_id,
             metrics_calculation_job_spec=metrics_calculation_job_spec,
+            policy_id=policy_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1032,6 +1036,7 @@ class PoliciesV1Api:
         self,
         workspace_id: StrictStr,
         metrics_calculation_job_spec: MetricsCalculationJobSpec,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Check only this policy's assignments within the workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1047,12 +1052,14 @@ class PoliciesV1Api:
     ) -> ApiResponse[JobsBatch]:
         """Check Workspace Policies Compliance
 
-        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Requires workspace_check_all_policies_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Pass policy_id to narrow the sweep to a single policy's assignments within the workspace. Requires workspace_check_all_policies_compliance permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
         :param metrics_calculation_job_spec: (required)
         :type metrics_calculation_job_spec: MetricsCalculationJobSpec
+        :param policy_id: Check only this policy's assignments within the workspace.
+        :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1078,6 +1085,7 @@ class PoliciesV1Api:
         _param = self._check_workspace_policies_compliance_serialize(
             workspace_id=workspace_id,
             metrics_calculation_job_spec=metrics_calculation_job_spec,
+            policy_id=policy_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1105,6 +1113,7 @@ class PoliciesV1Api:
         self,
         workspace_id: StrictStr,
         metrics_calculation_job_spec: MetricsCalculationJobSpec,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Check only this policy's assignments within the workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1120,12 +1129,14 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Check Workspace Policies Compliance
 
-        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Requires workspace_check_all_policies_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every model with policy assignments in the workspace. Returns one job per model. Pass policy_id to narrow the sweep to a single policy's assignments within the workspace. Requires workspace_check_all_policies_compliance permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
         :param metrics_calculation_job_spec: (required)
         :type metrics_calculation_job_spec: MetricsCalculationJobSpec
+        :param policy_id: Check only this policy's assignments within the workspace.
+        :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1151,6 +1162,7 @@ class PoliciesV1Api:
         _param = self._check_workspace_policies_compliance_serialize(
             workspace_id=workspace_id,
             metrics_calculation_job_spec=metrics_calculation_job_spec,
+            policy_id=policy_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1173,6 +1185,7 @@ class PoliciesV1Api:
         self,
         workspace_id,
         metrics_calculation_job_spec,
+        policy_id,
         _request_auth,
         _content_type,
         _headers,
@@ -1197,6 +1210,10 @@ class PoliciesV1Api:
         if workspace_id is not None:
             _path_params['workspace_id'] = workspace_id
         # process the query parameters
+        if policy_id is not None:
+            
+            _query_params.append(('policy_id', policy_id))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

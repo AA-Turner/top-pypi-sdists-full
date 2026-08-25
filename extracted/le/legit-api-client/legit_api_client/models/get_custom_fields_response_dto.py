@@ -74,8 +74,7 @@ class GetCustomFieldsResponseDto(BaseModel):
         _items = []
         if self.custom_fields:
             for _item_custom_fields in self.custom_fields:
-                if _item_custom_fields:
-                    _items.append(_item_custom_fields.to_dict())
+                _items.append(_item_custom_fields.to_dict() if _item_custom_fields is not None else None)
             _dict['customFields'] = _items
         return _dict
 

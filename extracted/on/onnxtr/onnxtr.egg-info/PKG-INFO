@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxtr
-Version: 0.8.1
+Version: 0.9.0
 Summary: Onnx Text Recognition (OnnxTR): docTR Onnx-Wrapper for high-performance OCR on documents.
 Author-email: Felix Dittrich <felixdittrich92@gmail.com>
 Maintainer: Felix Dittrich
@@ -218,11 +218,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <4,>=3.10.0
+Requires-Python: <4,>=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<3.0.0,>=1.16.0
@@ -238,22 +238,22 @@ Requires-Dist: anyascii>=0.3.2
 Requires-Dist: tqdm>=4.30.0
 Provides-Extra: cpu
 Requires-Dist: onnxruntime>=1.18.0; extra == "cpu"
-Requires-Dist: opencv-python<5.0.0,>=4.5.0; extra == "cpu"
+Requires-Dist: opencv-python<6.0.0,>=4.5.0; extra == "cpu"
 Provides-Extra: gpu
 Requires-Dist: onnxruntime-gpu>=1.18.0; extra == "gpu"
-Requires-Dist: opencv-python<5.0.0,>=4.5.0; extra == "gpu"
+Requires-Dist: opencv-python<6.0.0,>=4.5.0; extra == "gpu"
 Provides-Extra: openvino
 Requires-Dist: onnxruntime-openvino>=1.18.0; extra == "openvino"
-Requires-Dist: opencv-python<5.0.0,>=4.5.0; extra == "openvino"
+Requires-Dist: opencv-python<6.0.0,>=4.5.0; extra == "openvino"
 Provides-Extra: cpu-headless
 Requires-Dist: onnxruntime>=1.18.0; extra == "cpu-headless"
-Requires-Dist: opencv-python-headless<5.0.0,>=4.5.0; extra == "cpu-headless"
+Requires-Dist: opencv-python-headless<6.0.0,>=4.5.0; extra == "cpu-headless"
 Provides-Extra: gpu-headless
 Requires-Dist: onnxruntime-gpu>=1.18.0; extra == "gpu-headless"
-Requires-Dist: opencv-python-headless<5.0.0,>=4.5.0; extra == "gpu-headless"
+Requires-Dist: opencv-python-headless<6.0.0,>=4.5.0; extra == "gpu-headless"
 Provides-Extra: openvino-headless
 Requires-Dist: onnxruntime-openvino>=1.18.0; extra == "openvino-headless"
-Requires-Dist: opencv-python-headless<5.0.0,>=4.5.0; extra == "openvino-headless"
+Requires-Dist: opencv-python-headless<6.0.0,>=4.5.0; extra == "openvino-headless"
 Provides-Extra: html
 Requires-Dist: weasyprint>=55.0; extra == "html"
 Provides-Extra: viz
@@ -265,13 +265,15 @@ Requires-Dist: coverage[toml]>=4.5.4; extra == "testing"
 Requires-Dist: requests>=2.20.0; extra == "testing"
 Requires-Dist: pytest-memray>=1.7.0; extra == "testing"
 Requires-Dist: psutil>=7.0.0; extra == "testing"
+Requires-Dist: onnx>=1.18.0; extra == "testing"
+Requires-Dist: pandas>=2.0.0; extra == "testing"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.1.5; extra == "quality"
 Requires-Dist: mypy>=0.812; extra == "quality"
 Requires-Dist: pre-commit>=2.17.0; extra == "quality"
 Provides-Extra: dev
 Requires-Dist: onnxruntime>=1.18.0; extra == "dev"
-Requires-Dist: opencv-python<5.0.0,>=4.5.0; extra == "dev"
+Requires-Dist: opencv-python<6.0.0,>=4.5.0; extra == "dev"
 Requires-Dist: weasyprint>=55.0; extra == "dev"
 Requires-Dist: matplotlib>=3.1.0; extra == "dev"
 Requires-Dist: mplcursors>=0.3; extra == "dev"
@@ -280,6 +282,8 @@ Requires-Dist: coverage[toml]>=4.5.4; extra == "dev"
 Requires-Dist: requests>=2.20.0; extra == "dev"
 Requires-Dist: pytest-memray>=1.7.0; extra == "dev"
 Requires-Dist: psutil>=7.0.0; extra == "dev"
+Requires-Dist: onnx>=1.18.0; extra == "dev"
+Requires-Dist: pandas>=2.0.0; extra == "dev"
 Requires-Dist: ruff>=0.1.5; extra == "dev"
 Requires-Dist: mypy>=0.812; extra == "dev"
 Requires-Dist: pre-commit>=2.17.0; extra == "dev"
@@ -294,8 +298,8 @@ Dynamic: license-file
 [![codecov](https://codecov.io/gh/felixdittrich92/OnnxTR/graph/badge.svg?token=WVFRCQBOLI)](https://codecov.io/gh/felixdittrich92/OnnxTR)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4fff4d764bb14fb8b4f4afeb9587231b)](https://app.codacy.com/gh/felixdittrich92/OnnxTR/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![CodeFactor](https://www.codefactor.io/repository/github/felixdittrich92/onnxtr/badge)](https://www.codefactor.io/repository/github/felixdittrich92/onnxtr)
-[![Socket Badge](https://socket.dev/api/badge/pypi/package/onnxtr/0.8.1?artifact_id=tar-gz)](https://socket.dev/pypi/package/onnxtr/overview/0.8.1/tar-gz)
-[![Pypi](https://img.shields.io/badge/pypi-v0.8.1-blue.svg)](https://pypi.org/project/OnnxTR/)
+[![Socket Badge](https://socket.dev/api/badge/pypi/package/onnxtr/0.9.0?artifact_id=tar-gz)](https://socket.dev/pypi/package/onnxtr/overview/0.9.0/tar-gz)
+[![Pypi](https://img.shields.io/badge/pypi-v0.9.0-blue.svg)](https://pypi.org/project/OnnxTR/)
 [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/felixdittrich92/OnnxTR/pkgs/container/onnxtr)
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/Felix92/OnnxTR-OCR)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/onnxtr)
@@ -317,7 +321,7 @@ What you can expect from this repository:
 
 ### Prerequisites
 
-Python 3.10 (or higher) and [pip](https://pip.pypa.io/en/stable/) are required to install OnnxTR.
+Python 3.11 (or higher) and [pip](https://pip.pypa.io/en/stable/) are required to install OnnxTR.
 
 ### Latest release
 
@@ -368,6 +372,7 @@ Documents can be interpreted from PDF / Images / Webpages / Multiple page images
 
 ```python
 from onnxtr.io import DocumentFile
+
 # PDF
 pdf_doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
 # Image
@@ -387,10 +392,10 @@ from onnxtr.io import DocumentFile
 from onnxtr.models import ocr_predictor, EngineConfig
 
 model = ocr_predictor(
-    det_arch='fast_base',  # detection architecture
-    reco_arch='vitstr_base',  # recognition architecture
-    det_bs=2, # detection batch size
-    reco_bs=512, # recognition batch size
+    det_arch="fast_base",  # detection architecture
+    reco_arch="vitstr_base",  # recognition architecture
+    det_bs=2,  # detection batch size
+    reco_bs=512,  # recognition batch size
     # Document related parameters
     assume_straight_pages=True,  # set to `False` if the pages are not straight (rotation, perspective, etc.) (default: True)
     straighten_pages=False,  # set to `True` if the pages should be straightened before final processing (default: False)
@@ -400,7 +405,12 @@ model = ocr_predictor(
     symmetric_pad=True,  # set to `False` to disable symmetric padding (default: True)
     # Additional parameters - meta information
     detect_orientation=False,  # set to `True` if the orientation of the pages should be detected (default: False)
-    detect_language=False, # set to `True` if the language of the pages should be detected (default: False)
+    detect_language=False,  # set to `True` if the language of the pages should be detected (default: False)
+    # Layout & table analysis
+    detect_layout=False,  # set to `True` to attach the detected layout regions to each page (default: False)
+    layout_arch="lw_detr_s",  # layout architecture to use (default: lw_detr_s)
+    ignore_regions=None,  # optional list of layout classes to mask out before detection, e.g. ["Picture"] (default: None)
+    detect_tables=False,  # set to `True` to recognize the structure of detected tables (default: False)
     # Orientation specific parameters in combination with `assume_straight_pages=False` and/or `straighten_pages=True`
     disable_crop_orientation=False,  # set to `True` if the crop orientation classification should be disabled (default: False)
     disable_page_orientation=False,  # set to `True` if the general page orientation classification should be disabled (default: False)
@@ -408,6 +418,8 @@ model = ocr_predictor(
     resolve_lines=True,  # whether words should be automatically grouped into lines (default: True)
     resolve_blocks=False,  # whether lines should be automatically grouped into blocks (default: False)
     paragraph_break=0.035,  # relative length of the minimum space separating paragraphs (default: 0.035)
+    keep_reading_order=False,  # whether the elements should be re-ordered by reading order (default: False)
+    preserve_original_coords=False,  # with `straighten_pages=True`, map the boxes back onto the original page (default: False)
     # OnnxTR specific parameters
     # NOTE: 8-Bit quantized models are not available for FAST detection models and can in general lead to poorer accuracy
     load_in_8_bit=False,  # set to `True` to load 8-bit quantized models instead of the full precision onces (default: False)
@@ -415,6 +427,8 @@ model = ocr_predictor(
     det_engine_cfg=EngineConfig(),  # detection model engine configuration (default: internal predefined configuration)
     reco_engine_cfg=EngineConfig(),  # recognition model engine configuration (default: internal predefined configuration)
     clf_engine_cfg=EngineConfig(),  # classification (orientation) model engine configuration (default: internal predefined configuration)
+    layout_engine_cfg=EngineConfig(),  # layout model engine configuration (default: internal predefined configuration)
+    table_engine_cfg=EngineConfig(),  # table structure model engine configuration (default: internal predefined configuration)
 )
 # PDF
 doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
@@ -432,7 +446,9 @@ Or even rebuild the original document from its predictions:
 import matplotlib.pyplot as plt
 
 synthetic_pages = result.synthesize()
-plt.imshow(synthetic_pages[0]); plt.axis('off'); plt.show()
+plt.imshow(synthetic_pages[0])
+plt.axis("off")
+plt.show()
 ```
 
 ![Synthesis sample](https://github.com/felixdittrich92/OnnxTR/raw/main/docs/images/synthesized_sample.png)
@@ -449,7 +465,6 @@ xml_output = result.export_as_xml()  # hocr format
 for output in xml_output:
     xml_bytes_string = output[0]
     xml_element = output[1]
-
 ```
 
 <details>
@@ -462,25 +477,22 @@ from onnxruntime import SessionOptions
 
 from onnxtr.models import ocr_predictor, EngineConfig
 
-general_options = SessionOptions()  # For configuartion options see: https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
+general_options = (
+    SessionOptions()
+)  # For configuartion options see: https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
 general_options.enable_cpu_mem_arena = False
 
 # NOTE: The following would force to run only on the GPU if no GPU is available it will raise an error
 # List of strings e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"] or a list of tuples with the provider and its options e.g.
 # [("CUDAExecutionProvider", {"device_id": 0}), ("CPUExecutionProvider", {"arena_extend_strategy": "kSameAsRequested"})]
-providers = [("CUDAExecutionProvider", {"device_id": 0, "cudnn_conv_algo_search": "DEFAULT"})]  # For available providers see: https://onnxruntime.ai/docs/execution-providers/
+providers = [
+    ("CUDAExecutionProvider", {"device_id": 0, "cudnn_conv_algo_search": "DEFAULT"})
+]  # For available providers see: https://onnxruntime.ai/docs/execution-providers/
 
-engine_config = EngineConfig(
-    session_options=general_options,
-    providers=providers
-)
+engine_config = EngineConfig(session_options=general_options, providers=providers)
 # We use the default predictor with the custom engine configuration
 # NOTE: You can define differnt engine configurations for detection, recognition and classification depending on your needs
-predictor = ocr_predictor(
-    det_engine_cfg=engine_config,
-    reco_engine_cfg=engine_config,
-    clf_engine_cfg=engine_config
-)
+predictor = ocr_predictor(det_engine_cfg=engine_config, reco_engine_cfg=engine_config, clf_engine_cfg=engine_config)
 ```
 
 You can also dynamically configure whether the memory arena should shrink:
@@ -491,25 +503,104 @@ from onnxruntime import RunOptions, SessionOptions
 
 from onnxtr.models import ocr_predictor, EngineConfig
 
+
 def arena_shrinkage_handler(run_options: RunOptions) -> RunOptions:
-  """
-  Shrink the memory arena on 10% of inference runs.
-  """
-  if random() < 0.1:
-    run_options.add_run_config_entry("memory.enable_memory_arena_shrinkage", "cpu:0")
-  return run_options
+    """
+    Shrink the memory arena on 10% of inference runs.
+    """
+    if random() < 0.1:
+        run_options.add_run_config_entry("memory.enable_memory_arena_shrinkage", "cpu:0")
+    return run_options
+
 
 engine_config = EngineConfig(run_options_provider=arena_shrinkage_handler)
 engine_config.session_options.enable_mem_pattern = False
 
-predictor = ocr_predictor(
-    det_engine_cfg=engine_config,
-    reco_engine_cfg=engine_config,
-    clf_engine_cfg=engine_config
-)
+predictor = ocr_predictor(det_engine_cfg=engine_config, reco_engine_cfg=engine_config, clf_engine_cfg=engine_config)
 ```
 
 </details>
+
+### Layout analysis & table structure recognition
+
+Layout regions and table structure can be attached to every page. Table recognition builds on the
+layout model, so enabling `detect_tables` enables layout detection as well.
+
+```python
+from onnxtr.io import DocumentFile
+from onnxtr.models import ocr_predictor
+
+doc = DocumentFile.from_pdf("path/to/your/doc.pdf")
+
+model = ocr_predictor(detect_layout=True, detect_tables=True)
+result = model(doc)
+
+page = result.pages[0]
+
+# Layout regions (DocLayNet classes: Text, Title, Table, Picture, Page-header, ...)
+for region in page.layout:
+    print(region.type, region.confidence, region.geometry)
+
+# Tables - words falling inside a table are regrouped here and removed from `page.blocks`
+for table in page.tables:
+    print(f"{table.num_rows}x{table.num_cols}")
+    for cell in table.cells:
+        print(cell.row_start, cell.col_start, cell.value)
+```
+
+`ignore_regions` masks the given layout classes out of the page before detection and recognition
+run, which is useful to skip figures or stamps:
+
+```python
+model = ocr_predictor(detect_layout=True, ignore_regions=["Picture", "Formula"])
+```
+
+### Exporting the results
+
+Beyond `export()` and `render()`, a document can be exported to several document formats:
+
+```python
+result.export_as("markdown")  # or "md"
+result.export_as("asciidoc")  # or "adoc"
+result.export_as("html")
+result.export_as("xml")  # hOCR, one (bytes, ElementTree) tuple per page
+result.export_as("text")  # or "txt"
+result.export_as("json")  # or "dict"
+
+# Reading order can be resolved on export
+result.export_as("markdown", direction="auto")  # auto | ltr | rtl | ttb-rtl | ttb-ltr
+```
+
+## Command line interface
+
+OnnxTR ships an `onnxtr-cli` command for running OCR without writing any Python:
+
+```shell
+# Basic usage - the export format is inferred from the output extension
+onnxtr-cli --input_path path/to/your/doc.pdf --output results.json
+
+# Pick architectures, export as markdown
+onnxtr-cli --input_path page.png --output results.md \
+    --det_arch fast_base --reco_arch parseq
+
+# Layout regions and table structure, as hOCR (one file per page)
+onnxtr-cli --input_path doc.pdf --output results.xml \
+    --detect_layout --detect_tables
+
+# Rotated documents, mapping the boxes back onto the original page
+onnxtr-cli --input_path scan.jpg --output results.json \
+    --no-assume_straight_pages --straighten_pages --preserve_original_coords
+
+# Run on GPU with the 8-bit quantized models
+onnxtr-cli --input_path doc.pdf --output results.txt --device cuda --load_in_8_bit
+
+# Several inputs (images, PDFs and URLs) concatenated into a single document
+onnxtr-cli --input_path a.png b.pdf https://example.com --output results.html
+```
+
+`--device` accepts `auto` (the default, picking CUDA when available), `cpu`, `cuda`, or an
+explicit onnxruntime execution provider name. Run `onnxtr-cli --help` for the full option list,
+which mirrors the `ocr_predictor` arguments.
 
 ## Loading custom exported models
 
@@ -532,22 +623,16 @@ You can also load models from the HuggingFace Hub:
 from onnxtr.io import DocumentFile
 from onnxtr.models import ocr_predictor, from_hub
 
-img = DocumentFile.from_images(['<image_path>'])
+img = DocumentFile.from_images(["<image_path>"])
 # Load your model from the hub
-model = from_hub('onnxtr/my-model')
+model = from_hub("onnxtr/my-model")
 
 # Pass it to the predictor
 # If your model is a recognition model:
-predictor = ocr_predictor(
-    det_arch='db_mobilenet_v3_large',
-    reco_arch=model
-)
+predictor = ocr_predictor(det_arch="db_mobilenet_v3_large", reco_arch=model)
 
 # If your model is a detection model:
-predictor = ocr_predictor(
-    det_arch=model,
-    reco_arch='crnn_mobilenet_v3_small'
-)
+predictor = ocr_predictor(det_arch=model, reco_arch="crnn_mobilenet_v3_small")
 
 # Get your predictions
 res = predictor(img)
@@ -573,18 +658,12 @@ push_to_hf_hub(
     model_name="onnxtr-parseq-multilingual-v1",
     task="recognition",  # The task for which the model is intended [detection, recognition, classification]
     arch="parseq",  # The name of the model architecture
-    override=False  # Set to `True` if you want to override an existing model / repository
+    override=False,  # Set to `True` if you want to override an existing model / repository
 )
 
 # Detection model
 model = linknet_resnet18("~/onnxtr-linknet-resnet18.onnx")
-push_to_hf_hub(
-    model,
-    model_name="onnxtr-linknet-resnet18",
-    task="detection",
-    arch="linknet_resnet18",
-    override=True
-)
+push_to_hf_hub(model, model_name="onnxtr-linknet-resnet18", task="detection", arch="linknet_resnet18", override=True)
 ```
 
 ## Models architectures
@@ -606,34 +685,46 @@ Credits where it's due: this repository provides ONNX models for the following a
 - PARSeq: [Scene Text Recognition with Permuted Autoregressive Sequence Models](https://arxiv.org/pdf/2207.06966).
 - VIPTR: [A Vision Permutable Extractor for Fast and Efficient Scene Text Recognition](https://arxiv.org/abs/2401.10110).
 
+### Layout Detection
+
+- LW-DETR: [LW-DETR: A Transformer Replacement to YOLO for Real-Time Detection](https://arxiv.org/pdf/2406.03459v1).
+
+### Table Structure Recognition
+
+- TableCenterNet: [TableCenterNet: A one-stage network for table structure recognition](https://arxiv.org/abs/2504.17522).
+
 ```python
 predictor = ocr_predictor()
 predictor.list_archs()
 {
-    'detection archs':
-        [
-            'db_resnet34',
-            'db_resnet50',
-            'db_mobilenet_v3_large',
-            'linknet_resnet18',
-            'linknet_resnet34',
-            'linknet_resnet50',
-            'fast_tiny',  # No 8-bit support
-            'fast_small',  # No 8-bit support
-            'fast_base'  # No 8-bit support
-        ],
-    'recognition archs':
-        [
-            'crnn_vgg16_bn',
-            'crnn_mobilenet_v3_small',
-            'crnn_mobilenet_v3_large',
-            'sar_resnet31',
-            'master',
-            'vitstr_small',
-            'vitstr_base',
-            'parseq'
-            'viptr_tiny',  # No 8-bit support
-        ]
+    "detection_archs": [
+        "db_resnet34",
+        "db_resnet50",
+        "db_mobilenet_v3_large",
+        "linknet_resnet18",
+        "linknet_resnet34",
+        "linknet_resnet50",
+        "fast_tiny",  # No 8-bit support
+        "fast_small",  # No 8-bit support
+        "fast_base",  # No 8-bit support
+    ],
+    "recognition_archs": [
+        "crnn_vgg16_bn",
+        "crnn_mobilenet_v3_small",
+        "crnn_mobilenet_v3_large",
+        "sar_resnet31",
+        "master",
+        "vitstr_small",
+        "vitstr_base",
+        "parseq",
+        "viptr_tiny",  # No 8-bit support
+    ],
+    "layout_archs": [
+        "lw_detr_s",  # No 8-bit support
+    ],
+    "table_structure_archs": [
+        "tablecenternet",  # No 8-bit support
+    ],
 }
 ```
 

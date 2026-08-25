@@ -4,7 +4,7 @@
 
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
@@ -15,12 +15,12 @@ from pontos.models import ModelError
 from pontos.nvd.api import now
 from pontos.nvd.cve_changes.api import MAX_CVE_CHANGES_PER_PAGE, CVEChangesApi
 from pontos.nvd.models.cve_change import Detail, EventName
-from tests import AsyncMock, IsolatedAsyncioTestCase, aiter, anext
+from tests import AsyncMock, IsolatedAsyncioTestCase
 from tests.nvd import get_cve_change_data
 
 
 def create_cve_changes_response(
-    cve_id: str, update: Optional[dict[str, Any]] = None
+    cve_id: str, update: dict[str, Any] | None = None
 ) -> MagicMock:
     data = {
         "cve_changes": [{"change": get_cve_change_data({"cve_id": cve_id})}],
@@ -296,8 +296,8 @@ class CVEChangesApiTestCase(IsolatedAsyncioTestCase):
     async def test_cve_changes_range_too_long(self):
         with self.assertRaises(PontosError):
             self.api.changes(
-                change_start_date=datetime(2023, 1, 1),
-                change_end_date=datetime(2023, 5, 2),
+                change_start_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+                change_end_date=datetime(2023, 5, 2, tzinfo=timezone.utc),
             )
 
     async def test_cve_changes_request_results(self):

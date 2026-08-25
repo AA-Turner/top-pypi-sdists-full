@@ -21,6 +21,7 @@
 
 """Tests for the object store interface."""
 
+import mmap
 import os
 import shutil
 import stat
@@ -31,6 +32,7 @@ from contextlib import closing
 from io import BytesIO
 from unittest.mock import patch
 
+import dulwich.pack
 from dulwich.config import ConfigDict
 from dulwich.errors import ChecksumMismatch, NotTreeError, ObjectFormatException
 from dulwich.file import GitFile
@@ -41,6 +43,7 @@ from dulwich.object_format import DEFAULT_OBJECT_FORMAT
 from dulwich.object_store import (
     DEFAULT_TEMPFILE_GRACE_PERIOD,
     DiskObjectStore,
+    GraphTraversalReachability,
     MemoryObjectStore,
     ObjectStoreGraphWalker,
     OverlayObjectStore,
@@ -216,6 +219,44 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             ValueError, self.store._get_shafile_path, b"../../../../etc/passwd"
         )
 
+    def test_add_object_freshens_existing_object(self) -> None:
+        # Re-adding an object that is already on disk must refresh its mtime.
+        # Otherwise it stays a candidate for age-based pruning and a
+        # concurrent "git gc" can remove it before the caller has created a
+        # reference to it.
+        b = make_object(Blob, data=b"freshen me")
+        self.store.add_object(b)
+        path = self.store._get_shafile_path(b.id)
+        stale = time.time() - 30 * 24 * 60 * 60
+        os.utime(path, (stale, stale))
+        self.store.add_object(b)
+        self.assertGreater(os.stat(path).st_mtime, stale)
+
+    def test_add_object_writes_when_object_is_missing(self) -> None:
+        # The freshen attempt must not swallow the write when the object
+        # turned out not to be on disk after all.
+        b = make_object(Blob, data=b"write me")
+        self.store.add_object(b)
+        path = self.store._get_shafile_path(b.id)
+        os.unlink(path)
+        self.store.add_object(b)
+        self.assertTrue(os.path.exists(path))
+
+    def test_add_object_writes_when_freshening_fails(self) -> None:
+        # A failing utime() (e.g. EPERM on an object owned by another user in
+        # a shared repository) leaves the mtime stale, so the object has to be
+        # written out rather than skipped.
+        b = make_object(Blob, data=b"rewrite me")
+        self.store.add_object(b)
+        path = self.store._get_shafile_path(b.id)
+        stale = time.time() - 30 * 24 * 60 * 60
+        os.utime(path, (stale, stale))
+        with patch("dulwich.object_store.os.utime", side_effect=PermissionError):
+            self.store.add_object(b)
+        # Rewriting the object gives it a fresh mtime of its own.
+        self.assertGreater(os.stat(path).st_mtime, stale)
+        self.assertEqual(b.data, self.store[b.id].data)
+
     def test_loose_compression_level(self) -> None:
         alternate_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, alternate_dir)
@@ -237,6 +278,38 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         store.add_alternate_path(alternate_dir)
         self.assertIn(b2.id, store)
         self.assertEqual(b2, store[b2.id])
+
+    def test_alternates_kwarg(self) -> None:
+        # An explicit alternates= list is consulted alongside the on-disk
+        # alternates file (used to plumb GIT_ALTERNATE_OBJECT_DIRECTORIES).
+        alternate_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, alternate_dir)
+        alternate_store = DiskObjectStore(alternate_dir)
+        self.addCleanup(alternate_store.close)
+        b2 = make_object(Blob, data=b"kwarg alternate")
+        alternate_store.add_object(b2)
+
+        store = DiskObjectStore(self.store_dir, alternates=[alternate_dir])
+        self.addCleanup(store.close)
+        self.assertIn(b2.id, store)
+        self.assertEqual(b2, store[b2.id])
+
+    def test_alternates_kwarg_after_file_entries(self) -> None:
+        # File entries are consulted first; kwarg entries are appended.
+        file_alt = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, file_alt)
+        DiskObjectStore(file_alt).close()
+        kw_alt = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, kw_alt)
+        DiskObjectStore(kw_alt).close()
+
+        store = DiskObjectStore(self.store_dir, alternates=[kw_alt])
+        self.addCleanup(store.close)
+        store.add_alternate_path(file_alt)
+        # add_alternate_path force-appends; but the important assertion is
+        # that the kwarg entry is still present.
+        paths = [alt.path for alt in store.alternates]
+        self.assertIn(kw_alt, paths)
 
     def test_read_alternate_paths(self) -> None:
         store = DiskObjectStore(self.store_dir)
@@ -393,6 +466,49 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             raise
         else:
             commit()
+
+    def test_add_pack_unmaps_before_rename(self) -> None:
+        """The pack must not still be mapped when it is renamed into place.
+
+        commit() maps the temporary pack to index it, then hands the same
+        file to _complete_pack to append bases to and rename. Windows
+        refuses both while a mapping is alive.
+        """
+        o = DiskObjectStore(self.store_dir)
+        self.addCleanup(o.close)
+
+        mappings = []
+        real_load = dulwich.pack._load_file_contents
+
+        def tracking_load(f, size=None):
+            contents, size = real_load(f, size)
+            mappings.append(contents)
+            return contents, size
+
+        open_at_rename = []
+        real_rename = os.rename
+
+        def checking_rename(src, dst):
+            open_at_rename.extend(
+                m for m in mappings if isinstance(m, mmap.mmap) and not m.closed
+            )
+            return real_rename(src, dst)
+
+        f, commit, abort = o.add_pack()
+        try:
+            b = make_object(Blob, data=b"more yummy data")
+            write_pack_objects(
+                f.write, [(b, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        with (
+            patch.object(dulwich.pack, "_load_file_contents", tracking_load),
+            patch("dulwich.object_store.os.rename", checking_rename),
+        ):
+            commit()
+        self.assertEqual([], open_at_rename)
 
     def test_add_thin_pack(self) -> None:
         o = DiskObjectStore(self.store_dir)
@@ -902,6 +1018,50 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         depth_disabled = get_depth(self.store, c4.id)
         self.assertEqual(3, depth_disabled)
 
+    def test_find_shallow_merge_heavy_history(self) -> None:
+        # A "diamond" history: m_i has parents [a_i, b_i] and a_i/b_i both have
+        # parent m_{i+1}, so ~3*levels commits expose 2**levels distinct paths.
+        # Without state deduplication find_shallow/get_depth re-expand every
+        # path and hang here; the result is unchanged, only the walk is bounded.
+        ts = int(time.time())
+        seq = [0]
+
+        def commit(parents):
+            seq[0] += 1
+            c = make_object(
+                Commit,
+                message=b"c%d" % seq[0],
+                tree=b"1" * 40,
+                parents=parents,
+                author=b"Test <test@example.com>",
+                committer=b"Test <test@example.com>",
+                commit_time=ts,
+                commit_timezone=0,
+                author_time=ts,
+                author_timezone=0,
+            )
+            self.store.add_object(c)
+            return c.id
+
+        levels = 24
+        head = tail = commit([])
+        for _ in range(levels):
+            a = commit([head])
+            b = commit([head])
+            head = commit([a, b])
+
+        all_ids = set(self.store)
+        # Depth larger than the longest path: every commit is not_shallow.
+        shallow, not_shallow = find_shallow(self.store, [head], 10**9)
+        self.assertEqual(set(), shallow)
+        self.assertEqual(all_ids, not_shallow)
+        # Longest path head -> a/b -> m ... -> tail is 2*levels + 1 commits.
+        self.assertEqual(2 * levels + 1, get_depth(self.store, head))
+        # Boundary depth still marks the commit reached exactly at the boundary.
+        shallow, not_shallow = find_shallow(self.store, [tail], 1)
+        self.assertEqual({tail}, shallow)
+        self.assertEqual(set(), not_shallow)
+
     def test_fsync_object_files_disabled_by_default(self) -> None:
         """Test that fsync is disabled by default for object files."""
         config = ConfigDict()
@@ -1307,6 +1467,34 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         store.write_midx()
         midx_path = os.path.join(store.pack_dir, "multi-pack-index")
         self.assertTrue(os.path.exists(midx_path))
+
+    def test_get_reachability_provider_handles_disappeared_pack(self) -> None:
+        """The bitmap probe must not raise when a cached pack file vanishes.
+
+        Regression for https://github.com/jelmer/dulwich/issues/2344: the
+        probe guarded only ``FileNotFoundError``, but ``Pack.bitmap`` reaches
+        ``Pack.index``, which raises ``PackFileDisappeared``. The pack here
+        has no bitmap at all, so the bug is not limited to repositories that
+        use bitmaps.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"reachability-after-repack")
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        doomed = commit()
+        self.assertIsNotNone(doomed)
+
+        assert doomed is not None
+        doomed.close()
+        os.remove(doomed._idx_path)
+        os.remove(doomed._data_path)
+
+        # Should not raise; the vanished pack is skipped and the store falls
+        # back to graph traversal.
+        provider = store.get_reachability_provider()
+        self.assertIsInstance(provider, GraphTraversalReachability)
 
     def test_contains_packed_hex_sha_with_midx(self) -> None:
         """contains_packed must accept hex SHAs even when a MIDX is loaded.

@@ -46,7 +46,7 @@ class AgentApi:
     @validate_call
     async def create_answer_agent_run(
         self,
-        answer_agent_run_request: Optional[AnswerAgentRunRequest] = None,
+        answer_agent_run_request: AnswerAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -64,7 +64,7 @@ class AgentApi:
 
         Dispatch an answer agent run. Returns 202 with an AnswerAgentRun object. Poll GET /v1/agent/answer/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param answer_agent_run_request:
+        :param answer_agent_run_request: (required)
         :type answer_agent_run_request: AnswerAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -119,7 +119,7 @@ class AgentApi:
     @validate_call
     async def create_answer_agent_run_with_http_info(
         self,
-        answer_agent_run_request: Optional[AnswerAgentRunRequest] = None,
+        answer_agent_run_request: AnswerAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,7 +137,7 @@ class AgentApi:
 
         Dispatch an answer agent run. Returns 202 with an AnswerAgentRun object. Poll GET /v1/agent/answer/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param answer_agent_run_request:
+        :param answer_agent_run_request: (required)
         :type answer_agent_run_request: AnswerAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,7 +192,7 @@ class AgentApi:
     @validate_call
     async def create_answer_agent_run_without_preload_content(
         self,
-        answer_agent_run_request: Optional[AnswerAgentRunRequest] = None,
+        answer_agent_run_request: AnswerAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -210,7 +210,7 @@ class AgentApi:
 
         Dispatch an answer agent run. Returns 202 with an AnswerAgentRun object. Poll GET /v1/agent/answer/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param answer_agent_run_request:
+        :param answer_agent_run_request: (required)
         :type answer_agent_run_request: AnswerAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -339,7 +339,7 @@ class AgentApi:
     @validate_call
     async def create_retrieval_agent_run(
         self,
-        retrieval_agent_run_request: Optional[RetrievalAgentRunRequest] = None,
+        retrieval_agent_run_request: RetrievalAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -357,7 +357,7 @@ class AgentApi:
 
         Dispatch a retrieval agent run. Returns 202 with a RetrievalAgentRun object. Poll GET /v1/agent/retrieval/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param retrieval_agent_run_request:
+        :param retrieval_agent_run_request: (required)
         :type retrieval_agent_run_request: RetrievalAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -412,7 +412,7 @@ class AgentApi:
     @validate_call
     async def create_retrieval_agent_run_with_http_info(
         self,
-        retrieval_agent_run_request: Optional[RetrievalAgentRunRequest] = None,
+        retrieval_agent_run_request: RetrievalAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -430,7 +430,7 @@ class AgentApi:
 
         Dispatch a retrieval agent run. Returns 202 with a RetrievalAgentRun object. Poll GET /v1/agent/retrieval/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param retrieval_agent_run_request:
+        :param retrieval_agent_run_request: (required)
         :type retrieval_agent_run_request: RetrievalAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -485,7 +485,7 @@ class AgentApi:
     @validate_call
     async def create_retrieval_agent_run_without_preload_content(
         self,
-        retrieval_agent_run_request: Optional[RetrievalAgentRunRequest] = None,
+        retrieval_agent_run_request: RetrievalAgentRunRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -503,7 +503,7 @@ class AgentApi:
 
         Dispatch a retrieval agent run. Returns 202 with a RetrievalAgentRun object. Poll GET /v1/agent/retrieval/runs/{run_id} until status is 'completed' or 'failed'.
 
-        :param retrieval_agent_run_request:
+        :param retrieval_agent_run_request: (required)
         :type retrieval_agent_run_request: RetrievalAgentRunRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: holoviews
-Version: 1.23.1
+Version: 1.23.2
 Summary: A high-level plotting API for the PyData ecosystem built on HoloViews.
 Project-URL: Issue Tracker, https://github.com/holoviz/holoviews/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen
 Project-URL: Blog, https://blog.holoviz.org/

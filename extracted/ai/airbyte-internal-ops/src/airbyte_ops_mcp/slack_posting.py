@@ -36,6 +36,19 @@ from airbyte_ops_mcp.slack_api import (
 logger = logging.getLogger(__name__)
 
 
+def resolve_slack_bot_token() -> str | None:
+    """Resolve the configured Slack bot token from environment variables.
+
+    The HITL-specific variables take precedence over the generic fallback.
+    """
+    return (
+        os.environ.get("SLACK_BOT_TOKEN_HITL")
+        or os.environ.get("SLACK_HYDRA_BOT_TOKEN")
+        or os.environ.get("SLACK_BOT_TOKEN_AIRBYTE_TEAM")
+        or os.environ.get("SLACK_BOT_TOKEN")
+    )
+
+
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
@@ -632,7 +645,8 @@ def send_hitl_notification(
             `SLACK_CHANNEL_HITL` or `"human-in-the-loop"`.
         context_footer: Additional text appended to the footer.
         slack_token: Slack bot token. Resolved from `SLACK_BOT_TOKEN_HITL` /
-            `SLACK_HYDRA_BOT_TOKEN` / `SLACK_BOT_TOKEN_AIRBYTE_TEAM` if None.
+            `SLACK_HYDRA_BOT_TOKEN` / `SLACK_BOT_TOKEN_AIRBYTE_TEAM` /
+            `SLACK_BOT_TOKEN` if None.
         github_token: GitHub token for roster download. Resolved from env if None.
         roster: Pre-loaded roster list. If provided, skips `fetch_roster()` call.
 
@@ -640,17 +654,12 @@ def send_hitl_notification(
         RuntimeError: If no Slack bot token is available.
         SlackAPIError: If the Slack API call fails.
     """
-    token = slack_token or os.environ.get(
-        "SLACK_BOT_TOKEN_HITL",
-        os.environ.get(
-            "SLACK_HYDRA_BOT_TOKEN",
-            os.environ.get("SLACK_BOT_TOKEN_AIRBYTE_TEAM", ""),
-        ),
-    )
+    token = slack_token or resolve_slack_bot_token()
     if not token:
         raise RuntimeError(
             "No Slack bot token found. Set SLACK_BOT_TOKEN_HITL, "
-            "SLACK_HYDRA_BOT_TOKEN, or SLACK_BOT_TOKEN_AIRBYTE_TEAM."
+            "SLACK_HYDRA_BOT_TOKEN, SLACK_BOT_TOKEN_AIRBYTE_TEAM, "
+            "or SLACK_BOT_TOKEN."
         )
 
     channel = channel_override or os.environ.get(

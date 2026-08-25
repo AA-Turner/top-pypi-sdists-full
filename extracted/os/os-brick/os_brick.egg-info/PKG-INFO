@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: os-brick
-Version: 7.1.0
+Version: 7.1.1
 Summary: OpenStack Cinder brick library for managing local volume attaches
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

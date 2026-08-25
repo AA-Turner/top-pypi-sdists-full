@@ -27,6 +27,7 @@ from tako.aio.models.contents_request import ContentsRequest as AsyncContentsReq
 from tako.aio.models.contents_response import ContentsResponse as AsyncContentsResponse
 from tako.aio.models.create_card_request import CreateCardRequest as AsyncCreateCardRequest
 from tako.aio.models.graph_node import GraphNode as AsyncGraphNode
+from tako.aio.models.graph_node_type import GraphNodeType as AsyncGraphNodeType
 from tako.aio.models.graph_related_response import GraphRelatedResponse as AsyncGraphRelatedResponse
 from tako.aio.models.graph_search_response import GraphSearchResponse as AsyncGraphSearchResponse
 from tako.aio.models.search_request import SearchRequest as AsyncSearchRequest
@@ -39,6 +40,7 @@ from tako.models.contents_request import ContentsRequest
 from tako.models.contents_response import ContentsResponse
 from tako.models.create_card_request import CreateCardRequest
 from tako.models.graph_node import GraphNode
+from tako.models.graph_node_type import GraphNodeType
 from tako.models.graph_related_response import GraphRelatedResponse
 from tako.models.graph_search_response import GraphSearchResponse
 from tako.models.search_request import SearchRequest
@@ -68,7 +70,7 @@ class Tako:
     def graph_search(
         self,
         q: str,
-        types: str | None = None,
+        types: list[GraphNodeType] | None = None,
         limit: int | None = None,
         label: str | None = None,
         infer_label: bool | None = None,
@@ -125,7 +127,7 @@ class AsyncTako:
     async def graph_search(
         self,
         q: str,
-        types: str | None = None,
+        types: list[AsyncGraphNodeType] | None = None,
         limit: int | None = None,
         label: str | None = None,
         infer_label: bool | None = None,

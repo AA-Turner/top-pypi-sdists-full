@@ -78,15 +78,13 @@ class ComplianceCriteriaDto(BaseModel):
         _items = []
         if self.sub_criterias:
             for _item_sub_criterias in self.sub_criterias:
-                if _item_sub_criterias:
-                    _items.append(_item_sub_criterias.to_dict())
+                _items.append(_item_sub_criterias.to_dict() if _item_sub_criterias is not None else None)
             _dict['subCriterias'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in requirements (list)
         _items = []
         if self.requirements:
             for _item_requirements in self.requirements:
-                if _item_requirements:
-                    _items.append(_item_requirements.to_dict())
+                _items.append(_item_requirements.to_dict() if _item_requirements is not None else None)
             _dict['requirements'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

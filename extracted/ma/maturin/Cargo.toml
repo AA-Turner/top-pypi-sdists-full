@@ -1,7 +1,7 @@
 [package]
 authors = ["konstin <konstin@mailbox.org>", "messense <messense@icloud.com>"]
 name = "maturin"
-version = "1.14.1"
+version = "1.15.0"
 description = "Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages"
 exclude = [
     "test-crates/**/*",
@@ -101,8 +101,8 @@ clap = { version = "4.0.0", features = [
 clap_complete_command = { version = "0.6.1", optional = true }
 
 # cross compile
-cargo-zigbuild = { version = "0.23.0", default-features = false, optional = true }
-cargo-xwin = { version = "0.23.0", default-features = false, optional = true }
+cargo-zigbuild = { version = "0.23.1", default-features = false, optional = true }
+cargo-xwin = { version = "0.23.1", default-features = false, optional = true }
 xz2 = { version = "0.1", optional = true }
 
 # log
@@ -189,7 +189,8 @@ schemars = ["dep:schemars", "dep:pretty_assertions"]
 
 sbom = ["dep:cargo-cyclonedx", "dep:which"]
 
-# keyring doesn't support *BSD so it's not enabled in `full` by default
+# we only enable keyring's native macOS/Windows/Linux backends (no BSD backend),
+# so it's not enabled in `full` by default
 password-storage = ["upload", "keyring"]
 
 rustls = [

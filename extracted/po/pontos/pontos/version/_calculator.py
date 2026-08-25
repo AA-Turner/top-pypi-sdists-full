@@ -4,8 +4,7 @@
 #
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Type
+from datetime import datetime, timezone
 
 from ._errors import VersionError
 from ._version import Version
@@ -16,7 +15,7 @@ class VersionCalculator(ABC):
     An abstract base class for calculating a next version from a version
     """
 
-    version_cls: Type[Version]
+    version_cls: type[Version]
 
     @classmethod
     def version_from_string(cls, version: str) -> Version:
@@ -43,7 +42,7 @@ class VersionCalculator(ABC):
         Raises:
             VersionError: If version is invalid.
         """
-        today = datetime.today()
+        today = datetime.now(tz=timezone.utc)
         current_year_short = today.year % 100
 
         if current_version.major > 2000:
@@ -65,12 +64,11 @@ class VersionCalculator(ABC):
         ):
             if current_version.dev is None:
                 release_version = cls.version_from_string(
-                    f"{current_year}.{today.month}."
-                    f"{current_version.patch + 1}"
+                    f"{current_year}.{today.month}.{current_version.patch + 1}"
                 )
             else:
                 release_version = cls.version_from_string(
-                    f"{current_year}.{today.month}." f"{current_version.patch}"
+                    f"{current_year}.{today.month}.{current_version.patch}"
                 )
             return release_version
         else:

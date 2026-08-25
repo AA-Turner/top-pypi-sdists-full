@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from arthur_client.api_bindings.models.dashboard_template import DashboardTemplate
 from arthur_client.api_bindings.models.dashboard_visibility import DashboardVisibility
 from typing import Optional, Set
 from typing_extensions import Self
@@ -35,7 +36,8 @@ class PostDashboard(BaseModel):
     project_ids: Optional[List[StrictStr]] = None
     policy_ids: Optional[List[StrictStr]] = None
     model_ids: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "visibility", "workspace_ids", "project_ids", "policy_ids", "model_ids"]
+    template: Optional[DashboardTemplate] = None
+    __properties: ClassVar[List[str]] = ["name", "description", "visibility", "workspace_ids", "project_ids", "policy_ids", "model_ids", "template"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,6 +103,11 @@ class PostDashboard(BaseModel):
         if self.model_ids is None and "model_ids" in self.model_fields_set:
             _dict['model_ids'] = None
 
+        # set to None if template (nullable) is None
+        # and model_fields_set contains the field
+        if self.template is None and "template" in self.model_fields_set:
+            _dict['template'] = None
+
         return _dict
 
     @classmethod
@@ -119,7 +126,8 @@ class PostDashboard(BaseModel):
             "workspace_ids": obj.get("workspace_ids"),
             "project_ids": obj.get("project_ids"),
             "policy_ids": obj.get("policy_ids"),
-            "model_ids": obj.get("model_ids")
+            "model_ids": obj.get("model_ids"),
+            "template": obj.get("template")
         })
         return _obj
 

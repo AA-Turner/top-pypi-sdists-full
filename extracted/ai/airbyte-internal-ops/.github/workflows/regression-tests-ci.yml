@@ -44,7 +44,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --group dev --all-packages
+        # `live-tests` carries mitmproxy. This job runs `--skip-compare`, so it
+        # never records or replays; the group is here so the smoke test exercises
+        # the same capture path a real comparison takes rather than the
+        # mitmdump-missing fallback.
+        # `--all-packages` selects workspace packages, not dependency groups.
+        run: uv sync --group dev --group live-tests --all-packages
 
       - name: Run spec smoke test
         run: |
@@ -81,5 +86,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-spec-${{ github.run_id }}
-          path: /tmp/regression_test_artifacts/
+          # Recorded HTTP dumps are deliberately excluded: they hold full
+          # upstream response bodies (i.e. real customer data) and grow with
+          # everything the connector downloaded. They are consumed during the
+          # run -- metrics, and the target's replay corpus -- and have no value
+          # in the zip.
+          path: |
+            /tmp/regression_test_artifacts/
+            !/tmp/regression_test_artifacts/**/*.mitm
+            !/tmp/regression_test_artifacts/**/*.har
           retention-days: 2

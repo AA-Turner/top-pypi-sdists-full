@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-edge-model-explorer
-Version: 0.1.32
+Version: 0.1.33
 Summary: A modern model graph visualizer and debugger
 Author-email: Google LLC <opensource@google.com>
 Classifier: Programming Language :: Python :: 3.9
@@ -13,7 +13,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: flask
 Requires-Dist: ipython
-Requires-Dist: ai-edge-model-explorer-adapter~=0.1.14; sys_platform != "win32"
+Requires-Dist: ai-edge-model-explorer-adapter~=0.2.0; sys_platform != "win32"
 Requires-Dist: dacite
 Requires-Dist: packaging
 Requires-Dist: portpicker

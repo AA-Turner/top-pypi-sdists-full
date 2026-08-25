@@ -4,9 +4,9 @@ import asyncio
 import contextlib
 import json
 import logging
+import shutil
 import sys
 import time
-import tomllib
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -18,7 +18,7 @@ from pydantic_core import from_json
 
 import verifiers.v1 as vf
 from verifiers.v1.cli.dashboard import TaskProgress, validate_dashboard
-from verifiers.v1.cli.output import CONFIG_FILE, write_config
+from verifiers.v1.cli.output import write_config
 from verifiers.v1.cli.resolve import (
     extract_id,
     narrow_taskset_config,
@@ -26,7 +26,7 @@ from verifiers.v1.cli.resolve import (
     references_config_file,
     with_positional_taskset,
 )
-from verifiers.v1.cli.resume import distribute, split_resume, task_key
+from verifiers.v1.cli.resume import distribute
 from verifiers.v1.configs.cli.validate import ValidateConfig
 from verifiers.v1.runtimes import make_runtime
 from verifiers.v1.state import state_cls
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 RESULTS_FILE = "results.jsonl"
 SUMMARY_FILE = "summary.json"
-LOG_FILE = "validate.log"
+LOG_FILE = "logs/validate.log"
 FINAL_REASONS = frozenset({"valid", "invalid"})
 REASONS = ("valid", "invalid", "error", "timeout")
 
@@ -51,7 +51,7 @@ ResultRow = dict[str, Any]
 USAGE = (
     "usage: uv run validate [<taskset-id>] [--only-setup | --only-gold] "
     "[-o <output-dir>] [--runtime.type subprocess] [options] [@ file.toml]\n"
-    "       uv run validate --resume <output-dir>\n"
+    "       uv run validate @ <run-dir>/configs/validate.json --resume   (re-run missing/errored/timed-out tasks)\n"
     "       runs persisted gold and setup-only checks per task (no model)"
 )
 
@@ -72,9 +72,10 @@ def validation_mode(config: ValidateConfig) -> str:
 
 
 def output_path(config: ValidateConfig) -> Path:
-    if config.output_dir is not None:
-        return config.output_dir
-    return Path("outputs") / f"{config.name}--validate" / config.uuid
+    """Where this run writes: `output_dir / run.dir` — the same grouping convention as
+    eval and training."""
+    assert config.run.dir is not None
+    return config.output_dir / config.run.dir
 
 
 def _write_rows(path: Path, rows: Sequence[ResultRow]) -> None:
@@ -118,10 +119,7 @@ def load_results(
                 try:
                     row = from_json(line)
                 except ValueError:
-                    try:
-                        row = json.loads(line)
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        continue
+                    continue
                 if not isinstance(row, dict):
                     continue
                 key = row.get("task_key")
@@ -191,21 +189,9 @@ def write_summary(results_dir: Path, summary: Mapping[str, Any]) -> None:
 
 
 def save_run(config: ValidateConfig, results_dir: Path, total: int) -> None:
-    write_config(config, results_dir)
+    write_config(config, results_dir, "validate.json")
     (results_dir / RESULTS_FILE).write_text("")
     write_summary(results_dir, summarize([], total, validation_mode(config)))
-
-
-def load_resume_config(resume_dir: Path) -> ValidateConfig:
-    path = resume_dir / CONFIG_FILE
-    if not path.exists():
-        raise SystemExit(
-            f"--resume: no config.toml in {resume_dir} - not a validate output dir"
-        )
-    config = ValidateConfig.model_validate(tomllib.loads(path.read_text()))
-    config.resume = resume_dir
-    config.output_dir = resume_dir
-    return config
 
 
 def _classify(valid: bool, exc: BaseException | None) -> str:
@@ -233,11 +219,11 @@ def _row(
     }
 
 
-async def _run_gold(task: Task, config: ValidateConfig) -> ResultRow:
+async def _run_check(task: Task, config: ValidateConfig, mode: str) -> ResultRow:
     start = time.time()
     runtime = make_runtime(
         resolve_runtime_config(config.runtime, task),
-        name=f"validate-gold-{task.data.idx}-{uuid4().hex[:8]}",
+        name=f"validate-{mode}-{task.data.idx}-{uuid4().hex[:8]}",
     )
     setup_timeout = (
         config.timeout.setup
@@ -246,8 +232,11 @@ async def _run_gold(task: Task, config: ValidateConfig) -> ResultRow:
     )
     valid, exc = False, None
     try:
+        runtime.env = dict(task.runtime_env())
         trace = Trace(
-            task=TraceTask(type=type(task).__name__, data=task.data),
+            task=TraceTask(
+                type=type(task).__name__, data=task.data, key=task.key, hash=task.hash
+            ),
             state=state_cls(type(task))(),
             # No agent runs here — the info only records the runtime policy.
             agent=vf.AgentInfo(
@@ -261,7 +250,11 @@ async def _run_gold(task: Task, config: ValidateConfig) -> ResultRow:
             invoke(task.setup, {"trace": trace, "runtime": runtime}),
             setup_timeout,
         )
-        valid = await asyncio.wait_for(task.validate(runtime), config.timeout.total)
+        valid = (
+            await asyncio.wait_for(task.validate(runtime), config.timeout.total)
+            if mode == "gold"
+            else True
+        )
     except Exception as e:  # noqa: BLE001 - validation reports plugin failures per task
         exc = e
     finally:
@@ -271,48 +264,7 @@ async def _run_gold(task: Task, config: ValidateConfig) -> ResultRow:
             logger.warning(
                 "runtime teardown failed (task %s)", task.data.idx, exc_info=True
             )
-    return _row(task, "gold", valid, exc, start)
-
-
-async def _run_setup(task: Task, config: ValidateConfig) -> ResultRow:
-    start = time.time()
-    runtime = make_runtime(
-        resolve_runtime_config(config.runtime, task),
-        name=f"validate-setup-{task.data.idx}-{uuid4().hex[:8]}",
-    )
-    setup_timeout = (
-        config.timeout.setup
-        if config.timeout.setup is not None
-        else task.data.timeout.setup
-    )
-    valid, exc = False, None
-    try:
-        trace = Trace(
-            task=TraceTask(type=type(task).__name__, data=task.data),
-            state=state_cls(type(task))(),
-            # No agent runs here — the info only records the runtime policy.
-            agent=vf.AgentInfo(
-                config=vf.AgentConfig(runtime=config.runtime),
-                name="validate",
-                trainable=False,
-            ),
-        )
-        await runtime.start()
-        await asyncio.wait_for(
-            invoke(task.setup, {"trace": trace, "runtime": runtime}),
-            setup_timeout,
-        )
-        valid = True
-    except Exception as e:  # noqa: BLE001 - validation reports plugin failures per task
-        exc = e
-    finally:
-        try:
-            await runtime.stop()
-        except Exception:
-            logger.warning(
-                "runtime teardown failed (task %s)", task.data.idx, exc_info=True
-            )
-    return _row(task, "setup", valid, exc, start)
+    return _row(task, mode, valid, exc, start)
 
 
 def _all_reason(rows: list[ResultRow]) -> str:
@@ -335,8 +287,8 @@ def _all_error(rows: list[ResultRow]) -> tuple[str | None, str | None]:
 
 async def _run_all(task: Task, config: ValidateConfig) -> ResultRow:
     start = time.time()
-    gold = await _run_gold(task, config)
-    setup = await _run_setup(task, config)
+    gold = await _run_check(task, config, "gold")
+    setup = await _run_check(task, config, "setup")
     rows = [gold, setup]
     error, error_type = _all_error(rows)
     return {
@@ -354,11 +306,12 @@ async def _run_all(task: Task, config: ValidateConfig) -> ResultRow:
 
 
 async def _validate_task(task: Task, config: ValidateConfig) -> ResultRow:
-    if config.only_gold:
-        return await _run_gold(task, config)
-    if config.only_setup:
-        return await _run_setup(task, config)
-    return await _run_all(task, config)
+    mode = validation_mode(config)
+    return (
+        await _run_all(task, config)
+        if mode == "all"
+        else await _run_check(task, config, mode)
+    )
 
 
 async def run_validate(config: ValidateConfig) -> list[dict]:
@@ -380,10 +333,8 @@ async def run_validate(config: ValidateConfig) -> list[dict]:
     mode = validation_mode(config)
     checks = "gold+setup" if mode == "all" else mode
     out = output_path(config)
-    selected_keys = [
-        task_key(task.data.model_dump(mode="json", exclude_none=True)) for task in tasks
-    ]
-    if config.resume is None:
+    selected_keys = [task.hash for task in tasks]
+    if not config.resume:
         save_run(config, out, len(tasks))
         rows: list[ResultRow] = []
         counts = [1] * len(tasks)
@@ -398,7 +349,7 @@ async def run_validate(config: ValidateConfig) -> list[dict]:
     ]
     logger.info(
         "%s %d/%d task(s) from %s on the %s runtime (%s)",
-        "resuming" if config.resume is not None else "validating",
+        "resuming" if config.resume else "validating",
         len(plan),
         len(tasks),
         config.name,
@@ -478,35 +429,38 @@ def main(argv: list[str] | None = None) -> None:
         with plugin_errors():
             cli(_narrow(argv))  # full option help, narrowed to the given taskset
         return
-    resume_dir, rest = split_resume(argv, "validate")
-    if resume_dir is not None:
-        if rest:
-            raise SystemExit(
-                f"{USAGE}\n--resume replays the saved config and takes no other arguments"
-            )
-        with plugin_errors():
-            config = load_resume_config(resume_dir)
-    else:
-        if not extract_id(argv, "taskset") and not references_config_file(argv):
-            raise SystemExit(
-                USAGE
-            )  # need a taskset (positional / --taskset.id) or a @ file.toml
+    if not extract_id(argv, "taskset") and not references_config_file(argv):
+        raise SystemExit(
+            USAGE
+        )  # need a taskset (positional / --taskset.id) or a @ file.toml
 
-        with plugin_errors():
-            config_type = _narrow(argv)
-            sys.argv = [
-                sys.argv[0],
-                *argv,
-            ]  # let prime-pydantic-config render help/errors
-            config = cli(config_type)
+    with plugin_errors():
+        config_type = _narrow(argv)
+        sys.argv = [
+            sys.argv[0],
+            *argv,
+        ]  # let prime-pydantic-config render help/errors
+        config = cli(config_type)
     out = output_path(config)
+    # A named run directory is re-entered only by `--resume` or wiped by `--clean`: any
+    # other write into it would overwrite the previous run's results.
+    if config.clean and not config.resume and out.exists():
+        output_dir = config.output_dir.resolve()
+        resolved_out = out.resolve()
+        if resolved_out == output_dir or not resolved_out.is_relative_to(output_dir):
+            raise SystemExit("--clean requires run.dir to name a child of output_dir")
+        shutil.rmtree(out)
+    results_file = out / RESULTS_FILE
+    if not config.resume and results_file.exists() and results_file.stat().st_size > 0:
+        raise SystemExit(
+            f"run directory {out} already contains results - append --resume to re-run "
+            "its missing/errored tasks, overwrite it with --clean, or pick another --run.name"
+        )
     setup_logging(
         "DEBUG" if config.verbose else "INFO",
         log_file=str(out / LOG_FILE),
         console=not config.rich,
     )
-    if config.rich:
-        logging.lastResort = None  # drop stdlib records that bypass loguru
     # Graceful shutdown: first Ctrl-C/SIGTERM unwinds each task's teardown `finally`
     # (containers/sandboxes); a second is swallowed so it can't orphan them mid-cleanup.
     install_interrupt()

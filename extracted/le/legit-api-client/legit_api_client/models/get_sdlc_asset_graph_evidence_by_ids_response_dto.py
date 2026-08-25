@@ -74,8 +74,7 @@ class GetSdlcAssetGraphEvidenceByIdsResponseDto(BaseModel):
         _items = []
         if self.evidence:
             for _item_evidence in self.evidence:
-                if _item_evidence:
-                    _items.append(_item_evidence.to_dict())
+                _items.append(_item_evidence.to_dict() if _item_evidence is not None else None)
             _dict['evidence'] = _items
         # set to None if evidence (nullable) is None
         # and model_fields_set contains the field

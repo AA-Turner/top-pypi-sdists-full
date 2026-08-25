@@ -1,4 +1,5 @@
 use crate::develop::install_backend::{find_uv_bin, find_uv_python};
+use crate::{PythonInterpreter, Target};
 use anyhow::{Context, Result, bail};
 use fs_err as fs;
 use std::path::{Path, PathBuf};
@@ -130,7 +131,7 @@ impl PgoContext {
     /// 4. Run the instrumentation command
     pub(crate) fn run_instrumentation(
         &self,
-        python: &Path,
+        python: &PythonInterpreter,
         wheel_path: &Path,
         build_context: &crate::BuildContext,
     ) -> Result<()> {
@@ -138,7 +139,9 @@ impl PgoContext {
         let venv_path = venv_dir.path();
 
         // Detect uv: try the binary first, then the Python module
-        let uv = find_uv_python(python).or_else(|_| find_uv_bin()).ok();
+        let uv = find_uv_python(&python.executable)
+            .or_else(|_| find_uv_bin())
+            .ok();
 
         // Create venv
         if let Some((uv_path, uv_args)) = &uv {
@@ -146,15 +149,15 @@ impl PgoContext {
             let status = Command::new(uv_path)
                 .args(uv_args.iter().copied())
                 .args(["venv", "--python"])
-                .arg(python)
+                .arg(python.as_uv_python_arg())
                 .arg(venv_path)
                 .status()
                 .context("Failed to create virtual environment with uv")?;
             if !status.success() {
                 bail!("Failed to create virtual environment with uv (exit status: {status})");
             }
-        } else {
-            let status = Command::new(python)
+        } else if python.runnable {
+            let status = Command::new(&python.executable)
                 .args(["-m", "venv"])
                 .arg(venv_path)
                 .status()
@@ -162,19 +165,17 @@ impl PgoContext {
             if !status.success() {
                 bail!("Failed to create virtual environment (exit status: {status})");
             }
+        } else {
+            bail!(
+                "Python interpreter {} is not runnable, cannot create virtual environment for PGO instrumentation",
+                python.executable.display()
+            );
         }
         debug!("Created temporary venv at {}", venv_path.display());
 
-        let venv_bin_dir = if cfg!(windows) {
-            venv_path.join("Scripts")
-        } else {
-            venv_path.join("bin")
-        };
-        let venv_python = venv_bin_dir.join(if cfg!(windows) {
-            "python.exe"
-        } else {
-            "python"
-        });
+        let host_target = Target::from_target_triple(None)?;
+        let venv_python = host_target.get_venv_python(venv_path);
+        let venv_bin_dir = host_target.get_venv_bin_dir(venv_path);
 
         // Install the instrumented wheel
         eprintln!("📦 Installing instrumented wheel into temporary venv...");
@@ -214,15 +215,13 @@ impl PgoContext {
                 .and_then(|p| p.dependency_groups.as_ref())
                 .is_some_and(|dg| dg.0.contains_key("dev"));
             if has_dev_group {
-                let project_dir = build_context
-                    .project
-                    .pyproject_toml_path
-                    .parent()
-                    .context("Failed to get project directory")?;
+                let pyproject_group = format!(
+                    "{}:dev",
+                    dunce::simplified(&build_context.project.pyproject_toml_path).display()
+                );
                 debug!("Installing dev dependency group");
                 let status = Command::new(&venv_python)
-                    .args(["-m", "pip", "install", "--group", "dev"])
-                    .current_dir(project_dir)
+                    .args(["-m", "pip", "install", "--group", &pyproject_group])
                     .status()
                     .context("Failed to install dev dependency group")?;
                 if !status.success() {
@@ -243,7 +242,7 @@ impl PgoContext {
             .to_string();
 
         let current_path = std::env::var("PATH").unwrap_or_default();
-        let sep = if cfg!(windows) { ";" } else { ":" };
+        let sep = if host_target.is_windows() { ";" } else { ":" };
         let path_env = format!("{}{sep}{current_path}", venv_bin_dir.display());
 
         let project_dir = build_context.project.project_layout.project_root.as_path();
@@ -263,7 +262,8 @@ impl PgoContext {
         cmd.current_dir(project_dir)
             .env("LLVM_PROFILE_FILE", &profraw_pattern)
             .env("PATH", &path_env)
-            .env("VIRTUAL_ENV", venv_path);
+            .env("VIRTUAL_ENV", venv_path)
+            .env("UV_PYTHON", &venv_python);
 
         let status = cmd.status().with_context(|| {
             format!(

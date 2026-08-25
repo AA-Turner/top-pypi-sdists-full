@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
-from comfy_cli import constants, utils
+from comfy_cli import constants, knowledge, utils
 from comfy_cli.caller import stream_is_tty
 from comfy_cli.command.custom_nodes.cm_cli_util import find_cm_cli, resolve_manager_gui_mode
 from comfy_cli.config_manager import ConfigManager
@@ -41,7 +41,7 @@ def _hard_exit(code: int) -> None:
     so `comfy_cli.tracking`'s shutdown drain never runs here. That cost nothing
     while Mixpanel sent inline from `track()`: `@track_command` fires the
     `launch` event *before* the command body runs, so it was already delivered.
-    Now that dispatch is queue-and-drain (BE-5868) the event is still queued at
+    Now that dispatch is queue-and-drain the event is still queued at
     this point, and without an explicit drain every `comfy launch` — background
     success included — silently drops its own telemetry.
 
@@ -285,6 +285,10 @@ def launch_comfyui(extra, frontend_pr=None, python=sys.executable):
             # Continue with default frontend
 
     process = None
+
+    # The only long-lived comfy process: a fetch started here has until the
+    # server exits to finish, which no discovery command can offer.
+    threading.Thread(target=knowledge.refresh_if_stale, daemon=True, name="knowledge-refresh").start()
 
     if "COMFY_CLI_BACKGROUND" not in os.environ:
         # If not running in background mode, there's no need to use popen. This can prevent the issue of linefeeds occurring with tqdm.

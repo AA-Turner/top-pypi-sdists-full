@@ -11,10 +11,10 @@ Also it appends a header if it is missing in the file.
 import io
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Optional, Sequence, Union
 
 from pontos.errors import PontosError
 from pontos.git import Git
@@ -41,18 +41,18 @@ SUPPORTED_FILE_TYPES = [
     ".xsl",
 ]
 OLD_LINES = [
-    "# \-\*\- coding: utf\-8 \-\*\-",
+    r"# \-\*\- coding: utf\-8 \-\*\-",
     "This program is free software: you can redistribute it and/or modify",
     "it under the terms of the GNU Affero General Public License as",
     "published by the Free Software Foundation, either version 3 of the",
-    "License, or \(at your option\) any later version.",
+    r"License, or \(at your option\) any later version.",
     "This program is free software; you can redistribute it and/or",
     "modify it under the terms of the GNU General Public License",
     "version 2 as published by the Free Software Foundation.",
     "This program is free software: you can redistribute it and/or modify",
     "it under the terms of the GNU General Public License as published by",
     "the Free Software Foundation, either version 3 of the License, or",
-    "\(at your option\) any later version.",
+    r"\(at your option\) any later version.",
     "This program is distributed in the hope that it will be useful,",
     "but WITHOUT ANY WARRANTY; without even the implied warranty of",
     "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the",
@@ -62,7 +62,7 @@ OLD_LINES = [
     "You should have received a copy of the GNU General Public License",
     "along with this program.  If not, see <http://www.gnu.org/licenses/>.",
     "along with this program; if not, write to the Free Software",
-    "Foundation, Inc\., 51 Franklin St, Fifth Floor, Boston, MA 02110\-1301 USA\.",  # noqa: E501
+    r"Foundation, Inc\., 51 Franklin St, Fifth Floor, Boston, MA 02110\-1301 USA\.",
 ]
 
 
@@ -79,32 +79,35 @@ def _get_modified_year(f: Path) -> str:
 @dataclass
 class CopyrightMatch:
     creation_year: str
-    modification_year: Optional[str]
+    modification_year: str | None
     company: str
 
 
 def _find_copyright(
     line: str,
     copyright_regex: re.Pattern,
-) -> tuple[bool, Union[CopyrightMatch, None]]:
+) -> tuple[bool, CopyrightMatch | None]:
     """Match the line for the copyright_regex"""
     copyright_match = re.search(copyright_regex, line)
-    if copyright_match:
-        if copyright_match.group(2) and copyright_match.group(4):
-            return (
-                True,
-                CopyrightMatch(
-                    creation_year=copyright_match.group(2),
-                    modification_year=copyright_match.group(3),
-                    company=copyright_match.group(4),
-                ),
-            )
+    if (
+        copyright_match
+        and copyright_match.group(2)
+        and copyright_match.group(4)
+    ):
+        return (
+            True,
+            CopyrightMatch(
+                creation_year=copyright_match.group(2),
+                modification_year=copyright_match.group(3),
+                company=copyright_match.group(4),
+            ),
+        )
     return False, None
 
 
 def _add_header(
     suffix: str, license_id: str, company: str, year: str
-) -> Union[str, None]:
+) -> str | None:
     """Tries to add the header to the file.
     Requirements:
       - file type must be supported
@@ -119,15 +122,15 @@ def _add_header(
                 .replace("<company>", company)
                 .replace("<year>", year)
             )
-        except FileNotFoundError as e:
-            raise e
+        except FileNotFoundError:  # noqa: TRY203
+            raise
     else:
         raise ValueError
 
 
 def _remove_outdated_lines(
     content: str, cleanup_regexes: list[re.Pattern]
-) -> Optional[str]:
+) -> str | None:
     """Remove lines that contain outdated copyright header ..."""
     changed = False
     splitted_lines = content.splitlines()
@@ -194,9 +197,7 @@ def update_file(
                         first_line = fp.readline()
 
                         # first line is a shebang or XML declaration, leave it
-                        if first_line.startswith("#!") or first_line.startswith(
-                            "<?xml"
-                        ):
+                        if first_line.startswith(("#!", "<?xml")):
                             rest_of_file = fp.read()
                             fp.seek(0)
                             fp.write(first_line + header + "\n" + rest_of_file)
@@ -222,7 +223,6 @@ def update_file(
 
             # replace found header and write it to file
             if copyright_match:
-
                 # use different target license formats depending on provided single_year argument
                 if single_year:
                     copyright_term = (
@@ -285,12 +285,12 @@ def update_file(
                 else:
                     print(f"{file}: License Header is ok.")
 
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         print(f"{file}: File is not existing.")
-        raise e
-    except UnicodeDecodeError as e:
+        raise
+    except UnicodeDecodeError:
         print(f"{file}: Ignoring binary file.")
-        raise e
+        raise
     # old header existing - cleanup?
     if cleanup_regexes:
         old_content = file.read_text(encoding="utf-8")
@@ -373,7 +373,7 @@ def _compile_copyright_regex() -> re.Pattern:
     return re.compile(rf"{c_str}.*? {d_str}?-? ?{d_str}? (.+)")
 
 
-def main(args: Optional[Sequence[str]] = None) -> None:
+def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parse_args(args)
     exclude_list = []
     year: str = parsed_args.year
@@ -385,7 +385,7 @@ def main(args: Optional[Sequence[str]] = None) -> None:
     single_year: bool = parsed_args.single_year
 
     if quiet:
-        term: Union[NullTerminal, RichTerminal] = NullTerminal()
+        term: NullTerminal | RichTerminal = NullTerminal()
     else:
         term = RichTerminal()
 
@@ -419,7 +419,6 @@ def main(args: Optional[Sequence[str]] = None) -> None:
         sys.exit(1)
 
     for file in files:
-
         try:
             if file.absolute() in exclude_list:
                 term.warning(f"{file}: Ignoring file from exclusion list.")

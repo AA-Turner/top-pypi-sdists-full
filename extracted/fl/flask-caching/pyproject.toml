@@ -1,6 +1,6 @@
 [project]
 name = "Flask-Caching"
-version = "2.4.1"
+version = "2.5.0"
 description = "Adds caching support to Flask applications."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -14,10 +14,10 @@ classifiers = [
     'Operating System :: OS Independent',
     'Programming Language :: Python',
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "flask>=2.0",
-    "cachelib>=0.9.0",
+    "flask>=3.0",
+    "cachelib>=0.17.0",
 ]
 
 [project.urls]
@@ -29,12 +29,15 @@ Chat = "https://discord.gg/pallets"
 [dependency-groups]
 dev = [
     "ruff",
-    "tox>=4.39",
-    "tox-uv",
+    {include-group = "tox"},
     {include-group = "pre-commit"},
     {include-group = "docs"},
     {include-group = "tests"},
     {include-group = "typing"},
+]
+tox = [
+    "tox>=4.39",
+    "tox-uv",
 ]
 pre-commit = [
     "pre-commit",
@@ -48,13 +51,16 @@ docs = [
     "sphinx-intl>=2.3.1",
     "sphinxcontrib-log-cabinet",
 ]
+docs-auto = [
+    "sphinx-autobuild",
+]
 tests = [
     "flask[async]",
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
     "pytest-xprocess",
-    "libmc",
+    "pylibmc",
     "redis",
     "asgiref",
 ]
@@ -137,24 +143,10 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
-files = ["src/flask_caching/"]
+python_version = "3.11"
+files = ["src/flask_caching/", "tests/typing/"]
 warn_unused_configs = true
-
-# TODO if all of these can be enabled we can just set 'strict = true'
-disallow_subclassing_any = true
-# disallow_untyped_calls = true
-# disallow_untyped_defs = true
-# disallow_incomplete_defs = true
-# check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-# warn_return_any = true
-# no_implicit_reexport = true
-strict_equality = true
-strict_concatenate = true
+strict = true
 
 [[tool.mypy.overrides]]
 module = [
@@ -164,18 +156,18 @@ module = [
 ignore_missing_imports = true
 
 [tool.pyright]
-pythonVersion = "3.10"
-include = ["src"]
-typeCheckingMode = "basic"
+pythonVersion = "3.11"
+include = ["src", "tests/typing"]
+typeCheckingMode = "standard"
 
 
 [tool.tox]
 env_list = [
-    "py3.14",
-    "py3.13", "py3.12", "py3.11", "py3.10",
+    "py3.14", "py3.13", "py3.12", "py3.11",
     "style",
     "typing",
     "docs",
+    "docs-auto",
 ]
 
 [tool.tox.env_run_base]
@@ -186,6 +178,7 @@ wheel_build_env = ".pkg"
 constrain_package_deps = true
 use_frozen_constraints = true
 dependency_groups = ["tests"]
+pass_env = ["CI"]
 env_tmp_dir = "{toxworkdir}/tmp/{envname}"
 commands = [[
     "pytest", "-v", "--capture=tee-sys", "--tb=short", "--basetemp={env_tmp_dir}",
@@ -205,10 +198,33 @@ commands = [
     ["mypy"],
 ]
 
+[tool.tox.docs]
+docs_dir = "{tox_root}{/}docs"
+build_dir = "{[tool.tox.docs]docs_dir}{/}_build"
+sphinx_args = ["--show-traceback", "--fail-on-warning", "--keep-going", "--fresh-env"]
+
 [tool.tox.env.docs]
 description = "build docs"
 dependency_groups = ["docs"]
-commands = [["sphinx-build", "-E", "-W", "-b", "html", "docs", "docs/_build/"]]
+commands = [[
+    "sphinx-build",
+    { replace = "ref", of = ["tool", "tox", "docs", "sphinx_args"], extend = true },
+    { replace = "posargs", default = [], extend = true },
+    "--builder", "dirhtml",
+    "{[tool.tox.docs]docs_dir}", "{[tool.tox.docs]build_dir}{/}dirhtml",
+]]
+
+[tool.tox.env.docs-auto]
+description = "continuously rebuild docs and start a local server"
+dependency_groups = ["docs", "docs-auto"]
+package = "editable"
+commands = [[
+    "sphinx-autobuild",
+    { replace = "ref", of = ["tool", "tox", "docs", "sphinx_args"], extend = true },
+    { replace = "posargs", default = [], extend = true },
+    "--builder", "dirhtml", "--watch", "src",
+    "{[tool.tox.docs]docs_dir}", "{[tool.tox.docs]build_dir}{/}live",
+]]
 
 [tool.tox.env.update-actions]
 description = "update GitHub Actions pins"

@@ -78,16 +78,6 @@ class Sources(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of web
         if self.web:
             _dict['web'] = self.web.to_dict()
-        # set to None if data (nullable) is None
-        # and model_fields_set contains the field
-        if self.data is None and "data" in self.model_fields_set:
-            _dict['data'] = None
-
-        # set to None if web (nullable) is None
-        # and model_fields_set contains the field
-        if self.web is None and "web" in self.model_fields_set:
-            _dict['web'] = None
-
         return _dict
 
     @classmethod

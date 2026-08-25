@@ -94,15 +94,13 @@ class ProductUnitDto(BaseModel):
         _items = []
         if self.nested_product_units:
             for _item_nested_product_units in self.nested_product_units:
-                if _item_nested_product_units:
-                    _items.append(_item_nested_product_units.to_dict())
+                _items.append(_item_nested_product_units.to_dict() if _item_nested_product_units is not None else None)
             _dict['nestedProductUnits'] = _items
         # override the default output from pydantic by calling `to_dict()` of each value in custom_fields (dict)
         _field_dict = {}
         if self.custom_fields:
             for _key_custom_fields in self.custom_fields:
-                if self.custom_fields[_key_custom_fields]:
-                    _field_dict[_key_custom_fields] = self.custom_fields[_key_custom_fields].to_dict()
+                _field_dict[_key_custom_fields] = self.custom_fields[_key_custom_fields].to_dict() if self.custom_fields[_key_custom_fields] is not None else None
             _dict['customFields'] = _field_dict
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

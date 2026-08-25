@@ -24,6 +24,7 @@ from typing import Generator, Iterable, List, Optional, cast
 import click
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.app_yml import load_app_yml
 from snowflake.cli._plugins.apps.commands import (
     snowflake_app_bundle,
     snowflake_app_deploy,
@@ -108,6 +109,12 @@ def _detect_app_family(cwd: str) -> Optional[AppFlow]:
     showing every command.
     """
     try:
+        # An app.yml (version 2) marks a Snowflake App Runtime project and
+        # takes precedence over snowflake.yml, so detect it first (it may be the
+        # only manifest present).
+        if load_app_yml(Path(cwd)) is not None:
+            return AppFlow.SNOWFLAKE_APP
+
         root = DefinitionManager.find_project_root(Path(cwd))
         if root is None:
             return None
@@ -213,7 +220,7 @@ def _app_group_callback() -> None:
 # Sentinel used on events --last to tell "user didn't pass --last" apart
 # from "user explicitly asked for 0". The merged command shares --last across
 # both flows, which have different defaults when the user doesn't set it
-# (Native App: -1, Snowflake App Runtime: 500).
+# (Native App: -1, Snowflake App Runtime: the server-side inline record cap).
 _EVENTS_LAST_UNSET = -1
 
 # Native-App polling interval default when ``--follow`` is used. The
@@ -221,6 +228,24 @@ _EVENTS_LAST_UNSET = -1
 # tell an explicit ``--follow-interval 10`` apart from "user didn't pass
 # the flag" when rejecting wrong-flow options in the Snowflake App Runtime flow.
 _DEFAULT_FOLLOW_INTERVAL_SECONDS = 10
+
+
+def _snowflake_app_target_option(action: str) -> typer.Option:
+    """Build the shared ``--target`` option for a Snowflake App Runtime command.
+
+    The target selects which ``app.yml`` environment (from the ``targets``
+    block, version 2+) the command operates on; it has no meaning for the
+    ``snowflake.yml`` / Native App flows and is rejected there.
+    """
+    return typer.Option(
+        None,
+        "--target",
+        help=(
+            "(Snowflake App Runtime only) Name of the target (environment) to "
+            f"{action}, as declared in the 'targets' block of app.yml (version 2 "
+            "or higher). Defaults to 'targets.default'."
+        ),
+    )
 
 
 def _reject_native_app_options(command: str, **options: object) -> None:
@@ -437,6 +462,7 @@ def app_open(
         "--watch",
         help="(Snowflake App Runtime only) Do not fail if the app service does not exist yet; poll until its endpoint is ready.",
     ),
+    target: Optional[str] = _snowflake_app_target_option("open"),
     **options,
 ) -> CommandResult:
     """
@@ -454,7 +480,11 @@ def app_open(
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
         return snowflake_app_open(
-            options.get("entity_id") or None, print_only, settings, watch
+            options.get("entity_id") or None,
+            print_only,
+            settings,
+            watch,
+            target=target,
         )
 
     _reject_snowflake_app_options(
@@ -463,6 +493,7 @@ def app_open(
             "--print-only": True if print_only else None,
             "--settings": True if settings else None,
             "--watch": True if watch else None,
+            "--target": target,
         },
     )
 
@@ -493,6 +524,7 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
+    target: Optional[str] = _snowflake_app_target_option("tear down"),
     **options,
 ) -> CommandResult:
     """
@@ -516,7 +548,11 @@ def app_teardown(
                 "--cascade": cascade,
             },
         )
-        return snowflake_app_teardown(options.get("entity_id") or None, bool(force))
+        return snowflake_app_teardown(
+            options.get("entity_id") or None, bool(force), target=target
+        )
+
+    _reject_snowflake_app_options("teardown", **{"--target": target})
 
     cli_context = get_cli_context()
     project = cli_context.project_definition
@@ -620,6 +656,16 @@ def app_deploy(
         hidden=True,
         help="Deprecated alias for --promote-only.",
     ),
+    provision_certs: bool = typer.Option(
+        False,
+        "--provision-certs",
+        help="(Snowflake App Runtime only) When deploying a CNG (serverless) app whose "
+        "account has no per-account URL certificate yet, trigger certificate "
+        "provisioning automatically instead of only printing the system-function "
+        "command. Provisioning is asynchronous (up to ~3 hours); the deploy still "
+        "stops so it can be re-run once provisioning completes.",
+    ),
+    target: Optional[str] = _snowflake_app_target_option("deploy"),
     **options,
 ) -> CommandResult:
     """
@@ -654,6 +700,8 @@ def app_deploy(
             build_only,
             promote_only or deploy_only,
             interactive=interactive,
+            provision_certs=provision_certs,
+            target=target,
         )
 
     _reject_snowflake_app_options(
@@ -662,6 +710,8 @@ def app_deploy(
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
             "--promote-only": True if (promote_only or deploy_only) else None,
+            "--provision-certs": True if provision_certs else None,
+            "--target": target,
         },
     )
 
@@ -703,6 +753,7 @@ def app_deploy(
 @with_project_definition()
 @with_app_flow_routing()
 def app_validate(
+    target: Optional[str] = _snowflake_app_target_option("validate"),
     **options,
 ):
     """
@@ -717,7 +768,9 @@ def app_validate(
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
-        return snowflake_app_validate(options.get("entity_id") or None)
+        return snowflake_app_validate(options.get("entity_id") or None, target=target)
+
+    _reject_snowflake_app_options("validate", **{"--target": target})
 
     cli_context = get_cli_context()
     ws = WorkspaceManager(
@@ -834,7 +887,10 @@ def app_events(
         help=(
             "Maximum number of events to fetch. "
             "Native App: cannot be used with --first. "
-            "Snowflake App Runtime: number of log lines to retrieve (default: 500, capped at 100KB)."
+            "Snowflake App Runtime: maximum records to return, newest first. "
+            "Sizes the live log tail (capped at 100KB); for metric, lifecycle, "
+            "and windowed log streams a value above the server's inline "
+            "record cap transparently pages the event table past it."
         ),
     ),
     follow: bool = typer.Option(
@@ -871,6 +927,17 @@ def app_events(
             "values (bytes, cores) instead of human-readable conversions."
         ),
     ),
+    instance: Optional[int] = typer.Option(
+        None,
+        "--instance",
+        show_default=False,
+        help=(
+            "(Snowflake App Runtime only) Zero-based index of the service instance "
+            "to retrieve logs from. Only valid with --type log and no --since/--until. "
+            "Defaults to instance 0."
+        ),
+    ),
+    target: Optional[str] = _snowflake_app_target_option("query events for"),
     **options,
 ):
     """
@@ -889,8 +956,9 @@ def app_events(
       Returns one of three observability streams for the application service,
       selected with --type:
 
-        - log (default): live container log tail, sized with --last (default
-          500, capped at 100KB). Supplying --since / --until switches to
+        - log (default): live container log tail, sized with --last (defaults to
+          the server default when not provided, capped at 100KB). Supplying
+          --since / --until switches to
           historical logs read from the service's event table (works over
           history and after suspend, with a short ingestion lag).
         - metric: CPU / memory / network telemetry from the event table. Narrow
@@ -926,6 +994,8 @@ def app_events(
             until=until or None,
             metric=metric or None,
             raw=raw,
+            target=target,
+            instance=instance,
         )
 
     _reject_snowflake_app_options(
@@ -933,6 +1003,8 @@ def app_events(
         **{
             "--metric": metric or None,
             "--raw": True if raw else None,
+            "--target": target,
+            "--instance": instance,
         },
     )
 

@@ -468,6 +468,55 @@ def test_http_metrics_table_only_appears_when_recorded():
     assert any(table.title == "HTTP Traffic" for table in with_metrics.metric_tables)
 
 
+def test_a_list_valued_http_metric_is_rendered_as_a_list_not_a_repr():
+    """`live_urls` is a list of dicts, and Execution details renders every key.
+
+    The blanket loop over `http_metrics` predates any list-valued key, so the
+    page showed a Python repr -- `[{'url': ..., 'count': 8}]` -- where a reader
+    expects the URLs.
+    """
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "live_urls": [
+                    {"url": "https://api.example.com/report/9001", "count": 8}
+                ],
+            },
+        ),
+        _run_result(True, http_metrics={"flow_count": 12}),
+    )
+
+    html = render_html_report(model)
+
+    assert "<li>url https://api.example.com/report/9001 · count 8</li>" in html
+    assert "&#39;url&#39;" not in html
+
+
+def test_a_mapping_valued_http_metric_keeps_its_values():
+    """Jinja's `sequence` test is true for a dict, and iterating one drops values.
+
+    No `http_metrics` key is a mapping today, but a mapping is the other shape
+    that would otherwise render as a Python repr -- and taking the list branch
+    renders its keys alone, which is worse than the repr.
+    """
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            http_metrics={"per_host_flow_count": {"api.example.com": 8, "cdn": 2}},
+        ),
+        _run_result(True, http_metrics={"flow_count": 10}),
+    )
+
+    html = render_html_report(model)
+
+    assert "<li>api.example.com 8</li>" in html
+    assert "<li>cdn 2</li>" in html
+
+
 def test_optional_result_keys_are_not_required():
     """A result dict carrying only counts and exit status still builds."""
     model = build_single_version_report_model(
@@ -2054,3 +2103,328 @@ def test_an_errored_comparison_reports_fail_inconclusive():
     assert model.passed is False
     assert model.verdict_label == "FAIL (inconclusive)"
     assert "FAIL (inconclusive)" in render_inline_summary(model)
+
+
+# HTTP replay coverage: a target compared against partly-live data is not a
+# comparison against identical data, and the report has to say so
+# --------------------------------------------------------------------------
+
+
+def _replaying_target(flow_count: int, live_flow_count: int, **extra) -> dict:
+    return _run_result(
+        True,
+        record_counts_per_stream={"users": 5},
+        http_metrics={
+            "flow_count": flow_count,
+            "duplicate_flow_count": 0,
+            "replayed_flow_count": flow_count - live_flow_count,
+            "live_flow_count": live_flow_count,
+            "replay_source": "/tmp/target/http_replay_corpus.mitm",
+            **extra,
+        },
+    )
+
+
+def _replay_check(model) -> CheckResult | None:
+    return next(
+        (check for check in model.checks if check.name == "HTTP replay coverage"), None
+    )
+
+
+def test_a_fully_replayed_target_reports_clean_replay_coverage():
+    model = _comparison("read", _replaying_target(20, 0), _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "pass"
+    assert "20 of 20" in check.summary
+
+
+def test_a_mostly_live_target_run_is_flagged_as_not_the_same_data():
+    model = _comparison("read", _replaying_target(20, 10), _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "did not see the same upstream data" in check.summary
+    # Diagnostic for now: it reports without flipping the verdict, which waits
+    # on strict record comparison.
+    assert model.passed is True
+
+
+def test_a_shortfall_names_the_urls_that_matched_nothing():
+    """The counts say a shortfall happened, never why.
+
+    Diagnosing one needs the requests the corpus could not answer, and the dumps
+    holding them are excluded from the uploaded artifacts on purpose -- so if the
+    check does not name them the run has to be repeated to be understood.
+    """
+    model = _comparison(
+        "read",
+        _replaying_target(
+            20,
+            10,
+            live_urls=[
+                {"url": "https://graph.example.com/report/9001", "count": 6},
+                {"url": "https://graph.example.com/report/9002", "count": 4},
+            ],
+            live_unique_url_count=7,
+        ),
+        _run_result(True),
+    )
+
+    check = _replay_check(model)
+    assert check is not None
+    assert "https://graph.example.com/report/9001" in check.summary
+    assert "and 5 more" in check.summary
+
+
+def test_a_clean_replay_run_does_not_list_urls():
+    """Nothing went live, so there is nothing to explain."""
+    model = _comparison("read", _replaying_target(20, 0), _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert "unmatched" not in check.summary
+
+
+def test_counts_shortened_by_a_killed_shutdown_do_not_read_as_clean_coverage():
+    """A `SIGKILL`ed mitmproxy loses the flows it had not flushed.
+
+    The loss can only lower `live_flow_count`, so an incomplete dump flatters the
+    replay acceptance criterion -- below the ratio it would otherwise read as a
+    fully replayed run.
+    """
+    model = _comparison(
+        "read",
+        _replaying_target(
+            20,
+            0,
+            metrics_incomplete=(
+                "mitmproxy did not shut down within 30s and was killed, so the "
+                "flows it had not flushed are missing from its dump"
+            ),
+        ),
+        _run_result(True),
+    )
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "HTTP metrics are incomplete" in check.summary
+    assert "target run:" in check.summary
+
+
+def test_a_control_run_killed_before_it_flushed_is_named_by_the_coverage_check():
+    """The kill can happen on either side, and the control's is the worse one.
+
+    A control killed before it flushed loses exactly the flows the target then
+    refetches live, so reading only the target's marker leaves the check
+    reporting the drift -- and naming the URLs -- with nothing saying the
+    recording was short. That is the misattribution the marker exists to
+    prevent, and per-side execution details are not where a reader goes after a
+    red check.
+    """
+    model = _comparison(
+        "read",
+        _replaying_target(
+            900,
+            400,
+            live_urls=[{"url": "https://api.example.com/v1/a", "count": 40}],
+            live_unique_url_count=40,
+        ),
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 900,
+                "metrics_incomplete": (
+                    "mitmproxy did not shut down within 30s and was killed, so "
+                    "the flows it had not flushed are missing from its dump"
+                ),
+            },
+        ),
+    )
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "control run:" in check.summary
+    assert "was killed" in check.summary
+    # The cause, not only its consequence: the ratio wording must not be what
+    # the reader is left with.
+    assert "did not see the same upstream data" not in check.summary
+
+
+def test_both_sides_being_incomplete_names_both():
+    """Neither marker may be swallowed by the other."""
+    model = _comparison(
+        "read",
+        _replaying_target(20, 0, metrics_incomplete="target proxy was killed"),
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 20,
+                "metrics_incomplete": "control proxy was killed",
+            },
+        ),
+    )
+
+    check = _replay_check(model)
+    assert check is not None
+    assert "control run: control proxy was killed" in check.summary
+    assert "target run: target proxy was killed" in check.summary
+
+
+def test_skipped_replay_is_reported_rather_than_passing_silently():
+    """Tripping the dump-size cap must not look like a clean replayed run."""
+    target = _run_result(
+        True,
+        record_counts_per_stream={"users": 5},
+        http_metrics={
+            "flow_count": 20,
+            "duplicate_flow_count": 0,
+            "replayed_flow_count": 0,
+            "live_flow_count": 20,
+            "replay_skipped_reason": "replay corpus is 400 MB (cap 256 MB)",
+        },
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "400 MB" in check.summary
+
+
+def test_a_run_that_was_not_replaying_gets_no_replay_check():
+    """`--enable-http-metrics` alone must not grow a replay row."""
+    target = _run_result(
+        True, http_metrics={"flow_count": 12, "duplicate_flow_count": 1}
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    assert _replay_check(model) is None
+
+
+def test_the_http_table_carries_the_replay_counts():
+    model = _comparison(
+        "read", _replaying_target(20, 3, unreplayable_flow_count=4), _run_result(True)
+    )
+
+    table = next(
+        table for table in model.metric_tables if table.title == "HTTP Traffic"
+    )
+    rows = {row.label: row for row in table.rows}
+    assert rows["Replayed Flow Count"].target == 17
+    assert rows["Live Flow Count"].target == 3
+    assert rows["Unreplayable Flow Count"].target == 4
+
+
+def test_every_flow_unreplayable_still_reports_the_dropped_count():
+    """The run whose count matters most used to report zero.
+
+    `unreplayable_flow_count` was keyed on a surviving corpus, but when every
+    recorded flow is unreplayable there is no corpus -- so the number that
+    explains why nothing replayed was dropped exactly when it was the answer.
+    """
+    target = _run_result(
+        True,
+        record_counts_per_stream={"users": 5},
+        http_metrics={
+            "flow_count": 1,
+            "duplicate_flow_count": 0,
+            "replayed_flow_count": 0,
+            "live_flow_count": 1,
+            "unreplayable_flow_count": 1,
+            "replay_skipped_reason": "replay source holds no replayable flows",
+        },
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    table = next(
+        table for table in model.metric_tables if table.title == "HTTP Traffic"
+    )
+    rows = {row.label: row for row in table.rows}
+    assert rows["Unreplayable Flow Count"].target == 1
+
+
+def test_a_proxy_that_never_ran_reports_the_reason_and_no_zero_table():
+    """A payload with only a reason means nothing was measured, not zero traffic."""
+    target = _run_result(
+        True,
+        record_counts_per_stream={"users": 5},
+        http_metrics={
+            "replay_skipped_reason": "mitmproxy is unavailable, so nothing "
+            "could be replayed"
+        },
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    assert all(table.title != "HTTP Traffic" for table in model.metric_tables)
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "mitmproxy is unavailable" in check.summary
+
+
+def test_a_command_that_makes_no_requests_gets_no_replay_diagnostic():
+    """`spec` calls nothing upstream, so it has nothing to replay and no drift.
+
+    Its control run records an empty dump, the target finds nothing to replay
+    from, and the skip is real but the reasoning is vacuous. Left alone, every
+    connector run would carry a failed check on `spec` -- and usually `check`
+    too -- permanently and by construction, which is how a reader learns to
+    ignore it on `read`, the one stage where it means something.
+    """
+    target = _run_result(
+        True,
+        http_metrics={
+            "flow_count": 0,
+            "duplicate_flow_count": 0,
+            "replayed_flow_count": 0,
+            "live_flow_count": 0,
+            "replay_skipped_reason": "replay source is missing or empty",
+        },
+    )
+    model = _comparison("spec", target, _run_result(True))
+
+    assert _replay_check(model) is None
+    # And no all-zero traffic table alongside it.
+    assert all(table.title != "HTTP Traffic" for table in model.metric_tables)
+
+
+def test_a_target_that_called_out_is_still_reported_when_the_control_did_not():
+    """The asymmetry worth shouting about, and the reason for keying on target.
+
+    Control capturing nothing while the target reaches the API is what a broken
+    capture looks like. Silencing on the *control* having no flows -- the
+    obvious reading of "nothing was recorded" -- would hide exactly that.
+    """
+    target = _run_result(
+        True,
+        http_metrics={
+            "flow_count": 8,
+            "duplicate_flow_count": 0,
+            "replayed_flow_count": 0,
+            "live_flow_count": 8,
+            "replay_skipped_reason": "replay source is missing or empty",
+        },
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"
+
+
+def test_a_proxy_that_never_ran_is_not_mistaken_for_a_quiet_command():
+    """No `flow_count` at all means nothing was measured, not zero traffic."""
+    target = _run_result(
+        True,
+        http_metrics={"replay_skipped_reason": "mitmproxy is unavailable"},
+    )
+    model = _comparison("read", target, _run_result(True))
+
+    check = _replay_check(model)
+    assert check is not None
+    assert check.status == "warn"

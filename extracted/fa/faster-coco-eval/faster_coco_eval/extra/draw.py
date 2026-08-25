@@ -1,14 +1,6 @@
 import logging
 import os.path as osp
-import sys
-from typing import List, Optional
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-
-    showAnnsiouTypeT = Literal["segm", "bbox"]
-else:
-    showAnnsiouTypeT = str
+from typing import Literal, Optional
 
 import numpy as np
 
@@ -32,6 +24,8 @@ except ImportError:
 
 from ..core import COCO
 from .utils import convert_ann_rle_to_poly
+
+showAnnsiouTypeT = Literal["segm", "bbox"]
 
 
 def _check_dependencies(*deps):
@@ -62,9 +56,9 @@ def generate_ann_polygon(
     ann: dict,
     color: tuple,
     iouType: str = "bbox",
-    text: Optional[str] = None,
-    legendgroup: Optional[str] = None,
-    category_id_to_skeleton: Optional[dict] = None,
+    text: str | None = None,
+    legendgroup: str | None = None,
+    category_id_to_skeleton: dict | None = None,
 ) -> "go.Scatter":
     """Generate annotation polygon for plotly.
 
@@ -93,10 +87,10 @@ def generate_ann_polygon(
 
         for poly in ann["segmentation"]:
             if len(poly) > 3:
-                poly += poly[:2]
-                poly = np.array(poly).reshape(-1, 2)
-                all_x += poly[:, 0].tolist() + [None]
-                all_y += poly[:, 1].tolist() + [None]
+                closed = list(poly) + list(poly[:2])
+                points = np.array(closed).reshape(-1, 2)
+                all_x += points[:, 0].tolist() + [None]
+                all_y += points[:, 1].tolist() + [None]
     elif iouType == "keypoints":
         skeleton = category_id_to_skeleton.get(ann.get("category_id"))
         keypoints = ann.get("keypoints")
@@ -137,18 +131,18 @@ def generate_ann_polygon(
 
 def display_image(
     cocoGt: COCO,
-    cocoDt: Optional[COCO] = None,
+    cocoDt: COCO | None = None,
     image_id: int = 1,
-    iouType: Optional[str] = "bbox",
+    iouType: str | None = "bbox",
     display_fp: bool = True,
     display_fn: bool = True,
     display_tp: bool = True,
     display_gt: bool = True,
     show_false_only: bool = False,
-    data_folder: Optional[str] = None,
-    categories: Optional[list] = None,
-    gt_ann_ids: Optional[set] = None,
-    dt_ann_ids: Optional[set] = None,
+    data_folder: str | None = None,
+    categories: list | None = None,
+    gt_ann_ids: set | None = None,
+    dt_ann_ids: set | None = None,
     return_fig: bool = False,
 ) -> Optional["go.Figure"]:
     """Display the image with the results.
@@ -335,7 +329,8 @@ def display_matrix(
     Args:
         conf_matrix (np.ndarray): Confusion matrix (shape: [n_classes, n_classes + 2]).
         labels (list): List of class labels.
-        normalize (bool, optional): If True, normalize the confusion matrix to percentage. Default is False.
+        normalize (bool, optional): If True, normalize each row, including the appended fp and fn columns, to
+            percentages. Rows with a zero total remain zero. Default is False.
         return_fig (bool, optional): If True, return the figure object. Default is False.
 
     Returns:
@@ -346,8 +341,10 @@ def display_matrix(
     _labels = labels + ["fp", "fn"]
 
     if normalize:
-        conf_matrix /= conf_matrix.sum(axis=1).reshape(-1, 1)
-        conf_matrix *= 100
+        conf_matrix = conf_matrix.astype(float, copy=True)
+        row_totals = conf_matrix.sum(axis=1, keepdims=True)
+        row_totals[row_totals == 0] = 1
+        conf_matrix = conf_matrix / row_totals * 100
 
     hovertemplate = "Real: %{y}<br>Predict: %{x}<br>"
 
@@ -411,9 +408,17 @@ def plot_pre_rec(curves, return_fig: bool = False):
     fig = go.Figure()
 
     for _curve in curves:
-        recall_list = _curve["recall_list"]
-        precision_list = _curve["precision_list"]
-        scores = _curve["scores"]
+        recall_list = np.asarray(_curve["recall_list"])
+        precision_list = np.asarray(_curve["precision_list"])
+        scores = np.asarray(_curve["scores"])
+        point_count = min(len(recall_list), len(precision_list), len(scores))
+        recall_list = recall_list[:point_count]
+        precision_list = precision_list[:point_count]
+        scores = scores[:point_count]
+        valid = precision_list > -1
+        recall_list = recall_list[valid]
+        precision_list = precision_list[valid]
+        scores = scores[valid]
 
         if "name" in _curve and len(_curve["name"]) > 0:
             name = _curve["name"]
@@ -474,9 +479,17 @@ def plot_f1_confidence(curves, return_fig: bool = False):
     fig = go.Figure()
     eps = 1e-16
     for _curve in curves:
-        recall_list = _curve["recall_list"]
-        precision_list = _curve["precision_list"][: len(recall_list)]
-        scores = _curve["scores"]
+        recall_list = np.asarray(_curve["recall_list"])
+        precision_list = np.asarray(_curve["precision_list"])
+        scores = np.asarray(_curve["scores"])
+        point_count = min(len(recall_list), len(precision_list), len(scores))
+        recall_list = recall_list[:point_count]
+        precision_list = precision_list[:point_count]
+        scores = scores[:point_count]
+        valid = precision_list > -1
+        recall_list = recall_list[valid]
+        precision_list = precision_list[valid]
+        scores = scores[valid]
         f1_curve = 2 * precision_list * recall_list / (precision_list + recall_list + eps)
 
         if "name" in _curve and len(_curve["name"]) > 0:
@@ -550,7 +563,9 @@ def plot_ced_metric(curves, normalize: bool = False, return_fig: bool = False):
     for ced_curve in curves:
         for key, val in ced_curve["mae"].items():
             if normalize:
-                y = (np.array(val["y"]) / max(val["y"])) * 100
+                y_values = np.asarray(val["y"])
+                maximum = y_values.max()
+                y = y_values / maximum * 100 if maximum else y_values
             else:
                 y = val["y"]
 
@@ -645,9 +660,9 @@ def plot_ced_metric(curves, normalize: bool = False, return_fig: bool = False):
 def show_anns(
     cocoGt: COCO,
     image_id: int,
-    ann_ids: Optional[List[int]] = None,
+    ann_ids: list[int] | None = None,
     iouType: showAnnsiouTypeT = "bbox",
-    data_folder: Optional[str] = None,
+    data_folder: str | None = None,
     return_fig: bool = False,
 ):
     """Show ground truth annotations on an image.

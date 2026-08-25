@@ -95,6 +95,7 @@ def stream_all_spans(
     search: str | None = None,
     errors_only: bool = False,
     atif_only: bool = False,
+    plato_type: str | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> list[OTelSpan]:
     """Fetch ALL spans for a session by draining the logs-stream endpoint.
@@ -121,6 +122,7 @@ def stream_all_spans(
                 search=search,
                 errors_only=errors_only,
                 atif_only=atif_only,
+                plato_type=plato_type,
             ):
                 if event.get("cursor"):
                     cursor = event["cursor"]
@@ -159,6 +161,7 @@ async def stream_all_spans_async(
     search: str | None = None,
     errors_only: bool = False,
     atif_only: bool = False,
+    plato_type: str | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> list[OTelSpan]:
     """Async counterpart of :func:`stream_all_spans`."""
@@ -179,6 +182,7 @@ async def stream_all_spans_async(
                 search=search,
                 errors_only=errors_only,
                 atif_only=atif_only,
+                plato_type=plato_type,
             ):
                 if event.get("cursor"):
                     cursor = event["cursor"]

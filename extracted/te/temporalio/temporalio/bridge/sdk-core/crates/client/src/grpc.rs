@@ -430,6 +430,11 @@ impl<C> PayloadLimitsClient<C> {
     pub fn set_error_limits(&self, limits: Option<PayloadErrorLimits>) {
         *self.error_limits.write() = limits;
     }
+
+    /// Return the error limits currently injected into requests.
+    pub fn error_limits(&self) -> Option<PayloadErrorLimits> {
+        *self.error_limits.read()
+    }
 }
 
 impl<C: RawClientProducer> RawClientProducer for PayloadLimitsClient<C> {
@@ -1805,6 +1810,16 @@ proxier! {
         }
     );
     (
+        poll_workflow_execution_time_skipping,
+        PollWorkflowExecutionTimeSkippingRequest,
+        PollWorkflowExecutionTimeSkippingResponse,
+        |r| {
+            let labels = namespaced_request!(r);
+            r.extensions_mut().insert(labels);
+            r.extensions_mut().insert(IsUserLongPoll);
+        }
+    );
+    (
         request_cancel_nexus_operation_execution,
         RequestCancelNexusOperationExecutionRequest,
         RequestCancelNexusOperationExecutionResponse,
@@ -2278,14 +2293,12 @@ mod tests {
             }
         }
 
-        let deployment_opts = WorkerDeploymentOptions {
-            version: WorkerDeploymentVersion {
-                deployment_name: "test-deployment".to_string(),
-                build_id: "test-build-123".to_string(),
-            },
-            use_worker_versioning,
-            default_versioning_behavior: None,
-        };
+        let deployment_opts = WorkerDeploymentOptions::new(WorkerDeploymentVersion {
+            deployment_name: "test-deployment".to_string(),
+            build_id: "test-build-123".to_string(),
+        })
+        .use_worker_versioning(use_worker_versioning)
+        .build();
 
         let mut mock_provider = MockClientWorker::new();
         mock_provider

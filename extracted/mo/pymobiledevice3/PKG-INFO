@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 10.11.0
+Version: 10.11.4
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -72,6 +72,7 @@ Requires-Dist: av>=14.0.0; platform_system != "Darwin"
 Requires-Dist: pmd-pytcp>=0.3.7; python_version >= "3.9"
 Requires-Dist: asgiwebdav>=2.0.1; python_version >= "3.10"
 Requires-Dist: backports.zstd; python_version >= "3.10" and python_version < "3.14"
+Requires-Dist: chardet!=7.6.0; python_version >= "3.15"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"

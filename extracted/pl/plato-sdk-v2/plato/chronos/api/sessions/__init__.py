@@ -22,7 +22,6 @@ from . import (
     get_session_state_download_url,
     get_session_state_upload_url,
     get_session_status,
-    get_session_trajectory,
     get_session_workspace_download_url,
     get_session_workspace_upload_url,
     get_span_audit_events,
@@ -78,6 +77,5 @@ __all__ = [
     "get_session_bash_logs_download",
     "get_session_envs",
     "get_session_live_logs",
-    "get_session_trajectory",
     "close_session",
 ]

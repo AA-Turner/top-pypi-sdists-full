@@ -117,15 +117,41 @@ class RLEDecompressor(Decompressor):
                     result.append(c(page[start:end]))
                     i += count_of_bytes_to_copy + 1
                     current_result_array_index += count_of_bytes_to_copy
+            elif control_byte == 0x10:
+                if i != (length - 1):
+                    count_of_bytes_to_copy = (
+                        (b(page[offset + i + 1]) & 0xFF) +
+                        64 +
+                        end_of_first_byte * 256 +
+                        4096
+                    )
+                    start = offset + i + 2
+                    end = start + count_of_bytes_to_copy
+                    result.append(c(page[start:end]))
+                    i += count_of_bytes_to_copy + 1
+                    current_result_array_index += count_of_bytes_to_copy
+            elif control_byte == 0x20:
+                count_of_bytes_to_copy = end_of_first_byte + 96
+                start = offset + i + 1
+                end = start + count_of_bytes_to_copy
+                result.append(c(page[start:end]))
+                i += count_of_bytes_to_copy
+                current_result_array_index += count_of_bytes_to_copy
             elif control_byte == 0x40:
                 copy_counter = (
-                    end_of_first_byte * 16 +
+                    end_of_first_byte * 256 +
                     (b(page[offset + i + 1]) & 0xFF)
                 )
                 for _ in xrange(copy_counter + 18):
                     result.append(c(page[offset + i + 2]))
                     current_result_array_index += 1
                 i += 2
+            elif control_byte == 0x50:
+                for _ in xrange(end_of_first_byte * 256 +
+                                (b(page[offset + i + 1]) & 0xFF) + 17):
+                    result.append(c(0x40))
+                    current_result_array_index += 1
+                i += 1
             elif control_byte == 0x60:
                 for _ in xrange(end_of_first_byte * 256 +
                                 (b(page[offset + i + 1]) & 0xFF) + 17):
@@ -215,10 +241,12 @@ class RDCDecompressor(Decompressor):
         out_offset = 0
 
         # process each item in src_row
-        while src_offset < (len(src_row) - 2):
+        while src_offset < len(src_row):
             # get new load of control bits if needed
             ctrl_mask = ctrl_mask >> 1
             if ctrl_mask == 0:
+                if src_offset + 1 >= len(src_row):
+                    break
                 ctrl_bits = (src_row[src_offset] << 8) +\
                             src_row[src_offset + 1]
                 src_offset += 2
@@ -273,7 +301,7 @@ class RDCDecompressor(Decompressor):
                     src_offset
                 )
                 break
-        return b''.join([self.to_chr(x) for x in out_row])
+        return bytes(bytearray(out_row))
 
 
 class SAS7BDAT(object):
@@ -308,18 +336,49 @@ SAS7BDAT object
         'TIME'
     ])
     DATE_TIME_FORMAT_STRINGS = set([
-        'DATETIME'
+        'DATETIME', 'DTWKDATX', 'B8601DN', 'B8601DT', 'B8601DX', 'B8601DZ',
+        'B8601LX', 'E8601DN', 'E8601DT', 'E8601DX', 'E8601DZ', 'E8601LX',
+        'DATEAMPM', 'DTDATE', 'DTMONYY', 'DTYEAR', 'TOD', 'MDYAMPM',
     ])
     DATE_FORMAT_STRINGS = set([
-        'YYMMDD', 'MMDDYY', 'DDMMYY', 'DATE', 'JULIAN', 'MONYY'
+        'DATE', 'DAY', 'DDMMYY', 'DOWNAME', 'JULDAY', 'JULIAN', 'MMDDYY',
+        'MMYY', 'MMYYC', 'MMYYD', 'MMYYP', 'MMYYS', 'MMYYN', 'MONNAME',
+        'MONTH', 'MONYY', 'QTR', 'QTRR', 'NENGO', 'WEEKDATE', 'WEEKDATX',
+        'WEEKDAY', 'WEEKV', 'WORDDATE', 'WORDDATX', 'YEAR', 'YYMM', 'YYMMC',
+        'YYMMD', 'YYMMP', 'YYMMS', 'YYMMN', 'YYMON', 'YYMMDD', 'YYQ', 'YYQC',
+        'YYQD', 'YYQP', 'YYQS', 'YYQN', 'YYQR', 'YYQRC', 'YYQRD', 'YYQRP',
+        'YYQRS', 'YYQRN', 'YYMMDDP', 'YYMMDDC', 'E8601DA', 'YYMMDDN',
+        'MMDDYYC', 'MMDDYYS', 'MMDDYYD', 'YYMMDDS', 'B8601DA', 'DDMMYYN',
+        'YYMMDDD', 'DDMMYYB', 'DDMMYYP', 'MMDDYYP', 'YYMMDDB', 'DDMMYYC',
+        'DDMMYYD', 'DDMMYYS', 'MINGUO',
     ])
+    ENCODINGS = {
+        0: 'cp1252', 20: 'utf-8', 28: 'us-ascii', 29: 'latin1',
+        30: 'latin2', 31: 'latin3', 32: 'latin4', 33: 'iso-8859-5',
+        34: 'iso-8859-6', 35: 'iso-8859-7', 36: 'iso-8859-8', 37: 'latin5',
+        38: 'latin6', 39: 'cp874', 40: 'iso-8859-15', 41: 'cp437',
+        42: 'cp850', 43: 'cp852', 44: 'cp857', 45: 'cp858', 46: 'cp862',
+        47: 'cp864', 48: 'cp865', 49: 'cp866', 50: 'cp869', 51: 'cp874',
+        55: 'cp720', 56: 'cp737', 57: 'cp775', 58: 'cp860', 59: 'cp863',
+        60: 'cp1250', 61: 'cp1251', 62: 'cp1252', 63: 'cp1253',
+        64: 'cp1254', 65: 'cp1255', 66: 'cp1256', 67: 'cp1257',
+        68: 'cp1258', 69: 'mac_roman', 70: 'mac_arabic', 72: 'mac_greek',
+        75: 'mac_turkish', 118: 'cp950', 123: 'big5', 125: 'gb18030',
+        126: 'cp936', 134: 'euc_jp', 136: 'cp932', 138: 'shift_jis',
+        140: 'euc_kr', 141: 'cp949', 142: 'cp949', 163: 'mac_iceland',
+        167: 'iso2022_jp', 168: 'iso2022_kr', 204: 'cp1252',
+        205: 'gb18030', 227: 'latin8', 242: 'iso8859_13',
+        245: 'mac_croatian', 246: 'mac_cyrillic', 247: 'mac_romanian',
+        248: 'shift_jisx0213',
+    }
+    DEFAULT_ENCODING = 'cp1252'
 
     def __init__(self, path, log_level=logging.INFO,
                  extra_time_format_strings=None,
                  extra_date_time_format_strings=None,
                  extra_date_format_strings=None,
                  skip_header=False,
-                 encoding='utf8',
+                 encoding=None,
                  encoding_errors='ignore',
                  align_correction=True,
                  fh=None, strip_whitespace_from_strings=True):
@@ -363,6 +422,8 @@ SAS7BDAT object
         self.columns = []
         self.header = SASHeader(self)
         self.properties = self.header.properties
+        if self.encoding is None:
+            self.encoding = self.DEFAULT_ENCODING
         self.header.parse_metadata()
         self.logger.debug('\n%s', self.header)
         self._iter = self.readlines()
@@ -503,6 +564,9 @@ SAS7BDAT object
         bit_offset = self.header.PAGE_BIT_OFFSET
         subheader_pointer_length = self.header.SUBHEADER_POINTER_LENGTH
         row_count = self.header.properties.row_count
+        if row_count is None:
+            raise ParseError('no row size subheader found (corrupt or '
+                             'unsupported sas7bdat file?)')
         current_row_in_file_index = 0
         current_row_on_page_index = 0
         if not self.skip_header:
@@ -513,16 +577,20 @@ SAS7BDAT object
             self._read_next_page()
         while current_row_in_file_index < row_count:
             current_row_in_file_index += 1
+            if not self.cached_page:
+                break
             current_page_type = self.current_page_type
-            if current_page_type == self.header.PAGE_META_TYPE:
+            if current_page_type in self.header.PAGE_META_TYPES:
                 try:
                     current_subheader_pointer =\
                         self.current_page_data_subheader_pointers[
                             current_row_on_page_index
                         ]
                 except IndexError:
+                    current_row_in_file_index -= 1
                     self._read_next_page()
                     current_row_on_page_index = 0
+                    continue
                 else:
                     current_row_on_page_index += 1
                     cls = self.header.SUBHEADER_INDEX_TO_CLASS.get(
@@ -588,24 +656,25 @@ SAS7BDAT object
             yield self.current_row
 
     def _read_next_page(self):
-        self.current_page_data_subheader_pointers = []
-        self.cached_page = self._file.read(self.properties.page_length)
-        if len(self.cached_page) <= 0:
-            return
+        while True:
+            self.current_page_data_subheader_pointers = []
+            self.cached_page = self._file.read(self.properties.page_length)
+            if len(self.cached_page) <= 0:
+                return
 
-        if len(self.cached_page) != self.properties.page_length:
-            self.logger.error(
-                'failed to read complete page from file (read %s of %s bytes)',
-                len(self.cached_page), self.properties.page_length
-            )
-        self.header.read_page_header()
-        if self.current_page_type == self.header.PAGE_META_TYPE:
-            self.header.process_page_metadata()
-        if self.current_page_type not in [
-            self.header.PAGE_META_TYPE,
-            self.header.PAGE_DATA_TYPE
-        ] + self.header.PAGE_MIX_TYPE:
-            self._read_next_page()
+            if len(self.cached_page) != self.properties.page_length:
+                self.logger.error(
+                    'failed to read complete page from file '
+                    '(read %s of %s bytes)',
+                    len(self.cached_page), self.properties.page_length
+                )
+            self.header.read_page_header()
+            if self.current_page_type in self.header.PAGE_META_TYPES:
+                self.header.process_page_metadata()
+            if self.current_page_type in self.header.PAGE_META_TYPES + [
+                self.header.PAGE_DATA_TYPE
+            ] + self.header.PAGE_MIX_TYPE:
+                return
 
     def _process_byte_array_with_data(self, offset, length):
         row_elements = []
@@ -704,8 +773,8 @@ SAS7BDAT object
             self.logger.info('\u27f6 [%s] wrote %s of %s lines',
                              os.path.basename(out_file), i - 1,
                              self.properties.row_count or 0)
-        except Exception:
-            self.logger.exception()
+        except Exception as e:
+            self.logger.exception(e)
             success = False
         finally:
             if out_f is not None:
@@ -819,6 +888,16 @@ class RowSizeSubheader(ProcessingSubheader):
             vals[offset + self.ROW_LENGTH_OFFSET_MULTIPLIER * int_len],
             int_len
         )
+        page_length = self.properties.page_length
+        if self.properties.row_length is not None and (
+                self.properties.row_length < 0 or
+                (page_length is not None and
+                 self.properties.row_length > page_length)):
+            msg = 'row length %d out of range for page length %s' % (
+                self.properties.row_length, page_length
+            )
+            self.logger.error(msg)
+            raise ParseError(msg)
         self.properties.row_count = self.parent._read_val(
             'i',
             vals[offset + self.ROW_COUNT_OFFSET_MULTIPLIER * int_len],
@@ -956,9 +1035,13 @@ class ColumnNameSubheader(ProcessingSubheader):
                 col_name_length: self.COLUMN_NAME_LENGTH_LENGTH,
             })
 
-            idx = self.parent._read_val(
-                'h', vals[text_subheader],
-                self.COLUMN_NAME_TEXT_SUBHEADER_LENGTH
+            # min used to prevent incorrect data which appear in some files
+            idx = min(
+                self.parent._read_val(
+                    'h', vals[text_subheader],
+                    self.COLUMN_NAME_TEXT_SUBHEADER_LENGTH
+                ),
+                len(self.parent.column_names_strings) - 1
             )
             col_offset = self.parent._read_val(
                 'h', vals[col_name_offset],
@@ -1123,13 +1206,14 @@ class SASProperties(object):
         self.os_type = None
         self.os_name = None
         self.compression = None
+        self.encoding = None
         self.row_length = None
         self.row_count = None
         self.col_count_p1 = None
         self.col_count_p2 = None
         self.mix_page_row_count = None
-        self.lcs = None
-        self.lcp = None
+        self.lcs = 0
+        self.lcp = 0
         self.creator = None
         self.creator_proc = None
         self.column_count = None
@@ -1238,16 +1322,20 @@ class SASHeader(object):
     BLOCK_COUNT_LENGTH = 2
     SUBHEADER_COUNT_OFFSET = 4
     SUBHEADER_COUNT_LENGTH = 2
-    PAGE_META_TYPE = 0
-    PAGE_DATA_TYPE = 256
-    PAGE_MIX_TYPE = [512, 640]
-    PAGE_AMD_TYPE = 1024
-    PAGE_METC_TYPE = 16384
-    PAGE_COMP_TYPE = -28672
+    # Page types are classified on the high byte only; the low byte carries
+    # flag bits (e.g. 0x0280 is a mix page, 0x4000 a second meta variant).
+    PAGE_TYPE_MASK = 0xFF00
+    PAGE_META_TYPE = 0x0000
+    PAGE_DATA_TYPE = 0x0100
+    PAGE_MIX_TYPE = [0x0200, 0x0280]
+    PAGE_AMD_TYPE = 0x0400
+    PAGE_METC_TYPE = 0x4000
+    PAGE_COMP_TYPE = 0x9000
+    PAGE_META_TYPES = [PAGE_META_TYPE, PAGE_METC_TYPE]
     PAGE_MIX_DATA_TYPE = PAGE_MIX_TYPE + [PAGE_DATA_TYPE]
-    PAGE_META_MIX_AMD = [PAGE_META_TYPE] + PAGE_MIX_TYPE + [PAGE_AMD_TYPE]
+    PAGE_META_MIX_AMD = PAGE_META_TYPES + PAGE_MIX_TYPE + [PAGE_AMD_TYPE]
     PAGE_ANY = PAGE_META_MIX_AMD +\
-        [PAGE_DATA_TYPE, PAGE_METC_TYPE, PAGE_COMP_TYPE]
+        [PAGE_DATA_TYPE, PAGE_COMP_TYPE]
     SUBHEADER_POINTERS_OFFSET = 8
     TRUNCATED_SUBHEADER_ID = 1
     COMPRESSED_SUBHEADER_ID = 4
@@ -1300,6 +1388,10 @@ class SASHeader(object):
         self.properties.endianess = 'little'\
             if vals[self.ENDIANNESS_OFFSET] == b'\x01' else 'big'
         parent.endianess = self.properties.endianess
+        self.properties.encoding = SAS7BDAT.ENCODINGS.get(bytearray(h)[70])
+        if parent.encoding is None:
+            parent.encoding = self.properties.encoding or \
+                SAS7BDAT.DEFAULT_ENCODING
         if vals[self.PLATFORM_OFFSET] == b'1':
             self.properties.platform = 'unix'
         elif vals[self.PLATFORM_OFFSET] == b'2':
@@ -1454,7 +1546,7 @@ class SASHeader(object):
         self.parent.current_page_type = self.parent._read_val(
             'h', vals[self.PAGE_TYPE_OFFSET + bit_offset],
             self.PAGE_TYPE_LENGTH
-        )
+        ) & self.PAGE_TYPE_MASK
         self.parent.current_page_block_count = self.parent._read_val(
             'h', vals[self.BLOCK_COUNT_OFFSET + bit_offset],
             self.BLOCK_COUNT_LENGTH
@@ -1513,6 +1605,14 @@ class SASHeader(object):
 
     def get_subheader_class(self, signature, compression, type):
         index = self.SUBHEADER_SIGNATURE_TO_INDEX.get(signature)
+        if index is None and self.properties.u64:
+            # Some 64-bit files store the row/column size signature in the
+            # low four bytes without zero padding, so the 8-byte lookup
+            # misses; retry the leading four bytes for just those two.
+            prefix_index = self.SUBHEADER_SIGNATURE_TO_INDEX.get(signature[:4])
+            if prefix_index in (self.ROW_SIZE_SUBHEADER_INDEX,
+                                self.COLUMN_SIZE_SUBHEADER_INDEX):
+                index = prefix_index
         if self.properties.compression is not None and index is None and\
                 (compression == self.COMPRESSED_SUBHEADER_ID or
                  compression == 0) and type == self.COMPRESSED_SUBHEADER_TYPE:

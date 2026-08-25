@@ -48,7 +48,6 @@ import time
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
-from datetime import date as _dt_date
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
@@ -160,6 +159,73 @@ ROLLUP_BACKFILL_CHUNK = int(os.environ.get("CLAWMETRY_ROLLUP_BACKFILL_CHUNK", "5
 # makes any replay a no-op.
 FLUSH_MAX_ATTEMPTS = int(os.environ.get("CLAWMETRY_LOCAL_FLUSH_MAX_ATTEMPTS", "3"))
 FLUSH_RETRY_BASE_SECS = float(os.environ.get("CLAWMETRY_LOCAL_FLUSH_RETRY_BASE_SECS", "0.05"))
+
+# Burned 2026-08-24: a corrupt DuckDB index made every flush raise, and the
+# retry path logged ``%s`` of the exception. A DuckDB constraint error embeds
+# the ENTIRE failing chunk in its message (30 columns x 258 rows), so each
+# failure wrote tens of KB, three attempts per tick, forever. sync.log reached
+# **3.3 GB** in 12 hours on a founder machine before anyone noticed. Log lines
+# must be bounded no matter what an exception chooses to put in its message.
+_EXC_LOG_LIMIT = 400
+
+
+def _brief_exc(exc: BaseException, limit: int = _EXC_LOG_LIMIT) -> str:
+    """One bounded line for ``exc``, safe to log on a hot retry path."""
+    try:
+        text = " ".join(str(exc).split())
+    except Exception:
+        return exc.__class__.__name__
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}... [+{len(text) - limit} chars truncated]"
+
+
+def _is_fatal_db_state(exc: BaseException) -> bool:
+    """True when DuckDB has invalidated the connection.
+
+    Once DuckDB reports "database has been invalidated", every subsequent
+    statement on that handle fails the same way -- retrying is pure noise, and
+    the daemon burned 12 hours in that loop. The caller stops retrying and
+    reports the (one-line) recovery instead.
+    """
+    try:
+        return "has been invalidated" in str(exc)
+    except Exception:
+        return False
+
+
+# Log the invalidated-database recovery once per process, not once per tick.
+_fatal_db_reported = False
+
+# Set once the store has invalidated in this process, and cleared again if the
+# automatic rebuild below succeeds. ``health()`` reports it so the dashboard
+# can say the store needs attention instead of quietly rendering empty cards:
+# a bricked daemon looks identical to an idle one from the outside, which is
+# how one sat unnoticed for hours on 2026-08-25.
+_fatal_db_state = {"invalidated": False, "recovered": 0, "last_error": None}
+
+
+def _report_fatal_db_once(exc: BaseException) -> None:
+    global _fatal_db_reported
+    _fatal_db_state["invalidated"] = True
+    try:
+        _fatal_db_state["last_error"] = _brief_exc(exc)
+    except Exception:
+        pass
+    if _fatal_db_reported:
+        return
+    _fatal_db_reported = True
+    log.error(
+        "local store: DuckDB has invalidated this connection and every write "
+        "will now fail (%s). This is almost always a corrupt index, not lost "
+        "data -- the table rows are intact. Recover with: stop the daemon "
+        "(launchctl bootout / systemctl stop), then in a standalone python: "
+        "con = duckdb.connect(<db>); con.execute('CHECKPOINT'); DROP INDEX "
+        "each name from duckdb_indexes(); con.execute('CHECKPOINT'); then "
+        "start the daemon -- migrations recreate the indexes clean.",
+        _brief_exc(exc),
+    )
+
 LOCAL_MAX_BYTES = int(
     float(os.environ.get("CLAWMETRY_LOCAL_MAX_GB", "5.0")) * 1024 * 1024 * 1024
 )
@@ -215,7 +281,22 @@ def _on_disk_bytes() -> int:
         pass
     return total
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
+
+# Day buckets are node-local calendar days, matching the cost windows that
+# filter them (clawmetry/cost_windows.py, ADR-046). Before v13 a day was the
+# first ten characters of whatever timestamp string the runtime wrote, so a
+# runtime writing UTC put a California user's evening spend on tomorrow while
+# the window asking for "today" was local. The two disagreed by design.
+#
+# ``_DAY_EXPR`` is the SQL half; ``cost_windows.local_day`` is the Python half
+# used by the rollup writers. They must produce the same key for the same
+# input or the rollups and the live aggregate part ways — which is the bug
+# class ADR-046 exists to close, so a test pins them against each other.
+from clawmetry.cost_windows import day_expr_sql as _day_expr_sql  # noqa: E402
+from clawmetry.cost_windows import local_day as _local_day  # noqa: E402
+
+_DAY_EXPR = _day_expr_sql("ts")
 
 # ── Two-layer schema (multi-agent) ──────────────────────────────────────────
 #
@@ -353,8 +434,10 @@ _DDL = [
     # ── Query Spine P2 (#2988): materialized rollups, written incrementally
     # at ingest by the daemon's own store handle (never a read-only re-open).
     # Upserts are O(events ingested per flush); a one-time chunked backfill
-    # (backfill_rollups) rebuilds them on upgrade. Day keys are derived from
-    # the event/session timestamp's date part (ts[:10], no tz conversion).
+    # (backfill_rollups) rebuilds them on upgrade. Day keys are the NODE-LOCAL
+    # calendar day (cost_windows.local_day), matching the windows that filter
+    # them; before schema v13 they were the timestamp string's first ten
+    # characters, which followed whatever timezone each runtime wrote.
     # Rows survive event pruning on purpose: they are the durable summary.
     """
     CREATE TABLE IF NOT EXISTS rollup_model_daily (
@@ -399,6 +482,24 @@ _DDL = [
     # from a runtime (or future: node / cwd_prefix) to a friendly team label.
     # key_type='runtime' + key_value='claude_code' + team_label='Eng Team' maps
     # all claude_code sessions to "Eng Team" in /api/usage/by-team.
+    # Node settings: small, operator-set knobs that BOTH processes need.
+    #
+    # The daemon owns the DuckDB writer lock and runs the retention prune;
+    # the dashboard renders the control. A value they must agree on cannot
+    # live in the dashboard's SQLite (the daemon never reads it) or in an
+    # env var (the operator cannot set one from a UI, and it does not
+    # survive a reinstall). So it lives here, in the store both already
+    # read, and the dashboard writes through the daemon proxy.
+    #
+    # Deliberately a tiny key/value table, not a column per setting: these
+    # are node-local preferences, not a schema.
+    """
+    CREATE TABLE IF NOT EXISTS node_settings (
+        key        VARCHAR PRIMARY KEY,
+        value      VARCHAR,
+        updated_at BIGINT
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS team_mapping (
         key_type   VARCHAR NOT NULL,
@@ -2016,6 +2117,10 @@ class LocalStore:
             # exist yet, the daemon hasn't started, and there's nothing to
             # read anyway.
             _migrate_legacy_db_path()
+        # One automatic index rebuild per process (see
+        # ``recover_invalidated_db``). A second invalidation is not a stale
+        # index and must not become a loop.
+        self._recovery_attempted = False
         self._conn = _open_connection(read_only=read_only)
         if not read_only:
             try:
@@ -2039,6 +2144,101 @@ class LocalStore:
                 except Exception:
                     pass
                 raise
+
+    def recover_invalidated_db(self) -> bool:
+        """Apply DuckDB's own prescribed recovery for an invalidated handle.
+
+        DuckDB says it plainly: "the database must be restarted prior to being
+        used again". Until now nothing acted on that. The daemon kept running
+        with a dead handle, every write failed the same way, and every read
+        path answered empty -- so the dashboard went blank while the process
+        looked healthy and launchd, seeing no exit, never restarted it. On
+        2026-08-25 a dev machine sat in that state long enough to write 70 MB
+        of identical tracebacks.
+
+        Restarting the process is not enough on its own, because the cause is
+        usually a corrupt INDEX on disk: a fresh daemon re-ingests the same
+        rows, hits the same index delete, and invalidates again within
+        seconds. The recovery that works is the one already written down in
+        ``_report_fatal_db_once`` for a human to run by hand:
+
+            reopen -> CHECKPOINT -> DROP every index -> CHECKPOINT -> migrate
+
+        The last step is why this is safe to automate: ``_migrate`` recreates
+        every index from ``_DDL``, so dropping them destroys no rows and
+        leaves the schema exactly where it started. Table data is untouched.
+
+        Returns True if the store is usable again. Runs at most once per
+        process: if a rebuilt index invalidates a second time, the cause is
+        not a stale index and a loop would only hide that.
+        """
+        global _fatal_db_reported
+        if self._read_only:
+            return False
+        if self._recovery_attempted:
+            return False
+        self._recovery_attempted = True
+
+        log.error(
+            "local store: DuckDB invalidated the connection; rebuilding "
+            "indexes in place. Table rows are not touched."
+        )
+        with self._write_lock:
+            try:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+                self._conn = _open_connection(read_only=False)
+                self._conn.execute("CHECKPOINT")
+                names = [
+                    r[0] for r in self._conn.execute(
+                        "SELECT index_name FROM duckdb_indexes()"
+                    ).fetchall() if r and r[0]
+                ]
+                dropped = 0
+                for name in names:
+                    try:
+                        # Quoted: index names come from the catalogue, but a
+                        # bare identifier would still break on anything the
+                        # parser treats as reserved.
+                        self._conn.execute('DROP INDEX IF EXISTS "%s"' % name)
+                        dropped += 1
+                    except Exception as drop_exc:
+                        log.warning(
+                            "local store: could not drop index %s (%s)",
+                            name, _brief_exc(drop_exc),
+                        )
+                self._conn.execute("CHECKPOINT")
+            except Exception as exc:
+                log.error(
+                    "local store: index rebuild could not open or clean the "
+                    "database (%s). The store still needs manual recovery.",
+                    _brief_exc(exc),
+                )
+                return False
+
+        # Outside the lock: _migrate takes it itself.
+        try:
+            self._migrate()
+        except Exception as exc:
+            log.error(
+                "local store: indexes were dropped but the schema could not "
+                "be rebuilt (%s). Restart the daemon; migrations run on "
+                "boot and will recreate them.",
+                _brief_exc(exc),
+            )
+            return False
+
+        _fatal_db_state["invalidated"] = False
+        _fatal_db_state["recovered"] = int(_fatal_db_state.get("recovered") or 0) + 1
+        _fatal_db_reported = False
+        log.warning(
+            "local store: rebuilt %d index(es); the store is writable again. "
+            "Queued events flush on the next tick.",
+            dropped,
+        )
+        return True
 
     def _migrate(self) -> None:
         """Bring the store schema up to current SCHEMA_VERSION. Order matters:
@@ -2208,6 +2408,43 @@ class LocalStore:
                             "local store: v12 session re-attribution FAILED — "
                             "schema version will NOT be stamped; next boot "
                             "will retry"
+                        )
+                        migration_failed = True
+                        _migration_err = str(exc)
+                if not migration_failed and current < 13:
+                    # v12 -> v13: day buckets move to the NODE-LOCAL calendar
+                    # day (cost_windows.local_day / _DAY_EXPR). They used to be
+                    # the timestamp string's first ten characters, which
+                    # followed whatever timezone each runtime wrote — so a
+                    # runtime stamping UTC put a California user's 5pm spend on
+                    # tomorrow, while the window asking for "today" was local.
+                    #
+                    # Every rollup row already stored carries the OLD key. New
+                    # writes carry the new one, and the two would sum into the
+                    # same day cell — a day that is partly local and partly
+                    # UTC, which is worse than either. So wipe and rebuild.
+                    #
+                    # All THREE tables, for the reason v11 and v12 spell out:
+                    # ``backfill_rollups`` gates on the SUM of their counts and
+                    # skips when it is non-zero, so leaving one populated means
+                    # the rebuild never runs and the others stay empty forever.
+                    try:
+                        _rb = self._conn.execute(
+                            "SELECT (SELECT COUNT(*) FROM rollup_model_daily)"
+                            " + (SELECT COUNT(*) FROM rollup_runtime_daily)"
+                            " + (SELECT COUNT(*) FROM rollup_session)"
+                        ).fetchone()[0]
+                        self._conn.execute("DELETE FROM rollup_model_daily")
+                        self._conn.execute("DELETE FROM rollup_runtime_daily")
+                        self._conn.execute("DELETE FROM rollup_session")
+                        log.info(
+                            "local store: v13 day buckets are now node-local; "
+                            "wiped %d rollup row(s) for rebuild", _rb,
+                        )
+                    except Exception as exc:
+                        log.exception(
+                            "local store: v13 rollup wipe FAILED — schema "
+                            "version will NOT be stamped; next boot will retry"
                         )
                         migration_failed = True
                         _migration_err = str(exc)
@@ -3353,6 +3590,164 @@ class LocalStore:
                 "updated_at": r[3],
             }
         return out
+
+    # Stable prefix for a derived agent principal id. Short, greppable, and
+    # obviously not a session id when it shows up in an audit row.
+    _PRINCIPAL_PREFIX = "ap_"
+
+    @staticmethod
+    def principal_id(node_id: str, runtime: str, agent_id: str) -> str:
+        """Deterministic id for the agent identified by this triple.
+
+        Pure and stable: the same agent yields the same id on every node, in
+        every process, across restarts, with no lookup and nothing to persist.
+        That is what lets an audit row, a policy and an inventory row all name
+        the same principal without a shared table to join through.
+
+        Derived rather than minted on purpose. ClawMetry watches agents nobody
+        instrumented -- there is no enrolment step we could hang a generated id
+        off, so identity has to fall out of what we already observe.
+        """
+        import hashlib as _hl
+
+        parts = (
+            str(node_id or "").strip().lower(),
+            str(runtime or "").strip().lower(),
+            str(agent_id or "main").strip().lower(),
+        )
+        digest = _hl.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+        return f"{LocalStore._PRINCIPAL_PREFIX}{digest[:16]}"
+
+    def query_agent_principals(
+        self,
+        *,
+        node_id: str | None = None,
+        runtime: str | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        """One row per distinct AGENT, not per runtime.
+
+        The Agent Inventory rolls up one row per runtime, so ownership attaches
+        to "claude_code on this box" rather than to an agent. A policy cannot
+        say *this agent may not do that* without a principal, RBAC has no
+        subject, and the audit chain has no actor beyond a session id. This is
+        that missing primitive.
+
+        Derived from ``sessions``, which already carries every field the
+        identity needs -- so this adds no ingestion and works retroactively on
+        history already in the store. Runtime comes from the session-id prefix
+        (the same rule as ``sync._runtime_of_session`` / the frontend's
+        ``_cmRuntimeOf``), falling back to ``agent_type`` for rows whose id
+        carries no prefix.
+
+        Governance fields (owner / notes) are overlaid from ``agent_meta``,
+        keyed by principal id. That table's key is a free-form VARCHAR, so
+        principal-level ownership needs no migration and reuses the existing
+        ``set_agent_meta`` write path. A runtime-level label and an agent-level
+        label therefore coexist without colliding.
+
+        Each row::
+
+            {principal_id, node_id, runtime, agent_id, sessions, first_seen,
+             last_seen, total_tokens, cost_usd, owner, notes, owner_source}
+
+        ``owner_source`` is ``"agent"`` when this principal has its own label,
+        ``"runtime"`` when it inherits the runtime's, and ``""`` when nobody
+        has claimed it -- so the UI can show inherited ownership honestly
+        instead of implying someone named this agent specifically.
+
+        Never raises: any failure yields ``[]``.
+        """
+        try:
+            sql = """
+                SELECT
+                    COALESCE(node_id, '')                       AS node_id,
+                    CASE
+                        WHEN strpos(session_id, ':') > 1
+                        THEN lower(split_part(session_id, ':', 1))
+                        ELSE ''
+                    END                                          AS sid_prefix,
+                    lower(COALESCE(agent_type, ''))              AS agent_type,
+                    COALESCE(NULLIF(TRIM(agent_id), ''), 'main') AS agent_id,
+                    COUNT(DISTINCT session_id)                   AS sessions,
+                    MIN(started_at)                              AS first_seen,
+                    MAX(last_active_at)                          AS last_seen,
+                    COALESCE(SUM(total_tokens), 0)               AS total_tokens,
+                    COALESCE(SUM(cost_usd), 0.0)                 AS cost_usd
+                FROM sessions
+                WHERE session_id IS NOT NULL
+                GROUP BY 1, 2, 3, 4
+            """
+            rows = self._fetch(sql, [])
+        except Exception:
+            return []
+
+        # Resolve the prefix to a real runtime name. Unknown prefixes are not
+        # runtimes (a session id may contain a colon for other reasons), so
+        # they fall back to agent_type and finally to the openclaw default
+        # bucket -- the same precedence the rest of the codebase uses.
+        try:
+            from clawmetry import entitlements as _ent
+            known = set(_ent.ALL_RUNTIMES)
+        except Exception:
+            known = set()
+
+        try:
+            meta = self.query_agent_meta() or {}
+        except Exception:
+            meta = {}
+
+        want_node = (node_id or "").strip().lower() or None
+        want_rt = (runtime or "").strip().lower() or None
+
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            (r_node, sid_prefix, agent_type, r_agent, sessions,
+             first_seen, last_seen, tokens, cost) = r
+            rt = ""
+            if sid_prefix and (not known or sid_prefix in known):
+                rt = sid_prefix
+            elif agent_type and (not known or agent_type in known):
+                rt = agent_type
+            if not rt:
+                rt = "openclaw"
+
+            if want_node is not None and str(r_node).lower() != want_node:
+                continue
+            if want_rt is not None and rt != want_rt:
+                continue
+
+            pid = self.principal_id(r_node, rt, r_agent)
+            own = meta.get(pid) or {}
+            source = "agent" if own else ""
+            if not own:
+                # Fall back to the runtime-level label the Agent Inventory
+                # already writes, so an agent inherits its runtime's owner
+                # rather than rendering as unowned.
+                own = meta.get(rt) or {}
+                source = "runtime" if own else ""
+
+            out.append({
+                "principal_id": pid,
+                "node_id": str(r_node or ""),
+                "runtime": rt,
+                "agent_id": str(r_agent or "main"),
+                "sessions": int(sessions or 0),
+                "first_seen": first_seen,
+                "last_seen": last_seen,
+                "total_tokens": int(tokens or 0),
+                "cost_usd": float(cost or 0.0),
+                "owner": own.get("owner") or "",
+                "notes": own.get("notes") or "",
+                "owner_source": source,
+            })
+
+        out.sort(key=lambda d: (d.get("last_seen") or "", d["sessions"]), reverse=True)
+        try:
+            n = max(1, min(2000, int(limit)))
+        except (TypeError, ValueError):
+            n = 500
+        return out[:n]
 
     def ingest_cron(self, cron: dict[str, Any]) -> None:
         """Upsert one cron-job row. Required: cron_id.
@@ -5893,13 +6288,26 @@ class LocalStore:
                 break
             except Exception as exc:  # noqa: BLE001 — surface any DuckDB error
                 last_exc = exc
+                if _is_fatal_db_state(exc):
+                    # The handle is dead; the next two attempts would fail
+                    # identically and each would log the whole failing chunk.
+                    _report_fatal_db_once(exc)
+                    # One in-place index rebuild, then retry this same batch.
+                    # The ring still holds it (snapshot-then-pop), so a
+                    # successful recovery flushes the queued events instead of
+                    # leaving the daemon alive but permanently unable to
+                    # write. If recovery declines or fails we fall through to
+                    # exactly the previous behaviour: stop retrying, report.
+                    if self.recover_invalidated_db():
+                        continue
+                    break
                 if attempt + 1 < FLUSH_MAX_ATTEMPTS:
                     # Exponential backoff: 0.05s, 0.10s, 0.20s, ... capped at 1s.
                     delay = min(FLUSH_RETRY_BASE_SECS * (2 ** attempt), 1.0)
                     log.warning(
                         "local store: flush attempt %d/%d failed (%s); "
                         "retrying in %.2fs (ring keeps batch)",
-                        attempt + 1, FLUSH_MAX_ATTEMPTS, exc, delay,
+                        attempt + 1, FLUSH_MAX_ATTEMPTS, _brief_exc(exc), delay,
                     )
                     time.sleep(delay)
         if last_exc is not None:
@@ -5910,7 +6318,7 @@ class LocalStore:
             log.error(
                 "local store: flush failed after %d attempts; %d events stay "
                 "queued for next tick (err=%s)",
-                FLUSH_MAX_ATTEMPTS, len(batch), last_exc,
+                FLUSH_MAX_ATTEMPTS, len(batch), _brief_exc(last_exc),
             )
             raise last_exc
         with self._ring_lock:
@@ -6684,6 +7092,48 @@ class LocalStore:
             if runtime and runtime not in out[label]["runtimes"]:
                 out[label]["runtimes"].append(runtime)
         return sorted(out.values(), key=lambda r: r["cost_usd"], reverse=True)
+
+    # ── node settings (operator-set knobs both processes read) ──────────
+
+    def get_node_setting(self, key: str) -> str | None:
+        """One setting's raw string value, or None when unset."""
+        try:
+            rows = self._fetch(
+                "SELECT value FROM node_settings WHERE key = ?", [str(key)]
+            )
+        except Exception:
+            return None
+        if not rows:
+            return None
+        v = rows[0][0]
+        return None if v is None else str(v)
+
+    def set_node_setting(self, key: str, value: object) -> None:
+        """Upsert one setting. ``None`` deletes the row, which is how an
+        operator clears a preference and returns to the default — distinct
+        from setting it to 0, which is a value."""
+        k = str(key)
+        with self._write_lock:
+            if value is None:
+                self._conn.execute("DELETE FROM node_settings WHERE key = ?", [k])
+                return
+            self._conn.execute(
+                "INSERT INTO node_settings (key, value, updated_at)"
+                " VALUES (?, ?, ?)"
+                " ON CONFLICT (key) DO UPDATE SET"
+                "   value = excluded.value, updated_at = excluded.updated_at",
+                [k, str(value), int(time.time() * 1000)],
+            )
+
+    def list_node_settings(self) -> dict[str, str]:
+        """Every setting as ``{key: value}``. Never raises."""
+        try:
+            rows = self._fetch(
+                "SELECT key, value FROM node_settings ORDER BY key", []
+            )
+        except Exception:
+            return {}
+        return {str(r[0]): (None if r[1] is None else str(r[1])) for r in rows}
 
     def list_team_mappings(self) -> list[dict[str, Any]]:
         """Return all rows from team_mapping."""
@@ -11532,7 +11982,7 @@ class LocalStore:
                 # the same event_type net but no usage payload.
                 continue
 
-            day = (ts or "")[:10]
+            day = _local_day(ts)
             if not day:
                 continue
 
@@ -11696,7 +12146,7 @@ class LocalStore:
             splits = _extract_usage_splits(data)
             if splits["input_tokens"] <= 0 and splits["output_tokens"] <= 0:
                 continue
-            day = (ts or "")[:10]
+            day = _local_day(ts)
             if not day:
                 continue
 
@@ -11839,7 +12289,7 @@ class LocalStore:
               SELECT
                 id, session_id, agent_id, ts, cost_usd, token_count,
                 event_type,
-                substr(ts, 1, 10) AS day,
+                {_DAY_EXPR} AS day,
                 CASE event_type
                   WHEN 'assistant'        THEN 2
                   WHEN 'message'          THEN 2
@@ -12006,6 +12456,15 @@ class LocalStore:
             # vacuum succeeds.
             "cap_exceeded": bool(self._cap_exceeded),
             "auto_vacuum_enabled": bool(AUTO_VACUUM_ENABLED),
+            # True while DuckDB has invalidated the handle and the automatic
+            # rebuild did not bring it back. Reported so a bricked store is
+            # VISIBLE: without it the daemon looks healthy from the outside
+            # and every card just renders empty, which is what let one sit
+            # unnoticed for hours. ``db_recoveries`` counts successful
+            # in-place rebuilds this process.
+            "db_invalidated": bool(_fatal_db_state.get("invalidated")),
+            "db_recoveries": int(_fatal_db_state.get("recovered") or 0),
+            "db_last_error": _fatal_db_state.get("last_error"),
             "event_count": int(n or 0),
             "oldest_ts": oldest,
             "newest_ts": newest,
@@ -12771,18 +13230,13 @@ def _extract_event_usage(e: dict[str, Any]) -> dict[str, Any]:
 
 
 def _event_day(ts: Any) -> str | None:
-    """Day key ('YYYY-MM-DD') for a rollup row, derived from the timestamp
-    string's date part — no timezone conversion, matching how the rest of
-    the store buckets days (substr(ts,1,10)). Returns None (event skipped
-    from rollups) when the prefix is not a valid calendar date."""
-    s = str(ts or "")[:10]
-    if len(s) != 10:
-        return None
-    try:
-        _dt_date.fromisoformat(s)
-    except ValueError:
-        return None
-    return s
+    """Day key ('YYYY-MM-DD') for a rollup row, in the node's local calendar
+    day — matching how the rest of
+    the store buckets days in SQL (``_DAY_EXPR``): the node-local calendar
+    day, so a rollup row lands in the same bucket the live aggregate would
+    put it in. Returns None (event skipped from rollups) when no day can be
+    derived — an underivable bucket must not silently become today."""
+    return _local_day(ts)
 
 
 def _rollup_deltas(

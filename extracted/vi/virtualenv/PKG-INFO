@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: virtualenv
-Version: 21.7.4
+Version: 21.7.5
 Summary: Virtual Python Environment builder
 Project-URL: Documentation, https://virtualenv.pypa.io
 Project-URL: Homepage, https://github.com/pypa/virtualenv

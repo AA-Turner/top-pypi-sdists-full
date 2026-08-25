@@ -9,10 +9,12 @@ typedef std::ptrdiff_t ssize_t;
 #include <time.h>
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstdint>
-#include <execution>
+#include <exception>
 #include <future>
 #include <iostream>
+#include <mutex>
 #include <numeric>
 #include <thread>
 #include <vector>
@@ -24,6 +26,105 @@ using namespace pybind11::literals;
 namespace mask_api {
 
 namespace Mask {
+
+namespace {
+
+constexpr size_t kParallelBatchThreshold = 8;
+
+// Process-wide permit budget capping the total number of async batch workers
+// across all concurrent calls. Because callers release the GIL, several Python
+// threads may enter the batch APIs at once; without a shared bound each call
+// could spawn up to hardware_concurrency() OS threads, oversubscribing the
+// machine.
+class ParallelPermitPool {
+       public:
+        static size_t capacity() {
+                return std::max(
+                    size_t{1},
+                    static_cast<size_t>(std::thread::hardware_concurrency()));
+        }
+
+        explicit ParallelPermitPool(size_t size) : available(size) {}
+
+        // RAII permit; acquisition blocks until a slot is free.
+        class Permit {
+               public:
+                explicit Permit(ParallelPermitPool& pool) : pool(pool) {
+                        std::unique_lock<std::mutex> lock(pool.mutex);
+                        pool.condition.wait(
+                            lock, [&pool] { return pool.available > 0; });
+                        --pool.available;
+                }
+                ~Permit() {
+                        {
+                                std::lock_guard<std::mutex> lock(pool.mutex);
+                                ++pool.available;
+                        }
+                        pool.condition.notify_one();
+                }
+                Permit(const Permit&) = delete;
+                Permit& operator=(const Permit&) = delete;
+
+               private:
+                ParallelPermitPool& pool;
+        };
+
+       private:
+        std::mutex mutex;
+        std::condition_variable condition;
+        size_t available;
+};
+
+ParallelPermitPool& parallelPermitPool() {
+        static ParallelPermitPool pool(ParallelPermitPool::capacity());
+        return pool;
+}
+
+template <typename Function>
+void parallelFor(size_t count, Function&& function) {
+        const size_t workers = std::min(count, ParallelPermitPool::capacity());
+        if (count < kParallelBatchThreshold || workers < 2) {
+                for (size_t index = 0; index < count; ++index) {
+                        function(index);
+                }
+                return;
+        }
+
+        const size_t chunk_size = (count + workers - 1) / workers;
+
+        // Each worker acquires its own shared permit from inside the async
+        // task, so the process-wide budget bounds concurrently *running*
+        // chunks. The calling thread only waits on futures and never holds a
+        // permit, which avoids a hold-and-wait deadlock between concurrent
+        // callers; excess chunks simply run as earlier workers free permits.
+        std::vector<std::future<void>> futures;
+        futures.reserve(workers);
+        for (size_t start = 0; start < count; start += chunk_size) {
+                const size_t end = std::min(start + chunk_size, count);
+                futures.emplace_back(
+                    std::async(std::launch::async, [&function, start, end]() {
+                            ParallelPermitPool::Permit permit(
+                                parallelPermitPool());
+                            for (size_t index = start; index < end; ++index) {
+                                    function(index);
+                            }
+                    }));
+        }
+        // Join every worker before surfacing a failure so no task's exception
+        // is silently discarded and the propagated error is deterministic.
+        std::exception_ptr first_error;
+        for (auto& future : futures) {
+                try {
+                        future.get();
+                } catch (...) {
+                        if (!first_error)
+                                first_error = std::current_exception();
+                }
+        }
+        if (first_error) std::rethrow_exception(first_error);
+}
+
+}  // namespace
 
 // Converts an RLE object to a Python bytes object using its toString() method.
 py::bytes rleToString(const RLE& R) { return py::bytes(R.toString()); }
@@ -52,40 +153,36 @@ std::vector<RLE> rleEncode(const py::array_t<uint8_t, py::array::f_style>& M,
                            uint64_t h, uint64_t w, uint64_t n) {
         auto mask = M.unchecked<3>();
 
-        std::vector<RLE> rles;
-        rles.reserve(n);
+        std::vector<RLE> rles(n);
+        {
+                py::gil_scoped_release release;
+                parallelFor(n, [&](size_t index) {
+                        std::vector<uint64_t> cnts;
+                        const size_t min_reserve = 16;
+                        const size_t max_reserve = h * w / 4;
+                        const size_t perimeter_estimate = 2 * (h + w);
+                        cnts.reserve(std::max(
+                            min_reserve,
+                            std::min(max_reserve, perimeter_estimate)));
 
-        for (uint64_t i = 0; i < n; ++i) {
-                std::vector<uint64_t> cnts;
-                // Improved allocation strategy: adaptive sizing based on mask
-                // characteristics
-                size_t min_reserve = 16;  // Minimum reasonable size
-                size_t max_reserve =
-                    h * w / 4;  // Maximum for very complex masks
-                size_t perimeter_estimate =
-                    2 * (h + w);  // Typical perimeter-based estimate
-                size_t estimated_size = std::max(
-                    min_reserve, std::min(max_reserve, perimeter_estimate));
-                cnts.reserve(estimated_size);
-
-                uint8_t prev = 0;
-                uint64_t count = 0;
-
-                // Traverse the mask in column-major order
-                for (uint64_t row = 0; row < w; ++row) {
-                        for (uint64_t col = 0; col < h; ++col) {
-                                uint8_t value = mask(col, row, i);
-                                if (value != prev) {
-                                        cnts.emplace_back(count);
-                                        count = 0;
-                                        prev = value;
+                        uint8_t previous = 0;
+                        uint64_t count = 0;
+                        for (uint64_t row = 0; row < w; ++row) {
+                                for (uint64_t column = 0; column < h;
+                                     ++column) {
+                                        const uint8_t value =
+                                            mask(column, row, index);
+                                        if (value != previous) {
+                                                cnts.emplace_back(count);
+                                                count = 0;
+                                                previous = value;
+                                        }
+                                        ++count;
                                 }
-                                ++count;
                         }
-                }
-                cnts.emplace_back(count);
-
-                rles.emplace_back(h, w, cnts.size(), std::move(cnts));
+                        cnts.emplace_back(count);
+                        rles[index] = RLE(h, w, std::move(cnts));
+                });
         }
         return rles;
 }
@@ -241,38 +338,53 @@ py::array_t<uint8_t, py::array::f_style> rleDecode(const std::vector<RLE>& R) {
         uint64_t h = R[0].h;
         uint64_t w = R[0].w;
         size_t n = R.size();
-        uint64_t s = h * w * n;
+        uint64_t pixels_per_mask = h * w;
 
         py::array_t<uint8_t, py::array::f_style> M(
             {static_cast<size_t>(h), static_cast<size_t>(w), n});
         auto mask = M.mutable_unchecked<3>();
 
-        for (size_t i = 0; i < n; ++i) {
-                uint8_t v = 0;
-                uint64_t x = 0, y = 0, c = 0;
+        {
+                py::gil_scoped_release release;
+                parallelFor(n, [&](size_t index) {
+                        uint8_t value = 0;
+                        uint64_t x = 0, y = 0, count = 0;
 
-                for (uint64_t j = 0; j < R[i].m; ++j) {
-                        for (uint64_t k = 0; k < R[i].cnts[j]; ++k) {
-                                if (c >= s) {
-                                        std::stringstream ss;
-                                        ss << "Invalid RLE mask "
-                                              "representation; out of range "
-                                              "HxW=[0;0]->["
-                                           << h - 1 << ";" << w - 1
-                                           << "] x=" << x << "; y=" << y;
-                                        throw std::range_error(ss.str());
-                                }
+                        for (uint64_t run = 0; run < R[index].m; ++run) {
+                                for (uint64_t pixel = 0;
+                                     pixel < R[index].cnts[run]; ++pixel) {
+                                        if (count >= pixels_per_mask) {
+                                                std::stringstream ss;
+                                                ss << "Invalid RLE mask "
+                                                      "representation; out of "
+                                                      "range HxW=[0;0]->["
+                                                   << h - 1 << ";" << w - 1
+                                                   << "] x=" << x
+                                                   << "; y=" << y;
+                                                throw std::range_error(
+                                                    ss.str());
+                                        }
 
-                                mask(y, x, i) = v;
-                                ++c;
-                                ++y;
-                                if (y >= h) {
-                                        y = 0;
-                                        ++x;
+                                        mask(y, x, index) = value;
+                                        ++count;
+                                        ++y;
+                                        if (y >= h) {
+                                                y = 0;
+                                                ++x;
+                                        }
                                 }
+                                value = !value;
                         }
-                        v = !v;
-                }
+                        if (count != pixels_per_mask) {
+                                std::stringstream ss;
+                                ss << "Invalid RLE mask representation; "
+                                      "decoded "
+                                   << count << " pixels but expected "
+                                   << pixels_per_mask << " (h=" << h
+                                   << ", w=" << w << ")";
+                                throw std::range_error(ss.str());
+                        }
+                });
         }
         return M;
 }
@@ -286,10 +398,14 @@ py::array_t<uint8_t, py::array::f_style> decode(
 std::vector<py::dict> erode_3x3(const std::vector<py::dict>& rleObjs,
                                 const int& dilation) {
         std::vector<RLE> rles = _frString(rleObjs);
-        std::transform(
-            rles.begin(), rles.end(), rles.begin(),
-            [dilation](const RLE& rle) { return rle.erode_3x3(dilation); });
-        return _toString(rles);
+        std::vector<RLE> eroded(rles.size());
+        {
+                py::gil_scoped_release release;
+                parallelFor(rles.size(), [&](size_t index) {
+                        eroded[index] = rles[index].erode_3x3(dilation);
+                });
+        }
+        return _toString(eroded);
 }
 
 std::vector<py::dict> toBoundary(const std::vector<py::dict>& rleObjs,
@@ -313,8 +429,12 @@ py::dict merge(const std::vector<py::dict>& rleObjs) {
 py::array_t<uint64_t> area(const std::vector<py::dict>& rleObjs) {
         std::vector<RLE> rles = _frString(rleObjs);
         std::vector<uint64_t> areas(rles.size());
-        std::transform(rles.begin(), rles.end(), areas.begin(),
-                       [](RLE const& rle) { return rle.area(); });
+        {
+                py::gil_scoped_release release;
+                parallelFor(rles.size(), [&](size_t index) {
+                        areas[index] = rles[index].area();
+                });
+        }
         return py::array(areas.size(), areas.data());
 }
 
@@ -458,7 +578,7 @@ std::vector<double> rleIou(const std::vector<RLE>& dt,
                         if (o[d * n + g] > 0) {
                                 crowd = _iscrowd && iscrowd[g];
                                 if (dt[d].h != gt[g].h || dt[d].w != gt[g].w) {
-                                        o[g * n + d] = -1;
+                                        o[d * n + g] = -1;
                                         continue;
                                 }
                                 uint64_t ka, kb, a, b, c, ca, cb, ct, i, u;
@@ -575,18 +695,16 @@ std::vector<double> _preproc_bbox_array(const py::object& pyobj) {
 //   - std::out_of_range if the input type is unsupported or malformed.
 std::tuple<std::variant<std::vector<RLE>, std::vector<double>>, size_t>
 _preproc(const py::object& pyobj) {
-        std::string type = py::str(py::type::of(pyobj));
-        if (type == "<class 'numpy.ndarray'>") {
+        if (py::isinstance<py::array>(pyobj)) {
                 auto result = _preproc_bbox_array(pyobj);
                 return {result, result.size() / 4};
-        } else if (type == "<class 'list'>") {
+        } else if (py::isinstance<py::list>(pyobj)) {
                 auto pyobj_list = pyobj.cast<std::vector<py::object>>();
                 if (pyobj_list.empty()) {
                         return {std::vector<double>{}, 0};
                 }
-                std::string sub_type = py::str(py::type::of(pyobj_list[0]));
-                if (sub_type == "<class 'list'>" ||
-                    sub_type == "<class 'numpy.ndarray'>") {
+                if (py::isinstance<py::list>(pyobj_list[0]) ||
+                    py::isinstance<py::array>(pyobj_list[0])) {
                         auto matrix =
                             pyobj.cast<std::vector<std::vector<double>>>();
                         for (const auto& item : matrix) {
@@ -605,7 +723,7 @@ _preproc(const py::object& pyobj) {
                         return {result, result.size() / 4};
                 }
         check_rle:
-                if (sub_type == "<class 'dict'>") {
+                if (py::isinstance<py::dict>(pyobj_list[0])) {
                         auto result =
                             _frString(pyobj.cast<std::vector<py::dict>>());
                         return {result, result.size()};
@@ -650,14 +768,21 @@ std::variant<py::array_t<double, py::array::f_style>, std::vector<double>> iou(
         }
 
         std::vector<double> iou_result;
-        if (std::holds_alternative<std::vector<double>>(_dt)) {
-                const auto& _dt_box = std::get<std::vector<double>>(_dt);
-                const auto& _gt_box = std::get<std::vector<double>>(_gt);
-                iou_result = bbIou(_dt_box, _gt_box, m, n, iscrowd);
-        } else {
-                const auto& _dt_rle = std::get<std::vector<RLE>>(_dt);
-                const auto& _gt_rle = std::get<std::vector<RLE>>(_gt);
-                iou_result = rleIou(_dt_rle, _gt_rle, m, n, iscrowd);
+        {
+                // The remaining work only reads C++ values; keep Python API
+                // conversion and the returned array construction GIL-safe.
+                py::gil_scoped_release release;
+                if (std::holds_alternative<std::vector<double>>(_dt)) {
+                        const auto& _dt_box =
+                            std::get<std::vector<double>>(_dt);
+                        const auto& _gt_box =
+                            std::get<std::vector<double>>(_gt);
+                        iou_result = bbIou(_dt_box, _gt_box, m, n, iscrowd);
+                } else {
+                        const auto& _dt_rle = std::get<std::vector<RLE>>(_dt);
+                        const auto& _gt_rle = std::get<std::vector<RLE>>(_gt);
+                        iou_result = rleIou(_dt_rle, _gt_rle, m, n, iscrowd);
+                }
         }
         return py::array(iou_result.size(), iou_result.data()).reshape({m, n});
 }
@@ -681,27 +806,24 @@ std::variant<py::array_t<double, py::array::f_style>, std::vector<double>> iou(
 std::variant<pybind11::dict, std::vector<pybind11::dict>> frPyObjects(
     const py::object& pyobj, const uint64_t& h, const uint64_t& w) {
         std::vector<RLE> rles;
-        std::string type = py::str(py::type::of(pyobj));
 
         // Handle Python list input
-        if (type == "<class 'list'>") {
+        if (py::isinstance<py::list>(pyobj)) {
                 std::vector<py::object> pyobj_list =
                     pyobj.cast<std::vector<py::object>>();
                 if (pyobj_list.size() == 0) {
                         throw std::out_of_range("list index out of range");
                 }
 
-                std::string sub_type = py::str(py::type::of(pyobj_list[0]));
-
                 // List of dicts: treat as uncompressed RLEs
-                if (sub_type == "<class 'dict'>") {
+                if (py::isinstance<py::dict>(pyobj_list[0])) {
                         return frUncompressedRLE(
                             pyobj.cast<std::vector<py::dict>>());
                 }
                 // List of lists or numpy arrays: treat as bbox or polygon
                 // depending on shape
-                else if ((sub_type == "<class 'list'>") ||
-                         (sub_type == "<class 'numpy.ndarray'>")) {
+                else if (py::isinstance<py::list>(pyobj_list[0]) ||
+                         py::isinstance<py::array>(pyobj_list[0])) {
                         std::vector<std::vector<double>> numpy_array =
                             pyobj.cast<std::vector<std::vector<double>>>();
                         if (numpy_array[0].size() == 4) {
@@ -712,8 +834,8 @@ std::variant<pybind11::dict, std::vector<pybind11::dict>> frPyObjects(
                 }
                 // List of floats or ints: treat as a single bbox or polygon
                 // depending on length
-                else if ((sub_type == "<class 'float'>") ||
-                         (sub_type == "<class 'int'>")) {
+                else if (py::isinstance<py::float_>(pyobj_list[0]) ||
+                         py::isinstance<py::int_>(pyobj_list[0])) {
                         std::vector<double> array =
                             pyobj.cast<std::vector<double>>();
                         if (array.size() == 4) {
@@ -728,12 +850,12 @@ std::variant<pybind11::dict, std::vector<pybind11::dict>> frPyObjects(
                 }
         }
         // Handle numpy ndarray input as bounding boxes
-        else if (type == "<class 'numpy.ndarray'>") {
+        else if (py::isinstance<py::array>(pyobj)) {
                 return frBbox(pyobj.cast<std::vector<std::vector<double>>>(), h,
                               w);
         }
         // Handle single dict input as uncompressed RLE
-        else if (type == "<class 'dict'>") {
+        else if (py::isinstance<py::dict>(pyobj)) {
                 return frUncompressedRLE(
                     {pyobj})[0];  // Return the first (and only) dict
         } else {

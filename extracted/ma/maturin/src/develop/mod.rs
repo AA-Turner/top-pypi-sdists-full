@@ -4,6 +4,7 @@ use crate::PlatformTag;
 use crate::PythonInterpreter;
 use crate::Target;
 use crate::auditwheel::AuditWheelMode;
+use crate::bridge::Bindings;
 use crate::build_options::CargoOptions;
 use crate::compression::CompressionOptions;
 use crate::target::detect_arch_from_python;
@@ -29,16 +30,22 @@ use url::Url;
 #[derive(Debug, clap::Parser)]
 pub struct DevelopOptions {
     /// Which kind of bindings to use
-    #[arg(
-        short = 'b',
-        long = "bindings",
-        alias = "binding-crate",
-        value_parser = ["pyo3", "pyo3-ffi", "cffi", "uniffi", "bin"]
-    )]
-    pub bindings: Option<String>,
+    #[arg(short = 'b', long = "bindings", alias = "binding-crate")]
+    pub bindings: Option<Bindings>,
     /// Pass --release to cargo
     #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS, conflicts_with = "profile")]
     pub release: bool,
+    /// Build with Profile-Guided Optimization (PGO).
+    ///
+    /// Requires `pgo-command` to be set in `[tool.maturin]` in pyproject.toml.
+    /// This performs a three-phase build: instrumented build, profile training,
+    /// and optimized rebuild.
+    ///
+    /// Implies `--release` unless `--profile` is specified.
+    ///
+    /// Can also be enabled via the MATURIN_PGO environment variable.
+    #[arg(long, env = "MATURIN_PGO", value_parser = clap::builder::FalseyValueParser::new())]
+    pub pgo: bool,
     /// Strip the library for minimum file size
     #[arg(long)]
     pub strip: bool,
@@ -156,9 +163,22 @@ fn install_dependencies(
     };
     if !effective_groups.is_empty() {
         let mut args = vec!["install".to_string()];
+        // pip and uv resolve a bare `--group` against `pyproject.toml` in the current working
+        // directory, which breaks when `--manifest-path` points into a subdirectory. Pass the
+        // resolved pyproject.toml path explicitly using the `--group <path>:<group>` syntax
+        // supported by both backends.
+        let pyproject_path = dunce::simplified(&build_context.project.pyproject_toml_path)
+            .display()
+            .to_string();
         for group in &effective_groups {
             args.push("--group".to_string());
-            args.push(group.clone());
+            if group.contains(':') {
+                // The user already supplied a `<path>:<group>` form (e.g. for a pyproject.toml in
+                // another directory); pass it through unchanged instead of prepending our own path.
+                args.push(group.clone());
+            } else {
+                args.push(format!("{pyproject_path}:{group}"));
+            }
         }
         let status = install_backend
             .make_command(python)
@@ -195,14 +215,14 @@ fn install_wheel(
             "{} install failed (ran {:?} with {:?})",
             install_backend.name(),
             cmd.get_program(),
-            &cmd.get_args().collect::<Vec<_>>(),
+            cmd.get_args().collect::<Vec<_>>(),
         ))?;
     if !output.status.success() {
         bail!(
             "{} install in {} failed running {:?}: {}\n--- Stdout:\n{}\n--- Stderr:\n{}\n---\n",
             install_backend.name(),
             venv_dir.display(),
-            &cmd.get_args().collect::<Vec<_>>(),
+            cmd.get_args().collect::<Vec<_>>(),
             output.status,
             String::from_utf8_lossy(&output.stdout).trim(),
             String::from_utf8_lossy(&output.stderr).trim(),
@@ -232,7 +252,7 @@ fn install_wheel(
             eprintln!(
                 "⚠️ Warning: {} raised a warning running {:?}:\n{}",
                 install_backend.name(),
-                &cmd.get_args().collect::<Vec<_>>(),
+                cmd.get_args().collect::<Vec<_>>(),
                 stderr,
             );
         }
@@ -319,11 +339,11 @@ fn parse_direct_url_path(pip_show_output: &str) -> Result<Option<PathBuf>> {
 /// Also adds the dist-info directory to make sure pip and other tools detect the library
 ///
 /// Works only in a virtualenv.
-#[allow(clippy::too_many_arguments)]
 pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
     let DevelopOptions {
         bindings,
         release,
+        pgo,
         strip,
         extras,
         group,
@@ -338,6 +358,11 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
 
     // set profile to release if specified; `--release` and `--profile` are mutually exclusive
     if release {
+        cargo_options.profile = Some("release".to_string());
+    }
+    // PGO-optimizing a debug build makes no sense, so `--pgo` implies the
+    // release profile unless another profile was requested explicitly
+    if pgo && cargo_options.profile.is_none() {
         cargo_options.profile = Some("release".to_string());
     }
 
@@ -362,7 +387,7 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
             bindings,
         },
         platform: PlatformOptions {
-            platform_tag: vec![PlatformTag::Linux],
+            platform_tag: vec![PlatformTag::Linux.into()],
             auditwheel: Some(AuditWheelMode::Skip),
             skip_auditwheel: false,
             #[cfg(feature = "zig")]
@@ -385,6 +410,7 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
         .into_build_context()
         .strip(if strip { Some(true) } else { None })
         .editable(true)
+        .pgo(pgo)
         .build()?;
 
     // Ensure that version information is present, https://github.com/PyO3/maturin/issues/2416
@@ -450,12 +476,12 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
     let orchestrator = BuildOrchestrator::new(&build_context);
     let wheels = orchestrator.build_wheels()?;
     if !skip_install {
-        for (filename, _supported_version) in wheels.iter() {
+        for wheel in &wheels {
             install_wheel(
                 &build_context,
                 &python,
                 venv_dir,
-                filename,
+                &wheel.path,
                 &install_backend,
             )?;
             eprintln!(

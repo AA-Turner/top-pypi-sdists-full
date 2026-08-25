@@ -27,11 +27,13 @@ from rich.console import RenderableType
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
     StepProgressUpdater,
 )
+from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -129,13 +131,7 @@ def _printable_filename(name: str) -> str:
 
 
 def _detail_text(text: str) -> Text:
-    """One line of detail, sanitized and kept to a single row.
-
-    Built as ``Text`` so a name containing square brackets is rendered
-    literally rather than read as rich markup, and so a name too long for the
-    terminal is cropped instead of wrapping - a wrapped continuation would
-    break the tree's guide alignment.
-    """
+    """One line of detail, sanitized and kept to a single cropped row."""
     return Text(sanitize_for_terminal(text) or "", no_wrap=True, overflow="ellipsis")
 
 
@@ -159,7 +155,7 @@ def upload_tree(
     if not root_files and not folders:
         return None
 
-    tree = Tree(_detail_text(_TREE_HEADER))
+    tree = CompactTree(_detail_text(_TREE_HEADER))
     for name in root_files:
         tree.add(_detail_text(_printable_filename(name)))
     _add_folders(tree, folders)
@@ -227,12 +223,18 @@ class ServerPoll:
 
         if self._conn.is_an_error(status):
             self._finalize_failure()
-        else:
-            self._finalize_success()
+            self._abandon_failed_query()
 
+        self._finalize_success()
         result_cursor = self._conn.cursor()
-        result_cursor.get_results_from_sfqid(self._sfqid)
+        result_cursor.query_result(self._sfqid)
         return result_cursor
+
+    def _abandon_failed_query(self) -> NoReturn:
+        self._conn.get_query_status_throw_if_error(self._sfqid)
+        raise CliError(
+            f"Query {self._sfqid} failed, but Snowflake reported no error for it."
+        )
 
     def _abandon_unavailable_status(self) -> NoReturn:
         """Stops waiting on a query whose status Snowflake does not report.
@@ -240,7 +242,7 @@ class ServerPoll:
         Polling cannot make progress without a status, so waiting longer would
         hang the CLI indefinitely on a query it may never learn anything about.
         """
-        raise CliError(
+        raise QueryStatusUnavailableCliError(
             f"Snowflake reported no status for query {self._sfqid} in "
             f"{_NO_DATA_MAX_RETRY} consecutive checks, so its progress cannot be "
             "tracked. The operation may still be running - check the query in "

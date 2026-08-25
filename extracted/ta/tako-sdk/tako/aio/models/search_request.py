@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from tako.aio.models.geo_location import GeoLocation
@@ -42,6 +42,16 @@ class SearchRequest(BaseModel):
     output_settings: Optional[OutputSettings] = Field(default=None, description="Settings that control the response shape.")
     include_related: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=None, description="Applies to POST /v3/search only. Return follow-up query suggestions in `related`. Omit this field to disable them. The value sets the maximum number of suggestions, from 1 to 20. POST /v1/answer accepts this field but ignores it: the answer response has no `related` field.")
     __properties: ClassVar[List[str]] = ["query", "effort", "sources", "location", "country_code", "locale", "timezone", "output_settings", "include_related"]
+
+    @field_validator('query')
+    def query_validate_regular_expression(cls, value):
+        """Validates the regular expression"""
+        if not isinstance(value, str):
+            value = str(value)
+
+        if not re.match(r"\S", value):
+            raise ValueError(r"must validate the regular expression /\S/")
+        return value
 
     model_config = ConfigDict(
         validate_by_name=True,

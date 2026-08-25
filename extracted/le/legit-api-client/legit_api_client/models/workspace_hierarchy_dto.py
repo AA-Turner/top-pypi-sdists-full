@@ -76,15 +76,13 @@ class WorkspaceHierarchyDto(BaseModel):
         _items = []
         if self.top_level_groups:
             for _item_top_level_groups in self.top_level_groups:
-                if _item_top_level_groups:
-                    _items.append(_item_top_level_groups.to_dict())
+                _items.append(_item_top_level_groups.to_dict() if _item_top_level_groups is not None else None)
             _dict['topLevelGroups'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in top_level_workspaces (list)
         _items = []
         if self.top_level_workspaces:
             for _item_top_level_workspaces in self.top_level_workspaces:
-                if _item_top_level_workspaces:
-                    _items.append(_item_top_level_workspaces.to_dict())
+                _items.append(_item_top_level_workspaces.to_dict() if _item_top_level_workspaces is not None else None)
             _dict['topLevelWorkspaces'] = _items
         # set to None if top_level_groups (nullable) is None
         # and model_fields_set contains the field

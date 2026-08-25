@@ -872,6 +872,7 @@ class ContainerImagesApi:
         page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
         search: Optional[StrictStr] = None,
+        count_cap: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -894,6 +895,8 @@ class ContainerImagesApi:
         :type page_size: int
         :param search:
         :type search: str
+        :param count_cap:
+        :type count_cap: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -920,6 +923,7 @@ class ContainerImagesApi:
             page_number=page_number,
             page_size=page_size,
             search=search,
+            count_cap=count_cap,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -946,6 +950,7 @@ class ContainerImagesApi:
         page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
         search: Optional[StrictStr] = None,
+        count_cap: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -968,6 +973,8 @@ class ContainerImagesApi:
         :type page_size: int
         :param search:
         :type search: str
+        :param count_cap:
+        :type count_cap: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -994,6 +1001,7 @@ class ContainerImagesApi:
             page_number=page_number,
             page_size=page_size,
             search=search,
+            count_cap=count_cap,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1020,6 +1028,7 @@ class ContainerImagesApi:
         page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
         search: Optional[StrictStr] = None,
+        count_cap: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1042,6 +1051,8 @@ class ContainerImagesApi:
         :type page_size: int
         :param search:
         :type search: str
+        :param count_cap:
+        :type count_cap: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1068,6 +1079,7 @@ class ContainerImagesApi:
             page_number=page_number,
             page_size=page_size,
             search=search,
+            count_cap=count_cap,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1089,6 +1101,7 @@ class ContainerImagesApi:
         page_number,
         page_size,
         search,
+        count_cap,
         _request_auth,
         _content_type,
         _headers,
@@ -1122,6 +1135,10 @@ class ContainerImagesApi:
         if search is not None:
             
             _query_params.append(('search', search))
+            
+        if count_cap is not None:
+            
+            _query_params.append(('countCap', count_cap))
             
         # process the header parameters
         # process the form parameters

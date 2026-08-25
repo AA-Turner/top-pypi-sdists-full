@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import collections.abc
+import inspect
+from collections.abc import Callable
 from enum import Enum
 from types import NoneType, UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from haystack.dataclasses import ChatMessage
 
@@ -26,6 +28,48 @@ class ConversionStrategy(Enum):
 
 
 ConversionStrategyType = ConversionStrategy | None
+
+# Priority used to pick a strategy when a Union receiver admits more than one conversion
+_STRATEGY_PRIORITY = (
+    ConversionStrategy.WRAP,
+    ConversionStrategy.UNWRAP,
+    ConversionStrategy.CHAT_MESSAGE_TO_STR,
+    ConversionStrategy.STR_TO_CHAT_MESSAGE,
+    ConversionStrategy.WRAP_CHAT_MESSAGE_TO_STR,
+    ConversionStrategy.WRAP_STR_TO_CHAT_MESSAGE,
+    ConversionStrategy.UNWRAP_CHAT_MESSAGE_TO_STR,
+    ConversionStrategy.UNWRAP_STR_TO_CHAT_MESSAGE,
+)
+
+
+def _resolve_parameter_types(target: Callable) -> dict[str, Any]:
+    """
+    Map the parameter names of a callable to their type annotations, resolving postponed annotations.
+
+    A callable defined in a module using `from __future__ import annotations` stores its annotations as strings, which
+    never match the types they refer to. Only string annotations are looked up in the resolved type hints: for the
+    others the annotation from the signature is kept.
+
+    :param target: The callable to inspect.
+    :returns: A dict mapping parameter names to their type annotations. Annotations that cannot be resolved, and
+        parameters without an annotation, are returned as they appear in the signature.
+    """
+    parameters = inspect.signature(target).parameters
+    if any(isinstance(param.annotation, str) for param in parameters.values()):
+        try:
+            hints = get_type_hints(target)
+        except Exception:
+            # TypeError is raised for objects that cannot carry annotations, NameError for names that are not
+            # importable at runtime. Either way we fall back to the unresolved annotations.
+            hints = {}
+        # Non-string annotations are kept as they are written: on Python 3.10 `get_type_hints` widens the annotation
+        # of a parameter defaulting to `None` into an optional. This was changed in Python 3.11, see
+        # https://docs.python.org/3/whatsnew/3.11.html#typing.
+        return {
+            name: hints.get(name, param.annotation) if isinstance(param.annotation, str) else param.annotation
+            for name, param in parameters.items()
+        }
+    return {name: param.annotation for name, param in parameters.items()}
 
 
 def _type_name(type_: Any) -> str:
@@ -181,13 +225,13 @@ def _get_conversion_strategy(sender: Any, receiver: Any) -> ConversionStrategyTy
         return None
 
     # If receiver is a Union, it's compatible if ANY of its types are compatible.
-    # We prefer strategies that don't require type conversion if possible.
+    # When several members admit different conversions, decide based on _STRATEGY_PRIORITY.
     if _safe_get_origin(receiver) is Union:
-        strategies = {_get_conversion_strategy(sender, arg) for arg in get_args(receiver)} - {None}
-        for preferred in (ConversionStrategy.WRAP, ConversionStrategy.UNWRAP):
+        strategies = {_get_conversion_strategy(sender, arg) for arg in get_args(receiver)}
+        for preferred in _STRATEGY_PRIORITY:
             if preferred in strategies:
                 return preferred
-        return strategies.pop() if strategies else None
+        return None
 
     # ChatMessage -> str
     if sender is ChatMessage and receiver is str:

@@ -434,13 +434,22 @@ class WorkerLifecycleManager:
            parse time; ``${VAR}`` / ``${VAR:-default}`` placeholders are
            resolved here against the merged base env, mirroring
            :meth:`MCPServerDef.to_server_config`).
-        4. ``DREADNODE_RUNTIME_{URL,TOKEN,ID}`` and worker/session context —
+        4. ``DREADNODE_RUNTIME_{URL,TOKEN,TOKEN_FILE,ID}`` and worker/session context —
            authoritative; overrides any of the previous layers so the runtime
            owns the connection identity and platform session metadata.
         """
         flag_env = cap.flag_env_vars() if hasattr(cap, "flag_env_vars") else {}
         env = {**os.environ, **flag_env, **_expand_env_in_dict(worker_def.env)}
-        env.update(self._runtime_contract_env())
+        runtime_contract = self._runtime_contract_env()
+        if "DREADNODE_RUNTIME_TOKEN_FILE" in runtime_contract and (
+            "DREADNODE_RUNTIME_TOKEN" not in runtime_contract
+        ):
+            # A configured but unreadable rollback file must fail closed. Do
+            # not leave the stale provisioning value inherited from the parent
+            # process in the worker environment.
+            env.pop("DREADNODE_RUNTIME_TOKEN", None)
+            env.pop("SANDBOX_AUTH_TOKEN", None)
+        env.update(runtime_contract)
         env["DREADNODE_SESSION_ORIGIN"] = "worker"
         env["DREADNODE_WORKER_NAME"] = worker_def.name
         session_group_id = os.environ.get("DREADNODE_SESSION_GROUP_ID", "").strip()
@@ -470,6 +479,7 @@ class WorkerLifecycleManager:
         target.
         """
         from dreadnode.app.server.app import get_state
+        from dreadnode.app.server.runtime_credentials import read_runtime_token
 
         state = get_state()
         env: dict[str, str] = {}
@@ -482,9 +492,21 @@ class WorkerLifecycleManager:
             )
             env["DREADNODE_RUNTIME_URL"] = f"http://127.0.0.1:{port}"
 
-        token = state.runtime_token or read_env_with_deprecation(
-            "DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN"
-        )
+        token_file = os.environ.get("DREADNODE_RUNTIME_TOKEN_FILE")
+        if token_file:
+            # This path is part of the runtime-owned auth contract. A worker
+            # manifest or capability flag must not redirect callbacks to a
+            # different credential file.
+            env["DREADNODE_RUNTIME_TOKEN_FILE"] = token_file
+
+        # Local/in-process runtimes own their bound identity through state. A
+        # configured rollback token file is the exception: N-1 can replace it
+        # after downgrade, so it must win over cached startup state. A failed
+        # file read returns None and must not fall back to that stale state.
+        if token_file:
+            token = read_runtime_token()
+        else:
+            token = state.runtime_token or read_runtime_token()
         if token is not None:
             env["DREADNODE_RUNTIME_TOKEN"] = token
 

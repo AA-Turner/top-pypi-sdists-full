@@ -13,6 +13,7 @@ from dreadnode.app.client.transports import (
     _WebsocketsRuntimeSocket,
 )
 from dreadnode.app.server.runtime_events import TERMINAL_TURN_KINDS
+from dreadnode.core.tls import cached_platform_ssl_context
 
 if t.TYPE_CHECKING:
     from dreadnode.app.api.models import HumanInputResponse
@@ -407,14 +408,26 @@ class _RuntimeInteractiveTransport:
         http_transport = self._client._http_client._transport
         if isinstance(http_transport, StreamingASGITransport):
             return await http_transport.websocket_connect(url=interactive_url, headers=headers)
+        # A caller-supplied transport has no websocket equivalent, so falling
+        # through would open a real network socket the caller never asked for.
+        # Mirrors the guard on the sibling event-stream path.
+        if self._client._injected_transport is not None:
+            raise RuntimeError(
+                "Interactive transport is unavailable with an injected HTTP transport"
+            )
 
         from websockets.asyncio.client import connect
 
+        # Match the HTTP client's trust store — a self-hosted runtime behind an
+        # internal CA must not fail here after its health check already passed.
+        # websockets rejects a context on ws:// and rejects None on wss://,
+        # so this has to track the scheme exactly.
         connection = await connect(
             interactive_url,
             additional_headers=headers or None,
             ping_interval=20,
             ping_timeout=20,
+            ssl=(cached_platform_ssl_context() if interactive_url.startswith("wss://") else None),
         )
         return _WebsocketsRuntimeSocket(connection)
 

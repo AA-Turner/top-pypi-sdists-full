@@ -253,7 +253,7 @@ postgresql = [
 ]
 
 snowflake = [
-    "cryptography<47",
+    "cryptography<49",
     "snowflake-connector-python>=3.12.4,<5",
     "snowflake-sqlalchemy>=1.5.0,<1.11",
     # And the sql dependencies
@@ -455,7 +455,7 @@ all = [
     "clickhouse-driver",
     "clickhouse-sqlalchemy",
     "cohere==5.11.4",
-    "cryptography<47",
+    "cryptography<49",
     "databricks-sdk>=0.29.0,<1.0.0",
     "databricks-sql-connector>=2.5.2,<3.5",
     "duckdb>=0.6,<1.2.0",

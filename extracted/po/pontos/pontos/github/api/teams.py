@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-from typing import Any, AsyncIterator, Dict, Iterable, Optional, Union
+from collections.abc import AsyncIterator, Iterable
+from typing import Any
 
 from pontos.github.api.client import GitHubAsyncREST
 from pontos.github.models.base import (
@@ -58,11 +59,11 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
         organization: str,
         name: str,
         *,
-        description: Optional[str] = None,
-        maintainers: Optional[Iterable[str]] = None,
-        repo_names: Optional[Iterable[str]] = None,
-        privacy: Union[TeamPrivacy, str, None] = None,
-        parent_team_id: Optional[str] = None,
+        description: str | None = None,
+        maintainers: Iterable[str] | None = None,
+        repo_names: Iterable[str] | None = None,
+        privacy: TeamPrivacy | str | None = None,
+        parent_team_id: str | None = None,
     ) -> Team:
         # pylint: disable=line-too-long
         """
@@ -80,14 +81,17 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
                 ) of repositories to add the team to.
             privacy: The level of privacy this team should have. The options
                 are:
+
                     For a non-nested team:
                         * secret - only visible to organization owners and members
                             of this team.
                         * closed - visible to all members of this organization.
+
                     Default: secret
 
                     For a parent or child team:
                         * closed - visible to all members of this organization.
+
                     Default for child team: closed
             parent_team_id: The ID of a team to set as the parent team.
 
@@ -105,9 +109,9 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
                 async with GitHubAsyncRESTApi(token) as api:
                     team = await api.teams.create("foo", "devops")
                     print(team)
-        """  # noqa: E501
+        """
         api = f"/orgs/{organization}/teams"
-        data: Dict[str, Any] = {"name": name}
+        data: dict[str, Any] = {"name": name}
         if description:
             data["description"] = description
         if maintainers:
@@ -164,9 +168,9 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
         team: str,
         *,
         name: str,
-        description: Optional[str] = None,
-        privacy: Union[TeamPrivacy, str, None] = None,
-        parent_team_id: Optional[str] = None,
+        description: str | None = None,
+        privacy: TeamPrivacy | str | None = None,
+        parent_team_id: str | None = None,
     ) -> Team:
         # pylint: disable=line-too-long
         """
@@ -181,14 +185,17 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
             description: The description of the team.
             privacy: The level of privacy this team should have. The options
                 are:
+
                     For a non-nested team:
                         * secret - only visible to organization owners and members
                             of this team.
                         * closed - visible to all members of this organization.
+
                     Default: secret
 
                     For a parent or child team:
                         * closed - visible to all members of this organization.
+
                     Default for child team: closed
             parent_team_id: The ID of a team to set as the parent team.
 
@@ -207,9 +214,9 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
                     team = await api.teams.update(
                         "foo", "devops", name="DevSecOps"
                     )
-        """  # noqa: E501
+        """
         api = f"/orgs/{organization}/teams/{team}"
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
         if name:
             data["name"] = name
         if description:
@@ -299,7 +306,7 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
         team: str,
         username: str,
         *,
-        role: Union[TeamRole, str] = TeamRole.MEMBER,
+        role: TeamRole | str = TeamRole.MEMBER,
     ) -> None:
         """
         Add or update a member of a team.
@@ -331,7 +338,7 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
                     )
         """
         api = f"/orgs/{organization}/teams/{team}/memberships/{username}"
-        data: Dict[str, Any] = {"role": enum_or_value(role)}
+        data: dict[str, Any] = {"role": enum_or_value(role)}
         response = await self._client.put(api, data=data)
         response.raise_for_status()
 
@@ -419,7 +426,7 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
         organization: str,
         team: str,
         repository: str,
-        permission: Union[Permission, str],
+        permission: Permission | str,
     ) -> None:
         """
         Add or update team repository permissions
@@ -452,7 +459,7 @@ class GitHubAsyncRESTTeams(GitHubAsyncREST):
             f"/orgs/{organization}/teams/{team}/repos/{organization}/"
             f"{repository}"
         )
-        data: Dict[str, Any] = {"permission": enum_or_value(permission)}
+        data: dict[str, Any] = {"permission": enum_or_value(permission)}
         response = await self._client.put(api, data=data)
         response.raise_for_status()
 

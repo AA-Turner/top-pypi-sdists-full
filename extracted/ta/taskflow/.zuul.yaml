@@ -1,3 +1,5 @@
+---
+
 - job:
     name: taskflow-functional
     parent: openstack-tox
@@ -34,7 +36,6 @@
     vars:
       tox_environment:
         PIFPAF_DAEMON: etcd
-        SETUP_ENV_SCRIPT: ./setup-etcd-env.sh
 
 - project:
     templates:
@@ -42,6 +43,7 @@
       - lib-forward-testing-python3
       - openstack-cover-jobs
       - openstack-python3-jobs
+      - openstack-python3-next-jobs
       - periodic-stable-jobs
       - publish-openstack-docs-pti
       - release-notes-jobs-python3

@@ -1,4 +1,5 @@
 # HTML utils
+import contextlib
 import html
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, TypeAlias
@@ -10,7 +11,12 @@ if TYPE_CHECKING:
     from lxml.html import HtmlElement
 
 from ._enums import Position
-from ._patterns import FORWARD_LINE, FORWARD_STYLES, MULTIPLE_WHITESPACE_RE
+from ._patterns import (
+    FORWARD_LINE,
+    FORWARD_STYLES,
+    MULTIPLE_WHITESPACE_RE,
+    XML_ILLEGAL_CHARS_RE,
+)
 
 Element: TypeAlias = "HtmlElement"
 ElementRef = tuple["Element", Position]
@@ -173,11 +179,13 @@ def slice_tree(
 
         if start_ref:
             selector = et.getelementpath(start_ref[0])
-            start_ref = (new_tree.find(selector), start_ref[1])
+            results = new_tree.xpath(selector)
+            start_ref = (results[0] if results else None, start_ref[1])
 
         if end_ref:
             selector = et.getelementpath(end_ref[0])
-            end_ref = (new_tree.find(selector), end_ref[1])
+            results = new_tree.xpath(selector)
+            end_ref = (results[0] if results else None, end_ref[1])
 
     else:
         new_tree = tree
@@ -212,6 +220,11 @@ def get_html_tree(html_str: str) -> Element:
     otherwise result in an error. The wrapping can be later removed with
     strip_wrapping().
     """
+    # Strip invalid XML characters. The HTML parser tolerates XML-illegal
+    # characters and preserves them into the tree... but they will raise
+    # a ValueError when they are used downstream.
+    html_str = XML_ILLEGAL_CHARS_RE.sub("", html_str)
+
     parser = lxml.html.HTMLParser(encoding="utf-8")
     htmlb = html_str.encode("utf8")
 
@@ -241,14 +254,18 @@ def get_html_tree(html_str: str) -> Element:
             el.attrib["__tag_name"] = f"{prefix}:{el.tag}"
             el.tag = "span"
 
-        elif ":" in el.tag:
+        elif ":" in el.tag and not any(c in el.tag for c in ('"', "=", " ")):
             # Outlook <o:p> padding: same treatment, round-tripped.
+            # Only applies to genuine namespace tags (e.g. o:p, v:shape).
+            # Tags that contain '"', '=', or spaces alongside ':' are garbage
+            # from malformed HTML (e.g. <ahref="https:...>) and must be
+            # flattened instead, since restoring them would raise ValueError.
             el.attrib["__tag_name"] = el.tag
             el.tag = "span"
 
-        elif "@" in el.tag:
-            # Mail client forgot to escape <addr@domain>. Flatten back to
-            # visible text so the address actually renders.
+        elif ":" in el.tag or "@" in el.tag or "=" in el.tag:
+            # Malformed tag whose name contains XPath-special or otherwise
+            # invalid characters. Flatten back to visible text.
             attrs = "".join(
                 f' {k}="{html.escape(v, quote=True)}"'
                 for k, v in el.attrib.items()
@@ -280,7 +297,11 @@ def render_html_tree(tree: Element) -> str:
     for el in tree.iter():
         if "__tag_name" in el.attrib:
             actual_tag_name = el.attrib.pop("__tag_name")
-            el.tag = actual_tag_name
+            # If lxml rejects restoring the tag name (malformed input),
+            # leave the element as a span,  __tag_name is already
+            # popped so it won't appear in the output.
+            with contextlib.suppress(ValueError):
+                el.tag = actual_tag_name
 
     html_str = lxml.html.tostring(tree, encoding="utf8").decode("utf8")
 

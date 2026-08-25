@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.773
+Version: 0.0.784
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -20,7 +20,7 @@ Requires-Dist: anthropic<1,>=0.108.0
 Requires-Dist: anyio>=4.7.0
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3>=1.43.9
-Requires-Dist: code-puppy-core-plugins>=0.0.12
+Requires-Dist: code-puppy-core-plugins>=0.0.26
 Requires-Dist: httpx[http2]>=0.24.1
 Requires-Dist: json-repair>=0.46.2
 Requires-Dist: keyring>=24.0.0
@@ -30,7 +30,6 @@ Requires-Dist: openai>=2.45.0
 Requires-Dist: packaging>=24.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
-Requires-Dist: prompt-toolkit>=3.0.52
 Requires-Dist: pydantic-ai-harness==0.23.0
 Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.31.0
 Requires-Dist: pydantic>=2.4.0
@@ -40,7 +39,7 @@ Requires-Dist: rapidfuzz>=3.13.0
 Requires-Dist: requests>=2.28.0
 Requires-Dist: rich>=13.4.2
 Requires-Dist: ripgrep==14.1.0; sys_platform != 'android'
-Requires-Dist: termflow-md>=0.5.1
+Requires-Dist: termflow-md>=0.9.0
 Requires-Dist: typer>=0.12.0
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.35.0; extra == 'bedrock'
@@ -384,6 +383,26 @@ Use `custom_openai` for OpenAI-compatible Chat Completions endpoints. If an endp
     "name": "gpt-5.5",
     "custom_endpoint": {
       "url": "https://proxy.example.com/v1",
+      "api_key": "$API_KEY"
+    }
+  }
+}
+```
+
+## Multiple System Messages
+
+Custom OpenAI-compatible endpoints (`custom_openai`, `openrouter`, `cerebras`, and Zhipu `zai_coding`/`zai_api`) default to merging consecutive leading `system` messages into one. Strict backends (SGLang, some vLLM deployments) reject more than one leading system message — this surfaces after auto-compact, which inserts a compaction-summary system message alongside the agent's own system instructions, as a `400: System message must be at the beginning.`
+
+The merge is harmless for endpoints that *do* support multiple system messages. If you know your endpoint handles them, opt out per model with `"supports_multiple_system_messages": true` (a JSON boolean):
+
+```json
+{
+  "my_model": {
+    "type": "custom_openai",
+    "name": "qwen3-sglang",
+    "supports_multiple_system_messages": true,
+    "custom_endpoint": {
+      "url": "http://localhost:30000/v1",
       "api_key": "$API_KEY"
     }
   }

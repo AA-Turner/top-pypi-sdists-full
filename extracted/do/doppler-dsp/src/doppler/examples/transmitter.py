@@ -5,9 +5,9 @@ subject.  Mirrors the C transmitter example using the Python stream API.
 Requires a running nats-server (e.g. `nats-server -js`).
 
 Usage:
-  python examples/python/transmitter.py [endpoint]
-  python examples/python/transmitter.py                  # nats://127.0.0.1:4222/iq
-  python examples/python/transmitter.py nats://127.0.0.1:4222/iq2
+  python transmitter.py [endpoint]
+  python transmitter.py                  # nats://127.0.0.1:4222/iq
+  python transmitter.py nats://127.0.0.1:4222/iq2
 
 Press Ctrl+C to stop.
 """
@@ -97,6 +97,17 @@ def main() -> None:
                 sys.stdout.flush()
 
             time.sleep(0.008)  # ~8 ms throttle for 8192 @ 1 MHz
+
+        # Drain on the way out, and only now: the loop above has ended,
+        # so this program has stopped producing, which is the condition a
+        # drain wants. It stops new work, flushes everything still
+        # buffered and closes -- and it WAITS for that to finish, which
+        # the underlying client's own drain does not. No flush before it:
+        # a drain ends with that same flush as its final phase.
+        try:
+            pub.drain()
+        except TimeoutError as exc:
+            print(f"warning: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

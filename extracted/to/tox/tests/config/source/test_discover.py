@@ -1,11 +1,26 @@
 from __future__ import annotations
 
+import os
+import sys
 from typing import TYPE_CHECKING
+
+import pytest
+
+from tox.config.source.discover import discover_source
+from tox.report import HandledError
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from tox.pytest import ToxProjectCreator
+
+
+# Root ignores the permission bits, and Windows does not model them this way,
+# so the file stays readable and there is nothing to assert.
+unreadable_files_possible = pytest.mark.skipif(
+    sys.platform == "win32" or os.getuid() == 0,
+    reason="cannot make a file unreadable as root or on Windows",
+)
 
 
 def out_no_src(path: Path) -> str:
@@ -50,6 +65,30 @@ def test_bad_src_content(tox_project: ToxProjectCreator, tmp_path: Path) -> None
     assert outcome.out == f"ROOT: HandledError| config file {tmp_path / 'setup.cfg'} does not exist\n"
 
 
+@unreadable_files_possible
+@pytest.mark.parametrize("named", [True, False], ids=["explicit-path", "discovery"])
+def test_unreadable_config_raises_handled_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, named: bool) -> None:
+    """Reading the file raises an OSError subclass, not ValueError.
+
+    Without handling it, discovery lets PermissionError escape and the CLI prints a traceback instead of the one-line
+    error used for malformed files.
+
+    This exercises discover_source directly: the tox_project fixture converts exceptions on its own, so it cannot tell
+    the two cases apart.
+
+    """
+    config = tmp_path / "tox.ini"
+    config.write_text("[tox]\nenv_list = py\n")
+    config.chmod(0o000)
+    monkeypatch.chdir(tmp_path)
+
+    try:
+        with pytest.raises(HandledError, match="failed loading"):
+            discover_source(config if named else None, None)
+    finally:
+        config.chmod(0o644)
+
+
 def test_malformed_config_does_not_prevent_help(tox_project: ToxProjectCreator) -> None:
     project = tox_project({"tox.toml": "deps =\n    mypy\n"})
     outcome = project.run("--help")
@@ -65,6 +104,40 @@ def test_malformed_toml_in_dir_reports_error(tox_project: ToxProjectCreator) -> 
     outcome = project.run("l", "-c", str(project.path))
     outcome.assert_failed()
     assert "failed loading" in outcome.out
+
+
+def test_malformed_ini_in_dir_reports_error(tox_project: ToxProjectCreator) -> None:
+    """Config discovery in a directory should report ini parse errors instead of raising a traceback."""
+    project = tox_project({})
+    # Write a tox.ini with an unterminated section header
+    (project.path / "tox.ini").write_text("[tox\nenv_list = a\n", encoding="utf-8")
+    outcome = project.run("l", "-c", str(project.path))
+    outcome.assert_failed()
+    assert "failed loading" in outcome.out
+    assert "File contains no section headers" in outcome.out
+
+
+@pytest.mark.parametrize(
+    ("core_value", "message"),
+    [
+        pytest.param("min_version = notaversion", "min_version: Invalid version", id="min_version"),
+        pytest.param("requires = ===bad!!!", "requires: Expected package name", id="requires"),
+        pytest.param("env_list = {py39,py310", "env_list: {py39", id="env_list"),
+    ],
+)
+def test_bad_ini_core_value_reports_error(tox_project: ToxProjectCreator, core_value: str, message: str) -> None:
+    """A bad value in the ini core section should be a handled error rather than an unhandled traceback."""
+    project = tox_project({"tox.ini": f"[tox]\n{core_value}\n"})
+    outcome, leaked = None, None
+    try:
+        outcome = project.run("l")
+    except Exception as exception:  # ruff:ignore[blind-except]  # a leaked traceback is the bug under test
+        leaked = exception
+    assert leaked is None, f"unhandled {type(leaked).__name__}: {leaked}"
+    assert outcome is not None
+    outcome.assert_failed()
+    assert "failed to load tox." in outcome.out
+    assert message in outcome.out
 
 
 def test_toml_native_preferred_over_legacy_tox_ini(tox_project: ToxProjectCreator) -> None:

@@ -45,6 +45,7 @@ class TestSyncJobModel(unittest.TestCase):
                 total_files = 0.0,
                 files_synced = 0.0,
                 files_failed = 0.0,
+                files_verified = 0.0,
                 started_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),

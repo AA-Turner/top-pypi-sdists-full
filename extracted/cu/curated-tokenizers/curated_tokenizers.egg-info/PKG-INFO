@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: curated-tokenizers
-Version: 2.0.0
+Version: 2.0.1
 Summary: Lightweight piece tokenization library
 Home-page: https://github.com/explosion/curated-tokenizers
 Author: Explosion
@@ -18,11 +18,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: regex>=2022
+Dynamic: license-file
 
 # 🥢 Curated Tokenizers
 

@@ -1,18 +1,15 @@
-import errno
 import os
+import shutil
+import socket
+import subprocess
 
+import cachelib.file
+import cachelib.simple
 import flask
 import pytest
+from xprocess import ProcessStarter
 
 import flask_caching as fsc
-
-try:
-    from xprocess import ProcessStarter
-except ImportError:
-
-    @pytest.fixture(scope="session")
-    def xprocess():
-        pytest.skip("pytest-xprocess not installed.")
 
 
 @pytest.fixture
@@ -30,6 +27,27 @@ def cache(app):
     return fsc.Cache(app)
 
 
+class _Clock:
+    def __init__(self, now):
+        self.now = now
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    # cachelib does ``from time import time``, so the module attribute has to
+    # be replaced
+    fake = _Clock(1_700_000_000.0)
+    monkeypatch.setattr(cachelib.simple, "time", fake)
+    monkeypatch.setattr(cachelib.file, "time", fake)
+    return fake
+
+
 @pytest.fixture(
     params=[method for method in fsc.SUPPORTED_HASH_FUNCTIONS],
     ids=[method.__name__ for method in fsc.SUPPORTED_HASH_FUNCTIONS],
@@ -38,58 +56,67 @@ def hash_method(request):
     return request.param
 
 
-@pytest.fixture(scope="class")
-def redis_server(xprocess):
-    try:
-        import redis  # noqa
-    except ImportError:
-        pytest.skip("Python package 'redis' is not installed.")
+def _server_is_running(port):
+    with socket.socket() as sock:
+        sock.settimeout(1)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
 
-    class Starter(ProcessStarter):
-        pattern = "[Rr]eady to accept connections"
-        args = ["redis-server"]
+
+def _ensure_server(xprocess, name, executable, port, starter):
+    if _server_is_running(port):
+        yield
+        return
+
+    if os.environ.get("CI", "false") == "true":
+        pytest.fail(f"no {executable} server listening on port {port}")
+
+    if shutil.which(executable) is None:
+        pytest.skip(f"could not find {executable} executable")
 
     try:
-        xprocess.ensure("redis_server", Starter)
-    except OSError as e:
-        # xprocess raises FileNotFoundError
-        if e.errno == errno.ENOENT:
-            pytest.skip("Redis is not installed.")
-        else:
-            raise
+        xprocess.ensure(name, starter)
+    except (OSError, RuntimeError) as exc:
+        pytest.skip(f"could not start {executable}: {exc}")
 
     yield
-    xprocess.getinfo("redis_server").terminate()
+    xprocess.getinfo(name).terminate()
+
+
+@pytest.fixture(scope="class")
+def redis_server(xprocess):
+    package_name = "redis"
+    pytest.importorskip(
+        modname=package_name, reason=f"could not find python package {package_name}"
+    )
+
+    class Starter(ProcessStarter):
+        timeout = 20
+        pattern = "[Rr]eady to accept connections"
+        args = ["redis-server", "--port 6360"]
+
+        def startup_check(self):
+            out = subprocess.run(
+                ["redis-cli", "-p", "6360", "ping"], stdout=subprocess.PIPE
+            )
+            return out.stdout == b"PONG\n"
+
+    yield from _ensure_server(xprocess, package_name, "redis-server", 6360, Starter)
 
 
 @pytest.fixture(scope="class")
 def memcache_server(xprocess):
-    try:
-        import libmc as memcache
-    except ImportError:
-        try:
-            from google.appengine.api import memcache
-        except ImportError:
-            try:
-                import memcache  # noqa
-            except ImportError:
-                pytest.skip(
-                    "Python package for memcache is not installed. Need one of "
-                    "libmc', 'google.appengine', or 'memcache'."
-                )
+    package_name = "pylibmc"
+    pytest.importorskip(
+        modname=package_name, reason=f"could not find python package {package_name}"
+    )
 
     class Starter(ProcessStarter):
-        pattern = ""
-        args = ["memcached", "-vv"]
+        timeout = 20
+        pattern = "server listening"
+        args = ["memcached", "-vv", "-p", "11212"]
 
-    try:
-        xprocess.ensure("memcached", Starter)
-    except OSError as e:
-        # xprocess raises FileNotFoundError
-        if e.errno == errno.ENOENT:
-            pytest.skip("Memcached is not installed.")
-        else:
-            raise
+        def startup_check(self):
+            out = subprocess.run(["memcached", "-p", "11212"], stderr=subprocess.PIPE)
+            return b"Address already" in out.stderr
 
-    yield
-    xprocess.getinfo("memcached").terminate()
+    yield from _ensure_server(xprocess, package_name, "memcached", 11212, Starter)

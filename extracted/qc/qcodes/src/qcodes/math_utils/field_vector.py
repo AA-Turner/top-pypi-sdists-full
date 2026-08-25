@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 AllCoordsType = tuple[float, float, float, float, float, float, float]
 NormOrder = Literal["fro", "nuc"] | None | float
-T = TypeVar("T", bound="FieldVector")
 
 
 class FieldVector:
@@ -205,7 +204,7 @@ class FieldVector:
             >>> f.set_vector(x=9, y=0, r=3)
 
         """
-        names = sorted(list(new_values.keys()))
+        names = sorted(new_values.keys())
         groups = [["x", "y", "z"], ["phi", "r", "theta"], ["phi", "rho", "z"]]
         if names not in groups:
             raise ValueError("Can only set vector with a complete value set")
@@ -424,3 +423,13 @@ class FieldVector:
         # Thus, we start by rescaling such that s == 1.
         hvec /= hvec[-1]
         return cls(x=hvec[0], y=hvec[1], z=hvec[2])
+
+
+if not TYPE_CHECKING:
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    _deprecated_typevars: dict[str, TypeVar] = {
+        "T": TypeVar("T", bound="FieldVector"),
+    }
+
+    __getattr__ = _make_deprecated_typevars_getattr(__name__, _deprecated_typevars)

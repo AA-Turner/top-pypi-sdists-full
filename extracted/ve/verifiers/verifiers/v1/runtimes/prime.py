@@ -13,29 +13,60 @@ import math
 import shlex
 import tempfile
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 from urllib.parse import urlsplit
 
 from prime_sandboxes.models import validate_egress_lists
 from pydantic import Field, model_validator
 
+from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes.base import (
     SERVICE_PORT,
     BaseRuntimeInfo,
-    NetworkPolicyConfig,
     ProgramResult,
     Runtime,
     RuntimeProcess,
     parse_gpu,
 )
 from verifiers.v1.runtimes.limiters import creation_limiter
+from verifiers.v1.utils.aio import run_shielded
+from verifiers.v1.utils.prime import ensure_prime_auth
 
 logger = logging.getLogger(__name__)
 
-MAX_LIFETIME = 24 * 60 * 60
-"""Prime's fixed cap (seconds) on any sandbox's total lifetime."""
+IDLE_FALLBACK_LIFETIME = 30 * 24 * 60 * 60
+"""Lifetime (seconds) given to container sandboxes that set an idle timeout: the
+platform requires a finite lifetime there as a safety fallback should idle detection
+fail. Far above any real run, so effectively unbounded."""
+
+
+BASE_LABELS: list[str] = []
+
+
+@dataclass
+class _SharedClient:
+    client: Any
+    leases: int = 0
+
+
+# One `AsyncSandboxClient` per event loop, leased by every live runtime on it. The SDK
+# coalesces concurrent status polls per client into batched requests (up to 100 ids
+# each), so sharing a client turns N runtimes' creation/job polls into a few batch
+# calls. Keyed by loop (not plain process-global) so a client's tasks stay on the loop
+# that created it.
+_shared_clients: dict[asyncio.AbstractEventLoop, _SharedClient] = {}
+
+
+def set_base_sandbox_labels(labels: list[str]) -> None:
+    """Set process-wide base labels attached to every Prime sandbox, extended by each
+    runtime's ``PrimeConfig.labels``. Call it in the process that creates the sandboxes
+    (env-server workers set it via their setup hook) — e.g. a trainer stamps its run
+    name so every sandbox of a run is findable on the platform."""
+    global BASE_LABELS
+    BASE_LABELS = list(labels)
 
 
 class PrimeConfig(NetworkPolicyConfig):
@@ -46,14 +77,14 @@ class PrimeConfig(NetworkPolicyConfig):
     ~10 minutes) and caches the result, so later sandboxes on the same ref start in
     seconds."""
     workdir: str = "/app"
-    vm: bool = False
+    vm: bool = True
     """Run as a micro-VM rather than a container (kernel features / stronger isolation)."""
     guaranteed: bool = False
     """Request guaranteed (vs best-effort) capacity."""
     region: str | None = None
     """Region to provision in (None = provider-chosen)."""
     labels: list[str] = Field(default_factory=list)
-    """Labels attached to the sandbox."""
+    """Labels attached to the sandbox, extending any process-wide base labels (see ``set_base_sandbox_labels``)."""
     # TaskData.resources uses these units; non-default runtime config values take precedence.
     cpu: float = 1.0
     """CPU cores."""
@@ -86,15 +117,6 @@ class PrimeConfig(NetworkPolicyConfig):
         )
         return self
 
-    @model_validator(mode="after")
-    def _validate_idle_timeout(self) -> "PrimeConfig":
-        if self.idle_timeout is not None and self.idle_timeout > MAX_LIFETIME:
-            raise ValueError(
-                f"idle_timeout ({self.idle_timeout}s) must not exceed the "
-                f"{MAX_LIFETIME}s ({MAX_LIFETIME // 3600}h) max sandbox lifetime"
-            )
-        return self
-
 
 class PrimeRuntimeInfo(PrimeConfig, BaseRuntimeInfo):
     image_cached: bool | None = None
@@ -125,6 +147,7 @@ class PrimeRuntime(Runtime):
     is_local: ClassVar[bool] = False
 
     def __init__(self, config: PrimeConfig, name: str | None = None) -> None:
+        ensure_prime_auth()
         super().__init__(name)
         self.config = config
         self.info = PrimeRuntimeInfo(**config.model_dump())
@@ -141,16 +164,20 @@ class PrimeRuntime(Runtime):
     async def start(self) -> None:
         from prime_sandboxes import AsyncSandboxClient, CreateSandboxRequest
 
-        self._client = AsyncSandboxClient()
+        loop = asyncio.get_running_loop()
+        shared = _shared_clients.get(loop)
+        if shared is None:
+            shared = _shared_clients[loop] = _SharedClient(AsyncSandboxClient())
+        shared.leases += 1
+        self._client = shared.client
         # Map the resources onto prime's API (minutes, split GPU; memory/disk are already
         # GB). gpu_type/region are only sent when set (else provider-chosen).
         gpu_type, gpu_count = parse_gpu(self.config.gpu)
         # prime's idle timeout is in whole minutes; convert from the seconds config surface
-        # (floored to the SDK's 1-minute minimum). VM sandboxes don't support an idle timeout
-        # (the API 422s on it), so it's dropped there rather than failing every VM rollout.
+        # (raised to the SDK's 1-minute minimum).
         idle_minutes = (
             max(1, math.ceil(self.config.idle_timeout / 60))
-            if self.config.idle_timeout is not None and not self.config.vm
+            if self.config.idle_timeout is not None
             else None
         )
         options = {
@@ -158,7 +185,14 @@ class PrimeRuntime(Runtime):
             "memory_gb": self.config.memory,
             "disk_size_gb": self.config.disk,
             "gpu_count": gpu_count,
-            "timeout_minutes": MAX_LIFETIME // 60,
+            # -1 is prime's convention for no lifetime limit; containers with an
+            # idle timeout must carry a finite lifetime as a safety fallback (which
+            # must exceed the idle timeout)
+            "timeout_minutes": (
+                -1
+                if self.config.vm or idle_minutes is None
+                else max(IDLE_FALLBACK_LIFETIME // 60, idle_minutes + 1)
+            ),
             "idle_timeout_minutes": idle_minutes,
             "gpu_type": gpu_type,
             "region": self.config.region,
@@ -170,17 +204,27 @@ class PrimeRuntime(Runtime):
                 )
                 or contextlib.nullcontext()
             ):
-                sandbox = await self._client.create(
-                    CreateSandboxRequest(
-                        name=self.name,
-                        labels=self.config.labels,
-                        docker_image=self.config.image,
-                        vm=self.config.vm,
-                        guaranteed=self.config.guaranteed,
-                        **{k: v for k, v in options.items() if v is not None},
+                # Shielded through the id capture: a cancel that aborts the POST
+                # mid-flight leaves the platform creating a sandbox this side
+                # never learned the id of — teardown() then cannot delete it
+                async def create_and_capture_id():
+                    sandbox = await self._client.create(
+                        CreateSandboxRequest(
+                            name=self.name,
+                            labels=list(
+                                dict.fromkeys([*BASE_LABELS, *self.config.labels])
+                            ),
+                            docker_image=self.config.image,
+                            vm=self.config.vm,
+                            guaranteed=self.config.guaranteed,
+                            environment_vars=self.env,
+                            **{k: v for k, v in options.items() if v is not None},
+                        )
                     )
-                )
-            self.info.id = sandbox.id
+                    self.info.id = sandbox.id
+                    return sandbox
+
+                sandbox = await run_shielded(create_and_capture_id())
             # The create response says whether the platform already has the image:
             # `pending_image_build_id` set means a first-use auto-build is running and the
             # sandbox stays PENDING until it finishes (`wait_for_creation` gives that phase
@@ -194,7 +238,7 @@ class PrimeRuntime(Runtime):
                     self.config.image,
                     self.info.id,
                 )
-            await self._client.wait_for_creation(self.info.id)
+            await self._client.wait_for_creation(self.info.id, max_attempts=180)
             logger.info(
                 "prime: sandbox %s up (image=%s)", self.info.id, self.config.image
             )
@@ -250,15 +294,21 @@ class PrimeRuntime(Runtime):
         )
 
     async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+        # Poll the job by hand: the SDK's run_background_job needs a finite deadline,
+        # but the sandbox has no lifetime limit — the rollout's stage timeouts bound
+        # this via cancellation instead.
         try:
-            result = await self._client.run_background_job(
+            job = await self._client.start_background_job(
                 self.info.id,
                 shlex.join(argv),
-                timeout=MAX_LIFETIME,
                 working_dir=self.config.workdir,
-                env=env,
-                poll_interval=1,
+                env=self.process_env(env),
             )
+            while True:
+                result = await self._client.get_background_job(self.info.id, job)
+                if result.completed:
+                    break
+                await asyncio.sleep(1)
         except (
             Exception
         ) as e:  # a sandbox/API failure is one rollout's problem, not the eval's
@@ -282,7 +332,7 @@ class PrimeRuntime(Runtime):
                 self.info.id,
                 shlex.join(argv),
                 working_dir=self.config.workdir,
-                env=env,
+                env=self.process_env(env),
             )
         except Exception as e:
             raise SandboxError(f"prime live process failed to start: {e}") from e
@@ -314,7 +364,7 @@ class PrimeRuntime(Runtime):
                 self.info.id,
                 command,
                 working_dir=self.config.workdir,
-                env=env,
+                env=self.process_env(env),
             )
         except Exception as e:
             raise SandboxError(f"prime background launch failed: {e}") from e
@@ -374,12 +424,16 @@ class PrimeRuntime(Runtime):
         client, self._client = self._client, None  # `_client` is the idempotency guard
         if client is None:
             return
-        if self.info.id is not None:  # keep info.id available after teardown
-            try:
+        try:
+            if self.info.id is not None:  # keep info.id available after teardown
                 await client.delete(self.info.id)
-            except Exception as e:  # noqa: BLE001 - provider teardown is best-effort
-                logger.warning(
-                    "prime: failed to delete sandbox %s: %s", self.info.id, e
-                )
-        with contextlib.suppress(Exception):
-            await client.aclose()
+        except Exception as e:  # noqa: BLE001 - provider teardown is best-effort
+            logger.warning("prime: failed to delete sandbox %s: %s", self.info.id, e)
+        finally:
+            loop = asyncio.get_running_loop()
+            shared = _shared_clients[loop]
+            shared.leases -= 1
+            if not shared.leases:  # last runtime on this loop closes the client
+                del _shared_clients[loop]
+                with contextlib.suppress(Exception):
+                    await client.aclose()

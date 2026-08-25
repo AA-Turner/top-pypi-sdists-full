@@ -23,7 +23,12 @@ from snowflake.cli._plugins.dcm.exceptions import (
     ManifestNotFoundError,
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
+from snowflake.cli._plugins.dcm.models import (
+    DCMAsset,
+    DCMManifest,
+    DCMTarget,
+    TargetContext,
+)
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -48,7 +53,12 @@ from snowflake.cli._plugins.dcm.reporters import (
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import command_artifacts, mock_dcm_response
+from snowflake.cli._plugins.dcm.utils import (
+    RAW_ANALYZE_COMMAND_NAME,
+    command_artifacts,
+    mock_dcm_response,
+    output_stage,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -148,12 +158,9 @@ env_file_option = typer.Option(
     None,
     "--env-file",
     "-e",
-    help="Path to a .env file (KEY=VALUE per line) to source declared "
-    "environment variables/secrets from, layered under the shell "
-    "environment. The shell always wins on a name declared in both; the "
-    "file only fills in names the shell doesn't already provide. Quote a "
-    "value containing '#' or leading/trailing whitespace, or it's silently "
-    "truncated at the '#' or trimmed.",
+    help="Path to a KEY=VALUE file to load as environment variables. "
+    "Shell variables take precedence — file values are only used for "
+    "names not already set in the shell.",
     show_default=False,
     click_type=LocalFileType(),
     hidden=not FeatureFlag.ENABLE_DCM_PROJECT_ENV_VARS.is_enabled(),
@@ -290,6 +297,7 @@ def _resolve_target_context(
         project_identifier=project_id,
         configuration=effective_target.templating_config,
         declared_variable_names=manifest.templating.declared_variable_names,
+        assets=list(manifest.assets.values()),
     )
 
 
@@ -350,6 +358,7 @@ def _upload_step(
     manager: DCMProjectManager,
     project_id: FQN,
     from_location: SecurePath,
+    assets: List[DCMAsset],
 ) -> str:
     return progress.run_step(
         UPLOAD.key,
@@ -357,6 +366,7 @@ def _upload_step(
             project_identifier=project_id,
             source_directory=str(from_location.path),
             progress=step,
+            assets=assets,
         ),
     )
 
@@ -411,7 +421,9 @@ def deploy(
                 cli_console.warning("Skipping planning step")
 
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
             sfqid = manager.deploy_async(
                 project_identifier=project_id,
                 configuration=context.configuration,
@@ -542,27 +554,26 @@ def plan(
         project_id = context.project_identifier
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-        progress = MultiStepProgress([UPLOAD, RENDER, COMPILE, PLAN])
+        server_steps = [RENDER, COMPILE, PLAN]
+        progress = MultiStepProgress([UPLOAD, *server_steps])
         with progress_session(progress):
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
-            # The backend doesn't report progress for `plan` yet, so RENDER/COMPILE
-            # are simulated as instantly-completing steps. Once it does (soon),
-            # replace these with real ServerPoll-driven tracking, as in `deploy`.
-            progress.run_step(RENDER.key, lambda step: None)
-            progress.run_step(COMPILE.key, lambda step: None)
-            result = progress.run_step(
-                PLAN.key,
-                lambda step: manager.plan(
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            with output_stage(
+                project_id, command_name="plan", save_output=save_output
+            ) as output_path:
+                sfqid = manager.plan_async(
                     project_identifier=project_id,
                     configuration=context.configuration,
                     from_stage=effective_stage,
                     variables=variables,
-                    save_output=save_output,
                     delta=delta,
+                    output_path=output_path,
                     env_vars=env_vars,
-                ),
-            )
+                )
+                result = _run_server_poll(manager, progress, server_steps, sfqid)
 
         reporter = PlanReporter(
             save_output=save_output,
@@ -593,18 +604,25 @@ def raw_analyze(
         progress = MultiStepProgress([UPLOAD, ANALYZE])
         with progress_session(progress):
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
-            result = progress.run_step(
-                ANALYZE.key,
-                lambda step: manager.raw_analyze(
-                    project_identifier=project_id,
-                    configuration=context.configuration,
-                    from_stage=effective_stage,
-                    variables=variables,
-                    save_output=save_output,
-                    env_vars=env_vars,
-                ),
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
             )
+            with output_stage(
+                project_id,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
+                save_output=save_output,
+            ) as output_path:
+                result = progress.run_step(
+                    ANALYZE.key,
+                    lambda step: manager.raw_analyze(
+                        project_identifier=project_id,
+                        configuration=context.configuration,
+                        from_stage=effective_stage,
+                        variables=variables,
+                        output_path=output_path,
+                        env_vars=env_vars,
+                    ),
+                )
 
         reporter = AnalyzeReporter(save_output=save_output)
         return reporter.process(result)
@@ -754,7 +772,10 @@ def drop_deployment(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 def preview(
     identifier: Optional[FQN] = optional_dcm_identifier,
     object_identifier: FQN = typer.Option(
@@ -786,7 +807,9 @@ def preview(
     progress = MultiStepProgress([UPLOAD, PREVIEW])
     with progress_session(progress):
         manager = DCMProjectManager()
-        effective_stage = _upload_step(progress, manager, project_id, from_location)
+        effective_stage = _upload_step(
+            progress, manager, project_id, from_location, assets=context.assets
+        )
         result = progress.run_step(
             PREVIEW.key,
             lambda step: manager.preview(
@@ -803,7 +826,10 @@ def preview(
     return QueryResult(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -834,7 +860,10 @@ def refresh(
         return reporter.process(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,

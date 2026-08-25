@@ -3,7 +3,6 @@
 import asyncio
 import base64
 import contextlib
-import fnmatch
 import hmac
 import secrets
 import socket
@@ -13,6 +12,8 @@ from ipaddress import ip_address
 from urllib.parse import urlsplit, urlunsplit
 
 import h11
+
+from verifiers.v1.configs.runtime import NetworkPolicyConfig, network_rule_matches
 
 HOST_ALIAS = "vf.host.internal"
 _HEADER_TIMEOUT = 10
@@ -27,28 +28,9 @@ async def _drain(writer: asyncio.StreamWriter) -> None:
     await asyncio.wait_for(writer.drain(), _IO_TIMEOUT)
 
 
-def _rule_matches(rule: str, scheme: str, host: str, port: int) -> bool:
-    """Match a host pattern or URL origin. URL paths are intentionally ignored."""
-    value = rule.lower().rstrip("/")
-    parsed = urlsplit(value if "://" in value else f"//{value}")
-    pattern = (parsed.hostname or "").rstrip(".")
-    if not pattern or (parsed.scheme and parsed.scheme != scheme):
-        return False
-    rule_port = parsed.port
-    if parsed.scheme and rule_port is None:
-        rule_port = 443 if parsed.scheme == "https" else 80
-    if rule_port is not None and rule_port != port:
-        return False
-    host = host.lower().rstrip(".")
-    return fnmatch.fnmatchcase(host, pattern) or (
-        pattern.startswith("*.") and host == pattern[2:]
-    )
-
-
 @dataclass
 class NetworkPolicy:
-    allow: list[str]
-    block: list[str]
+    config: NetworkPolicyConfig
     routes: list[str]
     allow_non_global: bool = False  # trusted setup only
 
@@ -61,10 +43,10 @@ class NetworkPolicy:
             and not any(
                 rule == "*"
                 or (
-                    urlsplit(rule.lower()).scheme == "https"
-                    and _rule_matches(rule, scheme, host, port)
+                    rule.lower().startswith(f"{scheme}://")
+                    and network_rule_matches(rule, scheme, host, port)
                 )
-                for rule in [*self.routes, *self.allow]
+                for rule in [*self.routes, *self.config.allow]
             )
         ):
             return False
@@ -74,15 +56,15 @@ class NetworkPolicy:
         if hostname == "localhost" or hostname.endswith(".localhost"):
             return False
         # Framework routes are invariants, not user egress, so they cannot be blocked.
-        if any(_rule_matches(route, scheme, host, port) for route in self.routes):
+        if any(
+            network_rule_matches(route, scheme, host, port) for route in self.routes
+        ):
             return True
         # The proxy dials from the host, so only framework routes may use host loopback.
         with contextlib.suppress(ValueError):
             if ip_address(hostname).is_loopback:
                 return False
-        if any(_rule_matches(rule, scheme, host, port) for rule in self.block):
-            return False
-        return any(_rule_matches(rule, scheme, host, port) for rule in self.allow)
+        return self.config.permits(scheme, host, port)
 
 
 async def _read_client_hello(
@@ -186,8 +168,19 @@ class EgressProxy:
             connect = method == "CONNECT"
             if connect:
                 parsed = urlsplit(f"//{target}")
-                scheme = "https"
                 host, port = parsed.hostname or "", parsed.port or 443
+                # Some HTTP clients tunnel plain HTTP through CONNECT. Only an
+                # explicit framework route can identify that otherwise-ambiguous
+                # tunnel without broadening user-configured egress.
+                scheme = (
+                    "http"
+                    if any(
+                        route.lower().startswith("http://")
+                        and network_rule_matches(route, "http", host, port)
+                        for route in self.policy.routes
+                    )
+                    else "https"
+                )
             else:
                 parsed = urlsplit(target)
                 scheme = parsed.scheme.lower()
@@ -206,7 +199,7 @@ class EgressProxy:
                     _IO_TIMEOUT,
                 )
                 framework = any(
-                    _rule_matches(route, scheme, host, port)
+                    network_rule_matches(route, scheme, host, port)
                     for route in self.policy.routes
                 )
                 if not framework and not self.policy.allow_non_global:
@@ -241,17 +234,18 @@ class EgressProxy:
                 response_started = True
                 writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
                 await _drain(writer)
-                client_hello, server_name = await _read_client_hello(reader)
-                if server_name is None:
-                    with contextlib.suppress(ValueError):
-                        ip_address(host)
-                        server_name = host
-                if server_name is None or not self.policy.permits(
-                    "https", server_name, port, connect=True
-                ):
-                    return
-                upstream_writer.write(client_hello)
-                await _drain(upstream_writer)
+                if scheme == "https":
+                    client_hello, server_name = await _read_client_hello(reader)
+                    if server_name is None:
+                        with contextlib.suppress(ValueError):
+                            ip_address(host)
+                            server_name = host
+                    if server_name is None or not self.policy.permits(
+                        "https", server_name, port, connect=True
+                    ):
+                        return
+                    upstream_writer.write(client_hello)
+                    await _drain(upstream_writer)
                 await _relay(reader, writer, upstream_reader, upstream_writer)
             else:
                 path = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))

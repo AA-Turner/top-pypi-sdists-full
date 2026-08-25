@@ -342,6 +342,14 @@ def run_regression_tests(
         "Enable debug-level logging for regression test output. "
         "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container.",
     ] = False,
+    disable_http_replay: Annotated[
+        bool,
+        "Run both connector versions against the live API instead of replaying the "
+        "control run's recorded HTTP responses. Replay is on by default and is what "
+        "makes a record difference attributable to the version under test rather "
+        "than to upstream drift, so only disable it for a connector whose traffic "
+        "cannot be replayed faithfully. Comparison mode only.",
+    ] = False,
     with_state: Annotated[
         bool | None,
         "Fetch and pass the connection's current state to the read command, "
@@ -427,6 +435,8 @@ def run_regression_tests(
         workflow_inputs["selected_streams"] = ",".join(selected_streams)
     if enable_debug_logs:
         workflow_inputs["enable_debug_logs"] = "true"
+    if disable_http_replay:
+        workflow_inputs["disable_http_replay"] = "true"
     if with_state is True:
         workflow_inputs["with_state"] = "true"
     elif with_state is False:

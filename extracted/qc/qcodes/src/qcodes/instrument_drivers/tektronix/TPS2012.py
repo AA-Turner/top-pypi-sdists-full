@@ -1,12 +1,12 @@
 import binascii
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Unpack
 
 import numpy as np
 import numpy.typing as npt
 from pyvisa.errors import VisaIOError
-from typing_extensions import TypedDict, Unpack
+from typing_extensions import TypedDict
 
 from qcodes import validators as vals
 from qcodes.instrument import (
@@ -473,5 +473,3 @@ class TPS2012(TektronixTPS2012):
     """
     Deprecated alias for ``TektronixTPS2012``
     """
-
-    pass

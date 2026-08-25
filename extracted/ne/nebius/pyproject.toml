@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nebius"
-version = "0.5.6"
+version = "0.5.7"
 description = "Nebius Python SDK"
 authors = [
     { name = "Daniil Drizhuk", email = "complynx@nebius.com" },
@@ -303,6 +303,8 @@ html-viewsource-base="https://github.com/nebius/pysdk/tree/main"
 intersphinx = [
     "https://docs.python.org/3/objects.inv",
     "https://grpc.github.io/grpc/python/objects.inv",
+    "https://googleapis.dev/python/protobuf/latest/objects.inv",
+    "https://portalocker.readthedocs.io/en/latest/objects.inv",
 ]
 privacy = [
     "PRIVATE:nebius.api.nebius.common.*.OperationServiceClient",

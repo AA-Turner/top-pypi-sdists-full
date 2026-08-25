@@ -111,6 +111,13 @@ class TestCollectionDocumentsApi(unittest.TestCase):
         """
         pass
 
+    def test_get_document_diagnostics(self) -> None:
+        """Test case for get_document_diagnostics
+
+        Per-document support diagnostics (visibility, failures, history).
+        """
+        pass
+
     def test_list_documents(self) -> None:
         """Test case for list_documents
 

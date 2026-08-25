@@ -2,7 +2,7 @@ import logging as _logging
 
 from pydantic_config import BaseConfig
 
-from verifiers.v1.acp import ACP
+from verifiers.v1.acp import ACPConfig, ACPHarness
 from verifiers.v1.agent import Agent, Agents, Interaction, Segment, make_agent
 from verifiers.v1.clients import (
     BaseClientConfig,
@@ -18,7 +18,6 @@ from verifiers.v1.configs.cli.env import narrowed_env_annotation, resolve_env_fi
 from verifiers.v1.configs.env import EnvConfig, default_agent_harness
 from verifiers.v1.configs.harness import HarnessConfig
 from verifiers.v1.configs.judge import JudgeConfig, Judges
-from verifiers.v1.configs.legacy import LegacyEnvConfig
 from verifiers.v1.configs.retries import RetryConfig
 from verifiers.v1.configs.serve import (
     ElasticPoolConfig,
@@ -26,11 +25,27 @@ from verifiers.v1.configs.serve import (
     StaticPoolConfig,
     pool_serve_kwargs,
 )
-from verifiers.v1.configs.task import TaskConfig
+from verifiers.v1.configs.task import (
+    DecoratedFunctionConfig,
+    RewardFunctionConfig,
+    TaskConfig,
+)
 from verifiers.v1.configs.taskset import TasksetConfig
 from verifiers.v1.env import Env
 from verifiers.v1.envs.single_agent import SingleAgentEnv, SingleAgentEnvConfig
-from verifiers.v1.episode import Episode, WireEpisode
+from verifiers.v1.episode import (
+    EnvInfo,
+    Episode,
+    EvalRunInfo,
+    EvalWorkInfo,
+    GroupInfo,
+    PolicySpan,
+    RunInfo,
+    TrainRunInfo,
+    TrainWorkInfo,
+    WireEpisode,
+    WorkInfo,
+)
 from verifiers.v1.errors import (
     EnvError,
     HarnessError,
@@ -76,16 +91,15 @@ from verifiers.v1.trace import (
     AgentSpan,
     Branch,
     Error,
-    EvalRunInfo,
+    InterceptRecord,
     ModelCall,
+    PolicyEvent,
     Reward,
-    RunInfo,
     TimeSpan,
     TimeSplit,
     Timing,
     Trace,
     TraceTask,
-    TrainRunInfo,
     VersionInfo,
     WireTrace,
 )
@@ -99,6 +113,7 @@ from verifiers.v1.types import (
     Message,
     MessageContent,
     Messages,
+    Request,
     Response,
     Sampling,
     SamplingConfig,
@@ -117,7 +132,13 @@ from verifiers.v1.utils.artifacts import (
     collect,
     restore,
 )
-from verifiers.v1.utils.decorators import metric, reward, stop, tool
+from verifiers.v1.utils.decorators import (
+    intercept,
+    metric,
+    reward,
+    stop,
+    tool,
+)
 from verifiers.v1.utils.git import (
     PATCH_CAP_BYTES as PATCH_CAP_BYTES,
 )
@@ -174,6 +195,7 @@ __all__ = [  # noqa: RUF022 - grouped by public API area
     "Message",
     "MessageContent",
     "Messages",
+    "Request",
     "Response",
     "Sampling",
     "SamplingConfig",
@@ -194,14 +216,21 @@ __all__ = [  # noqa: RUF022 - grouped by public API area
     "TraceTask",
     "WireTrace",
     "Reward",
+    "EnvInfo",
     "Episode",
     "WireEpisode",
+    "GroupInfo",
     "TRACE_VERSION",
     "AgentInfo",
     "RunInfo",
     "EvalRunInfo",
+    "EvalWorkInfo",
     "ModelCall",
+    "PolicyEvent",
     "TrainRunInfo",
+    "TrainWorkInfo",
+    "WorkInfo",
+    "PolicySpan",
     "VersionInfo",
     "State",
     "StateT",
@@ -215,10 +244,13 @@ __all__ = [  # noqa: RUF022 - grouped by public API area
     "AgentSpan",
     "Error",
     # decorators
+    "intercept",
     "stop",
     "tool",
     "metric",
     "reward",
+    # interception
+    "InterceptRecord",
     # errors
     "RolloutError",
     "EnvError",
@@ -240,11 +272,14 @@ __all__ = [  # noqa: RUF022 - grouped by public API area
     "Taskset",
     "TaskConfig",
     "TasksetConfig",
+    "DecoratedFunctionConfig",
+    "RewardFunctionConfig",
     "BaseConfig",
     "Harness",
     "HarnessSession",
     "HarnessConfig",
-    "ACP",
+    "ACPConfig",
+    "ACPHarness",
     "ModelContext",
     "Runtime",
     "RuntimeProcess",
@@ -258,7 +293,6 @@ __all__ = [  # noqa: RUF022 - grouped by public API area
     "SingleAgentEnv",
     "EnvConfig",
     "ServeConfig",
-    "LegacyEnvConfig",
     "resolve_env_field",
     "narrowed_env_annotation",
     "SingleAgentEnvConfig",

@@ -11,6 +11,7 @@ This package contains the business logic for the 6 autopilot subcommands:
 - `auto_rollback_failed`: Full rollback/cancel (gate: version not in `unsafeDowngrades`)
 """
 
+from airbyte_ops_mcp.connector_ops.rollouts.audit import post_autopilot_audit
 from airbyte_ops_mcp.connector_ops.rollouts.autopilot import (
     run_auto_advance,
     run_auto_close,
@@ -38,6 +39,7 @@ __all__ = [
     "CustomerTierFilter",
     "RolloutFilters",
     "pause_rollout",
+    "post_autopilot_audit",
     "run_auto_advance",
     "run_auto_close",
     "run_auto_promote",

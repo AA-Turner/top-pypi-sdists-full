@@ -1856,6 +1856,12 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             elif isinstance(_guardrails_config, str):
                 # LLM validator prompt
                 guardrail = _guardrails_config
+
+        # Persist the resolved value so clone_for_channel() can forward it.
+        # Without this the attribute never exists, its getattr(..., None) in
+        # clone_for_channel() yields None, and every served clone runs with no
+        # output guardrail at all (one clone per gateway channel / HTTP call).
+        self._guardrails_config = _guardrails_config
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve WEB param - FAST PATH
@@ -2461,6 +2467,11 @@ Your Goal: {self.goal}
         # ApprovalConfig = full control (all_tools, timeout, etc.)
         # str = permission preset ("safe", "read_only", "full")
         from ..approval.protocols import ApprovalConfig
+        # Persist the approval kwarg exactly as given: it round-trips through the
+        # constructor (str | bool | ApprovalConfig | dict | backend object).
+        # clone_for_channel() reads this; without it the attribute never exists
+        # and every served clone loses its approval policy.
+        self._approval_config = approval
         self._perm_deny = frozenset()  # Permission tier deny set (empty = no denials)
         self._perm_allow = None        # Permission tier allow set (None = allow all)
         # Optional pattern-based PermissionManager (rules from
@@ -5812,6 +5823,11 @@ Summary:"""
             try:
                 from ..memory.memory import Memory
                 config = {"provider": _resolve_memory_adapter_name(memory)}
+                # Scope the store to this agent's isolation id (same id the
+                # FileMemory branches use) so two agents in one process/dir do
+                # not silently share one on-disk store when no user_id is given.
+                config.setdefault("user_id", mem_user_id)
+                config.setdefault("collection_name", f"memory_{mem_user_id}")
                 self._memory_instance = Memory(config)
             except ImportError:
                 logging.warning(f"Memory provider '{memory}' requires additional dependencies. Falling back to FileMemory.")
@@ -5822,11 +5838,18 @@ Summary:"""
             provider = memory.get("provider", memory.get("backend", "file"))
             learn_enabled = memory.get("learn", False)
             
+            # Build a scoped config so an explicit user_id in the dict wins but a
+            # missing one falls back to this agent's isolation id (matching the
+            # FileMemory branches) instead of a process-wide shared store.
+            scoped_memory = dict(memory)
+            scoped_memory.setdefault("user_id", mem_user_id)
+            scoped_memory.setdefault("collection_name", f"memory_{scoped_memory['user_id']}")
+
             # Use full Memory class if learn is enabled (requires LearnManager)
             if learn_enabled:
                 try:
                     from ..memory.memory import Memory
-                    self._memory_instance = Memory(memory)
+                    self._memory_instance = Memory(scoped_memory)
                 except ImportError:
                     logging.warning("Memory with learn requires additional dependencies. Falling back to FileMemory (learn disabled).")
                     from ..memory.file_memory import FileMemory
@@ -5840,7 +5863,7 @@ Summary:"""
             else:
                 try:
                     from ..memory.memory import Memory
-                    self._memory_instance = Memory(memory)
+                    self._memory_instance = Memory(scoped_memory)
                 except ImportError:
                     logging.warning("Full Memory class requires additional dependencies. Falling back to FileMemory.")
                     from ..memory.file_memory import FileMemory

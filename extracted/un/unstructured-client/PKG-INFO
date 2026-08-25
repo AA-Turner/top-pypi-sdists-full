@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured-client
-Version: 0.46.1
+Version: 0.46.2
 Summary: Python Client SDK for Unstructured API
 Author: Unstructured
 License: MIT

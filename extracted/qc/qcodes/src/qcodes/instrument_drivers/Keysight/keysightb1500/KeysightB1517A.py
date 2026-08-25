@@ -1,16 +1,15 @@
 import re
 import textwrap
-from typing import TYPE_CHECKING, Any, Generic, Literal, NotRequired, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, NotRequired, Unpack, overload
 
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import TypedDict, Unpack, deprecated
+from typing_extensions import TypedDict
 
 import qcodes.validators as vals
 from qcodes.instrument import InstrumentBaseKWArgs, InstrumentChannel
 from qcodes.parameters import Group, GroupParameter, Parameter, ParamRawDataType
 from qcodes.parameters.parameter_base import ParameterDataTypeVar
-from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 from . import constants
 from .constants import (
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     from qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500_base import (
         KeysightB1500,
     )
+    from qcodes.metadatable import SnapshotUpdate
 
 
 class SweepSteps(TypedDict):
@@ -697,21 +697,11 @@ class KeysightB1500IVSweeper(InstrumentChannel["KeysightB1517A"]):
         return out_dict
 
 
-@deprecated(
-    "IVSweeper is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500IVSweeper instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class IVSweeper(KeysightB1500IVSweeper):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
-
-
 class _ParameterWithStatus(
-    Parameter[ParameterDataTypeVar, "KeysightB1517A"], Generic[ParameterDataTypeVar]
+    Parameter[ParameterDataTypeVar, "KeysightB1517A"],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar],  # noqa: UP046
 ):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -724,7 +714,7 @@ class _ParameterWithStatus(
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: "bool | SnapshotUpdate | None" = "Only_invalid",
         params_to_skip_update: "Sequence[str] | None" = None,
     ) -> dict[Any, Any]:
         snapshot = super().snapshot_base(
@@ -738,7 +728,10 @@ class _ParameterWithStatus(
 
 
 class _SpotMeasurementVoltageParameter(
-    _ParameterWithStatus[ParameterDataTypeVar], Generic[ParameterDataTypeVar]
+    _ParameterWithStatus[ParameterDataTypeVar],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar],  # noqa: UP046
 ):
     def set_raw(self, value: ParamRawDataType) -> None:
         smu = self.instrument
@@ -781,7 +774,10 @@ class _SpotMeasurementVoltageParameter(
 
 
 class _SpotMeasurementCurrentParameter(
-    _ParameterWithStatus[ParameterDataTypeVar], Generic[ParameterDataTypeVar]
+    _ParameterWithStatus[ParameterDataTypeVar],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar],  # noqa: UP046
 ):
     def set_raw(self, value: ParamRawDataType) -> None:
         smu = self.instrument
@@ -1184,20 +1180,25 @@ class KeysightB1517A(KeysightB1500Module):
                 range
 
         """
-        if min_compliance_range is not None:
-            if isinstance(min_compliance_range, type(output_range)):
-                raise TypeError(
-                    "When forcing voltage, min_compliance_range must be an "
-                    "current output range (and vice versa)."
-                )
+        if min_compliance_range is not None and isinstance(
+            min_compliance_range, type(output_range)
+        ):
+            raise TypeError(
+                "When forcing voltage, min_compliance_range must be an "
+                "current output range (and vice versa)."
+            )
 
-        if isinstance(output_range, VOutputRange):
-            if output_range not in self._valid_v_output_ranges:
-                raise RuntimeError("Invalid Source Voltage Output Range")
+        if (
+            isinstance(output_range, VOutputRange)
+            and output_range not in self._valid_v_output_ranges
+        ):
+            raise RuntimeError("Invalid Source Voltage Output Range")
 
-        if isinstance(output_range, IOutputRange):
-            if output_range not in self._valid_i_output_ranges:
-                raise RuntimeError("Invalid Source Current Output Range")
+        if (
+            isinstance(output_range, IOutputRange)
+            and output_range not in self._valid_i_output_ranges
+        ):
+            raise RuntimeError("Invalid Source Current Output Range")
 
         self._source_config = {
             "output_range": output_range,
@@ -1418,16 +1419,3 @@ class KeysightB1517A(KeysightB1500Module):
         self.parent.clear_timer_count()
 
         self.setup_fnc_already_run = True
-
-
-@deprecated(
-    "B1517A is deprecated. Please use qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1517A instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class B1517A(KeysightB1517A):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass

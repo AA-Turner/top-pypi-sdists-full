@@ -322,7 +322,8 @@ def _resolve_ai_config(*, workspace: Path) -> tuple[Any, AIConfig]:
             code=McpErrorCode.TOOL_UNAVAILABLE,
             message=(
                 "AI review is disabled for this workspace. Set ai.enabled: true "
-                "and ai.review: true in .lintro-config.yaml"
+                "and ai.review: true in .lintro-config.yaml, or set "
+                "LINTRO_AI_ENABLED=1 and LINTRO_AI_REVIEW=1"
             ),
             detail={
                 "tool": "lintro_review",
@@ -545,12 +546,18 @@ def _review_payload(
                 "cost_usd": result.metadata.cost_estimate_usd,
             },
         )
-    return {
+    payload: dict[str, Any] = {
         "summary": result.summary,
         "findings": [_finding_to_dict(finding=finding) for finding in result.findings],
         "run": _run_metadata(metadata=result.metadata),
         "budget": budget.to_dict(exceeded=exceeded),
+        "readiness_verdict": result.readiness_verdict.value,
     }
+    if result.coverage is not None:
+        payload["coverage"] = result.coverage.to_dict()
+        payload["partial"] = result.metadata.partial
+        payload["stopped_reason"] = result.metadata.stopped_reason
+    return payload
 
 
 def _no_changes_payload(

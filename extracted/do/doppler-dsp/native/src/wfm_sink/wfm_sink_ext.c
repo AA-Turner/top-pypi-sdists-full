@@ -54,7 +54,10 @@ StreamSink_init (StreamSinkObject *self, PyObject *args, PyObject *kwds)
   int _arg_sample_type = _enum_index (_enum_stype, sample_type);
   if (_arg_sample_type < 0)
     {
-      PyErr_Format (PyExc_ValueError, "invalid sample_type '%s'", sample_type);
+      PyErr_Format (
+          PyExc_ValueError,
+          "invalid sample_type '%s' (choices: cf32, cf64, ci32, ci16, ci8)",
+          sample_type);
       return -1;
     }
   if (!self->closed && self->h)
@@ -102,6 +105,49 @@ StreamSink_send (StreamSinkObject *self, PyObject *args, PyObject *kwds)
   Py_END_ALLOW_THREADS
   Py_DECREF (x_arr);
   return PyLong_FromLong ((long)r);
+}
+
+static PyObject *
+StreamSink_send_eos (StreamSinkObject *self, PyObject *args)
+{
+  (void)args;
+  if (self->closed)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "StreamSink is closed");
+      return NULL;
+    }
+  int _rc;
+  _rc = wfm_stream_sink_send_eos (self->h);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_OSError, "%s (rc=%lld)",
+                    "wfm_stream_sink_send_eos failed", (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+StreamSink_drain (StreamSinkObject *self, PyObject *args, PyObject *kwds)
+{
+  static char *kwlist[]   = { "timeout_ms", NULL };
+  int          timeout_ms = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|i", kwlist, &timeout_ms))
+    return NULL;
+  if (self->closed)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "StreamSink is closed");
+      return NULL;
+    }
+  int _rc;
+  _rc = wfm_stream_sink_drain (self->h, timeout_ms);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_OSError, "%s (rc=%lld)",
+                    "wfm_stream_sink_drain failed", (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -205,10 +251,72 @@ StreamSink_dealloc (StreamSinkObject *self)
 }
 
 static PyMethodDef StreamSink_methods[] = {
-  { "send", (PyCFunction)StreamSink_send, METH_VARARGS | METH_KEYWORDS, NULL },
+  { "send", (PyCFunction)StreamSink_send, METH_VARARGS | METH_KEYWORDS,
+    "Convert a cf32 block to the wire type and publish it.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "iq : NDArray[Any]\n"
+    "    Complex-float samples; @param n complex sample count.\n"
+    "fs : float\n"
+    "    sample rate (Hz); @param fc center frequency (Hz) — wire header.\n"
+    "fc : float\n"
+    "    the sink handle.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    0 on success, non-zero on a send/allocation error.\n" },
+  { "send_eos", (PyCFunction)StreamSink_send_eos, METH_VARARGS,
+    "Tell subscribers this stream has ended.\n"
+    "\n"
+    "Publishes an end-of-stream frame, so a consumer learns the sender\n"
+    "finished rather than inferring it from silence. Send it BEFORE\n"
+    "draining: a drain cannot be reversed and refuses sends once it reaches\n"
+    "its publish-flushing phase.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "OSError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``wfm_stream_sink_send_eos failed``, with the return code appended\n"
+    "    (gh-869).\n" },
+  { "drain", (PyCFunction)StreamSink_drain, METH_VARARGS | METH_KEYWORDS,
+    "Let everything already sent reach the server, then stop.\n"
+    "\n"
+    "A send hands a block to the NATS client and returns; the client writes\n"
+    "it in the background. So \"send returned\" is not \"the server has "
+    "it\",\n"
+    "and closing without asking relies on the client's own best-effort flush\n"
+    "-- capped at 500 ms, with no way to report failure, so a backlog that\n"
+    "cannot clear in half a second is dropped silently.\n"
+    "\n"
+    "Call this before closing the sink on any run whose tail matters. After\n"
+    "it returns the sink is finished: close it next, which is then just the\n"
+    "free.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "timeout_ms : int\n"
+    "    Budget; <= 0 uses the stream layer's 5 s default.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "OSError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``wfm_stream_sink_drain failed``, with the return code appended\n"
+    "    (gh-869).\n" },
   { "track_clipping", (PyCFunction)StreamSink_track_clipping,
-    METH_VARARGS | METH_KEYWORDS, NULL },
-  { "close", (PyCFunction)StreamSink_close, METH_NOARGS, "close() -> None" },
+    METH_VARARGS | METH_KEYWORDS,
+    "Enable the per-component clip counter (off by default; peak always\n"
+    "on).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "on : int\n"
+    "    Input.\n" },
+  { "close", (PyCFunction)StreamSink_close, METH_NOARGS,
+    "Release the handle and free resources." },
   { "__enter__", (PyCFunction)StreamSink_enter, METH_NOARGS, NULL },
   { "__exit__", (PyCFunction)StreamSink_exit, METH_VARARGS, NULL },
   { NULL, NULL, 0, NULL }
@@ -246,5 +354,33 @@ PyInit_wfm_sink (void)
       Py_DECREF (m);
       return NULL;
     }
+  /* gh-1117: adopt dp_interrupt_guard's process-global state from its owner.
+   */
+  {
+    void     *dp_interrupt_guard_state_ptr (void);
+    void      dp_interrupt_guard_state_adopt (void *shared);
+    PyObject *_own = PyImport_ImportModule ("doppler.interrupt.interrupt");
+    if (!_own)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    PyObject *_pg = PyObject_GetAttrString (_own, "_jm_pg_dp_interrupt_guard");
+    Py_DECREF (_own);
+    if (!_pg)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    void *_p = PyCapsule_GetPointer (
+        _pg, "doppler.dp_interrupt_guard._jm_procglobal");
+    Py_DECREF (_pg);
+    if (!_p)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    dp_interrupt_guard_state_adopt (_p);
+  }
   return m;
 }

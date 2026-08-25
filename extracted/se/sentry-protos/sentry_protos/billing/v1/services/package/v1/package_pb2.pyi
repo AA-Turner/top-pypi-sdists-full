@@ -166,6 +166,7 @@ class PackageConfig(google.protobuf.message.Message):
     USER_SELECTABLE_FIELD_NUMBER: builtins.int
     HAS_PAYG_MODES_FIELD_NUMBER: builtins.int
     RETENTION_DEFAULTS_FIELD_NUMBER: builtins.int
+    VERCEL_ID_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -182,6 +183,10 @@ class PackageConfig(google.protobuf.message.Message):
     """Whether the package can be chosen in the self-serve checkout flow."""
     has_payg_modes: builtins.bool
     """Whether the package has pay-as-you-go (PAYG) modes."""
+    vercel_id: builtins.str
+    """Identifier for the matching plan in Vercel's marketplace. Set only on
+    packages that can be bought through Vercel; unset otherwise.
+    """
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -217,8 +222,10 @@ class PackageConfig(google.protobuf.message.Message):
         user_selectable: builtins.bool = ...,
         has_payg_modes: builtins.bool = ...,
         retention_defaults: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.retention_pb2.DataCategoryRetention] | None = ...,
+        vercel_id: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "flexible_base_price_cents", b"flexible_base_price_cents", "vercel_id", b"vercel_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable", "vercel_id", b"vercel_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_vercel_id", b"_vercel_id"]) -> typing.Literal["vercel_id"] | None: ...
 
 global___PackageConfig = PackageConfig

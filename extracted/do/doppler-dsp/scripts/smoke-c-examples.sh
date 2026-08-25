@@ -8,8 +8,8 @@
 # that claims to be executable, so one that runs nowhere is the shape this
 # repo already calls indistinguishable from a gate passing.
 #
-# Discovery is over `examples/c/*.c`, so a new example is gated the moment it
-# exists. Opting one out costs an entry in `examples/c/.examples-skip` with a
+# Discovery is over `native/examples/*.c`, so a new example is gated the moment it
+# exists. Opting one out costs an entry in `native/examples/.examples-skip` with a
 # mandatory reason -- the same contract `src/doppler/examples/.examples-skip`
 # holds the Python side to, and the mechanism this mirrors.
 #
@@ -19,7 +19,7 @@
 #      waiver;
 #   2. a registry entry with no reason is an absence with extra steps;
 #   3. an example with a source and no binary is the same fail-open bug one
-#      layer down, in examples/c/CMakeLists.txt's own hand lists;
+#      layer down, in native/examples/CMakeLists.txt's own hand lists;
 #   4. running nothing at all is not a pass -- the trap the glibc and tarball
 #      gates were both caught by.
 #
@@ -34,7 +34,7 @@ set -uo pipefail
 
 BIN_DIR=${1:?usage: smoke-c-examples.sh <bin-dir> <timeout-seconds>}
 TIMEOUT=${2:?usage: smoke-c-examples.sh <bin-dir> <timeout-seconds>}
-SRC_DIR=examples/c
+SRC_DIR=native/examples
 REGISTRY=$SRC_DIR/.examples-skip
 
 # The deadline runs through the repo's own wrapper, not bare `timeout`.
@@ -69,7 +69,7 @@ done < <(find "$SRC_DIR" -maxdepth 1 -name '*.c' | sed 's|.*/||; s|\.c$||' |
          sort)
 
 if [ ${#examples[@]} -eq 0 ]; then
-    echo "  no examples/c/*.c found -- this gate has not run, so it has"
+    echo "  no native/examples/*.c found -- this gate has not run, so it has"
     echo "  not passed."
     exit 1
 fi
@@ -120,19 +120,19 @@ for ex in "${examples[@]}"; do
         case "$reason" in
             broker:*)
                 if [ $broker -eq 0 ]; then
-                    printf "  %-20s SKIP (no broker on 127.0.0.1:4222)\n" "$ex"
+                    printf "  %-24s SKIP (no broker on 127.0.0.1:4222)\n" "$ex"
                     continue
                 fi
                 ;;
             *)
-                printf "  %-20s SKIP (%.46s)\n" "$ex" "$reason"
+                printf "  %-24s SKIP (%.46s)\n" "$ex" "$reason"
                 continue
                 ;;
         esac
     fi
 
     if [ ! -x "$BIN_DIR/$ex" ]; then
-        printf "  %-20s NOT BUILT\n" "$ex"
+        printf "  %-24s NOT BUILT\n" "$ex"
         echo "            $SRC_DIR/$ex.c exists and produced no binary."
         echo "            Add it to $SRC_DIR/CMakeLists.txt (which carries"
         echo "            hand lists of its own), or to $REGISTRY with a"
@@ -140,7 +140,7 @@ for ex in "${examples[@]}"; do
         exit 1
     fi
 
-    printf "  %-20s" "$ex"
+    printf "  %-24s" "$ex"
     if "$DEADLINE" "$TIMEOUT" 1 "$BIN_DIR/$ex" > /dev/null 2>&1; then
         echo "PASS"
         ran=$((ran + 1))

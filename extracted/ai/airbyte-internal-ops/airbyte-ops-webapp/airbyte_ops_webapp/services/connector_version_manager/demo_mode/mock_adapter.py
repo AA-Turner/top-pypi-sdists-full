@@ -1225,6 +1225,7 @@ class MockPinningAdapter(OpsMcpAdapter):
                 organization_name="Mock Organization",
                 actor_id=context_guid,
                 actor_type=connector.connector_type,
+                customer_tier="TIER_2",
             )
         if context_guid == "workspace_example" or context_guid.startswith("ws_"):
             return ContextResolution(
@@ -1235,6 +1236,7 @@ class MockPinningAdapter(OpsMcpAdapter):
                 workspace_id=context_guid,
                 workspace_name="Mock Workspace",
                 organization_name="Mock Organization",
+                customer_tier="TIER_2",
             )
         return ContextResolution(
             scope_type="organization",
@@ -1242,6 +1244,9 @@ class MockPinningAdapter(OpsMcpAdapter):
             organization_id=context_guid,
             scope_name="Mock Organization",
             organization_name="Mock Organization",
+            # A sensitive tier in demo mode so the modal's approval warning is
+            # exercisable without touching a real customer.
+            customer_tier="TIER_0",
         )
 
     def get_rollout_sync_summary(

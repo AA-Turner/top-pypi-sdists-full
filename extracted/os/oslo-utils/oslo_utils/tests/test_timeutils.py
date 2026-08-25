@@ -153,7 +153,10 @@ class TimeUtilsTest(test_base.BaseTestCase):
 
     def test_utcnow_ts(self):
         skynet_self_aware_ts = 872835240
-        skynet_dt = datetime.datetime.utcfromtimestamp(skynet_self_aware_ts)
+        skynet_dt = datetime.datetime.fromtimestamp(
+            skynet_self_aware_ts,
+            tz=datetime.UTC,
+        ).replace(tzinfo=None)
         self.assertEqual(self.skynet_self_aware_time, skynet_dt)
 
         # NOTE(kgriffs): timeutils.utcnow_ts() uses time.time()
@@ -210,12 +213,12 @@ class TimeUtilsTest(test_base.BaseTestCase):
             year=2015,
             hour=23,
             minute=59,
-            second=timeutils._MAX_DATETIME_SEC + 1,
+            second=60,
             microsecond=0,
         )
         leap_time = timeutils.unmarshall_time(leap_dict)
 
-        leap_dict.update(second=timeutils._MAX_DATETIME_SEC)
+        leap_dict.update(second=60)
         expected = timeutils.unmarshall_time(leap_dict)
 
         self.assertEqual(expected, leap_time)

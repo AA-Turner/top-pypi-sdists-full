@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-agno
-Version: 1.0.3
+Version: 1.0.5
 Summary: OpenInference Agno Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-agno
 Author-email: OpenInference Authors <oss@arize.com>
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.51
-Requires-Dist: openinference-semantic-conventions>=0.1.31
+Requires-Dist: openinference-semantic-conventions>=0.1.33
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions
@@ -44,7 +44,7 @@ Description-Content-Type: text/markdown
 
 Python auto-instrumentation library for Agno Agents
 
-The following instrumentation is fully OpenTelemetry-compatible and can be sent to an OpenTelemetry collector for monitoring, such as [Arize Phoenix](https://github.com/Arize-ai/phoenix), [Arize AX](https://arize.com/docs/ax), or [Langfuse](https://langfuse.com).
+The following instrumentation is fully OpenTelemetry-compatible and can be sent to an OpenTelemetry collector for monitoring, such as [Arize Phoenix](https://github.com/Arize-ai/phoenix), [Arize AX](https://arize.com/products/ax?utm_source=docs&utm_medium=web&utm_content=openinference), or [Langfuse](https://langfuse.com).
 
 ## Installation
 
@@ -119,6 +119,6 @@ Finally, browse for your trace in Phoenix at `http://localhost:6006`!
 ## More Info
 
 * [More info on OpenInference and Phoenix](https://docs.arize.com/phoenix)
-* [More info on OpenInference and Arize AX](https://arize.com/docs/ax)
+* [More info on OpenInference and Arize AX](https://arize.com/products/ax?utm_source=docs&utm_medium=web&utm_content=openinference)
 * [How to customize spans to track sessions, metadata, etc.](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#customizing-spans)
 * [How to account for private information and span payload customization](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#tracing-configuration)

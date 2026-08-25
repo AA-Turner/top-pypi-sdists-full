@@ -41,6 +41,7 @@ import dulwich
 from dulwich import client, errors
 from dulwich.bundle import create_bundle_from_repo, write_bundle
 from dulwich.client import (
+    MAX_IN_VAIN,
     AuthCallbackPoolManager,
     BundleClient,
     FetchPackResult,
@@ -64,6 +65,7 @@ from dulwich.client import (
     _extract_symrefs_and_agent,
     _handle_upload_pack_head,
     _handle_upload_pack_tail,
+    _read_shallow_updates,
     _remote_error_from_stderr,
     _win32_url_to_path,
     build_fetch_request_v2,
@@ -125,6 +127,28 @@ class DummyPopen:
 
     def wait(self, *args, **kwards) -> bool:
         return False
+
+
+class CountingGraphWalker:
+    """Graph walker yielding a bounded stream of synthetic shas."""
+
+    def __init__(self, limit=None) -> None:
+        self.count = 0
+        self.limit = limit
+        self.acked: list[bytes] = []
+
+    @staticmethod
+    def sha(count):
+        return f"{count:040x}".encode("ascii")
+
+    def __next__(self):
+        self.count += 1
+        if self.limit is not None and self.count > self.limit:
+            return None
+        return self.sha(self.count)
+
+    def ack(self, sha):
+        self.acked.append(sha)
 
 
 # TODO(durin42): add unit-level tests of GitClient
@@ -352,6 +376,63 @@ class GitClientTests(TestCase):
         output = self.rout.getvalue()
         self.assertIn(b"deepen-since 2023-01-01T00:00:00Z\n", output)
         self.assertIn(b"deepen-not refs/heads/excluded\n", output)
+
+    def test_handle_upload_pack_head_stateless_bounds_haves(self) -> None:
+        # Stateless transports cannot receive ACKs while building the request.
+        proto = Protocol(self.rin.read, self.rout.write)
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=[b"multi_ack"],
+            graph_walker=CountingGraphWalker(),
+            wants=[b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"],
+            can_read=None,
+            depth=None,
+            protocol_version=0,
+        )
+
+        output = self.rout.getvalue()
+        self.assertEqual(MAX_IN_VAIN, output.count(b"have "))
+        self.assertTrue(output.endswith(b"0009done\n"))
+
+    def test_handle_upload_pack_head_no_ack_sends_all_haves(self) -> None:
+        # A readable connection waits for the first ACK before applying the limit.
+        num_haves = MAX_IN_VAIN + 44
+        proto = Protocol(self.rin.read, self.rout.write)
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=[b"multi_ack"],
+            graph_walker=CountingGraphWalker(limit=num_haves),
+            wants=[b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"],
+            can_read=lambda: False,
+            depth=None,
+            protocol_version=0,
+        )
+
+        output = self.rout.getvalue()
+        self.assertEqual(num_haves, output.count(b"have "))
+
+    def test_handle_upload_pack_head_gives_up_after_ack(self) -> None:
+        # Stop after MAX_IN_VAIN more haves without an ACK.
+        first_sha = CountingGraphWalker.sha(1)
+        self.rin.write(pkt_line(b"ACK " + first_sha + b" continue\n"))
+        self.rin.seek(0)
+
+        reads = iter([True])
+        proto = Protocol(self.rin.read, self.rout.write)
+        graph_walker = CountingGraphWalker()
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=[b"multi_ack"],
+            graph_walker=graph_walker,
+            wants=[b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"],
+            can_read=lambda: next(reads, False),
+            depth=None,
+            protocol_version=0,
+        )
+
+        self.assertEqual([first_sha], graph_walker.acked)
+        output = self.rout.getvalue()
+        self.assertEqual(1 + MAX_IN_VAIN, output.count(b"have "))
 
     def test_send_pack_no_sideband64k_with_update_ref_error(self) -> None:
         # No side-bank-64k reported by server shouldn't try to parse
@@ -1143,7 +1224,7 @@ class SSHGitClientTests(TestCase):
         try:
             self.assertEqual(b"username", server.username)
             self.assertEqual(1337, server.port)
-            self.assertEqual(b"git-command /path/to/repo", server.command)
+            self.assertEqual(b"git-command '/path/to/repo'", server.command)
         finally:
             proto.close()
 
@@ -1162,8 +1243,31 @@ class SSHGitClientTests(TestCase):
         proto, _, _ = client._connect(b"command", b"/repo'; touch pwned; '")
         try:
             self.assertEqual(
-                b"git-command '/repo'\"'\"'; touch pwned; '\"'\"''", server.command
+                b"git-command '/repo'\\''; touch pwned; '\\'''", server.command
             )
+        finally:
+            proto.close()
+
+    def test_connect_always_quotes_path(self) -> None:
+        # git's sq_quote() wraps the path in single quotes unconditionally,
+        # even when it contains nothing a shell would treat specially. Servers
+        # that parse the command themselves rather than passing it to a shell
+        # (such as Bitbucket Server) reject the unquoted form. The expected
+        # values below are what git itself sends for these URLs.
+        server = self.server
+        client = self.client
+
+        proto, _, _ = client._connect(b"upload-pack", b"/some-project/some-repo.git")
+        try:
+            self.assertEqual(
+                b"git-upload-pack '/some-project/some-repo.git'", server.command
+            )
+        finally:
+            proto.close()
+
+        proto, _, _ = client._connect(b"upload-pack", b"foo/bar.git")
+        try:
+            self.assertEqual(b"git-upload-pack 'foo/bar.git'", server.command)
         finally:
             proto.close()
 
@@ -3455,6 +3559,41 @@ class CheckWantsTests(TestCase):
                 b"refs/heads/blah": b"3f3dc7a53fb752a6961d3a56683df46d4d3bf262",
                 b"refs/heads/blah^{}": b"2f3dc7a53fb752a6961d3a56683df46d4d3bf262",
             },
+        )
+
+
+class ReadShallowUpdatesTests(TestCase):
+    def test_fine(self) -> None:
+        (new_shallow, new_unshallow) = _read_shallow_updates(
+            [
+                b"shallow 2f3dc7a53fb752a6961d3a56683df46d4d3bf262\n",
+                b"unshallow 3f3dc7a53fb752a6961d3a56683df46d4d3bf262\n",
+            ]
+        )
+        self.assertEqual({b"2f3dc7a53fb752a6961d3a56683df46d4d3bf262"}, new_shallow)
+        self.assertEqual({b"3f3dc7a53fb752a6961d3a56683df46d4d3bf262"}, new_unshallow)
+
+    def test_embedded_newline(self) -> None:
+        # pkt-lines are length-framed, so a single packet can carry an
+        # internal newline that strip() leaves in place
+        self.assertRaises(
+            GitProtocolError,
+            _read_shallow_updates,
+            [b"shallow " + b"a" * 40 + b"\n" + b"b" * 40 + b"\n"],
+        )
+
+    def test_non_hex(self) -> None:
+        self.assertRaises(
+            GitProtocolError,
+            _read_shallow_updates,
+            [b"shallow " + b"z" * 40 + b"\n"],
+        )
+
+    def test_unknown_command(self) -> None:
+        self.assertRaises(
+            GitProtocolError,
+            _read_shallow_updates,
+            [b"deepen 2f3dc7a53fb752a6961d3a56683df46d4d3bf262\n"],
         )
 
 

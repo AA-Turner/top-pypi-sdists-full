@@ -1,7 +1,6 @@
 import copy
 import logging
 from collections import defaultdict
-from typing import Dict, Set
 
 import numpy as np
 
@@ -11,7 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class ExtraEval:
-    """Extra evaluation for coco dataset."""
+    """Evaluate COCO results with eager construction-time execution.
+
+    ``iou_tresh`` retains its historical misspelling for API compatibility.
+    When both datasets are supplied, construction filters detections and runs
+    evaluation immediately; otherwise callers can invoke :meth:`evaluate`.
+    """
 
     def __init__(
         self,
@@ -31,7 +35,8 @@ class ExtraEval:
             cocoDt (COCO, optional): Detection results COCO object. Defaults to None.
             iouType (str, optional): Type of IoU evaluation ('bbox', 'segm', 'keypoints'). Defaults to "bbox".
             min_score (float, optional): Minimum score threshold for detections. Defaults to 0.
-            iou_tresh (float, optional): IoU threshold for evaluation. Defaults to 0.0.
+            iou_tresh (float, optional): Historical IoU-threshold parameter
+                spelling, retained for compatibility. Defaults to 0.0.
             recall_count (int, optional): Number of recall thresholds. Defaults to 100.
             useCats (bool, optional): Whether to use categories in evaluation. Defaults to False.
             kpt_oks_sigmas (list, optional): List of OKS sigmas for keypoints evaluation. Defaults to None.
@@ -50,7 +55,7 @@ class ExtraEval:
 
         if iouType == "keypoints":
             self.useCats = True
-            self.kpt_oks_sigmas = np.array(kpt_oks_sigmas)
+            self.kpt_oks_sigmas = None if kpt_oks_sigmas is None else np.array(kpt_oks_sigmas)
         else:
             self.kpt_oks_sigmas = None
 
@@ -75,7 +80,9 @@ class ExtraEval:
             extra_calc=True,
             kpt_oks_sigmas=self.kpt_oks_sigmas,
         )
-        cocoEval.params.maxDets = [len(self.cocoGt.anns)]
+        if not self.cocoGt.anns:
+            logger.warning("Ground-truth annotations are empty; detections will be scored as false positives")
+        cocoEval.params.maxDets = [max(1000, len(self.cocoDt.anns))]
 
         self.recThrs = np.linspace(0, 1, self.recall_count + 1, endpoint=True)
         cocoEval.params.recThrs = self.recThrs
@@ -106,28 +113,20 @@ class ExtraEval:
         assert self.cocoDt is not None, "cocoDt is empty"
 
         if min_score > 0:
-            bad_keys = {}
-            bad_images_keys = []
+            bad_ann_ids = set()
 
-            for key, ann in self.cocoDt.anns.items():
+            for ann_id, ann in self.cocoDt.anns.items():
                 if ann["score"] < min_score:
-                    if bad_keys.get(ann["image_id"]) is None:
-                        bad_keys[ann["image_id"]] = {}
+                    bad_ann_ids.add(ann_id)
 
-                    bad_keys[ann["image_id"]][key] = True
-
-                    bad_images_keys.append(ann["image_id"])
-
-            for image_id in set(bad_images_keys):
-                self.cocoDt.imgToAnns[image_id] = [
-                    ann for ann in self.cocoDt.imgToAnns[image_id] if bad_keys.get(image_id, {}).get(ann["id"]) is None
+            if bad_ann_ids:
+                self.cocoDt.dataset["annotations"] = [
+                    ann for ann in self.cocoDt.dataset["annotations"] if ann["id"] not in bad_ann_ids
                 ]
-
-                for ann_id in bad_keys.get(image_id, {}).keys():
-                    del self.cocoDt.anns[ann_id]
+                self.cocoDt.createIndex()
 
     @property
-    def fp_image_ann_map(self) -> Dict[int, Set[int]]:
+    def fp_image_ann_map(self) -> dict[int, set[int]]:
         """Gets a mapping from image IDs to sets of annotation IDs for false
         positives.
 
@@ -141,7 +140,7 @@ class ExtraEval:
         return image_ann_map
 
     @property
-    def fn_image_ann_map(self) -> Dict[int, Set[int]]:
+    def fn_image_ann_map(self) -> dict[int, set[int]]:
         """Gets a mapping from image IDs to sets of annotation IDs for false
         negatives.
 

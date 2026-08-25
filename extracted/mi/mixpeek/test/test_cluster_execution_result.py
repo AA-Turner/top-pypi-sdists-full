@@ -41,10 +41,9 @@ class TestClusterExecutionResult(unittest.TestCase):
                 status = 'pending',
                 num_clusters = 0.0,
                 num_points = 0.0,
-                metrics = mixpeek.models.cluster_execution_metrics.ClusterExecutionMetrics(
-                    silhouette_score = -1.0, 
-                    davies_bouldin_index = 0.0, 
-                    calinski_harabasz_score = 0.0, ),
+                metrics = {
+                    'key' : null
+                    },
                 centroids = [
                     mixpeek.models.cluster_execution_centroid.ClusterExecutionCentroid(
                         cluster_id = '0', 

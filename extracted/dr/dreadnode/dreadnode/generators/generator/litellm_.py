@@ -3,8 +3,10 @@ import base64
 import contextlib
 import datetime
 import re
+import time
 import typing as t
 import warnings
+from uuid import uuid4
 
 import httpx
 from loguru import logger
@@ -57,7 +59,81 @@ async def _platform_proxy_client(
     if not isinstance(api_base, str) or not api_base:
         raise RuntimeError("Missing platform proxy API base URL")
     async with httpx.AsyncClient(verify=create_platform_ssl_context()) as http_client:
-        yield AsyncOpenAI(api_key=api_key, base_url=api_base, http_client=http_client)
+        yield AsyncOpenAI(
+            api_key=api_key,
+            base_url=api_base,
+            http_client=http_client,
+            max_retries=0,
+        )
+
+
+async def _consume_platform_stream(
+    request: t.Awaitable[t.Any],
+    *,
+    call_id: str,
+    model: str,
+    messages: list[dict[str, t.Any]],
+) -> t.Any:
+    import litellm
+
+    import dreadnode
+
+    started_at = time.monotonic()
+    first_chunk_at: float | None = None
+    outcome = "failed"
+    cancelled = False
+
+    with dreadnode.span(
+        "platform_proxy_generation",
+        tags=["llm", "platform_proxy"],
+        attributes={
+            "dreadnode.inference.call_id": call_id,
+            "dreadnode.inference.model": model,
+            "dreadnode.inference.attempt": 1,
+        },
+    ) as span:
+        try:
+            stream = await request
+            chunks: list[t.Any] = []
+            async with contextlib.aclosing(stream):
+                async for chunk in stream:
+                    if first_chunk_at is None:
+                        first_chunk_at = time.monotonic()
+                    chunks.append(chunk)
+
+            response = litellm.stream_chunk_builder(chunks, messages=messages)
+            if response is None:
+                raise ProcessingError("LiteLLM returned an empty stream")
+        except asyncio.CancelledError:
+            outcome = "cancelled"
+            cancelled = True
+            raise
+        else:
+            outcome = "completed"
+            return response
+        finally:
+            completed_at = time.monotonic()
+            duration_ms = (completed_at - started_at) * 1000
+            time_to_first_chunk_ms = (
+                (first_chunk_at - started_at) * 1000 if first_chunk_at is not None else -1.0
+            )
+            span.set_attribute("dreadnode.inference.duration_ms", duration_ms)
+            span.set_attribute(
+                "dreadnode.inference.time_to_first_chunk_ms",
+                time_to_first_chunk_ms,
+            )
+            span.set_attribute("dreadnode.inference.outcome", outcome)
+            span.set_attribute("dreadnode.inference.cancelled", cancelled)
+            logger.info(
+                "Platform inference | call_id={} | model={} | duration_ms={:.0f} | "
+                "time_to_first_chunk_ms={:.0f} | outcome={} | attempt=1 | cancelled={}",
+                call_id,
+                model,
+                duration_ms,
+                time_to_first_chunk_ms,
+                outcome,
+                cancelled,
+            )
 
 
 class OpenAIToolsWithImageURLsFixup(Fixup):
@@ -1039,17 +1115,39 @@ class LiteLLMGenerator(Generator):
             )
 
             compatibility_flags = _compatibility_flags_for_model(self.model)
+            openai_messages = [
+                message.to_openai(compatibility_flags=compatibility_flags) for message in messages
+            ]
+            call_id: str | None = None
             async with _platform_proxy_client(merged, self.api_key) as client:
-                response = await acompletion(
-                    model=self.model,
-                    messages=[
-                        message.to_openai(compatibility_flags=compatibility_flags)
-                        for message in messages
-                    ],
-                    api_key=self.api_key,
-                    **({"client": client} if client is not None else {}),
-                    **merged,
-                )
+                if client is None:
+                    response = await acompletion(
+                        model=self.model,
+                        messages=openai_messages,
+                        api_key=self.api_key,
+                        **merged,
+                    )
+                else:
+                    call_id = str(uuid4())
+                    extra_headers = merged.get("extra_headers")
+                    merged["extra_headers"] = {
+                        **(extra_headers if isinstance(extra_headers, dict) else {}),
+                        "x-litellm-call-id": call_id,
+                    }
+                    merged["stream"] = True
+                    merged["stream_options"] = {"include_usage": True}
+                    response = await _consume_platform_stream(
+                        acompletion(
+                            model=self.model,
+                            messages=openai_messages,
+                            api_key=self.api_key,
+                            client=client,
+                            **merged,
+                        ),
+                        call_id=call_id,
+                        model=self.model,
+                        messages=openai_messages,
+                    )
 
             self._last_request_time = datetime.datetime.now(tz=datetime.UTC)
 
@@ -1073,6 +1171,8 @@ class LiteLLMGenerator(Generator):
             # reasoning_content/thinking_blocks are captured in _parse_model_response.
             if isinstance(reasoning_effort, str) and reasoning_effort:
                 generated.extra.setdefault("reasoning_effort", reasoning_effort)
+            if call_id is not None:
+                generated.extra["litellm_call_id"] = call_id
             self._trace_generation_meta(generated)
             self._warn_on_input_truncation(list(messages), generated)
             return generated
@@ -1090,17 +1190,42 @@ class LiteLLMGenerator(Generator):
                 atext_completion = self._wrap(atext_completion)
 
             merged = self.params.merge_with(params).to_dict()
+            call_id: str | None = None
             async with _platform_proxy_client(merged, self.api_key) as client:
-                response = await atext_completion(
-                    prompt=text,
-                    model=self.model,
-                    api_key=self.api_key,
-                    **({"client": client} if client is not None else {}),
-                    **merged,
-                )
+                if client is None:
+                    response = await atext_completion(
+                        prompt=text,
+                        model=self.model,
+                        api_key=self.api_key,
+                        **merged,
+                    )
+                else:
+                    call_id = str(uuid4())
+                    extra_headers = merged.get("extra_headers")
+                    merged["extra_headers"] = {
+                        **(extra_headers if isinstance(extra_headers, dict) else {}),
+                        "x-litellm-call-id": call_id,
+                    }
+                    merged["stream"] = True
+                    merged["stream_options"] = {"include_usage": True}
+                    response = await _consume_platform_stream(
+                        atext_completion(
+                            prompt=text,
+                            model=self.model,
+                            api_key=self.api_key,
+                            client=client,
+                            **merged,
+                        ),
+                        call_id=call_id,
+                        model=self.model,
+                        messages=[{"role": "user", "content": text}],
+                    )
 
             self._last_request_time = datetime.datetime.now(tz=datetime.UTC)
-            return self._parse_text_completion_response(response)
+            generated = self._parse_text_completion_response(response)
+            if call_id is not None:
+                generated.extra["litellm_call_id"] = call_id
+            return generated
 
     async def generate_messages(
         self,

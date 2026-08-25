@@ -110,7 +110,7 @@ class AmazonEcrRoleIntegrationCreateDto(BaseModel):
             "awsRegion": obj.get("awsRegion"),
             "roleArn": obj.get("roleArn"),
             "workspaceId": obj.get("workspaceId"),
-            "ignoreWarnings": obj.get("ignoreWarnings") if obj.get("ignoreWarnings") is not None else False
+            "ignoreWarnings": obj.get("ignoreWarnings") if "ignoreWarnings" in obj else False
         })
         return _obj
 

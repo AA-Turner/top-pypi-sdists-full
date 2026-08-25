@@ -259,6 +259,17 @@ def _client_for(session_id: str, params: Dict[str, Any], policy: UiControlPolicy
         return entry["client"], entry
 
 
+def _client_for_existing_session_or_scope(
+    session_id: str, params: Dict[str, Any], policy: UiControlPolicy
+) -> Tuple[Any, Dict[str, Any]]:
+    """Reuse an already-authorized session before resolving mutable window state."""
+    with _CLIENTS_LOCK:
+        entry = _CLIENTS.get(session_id)
+        if entry is not None:
+            return entry["client"], entry
+    return _client_for(session_id, params, policy)
+
+
 def _host_error(exc: Exception) -> Dict[str, Any]:
     message = str(exc)
     code = str(getattr(exc, "code", None) or UiErrorCode.BACKEND_UNAVAILABLE)
@@ -477,6 +488,7 @@ def recording_start_tool(params: Optional[Dict[str, Any]] = None) -> Dict[str, A
         "output_dir",
         "record_video",
         "policy",
+        "trusted_adapter_scope",
     }
     if set(params) - allowed:
         return skill_error(
@@ -528,7 +540,7 @@ def recording_stop_tool(params: Optional[Dict[str, Any]] = None) -> Dict[str, An
     if not policy.allow_snapshot:
         return skill_error("ui_control recording disabled by policy", UiErrorCode.POLICY_DISABLED)
     try:
-        client, entry = _client_for(session_id, params, policy)
+        client, entry = _client_for_existing_session_or_scope(session_id, params, policy)
         recording = client.recording_stop()
     except (UiControlHostError, OSError, ValueError) as exc:
         return _host_error(exc)
@@ -555,7 +567,7 @@ def recording_state_tool(params: Optional[Dict[str, Any]] = None) -> Dict[str, A
     if not policy.allow_snapshot:
         return skill_error("ui_control recording disabled by policy", UiErrorCode.POLICY_DISABLED)
     try:
-        client, _entry = _client_for(session_id, params, policy)
+        client, _entry = _client_for_existing_session_or_scope(session_id, params, policy)
         recording = client.recording_state()
     except (UiControlHostError, OSError, ValueError) as exc:
         return _host_error(exc)

@@ -38,11 +38,11 @@ def test_snapshot_skip_params_update(
 
     assert list(inst._get_calls.values()) == [0, 0, 0, 0]
 
-    inst.snapshot(update=False)
+    inst.snapshot(update="Never")
 
     assert list(inst._get_calls.values()) == [0, 0, 0, 0]
 
-    inst.snapshot(update=True)
+    inst.snapshot(update="All")
 
     expected_list = [1, 1, 1, 1]
     if params_to_skip:
@@ -57,7 +57,6 @@ def test_snapshot_skip_params_update(
         (["v1", "v2", "v3", "v4"], ["v1"]),
         (["v1", "v2", "v3", "v4"], ["v2"]),
         (["v1", "v2", "v3", "v4"], ["v3"]),
-        (["v1", "v2", "v3", "v4"], ["v4"]),
         (["v1", "v2", "v3", "v4"], ["v4"]),
         (["v1", "v2", "v3", "v4"], ["v1", "v2"]),
         (["v1", "v2", "v3", "v4"], []),

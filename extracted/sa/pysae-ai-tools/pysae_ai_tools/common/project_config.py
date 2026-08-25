@@ -347,15 +347,17 @@ class Board(_Model):
     # e.g. ``support/*: deploy/support/*``. None → the tool's default mapping
     # (``main: deploy/prod`` + ``support/*: deploy/support/*``).
     deploy_branches: dict[str, str] | None = None
-    # Does the project manage the ``workflow::To deploy`` column? ``True`` (default): a merged
-    # ticket waits in To deploy until its merge commit reaches a deploy branch, then closes.
-    # ``False``: the repo ships at merge, so the board skips To deploy entirely and the
-    # tooling closes a merged ticket right away (merge-mr and issue-workflow-update alike).
-    # Set it on a repo that deploys from the MR pipeline (Terraform apply, ArgoCD sync) —
-    # merging only records work already live. A repo with no deploy branch at all is detected
-    # as such anyway (see ``glab/deploy_branches.py``); the flag makes the intent explicit and
-    # skips the branch lookups.
-    to_deploy: bool = True
+    # Does the project manage the ``workflow::To deploy`` column? Declaring it settles the
+    # question outright, in both directions. ``True``: a merged ticket always waits in To
+    # deploy until its merge commit reaches a deploy branch — including on a repo whose deploy
+    # branch does not exist *yet* (a package released from the tag pipeline, before its first
+    # release). ``False``: the repo ships at merge, so the board skips To deploy entirely and
+    # the tooling closes a merged ticket right away (merge-mr and issue-workflow-update alike)
+    # — set it on a repo that deploys from the MR pipeline (Terraform apply, ArgoCD sync),
+    # where merging only records work already live. ``None`` (default): the branch topology
+    # decides (see ``glab/deploy_branches.py``) — a repo with no deploy branch at all is read
+    # as shipping at merge.
+    to_deploy: bool | None = None
     # Name of a CI job that *is* the deployment, for a repo whose shipment is not a branch
     # movement: a merged ticket has shipped once that job succeeded on its MR's pipeline.
     # Set it on a repo that deploys from the MR pipeline yet does not deploy on every merge —

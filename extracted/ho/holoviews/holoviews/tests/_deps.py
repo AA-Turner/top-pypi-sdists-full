@@ -28,6 +28,7 @@ def optional_dependencies(*names: str):
 
 if TYPE_CHECKING:
     import cftime
+    import contourpy
     import dask
     import dask.array as da
     import dask.dataframe as dd
@@ -35,9 +36,9 @@ if TYPE_CHECKING:
     import duckdb
     import ibis
     import IPython
+    import jupyter
     import matplotlib as mpl
     import networkx as nx
-    import notebook
     import pandas as pd
     import plotly
     import polars as pl
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
     import xyzservices
 else:
     cftime = optional_dependencies("cftime")
+    contourpy = optional_dependencies("contourpy")
     dask = optional_dependencies("dask")
     da = optional_dependencies("dask.array")
     dd = optional_dependencies("dask.dataframe", "pyarrow")
@@ -57,9 +59,9 @@ else:
     duckdb = optional_dependencies("duckdb")
     ibis = optional_dependencies("ibis")
     IPython = optional_dependencies("IPython")
+    jupyter = optional_dependencies("jupyter")
     mpl = optional_dependencies("matplotlib")
     nx = optional_dependencies("networkx")
-    notebook = optional_dependencies("notebook")
     pd = optional_dependencies("pandas")
     plotly = optional_dependencies("plotly")
     pl = optional_dependencies("polars")
@@ -74,6 +76,7 @@ else:
 
 _skip = lambda module, name: pytest.mark.skipif(module is None, reason=f"{name} is not installed")
 cftime_skip = _skip(cftime, "cftime")
+contourpy_skip = _skip(contourpy, "contourpy")
 dask_skip = _skip(dask, "dask")
 da_skip = _skip(da, "dask.array")
 dd_skip = _skip(dd, "dask.dataframe")
@@ -83,7 +86,7 @@ ibis_skip = _skip(ibis, "ibis")
 ipython_skip = _skip(IPython, "IPython")
 mpl_skip = _skip(mpl, "matplotlib")
 nx_skip = _skip(nx, "networkx")
-notebook_skip = _skip(notebook, "notebook")
+jupyter_skip = _skip(jupyter, "jupyter")
 pd_skip = _skip(pd, "pandas")
 plotly_skip = _skip(plotly, "plotly")
 pl_skip = _skip(pl, "polars")

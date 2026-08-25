@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.5.0
+Version: 3.5.1
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -27,12 +27,12 @@ Requires-Dist: pystache
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions<5,>=4.5
 Provides-Extra: dev
-Requires-Dist: anthropic>0.18.0; extra == 'dev'
+Requires-Dist: anthropic<2,>=1; extra == 'dev'
 Requires-Dist: boto3; extra == 'dev'
 Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'dev'
 Requires-Dist: openai>=1.0.0; extra == 'dev'
 Provides-Extra: test
-Requires-Dist: anthropic>=0.18.0; extra == 'test'
+Requires-Dist: anthropic<2,>=1; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
 Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'

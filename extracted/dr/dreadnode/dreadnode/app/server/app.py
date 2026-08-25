@@ -46,7 +46,10 @@ from dreadnode.app.api.models import (
 )
 from dreadnode.app.env import read_env_with_deprecation
 from dreadnode.app.server import capability_manager, model_resolution, runtime_events, ws_auth
-from dreadnode.app.server.auth import SandboxAuthMiddleware, bearer_token
+from dreadnode.app.server.auth import (
+    SandboxAuthMiddleware,
+    validated_runtime_bearer,
+)
 from dreadnode.app.server.prompt import (
     get_core_system_prompt,
     get_platform_context,
@@ -55,11 +58,15 @@ from dreadnode.app.server.prompt import (
     render_project_memory_preload_xml,
 )
 from dreadnode.app.server.prompt_registry import SessionPromptRegistry
+from dreadnode.app.server.runtime_credentials import (
+    get_credential_source,
+    materialize_runtime_token_file,
+    read_runtime_token,
+)
 from dreadnode.app.server.runtime_events import (
     RuntimeSessionSnapshot,
     RuntimeSessionSyncStatus,
 )
-from dreadnode.app.server.runtime_token import get_token_source, materialize_runtime_token_file
 from dreadnode.app.server.session_hydrator import SessionHydrator
 from dreadnode.app.server.session_persistence import SessionPersistenceCoordinator
 from dreadnode.app.server.turn_coordinator import QueuedTurnRequest, SessionTurnCoordinator
@@ -655,10 +662,10 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
     registry = state.capability_registry
     synchronous = _is_synchronous_startup()
 
-    # Revoke a runtime token's live websockets and outstanding tickets the
-    # moment it is rotated out. Wired here rather than at the uvicorn entrypoint
-    # so every host of this app gets it (and so it is exercised by tests).
-    get_token_source().set_on_retire(_on_runtime_token_retired)
+    # If an on-prem installation rolls back to N-1, its reconnect flow can
+    # replace the compatibility credential file. Revoke resources bound to the
+    # retired value as soon as an auth check observes that replacement.
+    get_credential_source().set_on_retire(_on_runtime_credential_retired)
 
     # MCP server connections — start() is non-blocking by design
     # (CAP-MCP-009); the wait happens below if requested.
@@ -875,8 +882,8 @@ class ServerState:
         # Single-use websocket auth tickets for browser clients, which cannot
         # set an Authorization header on the ws handshake. See ws_auth.py.
         self.ws_ticket_store = ws_auth.WsTicketStore()
-        # Live websocket connections, tracked so they can be force-closed when
-        # the runtime token rotates (lossless reconnect).
+        # Live websocket connections, tracked so an N-1 rollback can retire
+        # sockets authenticated with the token it replaces.
         self.ws_connections = WebSocketConnectionRegistry()
 
     def _get_session_store(self) -> SessionStore | None:
@@ -3763,24 +3770,27 @@ async def create_ws_ticket_endpoint(request: Request) -> WsTicketResponse | JSON
     runtime bearer token. Returns 400 when runtime auth is disabled, since
     tickets are meaningless there (local unsecured ws auth is headerless).
 
-    The ticket is bound to the token that minted it, and only a *current* token
-    may mint one — otherwise a client whose token was just rotated out could
-    trade its retired credential for a ticket and reconnect anyway.
+    The ticket is bound to the credential that minted it, which must still be
+    the runtime's live credential at redemption (RT-AUTH-009).
     """
-    source = get_token_source()
+    source = get_credential_source()
     if not source.enabled():
         return JSONResponse(
             {"detail": "Runtime websocket tickets require runtime auth"},
             status_code=400,
         )
 
-    presented = bearer_token(request.headers.get("authorization"))
-    if presented is None or not source.is_current(presented):
+    presented = validated_runtime_bearer(request)
+    if presented is None:
         return JSONResponse(
-            {"detail": "Websocket tickets require the current runtime token"},
+            {"detail": "Websocket tickets require an active runtime credential"},
             status_code=401,
         )
 
+    # SandboxAuthMiddleware already refreshed and validated this bearer for the
+    # protected route. Re-reading the rollback-only file here would duplicate
+    # synchronous file I/O; redemption still verifies that the credential which
+    # minted the ticket remains active.
     ticket = get_state().ws_ticket_store.mint(token=presented, ttl_seconds=30)
     return WsTicketResponse(ticket=ticket.ticket, expires_at=ticket.expires_at)
 
@@ -4901,18 +4911,13 @@ def reset_app_state() -> None:
     app.state.server = ServerState()
 
 
-def _on_runtime_token_retired(retired: str) -> None:
-    """Revoke everything the retired runtime token still authorizes.
-
-    Rotation is how the platform severs a stale client. Closing its live
-    websockets is not enough on its own: an unredeemed ticket it minted before
-    the rotation would let it right back in for the rest of that ticket's TTL.
-    """
+def _on_runtime_credential_retired(retired: str) -> None:
+    """Revoke live sockets and unused tickets bound to a retired credential."""
     state = get_state()
     closed = state.ws_connections.close_for_token(retired)
     purged = state.ws_ticket_store.purge_for_token(retired)
     logger.info(
-        "Runtime token retired | websockets_closed={} tickets_revoked={}",
+        "Runtime credential retired | websockets_closed={} tickets_revoked={}",
         closed,
         purged,
     )
@@ -4960,12 +4965,13 @@ def run_server(
     )
     state = get_state()
     state.runtime_url = f"http://{advertised_host}:{resolved_port}"
-    state.runtime_token = read_env_with_deprecation("DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN")
-    state.runtime_id = os.environ.get("DREADNODE_RUNTIME_ID")
 
-    # Materialize the token file so its existence signals to the platform that
-    # this runtime can be reconnected (token rotated) rather than restarted.
+    # The file is dormant under the current immutable-credential lifecycle,
+    # but its existence lets N-1 rotate this same running runtime after an
+    # on-prem rollback instead of forcing destructive reprovisioning.
     materialize_runtime_token_file()
+    state.runtime_token = read_runtime_token()
+    state.runtime_id = os.environ.get("DREADNODE_RUNTIME_ID")
 
     logger.info(f"Starting server at http://{resolved_host}:{resolved_port}")
 

@@ -1,14 +1,15 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dbt-autofix
-Version: 0.21.6
+Version: 0.22.3
 Summary: CLI to autofix deprecations in dbt projects
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: click<9.0.0,>=8.2.0
 Requires-Dist: dbt-extractor<=0.6,>=0.5.0
-Requires-Dist: dbt-fusion-package-tools==0.21.6
+Requires-Dist: dbt-fusion-package-tools==0.22.3
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: jinja2<4,>=3.1.3
+Requires-Dist: pathspec>=0.12.0
 Requires-Dist: pyyaml>=6.0.2; python_version >= '3.13'
 Requires-Dist: pyyaml>=6.0; python_version < '3.13'
 Requires-Dist: rich>=13.7.0
@@ -23,7 +24,7 @@ dbt-autofix automatically scans your dbt project for deprecated configurations a
 
 ***NEW in version 0.17.0***: dbt-autofix can now check package dependencies for compatibility with dbt Fusion and dbt 2.0 and automatically upgrade packages to newer compatible versions. See `packages` in the `Usage` section below for more detail.
 
-There will also be cases that dbt-autofix cannot resolve and require manual intervention. For those scenarios, using AI Agents can be helpfiul see the below section on [Using `AGENTS.md`](#using-agentsmd). Even if you don't intend to use LLMs, the [`AGENTS.md`](./AGENTS.md) can be a very helpful guidance for work that may need to be done after autofix has done it's part.
+There will also be cases that dbt-autofix cannot resolve and require manual intervention. For those scenarios, using AI Agents can be helpful see the below section on [Using `AGENTS.md`](#using-agentsmd). Even if you don't intend to use LLMs, the [`AGENTS.md`](./AGENTS.md) can be a very helpful guidance for work that may need to be done after autofix has done it's part.
 
 
 ## Deprecation Coverage - Project Files

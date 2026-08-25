@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.20.11
+Version: 0.20.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -25,6 +25,8 @@ Requires-Dist: mypy>=1.0 ; python_full_version >= '3.8' and extra == 'dev'
 Requires-Dist: maturin>=1.0 ; extra == 'dev'
 Requires-Dist: dcc-mcp-core-semantic>=0.17.37 ; extra == 'semantic'
 Requires-Dist: fastembed>=0.3 ; python_full_version >= '3.8' and extra == 'semantic'
+Requires-Dist: jsonschema>=4.18 ; python_full_version >= '3.8' and extra == 'test'
+Requires-Dist: jsonschema==4.17.3 ; python_full_version < '3.8' and extra == 'test'
 Requires-Dist: pytest>=8.3.0 ; python_full_version >= '3.8' and extra == 'test'
 Requires-Dist: pytest==7.4.4,<8.0 ; python_full_version < '3.8' and extra == 'test'
 Requires-Dist: pytest-cov>=4.0 ; python_full_version >= '3.8' and extra == 'test'

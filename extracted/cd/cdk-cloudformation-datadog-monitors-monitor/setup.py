@@ -5,8 +5,8 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-cloudformation-datadog-monitors-monitor",
-    "version": "4.11.0.a7",
-    "description": "Datadog Monitor 4.11.0",
+    "version": "4.11.1.a7",
+    "description": "Datadog Monitor 4.11.1",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-cloudformation.git",
     "long_description_content_type": "text/markdown",
@@ -26,28 +26,29 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_cloudformation_datadog_monitors_monitor._jsii": [
-            "datadog-monitors-monitor@4.11.0-alpha.7.jsii.tgz"
+            "datadog-monitors-monitor@4.11.1-alpha.7.jsii.tgz"
         ],
         "cdk_cloudformation_datadog_monitors_monitor": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.9",
+    "python_requires": ">=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.253.1, <3.0.0",
-        "constructs>=10.6.0, <11.0.0",
-        "jsii>=1.129.0, <2.0.0",
-        "publication>=0.0.3",
-        "typeguard==2.13.3"
+        "aws-cdk-lib>=2.263.0, <3.0.0",
+        "constructs>=10.8.1, <11.0.0",
+        "jsii>=1.139.0, <2.0.0",
+        "publication>=0.0.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
         "License :: OSI Approved"
     ],

@@ -24,8 +24,7 @@ from qcodes.validators import Arrays, Bool, Enum, Ints, Numbers
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
 
 class PNAAxisParameter(Parameter):
@@ -549,7 +548,7 @@ class KeysightPNABase(VisaInstrument):
             get_parser=float,
             set_cmd="SENS:FREQ:SPAN {}",
             unit="Hz",
-            vals=Numbers(min_value=min_freq, max_value=max_freq),
+            vals=Numbers(min_value=0, max_value=max_freq),
         )
         """Parameter span"""
         self.cw: Parameter = self.add_parameter(

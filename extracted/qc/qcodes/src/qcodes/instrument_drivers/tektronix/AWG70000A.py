@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 import numpy as np
 import numpy.typing as npt
 from broadbean.sequence import InvalidForgedSequenceError, fs_schema
-from typing_extensions import deprecated
 
 from qcodes import validators as vals
 from qcodes.instrument import (
@@ -24,12 +23,10 @@ from qcodes.instrument import (
     VisaInstrumentKWArgs,
 )
 from qcodes.parameters import create_on_off_val_mapping
-from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.parameters import Parameter
 
@@ -476,19 +473,6 @@ class Tektronix70000AWGChannel(InstrumentChannel["TektronixAWG70000Base"]):
         """
 
         self.parent.write(f"SOURce{self.channel}:CASSet:CLEAR")
-
-
-@deprecated(
-    "AWGChannel is deprecated. Please use qcodes.instrument_drivers.tektronix.Tektronix70000AWGChannel instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class AWGChannel(Tektronix70000AWGChannel):
-    """
-    Alias for Tektronix70000AWGChannel for backwards compatibility.
-    """
-
-    pass
 
 
 class TektronixAWG70000Base(VisaInstrument):
@@ -939,17 +923,10 @@ class TektronixAWG70000Base(VisaInstrument):
             raise ValueError("num_samples must be at least 2400.")
 
         # form the timestamp string
-        timezone = time.timezone
-        tz_m, _ = divmod(timezone, 60)  # returns (minutes, seconds)
-        tz_h, tz_m = divmod(tz_m, 60)
-        if np.sign(tz_h) == -1:
-            signstr = "-"
-            tz_h *= -1
-        else:
-            signstr = "+"
-        timestr = dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
-        timestr += signstr
-        timestr += f"{tz_h:02.0f}:{tz_m:02.0f}"
+        now = dt.datetime.now(dt.UTC).astimezone()
+        tz_str = now.strftime("%z")  # e.g. "+0100"
+        timestr = now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+        timestr += tz_str[:3] + ":" + tz_str[3:]  # "+01:00"
 
         hdr = ET.Element(
             "DataFile", attrib={"offset": "0" * offsetdigits, "version": "0.1"}
@@ -1113,9 +1090,9 @@ class TektronixAWG70000Base(VisaInstrument):
             raise InvalidForgedSequenceError(e)
 
         chan_list: list[str | int] = []
-        for pos1 in seq.keys():
-            for pos2 in seq[pos1]["content"].keys():
-                for ch in seq[pos1]["content"][pos2]["data"].keys():
+        for pos1 in seq:
+            for pos2 in seq[pos1]["content"]:
+                for ch in seq[pos1]["content"][pos2]["data"]:
                     if ch not in chan_list:
                         chan_list.append(ch)
 
@@ -1146,14 +1123,14 @@ class TektronixAWG70000Base(VisaInstrument):
         wfmx_files: list[bytes] = []
         wfmx_filenames: list[str] = []
 
-        for pos1 in seq.keys():
-            for pos2 in seq[pos1]["content"].keys():
+        for pos1 in seq:
+            for pos2 in seq[pos1]["content"]:
                 for ch, data in seq[pos1]["content"][pos2]["data"].items():
                     wfm = data["wfm"]
 
                     markerdata = []
                     for mkey in ["m1", "m2", "m3", "m4"]:
-                        if mkey in data.keys():
+                        if mkey in data:
                             markerdata.append(data.get(mkey))
                     wfm_data = np.stack((wfm, *markerdata))
 
@@ -1173,7 +1150,7 @@ class TektronixAWG70000Base(VisaInstrument):
         subseqsml_files: list[str] = []
         subseqsml_filenames: list[str] = []
 
-        for pos1 in seq.keys():
+        for pos1 in seq:
             if seq[pos1]["type"] == "subsequence":
                 ss_wfm_names: list[list[str]] = []
 
@@ -1182,7 +1159,7 @@ class TektronixAWG70000Base(VisaInstrument):
                 # and we must also provide default values if nothing
                 # is specified
                 seqings: list[dict[str, int]] = []
-                for pos2 in seq[pos1]["content"].keys():
+                for pos2 in seq[pos1]["content"]:
                     pos_seqs = seq[pos1]["content"][pos2]["sequencing"]
                     pos_seqs["twait"] = pos_seqs.get("twait", 0)
                     pos_seqs["nrep"] = pos_seqs.get("nrep", 1)
@@ -1195,7 +1172,7 @@ class TektronixAWG70000Base(VisaInstrument):
                         [n for n in wfmx_filenames if f"wfm_{pos1}_{pos2}" in n]
                     )
 
-                seqing = {k: [d[k] for d in seqings] for k in seqings[0].keys()}
+                seqing = {k: [d[k] for d in seqings] for k in seqings[0]}
 
                 subseqname = f"subsequence_{pos1}"
 
@@ -1222,7 +1199,7 @@ class TektronixAWG70000Base(VisaInstrument):
         asset_names: list[list[str]] = []
         seqings = []
         subseq_positions: list[int] = []
-        for pos1 in seq.keys():
+        for pos1 in seq:
             pos_seqs = seq[pos1]["sequencing"]
 
             pos_seqs["twait"] = pos_seqs.get("twait", 0)
@@ -1238,7 +1215,7 @@ class TektronixAWG70000Base(VisaInstrument):
                 )
             else:
                 asset_names.append([wn for wn in wfmx_filenames if f"wfm_{pos1}" in wn])
-        seqing = {k: [d[k] for d in seqings] for k in seqings[0].keys()}
+        seqing = {k: [d[k] for d in seqings] for k in seqings[0]}
 
         log.debug(f"Assets for SML file: {asset_names}")
 
@@ -1501,17 +1478,10 @@ class TektronixAWG70000Base(VisaInstrument):
         N = lstlens[0]
 
         # form the timestamp string
-        timezone = time.timezone
-        tz_m, _ = divmod(timezone, 60)
-        tz_h, tz_m = divmod(tz_m, 60)
-        if np.sign(tz_h) == -1:
-            signstr = "-"
-            tz_h *= -1
-        else:
-            signstr = "+"
-        timestr = dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
-        timestr += signstr
-        timestr += f"{tz_h:02.0f}:{tz_m:02.0f}"
+        now = dt.datetime.now(dt.UTC).astimezone()
+        tz_str = now.strftime("%z")  # e.g. "+0100"
+        timestr = now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+        timestr += tz_str[:3] + ":" + tz_str[3:]  # "+01:00"
 
         datafile = ET.Element(
             "DataFile", attrib={"offset": "0" * offsetdigits, "version": "0.1"}

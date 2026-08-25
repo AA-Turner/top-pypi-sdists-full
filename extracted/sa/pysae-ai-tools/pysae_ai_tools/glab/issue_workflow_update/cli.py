@@ -19,11 +19,13 @@ that source line not yet on its deploy branch. A merged MR (merged into
 keeps diverging lines correct (``main``→``deploy/prod``,
 ``support/5.2.x``→``deploy/support/5.2.x``). No clone, no local git; per-issue
 lookups are fanned out across a thread pool. ``To deploy`` is skipped
-(``has_deploy: false``) — merged tickets **closed directly** — either when a
-project has **no deploy branch at all** (nothing happens after the merge: its CI
-deploys from the MR pipeline) or when it opts out of the column via
-``.pysae-ai-tools.yaml`` ``board.to_deploy: false``. Same rule as the live
-merge path, shared through ``glab/deploy_branches.py``.
+(``has_deploy: false``) — merged tickets **closed directly** — when a project opts
+out of the column via ``.pysae-ai-tools.yaml`` ``board.to_deploy: false``, or, on a
+project that declares nothing, when it has **no deploy branch at all** (nothing
+happens after the merge: its CI deploys from the MR pipeline). ``to_deploy: true``
+keeps the column whatever the branches say, which is what a package repo needs
+before its first release creates ``deploy/prod``. Same rule as the live merge path,
+shared through ``glab/deploy_branches.py``.
 
 **Job oracle** — a repo whose shipment is not a branch movement declares
 ``board.shipped_when_job: <job>``: a merged MR has shipped once that job
@@ -52,7 +54,7 @@ from ...common.glab.fetch_issues import get_current_username, resolve_username
 from ...common.glab.models import GitLabIssue
 from ...common.glab.runner import glab_api, glab_api_paginated, run_glab
 from ...common.references.gitlab_labels import BoardLabel
-from ..deploy_branches import deploy_branches_for, resolve_deploy_pairs, shipped_when_job_for, uses_to_deploy_column
+from ..deploy_branches import deploy_branches_for, resolve_deploy_pairs, shipped_when_job_for, to_deploy_column_for
 from ..workflow_transition import transition
 from .core import (
     Action,
@@ -507,7 +509,8 @@ def _process_project(
     mapping = deploy_branches_for(label, deploy_branch_override)
     pairs = resolve_deploy_pairs(project_id, mapping)
     shipped_when_job = shipped_when_job_for(label)
-    has_deploy = uses_to_deploy_column(label) and bool(pairs or shipped_when_job)
+    declared_to_deploy = to_deploy_column_for(label)
+    has_deploy = declared_to_deploy if declared_to_deploy is not None else bool(pairs or shipped_when_job)
     unshipped = _unshipped_by_source(project_id, pairs)
     deploy_branches = sorted({dep for _, dep in pairs})
     deployed_version = _deployed_version(project_id, deploy_branches)

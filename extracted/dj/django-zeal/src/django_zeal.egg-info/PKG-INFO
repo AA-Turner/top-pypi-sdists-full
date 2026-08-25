@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-zeal
-Version: 2.2.2
+Version: 2.2.3
 Summary: Detect N+1s in your Django app
 License: Copyright 2016 Joshua Carp
         Copyright 2024 Tao Bojlén

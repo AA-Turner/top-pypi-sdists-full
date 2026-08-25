@@ -75,8 +75,7 @@ class CustomerFacingIssueToCommentsDto(BaseModel):
         _items = []
         if self.comments:
             for _item_comments in self.comments:
-                if _item_comments:
-                    _items.append(_item_comments.to_dict())
+                _items.append(_item_comments.to_dict() if _item_comments is not None else None)
             _dict['comments'] = _items
         # set to None if issue_id (nullable) is None
         # and model_fields_set contains the field

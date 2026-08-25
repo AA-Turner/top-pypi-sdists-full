@@ -1,4 +1,4 @@
-# Copyright 2009-2024 Joshua Bronson. All rights reserved.
+# Copyright 2009-2026 Joshua Bronson. All rights reserved.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -16,10 +16,12 @@
 from __future__ import annotations
 
 import typing as t
+from collections.abc import ItemsView
 
 from ._base import BidictBase
 from ._typing import KT
 from ._typing import VT
+from ._typing import override
 
 
 class frozenbidict(BidictBase[KT, VT]):
@@ -30,17 +32,20 @@ class frozenbidict(BidictBase[KT, VT]):
     if t.TYPE_CHECKING:
 
         @property
+        @override
         def inverse(self) -> frozenbidict[VT, KT]: ...
 
         @property
+        @override
         def inv(self) -> frozenbidict[VT, KT]: ...
 
+    @override
     def __hash__(self) -> int:
         """The hash of this bidict as determined by its items."""
         if getattr(self, '_hash', None) is None:
             # The following is like hash(frozenset(self.items()))
             # but more memory efficient. See also: https://bugs.python.org/issue46684
-            self._hash = t.ItemsView(self)._hash()
+            self._hash = ItemsView(self)._hash()
         return self._hash
 
 

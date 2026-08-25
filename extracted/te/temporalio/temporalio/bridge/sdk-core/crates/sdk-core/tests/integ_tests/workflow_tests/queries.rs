@@ -1,6 +1,5 @@
 //! Tests for SDK-level query handling
 
-use crate::common::build_fake_sdk;
 use serde::{Deserialize, Serialize};
 use std::{cell::Cell, collections::HashMap, future::poll_fn, task::Poll, time::Duration};
 use temporalio_common::protos::{
@@ -111,10 +110,11 @@ async fn query_only_activation_should_not_advance_workflow() {
             });
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker
-        .register_workflow::<CompleteOnSecondPollWf>()
-        .unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options
+            .register_workflow::<CompleteOnSecondPollWf>()
+            .unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -170,10 +170,11 @@ async fn nonexistent_query_should_not_advance_workflow() {
             });
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker
-        .register_workflow::<CompleteOnSecondPollWf>()
-        .unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options
+            .register_workflow::<CompleteOnSecondPollWf>()
+            .unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -191,7 +192,7 @@ impl CounterWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         ctx.state_mut(|s| s.counter += 1);
-        ctx.wait_condition(|s| s.got_signal).await;
+        ctx.wait_condition(|s| s.got_signal).await?;
         ctx.state_mut(|s| s.counter += 1);
         Ok(())
     }
@@ -298,8 +299,9 @@ async fn non_legacy_query_should_see_state_after_workflow_advances() {
             });
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_workflow::<CounterWf>().unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options.register_workflow::<CounterWf>().unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -414,8 +416,9 @@ async fn query_returns_workflow_context_view_info() {
         });
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_workflow::<ContextViewWf>().unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options.register_workflow::<ContextViewWf>().unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -430,7 +433,7 @@ impl CurrentDetailsWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         ctx.set_current_details("details from workflow");
-        ctx.wait_condition(|_| false).await;
+        ctx.wait_condition(|_| false).await?;
         Ok(())
     }
 }
@@ -508,8 +511,9 @@ async fn workflow_metadata_query_returns_current_details() {
         true
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_workflow::<CurrentDetailsWf>().unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options.register_workflow::<CurrentDetailsWf>().unwrap();
+    });
     worker.run().await.unwrap();
 }
 
@@ -522,7 +526,7 @@ struct NoCurrentDetailsWf;
 impl NoCurrentDetailsWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        ctx.wait_condition(|_| false).await;
+        ctx.wait_condition(|_| false).await?;
         Ok(())
     }
 }
@@ -583,7 +587,8 @@ async fn workflow_metadata_query_empty_details() {
         true
     });
 
-    let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_workflow::<NoCurrentDetailsWf>().unwrap();
+    let mut worker = crate::common::build_fake_sdk_with_options(mock_cfg, |options| {
+        options.register_workflow::<NoCurrentDetailsWf>().unwrap();
+    });
     worker.run().await.unwrap();
 }

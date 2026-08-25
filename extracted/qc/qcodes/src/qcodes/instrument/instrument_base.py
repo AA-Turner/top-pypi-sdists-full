@@ -5,14 +5,17 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
 from typing_extensions import TypedDict, TypeVar, deprecated
 
 from qcodes.logger import get_instrument_logger
-from qcodes.metadatable import Metadatable, MetadatableWithName
+from qcodes.metadatable import (
+    Metadatable,
+    MetadatableWithName,
+    normalize_snapshot_update,
+)
 from qcodes.parameters import Function, Parameter, ParameterBase
 from qcodes.utils import DelegateAttributes, full_class
 
@@ -22,11 +25,13 @@ if TYPE_CHECKING:
 
     from qcodes.instrument.channel import ChannelTuple, InstrumentModule
     from qcodes.logger.instrument_logger import InstrumentLoggerAdapter
+    from qcodes.metadatable import SnapshotUpdate
 
 from qcodes.utils import QCoDeSDeprecationWarning
 
 log = logging.getLogger(__name__)
 
+# Cannot convert to PEP 695: uses default= which requires PEP 696 (Python 3.13+).
 TParameter = TypeVar("TParameter", bound="ParameterBase", default="Parameter")
 TSubmodule = TypeVar(
     "TSubmodule", bound="InstrumentModule | ChannelTuple", default="InstrumentModule"
@@ -168,7 +173,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
         if parameter_class is None:
             parameter_class = cast("type[TParameter]", Parameter)
 
-        if "bind_to_instrument" not in kwargs.keys():
+        if "bind_to_instrument" not in kwargs:
             kwargs["bind_to_instrument"] = True
 
         bind_to_instrument = kwargs["bind_to_instrument"]
@@ -385,9 +390,8 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
                 component = component.get_component(remaining_name)
                 remaining_name_parts = []
 
-        if component is not None:
-            if len(remaining_name_parts) == 0:
-                return component
+        if component is not None and len(remaining_name_parts) == 0:
+            return component
 
         if len(remaining_name_parts) == 0:
             raise KeyError(
@@ -407,7 +411,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
 
     def snapshot_base(
         self,
-        update: bool | None = False,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         """
@@ -417,13 +421,13 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
         supports).
 
         Args:
-            update: If ``True``, update the state by querying the
-                instrument. If None update the state if known to be invalid.
-                If ``False``, just use the latest values in memory and never
-                update state.
+            update: If ``"All"``, update the state by querying the instrument.
+                If ``"Only_invalid"`` (the default) update the state only for
+                values whose cache is invalid. If ``"Never"``, just use the
+                latest values in memory and never update state.
             params_to_skip_update: List of parameter names that will be skipped
-                in update even if update is True. This is useful if you have
-                parameters that are slow to update but can be updated in a
+                in update even if update is ``"All"``. This is useful if you
+                have parameters that are slow to update but can be updated in a
                 different way (as in the qdac). If you want to skip the
                 update of certain parameters in all snapshots, use the
                 ``snapshot_get`` attribute of those parameters instead.
@@ -432,6 +436,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
             dict: base snapshot
 
         """
+        update = normalize_snapshot_update(update)
 
         if params_to_skip_update is None:
             params_to_skip_update = []
@@ -453,7 +458,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
             if param.snapshot_exclude:
                 continue
             if params_to_skip_update and name in params_to_skip_update:
-                update_par: bool | None = False
+                update_par: SnapshotUpdate = "Never"
             else:
                 update_par = update
             try:
@@ -463,7 +468,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
                 # at lower level with more info for file based loggers
                 self.log.warning("Snapshot: Could not update parameter: %s", name)
                 self.log.info("Details for Snapshot:", exc_info=True)
-                snap["parameters"][name] = param.snapshot(update=False)
+                snap["parameters"][name] = param.snapshot(update="Never")
 
         for attr in set(self._meta_attrs):
             val = getattr(self, attr, None)
@@ -476,7 +481,9 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
         return snap
 
     def print_readable_snapshot(
-        self, update: bool = False, max_chars: int = 80
+        self,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
+        max_chars: int = 80,
     ) -> None:
         """
         Prints a readable version of the snapshot.
@@ -486,16 +493,18 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
         status of an instrument.
 
         Args:
-            update: If ``True``, update the state by querying the
-                instrument. If ``False``, just use the latest values in memory.
-                This argument gets passed to the snapshot function.
+            update: What to do about the values in the snapshot. ``"All"``
+                updates every value by querying the instrument,
+                ``"Only_invalid"`` (the default) only updates values whose
+                cache is invalid, and ``"Never"`` just uses the latest values
+                in memory. This argument gets passed to the snapshot function.
             max_chars: the maximum number of characters per line. The
                 readable snapshot will be cropped if this value is exceeded.
                 Defaults to 80 to be consistent with default terminal width.
 
         """
         floating_types = (float, np.integer, np.floating)
-        snapshot = self.snapshot(update=update)
+        snapshot = self.snapshot(update=normalize_snapshot_update(update))
 
         par_lengths = [len(p) for p in snapshot["parameters"]]
         # handle the case of no parameters
@@ -529,7 +538,7 @@ class InstrumentBase(MetadatableWithName, DelegateAttributes):
             if unit != "":  # corresponds to no unit
                 msg += f"({unit})"
             # Truncate the message if it is longer than max length
-            if len(msg) > max_chars and not max_chars == -1:
+            if len(msg) > max_chars and max_chars != -1:
                 msg = msg[0 : max_chars - 3] + "..."
             print(msg)
 

@@ -1,6 +1,6 @@
 [project]
 name = "descope"
-version = "2.12.1"
+version = "2.13.0"
 description = "Descope Python SDK"
 requires-python = ">=3.9,<4.0"
 readme = "README.md"

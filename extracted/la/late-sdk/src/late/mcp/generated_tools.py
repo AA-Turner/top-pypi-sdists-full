@@ -4026,6 +4026,42 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Upload an ad video",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_creatives_upload_ad_video(
+        account_id: str,
+        ad_account_id: str,
+        video_url: str | None = None,
+        video_base64: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Upload an ad video
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            video_url: Public https URL of the video; downloaded server-side (SSRF-guarded) before chunked upload. Provide exactly one of videoUrl or videoBase64.
+            video_base64: Raw base64 video bytes, or a full data URL (the data:video/...;base64, prefix is stripped). Capped by Vercel's body limit (~4.5 MB payload). Provide exactly one of videoUrl or videoBase64.
+            filename: Optional filename shown alongside the upload session. Applied only when uploading via videoBase64."""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.upload_ad_video(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                video_url=video_url,
+                video_base64=video_base64,
+                filename=filename,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Ad video library",
             readOnlyHint=True,
             destructiveHint=False,
@@ -4055,6 +4091,32 @@ def register_generated_tools(mcp, _get_client):
                 fields=fields,
                 limit=limit,
                 after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete an ad video",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_creatives_delete_ad_video(
+        video_id: str, account_id: str, ad_account_id: str
+    ) -> str:
+        """Delete an ad video
+
+        Args:
+            video_id: Meta ad video id (numeric). (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>) that owns the video. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.delete_ad_video(
+                video_id=video_id, account_id=account_id, ad_account_id=ad_account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -11867,6 +11929,8 @@ def register_generated_tools(mcp, _get_client):
         placements: dict[str, Any] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
+        status: str | None = None,
+        campaign_status: str | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -11896,15 +11960,17 @@ def register_generated_tools(mcp, _get_client):
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
-        `body` / `imageUrl` / `video`). Each entry must supply its
-        own headline, body, and exactly one of `imageUrl` /
-        `video`.
+        `body` / `imageUrl` / `video`): setting both is a 400,
+        unlike `POST /v1/ads/create` where the top-level fields
+        are silently ignored in multi-creative mode. Each entry
+        must supply its own headline, body, and exactly one of
+        `imageUrl` / `video`.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests` and `audienceId` are
-        rejected with a 400 alongside it. Its `destination_type` must match
-        the ad's destination.
+        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
+        `campaignStatus` are rejected with a 400 alongside it. Its
+        `destination_type` must match the ad's destination.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
         Required unless `adSetId` is set, where the ad set owns it.
@@ -11954,6 +12020,14 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
+                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
+        newly created ad(s) after Meta accepts them.
+                campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
+        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
+        spends before the advertiser reviews it, while the ad set and ad still
+        switch on (one resume call brings the whole hierarchy live). Only
+        meaningful when a new campaign is being created; rejected with a 400
+        alongside `adSetId` (the attach shape reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -12005,6 +12079,8 @@ def register_generated_tools(mcp, _get_client):
                 placements=placements,
                 advantage_audience=advantage_audience,
                 objective=objective,
+                status=status,
+                campaign_status=campaign_status,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -12053,6 +12129,8 @@ def register_generated_tools(mcp, _get_client):
         placements: dict[str, Any] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
+        status: str | None = None,
+        campaign_status: str | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -12082,15 +12160,17 @@ def register_generated_tools(mcp, _get_client):
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
-        `body` / `imageUrl` / `video`). Each entry must supply its
-        own headline, body, and exactly one of `imageUrl` /
-        `video`.
+        `body` / `imageUrl` / `video`): setting both is a 400,
+        unlike `POST /v1/ads/create` where the top-level fields
+        are silently ignored in multi-creative mode. Each entry
+        must supply its own headline, body, and exactly one of
+        `imageUrl` / `video`.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests` and `audienceId` are
-        rejected with a 400 alongside it. Its `destination_type` must match
-        the ad's destination.
+        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
+        `campaignStatus` are rejected with a 400 alongside it. Its
+        `destination_type` must match the ad's destination.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
         Required unless `adSetId` is set, where the ad set owns it.
@@ -12140,6 +12220,14 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
+                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
+        newly created ad(s) after Meta accepts them.
+                campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
+        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
+        spends before the advertiser reviews it, while the ad set and ad still
+        switch on (one resume call brings the whole hierarchy live). Only
+        meaningful when a new campaign is being created; rejected with a 400
+        alongside `adSetId` (the attach shape reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -12192,6 +12280,8 @@ def register_generated_tools(mcp, _get_client):
                 placements=placements,
                 advantage_audience=advantage_audience,
                 objective=objective,
+                status=status,
+                campaign_status=campaign_status,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -12239,6 +12329,8 @@ def register_generated_tools(mcp, _get_client):
         placements: dict[str, Any] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
+        status: str | None = None,
+        campaign_status: str | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -12268,15 +12360,17 @@ def register_generated_tools(mcp, _get_client):
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
-        `body` / `imageUrl` / `video`). Each entry must supply its
-        own headline, body, and exactly one of `imageUrl` /
-        `video`.
+        `body` / `imageUrl` / `video`): setting both is a 400,
+        unlike `POST /v1/ads/create` where the top-level fields
+        are silently ignored in multi-creative mode. Each entry
+        must supply its own headline, body, and exactly one of
+        `imageUrl` / `video`.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests` and `audienceId` are
-        rejected with a 400 alongside it. Its `destination_type` must match
-        the ad's destination.
+        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
+        `campaignStatus` are rejected with a 400 alongside it. Its
+        `destination_type` must match the ad's destination.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
         Required unless `adSetId` is set, where the ad set owns it.
@@ -12326,6 +12420,14 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
+                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
+        newly created ad(s) after Meta accepts them.
+                campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
+        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
+        spends before the advertiser reviews it, while the ad set and ad still
+        switch on (one resume call brings the whole hierarchy live). Only
+        meaningful when a new campaign is being created; rejected with a 400
+        alongside `adSetId` (the attach shape reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -12376,6 +12478,8 @@ def register_generated_tools(mcp, _get_client):
                 placements=placements,
                 advantage_audience=advantage_audience,
                 objective=objective,
+                status=status,
+                campaign_status=campaign_status,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -13218,7 +13322,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 title
-                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
                 media_items
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms.
                 scheduled_for
@@ -13613,7 +13717,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: (required)
             name
-            description
+            description: Set to null to clear the description.
             color
             is_default"""
         client = _get_client()
@@ -16204,6 +16308,154 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a SIP trunk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_create_sip_trunk(
+        label: str,
+        sip_host: str,
+        sip_port: int | None = None,
+        transport: str | None = None,
+    ) -> str:
+        """Create a SIP trunk
+
+        Args:
+            label: Display name for the trunk. (required)
+            sip_host: Fully-qualified hostname inbound calls are delivered to (e.g. sip.rtc.elevenlabs.io, sip.retellai.com). (required)
+            sip_port: Defaults to 5061 for tls, 5060 otherwise.
+            transport: Signaling transport toward sipHost. Default tls (with SRTP media)."""
+        client = _get_client()
+        try:
+            response = client.voice.create_sip_trunk(
+                label=label, sip_host=sip_host, sip_port=sip_port, transport=transport
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List SIP trunks",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def voice_list_sip_trunks() -> str:
+        """List SIP trunks"""
+        client = _get_client()
+        try:
+            response = client.voice.list_sip_trunks()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a SIP trunk",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def voice_get_sip_trunk(id: str) -> str:
+        """Get a SIP trunk
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.voice.get_sip_trunk(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a SIP trunk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_delete_sip_trunk(id: str) -> str:
+        """Delete a SIP trunk
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.voice.delete_sip_trunk(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Rotate a SIP trunk's password",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_rotate_sip_trunk_credentials(id: str) -> str:
+        """Rotate a SIP trunk's password
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.voice.rotate_sip_trunk_credentials(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Attach a number to a SIP trunk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_attach_number_to_sip_trunk(id: str, trunk_id: str) -> str:
+        """Attach a number to a SIP trunk
+
+        Args:
+            id: Phone number record ID (from GET /v1/phone-numbers). (required)
+            trunk_id: SIP trunk ID (from POST /v1/phone-numbers/sip-trunks). (required)"""
+        client = _get_client()
+        try:
+            response = client.voice.attach_number_to_sip_trunk(id=id, trunk_id=trunk_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Detach a number from its SIP trunk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_detach_number_from_sip_trunk(id: str) -> str:
+        """Detach a number from its SIP trunk
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.voice.detach_number_from_sip_trunk(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # WEBHOOKS
 
     @mcp.tool(
@@ -17934,6 +18186,7 @@ def register_generated_tools(mcp, _get_client):
         categories: list[str] | None,
         clone_flow_id: str | None = None,
         as_version: bool | None = None,
+        endpoint_uri: str | None = None,
     ) -> str:
         """Create flow
 
@@ -17942,7 +18195,8 @@ def register_generated_tools(mcp, _get_client):
             name: Flow display name (required)
             categories: Flow categories (required)
             clone_flow_id: Optional: ID of an existing flow to clone the Flow JSON from
-            as_version: When cloning, true keeps the clone in cloneFlowId's version lineage (auto-numbered next version); false/absent creates an independent flow. Ignored without cloneFlowId."""
+            as_version: When cloning, true keeps the clone in cloneFlowId's version lineage (auto-numbered next version); false/absent creates an independent flow. Ignored without cloneFlowId.
+            endpoint_uri: HTTPS-only data exchange endpoint for the flow. Settable only while the flow is in DRAFT, and the flow's uploaded Flow JSON must declare data_api_version "3.0" for the endpoint to be used."""
         client = _get_client()
         try:
             response = client.whatsapp_flows.create_whats_app_flow(
@@ -17951,6 +18205,7 @@ def register_generated_tools(mcp, _get_client):
                 categories=categories,
                 clone_flow_id=clone_flow_id,
                 as_version=as_version,
+                endpoint_uri=endpoint_uri,
             )
             return _format_response(response)
         except Exception as e:
@@ -17995,6 +18250,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         name: str | None = None,
         categories: list[str] | None = None,
+        endpoint_uri: str | None = None,
     ) -> str:
         """Update flow
 
@@ -18002,11 +18258,16 @@ def register_generated_tools(mcp, _get_client):
             flow_id: Flow ID (required)
             account_id: WhatsApp social account ID (required)
             name: New flow name
-            categories"""
+            categories
+            endpoint_uri: HTTPS-only data exchange endpoint for the flow. Settable only while the flow is in DRAFT, and the flow's uploaded Flow JSON must declare data_api_version "3.0" for the endpoint to be used."""
         client = _get_client()
         try:
             response = client.whatsapp_flows.update_whats_app_flow(
-                flow_id=flow_id, account_id=account_id, name=name, categories=categories
+                flow_id=flow_id,
+                account_id=account_id,
+                name=name,
+                categories=categories,
+                endpoint_uri=endpoint_uri,
             )
             return _format_response(response)
         except Exception as e:

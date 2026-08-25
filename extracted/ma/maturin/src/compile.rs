@@ -31,13 +31,21 @@ pub(crate) const LIB_CRATE_TYPES: [CrateType; 4] = [
     CrateType::StaticLib,
 ];
 
-/// A cargo target to build
-#[derive(Debug, Clone)]
-pub struct CompileTarget {
-    /// The cargo target to build
-    pub target: cargo_metadata::Target,
-    /// The bridge model to use
-    pub bridge_model: BridgeModel,
+const MISSING_CDYLIB_HINT: &str =
+    "Did you miss crate-type = [\"cdylib\"] in the lib section of your Cargo.toml?";
+
+pub(crate) fn missing_cdylib_message(arch: Option<&str>) -> String {
+    match arch {
+        Some(arch) => {
+            let article = if arch == "aarch64" { "an" } else { "a" };
+            format!("Cargo didn't build {article} {arch} cdylib. {MISSING_CDYLIB_HINT}")
+        }
+        None => format!("Cargo didn't build a cdylib. {MISSING_CDYLIB_HINT}"),
+    }
+}
+
+pub(crate) fn missing_cdylib_error(arch: Option<&str>) -> anyhow::Error {
+    anyhow!("{}", missing_cdylib_message(arch))
 }
 
 /// A single-architecture thin binary artifact for universal2 builds.
@@ -135,7 +143,7 @@ pub struct CompileResult {
 pub fn compile(
     context: &BuildContext,
     python_interpreter: Option<&PythonInterpreter>,
-    targets: &[CompileTarget],
+    targets: &[cargo_metadata::Target],
 ) -> Result<CompileResult> {
     if context.project.universal2 {
         compile_universal2(context, python_interpreter, targets)
@@ -147,9 +155,9 @@ pub fn compile(
 /// Filter cargo targets based on bridge model and optional configuration.
 pub(crate) fn filter_cargo_targets(
     cargo_metadata: &cargo_metadata::Metadata,
-    bridge: BridgeModel,
+    bridge: &BridgeModel,
     config_targets: Option<&[crate::pyproject_toml::CargoTarget]>,
-) -> Result<Vec<CompileTarget>> {
+) -> Result<Vec<cargo_metadata::Target>> {
     let root_pkg = cargo_metadata
         .root_package()
         .ok_or_else(|| anyhow!("No root package found in cargo metadata"))?;
@@ -178,10 +186,7 @@ pub(crate) fn filter_cargo_targets(
             }
             _ => target.crate_types.contains(&CrateType::CDyLib),
         })
-        .map(|target| CompileTarget {
-            target: target.clone(),
-            bridge_model: bridge.clone(),
-        })
+        .cloned()
         .collect();
     if targets.is_empty() && !bridge.is_bin() {
         // No `crate-type = ["cdylib"]` in `Cargo.toml`
@@ -193,16 +198,13 @@ pub(crate) fn filter_cargo_targets(
                 .any(|crate_type| LIB_CRATE_TYPES.contains(crate_type))
         });
         if let Some(target) = lib_target {
-            targets.push(CompileTarget {
-                target: target.clone(),
-                bridge_model: bridge,
-            });
+            targets.push(target.clone());
         }
     }
 
     // Filter targets by config_targets
     if let Some(config_targets) = config_targets {
-        targets.retain(|CompileTarget { target, .. }| {
+        targets.retain(|target| {
             config_targets.iter().any(|config_target| {
                 let name_eq = config_target.name == target.name;
                 match &config_target.kind {
@@ -218,7 +220,7 @@ pub(crate) fn filter_cargo_targets(
         } else {
             let target_names = targets
                 .iter()
-                .map(|CompileTarget { target, .. }| target.name.as_str())
+                .map(|target| target.name.as_str())
                 .collect::<Vec<_>>();
             eprintln!(
                 "🎯 Found {} Cargo targets in `Cargo.toml`: {}",
@@ -235,7 +237,7 @@ pub(crate) fn filter_cargo_targets(
 fn compile_universal2(
     context: &BuildContext,
     python_interpreter: Option<&PythonInterpreter>,
-    targets: &[CompileTarget],
+    targets: &[cargo_metadata::Target],
 ) -> Result<CompileResult> {
     let mut aarch64_context = context.clone();
     aarch64_context.project.target = Target::from_resolved_target_triple("aarch64-apple-darwin")?;
@@ -249,35 +251,26 @@ fn compile_universal2(
         .context("Failed to build a x86_64 library through cargo")?;
 
     let mut universal_artifacts = Vec::with_capacity(targets.len());
-    for (bridge_model, (aarch64_artifact, x86_64_artifact)) in
-        targets.iter().map(|target| &target.bridge_model).zip(
-            aarch64_result
-                .artifacts
-                .iter()
-                .zip(&x86_64_result.artifacts),
-        )
+    let build_type = if context.project.bridge().is_bin() {
+        CrateType::Bin
+    } else {
+        CrateType::CDyLib
+    };
+    for (aarch64_artifact, x86_64_artifact) in aarch64_result
+        .artifacts
+        .iter()
+        .zip(&x86_64_result.artifacts)
     {
-        let build_type = if bridge_model.is_bin() {
-            CrateType::Bin
-        } else {
-            CrateType::CDyLib
-        };
         let aarch64_artifact = aarch64_artifact.get(&build_type).cloned().ok_or_else(|| {
             if build_type == CrateType::CDyLib {
-                anyhow!(
-                    "Cargo didn't build an aarch64 cdylib. Did you miss crate-type = [\"cdylib\"] \
-                 in the lib section of your Cargo.toml?",
-                )
+                missing_cdylib_error(Some("aarch64"))
             } else {
                 anyhow!("Cargo didn't build an aarch64 bin.")
             }
         })?;
         let x86_64_artifact = x86_64_artifact.get(&build_type).cloned().ok_or_else(|| {
             if build_type == CrateType::CDyLib {
-                anyhow!(
-                    "Cargo didn't build a x86_64 cdylib. Did you miss crate-type = [\"cdylib\"] \
-                 in the lib section of your Cargo.toml?",
-                )
+                missing_cdylib_error(Some("x86_64"))
             } else {
                 anyhow!("Cargo didn't build a x86_64 bin.")
             }
@@ -339,7 +332,7 @@ fn compile_universal2(
             thin_artifacts,
             staging: CargoOutputState::NotStaged,
         };
-        result.insert(build_type, universal_artifact);
+        result.insert(build_type.clone(), universal_artifact);
         universal_artifacts.push(result);
     }
     // Note: we use x86_64 OUT_DIR paths for universal2 builds.
@@ -355,12 +348,12 @@ fn compile_universal2(
 fn compile_targets(
     context: &BuildContext,
     python_interpreter: Option<&PythonInterpreter>,
-    targets: &[CompileTarget],
+    targets: &[cargo_metadata::Target],
 ) -> Result<CompileResult> {
     let mut artifacts = Vec::with_capacity(targets.len());
     let mut out_dirs = HashMap::new();
-    for target in targets {
-        let build_command = cargo_build_command(context, python_interpreter, target)?;
+    for cargo_target in targets {
+        let build_command = cargo_build_command(context, python_interpreter, cargo_target)?;
         let (target_artifacts, target_out_dirs) = compile_target(context, build_command)?;
         artifacts.push(target_artifacts);
         out_dirs.extend(target_out_dirs);
@@ -374,7 +367,7 @@ fn compile_targets(
 fn cargo_build_command(
     context: &BuildContext,
     python_interpreter: Option<&PythonInterpreter>,
-    compile_target: &CompileTarget,
+    cargo_target: &cargo_metadata::Target,
 ) -> Result<Command> {
     use crate::pyproject_toml::{FeatureConditionEnv, FeatureSpec};
 
@@ -415,8 +408,7 @@ fn cargo_build_command(
     cargo_rustc.message_format = vec!["json-render-diagnostics".to_string()];
 
     // Add `--crate-type cdylib` if available
-    if compile_target
-        .target
+    if cargo_target
         .crate_types
         .iter()
         .any(|crate_type| LIB_CRATE_TYPES.contains(crate_type))
@@ -453,11 +445,11 @@ fn cargo_build_command(
         }
     }
 
-    let bridge_model = &compile_target.bridge_model;
+    let bridge_model = context.project.bridge();
     configure_bin_lib_flags(
         &mut cargo_rustc,
         &mut rustflags,
-        compile_target,
+        cargo_target,
         bridge_model,
         target,
     );
@@ -506,13 +498,13 @@ fn cargo_build_command(
 fn configure_bin_lib_flags(
     cargo_rustc: &mut cargo_options::Rustc,
     rustflags: &mut cargo_config2::Flags,
-    compile_target: &CompileTarget,
+    cargo_target: &cargo_metadata::Target,
     bridge_model: &BridgeModel,
     target: &Target,
 ) {
     match bridge_model {
         BridgeModel::Bin(..) => {
-            cargo_rustc.bin.push(compile_target.target.name.clone());
+            cargo_rustc.bin.push(cargo_target.name.clone());
         }
         BridgeModel::Cffi | BridgeModel::UniFfi | BridgeModel::PyO3 { .. } => {
             cargo_rustc.lib = true;
@@ -567,10 +559,7 @@ fn configure_platform_linker_args(
     if zig
         && target.is_windows()
         && !target.is_msvc()
-        && matches!(
-            bridge_model,
-            BridgeModel::PyO3 { .. } | BridgeModel::Cffi | BridgeModel::UniFfi
-        )
+        && matches!(bridge_model, BridgeModel::PyO3 { .. } | BridgeModel::Cffi)
     {
         let py_init = format!("PyInit_{module_name}");
         let maturin_dir = ensure_target_maturin_dir(target_dir);
@@ -627,7 +616,7 @@ fn configure_macos_pyo3_linker_args(
     let stable_abi_suffix = python_interpreter.and_then(|i| {
         bridge_model
             .stable_abi_for_interpreter(i)
-            .map(|stable_abi| format!("{}", stable_abi))
+            .map(|stable_abi| stable_abi.kind.to_string())
     });
 
     let so_filename = if let Some(suffix) = stable_abi_suffix {
@@ -768,7 +757,7 @@ fn create_build_command(
                 };
 
                 let mut build = cargo_xwin::Rustc::from(cargo_rustc);
-                build.target = vec![target_triple.to_string()];
+                build.cargo.target = vec![target_triple.to_string()];
                 build.xwin = xwin_options;
                 build.build_command()?
             } else {
@@ -794,7 +783,7 @@ fn create_build_command(
             if !context.python.zig {
                 build.disable_zig_linker = true;
                 if target.user_specified {
-                    build.target = vec![target_triple.to_string()];
+                    build.cargo.target = vec![target_triple.to_string()];
                 }
             } else {
                 println!("🛠️ Using zig for cross-compiling to {target_triple}");
@@ -814,7 +803,7 @@ fn create_build_command(
                 } else {
                     target_triple.to_string()
                 };
-                build.target = vec![zig_triple];
+                build.cargo.target = vec![zig_triple];
             }
             build.build_command()?
         }
@@ -862,12 +851,10 @@ fn configure_pyo3_env(
     target: &Target,
     target_triple: &str,
 ) -> Result<()> {
-    let pyo3_ver = if bridge_model.is_pyo3() {
-        pyo3_version(&context.project.cargo_metadata)
-            .context("Failed to get pyo3 version from cargo metadata")?
-    } else {
-        (0, 0, 0)
-    };
+    let pyo3_ver = bridge_model
+        .pyo3()
+        .map(|pyo3| (pyo3.version.major, pyo3.version.minor, pyo3.version.patch))
+        .unwrap_or((0, 0, 0));
     let stable_abi = python_interpreter.and_then(|i| bridge_model.stable_abi_for_interpreter(i));
     let use_target_abi = pyo3_ver >= PYO3_TARGET_ABI_PARAMETER_VERSION;
     let force_target_abi = stable_abi.is_some() && use_target_abi;
@@ -911,6 +898,15 @@ fn configure_pyo3_env(
 
             // and legacy pyo3 versions
             build_command.env("PYTHON_SYS_EXECUTABLE", &interpreter.executable);
+        } else if let Some(host_python) = context.python.host_python.as_ref() {
+            if bridge_model.is_pyo3() {
+                debug!(
+                    "Setting PYO3_PYTHON to host interpreter {}",
+                    host_python.display()
+                );
+                build_command.env("PYO3_PYTHON", host_python);
+            }
+            build_command.env("PYTHON_SYS_EXECUTABLE", host_python);
         }
 
         if bridge_model.is_pyo3()
@@ -932,9 +928,18 @@ fn configure_pyo3_env(
             // trigger a rebuild of the project every time
             let existing_pyo3_config = fs::read_to_string(&config_file).unwrap_or_default();
             if pyo3_config != existing_pyo3_config {
-                fs::write(&config_file, pyo3_config).with_context(|| {
+                // Write via a per-process temp file and rename so concurrent maturin builds
+                // sharing a target directory never observe a partially written config.
+                let tmp_file = config_file.with_extension(format!("txt.tmp{}", std::process::id()));
+                fs::write(&tmp_file, pyo3_config).with_context(|| {
                     format!(
                         "Failed to create pyo3 config file at '{}'",
+                        tmp_file.display()
+                    )
+                })?;
+                fs::rename(&tmp_file, &config_file).with_context(|| {
+                    format!(
+                        "Failed to move pyo3 config file to '{}'",
                         config_file.display()
                     )
                 })?;
@@ -1147,83 +1152,17 @@ fn compile_target(
     Ok((artifacts, out_dirs))
 }
 
-/// Checks that the native library contains a function called `PyInit_<module name>` and warns
-/// if it's missing.
+/// Checks that the native library contains a Python extension entrypoint and warns if it's missing.
 ///
-/// That function is the python's entrypoint for loading native extensions, i.e. python will fail
-/// to import the module with error if it's missing or named incorrectly
+/// `PyInit_<module name>` is the traditional entrypoint. Free-threaded stable ABI builds can
+/// expose `PyModExport_<module name>` instead.
 ///
 /// Currently the check is only run on linux, macOS and Windows
 #[instrument(skip_all)]
 pub fn warn_missing_py_init(artifact: &Path, module_name: &str) -> Result<()> {
     let py_init = format!("PyInit_{module_name}");
     let py_modexport = format!("PyModExport_{module_name}");
-    let fd = File::open(artifact)?;
-    // SAFETY: The caller stages (moves or copies) the artifact into a
-    // private directory before invoking this function, so no concurrent
-    // process (e.g. cargo / rust-analyzer) can modify it while we have
-    // it mapped.
-    let mmap = unsafe { memmap2::Mmap::map(&fd).context("mmap failed")? };
-    let mut found = false;
-    match goblin::Object::parse(&mmap)? {
-        goblin::Object::Elf(elf) => {
-            for dyn_sym in elf.dynsyms.iter() {
-                if py_init == elf.dynstrtab[dyn_sym.st_name] {
-                    found = true;
-                    break;
-                }
-            }
-        }
-        goblin::Object::Mach(mach) => {
-            match mach {
-                goblin::mach::Mach::Binary(macho) => {
-                    for sym in macho.exports()? {
-                        let sym_name = sym.name;
-                        if py_init == sym_name.strip_prefix('_').unwrap_or(&sym_name) {
-                            found = true;
-                            break;
-                        }
-                        if py_modexport == sym_name.strip_prefix('_').unwrap_or(&sym_name) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        for sym in macho.symbols() {
-                            let (sym_name, _) = sym?;
-                            if py_init == sym_name.strip_prefix('_').unwrap_or(sym_name) {
-                                found = true;
-                                break;
-                            }
-                            if py_modexport == sym_name.strip_prefix('_').unwrap_or(sym_name) {
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                goblin::mach::Mach::Fat(_) => {
-                    // Ignore fat macho,
-                    // we only generate them by combining thin binaries which is handled above
-                    found = true
-                }
-            }
-        }
-        goblin::Object::PE(pe) => {
-            for sym in &pe.exports {
-                if let Some(sym_name) = sym.name
-                    && (py_init == sym_name || py_modexport == sym_name)
-                {
-                    found = true;
-                    break;
-                }
-            }
-        }
-        _ => {
-            // Currently, only linux, macOS and Windows are implemented
-            found = true
-        }
-    }
+    let found = native_library_has_python_entrypoint(artifact, module_name)?;
 
     if !found {
         eprintln!(
@@ -1236,6 +1175,72 @@ pub fn warn_missing_py_init(artifact: &Path, module_name: &str) -> Result<()> {
     Ok(())
 }
 
+fn native_library_has_python_entrypoint(artifact: &Path, module_name: &str) -> Result<bool> {
+    let py_init = format!("PyInit_{module_name}");
+    let py_modexport = format!("PyModExport_{module_name}");
+    let fd = File::open(artifact)?;
+    // SAFETY: The caller stages (moves or copies) the artifact into a
+    // private directory before invoking this function, so no concurrent
+    // process (e.g. cargo / rust-analyzer) can modify it while we have
+    // it mapped.
+    let mmap = unsafe { memmap2::Mmap::map(&fd).context("mmap failed")? };
+    let found = match goblin::Object::parse(&mmap)? {
+        goblin::Object::Elf(elf) => elf.dynsyms.iter().any(|dyn_sym| {
+            elf.dynstrtab
+                .get_at(dyn_sym.st_name)
+                .is_some_and(|sym_name| {
+                    is_python_entrypoint_symbol(sym_name, &py_init, &py_modexport)
+                })
+        }),
+        goblin::Object::Mach(mach) => {
+            match mach {
+                goblin::mach::Mach::Binary(macho) => {
+                    let mut found = false;
+                    for sym in macho.exports()? {
+                        let sym_name = sym.name;
+                        let sym_name = sym_name.strip_prefix('_').unwrap_or(&sym_name);
+                        if is_python_entrypoint_symbol(sym_name, &py_init, &py_modexport) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        for sym in macho.symbols() {
+                            let (sym_name, _) = sym?;
+                            let sym_name = sym_name.strip_prefix('_').unwrap_or(sym_name);
+                            if is_python_entrypoint_symbol(sym_name, &py_init, &py_modexport) {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    found
+                }
+                goblin::mach::Mach::Fat(_) => {
+                    // Ignore fat macho,
+                    // we only generate them by combining thin binaries which is handled above
+                    true
+                }
+            }
+        }
+        goblin::Object::PE(pe) => pe.exports.iter().any(|sym| {
+            sym.name.is_some_and(|sym_name| {
+                is_python_entrypoint_symbol(sym_name, &py_init, &py_modexport)
+            })
+        }),
+        _ => {
+            // Currently, only linux, macOS and Windows are implemented
+            true
+        }
+    };
+
+    Ok(found)
+}
+
+fn is_python_entrypoint_symbol(sym_name: &str, py_init: &str, py_modexport: &str) -> bool {
+    sym_name == py_init || sym_name == py_modexport
+}
+
 /// Ensures the `maturin` subdirectory inside the target directory exists
 /// and returns its path. This directory is used for maturin-generated artifacts.
 pub(crate) fn ensure_target_maturin_dir(target_dir: &Path) -> PathBuf {
@@ -1244,21 +1249,16 @@ pub(crate) fn ensure_target_maturin_dir(target_dir: &Path) -> PathBuf {
     dir
 }
 
-fn pyo3_version(cargo_metadata: &cargo_metadata::Metadata) -> Option<(u64, u64, u64)> {
-    let packages: HashMap<&str, &cargo_metadata::Package> = cargo_metadata
-        .packages
-        .iter()
-        .filter_map(|pkg| {
-            let name = pkg.name.as_ref();
-            if name == "pyo3" || name == "pyo3-ffi" {
-                Some((name, pkg))
-            } else {
-                None
-            }
-        })
-        .collect();
-    packages
-        .get("pyo3")
-        .or_else(|| packages.get("pyo3-ffi"))
-        .map(|pkg| (pkg.version.major, pkg.version.minor, pkg.version.patch))
+#[cfg(test)]
+mod tests {
+    use super::is_python_entrypoint_symbol;
+
+    #[test]
+    fn python_entrypoint_symbol_accepts_pymodexport() {
+        assert!(is_python_entrypoint_symbol(
+            "PyModExport__core",
+            "PyInit__core",
+            "PyModExport__core"
+        ));
+    }
 }

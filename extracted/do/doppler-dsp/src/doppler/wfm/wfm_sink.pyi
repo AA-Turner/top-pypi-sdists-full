@@ -40,6 +40,46 @@ class StreamSink:
         int
             0 on success, non-zero on a send/allocation error.
         """
+    def send_eos(self) -> None:
+        """Tell subscribers this stream has ended.
+
+        Publishes an end-of-stream frame, so a consumer learns the sender
+        finished rather than inferring it from silence. Send it BEFORE
+        draining: a drain cannot be reversed and refuses sends once it reaches
+        its publish-flushing phase.
+
+        Raises
+        ------
+        OSError
+            If the C call returns a non-zero status. The exception message is
+            ``wfm_stream_sink_send_eos failed``, with the return code appended
+            (gh-869).
+        """
+    def drain(self, timeout_ms: int = ...) -> None:
+        """Let everything already sent reach the server, then stop.
+
+        A send hands a block to the NATS client and returns; the client writes
+        it in the background. So "send returned" is not "the server has it",
+        and closing without asking relies on the client's own best-effort flush
+        -- capped at 500 ms, with no way to report failure, so a backlog that
+        cannot clear in half a second is dropped silently.
+
+        Call this before closing the sink on any run whose tail matters. After
+        it returns the sink is finished: close it next, which is then just the
+        free.
+
+        Parameters
+        ----------
+        timeout_ms : int
+            Budget; <= 0 uses the stream layer's 5 s default.
+
+        Raises
+        ------
+        OSError
+            If the C call returns a non-zero status. The exception message is
+            ``wfm_stream_sink_drain failed``, with the return code appended
+            (gh-869).
+        """
     def track_clipping(self, on: int = ...) -> None:
         """Enable the per-component clip counter (off by default; peak always
         on).

@@ -38,7 +38,7 @@ class ConsoleTestCase(unittest.TestCase):
             title="Foo Bar",
         )
         print_mock.assert_called_once_with(
-            "::warning file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long # noqa: E501
+            "::warning file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long
         )
 
     def test_error(self, print_mock):
@@ -52,7 +52,7 @@ class ConsoleTestCase(unittest.TestCase):
             title="Foo Bar",
         )
         print_mock.assert_called_once_with(
-            "::error file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long # noqa: E501
+            "::error file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long
         )
 
     def test_notice(self, print_mock):
@@ -66,7 +66,7 @@ class ConsoleTestCase(unittest.TestCase):
             title="Foo Bar",
         )
         print_mock.assert_called_once_with(
-            "::notice file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long # noqa: E501
+            "::notice file=bar,line=123,endLine=234,col=1,endColumn=2,title=Foo Bar::foo"  # pylint: disable=line-too-long
         )
 
     def test_log(self, print_mock):
@@ -151,22 +151,26 @@ boing"""
     def test_out(self):
         with temp_directory() as temp_dir:
             outfile = temp_dir / "github.output"
-            with patch.dict(
-                "os.environ",
-                {"GITHUB_OUTPUT": str(outfile.absolute())},
-                clear=True,
+            with (
+                patch.dict(
+                    "os.environ",
+                    {"GITHUB_OUTPUT": str(outfile.absolute())},
+                    clear=True,
+                ),
+                ActionIO.out() as output,
             ):
-                with ActionIO.out() as output:
-                    output.write("foo", "bar")
+                output.write("foo", "bar")
 
             self.assertEqual(outfile.read_text(encoding="utf8"), "foo=bar\n")
 
     @patch.dict("os.environ", {}, clear=True)
     def test_out_failure(self):
-        with self.assertRaisesRegex(
-            GitHubActionsError,
-            "GITHUB_OUTPUT environment variable not set. Can't write "
-            "action output.",
+        with (
+            self.assertRaisesRegex(
+                GitHubActionsError,
+                "GITHUB_OUTPUT environment variable not set. Can't write "
+                "action output.",
+            ),
+            ActionIO.out(),
         ):
-            with ActionIO.out():
-                pass
+            pass

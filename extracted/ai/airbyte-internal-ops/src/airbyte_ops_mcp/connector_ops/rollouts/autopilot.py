@@ -8,7 +8,6 @@ from the compiled registry, and executes actions via the Cloud Config API.
 from __future__ import annotations
 
 import logging
-import os
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -42,6 +41,7 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     get_unsafe_downgrades,
     parse_db_timestamp,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.ci import build_ci_run_url
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     FAILURE_THRESHOLD_EXCEEDED_MARKER,
     FINALIZING_GRACE_MINUTES,
@@ -939,7 +939,7 @@ def run_auto_advance(
                     rollout.rollout_id,
                     gate.reason,
                 )
-                result.skipped.append(
+                result.holds.append(
                     AutopilotAction(
                         rollout_id=rollout.rollout_id,
                         actor_definition_id=rollout.actor_definition_id,
@@ -947,7 +947,7 @@ def run_auto_advance(
                         rc_version=rc_version,
                         action="advance",
                         success=False,
-                        message=(f"Skipped: failure threshold hit — {gate.reason}"),
+                        message=(f"Failure threshold hit — {gate.reason}"),
                         tier=rollout.tier,
                     )
                 )
@@ -1213,7 +1213,7 @@ def run_auto_promote(
 
         gate = check_health_gate(rollout, sync_info, strategy_key)
         if not gate.passed:
-            result.skipped.append(
+            result.holds.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
                     actor_definition_id=rollout.actor_definition_id,
@@ -1991,19 +1991,6 @@ def _reconcile_finalizing_rollouts(
             )
 
 
-def _build_ci_run_url() -> str:
-    """Build the GitHub Actions run URL from standard CI env vars.
-
-    Falls back to a generic repo URL if vars are missing.
-    """
-    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
-    repo = os.environ.get("GITHUB_REPOSITORY", "airbytehq/airbyte-ops-mcp")
-    run_id = os.environ.get("GITHUB_RUN_ID", "")
-    if run_id:
-        return f"{server}/{repo}/actions/runs/{run_id}"
-    return f"{server}/{repo}"
-
-
 def _send_failure_threshold_hitl(
     rollout: ConnectorRolloutRecord,
     rc_version: str,
@@ -2038,7 +2025,7 @@ def _send_failure_threshold_hitl(
             target_person=release_context.escalation_target,
             cc_persons=release_context.escalation_cc,
             message=message,
-            agent_session_url=_build_ci_run_url(),
+            agent_session_url=build_ci_run_url(),
             connector_name=rollout.connector_name,
             header_emoji="🚨",
             header_label="Rollout Failure Threshold",

@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from tako.models.result_content import ResultContent
 from typing import Optional, Set
@@ -34,8 +34,7 @@ class WebResult(BaseModel):
     source_name: Optional[StrictStr] = Field(default=None, description="Publisher or domain name, when Tako can extract it from the URL.")
     publish_date: Optional[StrictStr] = Field(default=None, description="Publication date of the page, when available.")
     content: Optional[ResultContent] = Field(default=None, description="Downloadable content descriptor for this result, fetched via the Contents endpoint. Web results are always downloadable as text. None for callers that do not populate it.")
-    citation_number: Optional[StrictInt] = Field(default=None, description="1-based citation number that the answer's inline [N] markers reference. Set only when the answer inline-cites this result (the Agent API); None on raw-retrieval surfaces.")
-    __properties: ClassVar[List[str]] = ["title", "url", "snippet", "source_name", "publish_date", "content", "citation_number"]
+    __properties: ClassVar[List[str]] = ["title", "url", "snippet", "source_name", "publish_date", "content"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -99,11 +98,6 @@ class WebResult(BaseModel):
         if self.content is None and "content" in self.model_fields_set:
             _dict['content'] = None
 
-        # set to None if citation_number (nullable) is None
-        # and model_fields_set contains the field
-        if self.citation_number is None and "citation_number" in self.model_fields_set:
-            _dict['citation_number'] = None
-
         return _dict
 
     @classmethod
@@ -121,8 +115,7 @@ class WebResult(BaseModel):
             "snippet": obj.get("snippet"),
             "source_name": obj.get("source_name"),
             "publish_date": obj.get("publish_date"),
-            "content": ResultContent.from_dict(obj["content"]) if obj.get("content") is not None else None,
-            "citation_number": obj.get("citation_number")
+            "content": ResultContent.from_dict(obj["content"]) if obj.get("content") is not None else None
         })
         return _obj
 

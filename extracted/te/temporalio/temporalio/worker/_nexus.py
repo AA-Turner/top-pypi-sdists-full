@@ -6,7 +6,7 @@ import asyncio
 import concurrent.futures
 import contextvars
 import threading
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import reduce
@@ -14,6 +14,7 @@ from typing import (
     Any,
     NoReturn,
     ParamSpec,
+    TypeGuard,
     TypeVar,
     cast,
 )
@@ -30,6 +31,9 @@ import temporalio.client
 import temporalio.common
 import temporalio.converter
 import temporalio.nexus
+import temporalio.nexus.system
+from temporalio.bridge._visitor import PayloadVisitor
+from temporalio.bridge._visitor_functions import PayloadSequence, VisitorFunctions
 from temporalio.bridge.worker import PollShutdownError
 from temporalio.exceptions import (
     ApplicationError,
@@ -48,6 +52,15 @@ from ._interceptor import (
 )
 
 _TEMPORAL_FAILURE_PROTO_TYPE = "temporal.api.failure.v1.Failure"
+
+_PAYLOAD_VALIDATION_ERROR_TYPE = "PayloadValidationError"
+""":py:attr:`temporalio.exceptions.ApplicationError.type` a data converter uses to
+say that it understood a Nexus operation's input but considers it invalid.
+
+When non-retryable, such an error is reported as a
+:py:attr:`nexusrpc.HandlerErrorType.BAD_REQUEST` handler error rather than as a
+handler-side :py:attr:`nexusrpc.HandlerErrorType.INTERNAL` error.
+"""
 
 
 @dataclass
@@ -216,6 +229,19 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
     ):
         await asyncio.shield(self._bridge_worker().complete_nexus_task(completion))
 
+    async def _encode_completion(
+        self, completion: temporalio.bridge.proto.nexus.NexusTaskCompletion
+    ) -> None:
+        """Apply the payload codec then external storage to the completion's payloads."""
+        dc = self._data_converter
+        await PayloadVisitor(skip_search_attributes=True, skip_headers=True).visit(
+            _PayloadTransformVisitor(dc._encode_payload_sequence), completion
+        )
+        await PayloadVisitor(skip_search_attributes=True).visit(
+            _PayloadTransformVisitor(dc._external_store_payload_sequence),
+            completion,
+        )
+
     # TODO(nexus-preview): stack trace pruning. See sdk-typescript NexusHandler.execute
     # "Any call up to this function and including this one will be trimmed out of stack traces.""
 
@@ -260,6 +286,14 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
         try:
             try:
                 await self._handler.cancel_operation(ctx, request.operation_token)
+                completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
+                    task_token=task_token,
+                    completed=temporalio.api.nexus.v1.Response(
+                        cancel_operation=temporalio.api.nexus.v1.CancelOperationResponse()
+                    ),
+                )
+                # No-op but keeps the cancel covered if it ever carries a payload.
+                await self._encode_completion(completion)
             except asyncio.CancelledError:
                 completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
                     task_token=task_token,
@@ -271,16 +305,12 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
                 completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
                     task_token=task_token,
                 )
-                await self._data_converter.encode_failure(
-                    handler_error, completion.failure
+                self._data_converter.failure_converter.to_failure(
+                    handler_error,
+                    self._data_converter.payload_converter,
+                    completion.failure,
                 )
-            else:
-                completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
-                    task_token=task_token,
-                    completed=temporalio.api.nexus.v1.Response(
-                        cancel_operation=temporalio.api.nexus.v1.CancelOperationResponse()
-                    ),
-                )
+                await self._encode_completion(completion)
             await self._complete_task(completion)
         except Exception:
             logger.exception("Failed to send Nexus task completion")
@@ -315,6 +345,13 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
                     request_deadline,
                     endpoint,
                 )
+                completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
+                    task_token=task_token,
+                    completed=temporalio.api.nexus.v1.Response(
+                        start_operation=start_response
+                    ),
+                )
+                await self._encode_completion(completion)
             except asyncio.CancelledError:
                 completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
                     task_token=task_token,
@@ -326,19 +363,15 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
                     task_token=task_token,
                 )
                 handler_error = _exception_to_handler_error(err)
-                await self._data_converter.encode_failure(
-                    handler_error, completion.failure
+                self._data_converter.failure_converter.to_failure(
+                    handler_error,
+                    self._data_converter.payload_converter,
+                    completion.failure,
                 )
 
                 if isinstance(err, concurrent.futures.BrokenExecutor):
                     self._fail_worker_exception_queue.put_nowait(err)
-            else:
-                completion = temporalio.bridge.proto.nexus.NexusTaskCompletion(
-                    task_token=task_token,
-                    completed=temporalio.api.nexus.v1.Response(
-                        start_operation=start_response
-                    ),
-                )
+                await self._encode_completion(completion)
 
             await self._complete_task(completion)
         except Exception:
@@ -396,7 +429,7 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
             _worker_shutdown_event=self._worker_shutdown_event,
         ).set()
         input = LazyValue(
-            serializer=_DummyPayloadSerializer(
+            serializer=_NexusPayloadSerializer(
                 data_converter=self._data_converter,
                 payload=start_request.payload,
             ),
@@ -417,7 +450,9 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
                     )
                 )
             elif isinstance(result, nexusrpc.handler.StartOperationResultSync):
-                [payload] = await self._data_converter.encode([result.value])
+                [payload] = self._data_converter.payload_converter.to_payloads(
+                    [result.value]
+                )
                 return temporalio.api.nexus.v1.StartOperationResponse(
                     sync_success=temporalio.api.nexus.v1.StartOperationResponse.Sync(
                         payload=payload,
@@ -446,12 +481,54 @@ class _NexusWorker:  # type:ignore[reportUnusedClass]
                         ) from err.__cause__
             except FailureError as new_err:
                 response = temporalio.api.nexus.v1.StartOperationResponse()
-                await self._data_converter.encode_failure(new_err, response.failure)
+                self._data_converter.failure_converter.to_failure(
+                    new_err,
+                    self._data_converter.payload_converter,
+                    response.failure,
+                )
                 return response
 
 
+class _PayloadTransformVisitor(VisitorFunctions):
+    """Adapts a payload-sequence transform for use with :class:`PayloadVisitor`."""
+
+    def __init__(
+        self,
+        f: Callable[
+            [Sequence[temporalio.api.common.v1.Payload]],
+            Awaitable[list[temporalio.api.common.v1.Payload]],
+        ],
+    ) -> None:
+        self._f = f
+
+    async def visit_payload(self, payload: temporalio.api.common.v1.Payload) -> None:
+        new_payload = (await self._f([payload]))[0]
+        if new_payload is not payload:
+            payload.CopyFrom(new_payload)
+
+    async def visit_payloads(self, payloads: PayloadSequence) -> None:
+        if len(payloads) == 0:
+            return
+        new_payloads = await self._f(payloads)
+        if new_payloads is payloads:
+            return
+        del payloads[:]
+        payloads.extend(new_payloads)
+
+
+def _is_payload_validation_error(err: BaseException) -> TypeGuard[ApplicationError]:
+    """Whether err is a non-retryable :py:class:`ApplicationError` whose type is
+    exactly :py:data:`_PAYLOAD_VALIDATION_ERROR_TYPE`.
+    """
+    return (
+        isinstance(err, ApplicationError)
+        and err.non_retryable
+        and err.type == _PAYLOAD_VALIDATION_ERROR_TYPE
+    )
+
+
 @dataclass
-class _DummyPayloadSerializer:
+class _NexusPayloadSerializer:
     data_converter: temporalio.converter.DataConverter
     payload: temporalio.api.common.v1.Payload
 
@@ -465,23 +542,63 @@ class _DummyPayloadSerializer:
         content: nexusrpc.Content,  # type:ignore[reportUnusedParameter]
         as_type: type[Any] | None = None,
     ) -> Any:
-        payload = self.payload
-        if self.data_converter.payload_codec:
-            try:
-                [payload] = await self.data_converter.payload_codec.decode([payload])
-            except Exception as err:
-                raise nexusrpc.HandlerError(
-                    "Payload codec failed to decode Nexus operation input",
-                    type=nexusrpc.HandlerErrorType.INTERNAL,
-                ) from err
+        dc = self.data_converter
+        # The visitor mutates in place, so work on a copy to leave the request
+        # payload untouched.
+        payload = temporalio.api.common.v1.Payload()
+        payload.CopyFrom(self.payload)
+        try:
+            await PayloadVisitor(skip_search_attributes=True).visit(
+                _PayloadTransformVisitor(dc._external_retrieve_payload_sequence),
+                payload,
+            )
+        except Exception as err:
+            raise nexusrpc.HandlerError(
+                "Failed to retrieve Nexus operation input from external storage",
+                type=nexusrpc.HandlerErrorType.INTERNAL,
+                retryable_override=True,
+            ) from err
 
         try:
-            [input] = self.data_converter.payload_converter.from_payloads(
+            await PayloadVisitor(skip_search_attributes=True, skip_headers=True).visit(
+                _PayloadTransformVisitor(dc._decode_payload_sequence), payload
+            )
+        except Exception as err:
+            if _is_payload_validation_error(err):
+                # The data converter decoded the input and rejected it, so this
+                # is the caller's fault rather than a handler-side error.
+                raise nexusrpc.HandlerError(
+                    "Invalid operation input",
+                    type=nexusrpc.HandlerErrorType.BAD_REQUEST,
+                    retryable_override=False,
+                ) from err
+            raise nexusrpc.HandlerError(
+                "Payload codec failed to decode Nexus operation input",
+                type=nexusrpc.HandlerErrorType.INTERNAL,
+            ) from err
+
+        try:
+            payload_converter = dc.payload_converter
+            if temporalio.nexus.system._is_system_payload(payload):
+                payload_converter = temporalio.nexus.system._get_payload_converter(
+                    dc.payload_converter,
+                    dc.failure_converter,
+                )
+            [input] = payload_converter.from_payloads(
                 [payload],
                 type_hints=[as_type] if as_type else None,
             )
             return input
         except Exception as err:
+            if _is_payload_validation_error(err):
+                # The data converter converted the input and rejected it, so
+                # distinguish it from input that will never decode into the
+                # expected type.
+                raise nexusrpc.HandlerError(
+                    "Invalid operation input",
+                    type=nexusrpc.HandlerErrorType.BAD_REQUEST,
+                    retryable_override=False,
+                ) from err
             raise nexusrpc.HandlerError(
                 "Payload converter failed to decode Nexus operation input",
                 type=nexusrpc.HandlerErrorType.BAD_REQUEST,

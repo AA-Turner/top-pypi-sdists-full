@@ -116,7 +116,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: uv sync --group dev --all-packages
+        # `live-tests` carries mitmproxy, which `tests/test_http_metrics.py`
+        # needs: without it the whole module skips and the HTTP replay tests
+        # are green by absence.
+        # `--all-packages` selects workspace packages, not dependency groups.
+        run: uv sync --group dev --group live-tests --all-packages
 
       - name: Run Pytest with Coverage (Fast Tests Only)
         timeout-minutes: 20

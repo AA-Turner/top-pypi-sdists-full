@@ -137,6 +137,12 @@ def _make_wrapper(name, original, heal_fn):
         # paths (unregistered verb, _in_engine, no step, v4 default).
         fallback_coordinates = kwargs.pop("fallback_coordinates", None)
 
+        # Re-probe (variable-target actions): the recorded locator was built
+        # from a prior run's variable value, so it must never be trusted.
+        # Popped at the boundary like fallback_coordinates so it never leaks
+        # into the raw Playwright method on any passthrough path.
+        reprobe = kwargs.pop("reprobe", False)
+
         # Re-entry short-circuit: the action engine calls back into
         # ``locator.click(...)`` via its verb runners, and the heal retry
         # replays the method on a fresh locator. Without this guard the wrapper
@@ -150,6 +156,35 @@ def _make_wrapper(name, original, heal_fn):
         step = _current_step.get()
         if step is None:
             return await original(self, *args, **kwargs)
+
+        # Re-probe: skip the recorded locator entirely and run the SAME heal a
+        # locator miss would trigger, so replay re-locates the element by
+        # step.description's current (re-resolved) value. Uses the installed
+        # heal_fn, so it inherits the active heal mode (AH2 / default) with no
+        # extra wiring. Never falls back to the stale locator — if heal misses,
+        # surface it rather than acting on last run's element.
+        from testmu import _config as _cfg
+        if reprobe and _cfg.smart:
+            # The recorded description carries the {{token}} verbatim (codegen
+            # emits it as a literal); resolve it to the CURRENT run's value so
+            # autoheal matches the right element. Descriptions bypass var()
+            # everywhere else — only reprobe needs it. Defensive: on any resolve
+            # error, fall back to the raw description.
+            heal_desc = step.description
+            if heal_desc:
+                try:
+                    from testmu._vars import var as _resolve_var
+                    heal_desc = _resolve_var(heal_desc)
+                except Exception:
+                    heal_desc = step.description
+            handled = await heal_fn(
+                self.page, heal_desc, name, self, *args, **kwargs
+            )
+            if not handled:
+                raise _TIMEOUT_EXCS[0](
+                    f"reprobe: could not re-locate {heal_desc!r} for {name}"
+                )
+            return
 
         # Version-gated path — delegate the whole try → cascade → retry loop to the action
         # engine. Gated strictly on kane_version == "v3"; the default ("v4")

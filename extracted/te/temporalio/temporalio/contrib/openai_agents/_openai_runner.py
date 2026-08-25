@@ -20,12 +20,12 @@ from agents.sandbox import SandboxAgent
 from typing_extensions import Unpack
 
 from temporalio import workflow
+from temporalio.contrib.openai_agents._errors import AgentsWorkflowError
 from temporalio.contrib.openai_agents._model_parameters import ModelActivityParameters
 from temporalio.contrib.openai_agents._temporal_model_stub import _TemporalModelStub
 from temporalio.contrib.openai_agents.sandbox._temporal_sandbox_client import (
     TemporalSandboxClient,
 )
-from temporalio.contrib.openai_agents.workflow import AgentsWorkflowError
 
 
 # Recursively replace models in all agents
@@ -99,6 +99,28 @@ def _has_sandbox_agent(agent: Agent[Any], seen: set[int] | None = None) -> bool:
     return False
 
 
+def _coerce_run_config(value: object) -> RunConfig:
+    """openai-agents >= 0.19 also accepts a plain dict for ``run_config``.
+
+    This function normalizes to a RunConfig instance.
+    """
+    if isinstance(value, RunConfig):
+        return value
+    if not isinstance(value, dict):
+        raise TypeError(
+            f"run_config must be a RunConfig instance or a dict, got {type(value).__name__}"
+        )
+    field_names = {
+        config_field.name
+        for config_field in dataclasses.fields(RunConfig)
+        if config_field.init
+    }
+    unknown_fields = sorted(str(name) for name in value if name not in field_names)
+    if unknown_fields:
+        raise TypeError(f"Unknown run_config settings: {', '.join(unknown_fields)}")
+    return RunConfig(**value)
+
+
 class TemporalOpenAIRunner(AgentRunner):
     """Temporal Runner for OpenAI agents.
 
@@ -148,8 +170,9 @@ class TemporalOpenAIRunner(AgentRunner):
             raise ValueError("Temporal workflows don't support SQLite sessions.")
 
         run_config = kwargs.get("run_config")
-        if run_config is None:
-            run_config = RunConfig()
+        run_config = (
+            RunConfig() if run_config is None else _coerce_run_config(run_config)
+        )
 
         if run_config.model and not isinstance(run_config.model, _TemporalModelStub):
             if not isinstance(run_config.model, str):
@@ -172,6 +195,12 @@ class TemporalOpenAIRunner(AgentRunner):
                     "For example:\n"
                     "  from temporalio.contrib.openai_agents.workflow import temporal_sandbox_client\n"
                     "  run_config = RunConfig(sandbox=SandboxRunConfig(client=temporal_sandbox_client('my-backend')))"
+                )
+            elif run_config.sandbox.session is not None:
+                raise AgentsWorkflowError(
+                    "run_config.sandbox.session is not supported by the Temporal OpenAI Agents "
+                    "plugin. A live sandbox session is not a durable construct in a workflow. "
+                    "Pass run_config.sandbox.client=temporal_sandbox_client(name) instead."
                 )
             elif run_config.sandbox.client is None:
                 raise ValueError(

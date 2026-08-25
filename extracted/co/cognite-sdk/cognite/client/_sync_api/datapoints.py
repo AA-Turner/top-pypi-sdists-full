@@ -1,6 +1,6 @@
 """
 ===============================================================================
-70d04d1403b4b0cd01252376c16429be
+499679e86fb6bf2bf4d45ca784b2a86c
 This file is auto-generated from the Async API modules, - do not edit manually!
 ===============================================================================
 """
@@ -13,9 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 from zoneinfo import ZoneInfo
 
 from cognite.client import AsyncCogniteClient
-from cognite.client._api.datapoint_tasks import (
-    BaseDpsFetchSubtask,
-)
+from cognite.client._api.datapoint_tasks import BaseDpsFetchSubtask
 from cognite.client._constants import DEFAULT_DATAPOINTS_CHUNK_SIZE
 from cognite.client._sync_api.synthetic_time_series import SyncSyntheticDatapointsAPI
 from cognite.client._sync_api_client import SyncAPIClient

@@ -5,6 +5,15 @@ info:
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
+
+    Versioning and deprecation: all endpoints are versioned in the URL path
+    (current version: /v1). Breaking changes only ship in a new path version;
+    existing versions keep working. Deprecated operations are marked
+    'deprecated: true' in this spec and announced in the changelog
+    (https://zernio.com/changelog) before removal.
+
+    Errors: every 4xx/5xx response is application/json with a machine-readable
+    'code' and a human-readable 'error' message (see the ErrorResponse schema).
   termsOfService: https://zernio.com/tos
   contact:
     name: Zernio Support
@@ -816,15 +825,18 @@ components:
             single-creative shape if `video` is not supplied.
         video:
           type: object
-          required: [url, thumbnailUrl]
           properties:
-            url: { type: string, format: uri }
+            url: { type: string, format: uri, description: "Public URL of the video to upload. Provide either `url` or `id`." }
+            id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`." }
             thumbnailUrl:
               type: string
               format: uri
               description: |
-                Required by Meta for every video creative. Used as the
-                ad thumbnail.
+                OPTIONAL: when omitted, the poster is auto-generated from
+                Meta's own preferred video thumbnail. When Meta produces no
+                candidate the request fails with a 502 platform_error
+                (reason: video_thumbnail_unavailable) — retry, or supply
+                this field to control the poster frame exactly.
           description: |
             Video creative for single-creative shape. Mutually
             exclusive with `imageUrl` and with `creatives[]`. Required
@@ -836,9 +848,11 @@ components:
             Multi-creative shape: N CTWA ads under one campaign + one
             ad set, sharing budget and targeting. Mutually exclusive
             with the top-level single-creative fields (`headline` /
-            `body` / `imageUrl` / `video`). Each entry must supply its
-            own headline, body, and exactly one of `imageUrl` /
-            `video`.
+            `body` / `imageUrl` / `video`): setting both is a 400,
+            unlike `POST /v1/ads/create` where the top-level fields
+            are silently ignored in multi-creative mode. Each entry
+            must supply its own headline, body, and exactly one of
+            `imageUrl` / `video`.
           items:
             type: object
             required: [headline, body]
@@ -862,15 +876,17 @@ components:
                   `video`. Required if `video` is not supplied.
               video:
                 type: object
-                required: [url, thumbnailUrl]
                 properties:
-                  url: { type: string, format: uri }
+                  url: { type: string, format: uri, description: "Public URL of the video to upload. Provide either `url` or `id`." }
+                  id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`." }
                   thumbnailUrl:
                     type: string
                     format: uri
                     description: |
-                      Required by Meta for every video creative. Used
-                      as the ad thumbnail.
+                      OPTIONAL: when omitted, the poster is auto-generated
+                      from Meta's own preferred video thumbnail. When Meta
+                      produces no candidate the request fails with a 502
+                      platform_error (reason: video_thumbnail_unavailable).
                 description: |
                   Video creative. Mutually exclusive with this entry's
                   `imageUrl`. Required if `imageUrl` is not supplied.
@@ -880,9 +896,9 @@ components:
             Attach the creatives to this EXISTING messaging ad set instead of
             building a campaign, so the ad set keeps its learning phase. It then
             owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-            `endDate`, `objective`, `countries`, `interests` and `audienceId` are
-            rejected with a 400 alongside it. Its `destination_type` must match
-            the ad's destination.
+            `endDate`, `objective`, `countries`, `interests`, `audienceId` and
+            `campaignStatus` are rejected with a 400 alongside it. Its
+            `destination_type` must match the ad's destination.
         budgetAmount:
           type: number
           exclusiveMinimum: 0
@@ -1048,6 +1064,22 @@ components:
             Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
             additional account configuration (Dataset linked to the WABA
             for sales) and may be rejected by Meta if missing.
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED]
+          description: |
+            Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
+            newly created ad(s) after Meta accepts them.
+        campaignStatus:
+          type: string
+          enum: [ACTIVE, PAUSED]
+          description: |
+            Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
+            to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
+            spends before the advertiser reviews it, while the ad set and ad still
+            switch on (one resume call brings the whole hierarchy live). Only
+            meaningful when a new campaign is being created; rejected with a 400
+            alongside `adSetId` (the attach shape reuses an existing campaign).
         bidStrategy:
           type: string
           enum:
@@ -3278,6 +3310,7 @@ components:
         sentAt:
           type: string
           format: date-time
+          description: 'When the message was sent, as reported by the platform and passed through unmodified. Full ISO 8601 date-time: Instagram and Facebook carry millisecond precision, while some platforms (for example WhatsApp and Telegram) report whole seconds. Use this field as the chronological ordering key. If two messages share the same value, fetch the conversation messages with sortOrder=desc for the deterministic order.'
         isRead:
           type: boolean
     InboxWebhookConversation:
@@ -3579,6 +3612,7 @@ components:
             sentAt:
               type: string
               format: date-time
+              description: 'When the message was sent, as reported by the platform and passed through unmodified. Full ISO 8601 date-time: Instagram and Facebook carry millisecond precision, while some platforms (for example WhatsApp and Telegram) report whole seconds. Use this field as the chronological ordering key. If two messages share the same value, fetch the conversation messages with sortOrder=desc for the deterministic order.'
             isRead:
               type: boolean
         conversation:
@@ -3920,6 +3954,7 @@ components:
             sentAt:
               type: string
               format: date-time
+              description: 'When the message was sent, as reported by the platform and passed through unmodified. Full ISO 8601 date-time: Instagram and Facebook carry millisecond precision, while some platforms (for example WhatsApp and Telegram) report whole seconds. Use this field as the chronological ordering key. If two messages share the same value, fetch the conversation messages with sortOrder=desc for the deterministic order.'
             isRead:
               type: boolean
             source:
@@ -5461,7 +5496,7 @@ components:
           description: Set to true to disable automatic link previews for URLs in the post content (default is false)
         reshareUrl:
           type: string
-          description: "LinkedIn post link to repost (use the post's \"Copy link to post\" action), or a urn:li:share / urn:li:ugcPost / urn:li:groupPost URN. With content, the published post is a quote-reshare: your text is the commentary and the original is embedded underneath (LinkedIn's \"repost with your thoughts\"). Leave content empty (and omit customContent) to publish a plain repost with no text, LinkedIn's one-click \"Repost\". Mutually exclusive with media. Works on personal profiles and organization pages."
+          description: "LinkedIn post link to repost (use the post's \"Copy link to post\" action), or a urn:li:share / urn:li:ugcPost / urn:li:groupPost URN. The published post is always a reshare authored by your account with the original embedded underneath: with content your text is the commentary (LinkedIn's \"repost with your thoughts\"), and with no content it publishes as a text-free reshare. Note that a text-free reshare is NOT LinkedIn's one-click \"Repost\" (the feed treatment where the original author stays the author); LinkedIn's API exposes no way to create that, so the post still appears authored by you with the original embedded. Mutually exclusive with media. Works on personal profiles and organization pages."
         geoRestriction:
           $ref: '#/components/schemas/GeoRestriction'
         poll:
@@ -7389,7 +7424,7 @@ components:
             $ref: '#/components/schemas/UploadedFile'
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
-        completedAt: { type: string, format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
     QueueSlotsResponse:
       type: object
       description: Single queue response (default behavior)
@@ -8259,6 +8294,10 @@ components:
         platformAdSetId: { type: string }
         adSetName: { type: string }
         status: { allOf: [{ $ref: '#/components/schemas/AdStatus' }], description: Derived from child ad statuses }
+        createdTime:
+          type: [string, "null"]
+          format: date-time
+          description: "Earliest `platformCreatedAt` (platform ad creation time; falls back to `createdAt`, Zernio's sync time, for ads synced before that field existed) across this ad set's ads. Not the ad set's own creation time on the platform — a proxy usable for sorting."
         adCount: { type: integer }
         budget:
           type: [object, "null"]
@@ -8309,6 +8348,10 @@ components:
         platformCampaignId: { type: string }
         platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] }
         campaignName: { type: string }
+        createdTime:
+          type: [string, "null"]
+          format: date-time
+          description: "Earliest `platformCreatedAt` (platform ad creation time; falls back to `createdAt`, Zernio's sync time, for ads synced before that field existed) across every ad in the campaign. Not the platform campaign's own creation time (Meta's `Campaign.created_time` etc. is not synced) — a campaign created empty and populated later will show its first ad's time, not the campaign's. Usable for sorting \"most recently created\" without the numeric-campaign-id heuristic. Same source as `AdTreeAdSet.createdTime` and `Ad.platformCreatedAt`; mirrors `AdCampaign.earliestAd`."
         status: { allOf: [{ $ref: '#/components/schemas/AdStatus' }], description: "Delivery status derived from child ad statuses. Distinct from `reviewStatus`, which reflects the platform-side review state." }
         reviewStatus:
           anyOf:
@@ -8364,8 +8407,9 @@ components:
           description: "Google-only. Raw campaign.advertising_channel_type (SEARCH, PERFORMANCE_MAX, LOCAL_SERVICES, VIDEO, DEMAND_GEN, DISPLAY, SHOPPING, ...). Serving surface, distinct from platformObjective (advertiser intent). Null/absent for non-Google platforms."
         platformObjective: { type: [string, "null"], description: "Raw Meta campaign objective (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC)" }
         optimizationGoal:
-          type: [string, "null"]
-          description: "Optimization goal shared across ad sets, or comma-separated values when ad sets differ. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver."
+          type: [string, array]
+          items: { type: string }
+          description: 'A single string when every ad set shares one optimization goal; a JSON array of the distinct goals when ad sets differ (never a comma-joined string); array element order is not guaranteed, treat it as an unordered set; the key is absent when no ad set carries a goal. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver.'
         bidStrategy:
           anyOf:
             - $ref: '#/components/schemas/BidStrategy'
@@ -8441,8 +8485,9 @@ components:
           description: "Google-only. Raw campaign.advertising_channel_type. See AdTreeCampaign.advertisingChannelType."
         platformObjective: { type: [string, "null"], description: "Raw Meta campaign objective (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC)" }
         optimizationGoal:
-          type: [string, "null"]
-          description: "Optimization goal shared across ad sets, or comma-separated values when ad sets differ. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver."
+          type: [string, array]
+          items: { type: string }
+          description: 'A single string when every ad set shares one optimization goal; a JSON array of the distinct goals when ad sets differ (never a comma-joined string); array element order is not guaranteed, treat it as an unordered set; the key is absent when no ad set carries a goal. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver.'
         bidStrategy:
           anyOf:
             - $ref: '#/components/schemas/BidStrategy'
@@ -14022,7 +14067,7 @@ paths:
       summary: Create post
       description: |
         Create and optionally publish a post. Immediate posts (`publishNow: true`) include `platformPostUrl` in the response.
-        Content is optional when media is attached, all platforms have `customContent`, every platform entry is an X Article (`platformSpecificData.article`), or every platform entry is a LinkedIn plain repost (`platformSpecificData.reshareUrl` with no text). See each platform's schema for media constraints.
+        Content is optional when media is attached, all platforms have `customContent`, every platform entry is an X Article (`platformSpecificData.article`), or every platform entry is a LinkedIn text-free reshare (`platformSpecificData.reshareUrl` with no text). See each platform's schema for media constraints.
 
         ## Idempotency
 
@@ -14056,7 +14101,7 @@ paths:
                 title: { type: string }
                 content:
                   type: string
-                  description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for other text-only posts.'
+                  description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.'
                 mediaItems:
                   type: array
                   items: { $ref: '#/components/schemas/MediaItem' }
@@ -15620,9 +15665,10 @@ paths:
           application/json:
             schema:
               type: object
+              minProperties: 1
               properties:
-                name: { type: string }
-                description: { type: string }
+                name: { type: string, minLength: 1 }
+                description: { type: [string, "null"], description: 'Set to null to clear the description.' }
                 color: { type: string }
                 isDefault: { type: boolean }
             example:
@@ -15646,7 +15692,7 @@ paths:
                   color: "#2196F3"
                   isDefault: true
                   createdAt: "2024-11-01T10:00:00Z"
-        '400': { description: Invalid request }
+        '400': { description: 'Invalid request, including a body that carries none of name, description, color or isDefault (code: missing_required_field).' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { description: "A profile with this name already exists (code: profile_name_conflict)." }
@@ -20477,6 +20523,12 @@ paths:
         5. Generate a permanent access token
         6. Get the WABA ID from WhatsApp Manager > Account Tools > Phone Numbers
         7. Get the Phone Number ID from the same page (click on the number)
+
+        Warning: connecting subscribes your own Meta app to this WABA with an override
+        callback that redirects its webhook delivery to Zernio. This WABA's events stop
+        reaching any callback URL you had configured before, immediately and with no
+        overlap window. Do not unsubscribe your app from the WABA afterward: that also
+        cuts off Zernio's delivery, and recovery requires calling this endpoint again.
       security:
         - bearerAuth: []
       requestBody:
@@ -20521,6 +20573,9 @@ paths:
                   registrationWarning:
                     type: string
                     description: 'Present when the account was created but Meta rejected the Cloud API registration. The number cannot send messages until this is resolved.'
+                  webhookNotice:
+                    type: string
+                    description: 'Present when the WABA webhook subscription (with the Zernio override callback) succeeded. Explains the delivery cutover and warns against unsubscribing the app from the WABA afterward.'
                   account:
                     type: object
                     properties:
@@ -20529,7 +20584,9 @@ paths:
                       username: { type: string, description: Display phone number }
                       displayName: { type: string, description: Meta-verified business name }
                       isActive: { type: boolean }
-                      selectedPhoneNumber: { type: string, description: The connected phone number }
+                      phoneNumber: { type: string, description: The connected phone number }
+                      verifiedName: { type: string, description: Meta-verified business name for the phone number }
+                      qualityRating: { type: string, description: 'Meta quality rating for the phone number (e.g. GREEN, YELLOW, RED, UNKNOWN)' }
               example:
                 message: "WhatsApp connected successfully"
                 account:
@@ -20538,7 +20595,9 @@ paths:
                   username: "+1 555-123-4567"
                   displayName: "Acme Corp"
                   isActive: true
-                  selectedPhoneNumber: "+1 555-123-4567"
+                  phoneNumber: "+1 555-123-4567"
+                  verifiedName: "Acme Corp"
+                  qualityRating: "GREEN"
         '400':
           description: |
             Invalid request. Missing fields, a `pin` that is not 6 digits, or the
@@ -27195,6 +27254,11 @@ paths:
       description: |
         Returns posts with comment counts from all connected accounts. Aggregates data across multiple accounts.
 
+        Responses are cached for up to 10 minutes, so the feed may lag new comments by that
+        window. Do not poll this endpoint for real-time updates: subscribe to the
+        `comment.received` webhook, which fires for every new comment across your posts and
+        carries the post reference needed to keep this list current.
+
         For users with the Ads add-on (Metronome plans always qualify), the user's Meta ads
         (boosted/dark posts) are included too. There's one row per (ad, placement-with-comments):
         an ad that runs on both Facebook feed and Instagram feed produces up to two rows (the
@@ -27321,6 +27385,11 @@ paths:
         On Facebook and Instagram, passing a COMMENT id as `postId` is also supported and
         returns that comment's replies instead of the post's top-level comments. This is not
         available on YouTube, where `postId` must be a video id.
+
+        Responses are cached for up to 10 minutes, so a page may lag new comments by that
+        window. Do not poll this endpoint for real-time updates: subscribe to the
+        `comment.received` webhook, which delivers new comments as they arrive. Your own
+        writes (creating, replying to, or deleting a comment) refresh the cache immediately.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -31938,6 +32007,7 @@ paths:
                         telnyxOrderId: { type: [string, "null"], description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
                         monthlyCents: { type: integer, description: Per-country monthly price in cents ($2..$25). }
                         hostedByZernio: { type: boolean, description: "False for numbers you brought yourself (connected via Meta embedded signup) — they live on your own carrier, so SMS/Calls can't be enabled on them." }
+                        sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
                         profileId: { type: object }
                         provisionedAt: { type: string, format: date-time }
                         metaPreverifiedId: { type: string }
@@ -32028,6 +32098,7 @@ paths:
                       endUserLastName: { type: [string, "null"] }
                       regulatoryDeclineReason: { type: [string, "null"], description: Reviewer rejection reason when status is regulatory_declined. }
                       provisionedAt: { type: string, format: date-time }
+                      sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -32069,6 +32140,7 @@ paths:
         '400': { description: Phone number is already released or being released }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'The number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
 
   /v1/phone-numbers/purchase:
     post:
@@ -32479,6 +32551,7 @@ paths:
                         telnyxOrderId: { type: [string, "null"], description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
                         monthlyCents: { type: integer, description: Per-country monthly price in cents ($2..$25). }
                         hostedByZernio: { type: boolean, description: "False for numbers you brought yourself (connected via Meta embedded signup) — they live on your own carrier, so SMS/Calls can't be enabled on them." }
+                        sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
                         profileId: { type: object }
                         provisionedAt: { type: string, format: date-time }
                         metaPreverifiedId: { type: string }
@@ -34376,6 +34449,7 @@ paths:
                   ivrOptions: { type: array, items: { type: object, properties: { digit: { type: string }, forwardTo: { type: string }, label: { type: string } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
+        '409': { description: 'This number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
         '422': { description: "This number is hosted by your own carrier (brought via WhatsApp embedded signup), so calls can't be enabled on it." }
     delete:
       x-resource-group: "telephony"
@@ -34399,6 +34473,266 @@ paths:
                 properties:
                   enabled: { type: boolean, description: Always false after a successful disable. }
                   phoneNumber: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Number not found }
+
+  /v1/phone-numbers/sip-trunks:
+    post:
+      x-resource-group: "telephony"
+      operationId: createSipTrunk
+      tags: [Voice]
+      summary: Create a SIP trunk
+      description: |
+        Creates a SIP trunk an external voice platform (Retell, ElevenLabs,
+        Vapi, or any SIP endpoint) can import your Zernio numbers into. The
+        trunk carries both directions: inbound calls on attached numbers are
+        delivered to `sipHost`, and the platform originates outbound calls
+        through `termination.uri` with the digest credentials.
+
+        The `digestPassword` is returned only by this call (and by
+        rotate-credentials); store it immediately. Attach any number of numbers
+        to a trunk. Several trunks may point at the same host — each carries its
+        own credentials and spend cap, so separate destination workspaces (e.g.
+        an agency's clients) stay isolated.
+
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, sipHost]
+              properties:
+                label: { type: string, maxLength: 80, description: Display name for the trunk. }
+                sipHost: { type: string, description: 'Fully-qualified hostname inbound calls are delivered to (e.g. sip.rtc.elevenlabs.io, sip.retellai.com).' }
+                sipPort: { type: integer, minimum: 1, maximum: 65535, description: 'Defaults to 5061 for tls, 5060 otherwise.' }
+                transport: { type: string, enum: [tls, tcp, udp], description: 'Signaling transport toward sipHost. Default tls (with SRTP media).' }
+      responses:
+        '201':
+          description: Trunk created. The digest password is shown only here and on rotate.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  sipHost: { type: string }
+                  sipPort: { type: integer }
+                  transport: { type: string, enum: [tls, tcp, udp] }
+                  termination:
+                    type: object
+                    properties:
+                      uri: { type: string, description: 'Telnyx termination host the platform dials for outbound (sip.telnyx.com).' }
+                      username: { type: string, description: SIP digest username. }
+                  numbersAttached: { type: integer }
+                  createdAt: { type: [string, "null"], format: date-time }
+                  digestPassword: { type: string, description: 'SIP digest password, shown only in this response.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'SIP trunking is not enabled for this workspace, or the workspace is on legacy (non-usage-based) billing, which cannot invoice trunk call costs (code feature_not_available).' }
+        '409': { description: 'The workspace trunk limit was reached (code invalid_resource_state).' }
+        '422': { description: 'The host cannot be used as a trunk destination (e.g. a Zernio or carrier host).' }
+    get:
+      x-resource-group: "telephony"
+      operationId: listSipTrunks
+      tags: [Voice]
+      summary: List SIP trunks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The workspace's trunks. Passwords are never included.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trunks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        sipHost: { type: string }
+                        sipPort: { type: integer }
+                        transport: { type: string, enum: [tls, tcp, udp] }
+                        termination:
+                          type: object
+                          properties:
+                            uri: { type: string }
+                            username: { type: string }
+                        numbersAttached: { type: integer }
+                        createdAt: { type: [string, "null"], format: date-time }
+                  enabled: { type: boolean, description: 'Whether this workspace can create SIP trunks. Managing existing trunks always works.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/phone-numbers/sip-trunks/{id}:
+    get:
+      x-resource-group: "telephony"
+      operationId: getSipTrunk
+      tags: [Voice]
+      summary: Get a SIP trunk
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Trunk detail, including the attached numbers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  sipHost: { type: string }
+                  sipPort: { type: integer }
+                  transport: { type: string, enum: [tls, tcp, udp] }
+                  termination:
+                    type: object
+                    properties:
+                      uri: { type: string }
+                      username: { type: string }
+                  numbersAttached: { type: integer }
+                  createdAt: { type: [string, "null"], format: date-time }
+                  numbers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: 'Phone number record ID.' }
+                        phoneNumber: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: SIP trunk not found }
+    delete:
+      x-resource-group: "telephony"
+      operationId: deleteSipTrunk
+      tags: [Voice]
+      summary: Delete a SIP trunk
+      description: |
+        Tears down the trunk and its carrier-side objects. Refused while any
+        number is still attached: detach them first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Trunk deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: SIP trunk not found }
+        '409': { description: 'Numbers are still attached to this trunk (code invalid_resource_state).' }
+
+  /v1/phone-numbers/sip-trunks/{id}/rotate-credentials:
+    post:
+      x-resource-group: "telephony"
+      operationId: rotateSipTrunkCredentials
+      tags: [Voice]
+      summary: Rotate a SIP trunk's password
+      description: |
+        Mints a new digest password on the trunk. The old password stops
+        working immediately, so update the destination platform right away.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: New credentials. The password is shown only here.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  termination:
+                    type: object
+                    properties:
+                      uri: { type: string, description: 'Telnyx termination host the platform dials for outbound (sip.telnyx.com).' }
+                      username: { type: string, description: SIP digest username. }
+                  digestPassword: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: SIP trunk not found }
+
+  /v1/phone-numbers/{id}/sip-trunk:
+    post:
+      x-resource-group: "telephony"
+      operationId: attachNumberToSipTrunk
+      tags: [Voice]
+      summary: Attach a number to a SIP trunk
+      description: |
+        Routes the number's calls to the trunk: the external platform receives
+        its inbound directly and can present it as outbound caller ID. While
+        attached, Zernio-side voice features are off for this number (call
+        forwarding, IVR, voicemail, recording, the softphone, and WhatsApp
+        calling), so the number must have Calls and WhatsApp calling disabled
+        before attaching. SMS and WhatsApp messaging are unaffected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: "Phone number record ID (from GET /v1/phone-numbers)." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trunkId]
+              properties:
+                trunkId: { type: string, description: 'SIP trunk ID (from POST /v1/phone-numbers/sip-trunks).' }
+      responses:
+        '200':
+          description: Number attached (idempotent for the same trunk).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attached: { type: boolean }
+                  phoneNumber: { type: string }
+                  trunkId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'SIP trunking is not enabled for this workspace, or the workspace is on legacy (non-usage-based) billing, which cannot invoice trunk call costs (code feature_not_available).' }
+        '404': { description: Number or trunk not found }
+        '409': { description: 'The number still has Calls or WhatsApp calling enabled, is mid WhatsApp verification, is not active, or is attached to another trunk (code invalid_resource_state).' }
+        '422': { description: 'This number is hosted by your own carrier (brought via WhatsApp embedded signup), so it cannot be trunked.' }
+    delete:
+      x-resource-group: "telephony"
+      operationId: detachNumberFromSipTrunk
+      tags: [Voice]
+      summary: Detach a number from its SIP trunk
+      description: |
+        Returns the number's calls to Zernio routing. Idempotent when the
+        number is not attached to any trunk.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Number detached.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attached: { type: boolean, description: Always false after a successful detach. }
+                  phoneNumber: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
 
@@ -34615,6 +34949,7 @@ paths:
         '400': { description: 'Invalid request (including forwardTo set to the number itself)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Phone number not found }
+        '409': { description: 'This number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
         '422': { description: "Not eligible to enable calling: not on usage-based billing, or the number's messaging limit is below Meta's ~2,000-daily-recipient threshold (TIER_250). Warm the number up to raise the limit." }
     patch:
       x-resource-group: "telephony"
@@ -34802,6 +35137,7 @@ paths:
                       endUserLastName: { type: [string, "null"] }
                       regulatoryDeclineReason: { type: [string, "null"], description: Reviewer rejection reason when status is regulatory_declined. }
                       provisionedAt: { type: string, format: date-time }
+                      sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -34847,6 +35183,7 @@ paths:
         '400': { description: Phone number is already released or being released }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'The number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
 
   # ─── WhatsApp Sandbox (shared test number) ──────────────────────
   #
@@ -35470,6 +35807,7 @@ paths:
                   description: Flow categories
                 cloneFlowId: { type: string, description: "Optional: ID of an existing flow to clone the Flow JSON from" }
                 asVersion: { type: boolean, description: "When cloning, true keeps the clone in cloneFlowId's version lineage (auto-numbered next version); false/absent creates an independent flow. Ignored without cloneFlowId." }
+                endpointUri: { type: string, format: uri, description: "HTTPS-only data exchange endpoint for the flow. Settable only while the flow is in DRAFT, and the flow's uploaded Flow JSON must declare data_api_version \"3.0\" for the endpoint to be used." }
             examples:
               basic:
                 summary: Create a lead generation flow
@@ -35550,7 +35888,7 @@ paths:
       tags: [WhatsApp Flows]
       summary: Update flow
       description: |
-        Update metadata (name, categories) of a DRAFT flow. Published flows are immutable.
+        Update metadata (name, categories, endpointUri) of a DRAFT flow. Published flows are immutable.
       security:
         - bearerAuth: []
       parameters:
@@ -35571,6 +35909,7 @@ paths:
                   items:
                     type: string
                     enum: [SIGN_UP, SIGN_IN, APPOINTMENT_BOOKING, LEAD_GENERATION, CONTACT_US, CUSTOMER_SUPPORT, SURVEY, OTHER]
+                endpointUri: { type: string, format: uri, description: "HTTPS-only data exchange endpoint for the flow. Settable only while the flow is in DRAFT, and the flow's uploaded Flow JSON must declare data_api_version \"3.0\" for the endpoint to be used." }
       responses:
         '200':
           description: Flow updated
@@ -35580,7 +35919,7 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
-        '400': { description: "At least one of name or categories is required, or flow is not in DRAFT status" }
+        '400': { description: "At least one of name, categories or endpointUri is required, or flow is not in DRAFT status" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp account or flow not found }
     delete:
@@ -36833,6 +37172,16 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+                  summary:
+                    type: object
+                    description: Delivery totals across all recipients in the broadcast, independent of pagination and status filtering.
+                    properties:
+                      total: { type: integer }
+                      pending: { type: integer }
+                      sent: { type: integer }
+                      delivered: { type: integer }
+                      read: { type: integer }
+                      failed: { type: integer }
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -43301,6 +43650,59 @@ paths:
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/videos:
+    post:
+      x-resource-group: "ads"
+      operationId: uploadAdVideo
+      tags: ["Ad Creatives"]
+      x-platforms: ["meta"]
+      summary: Upload an ad video
+      description: |-
+        Standalone ad-video upload (parallel to POST /v1/ads/images), so a video creative can
+        be rendered via POST /v1/ads/preview or attached via `video.id` on POST /v1/ads/create
+        before an ad exists.
+
+        Accepts either an https `videoUrl` we download server-side (SSRF-guarded) or raw
+        `videoBase64` bytes; exactly one is required. `videoBase64` is capped by Vercel's body
+        limit — around 4.5 MB payload in practice, so larger videos must come via `videoUrl`.
+
+        Returns the Meta `video.id` (reusable wherever `video.id` is accepted) plus Meta's
+        auto-generated poster URL when available. The endpoint waits until Meta reports the
+        video ready (chunked upload + transcode can take minutes; the handler runs up to
+        800 s).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+                adAccountId: { type: string, description: "Meta ad account id (act_<n>)." }
+                videoUrl: { type: string, description: "Public https URL of the video; downloaded server-side (SSRF-guarded) before chunked upload. Provide exactly one of videoUrl or videoBase64." }
+                videoBase64: { type: string, description: "Raw base64 video bytes, or a full data URL (the data:video/...;base64, prefix is stripped). Capped by Vercel's body limit (~4.5 MB payload). Provide exactly one of videoUrl or videoBase64." }
+                filename: { type: string, description: "Optional filename shown alongside the upload session. Applied only when uploading via videoBase64." }
+      responses:
+        '201':
+          description: Video uploaded and ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  video:
+                    type: object
+                    properties:
+                      id: { type: string, description: "Meta video id, reusable as video.id on POST /v1/ads/create and inside POST /v1/ads/preview creativeSpec." }
+                      thumbnailUrl: { type: [string, "null"], description: "Meta-hosted poster URL if available; null when Meta has not produced a poster yet." }
+        '400': { description: "Invalid input, or Meta rejected the upload" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+        '502': { description: "Meta accepted the request then failed to produce the media (upload session, chunk transfer, processing timeout, or a response with no video id). Inspect `platformError.reason`." }
+
     get:
       x-resource-group: "ads"
       operationId: listAdVideos
@@ -43317,7 +43719,7 @@ paths:
         tool); videos we uploaded also come back as `creative.videoId` on GET /v1/ads.
 
         Meta transcodes asynchronously, so a row is only usable once `status.video_status`
-        reads `ready`. There is no upload operation here: upload by URL inline via `video.url`
+        reads `ready`. Upload a new video via POST /v1/ads/videos, or inline via `video.url`
         on POST /v1/ads/create.
       security:
         - bearerAuth: []
@@ -43343,6 +43745,41 @@ paths:
                     type: object
                     properties:
                       after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/videos/{videoId}:
+    delete:
+      x-resource-group: "ads"
+      operationId: deleteAdVideo
+      tags: ["Ad Creatives"]
+      x-platforms: ["meta"]
+      summary: Delete an ad video
+      description: |-
+        Removes a video from the ad account's video library. Meta's canonical
+        `DELETE /{video_id}` fails with code 10 / subcode 1363055 for videos uploaded via
+        `/act_X/advideos` even with `ads_management`; this endpoint uses the working
+        account-scoped shape `DELETE /act_X/advideos?video_id=<id>` and returns Meta's
+        `{success: true}` verbatim. Deleting a video that lives in a different ad account,
+        or that Meta has already removed, returns Meta's error verbatim as a 4xx.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: videoId, in: path, required: true, schema: { type: string }, description: "Meta ad video id (numeric)." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>) that owns the video." }
+      responses:
+        '200':
+          description: Video deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  videoId: { type: string }
+                  success: { type: boolean }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
@@ -43917,9 +44354,7 @@ paths:
                       description: |
                         Required for meta_engagement audiences (Meta only): what people
                         engaged with. `page` = a Facebook Page, `instagram` = an IG
-                        professional account, `video` = a video. The source object must be
-                        eligible for engagement audiences or Meta rejects with subcode
-                        1713151 ("Invalid Event Name"), surfaced verbatim.
+                        professional account, `video` = a video.
                     sourceId: { type: string, description: "Required for meta_engagement: the Page / IG account / video id." }
                     event:
                       type: string

@@ -34,6 +34,13 @@ _test_params: dict = {}
 _global_variables: list = []
 _GLOBAL_PREFIX = "global."
 
+# Runtime-resolved global variables (bare name → value). Session-authoritative:
+# seeded once per name from ATMS on first read, overwritten by every
+# set_var("global.X", ...) — reads never go back to ATMS after that, matching
+# the in-product runtime where session data always reflects the latest
+# generated value and is_persist only gates the TMS write-back.
+_global_cache: dict = {}
+
 _MUSTACHE_RE = re.compile(r"\{\{(.+?)\}\}")
 _DOLLAR_RE = re.compile(r"\$\{(.+?)\}")
 _BRACKET_RE = re.compile(r"(\w+)\[(\d+)\]")
@@ -48,6 +55,7 @@ def _reset_store():
     _variable_store.clear()
     _test_params.clear()
     _global_variables.clear()
+    _global_cache.clear()
 
 
 def _preview(val, max_len=100):
@@ -83,12 +91,11 @@ def set_var(name, value):
     if name.startswith(_GLOBAL_PREFIX):
         bare = name[len(_GLOBAL_PREFIX):]
         _variable_store[bare] = value
-        # Session snapshot updates unconditionally (in-product runtime parity:
-        # session data always reflects the latest generated value; is_persist
-        # only gates the TMS write). resolveGlobal's is_persist=false fallback
-        # reads this — without the upsert it returns the authoring-time value
-        # baked into configure(global_variables=[...]).
-        _update_session_variable_value(bare, value)
+        # The cache is session-authoritative: every later read — bare {{X}} via
+        # _variable_store, or {{global.X}} via _global_cache — returns this
+        # value. is_persist only gates whether the ATMS write below survives
+        # beyond this run (the server answers 403 for persist-off variables).
+        _global_cache[bare] = value
         from testmu import _config
         if _config.lt_auth:
             _atms_persist_global_variable(bare, value)
@@ -250,8 +257,19 @@ def _resolve_single(name):
 
 
 def _resolve_global(name):
-    """Resolve {{global.x}} — ATMS API when LT creds present, env fallback otherwise."""
+    """Resolve {{global.x}} — local cache first, one ATMS fetch per name per run.
+
+    The cache is session-authoritative: a value written by set_var("global.X")
+    is returned as-is (type-preserved), regardless of whether the ATMS
+    write-back succeeded — is_persist gates persistence beyond this run, never
+    what this run sees. The first read of a name not yet set locally fetches
+    from ATMS once. External mid-run changes to a global are deliberately not
+    observed after the first read.
+    """
     from testmu import _config
+
+    if name in _global_cache:
+        return _global_cache[name]
 
     if not _config.lt_auth:
         fallback = os.getenv(f"TESTMU_VAR_{name}")
@@ -261,16 +279,16 @@ def _resolve_global(name):
             f"Variable {{{{global.{name}}}}} cannot be resolved: "
             f"no LT credentials and no TESTMU_VAR_{name} env var set"
         )
-    # LT creds present — call ATMS
+    # LT creds present — first read of this name: fetch once and cache.
+    # No is_persist branching: the server value IS the correct seed for both
+    # kinds (code-export bakes session_value as an export-time copy of the same
+    # server value, so the live GET is always at least as fresh), and any
+    # runtime set is already in the cache. A failed fetch is NOT negative-cached.
     try:
         data = _atms_get_variable(name)
         resolved = data.get("value", "")
-        # is_persist=False means use the session_value if available
-        if not data.get("is_persist", True):
-            session_val = _session_variable_value(name)
-            if session_val is not None:
-                resolved = session_val
-        _log.info(f"global.{name} resolved from ATMS")
+        _global_cache[name] = resolved
+        _log.info(f"global.{name} resolved from ATMS (cached for this run)")
         return resolved
     except Exception as exc:
         _log.warning(f"ATMS variable lookup for global.{name} failed: {exc}")
@@ -524,34 +542,6 @@ def _atms_persist_global_variable(name, value):
             _log.warning(f"ATMS persist for global.{name} failed ({resp.status_code}): {resp.text}")
     except Exception as exc:
         _log.warning(f"ATMS persist for global.{name} failed: {exc}")
-
-
-# ---------------------------------------------------------------------------
-# is_persist write-back helper
-# ---------------------------------------------------------------------------
-
-
-def _session_variable_value(name):
-    """Return session_value (or value) for a named global variable from _global_variables."""
-    for gv in _global_variables:
-        if gv.get("name") == name:
-            return gv.get("session_value", gv.get("value"))
-    return None
-
-
-def _update_session_variable_value(name, value):
-    """Upsert the session snapshot for a global variable (bare name).
-
-    Mirrors the in-product runtime: the session value always tracks the latest
-    generated value, independent of is_persist. Entries missing from the baked
-    configure() metadata are appended so a later is_persist=false read still
-    finds the runtime value.
-    """
-    for gv in _global_variables:
-        if gv.get("name") == name:
-            gv["session_value"] = value
-            return
-    _global_variables.append({"name": name, "session_value": value})
 
 
 # ---------------------------------------------------------------------------

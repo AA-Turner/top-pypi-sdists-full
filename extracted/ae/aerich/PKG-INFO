@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aerich
-Version: 0.10.0
+Version: 0.10.1
 Summary: A database migrations tool for Tortoise ORM.
 Keywords: migrate,Tortoise-ORM,mysql,postgresql
 Author-Email: long2ice <long2ice@gmail.com>>
@@ -39,9 +39,9 @@ Requires-Dist: asyncpg; extra == "asyncpg"
 Provides-Extra: psycopg
 Requires-Dist: psycopg[binary,pool]<4.0.0,>=3.0.12; extra == "psycopg"
 Provides-Extra: asyncmy
-Requires-Dist: asyncmy>=0.2.9; extra == "asyncmy"
+Requires-Dist: asyncmy<1.0.0,>=0.2.12; extra == "asyncmy"
 Provides-Extra: mysql
-Requires-Dist: aiomysql>=0.2.0; extra == "mysql"
+Requires-Dist: aiomysql; extra == "mysql"
 Description-Content-Type: text/markdown
 
 # Aerich

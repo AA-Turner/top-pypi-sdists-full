@@ -4,8 +4,8 @@
 
 
 from argparse import ArgumentParser, FileType, Namespace
-from datetime import datetime
-from typing import Optional, Sequence
+from collections.abc import Sequence
+from datetime import datetime, timezone
 
 import shtab
 
@@ -17,7 +17,7 @@ SUPPORTED_LICENSES = [
 ]
 
 
-def parse_args(args: Optional[Sequence[str]] = None) -> Namespace:
+def parse_args(args: Sequence[str] | None = None) -> Namespace:
     """Parsing the args"""
 
     parser = ArgumentParser(
@@ -53,7 +53,7 @@ def parse_args(args: Optional[Sequence[str]] = None) -> Namespace:
     parser.add_argument(
         "-y",
         "--year",
-        default=str(datetime.now().year),
+        default=str(datetime.now(tz=timezone.utc).year),
         help=(
             "If year is set, modified year will be "
             "set to the specified year. Default is %(default)s."

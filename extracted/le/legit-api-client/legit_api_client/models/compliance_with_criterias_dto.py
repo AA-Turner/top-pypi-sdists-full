@@ -80,8 +80,7 @@ class ComplianceWithCriteriasDto(BaseModel):
         _items = []
         if self.criterias:
             for _item_criterias in self.criterias:
-                if _item_criterias:
-                    _items.append(_item_criterias.to_dict())
+                _items.append(_item_criterias.to_dict() if _item_criterias is not None else None)
             _dict['criterias'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

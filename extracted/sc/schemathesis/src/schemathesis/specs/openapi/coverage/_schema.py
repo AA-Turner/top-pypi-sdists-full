@@ -750,7 +750,12 @@ class CoverageContext:
                 raise Unsatisfiable
             with self.expand(reference, counters=self.generating):
                 # Deep clone to avoid circular references in Python objects
-                return self._generate_from_resolved(deepclone(self.resolve_ref(reference)))
+                resolved = deepclone(self.resolve_ref(reference))
+                rest = {key: value for key, value in schema.items() if key != "$ref"}
+                if isinstance(resolved, dict) and any(key not in _ANNOTATION_KEYWORDS for key in rest):
+                    # Keywords beside the reference constrain the value too.
+                    return self._generate_from_resolved({"allOf": [resolved, rest]})
+                return self._generate_from_resolved(resolved)
         return self._generate_from_resolved(schema)
 
     def _generate_from_resolved(self, schema: JsonSchema) -> Any:
@@ -979,10 +984,16 @@ class CoverageContext:
             references = [item["$ref"] for item in schema["allOf"] if isinstance(item, dict) and "$ref" in item]
             if any(self.is_exhausted(reference, counters=self.generating) for reference in references):
                 raise Unsatisfiable
-            resolved_all_of = [
-                self.resolve_ref(item["$ref"]) if isinstance(item, dict) and "$ref" in item else item
-                for item in schema["allOf"]
-            ]
+            resolved_all_of = []
+            for item in schema["allOf"]:
+                if isinstance(item, dict) and "$ref" in item:
+                    resolved_all_of.append(self.resolve_ref(item["$ref"]))
+                    # Keywords beside the reference constrain the branch too; keep them as their own conjunct.
+                    rest = {key: value for key, value in item.items() if key != "$ref"}
+                    if rest:
+                        resolved_all_of.append(rest)
+                else:
+                    resolved_all_of.append(item)
             merged = _merge_all_of({**schema, "allOf": resolved_all_of})
             if merged is not None:
                 # Resolving above leaves no pointer to count, so the branches stay counted while the
@@ -1448,6 +1459,16 @@ def _resolve_sub_schema(ctx: CoverageContext, sub: JsonSchema) -> JsonSchema:
         return sub
 
 
+def _branch_as_judged(ctx: CoverageContext, branch: JsonSchema) -> JsonSchema:
+    """The form of a branch its judges load: as written when a draft may ignore keywords beside `$ref`."""
+    if isinstance(branch, dict) and "$ref" in branch:
+        # The discriminator pin models server behavior and counts under every draft; any other keyword
+        # beside `$ref` counts only under drafts that read it, so each judge gets the branch as written.
+        if any(key not in ("$ref", "properties", "required") and key not in _ANNOTATION_KEYWORDS for key in branch):
+            return branch
+    return _resolve_sub_schema(ctx, branch)
+
+
 def _has_array_sibling(sub_schemas: list) -> bool:
     for sub in sub_schemas:
         if isinstance(sub, dict):
@@ -1609,7 +1630,7 @@ def _positive_for_leaves(
     one_of = schema.get("oneOf")
     exclusivity = None
     if isinstance(one_of, list):
-        exclusivity = [_judges(_resolve_sub_schema(ctx, branch), ctx) for branch in one_of]
+        exclusivity = [_judges(_branch_as_judged(ctx, branch), ctx) for branch in one_of]
     for leaf in leaves:
         with ExitStack() as stack:
             for reference in leaf.references:
@@ -1649,6 +1670,34 @@ def _drawn_positive(ctx: CoverageContext, schema: JsonSchemaObject) -> Generator
         )
 
 
+def _fold_pattern_properties_into_declared(schema: JsonSchemaObject) -> JsonSchemaObject:
+    """Declared properties conjoined with the `patternProperties` entries matching their name."""
+    properties = schema.get("properties")
+    pattern_properties = schema.get("patternProperties")
+    if not isinstance(properties, dict) or not isinstance(pattern_properties, dict):
+        return schema
+    compiled = []
+    for pattern, sub_schema in pattern_properties.items():
+        try:
+            compiled.append((re.compile(pattern), sub_schema))
+        except re.error:
+            continue
+    folded = {}
+    for name, sub_schema in properties.items():
+        matching = [pattern_sub for regex, pattern_sub in compiled if regex.search(name) and pattern_sub is not True]
+        if not matching or sub_schema is False:
+            folded[name] = sub_schema
+        elif any(pattern_sub is False for pattern_sub in matching):
+            folded[name] = {"not": {}}
+        else:
+            conjuncts = [branch for branch in (sub_schema, *matching) if branch is not True]
+            merged = _merge_all_of({"allOf": conjuncts})
+            folded[name] = merged if merged is not None else {"allOf": conjuncts}
+    if folded == properties:
+        return schema
+    return {**schema, "properties": folded}
+
+
 def _cover_positive_for_type(
     ctx: CoverageContext, schema: JsonSchemaObject, ty: str | None, seen: HashSet | None = None
 ) -> Generator[GeneratedValue, None, None]:
@@ -1656,6 +1705,9 @@ def _cover_positive_for_type(
     # Avoid expensive template generation in that case.
     if GenerationMode.POSITIVE not in ctx.generation_modes:
         return
+
+    if ty == "object" or ty is None:
+        schema = _fold_pattern_properties_into_declared(schema)
 
     if ty == "object" or ty == "array":
         template_schema = _get_template_schema(schema, ty, ctx)
@@ -1715,6 +1767,12 @@ def _inline_allof_refs(schema: dict, ctx: CoverageContext, seen: frozenset[str] 
                     resolved, nested = _inline_allof_refs(resolved, ctx, seen | {ref})
                     inlined_refs |= nested
                 new_all_of.append(resolved)
+                rest = {key: value for key, value in sub_schema.items() if key != "$ref"}
+                if rest:
+                    # Keywords beside the reference constrain the branch too; keep them as their own conjunct.
+                    inlined, nested = _inline_allof_refs(rest, ctx, seen)
+                    inlined_refs |= nested
+                    new_all_of.append(inlined)
                 changed = True
             else:
                 new_all_of.append(sub_schema)
@@ -3512,9 +3570,14 @@ def _with_negated_key(schema: JsonSchemaObject, key: str, value: Any) -> JsonSch
 def _negative_multiple_of(
     ctx: CoverageContext, schema: dict, multiple_of: int | float
 ) -> Generator[GeneratedValue, None, None]:
+    # Only a number can violate `multipleOf`; a union type keeps just its numeric part, so a
+    # sibling keyword like `pattern` cannot steer the draw into another type.
+    types = get_type(schema)
+    pinned = "number" if "number" in types else "integer" if "integer" in types else None
+    if pinned is None:
+        return
     yield NegativeValue(
-        # Only a number can violate `multipleOf`, so say so where the schema left the type open.
-        ctx.generate_from_schema(_with_negated_key({"type": "number", **schema}, "multipleOf", multiple_of)),
+        ctx.generate_from_schema(_with_negated_key({**schema, "type": pinned}, "multipleOf", multiple_of)),
         scenario=CoverageScenario.NOT_MULTIPLE_OF,
         description=f"Non-multiple of {multiple_of}",
         location=ctx.current_path,

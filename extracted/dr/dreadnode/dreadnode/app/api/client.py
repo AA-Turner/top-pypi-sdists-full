@@ -56,6 +56,13 @@ _TRANSPORT_ERRORS = (
     httpx.ConnectTimeout,
 )
 
+# Sandbox provisioning runs synchronously inside the start request, so it
+# must outlast a cold start (image pull + service readiness) rather than the
+# 30s default every other call uses. Sits below the ALB's 300s idle timeout
+# (platform/pulumi/alb.py) so a stuck provision surfaces as a client-side
+# timeout we can report, not a connection the edge drops out from under us.
+RUNTIME_PROVISION_TIMEOUT_SECONDS = 240.0
+
 
 class AuthenticationError(RuntimeError):
     """Raised when the platform returns HTTP 401."""
@@ -1863,15 +1870,23 @@ class ApiClient:
         *,
         state: str | list[str] | None = None,
         project_id: str | None = None,
+        owner: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
     ) -> dict[str, t.Any]:
-        """GET /org/{org}/ws/{workspace}/runtimes - List interactive runtimes."""
+        """GET /org/{org}/ws/{workspace}/runtimes - List interactive runtimes.
+
+        Pass ``owner="me"`` to restrict the listing to runtimes the caller owns
+        (RT-OWN-021). Omitted, the listing covers the whole workspace
+        (RT-OWN-020).
+        """
         params: dict[str, t.Any] = {"limit": limit}
         if state is not None:
             params["state"] = ",".join(state) if isinstance(state, list) else state
         if project_id is not None:
             params["project_id"] = project_id
+        if owner is not None:
+            params["owner"] = owner
         if cursor is not None:
             params["cursor"] = cursor
         response = self.request(
@@ -1999,35 +2014,21 @@ class ApiClient:
         secret_ids: list[str] | None = None,
         requested_runtime_limit_seconds: int | None = None,
     ) -> dict[str, t.Any]:
-        """POST /org/{org}/ws/{workspace}/runtimes/{runtime_id}/start - Start or resume a runtime."""
-        json_data: dict[str, t.Any] | None = None
+        """Start a runtime and return its credential.
+
+        RT-AUTH-006: safe to retry. The credential is read, not minted, so a
+        retry returns the same value and disturbs no other client.
+        """
+        json_data: dict[str, t.Any] = {}
         if secret_ids is not None:
-            json_data = {"secret_ids": secret_ids}
+            json_data["secret_ids"] = secret_ids
         if requested_runtime_limit_seconds is not None:
-            if json_data is None:
-                json_data = {}
             json_data["requested_runtime_limit_seconds"] = requested_runtime_limit_seconds
         response = self.request(
             "POST",
             f"/org/{org}/ws/{workspace}/runtimes/{runtime_id}/start",
             json_data=json_data,
-        )
-        return t.cast("dict[str, t.Any]", response.json())
-
-    def reconnect_runtime(
-        self,
-        org: str,
-        workspace: str,
-        runtime_id: str,
-        *,
-        secret_ids: list[str] | None = None,
-    ) -> dict[str, t.Any]:
-        """POST /org/{org}/ws/{workspace}/runtimes/{runtime_id}/reconnect - Rotate credentials."""
-        json_data = {"secret_ids": secret_ids} if secret_ids is not None else None
-        response = self.request(
-            "POST",
-            f"/org/{org}/ws/{workspace}/runtimes/{runtime_id}/reconnect",
-            json_data=json_data,
+            timeout=RUNTIME_PROVISION_TIMEOUT_SECONDS,
         )
         return t.cast("dict[str, t.Any]", response.json())
 

@@ -18,9 +18,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from mixpeek.models.degenerate import Degenerate
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +32,16 @@ class ClusterExecutionMetrics(BaseModel):
     silhouette_score: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=-1.0)], Annotated[int, Field(le=1, strict=True, ge=-1)]]] = Field(default=None, description="OPTIONAL. Silhouette score measuring cluster cohesion and separation. Range: -1 to +1. Interpretation:   +1.0 = Perfect clustering (documents far from other clusters, close to own cluster).   0.0 = Overlapping clusters (documents on cluster boundaries).   -1.0 = Poor clustering (documents assigned to wrong clusters). Practical thresholds:   0.7 to 1.0 = Excellent clustering.   0.5 to 0.7 = Good clustering.   0.25 to 0.5 = Weak clustering, consider different parameters.   Below 0.25 = Poor clustering, reconfigure or more data needed. null = metric not calculated (too few points or clustering failed).")
     davies_bouldin_index: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="OPTIONAL. Davies-Bouldin index measuring cluster separation. Range: 0 to +∞ (lower is better, no upper bound). Interpretation:   0.0 = Perfect separation (impossible in practice).   0.0 to 1.0 = Excellent separation.   1.0 to 2.0 = Good separation.   Above 2.0 = Poor separation, clusters overlap. Formula: Average ratio of intra-cluster to inter-cluster distances. Use when: Validating that clusters are distinct and well-separated. null = metric not calculated (too few points or clustering failed).")
     calinski_harabasz_score: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="OPTIONAL. Calinski-Harabasz score (also called Variance Ratio Criterion). Range: 0 to +∞ (higher is better, no strict upper bound). Interpretation:   Higher values indicate denser, more compact clusters.   No universal threshold - compare relative values across runs.   Typical good values: 100-1000+ (dataset dependent). Formula: Ratio of between-cluster to within-cluster dispersion. Use when: Comparing different numbers of clusters for the same dataset. Note: Biased toward algorithms that produce spherical, equally-sized clusters. null = metric not calculated (too few points or clustering failed).")
-    __properties: ClassVar[List[str]] = ["silhouette_score", "davies_bouldin_index", "calinski_harabasz_score"]
+    degenerate: Optional[Degenerate] = None
+    degenerate_detail: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Human-readable explanation, present only when `degenerate` is a reason string. Carries the measured fraction, e.g. '1 of 3 cluster(s) holds 99.7% of the 3342 clustered point(s) (0 noise)'.")
+    avg_cluster_size: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Mean number of documents per cluster, noise excluded.")
+    noise_ratio: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Fraction of points the algorithm rejected as noise, 0 to 1. Meaningful only for algorithms that HAVE a noise label (dbscan, hdbscan, optics); kmeans and spectral assign every point and report 0.")
+    cluster_size_entropy: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Shannon entropy of the cluster-size distribution. Low entropy with more than one cluster means the sizes are lopsided, which is the same shape `degenerate='dominant_cluster'` flags.")
+    should_recluster: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Engine's own advice that this run is worth re-running with different parameters. 0 means no.")
+    mean_cosine_to_centroid: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Mean cosine similarity of each clustered point to its own centroid. Higher is tighter.")
+    min_cosine_to_centroid: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Worst cosine similarity of any clustered point to its own centroid. A low value with a high mean means one cluster has a long tail.")
+    additional_properties: Dict[str, Any] = {}
+    __properties: ClassVar[List[str]] = ["silhouette_score", "davies_bouldin_index", "calinski_harabasz_score", "degenerate", "degenerate_detail", "avg_cluster_size", "noise_ratio", "cluster_size_entropy", "should_recluster", "mean_cosine_to_centroid", "min_cosine_to_centroid"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -63,8 +73,10 @@ class ClusterExecutionMetrics(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -72,6 +84,14 @@ class ClusterExecutionMetrics(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of degenerate
+        if self.degenerate:
+            _dict['degenerate'] = self.degenerate.to_dict()
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -86,8 +106,21 @@ class ClusterExecutionMetrics(BaseModel):
         _obj = cls.model_validate({
             "silhouette_score": obj.get("silhouette_score"),
             "davies_bouldin_index": obj.get("davies_bouldin_index"),
-            "calinski_harabasz_score": obj.get("calinski_harabasz_score")
+            "calinski_harabasz_score": obj.get("calinski_harabasz_score"),
+            "degenerate": Degenerate.from_dict(obj["degenerate"]) if obj.get("degenerate") is not None else None,
+            "degenerate_detail": obj.get("degenerate_detail"),
+            "avg_cluster_size": obj.get("avg_cluster_size"),
+            "noise_ratio": obj.get("noise_ratio"),
+            "cluster_size_entropy": obj.get("cluster_size_entropy"),
+            "should_recluster": obj.get("should_recluster"),
+            "mean_cosine_to_centroid": obj.get("mean_cosine_to_centroid"),
+            "min_cosine_to_centroid": obj.get("min_cosine_to_centroid")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

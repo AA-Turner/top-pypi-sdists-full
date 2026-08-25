@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.763
+Version: 0.12.770
 Summary: ClawMetry - Real-time observability for 26 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -9,7 +9,7 @@ License: MIT
 Project-URL: Homepage, https://clawmetry.com
 Project-URL: Bug Reports, https://github.com/vivekchand/clawmetry/issues
 Project-URL: Source, https://github.com/vivekchand/clawmetry
-Keywords: clawmetry openclaw moltbot dashboard observability ai agent monitoring opentelemetry
+Keywords: clawmetry observability monitoring dashboard ai agent llm llm-observability opentelemetry cost-tracking claude-code codex cursor github-copilot gemini-cli cline openhands opencode aider goose qwen devin kimi grok n8n antigravity deepseek hermes exo openclaw nemoclaw nanoclaw picoclaw moltbot
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -27,6 +27,7 @@ License-File: LICENSE
 Requires-Dist: flask<4,>=2.0
 Requires-Dist: waitress>=2.0
 Requires-Dist: cryptography>=3.0
+Requires-Dist: cffi<2
 Requires-Dist: duckdb>=0.10
 Requires-Dist: websocket-client>=1.6
 Requires-Dist: truststore>=0.8; python_version >= "3.10"
@@ -77,7 +78,7 @@ pip install clawmetry && clawmetry
 Opens at **http://localhost:8900**. Zero config: it finds the agent runtimes
 you already have, reads them read-only, and changes nothing about how they run.
 
-![Flow Visualization](https://clawmetry.com/screenshots/flow.png)
+![ClawMetry catching a spending anomaly and a stalled agent live](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/overview.png)
 
 ## Works with 26 agent runtimes
 
@@ -108,7 +109,7 @@ too. See [docs/SDK_TRACKING.md](docs/SDK_TRACKING.md).
 |---|---|---|
 | **Free** | OpenClaw + NVIDIA NemoClaw + Goose, full dashboard, local only | $0 |
 | **Starter** | Every other runtime above, fleet view, cloud sync | $9 per node / month |
-| **Pro** | Starter + governance: approvals, tool-risk policies, evals, anomaly detection, cost optimizer, OTel export | $19 per node / month |
+| **Pro** | Starter + control and evaluation: approvals, tool-risk policies, evals, anomaly detection, cost optimizer, OTel export, tamper-evident audit log | $19 per node / month |
 
 Annual plans, Enterprise and the current numbers live at
 **[clawmetry.com/pricing](https://clawmetry.com/pricing)**. Self-hosted license
@@ -117,9 +118,39 @@ in [docs/ENTITLEMENTS.md](docs/ENTITLEMENTS.md).
 
 ## Your data stays on your machine
 
-ClawMetry reads local session files and logs. Nothing leaves your box unless
-you run `clawmetry connect`. Even then the snapshot is end-to-end encrypted
-with a key that never leaves your machine, and decrypted in your browser.
+ClawMetry reads local session files and logs. **No session data leaves your box
+unless you run `clawmetry connect`** — no prompts, replies, tool arguments, file
+contents or log lines. When you do connect, the snapshot is end-to-end encrypted
+with a key that never leaves your machine, and decrypted in your browser. If a
+node has no key, the upload is skipped rather than sent in the clear, and no
+server response can turn that off.
+
+Two things do run by default before you connect, both opt-out and neither
+carrying session data: an anonymous install ping and a version check against
+PyPI. A default install also looks up your public IP once for a startup banner
+line. Every destination, what it carries and how to switch it off is listed in
+[docs/EGRESS.md](docs/EGRESS.md); self-hosted, repointed and air-gapped installs
+make no discretionary outbound calls at all.
+
+The decryption happens in your browser, in code we serve you. That used to be
+a promise; it is now something you can check. Every line that touches your key
+lives in one readable file, [`clawmetry/static/js/cm-e2e.js`](clawmetry/static/js/cm-e2e.js),
+which ships inside the wheel and is served verbatim, pinned with a Subresource
+Integrity hash. To confirm the browser runs what we published:
+
+```bash
+curl -s https://app.clawmetry.com/static/js/cm-e2e.js -o served.js
+pip download --no-deps clawmetry==$(clawmetry --version | tr -d 'a-z ') -d /tmp/cm
+unzip -p /tmp/cm/clawmetry-*.whl clawmetry/static/js/cm-e2e.js > published.js
+diff served.js published.js && echo identical
+```
+
+What that does not prove: we serve the page that loads the file, so we could
+serve a different page. Integrity hashes protect you from a compromised CDN,
+not from the vendor. What you gain is that any substitution has to be
+deliberate, visible in the page source, and different from an artifact on PyPI
+that anyone can fetch. Self-hosting or staying local-only removes the
+dependency entirely.
 
 ## Install
 
@@ -149,12 +180,29 @@ the same machine. Docker instructions: [docs/DOCKER.md](docs/DOCKER.md).
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![Overview tab](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/overview.png) | ![Brain tab](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/brain.png) |
-| **Overview**: tokens, sessions, health | **Brain**: live agent event stream |
-| ![Tokens tab](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/tokens.png) | ![Approvals tab](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/approvals.png) |
-| **Cost**: by model and session | **Approvals**: gate risky tool calls |
+Every number below is from one real machine, read-only, with nothing seeded.
+
+**It tells you when something is wrong, not just what happened.**
+Two anomaly banners at the top: spend running 7x the daily average, and a
+4.2x cost spike. Below them, 324 of 667 recent sessions carrying a waste
+signal, itemised by cause.
+
+![Overview: spending anomaly and cost spike banners over live agent work](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/overview.png)
+
+**It shows you the money you can get back.**
+$4,058.92 spent this month, about $3,668/mo of it itemised as recoverable
+(trim long conversations, route short tasks to a smaller model, trim
+thinking), and $35,572/mo already saved by cache reuse.
+
+![Cost: efficiency grade B with itemised savings ideas](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/cost.png)
+
+**Detection runs without you configuring anything.**
+The built-in detectors are on from install: agent went quiet, telemetry feed
+stopped, cost spike, token burst, errors climbing, error spike, budget
+threshold, threat signature matched, security tool finding, security posture
+changed. Your own rules are optional on top.
+
+![Alerts: built-in detectors plus optional custom rules](https://raw.githubusercontent.com/vivekchand/clawmetry/main/screenshots/alerts.png)
 
 More, per runtime: [docs/RUNTIME_SCREENSHOTS.md](docs/RUNTIME_SCREENSHOTS.md).
 

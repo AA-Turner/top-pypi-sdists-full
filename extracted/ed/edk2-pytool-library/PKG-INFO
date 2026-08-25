@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edk2-pytool-library
-Version: 0.23.15
+Version: 0.23.16
 Summary: Python library supporting UEFI EDK2 firmware development
 Maintainer-email: EDK2 Pytool Maintainers <edk2-pytools@microsoft.com>
 Project-URL: homepage, https://github.com/tianocore/edk2-pytool-library/
@@ -27,22 +27,22 @@ Requires-Dist: sqlalchemy>=2.0.0
 Requires-Dist: pygount>=1.6.1
 Requires-Dist: pywin32>=308; sys_platform == "win32"
 Provides-Extra: dev
-Requires-Dist: ruff==0.15.0; extra == "dev"
-Requires-Dist: pytest==9.0.2; extra == "dev"
-Requires-Dist: coverage==7.13.3; extra == "dev"
-Requires-Dist: pre-commit==4.5.1; extra == "dev"
+Requires-Dist: ruff==0.15.21; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
+Requires-Dist: coverage==7.15.4; extra == "dev"
+Requires-Dist: pre-commit==4.6.2; extra == "dev"
 Provides-Extra: publish
-Requires-Dist: setuptools==82.0.1; extra == "publish"
-Requires-Dist: build==1.4.0; extra == "publish"
+Requires-Dist: setuptools==84.0.0; extra == "publish"
+Requires-Dist: build==1.5.1; extra == "publish"
 Requires-Dist: twine==6.2.0; extra == "publish"
 Provides-Extra: docs
-Requires-Dist: black==26.1.0; extra == "docs"
+Requires-Dist: black==26.5.1; extra == "docs"
 Requires-Dist: mkdocs==1.6.1; extra == "docs"
-Requires-Dist: mkdocs-material==9.7.1; extra == "docs"
-Requires-Dist: mkdocstrings[python]==0.30.1; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.1; extra == "docs"
+Requires-Dist: mkdocs-material==9.7.6; extra == "docs"
+Requires-Dist: mkdocstrings[python]==1.0.6; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.5; extra == "docs"
 Requires-Dist: markdown-include==0.8.1; extra == "docs"
-Requires-Dist: mkdocs-gen-files==0.6.0; extra == "docs"
+Requires-Dist: mkdocs-gen-files==0.6.1; extra == "docs"
 Requires-Dist: mkdocs-exclude==1.0.2; extra == "docs"
 Requires-Dist: mkdocs-awesome-pages-plugin==2.10.1; extra == "docs"
 Dynamic: license-file

@@ -15,13 +15,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 try:  # POSIX only — see wiki_write_lock().
     import fcntl
@@ -36,6 +38,22 @@ CONFIG_FILENAME = "wiki.json"
 
 #: Lock filename inside the wiki storage directory, guarding writers.
 LOCK_FILENAME = "wiki.lock"
+
+#: Filename of the global (per-user) namespace registry inside ``PARROT_HOME``.
+GLOBAL_REGISTRY_FILENAME = "wikis.json"
+
+#: Separator between a namespace name and a page id (``ns::id``).
+#: Mirrors :data:`parrot.knowledge.wiki.context.NS_SEPARATOR`; duplicated
+#: here because ``project.py`` must stay importable on its own (hook path).
+NS_SEPARATOR = "::"
+
+#: Namespace names reserved by the routing surface (``--ns``).
+RESERVED_NAMESPACE_NAMES = frozenset({"all", "local"})
+
+#: Grammar for a namespace name. A single ``:`` is allowed (so ``legal:civil``
+#: can mirror a GraphIndex namespace) but ``::`` never is — it is the id
+#: separator.
+_NAMESPACE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$")
 
 #: Poll interval while waiting for a contended lock.
 _LOCK_POLL_SECONDS = 0.05
@@ -122,6 +140,158 @@ class ClaudeIntegrationConfig(BaseModel):
     )
 
 
+def validate_namespace_name(name: str) -> str:
+    """Validate a federated namespace name.
+
+    Names address a whole wiki plane on the CLI (``--ns <name>``) and
+    prefix foreign page ids (``<name>::<id>``), so they must be free of
+    the ``::`` separator and must not collide with the routing keywords
+    ``all`` / ``local``.
+
+    Args:
+        name: Candidate namespace name.
+
+    Returns:
+        The validated name, unchanged.
+
+    Raises:
+        ValueError: When the name is empty, reserved, contains ``::``,
+            or does not match ``^[A-Za-z0-9][A-Za-z0-9_.:-]*$``.
+    """
+    if not name:
+        raise ValueError("Namespace name must not be empty")
+    if name in RESERVED_NAMESPACE_NAMES:
+        raise ValueError(
+            f"Namespace name {name!r} is reserved "
+            f"(reserved: {', '.join(sorted(RESERVED_NAMESPACE_NAMES))})"
+        )
+    if NS_SEPARATOR in name:
+        raise ValueError(
+            f"Namespace name {name!r} must not contain {NS_SEPARATOR!r} "
+            "— it separates the namespace from the page id"
+        )
+    if not _NAMESPACE_NAME_RE.match(name):
+        raise ValueError(
+            f"Invalid namespace name {name!r}: must match "
+            f"{_NAMESPACE_NAME_RE.pattern}"
+        )
+    return name
+
+
+class WikiNamespaceConfig(BaseModel):
+    """One federated namespace: a named pointer to another wiki plane.
+
+    Exactly one of :attr:`path`, :attr:`store`, :attr:`database` or
+    :attr:`vault` must be set — that choice is the entry's :attr:`kind`
+    and decides how :func:`parrot.knowledge.wiki.federation.resolve_namespaces`
+    opens it.
+
+    Relative ``path`` / ``store`` / ``vault`` values are resolved against
+    the directory of the registry that declares them: the repo root for
+    entries in ``.parrot/wiki.json``, and ``PARROT_HOME`` (``~/.parrot``)
+    for entries in the global ``wikis.json`` — see
+    :func:`resolve_entry_base`.
+
+    Attributes:
+        path: Root of another wiki project (its ``.parrot/wiki.json`` is
+            loaded to find the plane).
+        store: Pre-built store directory (holds ``wiki.db`` for sqlite).
+        backend: Backend used for a ``store`` entry; forced to
+            ``arangodb`` when :attr:`database` is set.
+        database: ArangoDB database name holding the plane.
+        credentials_env: Env var prefix for ArangoDB credentials.
+        vault: Obsidian vault root; resolved exactly like :attr:`path`.
+        description: Human-readable purpose, shown by ``ns list`` and
+            reserved for v2 intent routing.
+        weight: Multiplier applied to this namespace's normalised scores
+            when merging broadcast results.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str | None = Field(
+        default=None, description="Another wiki project root"
+    )
+    store: str | None = Field(
+        default=None, description="Pre-built store directory"
+    )
+    backend: Literal["sqlite", "memory", "arangodb"] = Field(
+        default="sqlite", description="Backend for a `store` entry"
+    )
+    database: str | None = Field(
+        default=None, description="ArangoDB database name"
+    )
+    credentials_env: str = Field(
+        default="ARANGODB",
+        description="Env var prefix for ArangoDB credentials",
+    )
+    vault: str | None = Field(
+        default=None, description="Obsidian vault root"
+    )
+    description: str = Field(
+        default="", description="Shown by `wikitoolkit ns list`"
+    )
+    weight: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    #: Source fields, in :attr:`kind` resolution order.
+    _SOURCE_FIELDS = ("path", "store", "database", "vault")
+
+    @model_validator(mode="after")
+    def _check_exactly_one_source(self) -> WikiNamespaceConfig:
+        """Enforce exactly one source field and derive the backend."""
+        present = [
+            name
+            for name in ("path", "store", "database", "vault")
+            if getattr(self, name)
+        ]
+        if len(present) != 1:
+            raise ValueError(
+                "Exactly one of path / store / database / vault must be set "
+                f"(got: {', '.join(present) or 'none'})"
+            )
+        if self.database:
+            # A `database` entry is ArangoDB by construction.
+            object.__setattr__(self, "backend", "arangodb")
+        return self
+
+    @property
+    def kind(self) -> Literal["path", "store", "database", "vault"]:
+        """Which source field this entry uses."""
+        for name in ("path", "store", "database", "vault"):
+            if getattr(self, name):
+                return name  # type: ignore[return-value]
+        # Unreachable: the model validator guarantees exactly one.
+        raise ValueError("Namespace entry has no source field")
+
+    @property
+    def target(self) -> str:
+        """The value of the active source field (path / store / db / vault)."""
+        return str(getattr(self, self.kind))
+
+
+class GlobalWikiRegistry(BaseModel):
+    """The per-user namespace registry stored at ``PARROT_HOME/wikis.json``.
+
+    Attributes:
+        version: Schema version of the registry file.
+        namespaces: Namespace name -> entry.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = Field(default=1, ge=1)
+    namespaces: dict[str, WikiNamespaceConfig] = Field(default_factory=dict)
+
+    @field_validator("namespaces")
+    @classmethod
+    def _validate_names(
+        cls, value: dict[str, WikiNamespaceConfig]
+    ) -> dict[str, WikiNamespaceConfig]:
+        for name in value:
+            validate_namespace_name(name)
+        return value
+
+
 class WikiProjectConfig(BaseModel):
     """Repository-level wiki configuration (``.parrot/wiki.json``).
 
@@ -146,6 +316,10 @@ class WikiProjectConfig(BaseModel):
             ``ARANGODB_PASSWORD``, ...).
         arango_text_analyzer: ArangoSearch text analyzer used for the
             pages view's full-text search (e.g. ``"text_en"``).
+        namespaces: Federated namespaces declared by this repository,
+            keyed by namespace name. Merged with the global registry
+            (repo entries win) by :func:`merge_namespaces`. Written only
+            by ``wikitoolkit ns add``.
     """
 
     wiki_name: str = Field(default="codebase")
@@ -159,7 +333,7 @@ class WikiProjectConfig(BaseModel):
         default_factory=ClaudeIntegrationConfig
     )
     sync_graph: bool = Field(default=False)
-    arango_database: Optional[str] = Field(
+    arango_database: str | None = Field(
         default=None,
         description="ArangoDB database name; defaults to wiki_{wiki_name}",
     )
@@ -174,7 +348,7 @@ class WikiProjectConfig(BaseModel):
         default="text_en",
         description="ArangoSearch text analyzer for FTS",
     )
-    vault_dir: Optional[str] = Field(
+    vault_dir: str | None = Field(
         default=None,
         description=(
             "Obsidian vault directory served by the wiki MCP server; "
@@ -182,6 +356,23 @@ class WikiProjectConfig(BaseModel):
             "project root itself is used if it is a vault (.obsidian/)."
         ),
     )
+    namespaces: dict[str, WikiNamespaceConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Federated namespaces declared by this repo, keyed by name. "
+            "Repo entries override same-named global registry entries."
+        ),
+    )
+
+    @field_validator("namespaces")
+    @classmethod
+    def _validate_namespace_names(
+        cls, value: dict[str, WikiNamespaceConfig]
+    ) -> dict[str, WikiNamespaceConfig]:
+        """Reject reserved/invalid namespace names at load time."""
+        for name in value:
+            validate_namespace_name(name)
+        return value
 
     def graph_path(self, root: Path) -> Path:
         """Directory of the project's GraphIndex plane (``.parrot/graph``)."""
@@ -214,8 +405,67 @@ class WikiProjectConfig(BaseModel):
         return (self.storage_path(root) / "pages").exists()
 
 
+def _navconfig() -> Any | None:
+    """Return navconfig's ``config``, importing it for its side effect.
+
+    ``navconfig`` is what copies ``env/.env`` into ``os.environ``: a
+    process that never imports it sees none of those values. Reading
+    ``os.environ`` alone was therefore silently wrong outside the CLI —
+    a wiki configured against a remote ArangoDB resolved to
+    ``127.0.0.1:8529`` in any script that imported this module without
+    (transitively) importing navconfig, and the resulting connection
+    error named the loopback address, not the missing loader.
+
+    Kept a lazy, tolerant import: this module is deliberately
+    dependency-light so the Claude Code PreToolUse hook can import it
+    cheaply, and navconfig is not needed to read ``wiki.json``.
+
+    Returns:
+        navconfig's ``config`` object, or ``None`` when navconfig is not
+        importable (callers then fall back to their own defaults).
+    """
+    try:
+        from navconfig import config as nav_config
+    except Exception:  # noqa: BLE001 — a broken env file must not break the hook
+        # Deliberately broad: navconfig raises more than ImportError when
+        # its env files are missing or malformed, and this module is on the
+        # PreToolUse hook's import path.
+        logger.debug("navconfig unavailable; reading os.environ only")
+        return None
+    return nav_config
+
+
+def _env_credential(key: str, default: Any) -> Any:
+    """Resolve one credential key: ``os.environ``, then navconfig, then default.
+
+    ``os.environ`` wins so an explicit ``export`` (or a test's
+    ``monkeypatch.setenv`` / ``delenv``) always overrides what the env
+    files say. navconfig is consulted second — importing it is also what
+    makes ``env/.env`` reach ``os.environ`` in the first place.
+
+    Args:
+        key: Full variable name, e.g. ``"ARANGODB_HOST"``.
+        default: Returned when neither source has the key.
+
+    Returns:
+        The resolved value, or ``default``.
+    """
+    value = os.environ.get(key)
+    if value is not None:
+        return value
+    nav_config = _navconfig()
+    if nav_config is not None:
+        # navconfig's `get` may return None for a missing key even with a
+        # fallback argument, so coalesce explicitly (same guard as
+        # graphindex/loader.py).
+        value = nav_config.get(key)
+        if value is not None:
+            return value
+    return default
+
+
 def resolve_arango_params(config: WikiProjectConfig) -> dict[str, Any]:
-    """Resolve ArangoDB connection params from environment variables.
+    """Resolve ArangoDB connection params from the environment.
 
     Credentials are never hardcoded in ``wiki.json`` — only the env var
     prefix (:attr:`WikiProjectConfig.arango_credentials_env`, default
@@ -223,21 +473,26 @@ def resolve_arango_params(config: WikiProjectConfig) -> dict[str, Any]:
     mirrors the established ``ARANGODB_*`` convention used elsewhere in
     the codebase (e.g. ``graphindex/loader.py``).
 
+    Each variable resolves through :func:`_env_credential`:
+    ``os.environ`` first, then navconfig (which is what loads
+    ``env/.env``), then the built-in default.
+
     Args:
         config: Project config carrying the ArangoDB backend settings.
 
     Returns:
         Connection params dict for ``AsyncDB("arangodb", params=...)``:
         ``host``, ``port``, ``protocol``, ``username``, ``password``,
-        ``database``.
+        ``database``. Types are normalised regardless of source — every
+        field a ``str`` except the ``int`` port.
     """
     prefix = config.arango_credentials_env
     return {
-        "host": os.environ.get(f"{prefix}_HOST", "127.0.0.1"),
-        "port": int(os.environ.get(f"{prefix}_PORT", "8529")),
-        "protocol": os.environ.get(f"{prefix}_PROTOCOL", "http"),
-        "username": os.environ.get(f"{prefix}_USERNAME", "root"),
-        "password": os.environ.get(f"{prefix}_PASSWORD", ""),
+        "host": str(_env_credential(f"{prefix}_HOST", "127.0.0.1")),
+        "port": int(_env_credential(f"{prefix}_PORT", 8529)),
+        "protocol": str(_env_credential(f"{prefix}_PROTOCOL", "http")),
+        "username": str(_env_credential(f"{prefix}_USERNAME", "root")),
+        "password": str(_env_credential(f"{prefix}_PASSWORD", "")),
         "database": config.arango_database or f"wiki_{config.wiki_name}",
     }
 
@@ -245,8 +500,8 @@ def resolve_arango_params(config: WikiProjectConfig) -> dict[str, Any]:
 def resolve_vault_dir(
     root: Path,
     config: WikiProjectConfig,
-    override: Optional[str | Path] = None,
-) -> Optional[Path]:
+    override: str | Path | None = None,
+) -> Path | None:
     """Resolve the Obsidian vault directory for a wiki project.
 
     Precedence: explicit ``override`` > ``config.vault_dir`` (resolved
@@ -265,7 +520,7 @@ def resolve_vault_dir(
     """
     from parrot.knowledge.wiki.vault_scan import is_obsidian_vault
 
-    candidate: Optional[Path] = None
+    candidate: Path | None = None
     if override:
         candidate = Path(override).expanduser()
         if not candidate.is_absolute():
@@ -293,7 +548,7 @@ def config_path(root: Path) -> Path:
     return root / PARROT_DIR / CONFIG_FILENAME
 
 
-def find_project_root(start: Optional[Path] = None) -> Optional[Path]:
+def find_project_root(start: Path | None = None) -> Path | None:
     """Walk upwards from ``start`` to the nearest configured repo root.
 
     A directory is a wiki project root when it contains
@@ -307,7 +562,7 @@ def find_project_root(start: Optional[Path] = None) -> Optional[Path]:
         The project root, or ``None`` when neither marker is found.
     """
     current = (start or Path.cwd()).resolve()
-    git_root: Optional[Path] = None
+    git_root: Path | None = None
     for candidate in (current, *current.parents):
         if config_path(candidate).exists():
             return candidate
@@ -364,3 +619,125 @@ def save_project_config(root: Path, config: WikiProjectConfig) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def parrot_home() -> Path:
+    """Directory holding per-user parrot state (``~/.parrot``).
+
+    Honours the ``PARROT_HOME`` environment variable so tests (and users
+    with an unusual home layout) can relocate the global registry. The
+    value is read on every call — never cached at import time — so a
+    ``monkeypatch.setenv`` in a test is always seen.
+
+    Returns:
+        The expanded, absolute parrot home directory.
+    """
+    raw = os.environ.get("PARROT_HOME") or f"~/{PARROT_DIR}"
+    return Path(raw).expanduser()
+
+
+def global_registry_path() -> Path:
+    """Path of the global namespace registry (``PARROT_HOME/wikis.json``)."""
+    return parrot_home() / GLOBAL_REGISTRY_FILENAME
+
+
+def load_global_registry(path: Path | None = None) -> GlobalWikiRegistry:
+    """Load the per-user namespace registry.
+
+    Args:
+        path: Registry file; defaults to :func:`global_registry_path`.
+
+    Returns:
+        The parsed registry, or an empty one when the file does not
+        exist (the common case — the file is created only by
+        ``wikitoolkit ns add --global``).
+
+    Raises:
+        WikiConfigError: When the file exists but is not valid JSON or
+            does not match the schema. Substituting an empty registry
+            would silently drop the user's namespaces on the next save.
+    """
+    target = path or global_registry_path()
+    if not target.exists():
+        return GlobalWikiRegistry()
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+        return GlobalWikiRegistry.model_validate(data)
+    except (OSError, ValueError) as exc:
+        raise WikiConfigError(
+            f"Invalid global wiki registry at {target} — fix or remove it: {exc}"
+        ) from exc
+
+
+def save_global_registry(
+    registry: GlobalWikiRegistry, path: Path | None = None
+) -> Path:
+    """Persist the per-user namespace registry atomically.
+
+    The file may name private ArangoDB databases and paths outside the
+    repo, so it is written ``0o600``. The write goes to a temp file in
+    the same directory and is then ``os.replace``-d into place, so a
+    crash mid-write can never leave a truncated registry behind.
+
+    Args:
+        registry: Registry to write.
+        path: Destination; defaults to :func:`global_registry_path`.
+
+    Returns:
+        The path written.
+    """
+    target = path or global_registry_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(registry.model_dump(mode="json"), indent=2) + "\n"
+    handle, tmp_name = tempfile.mkstemp(
+        dir=str(target.parent), prefix=".wikis-", suffix=".json"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(payload)
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, target)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return target
+
+
+def merge_namespaces(
+    repo: dict[str, WikiNamespaceConfig],
+    global_: dict[str, WikiNamespaceConfig],
+) -> dict[str, tuple[WikiNamespaceConfig, str]]:
+    """Merge repo and global namespace declarations.
+
+    A repository is the more specific context, so a name declared in
+    both registries resolves to the repo entry (spec G2).
+
+    Args:
+        repo: Namespaces from ``.parrot/wiki.json``.
+        global_: Namespaces from ``PARROT_HOME/wikis.json``.
+
+    Returns:
+        Mapping ``name -> (config, origin)`` where ``origin`` is
+        ``"repo"`` or ``"global"``.
+    """
+    merged: dict[str, tuple[WikiNamespaceConfig, str]] = {
+        name: (cfg, "global") for name, cfg in global_.items()
+    }
+    merged.update({name: (cfg, "repo") for name, cfg in repo.items()})
+    return merged
+
+
+def resolve_entry_base(origin: str, root: Path) -> Path:
+    """Directory a namespace entry's relative paths resolve against.
+
+    Args:
+        origin: ``"repo"`` or ``"global"`` (as returned by
+            :func:`merge_namespaces`).
+        root: The repository root, used for ``"repo"`` entries.
+
+    Returns:
+        The repo root for repo entries, :func:`parrot_home` for global
+        ones.
+    """
+    return root if origin == "repo" else parrot_home()

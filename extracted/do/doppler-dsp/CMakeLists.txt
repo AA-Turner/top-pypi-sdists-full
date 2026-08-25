@@ -1,8 +1,31 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.43.2 LANGUAGES C)
+project(doppler VERSION 0.44.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# Feature-test macros go on the COMPILE LINE, never in a header (doppler#986).
+#
+# glibc's features.h latches the feature set on its FIRST inclusion, so a
+# `#define _GNU_SOURCE` inside a header is a no-op whenever anything reached
+# libc before that header did. buffer.h carried one at its own line 51 and it
+# was inert in exactly that way -- measured directly: after `#include
+# <stdio.h>` then `#include "buffer/buffer.h"`, `__USE_GNU` is NOT defined.
+#
+# It looked like it worked because CMAKE_C_EXTENSIONS defaults ON, so this
+# builds as -std=gnu99 and _DEFAULT_SOURCE already declares the syscall() and
+# ftruncate() buffer.h calls. Under a strict -std=c99 the same file compiles
+# or does not COMPILE ACCORDING TO INCLUDE ORDER ALONE, and native/inc is
+# installed wholesale -- a downstream picks its own order and its own dialect.
+#
+# Defined for every target here, which is the only place the ordering is
+# guaranteed. `scripts/check_installed_headers.py` keeps a header from
+# growing one back.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_compile_definitions(_GNU_SOURCE)
+elseif(APPLE)
+    add_compile_definitions(_DARWIN_C_SOURCE) # MAP_ANON
+endif()
 
 # doppler is pure C: every first-party source is C99 and the core libdoppler
 # links -lm and -lpthread.  The vendored nats.c (the optional libdoppler_stream
@@ -137,13 +160,38 @@ configure_file(
 
 # Combined C library — shared + static, no Python dependency.
 # Component OBJECT libraries are wired in via target_sources below.
-add_library(doppler_lib SHARED native/src/doppler_lib.c)
-add_library(doppler_lib_static STATIC native/src/doppler_lib.c)
+# dp_interrupt is core, not a component: the ring buffer and the file writer
+# consult the same flag as the NATS wait, and both exist in a build with no
+# stream component at all. An OBJECT library rather than a plain source
+# because stream_core_obj is embedded as raw objects into targets that never
+# link the core archive -- test_stream_nats_core, bench_stream, wfmgen -- so
+# those need the objects too, not a link edge to a library they do not use.
+add_library(dp_interrupt_obj OBJECT native/src/dp_interrupt.c)
+target_include_directories(dp_interrupt_obj PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/native/inc>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/native/inc>)
+set_target_properties(dp_interrupt_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(doppler_lib SHARED native/src/doppler_lib.c
+    $<TARGET_OBJECTS:dp_interrupt_obj>)
+add_library(doppler_lib_static STATIC native/src/doppler_lib.c
+    $<TARGET_OBJECTS:dp_interrupt_obj>)
 foreach(_t doppler_lib doppler_lib_static)
     target_include_directories(${_t} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/native/inc>
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/native/inc>
         $<INSTALL_INTERFACE:include>)
+    # The feature-test macro travels with the TARGET, so a downstream that
+    # links doppler gets it on its own compile line without reading a note
+    # (doppler#986). buffer.h is installed and calls syscall()/ftruncate();
+    # it used to define _GNU_SOURCE itself, which is a no-op for any
+    # translation unit that reached libc first -- so the requirement was
+    # real, undocumented, and silently unmet. PUBLIC, not PRIVATE: it is the
+    # CONSUMER's compile line that needs it, since the header is theirs to
+    # include.
+    target_compile_definitions(${_t} PUBLIC
+        $<$<PLATFORM_ID:Linux>:_GNU_SOURCE>
+        $<$<PLATFORM_ID:Darwin>:_DARWIN_C_SOURCE>)
     set_target_properties(${_t} PROPERTIES OUTPUT_NAME doppler)
 endforeach()
 # Export both libs under obvious target names: `doppler::doppler` (shared) and
@@ -168,7 +216,7 @@ set_target_properties(doppler_lib_static PROPERTIES EXPORT_NAME doppler-static)
 # that drops the usage requirement on the floor. Nothing else re-stated it, so
 # the archive's link interface carried no pthread and a consumer that pulled a
 # pthread-using member out of libdoppler.a failed to link: on glibc < 2.34
-# pthread is a separate library, so `examples/c/ccsds_link_demo` died on
+# pthread is a separate library, so `native/examples/ccsds_link_demo` died on
 # `undefined reference to pthread_once` in CI's Debian 10 job while every
 # glibc >= 2.34 box linked it clean, pthread being folded into libc there.
 find_package(Threads REQUIRED)
@@ -301,6 +349,7 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dp_tlm_capture_core>)
 add_subdirectory(native/src/dp_tlm)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
+add_subdirectory(native/src/dp_interrupt_guard)
 add_subdirectory(native/src/imdmeas)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:imdmeas_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:imdmeas_core>)
@@ -478,6 +527,9 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:ddc_core>)
 add_subdirectory(native/src/telemetry)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:telemetry_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:telemetry_core>)
+add_subdirectory(native/src/interrupt)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:interrupt_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:interrupt_core>)
 add_subdirectory(native/src/measure)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:measure_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:measure_core>)
@@ -510,6 +562,8 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_writer_core>)
 add_subdirectory(native/src/sample_clock)
 add_subdirectory(native/src/wfm_plan)
 add_subdirectory(native/src/wfm_reader)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dp_interrupt_guard_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dp_interrupt_guard_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_cjson_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:wfm_cjson_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:wfm_keywords_core>)
@@ -794,6 +848,14 @@ add_test(NAME test_dp_dsss COMMAND test_dp_dsss)
 # set_state RETURNS and never that the restored object carries the state, so a
 # set_state that validated the envelope and restored nothing passed at all 31
 # sites.
+# The interrupt primitive: three transports depend on it to be stoppable, so
+# a regression is silent everywhere at once. Links the objects directly -- it
+# tests the core primitive, not a component that embeds it.
+add_executable(test_dp_interrupt native/tests/test_dp_interrupt.c
+    $<TARGET_OBJECTS:dp_interrupt_obj>)
+target_include_directories(test_dp_interrupt PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+add_test(NAME test_dp_interrupt COMMAND test_dp_interrupt)
+
 add_executable(test_dp_state native/tests/test_dp_state.c)
 target_include_directories(test_dp_state
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
@@ -1016,7 +1078,7 @@ if(NOT WIN32)
         VERBATIM)
 endif()
 
-add_subdirectory(examples/c)
+add_subdirectory(native/examples)
 
 # ── Install ──────────────────────────────────────────────────────────────────
 

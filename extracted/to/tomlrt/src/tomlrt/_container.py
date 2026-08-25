@@ -12,7 +12,7 @@ import copy
 import sys
 from collections.abc import Mapping
 from datetime import date, datetime, time
-from typing import TYPE_CHECKING, Any, TypeAlias, TypeGuard, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeGuard, TypeVar, overload
 
 if sys.version_info >= (3, 12):
     from typing import Self, override
@@ -1403,6 +1403,10 @@ class Table(Container):
         return cls._factory(mapping, inline=True, label="Table.inline argument")
 
 
+DEFAULT_NEWLINE: Final = "\n"
+"""Line ending a document uses until a parse tells it otherwise."""
+
+
 class Document(Container):
     """Top-level TOML document.
 
@@ -1433,20 +1437,25 @@ class Document(Container):
         * lists of mappings become ``[[array.of.tables]]`` blocks;
         * everything else is set with ordinary key-value assignment.
 
-        A [`Table`][tomlrt.Table] / [`AoT`][tomlrt.AoT] /
-        [`Array`][tomlrt.Array] view that is not already attached to a
-        document *attaches live*: the returned document keeps your
-        object, so later mutations through either reference are visible
-        on the other. A view already attached to another document is
-        deep-cloned instead, so the two never share state. Plain
-        ``dict`` / ``list`` values are always snapshot-copied.
+        Constructing copies. Every value in ``data`` is copied into the
+        new document, so later mutations through your own references
+        are not visible in it -- and a rejected ``data`` leaves them all
+        alone. A [`Table`][tomlrt.Table] / [`Array`][tomlrt.Array] /
+        [`AoT`][tomlrt.AoT] contributes its contents and its shape
+        (section or inline, array or array-of-tables). One bound to a
+        key keeps the comments and spacing it holds; one that is an
+        entry of a list or an `AoT` is rebuilt from its data.
+
+        To have the document keep your object, assign it instead:
+        ``doc[k] = table`` *attaches live*. See
+        [Editing documents](editing.md#live-vs-snapshot).
         """
         super().__init__()
         self._head: Slot | None = None
         self._tail: Slot | None = None
         self._trailing: str = ""
         self._preamble: str = ""
-        self._newline: str = "\n"
+        self._newline: str = DEFAULT_NEWLINE
         self._prelude: str = ""
         self._is_private: bool = False
         self._install_recorders: (
@@ -1465,16 +1474,9 @@ class Document(Container):
 
             populate_extracted_document(self, data)
             return
-        validated = _validate_mapping(data, label="Document data argument")
-        # Building from data must not disturb it, so the values are
-        # read out in one go and their documents are presented as
-        # someone else's: an install copies from a live source but
-        # moves out of a private one, and a caller's popped subtree
-        # is theirs to keep.
-        items = list(validated.items())
-        with _sources_kept_intact(v for _, v in items):
-            for k, v in items:
-                self[k] = _coerce_for_document_init(v)
+        from tomlrt._synth import populate  # noqa: PLC0415
+
+        populate(self, data)
 
     @property
     @override
@@ -1797,6 +1799,11 @@ def _collect_private_roots(value: Any, found: dict[int, Document]) -> None:
     only wrappers, so the whole shape is walked rather than its top
     level: those wrappers are rebuilt on the way in, but the views
     inside them are installed as they are.
+
+    Not only the popped subtree, which the top level finds anyway:
+    popping re-roots its inline descendants onto the orphan too, so an
+    `Array` or inline `Table` taken out of one is privately rooted and
+    can sit inside an ordinary list or dict.
     """
     if isinstance(value, _View):
         root = value._layout_root  # noqa: SLF001
@@ -1844,31 +1851,6 @@ def _has_extractable_layout(data: Mapping[str, Any]) -> TypeGuard[Table]:
         and data._layout_root is not None  # noqa: SLF001
         and data._kind in {_Kind.SECTION, _Kind.IMPLICIT_SECTION}  # noqa: SLF001
     )
-
-
-def _coerce_for_document_init(v: Any) -> Any:
-    """Pick a sensible structural shape for ``Document(data=...)`` values.
-
-    * ``Mapping`` → section ``Table.section``, recursively coerced.
-    * Non-empty ``list`` of mappings → ``AoT`` of section tables.
-    * Anything else unchanged, including a user-supplied ``Array``,
-      whose caller has explicitly chosen inline-array shape.
-    """
-    if isinstance(v, AoT):
-        return v
-    if isinstance(v, Container):
-        return v
-    if isinstance(v, Array):
-        return v
-    if isinstance(v, Mapping):
-        return Table.section(
-            {k: _coerce_for_document_init(sub) for k, sub in v.items()}
-        )
-    if isinstance(v, list) and v and all(isinstance(x, Mapping) for x in v):
-        return AoT(
-            [{k: _coerce_for_document_init(sub) for k, sub in m.items()} for m in v]
-        )
-    return v
 
 
 # `_array` depends on `Container` for `Table`, so the import is at the
@@ -1959,6 +1941,12 @@ def _validate_input(v: object, *, inline_only: bool, key: str | None = None) -> 
         for entry in v:
             _validate_section_values(_validate_mapping(entry, label="AoT entry"))
         return
+    # Before the mapping arms: a list is never a mapping, and asking a
+    # concrete type is far cheaper than asking the `Mapping` ABC.
+    if isinstance(v, list):
+        for child in v:
+            _validate_input(child, inline_only=True)
+        return
     if _is_section(v):
         if inline_only:
             msg = "cannot store a section-style table inside an inline-style table"
@@ -1969,10 +1957,6 @@ def _validate_input(v: object, *, inline_only: bool, key: str | None = None) -> 
         mapping = _validate_mapping(v, label="inline table")
         for child_key, child in mapping.items():
             _validate_input(child, inline_only=True, key=child_key)
-        return
-    if isinstance(v, list):
-        for child in v:
-            _validate_input(child, inline_only=True)
         return
     raise TypeError(_unrepresentable_message(v, key))
 

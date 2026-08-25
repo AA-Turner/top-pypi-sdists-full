@@ -660,7 +660,7 @@ REQUIREMENTS: dict[str, Requirement] = {
                 "The dispatcher drops null-id error responses with a debug log; in v1, JSONRPCError.id was "
                 "non-nullable, so a null-id error response failed transport validation and the resulting "
                 "ValidationError was surfaced to message_handler as an exception. A typed fault channel "
-                "restoring visibility is planned before v2 stable."
+                "restoring visibility is planned."
             ),
         ),
         deferred=(
@@ -1016,8 +1016,9 @@ REQUIREMENTS: dict[str, Requirement] = {
     "mcpserver:tool:handler-throws": Requirement(
         source="sdk",
         behavior=(
-            "An exception raised by a tool function (ToolError or otherwise) is caught and returned as a "
-            "tool result with isError true and the failure text in content; it does not become a JSON-RPC error."
+            "An exception raised by a tool function is caught and returned as a tool result with isError true, "
+            "never a JSON-RPC error; a ToolError carries its message in content, any other exception carries only "
+            "the generic 'Error executing tool <name>'."
         ),
     ),
     "mcpserver:tool:input-validation": Requirement(
@@ -1307,8 +1308,15 @@ REQUIREMENTS: dict[str, Requirement] = {
     "mcpserver:resource:read-throws-surfaced": Requirement(
         source="sdk",
         behavior=(
-            "A resource function that raises is surfaced to the caller as a JSON-RPC error response "
-            "(-32603 Internal error), with the original exception text withheld."
+            "A resource function that raises an unexpected exception is surfaced to the caller as a JSON-RPC "
+            "error response (-32603 Internal error), with the original exception text withheld."
+        ),
+    ),
+    "mcpserver:resource:static-not-found": Requirement(
+        source="sdk",
+        behavior=(
+            "A static (fixed-URI) resource function that raises ResourceNotFoundError is surfaced as -32602 "
+            "with the handler's message and the URI in data, the same as from a template function."
         ),
     ),
     "mcpserver:resource:static": Requirement(
@@ -3182,7 +3190,12 @@ REQUIREMENTS: dict[str, Requirement] = {
         source=f"{SPEC_BASE_URL}/basic/transports#sending-messages-to-the-server",
         behavior="A POST containing only notifications or responses returns 202 with no body.",
         transports=("streamable-http",),
-        note="Only observable over HTTP: 202 is an HTTP status code.",
+        removed_in="2026-07-28",
+        superseded_by="hosting:http:modern:notification-post-202",
+        note=(
+            "Only observable over HTTP: 202 is an HTTP status code. At 2026-07-28 clients no longer post "
+            "responses (streamable-http §Sending Messages item 4), so only the notification half carries over."
+        ),
     ),
     "hosting:http:onerror": Requirement(
         source="sdk",
@@ -3374,6 +3387,22 @@ REQUIREMENTS: dict[str, Requirement] = {
         added_in="2026-07-28",
         transports=("streamable-http",),
         note="Only observable over streamable HTTP: the modern entry's JSONRPCError-to-HTTP-status mapping.",
+    ),
+    "hosting:http:modern:notification-post-202": Requirement(
+        source=f"{SPEC_2026_BASE_URL}/basic/transports/streamable-http#sending-messages",
+        behavior=(
+            "A 2026-07-28 POST whose body is a single JSON-RPC notification is acknowledged 202 with no "
+            "body (the spec's accept branch) and is not dispatched; a posted JSON-RPC response is rejected "
+            "INVALID_REQUEST at HTTP 400."
+        ),
+        added_in="2026-07-28",
+        supersedes=("hosting:http:notifications-202",),
+        transports=("streamable-http",),
+        note=(
+            "Only observable over streamable HTTP: the HTTP status is the assertion. The revision defines no "
+            "client-to-server notifications on this transport (cancellation is closing the response stream), "
+            "so accept-and-drop is the SDK's choice between the two responses the spec permits."
+        ),
     ),
     # ═══════════════════════════════════════════════════════════════════════════
     # Client transport: streamable HTTP

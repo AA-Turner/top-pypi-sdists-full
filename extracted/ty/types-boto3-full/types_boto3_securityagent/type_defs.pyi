@@ -139,6 +139,7 @@ __all__ = (
     "BitbucketRepositoryResourceTypeDef",
     "BitbucketResourceCapabilitiesTypeDef",
     "BlobTypeDef",
+    "CaCertificateSourceTypeDef",
     "CategoryTypeDef",
     "CloudWatchLogTypeDef",
     "CodeLocationTypeDef",
@@ -355,6 +356,7 @@ __all__ = (
     "ThreatModelTypeDef",
     "ThreatSummaryTypeDef",
     "ThreatTypeDef",
+    "TrustedCaCertificateTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateAgentSpaceInputTypeDef",
     "UpdateAgentSpaceOutputTypeDef",
@@ -602,6 +604,11 @@ class BitbucketRepositoryResourceTypeDef(TypedDict):
 class BitbucketResourceCapabilitiesTypeDef(TypedDict):
     leaveComments: NotRequired[bool]
     remediateCode: NotRequired[bool]
+
+class CaCertificateSourceTypeDef(TypedDict):
+    inlinePem: NotRequired[str]
+    artifactId: NotRequired[str]
+    s3Location: NotRequired[str]
 
 class CategoryTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1519,6 +1526,9 @@ class BatchUpdateSecurityRequirementsInputTypeDef(TypedDict):
     packId: str
     securityRequirements: Sequence[UpdateSecurityRequirementEntryTypeDef]
 
+class TrustedCaCertificateTypeDef(TypedDict):
+    source: CaCertificateSourceTypeDef
+
 class LogLocationTypeDef(TypedDict):
     logType: NotRequired[Literal["CLOUDWATCH"]]
     cloudWatchLog: NotRequired[CloudWatchLogTypeDef]
@@ -2017,6 +2027,7 @@ class AssetsOutputTypeDef(TypedDict):
     documents: NotRequired[list[DocumentInfoTypeDef]]
     sourceCode: NotRequired[list[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
 
 class AssetsTypeDef(TypedDict):
     endpoints: NotRequired[Sequence[EndpointTypeDef]]
@@ -2024,6 +2035,7 @@ class AssetsTypeDef(TypedDict):
     documents: NotRequired[Sequence[DocumentInfoTypeDef]]
     sourceCode: NotRequired[Sequence[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[Sequence[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[Sequence[TrustedCaCertificateTypeDef]]
 
 class CodeReviewJobTypeDef(TypedDict):
     codeReviewJobId: NotRequired[str]
@@ -2151,6 +2163,7 @@ class PentestJobTypeDef(TypedDict):
     networkTrafficConfig: NotRequired[NetworkTrafficConfigOutputTypeDef]
     errorInformation: NotRequired[ErrorInformationTypeDef]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]

@@ -83,8 +83,7 @@ class CustomerFacingDependencyDto(BaseModel):
         _items = []
         if self.licenses:
             for _item_licenses in self.licenses:
-                if _item_licenses:
-                    _items.append(_item_licenses.to_dict())
+                _items.append(_item_licenses.to_dict() if _item_licenses is not None else None)
             _dict['licenses'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

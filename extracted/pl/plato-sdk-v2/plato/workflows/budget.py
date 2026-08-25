@@ -2,9 +2,9 @@
 
 The workflow runtime enforces a hard USD ceiling: ``agent()`` raises
 ``BudgetExceededError`` once ``spent() >= total``. Spend is sourced from the
-session's OTel spans, NOT ``AsyncChronos.get_metrics`` — that endpoint is hard
-capped at 1000 spans (backend sessions.py:3466-3504) and a fan-out workflow
-blows past it, silently undercounting.
+session's OTel spans, NOT ``AsyncChronos.get_metrics`` — get_metrics now also
+drains the full span stream (no 1000-span cap anymore), but this module needs
+the per-execution grouping below, not just session totals.
 
 ``ChronosCostSource`` drains ALL spans via ``fetch_all_spans_async`` (cursor
 streaming, dedupe) and groups them per-execution using the canonical cost-node

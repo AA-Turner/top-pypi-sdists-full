@@ -1,6 +1,6 @@
 [project]
 name = "aiovodafone"
-version = "3.3.1"
+version = "3.3.2"
 requires-python = ">=3.12"
 description = "Python library to control Vodafone Station"
 authors = [
@@ -42,7 +42,7 @@ dev = [
 
 [tool.uv-version]
 # Source of truth for the uv version. All other version references must be derived from this value.
-version = "0.11.32" # renovate: depName=uv datasource=pypi
+version = "0.12.5" # renovate: depName=uv datasource=pypi
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -89,9 +89,6 @@ exclude_lines = [
     "raise NotImplementedError",
     'if __name__ == "__main__":',
 ]
-
-[tool.ruff.isort]
-known-first-party = ["aiovodafone", "tests"]
 
 [tool.mypy]
 check_untyped_defs = true

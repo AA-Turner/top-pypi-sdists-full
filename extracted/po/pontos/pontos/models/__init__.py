@@ -7,10 +7,9 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from inspect import isclass
+from types import UnionType
 from typing import (
     Any,
-    Dict,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -43,7 +42,7 @@ class ModelError(PontosError):
         self.data = data
 
 
-def dotted_attributes(obj: Any, data: Dict[str, Any]) -> Any:
+def dotted_attributes(obj: Any, data: dict[str, Any]) -> Any:
     """
     Set dotted attributes on an object
 
@@ -77,7 +76,7 @@ class ModelAttribute:
 
 
 def _get_value_from_model_field_cls(
-    model_field_cls: Type[Any], value: Any
+    model_field_cls: type[Any], value: Any
 ) -> Any:
     if isclass(model_field_cls) and issubclass(model_field_cls, Model):
         value = model_field_cls.from_dict(value)
@@ -99,7 +98,7 @@ def _get_value_from_model_field_cls(
     elif get_origin(model_field_cls) is dict:
         model_field_cls = dict
         value = _get_value_from_model_field_cls(model_field_cls, value)
-    elif get_origin(model_field_cls) is Union:
+    elif get_origin(model_field_cls) in (Union, UnionType):
         possible_types = get_args(model_field_cls)
         current_type = type(value)
         if current_type in possible_types:
@@ -116,11 +115,11 @@ def _get_value_from_model_field_cls(
         if isinstance(value, dict):
             value = model_field_cls(**value)
         else:
-            value = model_field_cls(value)
+            value = model_field_cls(value)  # type: ignore
     return value
 
 
-def _get_value(model_field_cls: Type[Any], value: Any) -> Any:
+def _get_value(model_field_cls: type[Any], value: Any) -> Any:
     if model_field_cls:
         value = _get_value_from_model_field_cls(model_field_cls, value)
     return value
@@ -133,7 +132,7 @@ class Model:
     """
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         """
         Create a model from a dict
 
@@ -148,7 +147,7 @@ class Model:
                 })
         """
         if not isinstance(data, dict):
-            raise ValueError(
+            raise TypeError(
                 f"Invalid data for creating an instance of {cls.__name__} "
                 f"model. Data is {data!r}"
             )
@@ -160,10 +159,10 @@ class Model:
             try:
                 if isinstance(value, list):
                     model_field_cls = type_hints.get(name)
-                    value = [_get_value(model_field_cls, v) for v in value]  # type: ignore # pylint: disable=line-too-long # noqa: E501,PLW2901
+                    value = [_get_value(model_field_cls, v) for v in value]  # type: ignore # pylint: disable=line-too-long # noqa: PLW2901
                 elif value is not None:
                     model_field_cls = type_hints.get(name)
-                    value = _get_value(model_field_cls, value)  # type: ignore # pylint: disable=line-too-long # noqa: E501,PLW2901
+                    value = _get_value(model_field_cls, value)  # type: ignore # pylint: disable=line-too-long # noqa: PLW2901
             except (ValueError, TypeError) as e:
                 # NVD data error, monitor for fixed source data
                 # and remove this fix
@@ -174,7 +173,7 @@ class Model:
                     )
                 else:
                     raise ModelError(
-                        f"Error while creating {cls.__name__} model. Could not set "  # pylint: disable=line-too-long # noqa: E501
+                        f"Error while creating {cls.__name__} model. Could not set "  # pylint: disable=line-too-long
                         f"value for property '{name}' from '{value}'.",
                         data,
                     ) from e

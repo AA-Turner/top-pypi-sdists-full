@@ -22,15 +22,24 @@
 """Safe access to git files."""
 
 __all__ = [
+    "PERM_EVERYBODY",
+    "PERM_GROUP",
     "FileLocked",
     "GitFile",
+    "SharedPerm",
+    "adjust_shared_perm",
+    "calc_shared_perm",
     "ensure_dir_exists",
+    "open_nofollow",
 ]
 
+import errno
 import os
+import stat
 import sys
 import warnings
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from types import TracebackType
 from typing import IO, Any, ClassVar, Literal, overload
 
@@ -42,6 +51,82 @@ else:
     from typing_extensions import Self
 
 
+@dataclass(frozen=True)
+class SharedPerm:
+    """A parsed core.sharedRepository setting.
+
+    Attributes:
+      tweak: Permission bits the setting asks for
+      replace: Whether those bits state the mode outright, as an explicit
+        octal setting does, rather than only loosening the existing mode
+    """
+
+    tweak: int
+    replace: bool = False
+
+
+# git's PERM_GROUP and PERM_EVERYBODY.
+PERM_GROUP = SharedPerm(tweak=0o660)
+PERM_EVERYBODY = SharedPerm(tweak=0o664)
+
+
+def calc_shared_perm(mode: int, perm: "SharedPerm") -> int:
+    """Apply a shared permission setting to an existing mode.
+
+    Mirrors git's calc_shared_perm(). The umask never appears here: it has
+    already been applied by the kernel when the file was created, and named
+    settings only ever loosen the mode that resulted.
+
+    Args:
+      mode: Current permission bits of the file or directory
+      perm: Shared permission setting to apply
+
+    Returns:
+      The adjusted permission bits
+    """
+    tweak = perm.tweak
+    if not mode & stat.S_IWUSR:
+        tweak &= ~0o222
+    if mode & stat.S_IXUSR:
+        # Copy read bits to execute bits
+        tweak |= (tweak & 0o444) >> 2
+    if perm.replace:
+        return (mode & ~0o777) | tweak
+    return mode | tweak
+
+
+def adjust_shared_perm(
+    path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    perm: "SharedPerm | None",
+) -> None:
+    """Widen the permissions of a path per core.sharedRepository.
+
+    Mirrors git's adjust_shared_perm(). The mode is read back from the path,
+    so whatever the umask already removed at creation time stays removed for
+    named settings.
+
+    Args:
+      path: File or directory to adjust
+      perm: Shared permission setting, or None to leave the path alone
+    """
+    if perm is None:
+        return
+
+    st = os.stat(path)
+    old_mode = stat.S_IMODE(st.st_mode)
+    new_mode = calc_shared_perm(old_mode, perm)
+
+    if stat.S_ISDIR(st.st_mode):
+        # Copy read bits to execute bits
+        new_mode |= (new_mode & 0o444) >> 2
+        # g+s matters only if group membership grants extra access
+        if new_mode & 0o060:
+            new_mode |= stat.S_ISGID
+
+    if new_mode != old_mode:
+        os.chmod(path, new_mode)
+
+
 def ensure_dir_exists(
     dirname: str | bytes | os.PathLike[str] | os.PathLike[bytes],
 ) -> None:
@@ -50,6 +135,37 @@ def ensure_dir_exists(
         os.makedirs(dirname)
     except FileExistsError:
         pass
+
+
+def open_nofollow(
+    path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    mode: int = 0o666,
+) -> IO[bytes]:
+    """Open a path for writing, refusing to follow a symlink at the final name.
+
+    For output written into a directory the caller named but does not
+    necessarily control, following a symlink pre-planted at the target name
+    would write outside that directory.
+
+    Args:
+      path: File to create or truncate
+      mode: Permission bits for a newly created file, before the umask
+
+    Returns:
+      A binary file object open for writing
+
+    Raises:
+      OSError: If the path is a symlink, with errno ELOOP
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    elif os.path.islink(path):
+        # Windows has no O_NOFOLLOW; this check races, but creating symlinks
+        # there requires privileges that make the attack far less reachable.
+        raise OSError(errno.ELOOP, os.strerror(errno.ELOOP), os.fspath(path))
+
+    return os.fdopen(os.open(path, flags, mode), "wb")
 
 
 def _fancy_rename(oldname: str | bytes, newname: str | bytes) -> None:
@@ -81,6 +197,7 @@ def GitFile(
     bufsize: int = -1,
     mask: int = 0o644,
     fsync: bool = True,
+    shared_perm: "SharedPerm | None" = None,
 ) -> "_GitFile": ...
 
 
@@ -91,6 +208,7 @@ def GitFile(
     bufsize: int = -1,
     mask: int = 0o644,
     fsync: bool = True,
+    shared_perm: "SharedPerm | None" = None,
 ) -> IO[bytes]: ...
 
 
@@ -101,6 +219,7 @@ def GitFile(
     bufsize: int = -1,
     mask: int = 0o644,
     fsync: bool = True,
+    shared_perm: "SharedPerm | None" = None,
 ) -> "IO[bytes] | _GitFile": ...
 
 
@@ -110,6 +229,7 @@ def GitFile(
     bufsize: int = -1,
     mask: int = 0o644,
     fsync: bool = True,
+    shared_perm: "SharedPerm | None" = None,
 ) -> "IO[bytes] | _GitFile":
     """Create a file object that obeys the git file locking protocol.
 
@@ -131,6 +251,7 @@ def GitFile(
       bufsize: Buffer size for file operations
       mask: File mask for created files
       fsync: Whether to call fsync() before closing (default: True)
+      shared_perm: core.sharedRepository setting to widen the mode with
 
     """
     if "a" in mode:
@@ -140,7 +261,7 @@ def GitFile(
     if "b" not in mode:
         raise OSError("text mode not supported for Git files")
     if "w" in mode:
-        return _GitFile(filename, mode, bufsize, mask, fsync)
+        return _GitFile(filename, mode, bufsize, mask, fsync, shared_perm)
     else:
         return open(filename, mode, bufsize)
 
@@ -214,10 +335,12 @@ class _GitFile(IO[bytes]):
         bufsize: int,
         mask: int,
         fsync: bool = True,
+        shared_perm: "SharedPerm | None" = None,
     ) -> None:
         # Convert PathLike to str/bytes for our internal use
         self._filename: str | bytes = os.fspath(filename)
         self._fsync = fsync
+        self._shared_perm = shared_perm
         if isinstance(self._filename, bytes):
             self._lockfilename: str | bytes = self._filename + b".lock"
         else:
@@ -271,6 +394,9 @@ class _GitFile(IO[bytes]):
         if self._fsync:
             os.fsync(self._file.fileno())
         self._file.close()
+        # Adjust before the rename, so the file is never visible at the
+        # final path with the wrong permissions.
+        adjust_shared_perm(self._lockfilename, self._shared_perm)
         try:
             if getattr(os, "replace", None) is not None:
                 os.replace(self._lockfilename, self._filename)

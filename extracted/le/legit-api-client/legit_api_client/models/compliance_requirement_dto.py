@@ -82,15 +82,13 @@ class ComplianceRequirementDto(BaseModel):
         _items = []
         if self.manual_checks:
             for _item_manual_checks in self.manual_checks:
-                if _item_manual_checks:
-                    _items.append(_item_manual_checks.to_dict())
+                _items.append(_item_manual_checks.to_dict() if _item_manual_checks is not None else None)
             _dict['manualChecks'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in automatic_checks (list)
         _items = []
         if self.automatic_checks:
             for _item_automatic_checks in self.automatic_checks:
-                if _item_automatic_checks:
-                    _items.append(_item_automatic_checks.to_dict())
+                _items.append(_item_automatic_checks.to_dict() if _item_automatic_checks is not None else None)
             _dict['automaticChecks'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field

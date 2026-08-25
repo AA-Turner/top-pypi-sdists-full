@@ -125,6 +125,7 @@ from routes.autonomy import bp_autonomy
 from routes.selfconfig import bp_selfconfig
 from routes.agents import bp_agents
 from routes.inventory import bp_inventory
+from routes.govern import bp_govern
 from routes.assets import bp_assets
 from routes.reasoning import bp_reasoning
 from routes.plugins import bp_plugins
@@ -327,7 +328,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.763"
+__version__ = "0.12.770"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -563,7 +564,18 @@ def _fleet_db_path():
     if FLEET_DB_PATH:
         return FLEET_DB_PATH
     if WORKSPACE:
-        return os.path.join(WORKSPACE, ".clawmetry-fleet.db")
+        _ws_db = os.path.join(WORKSPACE, ".clawmetry-fleet.db")
+        # Only honour the workspace-relative path when we can actually write
+        # there. Under launchd the process starts with cwd="/", and the
+        # workspace auto-detect below falls back to os.getcwd(), so WORKSPACE
+        # becomes "/" on any machine with no detectable OpenClaw workspace.
+        # That resolved to "/.clawmetry-fleet.db" -- unwritable on macOS -- and
+        # the dashboard exited(1) on every launchd boot instead of falling
+        # through to the ~/.clawmetry path this function documents as
+        # authoritative. A dev-mode workspace stays honoured; only an
+        # unwritable one is skipped.
+        if os.access(os.path.dirname(_ws_db) or ".", os.W_OK):
+            return _ws_db
     # Always use ~/.clawmetry/fleet.db -- create the dir if the installer
     # has not run yet or this is a fresh pip install without curl | bash.
     preferred_dir = os.path.expanduser("~/.clawmetry")
@@ -3436,7 +3448,11 @@ def detect_config(args=None):
                 WORKSPACE = c
                 break
         if not WORKSPACE:
-            WORKSPACE = os.getcwd()
+            # "/" is not a workspace. launchd starts agents with cwd="/", so
+            # this last-resort guess silently poisoned every workspace-relative
+            # state path (see _fleet_db_path) on an auto-started install.
+            _cwd = os.getcwd()
+            WORKSPACE = _cwd if _cwd not in ("/", "") else os.path.expanduser("~")
 
     MEMORY_DIR = os.path.join(WORKSPACE, "memory")
 
@@ -9495,7 +9511,18 @@ def _fleet_db_path():
     if FLEET_DB_PATH:
         return FLEET_DB_PATH
     if WORKSPACE:
-        return os.path.join(WORKSPACE, ".clawmetry-fleet.db")
+        _ws_db = os.path.join(WORKSPACE, ".clawmetry-fleet.db")
+        # Only honour the workspace-relative path when we can actually write
+        # there. Under launchd the process starts with cwd="/", and the
+        # workspace auto-detect below falls back to os.getcwd(), so WORKSPACE
+        # becomes "/" on any machine with no detectable OpenClaw workspace.
+        # That resolved to "/.clawmetry-fleet.db" -- unwritable on macOS -- and
+        # the dashboard exited(1) on every launchd boot instead of falling
+        # through to the ~/.clawmetry path this function documents as
+        # authoritative. A dev-mode workspace stays honoured; only an
+        # unwritable one is skipped.
+        if os.access(os.path.dirname(_ws_db) or ".", os.W_OK):
+            return _ws_db
     # Always use ~/.clawmetry/fleet.db -- create the dir if the installer
     # has not run yet or this is a fresh pip install without curl | bash.
     preferred_dir = os.path.expanduser("~/.clawmetry")
@@ -12274,7 +12301,11 @@ def detect_config(args=None):
                 WORKSPACE = c
                 break
         if not WORKSPACE:
-            WORKSPACE = os.getcwd()
+            # "/" is not a workspace. launchd starts agents with cwd="/", so
+            # this last-resort guess silently poisoned every workspace-relative
+            # state path (see _fleet_db_path) on an auto-started install.
+            _cwd = os.getcwd()
+            WORKSPACE = _cwd if _cwd not in ("/", "") else os.path.expanduser("~")
 
     MEMORY_DIR = os.path.join(WORKSPACE, "memory")
 
@@ -12392,6 +12423,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_selfconfig)
     app.register_blueprint(bp_agents)
     app.register_blueprint(bp_inventory)
+    app.register_blueprint(bp_govern)
     if not _pro_loaded:
         app.register_blueprint(bp_assets)
     app.register_blueprint(bp_reasoning)
@@ -12673,21 +12705,46 @@ def detect_config(args=None):
     # for a user's node in the first place, since the key never leaves this
     # machine except E2E-encrypted. Auth follows the normal /api/* rule in
     # _check_auth() (loopback trusted; remote needs the gateway token).
-    @app.route("/api/local/e2e-key", endpoint="e2e_key_get")
-    def _e2e_key_get():
-        from flask import jsonify as _jsonify
+    def _read_local_config():
         cfg_path = os.path.expanduser("~/.clawmetry/config.json")
         try:
             with open(cfg_path) as _f:
-                cfg = json.load(_f) or {}
+                return json.load(_f) or {}
         except Exception:
-            cfg = {}
-        key = cfg.get("encryption_key", "") or ""
+            return {}
+
+    @app.route("/api/local/e2e-key", endpoint="e2e_key_get")
+    def _e2e_key_get():
+        """Whether a key is set — never the key itself.
+
+        SECURITY (2026-08-24 review, finding 8): this used to return the
+        plaintext key in a GET body. Loopback callers skip authentication, so
+        every local process on the machine could read it, and a GET is exactly
+        the shape a hostile page can trigger. Revealing the real value now
+        requires the POST below, which the cross-origin write guard covers.
+        """
+        from flask import jsonify as _jsonify
+        cfg = _read_local_config()
         return _jsonify({
-            "configured": bool(key),
-            "key": key or None,
+            "configured": bool(cfg.get("encryption_key", "")),
             "node_id": cfg.get("node_id", ""),
         })
+
+    @app.route("/api/local/e2e-key/reveal", methods=["POST"], endpoint="e2e_key_reveal")
+    def _e2e_key_reveal():
+        """Return the key for the Settings pane's reveal/copy control.
+
+        A POST so the Origin guard in ``_check_auth`` applies: a page on
+        another origin can still cause this request, but it cannot make the
+        browser send an Origin we accept, and it could never read the reply
+        anyway.
+        """
+        from flask import jsonify as _jsonify
+        cfg = _read_local_config()
+        key = cfg.get("encryption_key", "") or ""
+        if not key:
+            return _jsonify({"configured": False, "key": None}), 404
+        return _jsonify({"configured": True, "key": key})
 
     @app.route("/api/local/e2e-key/regenerate", methods=["POST"], endpoint="e2e_key_regenerate")
     def _e2e_key_regenerate():
@@ -13761,9 +13818,71 @@ def _latency_probe_record(response):
     return response
 
 
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+
+
+def _cross_origin_write_blocked() -> bool:
+    """True when this request is a browser-driven WRITE from another site.
+
+    Loopback callers skip authentication entirely (``_check_auth`` below) —
+    that is the right posture for a local tool, but on its own it means any
+    page the user happens to have open in another tab can drive this API. A
+    cross-origin ``<form method=post>`` needs no CORS permission to *arrive*;
+    the browser only stops the attacker reading the reply. The side effect
+    still lands, so the endpoints that need no request body were reachable
+    from any website: rotate the E2E key (making everything already synced
+    undecryptable to its owner), emergency-stop the agents, kill every cron,
+    deactivate the licence.
+
+    The check is deliberately narrow so nothing legitimate breaks:
+
+    * Safe methods are never blocked — this is CSRF defence, not CORS.
+    * A request with **no** ``Origin`` is allowed. Browsers always attach one
+      to a non-GET fetch, same-origin included; curl, the CLI, the desktop
+      shell and OTLP exporters do not. So absence means "not a browser",
+      which is exactly the traffic that must keep working.
+    * An ``Origin`` that matches the host this request was addressed to is
+      the dashboard talking to itself.
+
+    Everything else is a page on another origin writing to your dashboard.
+    ``CLAWMETRY_ALLOW_CROSS_ORIGIN_WRITES=1`` opts out for an embedder that
+    genuinely needs it; see docs/EGRESS.md.
+    """
+    if request.method in _SAFE_METHODS:
+        return False
+    if str(
+        os.environ.get("CLAWMETRY_ALLOW_CROSS_ORIGIN_WRITES", "")
+    ).strip().lower() in ("1", "true", "yes"):
+        return False
+    origin = (request.headers.get("Origin") or "").strip()
+    if not origin:
+        return False
+    try:
+        from urllib.parse import urlparse as _urlparse
+
+        netloc = _urlparse(origin).netloc
+    except Exception:
+        return True  # unparseable Origin — fail closed
+    return netloc.lower() != (request.host or "").lower()
+
+
 @app.before_request
 def _check_auth():
     """Require valid gateway token for all /api/* routes when GATEWAY_TOKEN is set."""
+    # CSRF guard first: it applies to EVERY state-changing request, including
+    # the loopback callers that skip the token check below and the paths
+    # (auth-check, gateway config, fleet API) that return early from it.
+    if request.path.startswith("/api/") or request.path.startswith("/v1/"):
+        if _cross_origin_write_blocked():
+            return jsonify(
+                {
+                    "error": (
+                        "Cross-origin write refused. This endpoint changes state "
+                        "and may only be called from the dashboard itself."
+                    ),
+                    "crossOriginBlocked": True,
+                }
+            ), 403
     if request.path == "/api/auth/check":
         return  # Auth check endpoint is always accessible
     if request.path == "/api/gw/config":

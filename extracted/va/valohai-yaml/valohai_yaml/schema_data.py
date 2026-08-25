@@ -4,7 +4,7 @@ from typing import Any
 
 from valohai_yaml.objs.pipelines.types import edge_types
 
-SCHEMATA = {}
+SCHEMATA: dict[str, dict[str, Any]] = {}
 
 edge_types_list = " | ".join(edge_types)
 
@@ -360,6 +360,11 @@ register(
         "$id": "https://valohai.com/schemas/overridden-properties",
         "additionalProperties": False,
         "properties": {
+            "autorestart": {
+                "description": "Automatically restart executions of this node when they are "
+                "interrupted by the cloud provider. Only has an effect on spot instance environments.",
+                "type": "boolean",
+            },
             "command": {
                 "description": "The command or commands to run.",
                 "oneOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}],
@@ -586,6 +591,11 @@ register(
         "$id": "https://valohai.com/schemas/step",
         "additionalProperties": False,
         "properties": {
+            "autorestart": {
+                "description": "Automatically restart executions of this step when they are "
+                "interrupted by the cloud provider. Only has an effect on spot instance environments.",
+                "type": "boolean",
+            },
             "category": {
                 "description": "Category name to group & organize steps in the UI",
                 "type": "string",

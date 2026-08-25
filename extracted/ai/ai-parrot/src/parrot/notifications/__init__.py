@@ -3,6 +3,7 @@ Notification Mixin for AI-Parrot Agents.
 
 Provides notification capabilities to agents using the async-notify library.
 """
+import json
 import logging
 from typing import Union, List, Optional, Dict, Any
 from pathlib import Path
@@ -16,7 +17,9 @@ from notify.models import (
     Chat,
     TeamsChannel,
     TeamsWebhook,
-    TeamsCard
+    TeamsCard,
+    CardAction,
+    TeamsSection,
 )
 
 
@@ -49,6 +52,7 @@ class NotificationConfig:
     with_attachments: bool = True
     # Teams specific
     teams_config: Optional[Dict[str, Any]] = None
+    teams_card: Optional[Union[TeamsCard, Dict[str, Any]]] = None
     # Additional provider kwargs
     provider_kwargs: Optional[Dict[str, Any]] = None
 
@@ -63,6 +67,98 @@ class NotificationMixin:
     """
 
     logger = logging.getLogger(__name__)
+
+    # ------------------------------------------------------------------
+    # Adaptive Card helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_teams_card(message: Any) -> bool:
+        """Check if a message is an Adaptive Card (TeamsCard, dict, or JSON string).
+
+        Returns:
+            True when ``message`` is a ``TeamsCard`` instance, a dict whose
+            ``type`` is ``"AdaptiveCard"`` or ``@type`` is ``"MessageCard"``,
+            or a JSON string containing ``"AdaptiveCard"`` markers.
+        """
+        if isinstance(message, TeamsCard):
+            return True
+        if isinstance(message, dict):
+            return (
+                message.get("type") == "AdaptiveCard"
+                or message.get("@type") == "MessageCard"
+                or message.get("contentType") == "application/vnd.microsoft.card.adaptive"
+            )
+        if isinstance(message, str):
+            return (
+                '"AdaptiveCard"' in message
+                or '"http://adaptivecards.io"' in message
+            )
+        return False
+
+    @staticmethod
+    def build_teams_card(
+        title: str,
+        text: str = "",
+        *,
+        summary: Optional[str] = None,
+        sections: Optional[List[Dict[str, Any]]] = None,
+        actions: Optional[List[Dict[str, Any]]] = None,
+        files: Optional[List[Path]] = None,
+        version: str = "1.5",
+    ) -> TeamsCard:
+        """Build a ``TeamsCard`` from simple parameters.
+
+        This is a convenience factory so callers don't need to import
+        ``TeamsCard``/``CardAction``/``TeamsSection`` directly.
+
+        Args:
+            title: Card title (rendered as a heading).
+            text: Card body text.
+            summary: Optional summary line (shown in notifications/toasts).
+            sections: Optional list of section dicts with keys matching
+                ``TeamsSection`` fields (``activityTitle``, ``text``,
+                ``facts``, etc.).
+            actions: Optional list of action dicts with keys matching
+                ``CardAction`` fields (``type``, ``title``, ``url``,
+                ``data``).
+            files: Optional file paths to append as "View <name>" OpenUrl
+                actions (useful when Graph-upload share links are available).
+            version: Adaptive Card schema version (default ``"1.5"``).
+
+        Returns:
+            A fully populated ``TeamsCard`` ready for
+            :meth:`send_teams_card` or :meth:`send_notification`.
+        """
+        card = TeamsCard(
+            title=title,
+            text=text or None,
+            summary=summary or title,
+            version=version,
+        )
+
+        if sections:
+            for sec in sections:
+                card.addSection(**sec)
+
+        if actions:
+            for act in actions:
+                card.addAction(**act)
+
+        if files:
+            for file_path in files:
+                p = Path(file_path)
+                card.addAction(
+                    type="Action.OpenUrl",
+                    title=f"📎 {p.name}",
+                    url=str(p),
+                )
+
+        return card
+
+    # ------------------------------------------------------------------
+    # File classification
+    # ------------------------------------------------------------------
 
     def _classify_file(self, file_path: Path) -> FileType:
         """
@@ -128,6 +224,172 @@ class NotificationMixin:
 
         return categorized
 
+    # ------------------------------------------------------------------
+    # Shared plumbing for the send_* convenience wrappers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _provider_name(
+        provider: Union[str, NotificationProvider, None]
+    ) -> Optional[str]:
+        """Best-effort provider label that never raises.
+
+        ``provider`` may still be the caller-supplied string when
+        normalization itself failed, so ``provider.value`` cannot be used
+        unconditionally.
+
+        Args:
+            provider: A ``NotificationProvider``, a raw string, or ``None``.
+
+        Returns:
+            The provider's ``value`` for enum members, the string itself
+            for raw strings, or ``None`` when no provider is known.
+        """
+        if isinstance(provider, NotificationProvider):
+            return provider.value
+        if isinstance(provider, str):
+            return provider.lower()
+        return None
+
+    @staticmethod
+    def notification_succeeded(result: Optional[Dict[str, Any]]) -> bool:
+        """Report whether a notification result describes a successful send.
+
+        ``send_notification`` (and therefore every ``send_*`` convenience
+        method) reports provider failures as ``{"status": "error", ...}``
+        instead of raising, so a bare ``await`` *always* looks like it
+        worked. Callers that need a real success/failure signal must inspect
+        the returned status — this helper is that inspection, so no caller
+        has to re-derive the convention. It is the public counterpart to
+        :meth:`_notification_error`, which builds the failure payload.
+
+        Args:
+            result: The dict returned by any ``send_*`` method. ``None`` is
+                accepted and treated as a failure.
+
+        Returns:
+            ``True`` only when the provider reported success.
+        """
+        return bool(result) and result.get("status") == "success"
+
+    @classmethod
+    def _notification_error(
+        cls,
+        exc: BaseException,
+        provider: Union[str, NotificationProvider, None] = None,
+    ) -> Dict[str, Any]:
+        """Build the uniform error payload returned by every send path.
+
+        Every ``send_*`` entry point shares this shape so callers can
+        branch on ``result["status"]`` without knowing which provider or
+        wrapper produced it.
+
+        Args:
+            exc: The exception that aborted the send.
+            provider: Provider the send was addressed to, if known.
+
+        Returns:
+            ``{"status": "error", "error": str(exc), "provider": <name|None>}``
+        """
+        return {
+            "status": "error",
+            "error": str(exc),
+            "provider": cls._provider_name(provider),
+        }
+
+    @staticmethod
+    def _resolve_alias(canonical: str, primary: Any, **aliases: Any) -> Any:
+        """Resolve a canonical parameter against its legacy aliases.
+
+        The homologated wrappers name their payload ``message`` and their
+        target ``recipients``, while the historical per-provider names
+        (``card``, ``channel``, ``chat``, ``recipient``) remain accepted as
+        keyword-only aliases.
+
+        Args:
+            canonical: Name of the canonical parameter, for error messages.
+            primary: Value passed under the canonical name.
+            **aliases: Values passed under legacy alias names.
+
+        Returns:
+            The single value that was supplied, or ``None`` when none was.
+
+        Raises:
+            ValueError: If the canonical name and an alias (or two aliases)
+                are both supplied.
+        """
+        supplied = [(canonical, primary)] if primary is not None else []
+        supplied += [(name, value) for name, value in aliases.items() if value is not None]
+        if len(supplied) > 1:
+            names = ", ".join(f"'{name}'" for name, _ in supplied)
+            raise ValueError(
+                f"Pass only one of {names} — they are aliases for the same argument."
+            )
+        return supplied[0][1] if supplied else None
+
+    async def _send_convenience(
+        self,
+        provider: NotificationProvider,
+        message: Any,
+        recipients: Any,
+        *,
+        report: Optional[Any] = None,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Shared body behind every ``send_*`` convenience wrapper.
+
+        Centralizes the three things each wrapper owes its callers:
+        recipient validation, delegation to :meth:`send_notification`, and
+        the never-raise contract (argument errors raised *before*
+        ``send_notification`` is reached are shielded here, so a wrapper
+        never raises where ``send_notification`` would have returned an
+        error dict).
+
+        Args:
+            provider: Provider to deliver through.
+            message: Payload — text, ``AgentResponse``/``AIMessage``, or a
+                provider-specific object such as a ``TeamsCard``.
+            recipients: Already alias-resolved recipient(s).
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are delivered alongside the message.
+            with_attachments: Whether to deliver the report's files.
+            provider_options: Connection-level kwargs forwarded to the
+                provider's constructor (e.g. Telegram's ``bot_token``).
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            The :meth:`send_notification` result dict, or a
+            :meth:`_notification_error` dict.
+        """
+        try:
+            if recipients is None:
+                raise ValueError(
+                    f"Cannot send {provider.value} notification: no recipient "
+                    "was supplied."
+                )
+            if message is None and report is None:
+                raise ValueError(
+                    f"Cannot send {provider.value} notification: no payload "
+                    "was supplied — pass 'message', 'report', or both."
+                )
+            return await self.send_notification(
+                message=message,
+                recipients=recipients,
+                provider=provider,
+                report=report,
+                with_attachments=with_attachments,
+                provider_options=provider_options,
+                **kwargs,
+            )
+        except Exception as exc:  # noqa: BLE001 — wrappers never raise
+            self.logger.error(
+                f"Failed to send {provider.value} notification: {exc}",
+                exc_info=True,
+            )
+            return self._notification_error(exc, provider)
+
     async def send_notification(
         self,
         message: Union[str, Any],
@@ -192,15 +454,26 @@ class NotificationMixin:
             if isinstance(provider, str):
                 provider = NotificationProvider(provider.lower())
 
+            # Preserve original message — card objects must survive extraction.
+            original_message = message
+
             # Extract message content from AgentResponse/AIMessage if needed
-            message_text, files = self._extract_message_content(message, report)
+            # For Teams card objects, extract files from report only;
+            # the card itself is used as the message payload.
+            if provider == NotificationProvider.TEAMS and self._is_teams_card(message):
+                # Extract files from report but keep the card as message.
+                _, files = self._extract_message_content("", report)
+                card_message = message
+            else:
+                card_message = None
+                message_text, files = self._extract_message_content(message, report)
 
             # Parse recipients
             recipient_list = self._parse_recipients(recipients, provider)
 
             # Prepare notification arguments
             notify_args = {
-                "message": message_text,
+                "message": card_message if card_message is not None else message_text,
                 "recipient": recipient_list
             }
 
@@ -219,8 +492,9 @@ class NotificationMixin:
                 )
 
             elif provider == NotificationProvider.TEAMS:
-                # Teams might need special card formatting
-                pass
+                # Card passed via kwargs (e.g. from send_teams_card)
+                if "teams_card" in kwargs:
+                    notify_args["message"] = kwargs.pop("teams_card")
 
             # Merge additional kwargs
             notify_args |= kwargs
@@ -247,11 +521,9 @@ class NotificationMixin:
 
         except Exception as e:
             self.logger.error(f"Failed to send notification: {e}", exc_info=True)
-            return {
-                "status": "error",
-                "error": str(e),
-                "provider": provider.value if provider else None
-            }
+            # NOTE: ``provider`` may still be the caller's raw string when
+            # normalization itself raised — _notification_error handles both.
+            return self._notification_error(e, provider)
 
     def _extract_message_content(
         self,
@@ -272,8 +544,13 @@ class NotificationMixin:
         message_text = ""
         files = []
 
-        # Extract from message if it's an object
-        if isinstance(message, str):
+        # Extract from message if it's an object.
+        # NOTE: None means "no explicit text" — falling through to str(message)
+        # would yield the literal "None" as the body AND suppress the report's
+        # own output below (which is only used when message_text is empty).
+        if message is None:
+            message_text = ""
+        elif isinstance(message, str):
             message_text = message
         elif hasattr(message, 'content'):
             # AIMessage or similar
@@ -674,7 +951,18 @@ class NotificationMixin:
         """
         Send Microsoft Teams notification.
 
-        Teams supports file attachments in cards.
+        Supports three message shapes:
+
+        * **Plain text** — wrapped in a simple ``MessageCard`` by async-notify.
+        * **``TeamsCard`` object** — rendered as an Adaptive Card via
+          ``to_adaptative()`` (first-class path).
+        * **``dict`` / JSON string** — forwarded verbatim when it looks like
+          an Adaptive Card payload; async-notify's ``_render_`` handles it.
+
+        When ``files`` are provided alongside a card, Graph-upload share links
+        (or filename-fallbacks) are injected as ``Action.OpenUrl`` actions on the
+        card.  For plain-text messages, files are listed in the message body
+        (existing FEAT-273 behaviour).
         """
         from notify.providers.teams import Teams
         from ..conf import (
@@ -693,46 +981,167 @@ class NotificationMixin:
             password=TEAMS_NOTIFY_PASSWORD
         )
 
+        message = notify_args.get("message", "")
+        is_card = self._is_teams_card(message)
+
         # FEAT-273: a bridge may pass a public-URL downgrade hint; consume it here.
         a2ui_url = notify_args.pop("a2ui_artifact_url", None)
 
-        # If files provided, we can add them as attachments or links in the card
+        # ------------------------------------------------------------------
+        # File handling — inject links into card actions or message text
+        # ------------------------------------------------------------------
         if files and len(files) > 0:
-            message_text = notify_args.get("message", "")
-
             # FEAT-273: attempt real Graph-API upload → org-view share links.
             share_links = await self._teams_graph_upload_links(files)
-            if share_links:
-                links_md = "\n".join(
-                    f"- [{f.name}]({url})" for f, url in zip(files, share_links)
-                )
-                notify_args["message"] = f"{message_text}\n\n**Attached Files:**\n{links_md}"
-                self.logger.info(
-                    "Teams notification with %d Graph-uploaded file link(s)", len(share_links)
-                )
-            elif a2ui_url:
-                notify_args["message"] = (
-                    f"{message_text}\n\nView the full artifact: {a2ui_url}"
-                )
-                self.logger.warning(
-                    "A2UI degraded delivery: Teams Graph upload unavailable; sending "
-                    "public URL for %d file(s).",
-                    len(files),
+
+            if is_card:
+                # Inject file links as card actions
+                notify_args["message"] = self._teams_card_attach_files(
+                    message, files, share_links, a2ui_url
                 )
             else:
-                file_list = "\n".join([f"- {f.name}" for f in files])
-                notify_args["message"] = (
-                    f"{message_text}\n\n**Attached Files:**\n{file_list}"
-                )
-                self.logger.warning(
-                    "A2UI degraded delivery: Teams Graph upload unavailable; listing "
-                    "%d filename(s) in message text.",
-                    len(files),
-                )
+                # Plain text — existing behaviour: append links/filenames
+                message_text = message if isinstance(message, str) else str(message)
+                if share_links:
+                    links_md = "\n".join(
+                        f"- [{f.name}]({url})" for f, url in zip(files, share_links)
+                    )
+                    notify_args["message"] = f"{message_text}\n\n**Attached Files:**\n{links_md}"
+                    self.logger.info(
+                        "Teams notification with %d Graph-uploaded file link(s)", len(share_links)
+                    )
+                elif a2ui_url:
+                    notify_args["message"] = (
+                        f"{message_text}\n\nView the full artifact: {a2ui_url}"
+                    )
+                    self.logger.warning(
+                        "A2UI degraded delivery: Teams Graph upload unavailable; sending "
+                        "public URL for %d file(s).",
+                        len(files),
+                    )
+                else:
+                    file_list = "\n".join([f"- {f.name}" for f in files])
+                    notify_args["message"] = (
+                        f"{message_text}\n\n**Attached Files:**\n{file_list}"
+                    )
+                    self.logger.warning(
+                        "A2UI degraded delivery: Teams Graph upload unavailable; listing "
+                        "%d filename(s) in message text.",
+                        len(files),
+                    )
+        elif not is_card and a2ui_url:
+            # No files but a public URL hint — append to text.
+            message_text = message if isinstance(message, str) else str(message)
+            notify_args["message"] = (
+                f"{message_text}\n\nView the full artifact: {a2ui_url}"
+            )
 
         async with teams as conn:
             result = await conn.send(**notify_args)
         return result
+
+    def _teams_card_attach_files(
+        self,
+        card: Union[TeamsCard, Dict[str, Any], str],
+        files: List[Path],
+        share_links: Optional[List[str]],
+        a2ui_url: Optional[str] = None,
+    ) -> Union[TeamsCard, Dict[str, Any], str]:
+        """Inject file links into an Adaptive Card as ``Action.OpenUrl`` actions.
+
+        Mutates a ``TeamsCard`` in place; returns a new dict/string for
+        dict/JSON-string cards.
+
+        Falls back to a single A2UI public URL action when Graph upload is
+        unavailable. When neither is available, lists filenames as actions
+        with no ``url`` (visible label only).
+        """
+        if isinstance(card, TeamsCard):
+            if share_links:
+                for file_path, url in zip(files, share_links):
+                    card.addAction(
+                        type="Action.OpenUrl",
+                        title=f"📎 {file_path.name}",
+                        url=url,
+                    )
+                self.logger.info(
+                    "Teams card with %d Graph-uploaded file action(s)", len(share_links)
+                )
+            elif a2ui_url:
+                card.addAction(
+                    type="Action.OpenUrl",
+                    title="📄 View Artifact",
+                    url=a2ui_url,
+                )
+                self.logger.warning(
+                    "A2UI degraded delivery: Teams card using public URL for %d file(s).",
+                    len(files),
+                )
+            else:
+                for file_path in files:
+                    card.addAction(
+                        type="Action.OpenUrl",
+                        title=f"📎 {file_path.name}",
+                        url="#",
+                    )
+                self.logger.warning(
+                    "A2UI degraded delivery: Teams card listing %d filename(s) "
+                    "without download links.",
+                    len(files),
+                )
+            return card
+
+        if isinstance(card, dict):
+            actions = card.setdefault("actions", [])
+            if share_links:
+                for file_path, url in zip(files, share_links):
+                    actions.append({
+                        "type": "Action.OpenUrl",
+                        "title": f"📎 {file_path.name}",
+                        "url": url,
+                    })
+                self.logger.info(
+                    "Teams dict-card with %d Graph-uploaded file action(s)",
+                    len(share_links),
+                )
+            elif a2ui_url:
+                actions.append({
+                    "type": "Action.OpenUrl",
+                    "title": "📄 View Artifact",
+                    "url": a2ui_url,
+                })
+            else:
+                for file_path in files:
+                    actions.append({
+                        "type": "Action.OpenUrl",
+                        "title": f"📎 {file_path.name}",
+                        "url": "#",
+                    })
+            return card
+
+        # JSON string — parse, inject, re-serialize
+        if isinstance(card, str):
+            try:
+                parsed = json.loads(card)
+                actions = parsed.setdefault("actions", [])
+                if share_links:
+                    for file_path, url in zip(files, share_links):
+                        actions.append({
+                            "type": "Action.OpenUrl",
+                            "title": f"📎 {file_path.name}",
+                            "url": url,
+                        })
+                elif a2ui_url:
+                    actions.append({
+                        "type": "Action.OpenUrl",
+                        "title": "📄 View Artifact",
+                        "url": a2ui_url,
+                    })
+                return json.dumps(parsed)
+            except (json.JSONDecodeError, TypeError):
+                return card
+
+        return card
 
     async def _teams_graph_upload_links(
         self, files: List[Path]
@@ -782,78 +1191,318 @@ class NotificationMixin:
         finally:
             await client.close()
 
-    # Convenience methods for specific providers
+    # ------------------------------------------------------------------
+    # Convenience wrappers
+    #
+    # Every wrapper below is a thin, uniform delegation to
+    # _send_convenience(): same canonical parameter names (``message``,
+    # ``recipients``), same explicit pass-throughs (``report``,
+    # ``with_attachments``, ``provider_options``), same return contract
+    # (a result dict — these never raise).  Provider-idiomatic legacy
+    # names are kept as keyword-only aliases for backwards compatibility.
+    # ------------------------------------------------------------------
 
     async def send_email(
         self,
-        message: str,
-        recipients: Union[List[str], str],
-        subject: str,
+        message: Union[str, Any] = None,
+        recipients: Union[List[Actor], Actor, List[str], str] = None,
+        subject: Optional[str] = None,
         report: Optional[Any] = None,
         template: Optional[str] = None,
-        **kwargs
+        *,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Convenience method for sending emails."""
-        return await self.send_notification(
+        """Send an email notification.
+
+        Args:
+            message: Body text, or an ``AgentResponse``/``AIMessage`` to
+                render.
+            recipients: One or more ``Actor`` objects or email addresses.
+            subject: Subject line.
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are sent as attachments.
+            template: Optional email template name.
+            with_attachments: Whether to attach the report's files.
+            provider_options: Connection-level kwargs for the provider
+                constructor.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            Result dict — ``{"status": "success", ...}`` or
+            ``{"status": "error", "error": ..., "provider": "email"}``.
+            This method does not raise.
+
+        Example::
+
+            await agent.send_email(
+                message="Daily report ready",
+                recipients="user@example.com",
+                subject="Daily Report",
+            )
+        """
+        return await self._send_convenience(
+            provider=NotificationProvider.EMAIL,
             message=message,
             recipients=recipients,
-            provider=NotificationProvider.EMAIL,
             subject=subject,
             report=report,
             template=template,
-            **kwargs
+            with_attachments=with_attachments,
+            provider_options=provider_options,
+            **kwargs,
         )
 
     async def send_slack_message(
         self,
-        message: str,
-        channel: Union[Channel, str],
+        message: Union[str, Any] = None,
+        recipients: Union[Channel, str, List[str], None] = None,
         report: Optional[Any] = None,
-        **kwargs
+        *,
+        channel: Union[Channel, str, None] = None,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Convenience method for sending Slack messages."""
-        return await self.send_notification(
-            message=message,
-            recipients=channel,
+        """Send a Slack message.
+
+        Args:
+            message: Message text, or an ``AgentResponse``/``AIMessage``.
+            recipients: Target ``Channel`` or channel identifier.
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are delivered with the message.
+            channel: Legacy alias for ``recipients``.
+            with_attachments: Whether to deliver the report's files.
+            provider_options: Connection-level kwargs for the provider
+                constructor.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            Result dict — ``{"status": "success", ...}`` or
+            ``{"status": "error", "error": ..., "provider": "slack"}``.
+            This method does not raise.
+
+        Example::
+
+            await agent.send_slack_message(
+                message="New insights available",
+                recipients=Channel(channel_id="C123456", channel_name="reports"),
+            )
+        """
+        try:
+            target = self._resolve_alias("recipients", recipients, channel=channel)
+        except ValueError as exc:
+            self.logger.error(f"Failed to send slack notification: {exc}")
+            return self._notification_error(exc, NotificationProvider.SLACK)
+        return await self._send_convenience(
             provider=NotificationProvider.SLACK,
+            message=message,
+            recipients=target,
             report=report,
-            **kwargs
+            with_attachments=with_attachments,
+            provider_options=provider_options,
+            **kwargs,
         )
 
     async def send_telegram_message(
         self,
-        message: str,
-        chat: Union[Chat, str],
+        message: Union[str, Any] = None,
+        recipients: Union[Chat, str, List[str], None] = None,
         report: Optional[Any] = None,
         disable_notification: bool = False,
-        **kwargs
+        *,
+        chat: Union[Chat, str, None] = None,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Convenience method for sending Telegram messages.
+        """Send a Telegram message.
 
-        Automatically detects and sends images as photos, documents as files.
+        Images in ``report`` are delivered as photos and other files as
+        documents (see :meth:`_send_telegram`).
+
+        Args:
+            message: Message text, or an ``AgentResponse``/``AIMessage``.
+            recipients: Target ``Chat`` or chat_id.
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are delivered with the message.
+            disable_notification: Deliver silently.
+            chat: Legacy alias for ``recipients``.
+            with_attachments: Whether to deliver the report's files.
+            provider_options: Connection-level kwargs for the provider
+                constructor — carries ``{"bot_token": "..."}`` to deliver
+                through a specific bot instead of the env default.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            Result dict — ``{"status": "success", ...}`` or
+            ``{"status": "error", "error": ..., "provider": "telegram"}``.
+            This method does not raise.
+
+        Example::
+
+            await agent.send_telegram_message(
+                message="Your report is ready",
+                recipients="123456789",
+                report=response,
+            )
         """
-        return await self.send_notification(
-            message=message,
-            recipients=chat,
+        try:
+            target = self._resolve_alias("recipients", recipients, chat=chat)
+        except ValueError as exc:
+            self.logger.error(f"Failed to send telegram notification: {exc}")
+            return self._notification_error(exc, NotificationProvider.TELEGRAM)
+        return await self._send_convenience(
             provider=NotificationProvider.TELEGRAM,
+            message=message,
+            recipients=target,
             report=report,
             disable_notification=disable_notification,
-            **kwargs
+            with_attachments=with_attachments,
+            provider_options=provider_options,
+            **kwargs,
         )
 
     async def send_teams_message(
         self,
-        message: str,
-        recipient: Union[Actor, TeamsChannel, TeamsWebhook],
+        message: Union[str, Any] = None,
+        recipients: Union[Actor, TeamsChannel, TeamsWebhook, str, None] = None,
         report: Optional[Any] = None,
-        **kwargs
+        *,
+        recipient: Union[Actor, TeamsChannel, TeamsWebhook, str, None] = None,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Convenience method for sending Teams messages."""
-        return await self.send_notification(
-            message=message,
-            recipients=recipient,
+        """Send a plain-text message to Microsoft Teams.
+
+        This is the text sibling of :meth:`send_teams_card` — both deliver
+        through the same Teams provider and differ only in payload. A card
+        passed here is still detected by :meth:`_is_teams_card` and
+        delivered as a card, so the two are interchangeable at runtime;
+        prefer :meth:`send_teams_card` when the payload *is* a card, for
+        the payload validation it adds.
+
+        Args:
+            message: Message text, or an ``AgentResponse``/``AIMessage``.
+            recipients: Teams recipient (``Actor``, ``TeamsChannel``, or
+                ``TeamsWebhook``).
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are delivered with the message.
+            recipient: Legacy alias for ``recipients``.
+            with_attachments: Whether to deliver the report's files.
+            provider_options: Connection-level kwargs for the provider
+                constructor.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            Result dict — ``{"status": "success", ...}`` or
+            ``{"status": "error", "error": ..., "provider": "teams"}``.
+            This method does not raise.
+
+        Example::
+
+            await agent.send_teams_message(
+                message="Revenue is up 5% this week.",
+                recipients=TeamsChannel(team_id="...", channel_id="..."),
+            )
+        """
+        try:
+            target = self._resolve_alias("recipients", recipients, recipient=recipient)
+        except ValueError as exc:
+            self.logger.error(f"Failed to send teams notification: {exc}")
+            return self._notification_error(exc, NotificationProvider.TEAMS)
+        return await self._send_convenience(
             provider=NotificationProvider.TEAMS,
+            message=message,
+            recipients=target,
             report=report,
-            **kwargs
+            with_attachments=with_attachments,
+            provider_options=provider_options,
+            **kwargs,
+        )
+
+    async def send_teams_card(
+        self,
+        message: Union[TeamsCard, Dict[str, Any], str, None] = None,
+        recipients: Union[Actor, TeamsChannel, TeamsWebhook, str, None] = None,
+        report: Optional[Any] = None,
+        *,
+        card: Union[TeamsCard, Dict[str, Any], str, None] = None,
+        recipient: Union[Actor, TeamsChannel, TeamsWebhook, str, None] = None,
+        with_attachments: bool = True,
+        provider_options: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Send an Adaptive Card to Microsoft Teams.
+
+        The Adaptive Card sibling of :meth:`send_teams_message` — same
+        provider, same delivery path, card payload instead of text. The
+        card is passed directly to the async-notify Teams provider, which
+        renders it via ``TeamsCard.to_adaptative()`` (for ``TeamsCard``
+        objects) or forwards the dict/JSON verbatim (for raw Adaptive Card
+        payloads).
+
+        Args:
+            message: A ``TeamsCard`` instance, a dict with Adaptive Card
+                schema, or a JSON string representing an Adaptive Card.
+            recipients: Teams recipient (``Actor``, ``TeamsChannel``, or
+                ``TeamsWebhook``).
+            report: Optional ``AgentResponse``/``AIMessage`` whose attached
+                files are injected as ``Action.OpenUrl`` actions on the card
+                (via Graph-upload share links when available).
+            card: Legacy alias for ``message``.
+            recipient: Legacy alias for ``recipients``.
+            with_attachments: Whether to inject the report's files.
+            provider_options: Connection-level kwargs for the provider
+                constructor.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            Result dict — ``{"status": "success", ...}`` or
+            ``{"status": "error", "error": ..., "provider": "teams"}``.
+            This method does not raise.
+
+        Example::
+
+            from notify.models import TeamsCard, TeamsChannel
+
+            card = agent.build_teams_card(
+                title="Daily Revenue Report",
+                text="Revenue is up 5% this week.",
+                sections=[
+                    {"activityTitle": "Summary", "text": "$1.2M total"},
+                ],
+                actions=[
+                    {"type": "Action.OpenUrl", "title": "Dashboard",
+                     "url": "https://dashboard.example.com"},
+                ],
+            )
+            await agent.send_teams_card(
+                card,
+                recipients=TeamsChannel(team_id="...", channel_id="..."),
+            )
+        """
+        try:
+            payload = self._resolve_alias("message", message, card=card)
+            target = self._resolve_alias("recipients", recipients, recipient=recipient)
+        except ValueError as exc:
+            self.logger.error(f"Failed to send teams card: {exc}")
+            return self._notification_error(exc, NotificationProvider.TEAMS)
+        if payload is not None and not self._is_teams_card(payload):
+            self.logger.warning(
+                "send_teams_card() received a payload that is not an Adaptive "
+                "Card (%s); it will be delivered as plain text. Use "
+                "send_teams_message() for text payloads.",
+                type(payload).__name__,
+            )
+        return await self._send_convenience(
+            provider=NotificationProvider.TEAMS,
+            message=payload,
+            recipients=target,
+            report=report,
+            with_attachments=with_attachments,
+            provider_options=provider_options,
+            **kwargs,
         )

@@ -18,18 +18,18 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
 class ExportPricing(BaseModel):
     """
-    Card-CSV export pricing RATE for the /contents endpoint, published so a caller can compute an export's cost before fetching. A /contents export charge = baseline_usd + row_cpm_usd * max(0, rows - free_rows) / 1000, rows <= max_rows_ceiling. row_cpm_usd is the card-level rate: the per-1,000-row rate of the card's most expensive source (TAKO-3916 — a card costs its most expensive source, never a sum); no per-source breakdown.  `free_rows` here is the CALLER'S allowance, the same number a billed inline card's `cost` uses -- both resolve through tako_free_rows_for. The two agreed only after /contents gained an entitlement concept; before that this field was always CSV_FREE_ROWS and the two surfaces disagreed by 3x on the same rows.
+    Card-CSV export pricing RATE for the /contents endpoint, published so a caller can compute an export's cost before fetching. A /contents export charge = baseline_usd + row_cpm_usd * rows / 1000, rows <= max_rows_ceiling.  row_cpm_usd is the card-level rate: the per-1,000-row rate of the card's most expensive source (TAKO-3916 — a card costs its most expensive source, never a sum); no per-source breakdown. It is per-CALLER: an account whose row charges are waived sees 0 here, and the same formula then yields the baseline alone, which is exactly what that account is billed.
     """ # noqa: E501
     baseline_usd: Union[StrictFloat, StrictInt] = Field(description="Flat USD charged once per card export, independent of row count.")
-    row_cpm_usd: Union[StrictFloat, StrictInt] = Field(description="USD charged per 1,000 rows on rows beyond the free allowance (free_rows). Card-level rate, set by the card's most expensive source; no per-source breakdown.")
-    free_rows: StrictInt = Field(description="Rows included at the baseline price before the per-1,000-row rate (row_cpm_usd) begins to apply. This is the /contents free row allowance for your account. A search or answer response bills an inlined card against this same allowance.")
+    row_cpm_usd: Union[StrictFloat, StrictInt] = Field(description="USD charged per 1,000 rows delivered. Card-level rate, set by the card's most expensive source; no per-source breakdown. This is 0 if your account's row charges are waived, in which case an export costs baseline_usd whatever its size.")
+    free_rows: Optional[StrictInt] = Field(default=0, description="Deprecated and always 0. Row allowances are gone: an account that pays nothing per row now reports row_cpm_usd of 0 instead, which the cost formula already accounts for. Stop reading this field; it will be removed.")
     max_rows_ceiling: StrictInt = Field(description="Hard cap on rows a single export can return and bill; a larger requested max_rows is clamped to this. No format bills more than the clamped max_rows, and none bills more rows than it returns. Every format obeys this ceiling, including card_json.")
     __properties: ClassVar[List[str]] = ["baseline_usd", "row_cpm_usd", "free_rows", "max_rows_ceiling"]
 
@@ -86,7 +86,7 @@ class ExportPricing(BaseModel):
         _obj = cls.model_validate({
             "baseline_usd": obj.get("baseline_usd"),
             "row_cpm_usd": obj.get("row_cpm_usd"),
-            "free_rows": obj.get("free_rows"),
+            "free_rows": obj.get("free_rows") if obj.get("free_rows") is not None else 0,
             "max_rows_ceiling": obj.get("max_rows_ceiling")
         })
         return _obj

@@ -1,28 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-keyvault-securitydomain
-Version: 1.0.0b1
+Version: 1.0.0b2
 Summary: Microsoft Corporation Azure Keyvault Securitydomain Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
-Requires-Dist: azure-core>=1.31.0
+Requires-Dist: azure-core>=1.37.0
 Requires-Dist: typing-extensions>=4.6.0
+Dynamic: license-file
 
 # Azure Key Vault Security Domain client library for Python
 
@@ -157,7 +155,7 @@ NEW_VAULT_URL = os.environ["NEW_VAULT_URL"]
 upload_client = SecurityDomainClient(vault_url=NEW_VAULT_URL, credential=credential)
 
 transfer_key: TransferKey = upload_client.get_transfer_key()
-assert transfer_key.transfer_key_jwk
+assert transfer_key.transfer_key
 ```
 
 ### Upload a security domain
@@ -167,9 +165,7 @@ example for disaster recovery. Like the download operation this will activate a 
 will return None if successful (and an error if unsuccessful) instead of the security domain object.
 
 ```python
-from azure.keyvault.securitydomain.models import SecurityDomainOperationStatus
-
-result: SecurityDomainOperationStatus = upload_client.begin_upload(security_domain=result).result()
+upload_client.begin_upload(security_domain=result).wait()
 print("The managed HSM has been successfully restored with the security domain.")
 ```
 
@@ -230,3 +226,29 @@ additional questions or comments.
 [samples]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/keyvault/azure-keyvault-securitydomain/samples
 [securitydomain_client_docs]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/keyvault/azure-keyvault-securitydomain/azure/keyvault/securitydomain/_patch.py
 [securitydomain_docs]: https://learn.microsoft.com/azure/key-vault/managed-hsm/security-domain
+
+# Release History
+
+## 1.0.0b2 (2026-08-20)
+
+### Features Added
+
+- Added support for service API version `2025-07-01` [#46782](https://github.com/Azure/azure-sdk-for-python/pull/46782)
+
+### Breaking Changes
+
+- Renamed internal class "Error" to "KeyVaultErrorError" to align with other KeyVault SDKs.
+
+### Bugs Fixed
+
+- Fixed a replay bug in challenge authentication policy. The original request is now stored at the request level instead of the client level [#48636](https://github.com/Azure/azure-sdk-for-python/pull/48636).
+
+### Other Changes
+
+- Key Vault API version `2025-07-01` is now the default
+
+## 1.0.0b1 (2025-05-07)
+
+### Features Added
+
+- Initial version

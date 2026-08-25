@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aioautomower
-Version: 2.8.0
+Version: 2.8.1
 Summary: MPython module to talk to Husqvarna Automower.
 Project-URL: Homepage, https://github.com/Thomas55555/aioautomower
 Project-URL: Repository, https://github.com/Thomas55555/aioautomower

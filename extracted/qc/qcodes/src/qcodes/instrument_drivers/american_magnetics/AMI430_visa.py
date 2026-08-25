@@ -6,11 +6,10 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Any, ClassVar, Concatenate, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Concatenate, cast
 
 import numpy as np
 from pyvisa import VisaIOError
-from typing_extensions import ParamSpec
 
 from qcodes.instrument import (
     Instrument,
@@ -20,21 +19,20 @@ from qcodes.instrument import (
     VisaInstrumentKWArgs,
 )
 from qcodes.math_utils import FieldVector
+from qcodes.metadatable import normalize_snapshot_update
 from qcodes.parameters import Parameter
 from qcodes.utils.types import NumberType
 from qcodes.validators import Anything, Bool, Enum, Ints, Numbers
 
 if TYPE_CHECKING:
-    from typing_extensions import Unpack
+    from typing import Unpack
+
+    from qcodes.metadatable import SnapshotUpdate
 
 
 log = logging.getLogger(__name__)
 
 CartesianFieldLimitFunction = Callable[[float, float, float], bool]
-
-S = TypeVar("S", bound="AMI430SwitchHeater")
-T = TypeVar("T")
-P = ParamSpec("P")
 
 
 class AMI430Exception(Exception):
@@ -48,7 +46,7 @@ class AMI430Warning(UserWarning):
 class AMI430SwitchHeater(InstrumentChannel["AMIModel430"]):
     class _Decorators:
         @classmethod
-        def check_enabled(
+        def check_enabled[S: "AMI430SwitchHeater", T, **P](
             cls, f: Callable[Concatenate[S, P], T]
         ) -> Callable[Concatenate[S, P], T]:
             def check_enabled_decorator(
@@ -154,13 +152,14 @@ class AMI430SwitchHeater(InstrumentChannel["AMIModel430"]):
 
     def snapshot_base(
         self,
-        update: bool | None = False,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[str, Any]:
+        update = normalize_snapshot_update(update)
         if params_to_skip_update is None:
             params_to_skip_update = []
 
-        if update is True:
+        if update == "All":
             enabled = self.enabled.get()
         else:
             enabled = self.enabled.cache.get()
@@ -422,24 +421,22 @@ class AMIModel430(VisaInstrument):
         Check the current state of the magnet to see if we can start ramping
         """
         if self.is_quenched():
-            logging.error(f"{__name__}: Could not ramp because of quench")
+            self.log.error(f"{__name__}: Could not ramp because of quench")
             return False
 
         if self.switch_heater.in_persistent_mode():
-            logging.error(f"{__name__}: Could not ramp because persistent")
+            self.log.error(f"{__name__}: Could not ramp because persistent")
             return False
 
         state = self.ramping_state()
         if state == "ramping":
             # If we don't have a persistent switch, or it's warm
-            if not self.switch_heater.enabled():
-                return True
-            elif self.switch_heater.state():
+            if not self.switch_heater.enabled() or self.switch_heater.state():
                 return True
         elif state in ["holding", "paused", "at zero current"]:
             return True
 
-        logging.error(f"{__name__}: Could not ramp, state: {state}")
+        self.log.error(f"{__name__}: Could not ramp, state: {state}")
         return False
 
     def set_field(
@@ -479,9 +476,8 @@ class AMIModel430(VisaInstrument):
         self.write(f"CONF:FIELD:TARG {value}")
 
         # If we have a persistent switch, make sure it is resistive
-        if self.switch_heater.enabled():
-            if not self.switch_heater.state():
-                raise AMI430Exception("Switch heater is not on")
+        if self.switch_heater.enabled() and not self.switch_heater.state():
+            raise AMI430Exception("Switch heater is not on")
         self.ramp()
 
         # Check if we want to block
@@ -606,7 +602,7 @@ class AMIModel430(VisaInstrument):
     def write_raw(self, cmd: str) -> None:
         try:
             super().write_raw(cmd)
-        except VisaIOError as err:
+        except VisaIOError:
             # The ami communication has found to be unstable
             # so we retry the communication here
             msg = f"Got VisaIOError while writing {cmd} to instrument."
@@ -618,12 +614,12 @@ class AMIModel430(VisaInstrument):
                 self.device_clear()
                 super().write_raw(cmd)
             else:
-                raise err
+                raise
 
     def ask_raw(self, cmd: str) -> str:
         try:
             result = super().ask_raw(cmd)
-        except VisaIOError as err:
+        except VisaIOError:
             # The ami communication has found to be unstable
             # so we retry the communication here
             msg = f"Got VisaIOError while asking the instrument: {cmd}"
@@ -635,7 +631,7 @@ class AMIModel430(VisaInstrument):
                 self.device_clear()
                 result = super().ask_raw(cmd)
             else:
-                raise err
+                raise
         return result
 
 
@@ -1064,7 +1060,7 @@ class AMIModel4303D(Instrument):
             return bool(np.linalg.norm(setpoint_values) < self._field_limit)
 
         answer = any(
-            [limit_function(*setpoint_values) for limit_function in self._field_limit]
+            limit_function(*setpoint_values) for limit_function in self._field_limit
         )
 
         return answer
@@ -1320,3 +1316,20 @@ class AMIModel4303D(Instrument):
         self._adjust_child_instruments(setpoint_values)
 
         self._set_point = set_point
+
+
+if not TYPE_CHECKING:
+    from typing import TypeVar
+
+    from typing_extensions import ParamSpec
+
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    __getattr__ = _make_deprecated_typevars_getattr(
+        __name__,
+        {
+            "S": TypeVar("S", bound="AMI430SwitchHeater"),
+            "T": TypeVar("T"),
+            "P": ParamSpec("P"),
+        },
+    )

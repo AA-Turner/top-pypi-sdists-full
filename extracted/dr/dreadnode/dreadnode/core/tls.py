@@ -1,5 +1,6 @@
 """Native host trust for Dreadnode-owned platform connections."""
 
+import functools
 import ssl
 import typing as t
 
@@ -16,6 +17,16 @@ TLS_TRUST_DOCS_URL = "https://docs.dreadnode.io/self-hosting/client-tls-trust/"
 def create_platform_ssl_context() -> ssl.SSLContext:
     """Create a verified TLS context backed by the host OS trust store."""
     return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+
+@functools.lru_cache(maxsize=1)
+def cached_platform_ssl_context() -> ssl.SSLContext:
+    """A process-wide native-trust context, for callers that build many clients.
+
+    Runtime connections construct a client per runtime and open a socket per
+    session, so re-reading the OS trust store each time is pure overhead.
+    """
+    return create_platform_ssl_context()
 
 
 class NativeTrustAdapter(HTTPAdapter):

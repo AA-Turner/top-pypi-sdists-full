@@ -17,8 +17,7 @@ from qcodes.parameters import Group, GroupParameter, Parameter
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.instrument.channel import ChannelTuple
 
@@ -663,6 +662,7 @@ class LakeshoreBaseSensorChannel(InstrumentChannel):
         return terms_in_number
 
 
+# Cannot convert to PEP 695: uses default= and covariant= which require PEP 696 (Python 3.13+).
 ChanType_co = TypeVar(
     "ChanType_co",
     bound=LakeshoreBaseSensorChannel,

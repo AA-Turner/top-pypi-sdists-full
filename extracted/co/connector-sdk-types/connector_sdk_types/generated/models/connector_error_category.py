@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class ConnectorErrorCategory(str, Enum):
     """
-    The action classification — what the caller should do in response to this error.
+    The action classification - what the caller should do in response to this error.
     """
 
     """

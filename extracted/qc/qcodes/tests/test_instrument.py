@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import gc
 import io
+import logging
 import re
 import weakref
 from typing import TYPE_CHECKING, Any, assert_type
@@ -22,6 +23,7 @@ from qcodes.instrument import (
     find_or_create_instrument,
 )
 from qcodes.instrument_drivers.mock_instruments import (
+    DummyBase,
     DummyChannelInstrument,
     DummyFailingInstrument,
     DummyInstrument,
@@ -95,7 +97,9 @@ def test_validate_function(testdummy: DummyInstrument) -> None:
 
     testdummy.dac1.cache._value = 1000  # overrule the validator
     testdummy.dac1.cache._raw_value = 1000  # overrule the validator
-    with pytest.raises(Exception):
+    with pytest.raises(
+        ValueError, match=r"1000 is invalid: must be between -800 and 400 inclusive"
+    ):
         testdummy.validate_status()
 
 
@@ -121,11 +125,13 @@ def test_instrument_fail() -> None:
 @pytest.mark.usefixtures("close_before_and_after")
 def test_instrument_on_invalid_identifier() -> None:
     # Check if warning and error raised when invalid identifer name given
-    with pytest.warns(
-        UserWarning, match="Changed !-name to !_name for instrument identifier"
+    with (
+        pytest.warns(
+            UserWarning, match="Changed !-name to !_name for instrument identifier"
+        ),
+        pytest.raises(ValueError, match="!_name invalid instrument identifier"),
     ):
-        with pytest.raises(ValueError, match="!_name invalid instrument identifier"):
-            DummyInstrument(name="!-name")
+        DummyInstrument(name="!-name")
 
     assert Instrument.instances() == []
     assert DummyInstrument.instances() == []
@@ -277,7 +283,7 @@ def test_add_remove_f_p(testdummy) -> None:
         match="Use attributes directly on the instrument object instead",
     ):
         fcn = testdummy["function"]
-        assert isinstance(fcn, Function)
+    assert isinstance(fcn, Function)
     # by design, one gets the parameter if a function exists
     # and has same name
     with pytest.warns(
@@ -285,7 +291,7 @@ def test_add_remove_f_p(testdummy) -> None:
         match="Use attributes directly on the instrument object instead",
     ):
         dac1 = testdummy["dac1"]
-        assert isinstance(dac1, Parameter)
+    assert isinstance(dac1, Parameter)
 
 
 def test_instances(testdummy, parabola) -> None:
@@ -355,7 +361,7 @@ def test_meta_instrument(parabola) -> None:
     assert mock_instrument.parabola() == parabola.parabola() * 2
 
     # Check snapshots
-    snap = mock_instrument.snapshot(update=True)
+    snap = mock_instrument.snapshot(update="All")
     assert "parameters" in snap
     assert "gain" in snap["parameters"]
     assert snap["parameters"]["gain"]["value"] == 2
@@ -448,6 +454,101 @@ def test_recreate(request: FixtureRequest) -> None:
 
     assert instr_2 in Instrument._all_instruments.values()
     assert instr not in Instrument._all_instruments.values()
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_closes_all_instruments() -> None:
+    """``close_all`` closes every registered instrument by default."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+    parabola = MockParabola("parabola")
+
+    assert Instrument.is_valid(dummy)
+    assert Instrument.is_valid(parabola)
+
+    Instrument.close_all()
+
+    assert not Instrument.is_valid(dummy)
+    assert not Instrument.is_valid(parabola)
+    assert Instrument._all_instruments == WeakValueDictionary()
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_only_subclasses_from_leaf_class() -> None:
+    """``only_subclasses`` on a leaf class leaves sibling classes open."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+    parabola = MockParabola("parabola")
+
+    # DummyInstrument and MockParabola are siblings (both subclass DummyBase),
+    # so closing only DummyInstrument subclasses must leave the parabola open.
+    DummyInstrument.close_all(only_subclasses=True)
+
+    assert not Instrument.is_valid(dummy)
+    assert Instrument.is_valid(parabola)
+
+    # The remaining instrument can still be closed with a plain close_all.
+    Instrument.close_all()
+    assert not Instrument.is_valid(parabola)
+    assert Instrument._all_instruments == WeakValueDictionary()
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_only_subclasses_from_base_class() -> None:
+    """``only_subclasses`` closes instances of the class and its subclasses."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+    parabola = MockParabola("parabola")
+
+    # Both DummyInstrument and MockParabola are subclasses of DummyBase, so both
+    # are closed when calling close_all on the shared base class.
+    DummyBase.close_all(only_subclasses=True)
+
+    assert not Instrument.is_valid(dummy)
+    assert not Instrument.is_valid(parabola)
+    assert Instrument._all_instruments == WeakValueDictionary()
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_only_subclasses_false_closes_everything() -> None:
+    """``only_subclasses=False`` closes all instruments regardless of class."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+    parabola = MockParabola("parabola")
+
+    DummyInstrument.close_all(only_subclasses=False)
+
+    assert not Instrument.is_valid(dummy)
+    assert not Instrument.is_valid(parabola)
+    assert Instrument._all_instruments == WeakValueDictionary()
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_log_status(caplog: pytest.LogCaptureFixture) -> None:
+    """``log_status=True`` logs the closing of each instrument."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+
+    with caplog.at_level(logging.INFO, logger="qcodes.instrument.instrument"):
+        Instrument.close_all(log_status=True)
+
+    assert "Closing all registered instruments" in caplog.text
+    assert "Closing dummy" in caplog.text
+    assert not Instrument.is_valid(dummy)
+
+
+@pytest.mark.usefixtures("close_before_and_after")
+def test_close_all_no_log_by_default(caplog: pytest.LogCaptureFixture) -> None:
+    """``close_all`` does not log anything when ``log_status`` is not set."""
+    dummy = DummyInstrument(name="dummy", gates=["dac1"])
+
+    with caplog.at_level(logging.INFO, logger="qcodes.instrument.instrument"):
+        Instrument.close_all()
+
+    assert "Closing all registered instruments" not in caplog.text
+    assert "Closing dummy" not in caplog.text
+    assert not Instrument.is_valid(dummy)
+
+
+def test_close_all_only_accepts_keyword_arguments() -> None:
+    """The ``close_all`` options are keyword-only."""
+    with pytest.raises(TypeError):
+        Instrument.close_all(True)  # type: ignore[misc]
 
 
 def test_instrument_metadata(request: FixtureRequest) -> None:

@@ -26,7 +26,7 @@ import functools
 import logging
 import time
 import types
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import Any, Literal, Self, TypeAlias, overload
 import warnings
 import zoneinfo
 
@@ -34,20 +34,10 @@ import iso8601
 
 from oslo_utils import reflection
 
-if TYPE_CHECKING:
-    from typing_extensions import Self
-
-    # Needed until we bump our minimum to Python 3.11
-    #
-    # https://github.com/python/typeshed/issues/7855
-    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
-else:
-    _LoggerAdapter = logging.LoggerAdapter
+_Logger: TypeAlias = logging.Logger | logging.LoggerAdapter[logging.Logger]
 
 # ISO 8601 extended time format with microseconds
 PERFECT_TIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
-
-_MAX_DATETIME_SEC = 59
 
 now = time.monotonic
 
@@ -128,7 +118,7 @@ def utcnow(with_timezone: bool = False) -> datetime.datetime:
 
     if with_timezone:
         return datetime.datetime.now(tz=iso8601.iso8601.UTC)
-    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def is_older_than(
@@ -212,7 +202,7 @@ def set_time_override(override_time: datetime.datetime | None = None) -> None:
         stacklevel=2,
     )
     _override_time = override_time or datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ).replace(tzinfo=None)
 
 
@@ -316,7 +306,7 @@ def unmarshall_time(tyme: dict[str, Any]) -> datetime.datetime:
     # NOTE(ihrachys): datetime does not support leap seconds,
     # so the best thing we can do for now is dropping them
     # http://bugs.python.org/issue23574
-    second = min(tyme['second'], _MAX_DATETIME_SEC)
+    second = min(tyme['second'], 59)
     dt = datetime.datetime(
         day=tyme['day'],
         month=tyme['month'],
@@ -391,7 +381,7 @@ class Split:
 
 
 def time_it(
-    logger: logging.Logger | _LoggerAdapter,
+    logger: _Logger,
     log_level: int = logging.DEBUG,
     message: str = (
         "It took %(seconds).02f seconds to run function '%(func_name)s'"

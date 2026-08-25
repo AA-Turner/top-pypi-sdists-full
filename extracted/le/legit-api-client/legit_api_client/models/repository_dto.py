@@ -98,22 +98,19 @@ class RepositoryDto(BaseModel):
         _items = []
         if self.tags:
             for _item_tags in self.tags:
-                if _item_tags:
-                    _items.append(_item_tags.to_dict())
+                _items.append(_item_tags.to_dict() if _item_tags is not None else None)
             _dict['tags'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in product_units (list)
         _items = []
         if self.product_units:
             for _item_product_units in self.product_units:
-                if _item_product_units:
-                    _items.append(_item_product_units.to_dict())
+                _items.append(_item_product_units.to_dict() if _item_product_units is not None else None)
             _dict['productUnits'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in context_fields (list)
         _items = []
         if self.context_fields:
             for _item_context_fields in self.context_fields:
-                if _item_context_fields:
-                    _items.append(_item_context_fields.to_dict())
+                _items.append(_item_context_fields.to_dict() if _item_context_fields is not None else None)
             _dict['contextFields'] = _items
         # override the default output from pydantic by calling `to_dict()` of group
         if self.group:

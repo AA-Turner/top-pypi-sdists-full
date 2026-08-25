@@ -91,8 +91,7 @@ class CreateProductUnitDto(BaseModel):
         _items = []
         if self.repository_directories:
             for _item_repository_directories in self.repository_directories:
-                if _item_repository_directories:
-                    _items.append(_item_repository_directories.to_dict())
+                _items.append(_item_repository_directories.to_dict() if _item_repository_directories is not None else None)
             _dict['repositoryDirectories'] = _items
         # set to None if description (nullable) is None
         # and model_fields_set contains the field

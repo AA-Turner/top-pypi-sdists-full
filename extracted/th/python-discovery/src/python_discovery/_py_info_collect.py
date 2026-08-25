@@ -198,25 +198,30 @@ class PythonInfoCollector:
 
     def _fast_get_system_executable(self):
         """Try to get the system executable by just looking at properties."""
-        # if we're not in a virtual environment, this is already a system python, so return the original executable
-        # note we must choose the original and not the pure executable as shim scripts might throw us off
+        # Preserve the invoked path because shims may rely on it.
         if not (self.real_prefix or (self.base_prefix is not None and self.base_prefix != self.prefix)):
             return self._resolve_executable_symlink(self.original_executable)
 
-        # if this is NOT a virtual environment, can't determine easily, bail out
         if self.real_prefix is not None:
             return None
 
-        base_executable = getattr(sys, "_base_executable", None)  # some platforms may set this to help us
-        if base_executable is None:  # use the saved system executable if present
+        base_executable = getattr(sys, "_base_executable", None)
+        if base_executable is None:
             return None
 
-        # we know we're in a virtual environment, can not be us
         if sys.executable == base_executable:
             return None
 
-        # We're not in a venv and base_executable exists; use it directly
+        # CPython accepts pythonX without checking its version when resolving a copied venv.
         if os.path.exists(base_executable):  # pragma: >=3.11 cover
+            major = self.version_info.major
+            ambiguous_names = {"python", "python{}".format(major)}
+            if self.implementation == "PyPy":
+                ambiguous_names.update({"pypy", "pypy3", "pypy{}".format(major)})
+            if os.path.basename(base_executable) in ambiguous_names:
+                versioned = self._try_posix_versioned_executable(base_executable)
+                if versioned is not None and not os.path.samefile(base_executable, versioned):
+                    base_executable = versioned
             return self._resolve_executable_symlink(base_executable)
 
         # Try fallback for POSIX virtual environments
@@ -259,28 +264,48 @@ class PythonInfoCollector:
 
     def _try_posix_fallback_executable(self, base_executable):
         """Find a versioned Python binary as fallback for POSIX virtual environments."""
+        versioned = self._try_posix_versioned_executable(base_executable)
+        if versioned is not None:
+            return versioned
+
         major, minor = self.version_info.major, self.version_info.minor
         if self.os != "posix" or (major, minor) < (3, 11):
             return None
 
-        # search relative to the directory of sys._base_executable
         base_dir = os.path.dirname(base_executable)
-        candidates = ["python{}".format(major), "python{}.{}".format(major, minor)]
+        candidates = ["python{}".format(major)]
         if self.implementation == "PyPy":
-            candidates.extend(["pypy", "pypy3", "pypy{}".format(major), "pypy{}.{}".format(major, minor)])
+            candidates.extend(["pypy", "pypy3", "pypy{}".format(major)])
 
         for candidate in candidates:
             full_path = os.path.join(base_dir, candidate)
             if os.path.exists(full_path):
                 return full_path
 
-        return None  # in this case we just can't tell easily without poking around FS and calling them, bail
+        return None
+
+    def _try_posix_versioned_executable(self, base_executable):
+        major, minor = self.version_info.major, self.version_info.minor
+        if self.os != "posix" or (major, minor) < (3, 11):
+            return None
+
+        base_dir = os.path.dirname(base_executable)
+        candidates = ["python{}.{}".format(major, minor)]
+        if self.implementation == "PyPy":
+            candidates.insert(0, "pypy{}.{}".format(major, minor))
+
+        for candidate in candidates:
+            full_path = os.path.join(base_dir, candidate)
+            if os.path.exists(full_path):
+                return full_path
+
+        return None
 
     @staticmethod
     def _distutils_install():  # pragma: <3.11 cover # 3.11+ uses the "venv" scheme instead
         # use distutils primarily because that's what pip does
         # https://github.com/pypa/pip/blob/main/src/pip/_internal/locations.py#L95
-        # note here we don't import Distribution directly to allow setuptools to patch it
+        # Avoid importing Distribution before setuptools can patch it.
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
             try:

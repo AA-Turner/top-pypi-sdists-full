@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import numpy.typing as npt
 from packaging import version
-from typing_extensions import deprecated
 
 from qcodes.instrument import (
     InstrumentBaseKWArgs,
@@ -17,12 +16,10 @@ from qcodes.instrument import (
     VisaInstrumentKWArgs,
 )
 from qcodes.math_utils import FieldVector
-from qcodes.utils.deprecate import QCoDeSDeprecationWarning
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.parameters import Parameter
 
@@ -59,7 +56,7 @@ def _signal_parser(our_scaling: float, response: str) -> float:
     scale_and_unit = response[len(digits) :]
     if scale_and_unit == "":
         their_scaling: float = 1
-    elif scale_and_unit[0] in scale_to_factor.keys():
+    elif scale_and_unit[0] in scale_to_factor:
         their_scaling = scale_to_factor[scale_and_unit[0]]
     else:
         their_scaling = 1
@@ -267,7 +264,7 @@ class OxfordMercuryWorkerPS(InstrumentChannel["OxfordMercuryiPS"]):
             get_cmd: raw string for the command, e.g. 'SIG:VOLT'
 
         Returns:
-            The response. Cf. MercuryiPS.ask for how much is returned
+            The response. Cf. OxfordMercuryiPS.ask for how much is returned
 
         """
         dressed_cmd = f"READ:DEV:{self.uid}:{self.psu_string}:{get_cmd}"
@@ -293,19 +290,6 @@ class OxfordMercuryWorkerPS(InstrumentChannel["OxfordMercuryiPS"]):
 
         # TODO: we could use the opportunity to check that we did set/achieve
         #  the intended value
-
-
-@deprecated(
-    "MercuryWorkerPS is deprecated. Please use qcodes.instrument_drivers.oxford.OxfordMercuryWorkerPS instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class MercuryWorkerPS(OxfordMercuryWorkerPS):
-    """
-    Alias for backwards compatibility
-    """
-
-    pass
 
 
 class OxfordMercuryiPS(VisaInstrument):
@@ -537,7 +521,9 @@ class OxfordMercuryiPS(VisaInstrument):
         cartesian_targ = self._target_vector.get_components("x", "y", "z")
         for targ, worker in zip(cartesian_targ, self.submodules.values()):
             if not isinstance(worker, OxfordMercuryWorkerPS):
-                raise RuntimeError(f"Expected a MercuryWorkerPS but got {type(worker)}")
+                raise RuntimeError(
+                    f"Expected an OxfordMercuryWorkerPS but got {type(worker)}"
+                )
             worker.field_target(targ)
 
     def _set_target_field(self, field: FieldVector) -> None:
@@ -572,7 +558,9 @@ class OxfordMercuryiPS(VisaInstrument):
         """
         for worker in self.submodules.values():
             if not isinstance(worker, OxfordMercuryWorkerPS):
-                raise RuntimeError(f"Expected a MercuryWorkerPS but got {type(worker)}")
+                raise RuntimeError(
+                    f"Expected an OxfordMercuryWorkerPS but got {type(worker)}"
+                )
             worker.ramp_to_target()
 
     def _ramp_simultaneously_blocking(self) -> None:
@@ -585,7 +573,9 @@ class OxfordMercuryiPS(VisaInstrument):
 
         for worker in self.submodules.values():
             if not isinstance(worker, OxfordMercuryWorkerPS):
-                raise RuntimeError(f"Expected a MercuryWorkerPS but got {type(worker)}")
+                raise RuntimeError(
+                    f"Expected an OxfordMercuryWorkerPS but got {type(worker)}"
+                )
             # wait for the ramp to finish, we don't care about the order
             while worker.ramp_status() == "TO SET":
                 time.sleep(0.1)
@@ -685,10 +675,11 @@ class OxfordMercuryiPS(VisaInstrument):
 
         for cur, worker in zip(meas_vals, self.submodules.values()):
             if not isinstance(worker, OxfordMercuryWorkerPS):
-                raise RuntimeError(f"Expected a MercuryWorkerPS but got {type(worker)}")
-            if worker.field_target() != cur:
-                if worker.field_ramp_rate() == 0:
-                    raise ValueError(f"Can not ramp {worker}; ramp rate set to zero!")
+                raise RuntimeError(
+                    f"Expected an OxfordMercuryWorkerPS but got {type(worker)}"
+                )
+            if worker.field_target() != cur and worker.field_ramp_rate() == 0:
+                raise ValueError(f"Can not ramp {worker}; ramp rate set to zero!")
 
         # then the actual ramp
         {
@@ -733,14 +724,3 @@ class OxfordMercuryiPS(VisaInstrument):
             base_resp = resp.replace(f"STAT:{base_cmd}", "")
 
         return base_resp
-
-
-@deprecated(
-    "MercuryiPS is deprecated. Please use qcodes.instrument_drivers.oxford.OxfordMercuryiPS instead.",
-    category=QCoDeSDeprecationWarning,
-    stacklevel=1,
-)
-class MercuryiPS(OxfordMercuryiPS):
-    """Alias for backwards compatibility"""
-
-    pass

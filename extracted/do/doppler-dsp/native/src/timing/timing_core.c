@@ -19,6 +19,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "timing/timing_core.h"
+#include "dp_interrupt.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -58,34 +59,66 @@ offset_ns (uint64_t n, double fs)
 }
 
 /* Sleep until the absolute monotonic instant @p target (ns). Drift-free: the
-   target is fixed, so a signal-interrupted sleep simply resumes toward it. */
+   target is fixed, so a signal-interrupted sleep simply resumes toward it --
+   UNLESS the caller has been interrupted, in which case it gives up.
+
+   That exception is load-bearing. Resuming toward a fixed deadline is the
+   right pacing behaviour and it is also a wait that no signal can end: a
+   handler sets a flag, and the loop that would read it is on the far side of
+   this sleep. Paced against a low sample rate the sleep is seconds long, so
+   `wfmgen --continuous --realtime` ignored Ctrl+C entirely while the same
+   run without --realtime exited in 3 ms. Same defect as the ring's spin and
+   the blocking recv, in a third place; see docs/design/io-termination.md. */
 static void
 sleep_until_mono_ns (uint64_t target)
 {
-#if defined(__linux__)
-  struct timespec ts;
-  ts.tv_sec  = (time_t)(target / 1000000000ULL);
-  ts.tv_nsec = (long)(target % 1000000000ULL);
-  /* clock_nanosleep returns 0 or a positive errno (not -1). On EINTR the
-     absolute deadline is unchanged, so just retry. */
-  while (clock_nanosleep (CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL) == EINTR)
-    ;
-#else
-  /* Portable fallback (e.g. macOS, which lacks clock_nanosleep): sleep the
-     remaining interval, re-reading the clock each pass so an early wake or a
-     signal recomputes the remainder against the same absolute target. */
+  /* SLICED, and checked between slices -- not one sleep to the deadline.
+     The obvious form checks the flag only where clock_nanosleep returns
+     EINTR, which means it works when a SIGNAL happens to land and not at
+     all when a caller (or another thread) simply sets the flag: no signal,
+     no EINTR, no check, and the sleep serves its full interval. Worse,
+     dp_interrupt_on_signal installs with SA_RESTART, under which Linux
+     restarts an absolute clock_nanosleep by itself -- so even the signal
+     case is not guaranteed to surface.
+
+     Slicing makes the bound a property of the code rather than of whether
+     a signal arrived, and reuses the knob that already exists for exactly
+     this: dp_interrupt_latency_ms() is the worst-case delay between
+     dp_interrupt() and a wait returning, whatever the wait is waiting on. */
   for (;;)
     {
+      if (dp_interrupted ())
+        return;
+
       uint64_t now = dp_mono_ns ();
       if (now >= target)
         return;
-      uint64_t        rem = target - now;
+
+      uint64_t rem   = target - now;
+      uint64_t slice = (uint64_t)dp_interrupt_latency_ms () * 1000000ULL;
+      uint64_t nap   = rem < slice ? rem : slice;
+
+      /* An absolute deadline per slice keeps pacing drift-free: the target
+         never moves, so a short or interrupted nap costs nothing. */
+      uint64_t        wake = now + nap;
       struct timespec ts;
-      ts.tv_sec  = (time_t)(rem / 1000000000ULL);
-      ts.tv_nsec = (long)(rem % 1000000000ULL);
-      nanosleep (&ts, NULL);
-    }
+      ts.tv_sec  = (time_t)(wake / 1000000000ULL);
+      ts.tv_nsec = (long)(wake % 1000000000ULL);
+
+#if defined(__linux__)
+      while (clock_nanosleep (CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL)
+             == EINTR)
+        if (dp_interrupted ())
+          return;
+#else
+      /* Portable fallback (e.g. macOS, which lacks clock_nanosleep): sleep
+         the slice as an interval, re-reading the clock on the next pass. */
+      struct timespec dur;
+      dur.tv_sec  = (time_t)(nap / 1000000000ULL);
+      dur.tv_nsec = (long)(nap % 1000000000ULL);
+      nanosleep (&dur, NULL);
 #endif
+    }
 }
 
 void

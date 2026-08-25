@@ -410,9 +410,15 @@ impl Metadata24 {
             }
         }
 
+        let pyproject_dir_str = pyproject_dir.to_str().with_context(|| {
+            format!(
+                "project path is not valid UTF-8: {}",
+                pyproject_dir.display()
+            )
+        })?;
+
         if let Some(license_files) = &project.license_files {
-            let escaped_pyproject_dir =
-                PathBuf::from(glob::Pattern::escape(pyproject_dir.to_str().unwrap()));
+            let escaped_pyproject_dir = PathBuf::from(glob::Pattern::escape(pyproject_dir_str));
             for license_glob in license_files {
                 check_pep639_glob(license_glob)?;
                 for license_path in
@@ -436,7 +442,7 @@ impl Metadata24 {
         } else {
             // Auto-discovery of license files for backwards compatibility
             let license_include_targets = ["LICEN[CS]E*", "COPYING*", "NOTICE*", "AUTHORS*"];
-            let escaped_manifest_string = glob::Pattern::escape(pyproject_dir.to_str().unwrap());
+            let escaped_manifest_string = glob::Pattern::escape(pyproject_dir_str);
             let escaped_manifest_path = Path::new(&escaped_manifest_string);
             for pattern in license_include_targets.iter() {
                 for license_path in
@@ -816,8 +822,8 @@ impl Metadata24 {
     pub fn get_dist_info_dir(&self) -> PathBuf {
         PathBuf::from(format!(
             "{}-{}.dist-info",
-            &self.get_distribution_escaped(),
-            &self.get_version_escaped()
+            self.get_distribution_escaped(),
+            self.get_version_escaped()
         ))
     }
 
@@ -825,8 +831,8 @@ impl Metadata24 {
     pub fn get_data_dir(&self) -> PathBuf {
         PathBuf::from(format!(
             "{}-{}.data",
-            &self.get_distribution_escaped(),
-            &self.get_version_escaped()
+            self.get_distribution_escaped(),
+            self.get_version_escaped()
         ))
     }
 
@@ -840,7 +846,7 @@ impl Metadata24 {
     ///
     /// See <https://github.com/pypa/auditwheel/pull/443>.
     pub fn get_scripts_platlib_dir(&self) -> PathBuf {
-        PathBuf::from(format!("{}.scripts", &self.get_distribution_escaped()))
+        PathBuf::from(format!("{}.scripts", self.get_distribution_escaped()))
     }
 }
 

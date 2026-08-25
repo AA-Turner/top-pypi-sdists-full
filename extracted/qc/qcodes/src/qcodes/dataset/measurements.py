@@ -18,7 +18,7 @@ from inspect import signature
 from itertools import chain
 from numbers import Number
 from time import perf_counter, perf_counter_ns
-from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -74,8 +74,8 @@ SubscriberType = tuple[
     Callable[..., Any], MutableSequence[Any] | MutableMapping[Any, Any]
 ]
 
-ParameterResultType: TypeAlias = tuple[ParameterBase, ValuesType]
-DatasetResultDict: TypeAlias = dict[ParamSpecBase, npt.NDArray]
+type ParameterResultType = tuple[ParameterBase, ValuesType]
+type DatasetResultDict = dict[ParamSpecBase, npt.NDArray]
 
 
 class ParameterTypeError(Exception):
@@ -539,7 +539,7 @@ class Runner:
         experiment: Experiment | None = None,
         station: Station | None = None,
         write_period: float | None = None,
-        interdeps: InterDependencies_ = InterDependencies_(),
+        interdeps: InterDependencies_ | None = None,
         name: str = "",
         subscribers: Sequence[SubscriberType] | None = None,
         parent_datasets: Sequence[Mapping[Any, Any]] = (),
@@ -554,6 +554,8 @@ class Runner:
         if in_memory_cache is None:
             in_memory_cache = qc.config.dataset.in_memory_cache
             in_memory_cache = cast("bool", in_memory_cache)
+        if interdeps is None:
+            interdeps = InterDependencies_()
 
         self._dataset_class = dataset_class
         self.write_period = self._calculate_write_period(
@@ -663,17 +665,17 @@ class Runner:
             station = self.station
 
         if station is not None:
-            snapshot = {"station": station.snapshot()}
+            snapshot = {"station": station.snapshot(update="Only_invalid")}
         else:
             snapshot = {}
         if self._registered_parameters is not None:
             parameter_snapshot = {
-                param.short_name: param.snapshot()
+                param.short_name: param.snapshot(update="Never")
                 for param in self._registered_parameters
             }
             parameter_snapshot.update(
                 {
-                    param.register_name: param.snapshot()
+                    param.register_name: param.snapshot(update="Never")
                     for param in self._registered_parameters
                 }
             )
@@ -802,9 +804,6 @@ class Runner:
             if isinstance(self.ds, DataSet):
                 self.ds.unsubscribe_all()
             self._exit_stack.close()
-
-
-T = TypeVar("T", bound="Measurement")
 
 
 class Measurement:
@@ -1125,9 +1124,9 @@ class Measurement:
         return_paramtype: str
         if paramtype is not None:  # override with argument
             return_paramtype = paramtype
-        elif isinstance(parameter.vals, vals.Arrays):
-            return_paramtype = "array"
-        elif isinstance(parameter, ArrayParameter):
+        elif isinstance(parameter.vals, vals.Arrays) or isinstance(
+            parameter, ArrayParameter
+        ):
             return_paramtype = "array"
         elif isinstance(parameter.vals, vals.Strings):
             return_paramtype = "text"
@@ -1616,3 +1615,16 @@ def _numeric_values_are_equal(
         ):
             return False
     return True
+
+
+if not TYPE_CHECKING:
+    from typing import TypeVar
+
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    __getattr__ = _make_deprecated_typevars_getattr(
+        __name__,
+        {
+            "T": TypeVar("T", bound="Measurement"),
+        },
+    )

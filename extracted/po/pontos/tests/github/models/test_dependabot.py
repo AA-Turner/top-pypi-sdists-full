@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# ruff: noqa:E501
 
 import unittest
 from datetime import datetime, timezone
@@ -137,7 +136,7 @@ class SecurityAdvisoryTestCase(unittest.TestCase):
         self.assertRegex(advisory.summary, "^Django allows remote attacker.*")
         self.assertRegex(
             advisory.description,
-            "^django\.contrib\.auth\.forms\.AuthenticationForm in Django 2\.0.*",
+            r"^django\.contrib\.auth\.forms\.AuthenticationForm in Django 2\.0.*",
         )
 
         self.assertEqual(len(advisory.vulnerabilities), 2)
@@ -375,7 +374,7 @@ class DependabotAlertTestCase(unittest.TestCase):
         )
         self.assertRegex(
             alert.security_advisory.description,
-            "^django\.contrib\.auth\.forms\.AuthenticationForm in Django 2\.0.*",
+            r"^django\.contrib\.auth\.forms\.AuthenticationForm in Django 2\.0.*",
         )
 
         self.assertEqual(len(alert.security_advisory.vulnerabilities), 2)

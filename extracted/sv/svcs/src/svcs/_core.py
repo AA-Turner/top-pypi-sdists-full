@@ -474,7 +474,7 @@ class Registry:
                 log.debug("closing %r", rs.name)
                 oc()
                 log.debug("closed %r", rs.name)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.warning(
                     "Registry's on_registry_close callback failed for %r.",
                     rs.name,
@@ -507,7 +507,7 @@ class Registry:
                     log.debug("closing %r", rs.name)
                     oc()
                     log.debug("closed %r", rs.name)
-            except Exception:  # noqa: BLE001, PERF203
+            except Exception:  # noqa: PERF203
                 log.warning(
                     "Registry's on_registry_close callback failed for %r.",
                     rs.name,
@@ -687,7 +687,7 @@ class Container:
                     )
                     continue
                 rs.close(cm, exc_type, exc_val, exc_tb)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.warning(
                     "Container clean up failed for %r.",
                     rs.name,
@@ -725,7 +725,7 @@ class Container:
                 else:
                     await rs.aclose(cm, exc_type, exc_val, exc_tb)
 
-            except Exception:  # noqa: BLE001, PERF203
+            except Exception:  # noqa: PERF203
                 log.warning(
                     "Container clean up failed for %r.",
                     rs.name,
@@ -1022,10 +1022,7 @@ class Container:
 
             if not isinstance(svc, MagicMock) and (
                 iscoroutine(svc)
-                or isinstance(
-                    svc,
-                    AbstractAsyncContextManager,  # pyrefly: ignore[unsafe-overlap]
-                )
+                or isinstance(svc, AbstractAsyncContextManager)
             ):
                 msg = "Use `aget()` for async factories."
                 raise TypeError(msg)

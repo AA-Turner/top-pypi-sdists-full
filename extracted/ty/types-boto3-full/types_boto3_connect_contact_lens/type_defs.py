@@ -19,6 +19,7 @@ from __future__ import annotations
 import sys
 
 from .literals import (
+    ExtractedInformationFailureCodeType,
     PostContactSummaryFailureCodeType,
     PostContactSummaryStatusType,
     SentimentValueType,
@@ -34,6 +35,8 @@ __all__ = (
     "CategoriesTypeDef",
     "CategoryDetailsTypeDef",
     "CharacterOffsetsTypeDef",
+    "ExtractedInformationTypeDef",
+    "ExtractedInformationValueTypeDef",
     "IssueDetectedTypeDef",
     "ListRealtimeContactAnalysisSegmentsRequestTypeDef",
     "ListRealtimeContactAnalysisSegmentsResponseTypeDef",
@@ -80,6 +83,11 @@ class CategoryDetailsTypeDef(TypedDict):
     PointsOfInterest: list[PointOfInterestTypeDef]
 
 
+class ExtractedInformationValueTypeDef(TypedDict):
+    Content: str
+    PointsOfInterest: list[PointOfInterestTypeDef]
+
+
 class IssueDetectedTypeDef(TypedDict):
     CharacterOffsets: CharacterOffsetsTypeDef
 
@@ -87,6 +95,14 @@ class IssueDetectedTypeDef(TypedDict):
 class CategoriesTypeDef(TypedDict):
     MatchedCategories: list[str]
     MatchedDetails: dict[str, CategoryDetailsTypeDef]
+
+
+class ExtractedInformationTypeDef(TypedDict):
+    ExtractionDefinitionId: str
+    ExtractionDefinitionName: str
+    ExtractionDefinitionDisplayLabel: NotRequired[str]
+    ExtractedValues: NotRequired[list[ExtractedInformationValueTypeDef]]
+    FailureCode: NotRequired[ExtractedInformationFailureCodeType]
 
 
 class TranscriptTypeDef(TypedDict):
@@ -104,6 +120,7 @@ class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     Transcript: NotRequired[TranscriptTypeDef]
     Categories: NotRequired[CategoriesTypeDef]
     PostContactSummary: NotRequired[PostContactSummaryTypeDef]
+    ExtractedInformation: NotRequired[ExtractedInformationTypeDef]
 
 
 class ListRealtimeContactAnalysisSegmentsResponseTypeDef(TypedDict):

@@ -26,8 +26,9 @@ from haystack.core.pipeline.breakpoint import (
     _validate_pipeline_snapshot_against_pipeline,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
+from haystack.core.serialization_security import mark_deserialization_internal
 from haystack.dataclasses import AsyncStreamingCallbackT, StreamingCallbackT, StreamingChunk, select_streaming_callback
-from haystack.dataclasses.breakpoints import Breakpoint, PipelineSnapshot
+from haystack.dataclasses.breakpoints import INTERNAL_INPUTS_FORMAT, Breakpoint, PipelineSnapshot
 from haystack.dataclasses.streaming_chunk import _invoke_streaming_callback
 from haystack.telemetry import pipeline_running
 from haystack.utils import _deserialize_value_with_schema
@@ -141,6 +142,8 @@ class Pipeline(PipelineBase):
         :param component_visits: Current state of component visits.
         :param parent_span: The parent span to use for the newly created span.
             This is to allow tracing to be correctly linked to the pipeline run.
+        :param break_point: An optional breakpoint. If it targets this component and its visit
+            count matches the current one, a `BreakpointException` is raised before the Component runs.
         :raises PipelineRuntimeError: If Component doesn't return a dictionary.
         :return: The output of the Component.
         """
@@ -193,6 +196,7 @@ class Pipeline(PipelineBase):
 
             return component_output
 
+    @mark_deserialization_internal
     def run(  # noqa: PLR0915, PLR0912, C901
         self,
         data: dict[str, Any],
@@ -347,6 +351,9 @@ class Pipeline(PipelineBase):
             include_outputs_from = set()
 
         pipeline_outputs: dict[str, Any] = {}
+        # Set when resuming from a snapshot that predates `INTERNAL_INPUTS_FORMAT` and therefore lost the sender of
+        # each input. Cleared as soon as the paused component has run.
+        legacy_resume_component: str | None = None
 
         if not pipeline_snapshot:
             # normalize `data`
@@ -362,6 +369,8 @@ class Pipeline(PipelineBase):
             # We track component visits to decide if a component can run.
             component_visits = dict.fromkeys(ordered_component_names, 0)
 
+            inputs = self._convert_to_internal_format(pipeline_inputs=data)
+
         else:
             # Validate the pipeline snapshot against the current pipeline graph
             _validate_pipeline_snapshot_against_pipeline(pipeline_snapshot, self.graph)
@@ -369,7 +378,17 @@ class Pipeline(PipelineBase):
             # Handle resuming the pipeline from a snapshot
             component_visits = pipeline_snapshot.pipeline_state.component_visits
             ordered_component_names = pipeline_snapshot.ordered_component_names
-            data = _deserialize_value_with_schema(pipeline_snapshot.pipeline_state.inputs)
+            data = _deserialize_value_with_schema(pipeline_snapshot.original_input_data)
+
+            if pipeline_snapshot.pipeline_state.inputs_format == INTERNAL_INPUTS_FORMAT:
+                inputs = _deserialize_value_with_schema(pipeline_snapshot.pipeline_state.inputs)
+            else:
+                # A legacy snapshot lost the sender of each input, so the only thing we can do is treat them as if
+                # they came from outside the pipeline. The paused component then has to be let through once.
+                inputs = self._convert_to_internal_format(
+                    pipeline_inputs=_deserialize_value_with_schema(pipeline_snapshot.pipeline_state.inputs)
+                )
+                legacy_resume_component = pipeline_snapshot.break_point.component_name
 
             # include_outputs_from from the snapshot when resuming
             include_outputs_from = pipeline_snapshot.include_outputs_from
@@ -386,13 +405,11 @@ class Pipeline(PipelineBase):
             "haystack.pipeline.run",
             tags={
                 "haystack.pipeline.input_data": data,
-                "haystack.pipeline.output_data": pipeline_outputs,
                 "haystack.pipeline.metadata": self.metadata,
                 "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
                 "haystack.pipeline.execution_mode": "sync",
             },
         ) as span:
-            inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             # check if pipeline is blocked before execution
@@ -432,10 +449,15 @@ class Pipeline(PipelineBase):
                         component_name, component_visits[component_name]
                     )
 
-                if pipeline_snapshot:
-                    is_resume = pipeline_snapshot.break_point.component_name == component_name
-                else:
-                    is_resume = False
+                is_resume = legacy_resume_component == component_name
+                if is_resume:
+                    # Only the first execution of the paused component needs the legacy handling. Later visits of the
+                    # same component inside a loop receive regular inputs and must consume them normally.
+                    legacy_resume_component = None
+
+                # A snapshot has to store the component's inputs as they were before the component consumed them, so
+                # that resuming re-triggers the component the same way this run did.
+                component_inputs_before_consume = inputs.get(component_name, {})
                 component_inputs = self._consume_component_inputs(
                     component_name=component_name, component=component, inputs=inputs, is_resume=is_resume
                 )
@@ -444,13 +466,6 @@ class Pipeline(PipelineBase):
                 # might not provide these defaults for components with inputs defined dynamically upon component
                 # initialization
                 component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
-
-                # Scenario 1: Pipeline snapshot is provided to resume the pipeline at a specific component
-                # Deserialize the component_inputs if they are passed in the pipeline_snapshot.
-                # this check will prevent other component_inputs generated at runtime from being deserialized
-                if pipeline_snapshot and component_name in pipeline_snapshot.pipeline_state.inputs.keys():
-                    for key, value in component_inputs.items():
-                        component_inputs[key] = _deserialize_value_with_schema(value)
 
                 try:
                     component_outputs = self._run_component(
@@ -475,7 +490,7 @@ class Pipeline(PipelineBase):
                     # Create a snapshot of the state of the pipeline before the error occurred.
                     pipeline_snapshot = _create_pipeline_snapshot(
                         inputs=_deepcopy_with_exceptions(inputs),
-                        component_inputs=_deepcopy_with_exceptions(component_inputs),
+                        component_inputs=_deepcopy_with_exceptions(component_inputs_before_consume),
                         break_point=saved_break_point,
                         component_visits=component_visits,
                         original_input_data=data,
@@ -516,6 +531,9 @@ class Pipeline(PipelineBase):
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
                     break_point=break_point,
                 )
+
+            # Set here so the tag reflects the final outputs.
+            span.set_content_tag("haystack.pipeline.output_data", pipeline_outputs)
 
             return pipeline_outputs
 
@@ -772,6 +790,7 @@ class Pipeline(PipelineBase):
         task = asyncio.create_task(_runner())
         running_tasks[task] = component_name
 
+    @mark_deserialization_internal
     async def run_async_generator(  # noqa: PLR0915,C901
         self, data: dict[str, Any], include_outputs_from: set[str] | None = None, concurrency_limit: int = 4
     ) -> AsyncGenerator[dict[str, Any], None]:
@@ -907,7 +926,6 @@ class Pipeline(PipelineBase):
             "haystack.pipeline.run",
             tags={
                 "haystack.pipeline.input_data": data,
-                "haystack.pipeline.output_data": pipeline_outputs,
                 "haystack.pipeline.metadata": self.metadata,
                 "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
                 "haystack.pipeline.execution_mode": "async",
@@ -1051,6 +1069,9 @@ class Pipeline(PipelineBase):
                 ):
                     yield partial_outputs
 
+                # Set here so the tag reflects the final outputs.
+                parent_span.set_content_tag("haystack.pipeline.output_data", pipeline_outputs)
+
                 # Yield the final pipeline outputs.
                 yield pipeline_outputs
             finally:
@@ -1059,6 +1080,7 @@ class Pipeline(PipelineBase):
                 # This is a no-op on normal completion and on a component error, since no tasks are left running by then
                 await self._cancel_in_flight_tasks(running_tasks, scheduled_components)
 
+    @mark_deserialization_internal
     async def run_async(
         self, data: dict[str, Any], include_outputs_from: set[str] | None = None, concurrency_limit: int = 4
     ) -> dict[str, Any]:
@@ -1176,6 +1198,7 @@ class Pipeline(PipelineBase):
             final = partial
         return final or {}
 
+    @mark_deserialization_internal
     def stream(
         self,
         data: dict[str, Any],

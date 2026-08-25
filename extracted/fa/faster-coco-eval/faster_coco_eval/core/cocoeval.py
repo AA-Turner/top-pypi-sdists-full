@@ -3,16 +3,9 @@
 
 import logging
 import os
-import sys
 from collections import defaultdict
-from typing import Callable, List, Optional, Union
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-
-    iouTypeT = Literal["segm", "bbox", "keypoints", "keypoints_crowd", "boundary"]
-else:
-    iouTypeT = str
+from collections.abc import Callable
+from typing import Literal
 
 import numpy as np
 
@@ -21,28 +14,27 @@ from faster_coco_eval.core import mask as maskUtils
 from faster_coco_eval.core.coco import COCO
 from faster_coco_eval.version import __author__, __version__
 
+iouTypeT = Literal["segm", "bbox", "keypoints", "keypoints_crowd", "boundary"]
+
 logger = logging.getLogger(__name__)
 
 
 class COCOeval:
     def __init__(
         self,
-        cocoGt: Optional[COCO] = None,
-        cocoDt: Optional[COCO] = None,
+        cocoGt: COCO | None = None,
+        cocoDt: COCO | None = None,
         iouType: iouTypeT = "segm",
-        ranges: Optional[dict] = {
-            "small": [0, 32**2],
-            "medium": [32**2, 96**2],
-            "large": [96**2, 1e5**2],
-        },
+        ranges: dict | None = None,
         print_function: Callable = logger.info,
         extra_calc: bool = False,
-        kpt_oks_sigmas: Optional[List[float]] = None,
-        use_area: Optional[bool] = True,
+        kpt_oks_sigmas: list[float] | None = None,
+        use_area: bool | None = True,
         lvis_style: bool = False,
         separate_eval: bool = False,
         boundary_dilation_ratio: float = 0.02,
-        boundary_cpu_count: int = min(os.cpu_count(), 4),
+        boundary_cpu_count: int = min(os.cpu_count() or 1, 4),
+        rle_iou_max_workers: int = 8,
     ):
         """Initialize CocoEval using coco APIs for gt and dt.
 
@@ -50,7 +42,7 @@ class COCOeval:
             cocoGt (Optional[COCO]): Object with ground truth annotations.
             cocoDt (Optional[COCO]): Object with detection annotations.
             iouType (iouTypeT): Type of the intersection over union, defaults to "segm".
-            ranges (Optional[dict]): Dictionary of area ranges, defaults to predefined ranges.
+            ranges (Optional[dict]): Dictionary of area ranges, defaults to predefined ranges when omitted.
             print_function (Callable): Function to print output, defaults to logger.info.
             extra_calc (bool): Whether to perform extra calculations, defaults to False.
             kpt_oks_sigmas (Optional[List[float]]): List of sigmas for keypoint evaluation, defaults to None.
@@ -58,8 +50,19 @@ class COCOeval:
             lvis_style (bool): Whether to use LVIS style evaluation, defaults to False.
             separate_eval (bool): Whether to perform separate evaluation, defaults to False.
             boundary_dilation_ratio (float): Ratio for boundary dilation, defaults to 0.02.
-            boundary_cpu_count (int): Number of CPUs for boundary computation, defaults to min(os.cpu_count(), 4).
+            boundary_cpu_count (int): Number of CPUs for boundary computation, defaults to min(os.cpu_count() or 1, 4).
+            rle_iou_max_workers (int): Maximum worker threads for RLE IoU computation, defaults to 8.
         """
+        if isinstance(rle_iou_max_workers, bool) or not isinstance(rle_iou_max_workers, int) or rle_iou_max_workers < 1:
+            raise ValueError("rle_iou_max_workers must be a positive integer")
+
+        if ranges is None:
+            ranges = {
+                "small": [0, 32**2],
+                "medium": [32**2, 96**2],
+                "large": [96**2, 1e5**2],
+            }
+
         self.cocoGt: COCO = cocoGt  # ground truth COCO API
         self.cocoDt: COCO = cocoDt  # detections COCO API
         self.evalImgs = defaultdict(list)  # per-image per-category evaluation results [KxAxI] elements
@@ -75,6 +78,7 @@ class COCOeval:
         self.separate_eval = separate_eval
         self.boundary_dilation_ratio = boundary_dilation_ratio
         self.boundary_cpu_count = boundary_cpu_count
+        self.rle_iou_max_workers = rle_iou_max_workers
         self.use_area = use_area
 
         if iouType == "keypoints" and self.lvis_style:
@@ -136,10 +140,9 @@ class COCOeval:
         gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds, catIds=cat_ids))
         dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds, catIds=cat_ids))
 
-        # set ignore flag
+        # pycocotools gives iscrowd precedence over a dataset-provided ignore flag.
         for gt in gts:
-            gt["ignore"] = gt["ignore"] if "ignore" in gt else 0
-            gt["ignore"] = "iscrowd" in gt and gt["iscrowd"]
+            gt["ignore"] = int(gt.get("iscrowd", 0))
             if "keypoints" in p.iouType:
                 gt["ignore"] = (gt.get("num_keypoints", 0) == 0) or gt["ignore"]
 
@@ -155,6 +158,8 @@ class COCOeval:
             self.freq_groups = self._prepare_freq_group()
 
         img_sizes = defaultdict(tuple)
+        gt_pairs: set[tuple[int, int]] = set()
+        dt_pairs: set[tuple[int, int]] = set()
 
         def get_img_size_by_id(image_id: int, dataset: COCO) -> tuple:
             """Get image size by image id.
@@ -185,11 +190,12 @@ class COCOeval:
 
         for gt in gts:
             self.gt_dataset.append_ref(gt["image_id"], gt["category_id"], gt)
+            gt_pairs.add((gt["image_id"], gt["category_id"]))
 
         for dt in dts:
             img_id, cat_id = dt["image_id"], dt["category_id"]
             if self.lvis_style:
-                if (cat_id not in img_nl.get(img_id, []) and cat_id not in img_pl[img_id]) and self.lvis_style:
+                if cat_id not in img_nl.get(img_id, []) and cat_id not in img_pl[img_id]:
                     dt["drop"] = True
                     continue
 
@@ -210,6 +216,14 @@ class COCOeval:
         for dt in dts:
             if not dt.get("drop", False):
                 self.dt_dataset.append_ref(dt["image_id"], dt["category_id"], dt)
+                dt_pairs.add((dt["image_id"], dt["category_id"]))
+
+        if p.useCats:
+            self._nonempty_iou_pairs = gt_pairs & dt_pairs
+        else:
+            gt_image_ids = {image_id for image_id, _ in gt_pairs}
+            dt_image_ids = {image_id for image_id, _ in dt_pairs}
+            self._nonempty_iou_pairs = {(image_id, -1) for image_id in gt_image_ids & dt_image_ids}
 
     def _prepare_freq_group(self) -> list:
         """Prepare frequency group for LVIS evaluation.
@@ -225,7 +239,7 @@ class COCOeval:
             freq_groups[p.img_count_lbl.index(frequency)].append(idx)
         return freq_groups
 
-    def computeIoU(self, imgId: int, catId: int) -> Union[List[float], np.ndarray]:
+    def computeIoU(self, imgId: int, catId: int) -> list[float] | np.ndarray:
         """Compute IoU between ground truth and detection for a given image and
         category.
 
@@ -261,7 +275,7 @@ class COCOeval:
             g = [g["bbox"] for g in gt]
             d = [d["bbox"] for d in dt]
         else:
-            ValueError(f"p.iouType must be bbox or segm or boundary. Get {p.iouType}")
+            raise ValueError(f"p.iouType must be bbox or segm or boundary. Get {p.iouType}")
 
         iscrowd = [int(o.get("iscrowd", 0)) for o in gt]
         # compute iou between each dt and gt region
@@ -276,15 +290,13 @@ class COCOeval:
 
             # combine mask and boundary iou
             boundary_ious = np.array(boundary_ious)
-            iscrowd = np.array(iscrowd)
-            if len(gt) and len(dt):
-                ious[:, iscrowd == 0] = np.minimum(ious[:, iscrowd == 0], boundary_ious[:, iscrowd == 0])
-            else:
-                ious = np.minimum(ious, boundary_ious)
+            non_crowd = ~np.asarray(iscrowd, dtype=bool)
+            if non_crowd.any():
+                ious[:, non_crowd] = np.minimum(ious[:, non_crowd], boundary_ious[:, non_crowd])
 
         return ious
 
-    def computeOks(self, imgId: int, catId: int) -> np.ndarray:
+    def computeOks(self, imgId: int, catId: int) -> list[float] | np.ndarray:
         """Compute OKS between ground truth and detection for a given image and
         category.
 
@@ -309,7 +321,11 @@ class COCOeval:
         ious = np.zeros((len(dts), len(gts)))
         sigmas = p.kpt_oks_sigmas
         vars = (sigmas * 2) ** 2
-        k = len(sigmas)
+        # Load each detection once so every ground truth can operate on the
+        # same (detections, keypoints) arrays instead of rebuilding them.
+        detection_keypoints = np.asarray([dt["keypoints"] for dt in dts])
+        xd = detection_keypoints[:, 0::3]
+        yd = detection_keypoints[:, 1::3]
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
             # create bounds for ignore regions(double the gt bbox)
@@ -323,29 +339,27 @@ class COCOeval:
             x1 = bb[0] + bb[2] * 2
             y0 = bb[1] - bb[3]
             y1 = bb[1] + bb[3] * 2
-            for i, dt in enumerate(dts):
-                d = np.array(dt["keypoints"])
-                xd = d[0::3]
-                yd = d[1::3]
-                if k1 > 0:
-                    # measure the per-keypoint distance if keypoints visible
-                    dx = xd - xg
-                    dy = yd - yg
-                else:
-                    # measure minimum distance to keypoints in (x0,y0) & (x1,y1)
-                    z = np.zeros(k)
-                    dx = np.max((z, x0 - xd), axis=0) + np.max((z, xd - x1), axis=0)
-                    dy = np.max((z, y0 - yd), axis=0) + np.max((z, yd - y1), axis=0)
+            if k1 > 0:
+                # Keep the visible-keypoint mask as columns for every
+                # detection row so the per-keypoint reduction is unchanged.
+                dx = xd - xg
+                dy = yd - yg
+            else:
+                z = np.zeros_like(xd)
+                dx = np.max((z, x0 - xd), axis=0) + np.max((z, xd - x1), axis=0)
+                dy = np.max((z, y0 - yd), axis=0) + np.max((z, yd - y1), axis=0)
 
-                if self.use_area:
-                    e = (dx**2 + dy**2) / vars / (gt["area"] + np.spacing(1)) / 2
-                else:
-                    tmparea = gt["bbox"][3] * gt["bbox"][2] * 0.53
-                    e = (dx**2 + dy**2) / vars / (tmparea + np.spacing(1)) / 2
+            if self.use_area:
+                e = (dx**2 + dy**2) / vars / (gt["area"] + np.spacing(1)) / 2
+            else:
+                tmparea = gt["bbox"][3] * gt["bbox"][2] * 0.53
+                e = (dx**2 + dy**2) / vars / (tmparea + np.spacing(1)) / 2
 
-                if k1 > 0:
-                    e = e[vg > 0]
-                ious[i, j] = np.sum(np.exp(-e)) / e.shape[0]
+            if k1 > 0:
+                e = e[:, vg > 0]
+            # Retain the baseline's one-dimensional reduction order so this
+            # vectorized path remains bit-identical to the public evaluator.
+            ious[:, j] = [np.sum(row) / row.shape[0] for row in np.exp(-e)]
         return ious
 
     def evaluateImg(self, imgId, catId, aRng, maxDet):
@@ -467,8 +481,9 @@ class COCOeval:
         including all metrics while self.stats contains a subset of the most
         commonly used metrics.
 
-        Note:
-            This function can *only* be applied on the default parameter setting.
+        The summary layout adapts to the configured area ranges and maximum
+        detection counts. ``stats`` contains the metrics before the IoU-specific
+        recall summaries, while ``all_stats`` contains every generated metric.
         """
 
         def _summarizeDets():
@@ -478,8 +493,12 @@ class COCOeval:
                 np.ndarray: Array of summary statistics.
             """
             nb_rngs = len(self.params.areaRngLbl) - 1  # exclude 'all'
-            _count = 2 * nb_rngs + (11 if self.lvis_style else 8)
-            stats = np.zeros((_count,))
+            num_max_dets = len(self.params.maxDets)
+            if self.lvis_style:
+                # LVIS consumers historically expect three AR slots even with one maxDets value.
+                num_max_dets = max(num_max_dets, 3)
+            base_count = 2 * nb_rngs + num_max_dets + 5
+            stats = np.zeros((base_count + (3 if self.lvis_style else 0),))
 
             # Add AP global metrics
             stats[0] = self._summarize(1, maxDets=self.params.maxDets[-1])  # AP_all
@@ -492,24 +511,24 @@ class COCOeval:
 
             # Add lvis style metrics if necessary
             if self.lvis_style:
-                stats[2 * nb_rngs + 8] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=0)  # APr
-                stats[2 * nb_rngs + 9] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=1)  # APc
-                stats[2 * nb_rngs + 10] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=2)  # APf
+                stats[base_count] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=0)  # APr
+                stats[base_count + 1] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=1)  # APc
+                stats[base_count + 2] = self._summarize(1, maxDets=self.params.maxDets[-1], freq_group_idx=2)  # APf
 
-            # Add AR metrics
-            stats[3 + nb_rngs] = self._summarize(0, maxDets=self.params.maxDets[0])  # AR_first or AR_all
-            if len(self.params.maxDets) >= 2:
-                stats[3 + nb_rngs + 1] = self._summarize(0, maxDets=self.params.maxDets[1])  # AR_second
-            if len(self.params.maxDets) >= 3:
-                stats[3 + nb_rngs + 2] = self._summarize(0, maxDets=self.params.maxDets[2])  # AR_third
+            # Add AR metrics for every configured maximum detection count.
+            ar_start = 3 + nb_rngs
+            for idx, max_dets in enumerate(self.params.maxDets):
+                stats[ar_start + idx] = self._summarize(0, maxDets=max_dets)
 
             # Add AR metrics for each area range (AR_*label*)
+            ar_area_start = ar_start + num_max_dets
             for idx, label in enumerate(self.params.areaRngLbl[1:]):  # exclude 'all'
-                stats[6 + nb_rngs + idx] = self._summarize(0, areaRng=label, maxDets=self.params.maxDets[-1])
+                stats[ar_area_start + idx] = self._summarize(0, areaRng=label, maxDets=self.params.maxDets[-1])
 
             # Add AR at IoU thresholds 0.5 and 0.75
-            stats[6 + 2 * nb_rngs] = self._summarize(0, iouThr=0.5, maxDets=self.params.maxDets[-1])  # AR_50
-            stats[6 + 2 * nb_rngs + 1] = self._summarize(0, iouThr=0.75, maxDets=self.params.maxDets[-1])  # AR_75
+            ar_threshold_start = ar_area_start + nb_rngs
+            stats[ar_threshold_start] = self._summarize(0, iouThr=0.5, maxDets=self.params.maxDets[-1])  # AR_50
+            stats[ar_threshold_start + 1] = self._summarize(0, iouThr=0.75, maxDets=self.params.maxDets[-1])  # AR_75
 
             return stats
 
@@ -575,10 +594,18 @@ class COCOeval:
         elif iouType == "keypoints_crowd":
             summarize = _summarizeKps_crowd
         else:
-            ValueError(f"iouType must be bbox, segm, boundary or keypoints or keypoints_crowd. Get {iouType}")
+            raise ValueError(f"iouType must be bbox, segm, boundary or keypoints or keypoints_crowd. Get {iouType}")
 
         self.all_stats = summarize()
-        self.stats = self.all_stats[:12]
+        if iouType in set(["segm", "bbox", "boundary"]):
+            num_area_ranges = len(self.params.areaRngLbl) - 1
+            num_max_dets = len(self.params.maxDets)
+            if self.lvis_style:
+                num_max_dets = max(num_max_dets, 3)
+            stats_window = 3 + 2 * num_area_ranges + num_max_dets
+        else:
+            stats_window = 12
+        self.stats = self.all_stats[:stats_window]
 
     def get_type_result(self, first: float = 0.01, second: float = 0.85) -> list:
         """Calculate type results for easy, medium, and hard splits.
@@ -711,12 +738,8 @@ class Params:
     def __init__(
         self,
         iouType: iouTypeT = "segm",
-        kpt_sigmas: Optional[List[float]] = None,
-        ranges: Optional[dict] = {
-            "small": [0**2, 32**2],
-            "medium": [32**2, 96**2],
-            "large": [96**2, 1e5**2],
-        },
+        kpt_sigmas: list[float] | None = None,
+        ranges: dict | None = None,
     ):
         """Initialize Params for COCO evaluation API.
 
@@ -725,6 +748,13 @@ class Params:
             kpt_sigmas (Optional[List[float]]): List of keypoint sigma values.
             ranges (Optional[dict]): Dictionary defining area ranges with labels as keys and [min, max] as values.
         """
+        if ranges is None:
+            ranges = {
+                "small": [0**2, 32**2],
+                "medium": [32**2, 96**2],
+                "large": [96**2, 1e5**2],
+            }
+
         self.imgIds = []
         self.catIds = []
         # np.arange causes trouble.  the data point on arange is slightly larger than the true value # noqa: E501

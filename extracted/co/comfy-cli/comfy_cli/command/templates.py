@@ -30,7 +30,7 @@ from typing import Annotated, Any
 
 import typer
 
-from comfy_cli import tracking, workflow_ops
+from comfy_cli import knowledge, tracking, workflow_ops
 from comfy_cli.file_utils import atomic_write_bytes
 from comfy_cli.http import ResponseTooLarge, plain_urlopen, read_capped
 from comfy_cli.output import get_renderer, rprint
@@ -124,7 +124,7 @@ def _load_gallery(
     its own filtering on top.
 
     A cache older than ``GALLERY_TTL_SECONDS`` is served immediately and
-    revalidated in the background (stale-while-revalidate, BE-3427): a stale
+    revalidated in the background (stale-while-revalidate): a stale
     cache is returned right away and a detached subprocess re-fetches it for
     the *next* invocation, so an offline/firewalled machine never blocks on the
     15s fetch timeout on every call. An explicit ``--refresh`` (or a genuinely
@@ -325,7 +325,7 @@ def _refresh_cwd() -> str | None:
 def _spawn_background_refresh() -> bool:
     """Kick off a detached subprocess that re-fetches the gallery index.
 
-    Serve-stale-while-revalidate (BE-3427): the caller has already returned the
+    Serve-stale-while-revalidate: the caller has already returned the
     stale cache, so this revalidation must never block or delay process exit —
     a firewalled machine would otherwise hang on the 15s fetch timeout on every
     invocation past the TTL. We spawn a fully detached ``comfy templates
@@ -595,6 +595,7 @@ def ls_cmd(
 
     rows = _flatten_templates(cats)
     total = len(rows)
+    all_names = {r["name"] for r in rows}
     rows = [
         r
         for r in rows
@@ -665,6 +666,15 @@ def ls_cmd(
             renderer.console().print(tbl)
             tail = f" (of {matched} matched, {total} in gallery)" if (matched != len(rows) or matched != total) else ""
             rprint(f"[dim]{len(rows)} template(s){tail}[/dim]")
+    knowledge.attach(
+        payload,
+        command="templates ls",
+        queries=[x for x in (tag, name_sub, model) if x],
+        templates=[r["name"] for r in rows],
+        catalog_templates=all_names,
+        thin=(matched == 0),
+        qualified=any(payload["filters"].values()),
+    )
     renderer.emit(payload, command="templates ls")
 
 
@@ -721,7 +731,9 @@ def show_cmd(
         if match["description"]:
             rprint("")
             rprint(match["description"])
-    renderer.emit({"template": match}, command="templates show")
+    payload = {"template": match}
+    knowledge.attach(payload, command="templates show", templates=[name], catalog_templates={r["name"] for r in rows})
+    renderer.emit(payload, command="templates show")
 
 
 @app.command("refresh", help="Re-download templates/index.json into the local cache.")
@@ -1184,6 +1196,7 @@ def get_cmd(
 
         sys.stdout.write(body.decode("utf-8"))
         sys.stdout.write("\n")
+    knowledge.attach(payload, command="templates get", templates=[name], catalog_templates={r["name"] for r in rows})
     renderer.emit(payload, command="templates get")
 
 
@@ -1670,7 +1683,7 @@ def _enforce_spend_gate(
 
     Returns None when the run may proceed (no paid signals, --allow-spend, or
     an interactive yes); raises typer.Exit(1) otherwise. Behavior is the
-    BE-4113 gate moved verbatim out of run_template_cmd.
+    spend gate moved verbatim out of run_template_cmd.
     """
     import sys
 
@@ -1999,7 +2012,7 @@ def run_template_cmd(
             for w in warnings:
                 rprint(f"  [yellow]warning:[/yellow] {w}")
 
-    # -- Spend gate (BE-4113): partner-API nodes spend Comfy credits. Require
+    # -- Spend gate: partner-API nodes spend Comfy credits. Require
     # explicit consent before submitting anything that would burn them.
     _enforce_spend_gate(
         renderer,
@@ -2027,7 +2040,7 @@ def run_template_cmd(
             api_key=api_key,
             # run-template's own spend gate (above) has already consented (or
             # found no paid nodes), so forward consent to avoid a second gate in
-            # execute() (BE-4326). run-template's gate is strictly stronger — it
+            # execute(). run-template's gate is strictly stronger — it
             # also inspects gallery signals — and has already run.
             allow_spend=True,
         )

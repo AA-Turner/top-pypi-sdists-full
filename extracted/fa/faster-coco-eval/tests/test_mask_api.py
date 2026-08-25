@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import sys
+import threading
 import unittest
 
 import faster_coco_eval.mask_api_new_cpp as _mask
@@ -13,6 +15,18 @@ from faster_coco_eval import COCO
 def _encode(x):
     """Encode a binary mask into a run-length encoded string."""
     return mask_util.encode(np.asfortranarray(x, np.uint8))
+
+
+class _ListSubclass(list):
+    """Exercise native dispatch with a Python list subclass."""
+
+
+class _DictSubclass(dict):
+    """Exercise native dispatch with a Python dict subclass."""
+
+
+class _ArraySubclass(np.ndarray):
+    """Exercise native dispatch with a NumPy array subclass."""
 
 
 class TestMaskApi(unittest.TestCase):
@@ -115,6 +129,152 @@ class TestMaskApi(unittest.TestCase):
     def test_rles(self):
         self.assertTrue(np.all([_mask.encode(_mask.decode([rle])) == [rle] for rle in self.rleObjs]))
 
+    @staticmethod
+    def _parallel_batch_masks(count=16, shape=(32, 32), seed=7):
+        """Deterministic masks sized to cross the parallel batch threshold."""
+        rng = np.random.RandomState(seed)
+        masks = []
+        for i in range(count):
+            mask = np.zeros(shape, dtype=np.uint8)
+            mask[4 + i : 4 + i + 8, 3 + i : 3 + i + 9] = 1
+            mask[rng.rand(*shape) < 0.1] ^= 1
+            masks.append(mask)
+        return masks
+
+    @staticmethod
+    def _erode_reference(mask, dilation):
+        """Dense reference for 3x3-style erosion used by the parallel path."""
+        h, w = mask.shape
+        padded = np.pad(mask, dilation, mode="constant")
+        eroded = np.ones_like(mask)
+        for dy in range(2 * dilation + 1):
+            for dx in range(2 * dilation + 1):
+                eroded &= padded[dy : dy + h, dx : dx + w]
+        return eroded
+
+    def test_parallel_batch_encode_parity_and_order(self):
+        """Batch encode must match per-mask encode and keep slot order."""
+        masks = self._parallel_batch_masks()
+        stacked = np.asfortranarray(np.stack(masks, axis=2))
+
+        batch = _mask.encode(stacked)
+        solo = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+
+        self.assertEqual(batch, solo)
+
+    def test_parallel_batch_decode_parity_and_order(self):
+        """Batch decode must match per-mask decode and keep slot order."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+
+        decoded = _mask.decode(rles)
+
+        self.assertEqual(decoded.shape, (32, 32, len(masks)))
+        for index, mask in enumerate(masks):
+            np.testing.assert_array_equal(decoded[:, :, index], mask)
+
+    def test_parallel_batch_area_parity_and_order(self):
+        """Batch area must match per-mask areas in order."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+
+        areas = _mask.area(rles)
+
+        self.assertEqual(areas.tolist(), [int(m.sum()) for m in masks])
+
+    def test_parallel_batch_erode_parity_and_order(self):
+        """Batch erosion must match the dense reference and keep slot order."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+
+        eroded = _mask.erode_3x3(rles, 1)
+        decoded = _mask.decode(eroded)
+
+        for index, mask in enumerate(masks):
+            np.testing.assert_array_equal(decoded[:, :, index], self._erode_reference(mask, 1))
+
+    def test_parallel_batch_decode_propagates_malformed_item(self):
+        """A malformed item in a parallel batch must surface its error."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+        rles[5] = {"size": [32, 32], "counts": b"0"}  # runs sum below h*w
+
+        with self.assertRaises(ValueError):
+            _mask.decode(rles)
+
+    def test_parallel_batch_erode_propagates_malformed_item(self):
+        """A malformed item must fail erode_3x3 even in a parallel batch."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+        rles[3] = {"size": [2, 2], "counts": b"05"}  # runs exceed h*w
+
+        with self.assertRaises(ValueError):
+            _mask.erode_3x3(rles, 1)
+
+    def test_parallel_batch_area_propagates_malformed_item(self):
+        """A malformed item must fail area even in a parallel batch."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+        rles[2] = {"size": [2, 2], "counts": b"05"}  # runs exceed h*w
+
+        with self.assertRaises(ValueError):
+            _mask.area(rles)
+
+    def test_parallel_batch_decode_multiple_malformed_items(self):
+        """Multiple malformed items must still surface an error
+        deterministically."""
+        masks = self._parallel_batch_masks()
+        rles = [mask_util.encode(np.asfortranarray(m[..., None]))[0] for m in masks]
+        # Two undersized items in different chunks of a parallel batch.
+        rles[1] = {"size": [32, 32], "counts": b"0"}
+        rles[9] = {"size": [32, 32], "counts": b"0"}
+
+        with self.assertRaises(ValueError):
+            _mask.decode(rles)
+
+    def test_decode_rejects_count_larger_than_each_mask(self):
+        """Reject oversized uncompressed RLE counts at construction time."""
+        with self.assertRaises(ValueError):
+            _mask.frUncompressedRLE([
+                {"size": [2, 2], "counts": [0, 4]},
+                {"size": [2, 2], "counts": [0, 5]},
+            ])
+
+    def test_decode_rejects_count_smaller_than_mask(self):
+        """Reject a second RLE whose runs sum to fewer pixels than h*w."""
+        valid, undersized = _mask.frUncompressedRLE([
+            {"size": [2, 2], "counts": [0, 4]},
+            {"size": [2, 2], "counts": [0, 3]},
+        ])
+
+        with self.assertRaises(ValueError):
+            _mask.decode([valid, undersized])
+
+    def test_rejects_oversized_rle_before_mask_operations(self):
+        """Reject malformed RLE counts at every dense-mask entry point."""
+        oversized = {"size": [2, 2], "counts": b"05"}
+
+        with self.assertRaises(ValueError):
+            _mask.decode([oversized])
+        with self.assertRaises(ValueError):
+            _mask.merge([oversized, oversized])
+        with self.assertRaises(ValueError):
+            _mask.erode_3x3([oversized], 1)
+
+    def test_rle_rejects_count_length_mismatch(self):
+        """Reject an explicit run count length that disagrees with the data."""
+        with self.assertRaises(ValueError):
+            _mask.RLE(2, 2, 3, [0, 4])
+
+    def test_fr_poly_preserves_64_bit_pixel_offsets(self):
+        """Keep polygon RLE offsets above the uint32 range intact."""
+        height = 2**32 + 1
+        rle = _mask.frPoly([[0.0, 0.0, 0.0, 1.0]], height, 1)[0]
+
+        uncompressed = _mask.toUncompressedRLE([rle])[0]
+
+        self.assertEqual(sum(uncompressed["counts"]), height)
+
     def test_frBbox(self):
         self.assertEqual(self.bbox_rles, _mask.frBbox(self.bboxes, 20, 20))
 
@@ -187,6 +347,95 @@ class TestMaskApi(unittest.TestCase):
 
         result_poly_iou = module.iou(self.poly_rles[:3], self.poly_rles[:3], [0, 0, 0]).round(4)
         self.assertEqual(poly_iou.tolist(), result_poly_iou.tolist())
+
+    def test_iou_accepts_list_and_array_subclasses(self):
+        """Dispatch bounding boxes from list and NumPy array subclasses."""
+        expected = _mask.iou(self.bboxes[:2], self.bboxes[:2], [0, 0])
+        list_boxes = _ListSubclass(
+            [_ListSubclass(box) for box in self.bboxes[:2].tolist()],
+        )
+        array_boxes = self.bboxes[:2].view(_ArraySubclass)
+        rle_list = _ListSubclass([_DictSubclass(self.compressed_rle)])
+
+        np.testing.assert_array_equal(_mask.iou(list_boxes, list_boxes, [0, 0]), expected)
+        np.testing.assert_array_equal(_mask.iou(array_boxes, array_boxes, [0, 0]), expected)
+        np.testing.assert_array_equal(_mask.iou(rle_list, rle_list, [0]), np.ones((1, 1)))
+
+    def test_fr_py_objects_accepts_list_and_dict_subclasses(self):
+        """Dispatch segmentation input from list and dict subclasses."""
+        rle = _DictSubclass(self.uncompressed_rle)
+
+        self.assertEqual(
+            self.compressed_rle,
+            _mask.frPyObjects(_ListSubclass([rle]), 1350, 1080)[0],
+        )
+        self.assertEqual(self.compressed_rle, _mask.frPyObjects(rle, 1350, 1080))
+        self.assertEqual(
+            self.bbox_rles[:2],
+            _mask.frPyObjects(self.bboxes[:2].view(_ArraySubclass), 20, 20),
+        )
+
+    def test_iou_releases_gil_during_cpp_compute(self):
+        """Allow another Python thread to run during native IoU computation."""
+        rows, columns = np.indices((256, 256))
+        checkerboard = np.asfortranarray(((rows + columns) % 2).astype(np.uint8)[..., None])
+        encoded = _mask.encode(checkerboard)[0]
+        rles = [encoded] * 24
+        started = threading.Event()
+        finished = threading.Event()
+        errors = []
+
+        def compute_iou():
+            started.set()
+            try:
+                _mask.iou(rles, rles, [0] * len(rles))
+            except Exception as ex:  # pragma: no cover - surfaced below
+                errors.append(ex)
+            finally:
+                finished.set()
+
+        original_switch_interval = sys.getswitchinterval()
+        worker = threading.Thread(target=compute_iou)
+        observed_start = False
+        overlapped = False
+        try:
+            # Prevent a Python bytecode switch between started.set() and iou().
+            # The main thread can resume before completion only if native iou()
+            # releases the GIL.
+            sys.setswitchinterval(1.0)
+            worker.start()
+            observed_start = started.wait(timeout=1.0)
+            overlapped = observed_start and not finished.is_set()
+            worker.join(timeout=5.0)
+        finally:
+            sys.setswitchinterval(original_switch_interval)
+
+        self.assertTrue(observed_start, "IoU worker did not start")
+        self.assertFalse(worker.is_alive(), "IoU worker did not finish")
+        if errors:
+            raise errors[0]
+        self.assertTrue(overlapped, "Python thread could not run while native IoU was active")
+
+    def test_iou_size_mismatch_writes_sentinel_to_pair(self):
+        """Return -1 in each pair's output cell when RLE sizes differ."""
+        dt = _mask.frBbox([[0, 0, 2, 2]], 4, 4) * 2
+        gt = [
+            _mask.frBbox([[0, 0, 2, 2]], 4, 4)[0],
+            _mask.frBbox([[0, 0, 2, 2]], 5, 5)[0],
+        ]
+
+        result = _mask.iou(dt, gt, [0, 0])
+
+        np.testing.assert_array_equal(result, [[1.0, -1.0], [1.0, -1.0]])
+
+    def test_iou_size_mismatch_rectangular_output_stays_in_bounds(self):
+        """Return one sentinel per mismatched pair for a rectangular result."""
+        dt = _mask.frBbox([[0, 0, 2, 2]], 4, 4)
+        gt = _mask.frBbox([[0, 0, 2, 2]] * 5, 5, 5)
+
+        result = _mask.iou(dt, gt, [0] * 5)
+
+        np.testing.assert_array_equal(result, np.full((1, 5), -1.0))
 
     def testToBboxFullImage(self):
         mask = np.array([[0, 1], [1, 1]])

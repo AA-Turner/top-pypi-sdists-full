@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gunicorn
-Version: 26.1.0
+Version: 26.2.0
 Summary: WSGI HTTP Server for UNIX
 Author-email: Benoit Chesneau <benoitc@gunicorn.org>
 License-Expression: MIT
@@ -44,7 +44,7 @@ Requires-Dist: setproctitle; extra == "setproctitle"
 Provides-Extra: http2
 Requires-Dist: h2>=4.4.1; extra == "http2"
 Provides-Extra: fast
-Requires-Dist: gunicorn_h1c>=0.6.6; extra == "fast"
+Requires-Dist: gunicorn_h1c>=0.6.9; extra == "fast"
 Provides-Extra: testing
 Requires-Dist: gevent>=24.10.1; extra == "testing"
 Requires-Dist: h2>=4.4.1; extra == "testing"
@@ -99,7 +99,7 @@ gunicorn myapp:app --worker-class asgi
 - uWSGI binary protocol for nginx integration
 - Multiple worker types: sync, gthread, gevent, asgi
 - Graceful worker process management
-- Compatible with Python 3.9+
+- Compatible with Python 3.10+
 
 ## Documentation
 

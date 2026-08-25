@@ -23,6 +23,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.api_analytics_models_time_range import ApiAnalyticsModelsTimeRange
 from mixpeek.models.performance_metric import PerformanceMetric
 from mixpeek.models.performance_summary import PerformanceSummary
+from mixpeek.models.service_health import ServiceHealth
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -33,7 +34,8 @@ class EnginePerformanceResponse(BaseModel):
     time_range: ApiAnalyticsModelsTimeRange = Field(description="Time range of the query")
     metrics: List[PerformanceMetric] = Field(description="Time-series performance metrics")
     summary: Optional[PerformanceSummary] = Field(default=None, description="Overall summary statistics")
-    __properties: ClassVar[List[str]] = ["time_range", "metrics", "summary"]
+    service_health: Optional[ServiceHealth] = Field(default=None, description="Per-namespace service-health dimensions (ADM-18): availability, degraded/partial rates, timeout/throttle rates and dependency health. Unwired dimensions are None with a stated reason, never a fabricated zero.")
+    __properties: ClassVar[List[str]] = ["time_range", "metrics", "summary", "service_health"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,6 +89,9 @@ class EnginePerformanceResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of summary
         if self.summary:
             _dict['summary'] = self.summary.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of service_health
+        if self.service_health:
+            _dict['service_health'] = self.service_health.to_dict()
         return _dict
 
     @classmethod
@@ -101,7 +106,8 @@ class EnginePerformanceResponse(BaseModel):
         _obj = cls.model_validate({
             "time_range": ApiAnalyticsModelsTimeRange.from_dict(obj["time_range"]) if obj.get("time_range") is not None else None,
             "metrics": [PerformanceMetric.from_dict(_item) for _item in obj["metrics"]] if obj.get("metrics") is not None else None,
-            "summary": PerformanceSummary.from_dict(obj["summary"]) if obj.get("summary") is not None else None
+            "summary": PerformanceSummary.from_dict(obj["summary"]) if obj.get("summary") is not None else None,
+            "service_health": ServiceHealth.from_dict(obj["service_health"]) if obj.get("service_health") is not None else None
         })
         return _obj
 

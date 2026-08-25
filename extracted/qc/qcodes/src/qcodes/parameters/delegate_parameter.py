@@ -4,16 +4,18 @@ from typing import TYPE_CHECKING, Any, Generic
 
 from typing_extensions import TypeVar
 
+from qcodes.metadatable import normalize_snapshot_update
+
 from .parameter import Parameter, ParameterKWArgs
 from .parameter_base import InstrumentTypeVar_co, ParameterDataTypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from qcodes.instrument import InstrumentBase
+    from qcodes.metadatable import SnapshotUpdate
     from qcodes.validators.validators import Validator
 
     from .parameter_base import (
@@ -21,8 +23,9 @@ if TYPE_CHECKING:
         ParamRawDataType,
     )
 
-# Generic type variables for inner cache class
-# these need to be different variables such that both classes can be generic
+# Cannot convert to PEP 695: uses default= which requires PEP 696 (Python 3.13+).
+# Generic type variables for inner cache class —
+# these need to be different variables such that both classes can be generic.
 _local_ParameterDataTypeVar = TypeVar("_local_ParameterDataTypeVar", default=Any)
 _local_InstrumentTypeVar_co = TypeVar(
     "_local_InstrumentTypeVar_co",
@@ -35,7 +38,9 @@ _SOURCE_UNSET: Any = object()
 
 class DelegateParameter(
     Parameter[ParameterDataTypeVar, InstrumentTypeVar_co],
-    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],
+    # Generic can be replaced with PEP 695 type params once Python 3.12
+    # support is dropped (TypeVars use default= which requires PEP 696)
+    Generic[ParameterDataTypeVar, InstrumentTypeVar_co],  # noqa: UP046
 ):
     """
     The :class:`.DelegateParameter` wraps a given `source` :class:`Parameter`.
@@ -174,7 +179,6 @@ class DelegateParameter(
             delegate parameter mirrors the cache of the source parameter by
             design, this method is just a noop.
             """
-            pass
 
         def __call__(self) -> _local_ParameterDataTypeVar:
             return self.get(get_if_invalid=True)
@@ -322,9 +326,10 @@ class DelegateParameter(
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
+        update = normalize_snapshot_update(update)
         snapshot = super().snapshot_base(
             update=update, params_to_skip_update=params_to_skip_update
         )

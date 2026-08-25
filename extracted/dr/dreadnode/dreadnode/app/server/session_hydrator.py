@@ -230,8 +230,33 @@ def _api_messages_to_openai_format(messages_data: list[dict[str, t.Any]]) -> lis
             converted["tool_call_id"] = msg["tool_call_id"]
         if msg.get("metadata"):
             converted["metadata"] = msg["metadata"]
+        # Carry per-assistant usage so ``trajectory_from_openai_format`` can
+        # rebuild ``GenerationStep`` events. Without it the builder emits
+        # plain ``AgentStep``s and ``_trajectory_usage_rollup`` reports zero
+        # cost on every platform-hydrated resume (ENG-7589).
+        usage = _message_usage(msg)
+        if usage:
+            converted["usage"] = usage
         openai_messages.append(converted)
     return openai_messages
+
+
+def _message_usage(msg: dict[str, t.Any]) -> dict[str, t.Any] | None:
+    """Normalize a transcript message's usage into a ``Usage``-shaped dict.
+
+    The platform's ``MessageResponse`` exposes only a flat ``cost_usd``
+    column — the per-message token buckets are not part of the read schema,
+    so cost is the one field that can be recovered per message. Accept a
+    nested ``usage`` block too, since local snapshots (and future read
+    schemas) carry the full block written by ``session_persistence``.
+    """
+    nested = msg.get("usage")
+    if isinstance(nested, dict) and nested:
+        return nested
+    cost_usd = msg.get("cost_usd")
+    if cost_usd is None:
+        return None
+    return {"cost_usd": cost_usd}
 
 
 def _model_from_trajectory(trajectory_data: dict[str, t.Any]) -> str | None:

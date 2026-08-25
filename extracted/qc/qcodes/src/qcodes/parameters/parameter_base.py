@@ -13,7 +13,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, overload
 import numpy as np
 from typing_extensions import TypedDict, TypeVar
 
-from qcodes.metadatable import Metadatable, MetadatableWithName
+from qcodes.metadatable import (
+    Metadatable,
+    MetadatableWithName,
+    SnapshotUpdate,
+    normalize_snapshot_update,
+)
 from qcodes.parameters import ParamSpecBase
 from qcodes.utils import (
     DelegateAttributes,
@@ -49,7 +54,9 @@ if TYPE_CHECKING:
     from qcodes.dataset.data_set_protocol import ValuesType
     from qcodes.instrument import InstrumentBase
     from qcodes.logger.instrument_logger import InstrumentLoggerAdapter
+# Cannot convert to PEP 695: uses default= which requires PEP 696 (Python 3.13+).
 ParameterDataTypeVar = TypeVar("ParameterDataTypeVar", default=Any)
+# Cannot convert to PEP 695: uses default= and covariant= which require PEP 696 (Python 3.13+).
 # InstrumentTypeVar_co is a covariant type variable representing the instrument
 # type associated with the parameter. It needs to be covariant to allow passing
 # a Parameter bound to None or a specific instrument where the default is used in the type hint.
@@ -697,7 +704,7 @@ class ParameterBase(
 
     def snapshot_base(
         self,
-        update: bool | None = True,
+        update: bool | SnapshotUpdate | None = "Only_invalid",
         params_to_skip_update: Sequence[str] | None = None,
     ) -> dict[Any, Any]:
         """
@@ -710,17 +717,25 @@ class ParameterBase(
         parameter.
 
         Args:
-            update: If True, update the state by calling ``parameter.get()``
-                unless ``snapshot_get`` of the parameter is ``False``.
-                If ``update`` is ``None``, use the current value from the
-                ``cache`` unless the cache is invalid. If ``False``, never call
-                ``parameter.get()``.
+            update: What to do about the value stored in the snapshot.
+
+                * ``"All"``: update the state by calling ``parameter.get()``
+                  unless ``snapshot_get`` of the parameter is ``False``.
+                * ``"Only_invalid"`` (the default): call ``parameter.get()``
+                  only if the parameter's cache is invalid, i.e. use
+                  ``cache.get(get_if_invalid=True)``, otherwise use the cached
+                  value. This never calls ``get()`` if ``snapshot_get`` is
+                  ``False`` or the parameter is not gettable.
+                * ``"Never"``: never call ``parameter.get()``, always use the
+                  latest cached value.
             params_to_skip_update: No effect but may be passed from superclass
 
         Returns:
             base snapshot
 
         """
+        update = normalize_snapshot_update(update)
+
         if self.snapshot_exclude:
             warnings.warn(
                 f"Parameter ({self.full_name}) is used in the snapshot while it "
@@ -733,15 +748,18 @@ class ParameterBase(
         if self.snapshot_value:
             has_get = self.gettable
             allowed_to_call_get_when_snapshotting = (
-                self._snapshot_get and update is not False
+                self._snapshot_get and update != "Never"
             )
             can_call_get_when_snapshotting = (
                 allowed_to_call_get_when_snapshotting and has_get
             )
 
-            if can_call_get_when_snapshotting and update:
+            if can_call_get_when_snapshotting and update == "All":
                 state["value"] = self.get()
             else:
+                # ``get_if_invalid`` is True only for ``"Only_invalid"`` (when
+                # the parameter is gettable and ``snapshot_get`` is True), so
+                # that only parameters with an invalid cache are refreshed.
                 state["value"] = self.cache.get(
                     get_if_invalid=can_call_get_when_snapshotting
                 )
@@ -752,7 +770,7 @@ class ParameterBase(
 
         if isinstance(state["ts"], datetime):
             dttime: datetime = state["ts"]
-            state["ts"] = dttime.strftime("%Y-%m-%d %H:%M:%S")
+            state["ts"] = dttime.isoformat(sep=" ", timespec="seconds")
 
         for attr in set(self._meta_attrs):
             if attr == "instrument" and self._instrument is not None:
@@ -906,7 +924,7 @@ class ParameterBase(
 
             except Exception as e:
                 e.args = (*e.args, f"getting {self}")
-                raise e
+                raise
 
         return get_wrapper
 
@@ -964,7 +982,7 @@ class ParameterBase(
 
             except Exception as e:
                 e.args = (*e.args, f"setting {self} to {value}")
-                raise e
+                raise
 
         return set_wrapper
 
@@ -1370,7 +1388,7 @@ class ParameterBase(
         if self.vals is None:
             self.vals = new_vals
         elif type(self.vals) is not type(new_vals):
-            logging.warning(
+            LOG.warning(
                 f"Tried to set a new paramtype {paramtype}, but this parameter already has paramtype {self.paramtype} which does not match"
             )
         self.param_spec.type = paramtype
@@ -1472,11 +1490,8 @@ class GetLatest(DelegateAttributes, Generic[ParameterDataTypeVar]):
         return self.cache()
 
 
-P = TypeVar("P", bound=ParameterBase)
-
-
 # Does not implement __hash__, not clear it needs to
-class ParameterSet(MutableSet[P], Generic[P]):  # noqa: PLW1641
+class ParameterSet[P: ParameterBase](MutableSet[P]):  # noqa: PLW1641
     """A set-like container that preserves the insertion order of its parameters.
 
     This class implements the common set interface methods while maintaining
@@ -1592,3 +1607,13 @@ class ParameterSet(MutableSet[P], Generic[P]):  # noqa: PLW1641
         raise NotImplementedError(
             f">+ operation is not defined between ParameterSet and {type(other)}"
         )
+
+
+if not TYPE_CHECKING:
+    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
+
+    _deprecated_typevars: dict[str, TypeVar] = {
+        "P": TypeVar("P", bound="ParameterBase"),
+    }
+
+    __getattr__ = _make_deprecated_typevars_getattr(__name__, _deprecated_typevars)

@@ -38,7 +38,15 @@ class TestClusterExecutionMetrics(unittest.TestCase):
             return ClusterExecutionMetrics(
                 silhouette_score = -1.0,
                 davies_bouldin_index = 0.0,
-                calinski_harabasz_score = 0.0
+                calinski_harabasz_score = 0.0,
+                degenerate = None,
+                degenerate_detail = '',
+                avg_cluster_size = 1.337,
+                noise_ratio = 1.337,
+                cluster_size_entropy = 1.337,
+                should_recluster = 1.337,
+                mean_cosine_to_centroid = 1.337,
+                min_cosine_to_centroid = 1.337
             )
         else:
             return ClusterExecutionMetrics(

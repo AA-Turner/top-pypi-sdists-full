@@ -10,8 +10,11 @@ The simple cache backend.
 """
 
 import logging
+import warnings
+from typing import Any
 
 from cachelib import SimpleCache as CachelibSimpleCache
+from flask import Flask
 
 from flask_caching.backends.base import BaseCache
 
@@ -19,37 +22,55 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleCache(BaseCache, CachelibSimpleCache):
-    """Simple memory cache for single process environments. This class exists
-    mainly for the development server and is not 100% thread safe.  It tries
-    to use as many atomic operations as possible and no locks for simplicity
-    but it could happen under heavy load that keys are added multiple times.
+    """Simple memory cache for single process environments. All operations
+    are protected by a :class:`threading.RLock`, making a cache instance safe
+    to use from multiple threads within the same process.
 
     :param threshold: the maximum number of items the cache stores before
                       it starts deleting some.
     :param default_timeout: the default timeout that is used if no timeout is
-                            specified on :meth:`~BaseCache.set`. A timeout of
+                            specified on ``set``. A timeout of
                             0 indicates that the cache never expires.
-    :param ignore_errors: If set to ``True`` the :meth:`~BaseCache.delete_many`
-                          method will ignore any errors that occurred during
-                          the deletion process. However, if it is set to
-                          ``False`` it will stop on the first error. Defaults
-                          to ``False``.
+    :param ignore_delete_many_errors: If set to ``False`` the ``delete_many``
+                                      method raises a ``RuntimeError`` in case
+                                      a key couldn't be deleted.
+                                      Defaults to ``False``.
+    :param ignore_errors: Deprecated alias for ``ignore_delete_many_errors``.
+
+        .. deprecated:: 2.5.0
+           Will be removed in the next version.
     """
 
-    def __init__(self, threshold=500, default_timeout=300, ignore_errors=False):
-        BaseCache.__init__(self, default_timeout=default_timeout)
-        CachelibSimpleCache.__init__(
-            self, threshold=threshold, default_timeout=default_timeout
-        )
+    def __init__(
+        self,
+        threshold: int = 500,
+        default_timeout: int = 300,
+        ignore_delete_many_errors: bool = False,
+        ignore_errors: bool | None = None,
+    ) -> None:
+        if ignore_errors is not None:
+            warnings.warn(
+                "'ignore_errors' is deprecated and will be removed in the next "
+                "version. Use 'ignore_delete_many_errors' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            ignore_delete_many_errors = ignore_errors
 
-        self.ignore_errors = ignore_errors
+        CachelibSimpleCache.__init__(
+            self,
+            threshold=threshold,
+            default_timeout=default_timeout,
+            ignore_delete_many_errors=ignore_delete_many_errors,
+        )
 
     @classmethod
-    def factory(cls, app, config, args, kwargs):
-        kwargs.update(
-            dict(
-                threshold=config["CACHE_THRESHOLD"],
-                ignore_errors=config["CACHE_IGNORE_ERRORS"],
-            )
-        )
+    def factory(
+        cls,
+        app: Flask,
+        config: dict[str, Any],
+        args: list[Any],
+        kwargs: dict[str, Any],
+    ) -> "SimpleCache":
+        kwargs.update(dict(threshold=config["CACHE_THRESHOLD"]))
         return cls(*args, **kwargs)

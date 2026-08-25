@@ -2652,6 +2652,7 @@ class AttentionLayers(Module):
         causal = False,
         cross_attend = False,
         only_cross = False,
+        only_attn = False, # Ndubuaku et al., https://arxiv.org/abs/2607.18363
         use_scalenorm = False,
         use_rmsnorm = False,
         use_dynamic_tanh = False,
@@ -2886,6 +2887,9 @@ class AttentionLayers(Module):
         if macaron:
             default_block = ('f',) + default_block
 
+        if only_attn:
+            default_block = tuple(filter(not_equals('f'), default_block))
+
         # determine post branch wrapper
 
         assert at_most_one_of(use_layerscale, use_adaptive_layerscale)
@@ -2928,6 +2932,9 @@ class AttentionLayers(Module):
 
         assert not (weight_tie_layers and any([*map(exists, (custom_layers, par_ratio, sandwich_coef))]))
 
+        assert not (only_attn and (exists(layers_execute_order) or unet_skips)), '`only_attn` is not compatible with an explicit `layers_execute_order` or `unet_skips`'
+        assert not (only_attn and exists(custom_layers) and 'f' in custom_layers), '`only_attn` is not compatible with feedforward layers in `custom_layers`'
+
         if weight_tie_layers:
             assert exists(depth), 'depth must be passed in with `weight_tie_layers` = True'
             assert not exists(layers_execute_order)
@@ -2958,6 +2965,11 @@ class AttentionLayers(Module):
             assert exists(depth), '`depth` must be passed in for `Decoder` or `Encoder`'
             layer_types = default_block * depth
             len_default_block = len(default_block)
+
+        # filter out any feedforward layers from `par_ratio` or `sandwich_coef` (default block already filtered above)
+
+        if only_attn:
+            layer_types = tuple(filter(not_equals('f'), layer_types))
 
         self.has_custom_layer_types = exists(custom_layers) or exists(par_ratio) or exists(sandwich_coef)
         self.len_default_block = len_default_block

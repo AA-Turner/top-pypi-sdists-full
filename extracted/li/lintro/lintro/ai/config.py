@@ -73,7 +73,7 @@ class CliTransportProfile(BaseModel):
     timeout: float | None = Field(
         default=None,
         ge=1.0,
-        description="Whole-turn timeout in seconds (default 900).",
+        description="Per-chunk CLI invocation timeout in seconds (default 1800).",
     )
     max_cost_usd_advisory: float | None = Field(
         default=None,
@@ -172,7 +172,7 @@ class AIConfig(BaseModel):
         description=(
             "Per-transport operational profiles (timeout and cost caps). "
             "Resolution: transport profile → legacy api_timeout/max_cost_usd "
-            "→ built-in default (api: 60s; cli: 900s)."
+            "→ built-in default (api: 60s; cli: 1800s)."
         ),
     )
     model: str | None = None
@@ -465,9 +465,9 @@ class AIConfig(BaseModel):
 
         Environment overrides (``LINTRO_AI_PROVIDER``, ``LINTRO_AI_MODEL``,
         ``LINTRO_AI_TRANSPORT``, ``LINTRO_AI_ENABLED``,
-        ``LINTRO_AI_MAX_COST_USD``) are applied here so every consumer of
-        :meth:`from_mapping` — execution, status, doctor, MCP — sees the
-        same effective values (#1970, #2024).
+        ``LINTRO_AI_REVIEW``, ``LINTRO_AI_MAX_COST_USD``) are applied here
+        so every consumer of :meth:`from_mapping` — execution, status,
+        doctor, MCP — sees the same effective values (#1970, #2024, #2153).
 
         This is the boundary that keeps :mod:`lintro.config` free of any
         knowledge of ``AIConfig``'s field set (see issue #724): the loader
@@ -506,7 +506,8 @@ class AIConfig(BaseModel):
 
         Returns:
             Validated config together with provenance for ``provider``,
-            ``model``, ``transport``, ``enabled``, and ``max_cost_usd``.
+            ``model``, ``transport``, ``enabled``, ``review``, and
+            ``max_cost_usd``.
         """
         from lintro.ai.config_overrides import (
             OVERRIDE_FIELDS,

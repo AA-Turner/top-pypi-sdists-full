@@ -133,6 +133,19 @@ def test_clone_large_aot_entry(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(work, setup=_parsed(_large_aot_entry(500)), rounds=50)
 
 
+def test_clear_aot_with_trailing(benchmark: BenchmarkFixture) -> None:
+    """Clear an AoT that is not the last thing in the document.
+
+    Every entry's ref sits ahead of the trailing section's in the root's
+    caches, so none of the unfiling lands at a tail.
+    """
+
+    def work(doc: Document) -> None:
+        doc.aot("items").clear()
+
+    benchmark.pedantic(work, setup=_parsed(_aot_with_trailing(2_000, 5)), rounds=50)
+
+
 def test_replace_aot_slice(benchmark: BenchmarkFixture) -> None:
     def work(doc: Document) -> None:
         doc.aot("items")[150:350] = (
@@ -247,6 +260,22 @@ def test_delete_100_kvs(benchmark: BenchmarkFixture) -> None:
             del section["k1"]
 
     benchmark.pedantic(work, setup=_parsed(_section_doc(50, 20)), rounds=200)
+
+
+def test_delete_root_kvs_tail_first(benchmark: BenchmarkFixture) -> None:
+    """Delete the root body backwards, under a pile of section headers.
+
+    Only a delete of the *current* body tail invalidates the cache, so
+    going backwards invalidates on every key. The document root also
+    holds a ref per section header, and those sit past the body.
+    """
+
+    def work(doc: Document) -> None:
+        for i in reversed(range(1_000)):
+            del doc[f"r{i}"]
+
+    src = "".join(f"r{i} = {i}\n" for i in range(1_000)) + _section_doc(1_000, 1)
+    benchmark.pedantic(work, setup=_parsed(src), rounds=20)
 
 
 # --- sorting ---------------------------------------------------------------

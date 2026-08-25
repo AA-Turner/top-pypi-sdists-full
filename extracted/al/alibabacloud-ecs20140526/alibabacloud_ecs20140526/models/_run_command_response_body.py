@@ -13,7 +13,7 @@ class RunCommandResponseBody(DaraModel):
     ):
         # The command ID.
         self.command_id = command_id
-        # The command execution ID.
+        # The invocation ID.
         self.invoke_id = invoke_id
         # The request ID.
         self.request_id = request_id

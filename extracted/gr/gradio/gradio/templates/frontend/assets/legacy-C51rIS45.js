@@ -1,1 +1,0 @@
-import{qt as e}from"./index-Dqxt3WGu.js";e();

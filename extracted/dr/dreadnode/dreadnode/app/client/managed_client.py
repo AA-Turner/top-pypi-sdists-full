@@ -27,6 +27,7 @@ from dreadnode.app.client.runtime_client import (
     DEFAULT_RUNTIME_HOST,
     DEFAULT_RUNTIME_PORT,
     DEFAULT_RUNTIME_URL,
+    REMOTE_HEALTH_TIMEOUT_SECONDS,
     RuntimeClient,
 )
 from dreadnode.app.client.transports import StreamingASGITransport
@@ -174,19 +175,23 @@ class ManagedRuntimeClient(RuntimeClient):
                 self._mark_started()
                 return
 
-            if await self._is_healthy():
+            if not self.auto_start:
+                try:
+                    await self._probe_health(REMOTE_HEALTH_TIMEOUT_SECONDS)
+                except RuntimeError as exc:
+                    raise RuntimeError(
+                        f"{exc}\n\nThe --server flag overrides the local runtime endpoint, "
+                        "not the platform API. Omit --server to auto-start the local runtime, "
+                        "and use /login --server <url> to set the platform API."
+                    ) from exc
                 logger.info("Server start | mode=external | url={}", self.server_url)
                 self._mark_started()
                 return
 
-            if not self.auto_start:
-                logger.error("Server unreachable | url={} | auto_start=false", self.server_url)
-                raise RuntimeError(
-                    "Could not connect to Dreadnode runtime server at "
-                    f"{self.server_url}. The --server flag overrides the local runtime "
-                    "endpoint, not the platform API. Omit --server to auto-start the local "
-                    "runtime, and use /login --server <url> to set the platform API."
-                )
+            if await self._is_healthy():
+                logger.info("Server start | mode=external | url={}", self.server_url)
+                self._mark_started()
+                return
 
             logger.info("Server start | mode=spawned | url={}", self.server_url)
             self._spawn_local_server()
@@ -291,11 +296,7 @@ class ManagedRuntimeClient(RuntimeClient):
         self._owned_process = None
         self._owned_log_file = None
         self._mark_stopped()
-        self._http_client = httpx.AsyncClient(
-            base_url=self.server_url,
-            timeout=None,  # noqa: S113 - long-lived local runtime client intentionally disables global timeout
-            headers=self._build_auth_headers(),
-        )
+        self._http_client = self._create_http_client()
         await self.start()
 
     # ── Transport introspection (TUI connection manager) ──────────
@@ -408,12 +409,7 @@ class ManagedRuntimeClient(RuntimeClient):
         future = asyncio.run_coroutine_threadsafe(self._lifecycle_ctx.__aenter__(), server_loop)
         await asyncio.to_thread(future.result)
 
-        self._http_client = httpx.AsyncClient(
-            transport=transport,
-            base_url=self.server_url,
-            timeout=None,  # noqa: S113 - in-process transport should not enforce request timeouts
-            headers=self._build_auth_headers(),
-        )
+        self._http_client = self._create_http_client(transport=transport)
 
     @staticmethod
     def _build_uvicorn_server(app: t.Any, host: str, port: int) -> uvicorn.Server:

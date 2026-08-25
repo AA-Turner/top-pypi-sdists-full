@@ -22,7 +22,7 @@ import pytest
 from pybase64 import b64encode
 from qiskit.circuit import QuantumCircuit
 from qiskit.qpy import dump
-from samplomatic import ChangeBasis, InjectNoise, Twirl
+from samplomatic import ChangeBasis, InjectNoise, Tag, Twirl
 
 from ibm_quantum_schemas.common.qpy import (
     CompressedQpyDataModel,
@@ -77,7 +77,7 @@ class TestQpyModelV13ToV16:
         circuit = QuantumCircuit(3)
         circuit.h(0)
         circuit.cx(0, 1)
-        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis()]):
+        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis(), Tag("ref2")]):
             circuit.cx(1, 2)
         circuit.measure_all()
 
@@ -122,7 +122,7 @@ class TestQpyModelV13ToV17:
         circuit = QuantumCircuit(3)
         circuit.h(0)
         circuit.cx(0, 1)
-        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis()]):
+        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis(), Tag("ref2")]):
             circuit.cx(1, 2)
         circuit.measure_all()
 
@@ -177,7 +177,7 @@ class TestQpyDataV13ToV17Model:
         circuit = QuantumCircuit(3)
         circuit.h(0)
         circuit.cx(0, 1)
-        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis()]):
+        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis(), Tag("ref2")]):
             circuit.cx(1, 2)
         circuit.measure_all()
 
@@ -236,7 +236,7 @@ class TestCompressedQpyDataModel:
         circuit = QuantumCircuit(3)
         circuit.h(0)
         circuit.cx(0, 1)
-        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis()]):
+        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis(), Tag("ref2")]):
             circuit.cx(1, 2)
         circuit.measure_all()
 

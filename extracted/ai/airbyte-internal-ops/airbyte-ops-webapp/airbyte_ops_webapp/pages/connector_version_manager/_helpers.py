@@ -1040,6 +1040,8 @@ def context_success_actions() -> list[Any]:
         SetState("scope_type", RESULT.scope_type),
         SetState("scope_id", RESULT.scope_id),
         SetState("actor_workspace_id", RESULT.actor_workspace_id),
+        SetState("customer_tier_filter", RESULT.customer_tier),
+        SetState("customer_tier_label", RESULT.customer_tier_label),
         SetState("context_error", RESULT.context_error),
         SetState("rollout_error", RESULT.rollout_error),
         SetState("selected_rollout", EMPTY_ROLLOUT_STATE),

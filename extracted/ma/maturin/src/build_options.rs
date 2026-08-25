@@ -1,9 +1,9 @@
-use crate::auditwheel::{AuditWheelMode, PlatformTag};
+use crate::auditwheel::{AuditWheelMode, CompatibilityTag};
+use crate::bridge::Bindings;
 use crate::build_context::BuildContextBuilder;
 pub use crate::cargo_options::{CargoOptions, TargetTriple};
 use crate::compression::CompressionOptions;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use tracing::instrument;
 
@@ -23,8 +23,8 @@ pub struct PythonOptions {
     pub find_interpreter: bool,
 
     /// Which kind of bindings to use.
-    #[arg(short, long, value_parser = ["pyo3", "pyo3-ffi", "cffi", "uniffi", "bin"])]
-    pub bindings: Option<String>,
+    #[arg(short, long)]
+    pub bindings: Option<Bindings>,
 }
 
 /// Options for configuring platform tags and binary compatibility.
@@ -55,7 +55,7 @@ pub struct PlatformOptions {
         num_args = 0..,
         action = clap::ArgAction::Append
     )]
-    pub platform_tag: Vec<PlatformTag>,
+    pub platform_tag: Vec<CompatibilityTag>,
 
     /// Audit wheel for manylinux compliance
     #[arg(long, conflicts_with = "skip_auditwheel")]
@@ -130,20 +130,6 @@ pub struct BuildOptions {
     pub generate_stubs: bool,
 }
 
-impl Deref for BuildOptions {
-    type Target = CargoOptions;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cargo
-    }
-}
-
-impl DerefMut for BuildOptions {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cargo
-    }
-}
-
 impl BuildOptions {
     /// Tries to fill the missing metadata for a BuildContext by querying cargo and python
     #[instrument(skip_all)]
@@ -155,13 +141,51 @@ impl BuildOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bridge::{PyO3, PyO3Crate, StableAbi, StableAbiKind, StableAbiVersion, find_bridge};
+    use crate::bridge::{
+        Bindings, CrateDependencies, PyO3, PyO3Crate, StableAbi, StableAbiKind, StableAbiVersion,
+        find_bridge,
+    };
     use crate::python_interpreter::InterpreterResolver;
     use crate::test_utils::test_crate_path;
     use crate::{BridgeModel, Target};
     use cargo_metadata::{CargoOpt, MetadataCommand};
     use insta::assert_snapshot;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_cli_bindings_parses_every_spelling() {
+        use clap::Parser;
+
+        // `--bindings <value>` accepts each valid spelling and maps it to the
+        // matching `Bindings` variant.
+        for binding in Bindings::ALL {
+            let opts =
+                PythonOptions::try_parse_from(["prog", "--bindings", binding.as_str()]).unwrap();
+            assert_eq!(opts.bindings, Some(binding));
+        }
+
+        // Omitting `--bindings` leaves auto-detection untouched (None).
+        let opts = PythonOptions::try_parse_from(["prog"]).unwrap();
+        assert_eq!(opts.bindings, None);
+    }
+
+    #[test]
+    fn test_cli_bindings_rejects_unknown() {
+        use clap::Parser;
+
+        let err = PythonOptions::try_parse_from(["prog", "--bindings", "foo"]).unwrap_err();
+        let rendered = err.to_string();
+        // Same diagnostic quality as the previous `value_parser = [...]`: the
+        // invalid value plus the list of accepted spellings.
+        assert!(
+            rendered.contains("invalid value 'foo' for '--bindings <BINDINGS>'"),
+            "unexpected error: {rendered}"
+        );
+        assert!(
+            rendered.contains("[possible values: pyo3, pyo3-ffi, cffi, uniffi, bin]"),
+            "unexpected error: {rendered}"
+        );
+    }
 
     #[test]
     fn test_find_bridge_pyo3() {
@@ -171,11 +195,11 @@ mod tests {
             .unwrap();
 
         assert!(matches!(
-            find_bridge(&pyo3_mixed, None),
+            find_bridge(&pyo3_mixed, None, &CargoOptions::default()),
             Ok(BridgeModel::PyO3 { .. })
         ));
         assert!(matches!(
-            find_bridge(&pyo3_mixed, Some("pyo3")),
+            find_bridge(&pyo3_mixed, Some(Bindings::PyO3), &CargoOptions::default()),
             Ok(BridgeModel::PyO3 { .. })
         ));
     }
@@ -204,8 +228,35 @@ mod tests {
                 },
             }),
         });
-        assert_eq!(find_bridge(&pyo3_pure, None).unwrap(), bridge);
-        assert_eq!(find_bridge(&pyo3_pure, Some("pyo3")).unwrap(), bridge);
+        assert_eq!(
+            find_bridge(&pyo3_pure, None, &CargoOptions::default()).unwrap(),
+            bridge
+        );
+        assert_eq!(
+            find_bridge(&pyo3_pure, Some(Bindings::PyO3), &CargoOptions::default()).unwrap(),
+            bridge
+        );
+    }
+
+    #[test]
+    fn test_find_bridge_pyo3_workspace_abi3_feature() {
+        // `pyo3-workspace-abi3-feature` has a sibling workspace member that
+        // enables pyo3's abi3 features; the workspace-unified `cargo metadata`
+        // graph reports them for `extension` too, but a scoped build of
+        // `extension` never enables them, so no stable abi should be detected
+        let metadata = MetadataCommand::new()
+            .manifest_path(
+                test_crate_path("pyo3-workspace-abi3-feature")
+                    .join("extension")
+                    .join("Cargo.toml"),
+            )
+            .exec()
+            .unwrap();
+        let bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
+        let BridgeModel::PyO3(pyo3) = bridge else {
+            panic!("expected pyo3 bindings, got {bridge:?}");
+        };
+        assert_eq!(pyo3.stable_abi, None);
     }
 
     #[test]
@@ -215,7 +266,7 @@ mod tests {
             .exec()
             .unwrap();
 
-        let bridge = find_bridge(&pyo3_abi3t, None).unwrap();
+        let bridge = find_bridge(&pyo3_abi3t, None, &CargoOptions::default()).unwrap();
         let pyo3 = match &bridge {
             BridgeModel::PyO3(pyo3) => pyo3,
             other => panic!("expected PyO3 bridge, got {other:?}"),
@@ -227,7 +278,8 @@ mod tests {
         );
         assert_eq!(pyo3.crate_name, PyO3Crate::PyO3);
 
-        let bridge_explicit = find_bridge(&pyo3_abi3t, Some("pyo3")).unwrap();
+        let bridge_explicit =
+            find_bridge(&pyo3_abi3t, Some(Bindings::PyO3), &CargoOptions::default()).unwrap();
         assert_eq!(bridge_explicit, bridge);
     }
 
@@ -238,7 +290,8 @@ mod tests {
             .exec()
             .unwrap();
 
-        let bridge = find_bridge(&pyo3_abi3t_without_version, None).unwrap();
+        let bridge =
+            find_bridge(&pyo3_abi3t_without_version, None, &CargoOptions::default()).unwrap();
         let pyo3 = match &bridge {
             BridgeModel::PyO3(pyo3) => pyo3,
             other => panic!("expected PyO3 bridge, got {other:?}"),
@@ -272,7 +325,7 @@ mod tests {
             }
             let metadata = command.exec().unwrap();
 
-            let bridge = find_bridge(&metadata, None).unwrap();
+            let bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
             let pyo3 = match &bridge {
                 BridgeModel::PyO3(pyo3) => pyo3,
                 other => panic!("expected PyO3 bridge, got {other:?}"),
@@ -294,7 +347,7 @@ mod tests {
             .manifest_path(test_crate_path("pyo3-abi3-and-abi3t").join("Cargo.toml"))
             .exec()
             .unwrap();
-        let bridge = find_bridge(&metadata, None).unwrap();
+        let bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
         let target = Target::from_resolved_target_triple("x86_64-unknown-linux-gnu").unwrap();
         let cpython = |minor, abiflags| {
             crate::PythonInterpreter::from_config(
@@ -335,9 +388,10 @@ mod tests {
             ),
         ];
 
+        let deps = CrateDependencies::resolve(&metadata, &CargoOptions::default()).unwrap();
         for (name, interpreters, expected) in cases {
             let bridge =
-                upgrade_bridge_stable_abi(bridge.clone(), &metadata, None, &interpreters).unwrap();
+                upgrade_bridge_stable_abi(bridge.clone(), &deps, None, &interpreters).unwrap();
             let stable_abi = bridge.pyo3().and_then(|pyo3| pyo3.stable_abi);
             assert_eq!(stable_abi, Some(expected), "{name}");
         }
@@ -353,7 +407,7 @@ mod tests {
             .exec()
             .unwrap();
 
-        let bridge = find_bridge(&pyo3_ffi_abi3t, None).unwrap();
+        let bridge = find_bridge(&pyo3_ffi_abi3t, None, &CargoOptions::default()).unwrap();
         let pyo3 = match &bridge {
             BridgeModel::PyO3(pyo3) => pyo3,
             other => panic!("expected PyO3 bridge, got {other:?}"),
@@ -451,7 +505,7 @@ mod tests {
             .exec()
             .unwrap();
 
-        assert!(find_bridge(&pyo3_pure, None).is_err());
+        assert!(find_bridge(&pyo3_pure, None, &CargoOptions::default()).is_err());
 
         let pyo3_pure = MetadataCommand::new()
             .manifest_path(test_crate_path("pyo3-feature").join("Cargo.toml"))
@@ -460,7 +514,7 @@ mod tests {
             .unwrap();
 
         assert!(matches!(
-            find_bridge(&pyo3_pure, None).unwrap(),
+            find_bridge(&pyo3_pure, None, &CargoOptions::default()).unwrap(),
             BridgeModel::PyO3 { .. }
         ));
     }
@@ -473,12 +527,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            find_bridge(&cffi_pure, Some("cffi")).unwrap(),
+            find_bridge(&cffi_pure, Some(Bindings::Cffi), &CargoOptions::default()).unwrap(),
             BridgeModel::Cffi
         );
-        assert_eq!(find_bridge(&cffi_pure, None).unwrap(), BridgeModel::Cffi);
+        assert_eq!(
+            find_bridge(&cffi_pure, None, &CargoOptions::default()).unwrap(),
+            BridgeModel::Cffi
+        );
 
-        assert!(find_bridge(&cffi_pure, Some("pyo3")).is_err());
+        assert!(find_bridge(&cffi_pure, Some(Bindings::PyO3), &CargoOptions::default()).is_err());
     }
 
     #[test]
@@ -489,26 +546,67 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            find_bridge(&hello_world, Some("bin")).unwrap(),
+            find_bridge(&hello_world, Some(Bindings::Bin), &CargoOptions::default()).unwrap(),
             BridgeModel::Bin(None)
         );
         assert_eq!(
-            find_bridge(&hello_world, None).unwrap(),
+            find_bridge(&hello_world, None, &CargoOptions::default()).unwrap(),
             BridgeModel::Bin(None)
         );
 
-        assert!(find_bridge(&hello_world, Some("pyo3")).is_err());
+        assert!(find_bridge(&hello_world, Some(Bindings::PyO3), &CargoOptions::default()).is_err());
 
         let pyo3_bin = MetadataCommand::new()
             .manifest_path(test_crate_path("pyo3-bin").join("Cargo.toml"))
             .exec()
             .unwrap();
         assert!(matches!(
-            find_bridge(&pyo3_bin, Some("bin")).unwrap(),
+            find_bridge(&pyo3_bin, Some(Bindings::Bin), &CargoOptions::default()).unwrap(),
             BridgeModel::Bin(Some(_))
         ));
         assert!(matches!(
-            find_bridge(&pyo3_bin, None).unwrap(),
+            find_bridge(&pyo3_bin, None, &CargoOptions::default()).unwrap(),
+            BridgeModel::Bin(Some(_))
+        ));
+
+        // `bin-workspace-pyo3-feature` has a pyo3 transitive dependency
+        // gated by a feature, should not select pyo3 bindings
+        let workspace_bin = MetadataCommand::new()
+            .manifest_path(
+                test_crate_path("bin-workspace-pyo3-feature")
+                    .join("bin")
+                    .join("Cargo.toml"),
+            )
+            .exec()
+            .unwrap();
+        assert_eq!(
+            find_bridge(
+                &workspace_bin,
+                Some(Bindings::Bin),
+                &CargoOptions::default()
+            )
+            .unwrap(),
+            BridgeModel::Bin(None)
+        );
+
+        // CLI feature flags must be forwarded to the `cargo tree`
+        // verification: with the `python` feature enabled a scoped build
+        // does compile pyo3, so pyo3 bindings should be selected
+        let workspace_bin_python = MetadataCommand::new()
+            .manifest_path(
+                test_crate_path("bin-workspace-pyo3-feature")
+                    .join("bin")
+                    .join("Cargo.toml"),
+            )
+            .features(CargoOpt::SomeFeatures(vec!["python".to_string()]))
+            .exec()
+            .unwrap();
+        let cargo_options = CargoOptions {
+            features: vec!["python".to_string()],
+            ..Default::default()
+        };
+        assert!(matches!(
+            find_bridge(&workspace_bin_python, Some(Bindings::Bin), &cargo_options).unwrap(),
             BridgeModel::Bin(Some(_))
         ));
     }
@@ -541,7 +639,7 @@ mod tests {
         let target = Target::from_resolved_target_triple("x86_64-unknown-linux-gnu").unwrap();
 
         // find_bridge alone never includes conditional features → no abi3
-        let bridge = find_bridge(&metadata, None).unwrap();
+        let bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
         assert!(
             !bridge.has_stable_abi(),
             "find_bridge should not infer abi3 from conditional features"
@@ -557,9 +655,10 @@ mod tests {
             )
             .unwrap(),
         );
+        let deps = CrateDependencies::resolve(&metadata, &CargoOptions::default()).unwrap();
         let bridge = upgrade_bridge_stable_abi(
             bridge,
-            &metadata,
+            &deps,
             Some(&pyproject),
             std::slice::from_ref(&py310),
         )
@@ -579,10 +678,10 @@ mod tests {
             )
             .unwrap(),
         );
-        let base_bridge = find_bridge(&metadata, None).unwrap();
+        let base_bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
         let bridge = upgrade_bridge_stable_abi(
             base_bridge,
-            &metadata,
+            &deps,
             Some(&pyproject),
             std::slice::from_ref(&py311),
         )
@@ -593,9 +692,9 @@ mod tests {
         // at least one interpreter (3.11) matches the condition. This is safe
         // because build_stable_abi_wheels splits interpreters by min_version:
         // 3.10 gets a version-specific wheel, 3.11+ gets the abi3 wheel.
-        let base_bridge = find_bridge(&metadata, None).unwrap();
+        let base_bridge = find_bridge(&metadata, None, &CargoOptions::default()).unwrap();
         let bridge =
-            upgrade_bridge_stable_abi(base_bridge, &metadata, Some(&pyproject), &[py310, py311])
+            upgrade_bridge_stable_abi(base_bridge, &deps, Some(&pyproject), &[py310, py311])
                 .unwrap();
         assert!(
             bridge.has_stable_abi(),

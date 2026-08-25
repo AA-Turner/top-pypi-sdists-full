@@ -437,6 +437,7 @@ class _FakeHealthGate:
 
     passed: bool
     reason: str
+    should_rollback: bool = False
 
 
 def _autopilot_config_for(adid: str, rc_version: str) -> _FakeRolloutConfig:
@@ -551,6 +552,47 @@ def test_run_auto_advance_finalizes_empty_workflow_started(
     assert calls[0]["rollout_id"] == "rollout-1"
     assert not result.errors
     assert [a.action for a in result.actions] == ["complete"]
+
+
+@pytest.mark.unit
+def test_run_auto_advance_health_gate_failure_is_a_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failure-threshold health gate refusal is audit-worthy and held."""
+    row = {
+        "rollout_id": "rollout-1",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_2",
+        "current_target_rollout_pct": 25,
+        "final_target_rollout_pct": 100,
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(autopilot.api_client, "get_actor_sync_info", lambda **_: {})
+    monkeypatch.setattr(
+        autopilot,
+        "check_health_gate",
+        lambda *_a, **_k: _FakeHealthGate(
+            passed=False,
+            reason="5 of 95 connectors failing",
+            should_rollback=True,
+        ),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.skipped
+    assert len(result.holds) == 1
+    assert result.holds[0].action == "advance"
+    assert "Failure threshold hit" in result.holds[0].message
 
 
 @pytest.mark.unit
@@ -986,6 +1028,46 @@ def test_run_auto_promote_ga_when_no_later_tier_has_actors(
     assert calls[0]["rollout_id"] == "rollout-1"
     assert [a.action for a in result.actions] == ["promote"]
     assert not result.errors
+
+
+@pytest.mark.unit
+def test_run_auto_promote_health_gate_failure_is_a_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed promotion health gate is audit-worthy and held."""
+    row = {
+        "rollout_id": "rollout-1",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_2",
+        "current_target_rollout_pct": 100,
+        "final_target_rollout_pct": 100,
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(autopilot.api_client, "get_actor_sync_info", lambda **_: {})
+    monkeypatch.setattr(
+        autopilot,
+        "check_health_gate",
+        lambda *_a, **_k: _FakeHealthGate(
+            passed=False,
+            reason="minimum soak time not reached",
+        ),
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.skipped
+    assert len(result.holds) == 1
+    assert result.holds[0].action == "promote"
+    assert "Health gate not passed" in result.holds[0].message
 
 
 @pytest.mark.unit

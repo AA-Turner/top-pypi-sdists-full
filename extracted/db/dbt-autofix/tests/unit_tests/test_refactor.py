@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import pathspec
 import pytest
 from ruamel.yaml.comments import CommentedMap
 from yaml import safe_load
@@ -17,6 +18,7 @@ from dbt_autofix.refactor import (
     changeset_remove_extra_tabs,
     changeset_remove_indentation_version,
     changeset_replace_non_alpha_underscores_in_name_values,
+    load_dbtignore,
     remove_unmatched_endings,
     skip_file,
 )
@@ -1344,6 +1346,93 @@ class TestSkipFile:
         file_path = Path("/path/to/file.sql")
         select = []
         assert not skip_file(file_path, select)  # Changed to expect False since empty list is treated same as None
+
+    def test_skip_file_with_dbtignore(self):
+        """Test that files matching .dbtignore patterns are skipped"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            file_path = root / "models" / "staging" / "stg_orders.sql"
+            file_path.parent.mkdir(parents=True)
+            file_path.touch()
+
+            dbtignore = pathspec.PathSpec.from_lines("gitwildmatch", ["models/staging/"])
+            assert skip_file(file_path, dbtignore=dbtignore, root_path=root)
+
+    def test_skip_file_dbtignore_no_match(self):
+        """Test that files not matching .dbtignore patterns are not skipped"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            file_path = root / "models" / "marts" / "orders.sql"
+            file_path.parent.mkdir(parents=True)
+            file_path.touch()
+
+            dbtignore = pathspec.PathSpec.from_lines("gitwildmatch", ["models/staging/"])
+            assert not skip_file(file_path, dbtignore=dbtignore, root_path=root)
+
+    def test_skip_file_dbtignore_glob_pattern(self):
+        """Test that glob patterns in .dbtignore work correctly"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            file_path = root / "models" / "legacy_model.sql"
+            file_path.parent.mkdir(parents=True)
+            file_path.touch()
+
+            dbtignore = pathspec.PathSpec.from_lines("gitwildmatch", ["**/legacy_*.sql"])
+            assert skip_file(file_path, dbtignore=dbtignore, root_path=root)
+
+    def test_skip_file_dbtignore_combined_with_select(self):
+        """Test that both select and dbtignore are respected together"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            file_path = root / "models" / "staging" / "stg_orders.sql"
+            file_path.parent.mkdir(parents=True)
+            file_path.touch()
+
+            dbtignore = pathspec.PathSpec.from_lines("gitwildmatch", ["models/staging/"])
+            assert skip_file(
+                file_path,
+                select=[str(file_path)],
+                dbtignore=dbtignore,
+                root_path=root,
+            )
+
+
+class TestLoadDbtignore:
+    """Tests for load_dbtignore function"""
+
+    def test_no_dbtignore_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            assert load_dbtignore(Path(tmpdir)) is None
+
+    def test_empty_dbtignore_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, ".dbtignore").write_text("")
+            assert load_dbtignore(Path(tmpdir)) is None
+
+    def test_dbtignore_with_patterns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, ".dbtignore").write_text("models/staging/\n*.tmp\n")
+            spec = load_dbtignore(Path(tmpdir))
+            assert spec is not None
+            assert spec.match_file("models/staging/stg_orders.sql")
+            assert spec.match_file("something.tmp")
+            assert not spec.match_file("models/marts/orders.sql")
+
+    def test_dbtignore_with_comments_and_blanks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, ".dbtignore").write_text("# this is a comment\n\nmodels/staging/\n")
+            spec = load_dbtignore(Path(tmpdir))
+            assert spec is not None
+            assert spec.match_file("models/staging/stg_orders.sql")
+            assert not spec.match_file("models/marts/orders.sql")
+
+    def test_dbtignore_negation_pattern(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, ".dbtignore").write_text("*.sql\n!important.sql\n")
+            spec = load_dbtignore(Path(tmpdir))
+            assert spec is not None
+            assert spec.match_file("test.sql")
+            assert not spec.match_file("important.sql")
 
 
 class TestTestConfigurationRefactoring:
@@ -2673,6 +2762,74 @@ def test_config_regex(input_str, expected_match):
 
 class TestRefactorCustomConfigsToMetaSQL:
     """Tests for refactor_custom_configs_to_meta_sql function"""
+
+    def test_snapshot_configs_in_model_path_stay_top_level(self, schema_specs: SchemaSpecs):
+        sql_content = """{{ config(
+    materialized='snapshot',
+    strategy='timestamp',
+    updated_at='updated_at',
+    check_cols=['id'],
+    custom_config='value',
+) }}
+
+select 1 as id
+"""
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert result.refactored
+        assert "materialized='snapshot'" in result.refactored_content
+        assert "strategy='timestamp'" in result.refactored_content
+        assert "updated_at='updated_at'" in result.refactored_content
+        assert "check_cols=['id']" in result.refactored_content
+        assert "meta={'custom_config': 'value'}" in result.refactored_content
+
+    def test_dynamic_materialization_preserves_snapshot_configs(self, schema_specs: SchemaSpecs):
+        sql_content = """{{ config(
+    materialized=var('materialization'),
+    strategy='timestamp',
+    custom_config='value',
+) }}
+
+select 1 as id
+"""
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert result.refactored
+        assert "materialized=var('materialization')" in result.refactored_content
+        assert "strategy='timestamp'" in result.refactored_content
+        assert "meta={'custom_config': 'value'}" in result.refactored_content
+
+    def test_non_snapshot_materialization_moves_snapshot_named_custom_configs(self, schema_specs: SchemaSpecs):
+        sql_content = """{{ config(
+    materialized='table',
+    strategy='not_a_snapshot_strategy',
+) }}
+
+select 1 as id
+"""
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert result.refactored
+        assert "strategy='not_a_snapshot_strategy'" not in result.refactored_content
+        assert "meta={'strategy': 'not_a_snapshot_strategy'}" in result.refactored_content
+
+    def test_quoted_dynamic_materialization_preserves_snapshot_configs(self, schema_specs: SchemaSpecs):
+        sql_content = """{{ config(
+    materialized="{{ var('materialization') }}",
+    strategy='timestamp',
+) }}
+
+select 1 as id
+"""
+
+        result = refactor_custom_configs_to_meta_sql(_sql(sql_content), _sql_cfg(schema_specs, "models"))
+
+        assert not result.refactored
+        assert result.refactored_content == sql_content
+        assert "strategy='timestamp'" in result.refactored_content
 
     def test_on_error_not_moved_to_meta(self, schema_specs: SchemaSpecs):
         """on_error is a recognized Fusion config key and should NOT be moved to meta"""

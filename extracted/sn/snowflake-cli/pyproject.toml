@@ -27,12 +27,12 @@ readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
   "click==8.1.8",
-  "GitPython==3.1.57",
+  "GitPython==3.1.58",
   "PyYAML==6.0.2",
   "id==1.5.0",
   "jinja2==3.1.6",
   "packaging==25.0",
-  "pip==26.1.2",
+  "pip==26.2.1",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
   "protobuf>=5.29.6,<6",
@@ -198,7 +198,7 @@ check = [
   'echo "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
   'rm -rf "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
   'ls .hatch/ud/lib/python3.12/site-packages/snowflake',
-  'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
+  'pip install "git+https://github.com/snowflakedb/drivers@{env:UD_BRANCH:main}#subdirectory=python"',
   "python -c \"from packaging.version import Version; import snowflake.connector; v = Version(snowflake.connector.__version__); assert v.major >= 5, 'Expected snowflake-connector-python >= 5, got ' + str(v)\"",
   'pytest -m "integration and not qa_only and not no_ud" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}'
 ]

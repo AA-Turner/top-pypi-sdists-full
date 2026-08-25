@@ -8,14 +8,14 @@ from pydantic_config import BaseConfig
 
 from verifiers.v1.configs.cli.validate import CheckTimeoutConfig
 from verifiers.v1.configs.taskset import TasksetConfig
-from verifiers.v1.runtimes import DockerConfig, RuntimeConfig
+from verifiers.v1.runtimes import PrimeConfig, RuntimeConfig
 
 
 class DebugConfig(BaseConfig):
     uuid: str = Field(default_factory=lambda: str(uuid4()), exclude=True)
     """Auto-generated run id, used as the default output directory leaf."""
     taskset: SerializeAsAny[TasksetConfig] = TasksetConfig()
-    runtime: RuntimeConfig = DockerConfig()
+    runtime: RuntimeConfig = PrimeConfig()
     """Where each task's setup hook and debug action run."""
     command: str | None = None
     """Inline shell command executed as `sh -lc <command>` after setup."""
@@ -43,7 +43,7 @@ class DebugConfig(BaseConfig):
     output_dir: Path | None = Field(
         None, validation_alias=AliasChoices("output_dir", "o")
     )
-    """Where to write `config.toml` and `traces.jsonl`. None = a fresh per-run dir."""
+    """Where to write `configs/debug.json` and `traces.jsonl`. None = a fresh per-run dir."""
 
     @property
     def name(self) -> str:

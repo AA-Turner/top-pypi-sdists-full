@@ -88,9 +88,29 @@ class _LazyFrameGroupBy:
         """Apply ``sum``"""
         return self._construct(function_name="sum")
 
-    def head(self, n: int, order_by: typing.Sequence = ()) -> "LazyFramePlaceholder":
+    def head(
+        self,
+        n: int,
+        order_by: typing.Sequence = (),
+        rank_function: typing.Literal["row_number", "rank", "dense_rank"] = "row_number",
+        rank_column: str | None = None,
+    ) -> "LazyFramePlaceholder":
         """Return the first ``n`` rows per group, optionally ordered within each group."""
-        return self._construct(function_name="head", n=n, order_by=list(order_by))
+        # Only record the rank kwargs when they differ from the defaults. The
+        # recorded call is replayed against whatever chalkdf the engine ships,
+        # which may predate these parameters; emitting them unconditionally
+        # would break every `group_by().head()` on such an engine.
+        rank_kwargs: dict[str, Any] = {}
+        if rank_function != "row_number":
+            rank_kwargs["rank_function"] = rank_function
+        if rank_column is not None:
+            rank_kwargs["rank_column"] = rank_column
+        return self._construct(
+            function_name="head",
+            n=n,
+            order_by=list(order_by),
+            **rank_kwargs,
+        )
 
 
 @dataclass

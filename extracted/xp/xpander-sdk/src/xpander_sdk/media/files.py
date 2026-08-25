@@ -2,7 +2,7 @@ import base64
 import hashlib
 from io import BytesIO
 from typing import Any, List, NamedTuple, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 import os
 from pydantic import BaseModel
 from loguru import logger
@@ -916,6 +916,31 @@ def _looks_like_pdf(data: bytes) -> bool:
     return b"%PDF-" in data[:1024]
 
 
+_DOC_NAME_EXTRA = set(" -()[]")
+_DOC_NAME_MAX = 200
+_DOC_NAME_FALLBACK = "document"
+
+
+def document_names(url: str) -> Tuple[str, str]:
+    """(filename, display name) for an attachment URL, safe to send as a Bedrock document name.
+
+    Bedrock's Converse API accepts only alphanumerics, whitespace, hyphens, parentheses and
+    square brackets in a document name, rejects consecutive whitespace, and 400s the whole
+    request otherwise - so the name is sanitized for every provider rather than at the call
+    site. Decoding happens before basename, or a percent-encoded separator would survive
+    into the filename as a real one.
+    """
+    filename = os.path.basename(unquote(urlparse(url).path)).replace("\\", "_")
+    stem = os.path.splitext(filename)[0].replace("_", " ")
+    kept = [
+        c if (c.isascii() and c.isalnum()) or c in _DOC_NAME_EXTRA else " " for c in stem
+    ]
+    # Consecutive whitespace is rejected too, so collapse instead of merely substituting.
+    name = " ".join("".join(kept).split())[:_DOC_NAME_MAX].strip()
+    # agno raises when the name is empty, so a name that sanitizes away still needs one.
+    return filename, name or _DOC_NAME_FALLBACK
+
+
 def fetch_file(url: str) -> Any:
     """
     Fetch a remote file from URL and wrap it as a File object.
@@ -944,11 +969,7 @@ def fetch_file(url: str) -> Any:
             f"content is not a PDF (expired or redirected link?): {url.split('?', 1)[0]}"
         )
 
-    # Derive filename from URL
-    filename = os.path.basename(url.split("?")[0])
-
-    # Human-friendly name (strip extension, replace underscores)
-    name = os.path.splitext(filename)[0].replace("_", " ")
+    filename, name = document_names(url)
 
     # Sniffed as a PDF above, so keep format/mime to the agno-accepted document type
     # rather than mimetypes' guess, which can be octet-stream (rejected at construction).

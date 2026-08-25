@@ -85,51 +85,27 @@ def _raise_exception(error: BaseException) -> t.NoReturn:
     raise error
 
 
-_TRANSIENT_LITELLM_EXCEPTION_NAMES: tuple[str, ...] = (
-    "RateLimitError",
-    "Timeout",
-    "APIConnectionError",
-    "APIConnectionTimeoutError",
-    "ServiceUnavailableError",
-    "InternalServerError",
-    "BadGatewayError",
-    "APIError",
-)
+def _is_retry_safe_api_error(error: BaseException) -> bool:
+    """Return whether an LLM API failure is safe to send again.
 
-
-def _is_transient_api_error(error: BaseException) -> bool:
-    """Classify an error as a transient LLM API failure worth retrying.
-
-    Matches an explicit allow-list of ``litellm.exceptions`` classes that
-    represent recoverable conditions: rate limits, timeouts, connection
-    failures, and 5xx responses. Notably **does not** match
-    ``BadRequestError``, ``AuthenticationError``,
-    ``ContextWindowExceededError`` (handled by overflow recovery), or other
-    deterministic client errors.
-
-    The allow-list is walked dynamically because ``litellm.exceptions`` does
-    not expose a single common ancestor for its transient exceptions.
-    Returns ``False`` if ``litellm`` is not importable.
+    Only explicit 429 admission failures are retryable. Timeouts, connection
+    failures, interrupted streams, and 5xx responses are ambiguous because the
+    provider may still be working on the original request.
     """
     with contextlib.suppress(ImportError):
         import litellm.exceptions as _litellm_exc
 
-        classes = tuple(
-            cls
-            for name in _TRANSIENT_LITELLM_EXCEPTION_NAMES
-            if (cls := getattr(_litellm_exc, name, None)) is not None
-        )
-        if classes and isinstance(error, classes):
+        rate_limit_cls = getattr(_litellm_exc, "RateLimitError", None)
+        if (
+            rate_limit_cls is not None
+            and isinstance(error, rate_limit_cls)
+            and getattr(error, "status_code", None) == 429
+        ):
             # OpenAI returns 429 with code "insufficient_quota" when the
             # account is out of credits — a permanent billing condition,
             # not a rate limit. litellm packs the provider body into the
             # message verbatim, so substring-match to exclude.
-            rate_limit_cls = getattr(_litellm_exc, "RateLimitError", None)
-            return not (
-                rate_limit_cls is not None
-                and isinstance(error, rate_limit_cls)
-                and "insufficient_quota" in str(error)
-            )
+            return "insufficient_quota" not in str(error)
     return False
 
 
@@ -228,9 +204,9 @@ class Agent(Executor[AgentEvent, Trajectory]):
     generate_params_extra: dict[str, t.Any] = Config(default_factory=dict)
     """Extra parameters merged into GenerateParams for every generation (e.g. thinking config)."""
     backoff_max_tries: int = Config(default=8, ge=0)
-    """Maximum retries on transient LLM API errors per step. ``0`` disables retry."""
+    """Maximum retries on retry-safe LLM admission failures per step. ``0`` disables retry."""
     backoff_max_time: float = Config(default=300.0, ge=0)
-    """Maximum total seconds to spend retrying transient LLM API errors per step."""
+    """Maximum total seconds to spend on retry-safe LLM attempts per step."""
     backoff_base_factor: float = Config(default=1.0, ge=0)
     """Base factor for exponential backoff: wait = base_factor * 2 ** (attempt - 1)."""
     backoff_jitter: bool = Config(default=True)
@@ -586,10 +562,10 @@ class Agent(Executor[AgentEvent, Trajectory]):
         tries: int,
         start_time: float,
     ) -> float | None:
-        """Compute a retry sleep for a transient LLM API error.
+        """Compute a retry sleep for a retry-safe LLM admission failure.
 
         Returns the sleep duration in seconds if the caller should retry, or
-        ``None`` if the error is not transient, tries are exhausted, or the
+        ``None`` if the error is not retry-safe, tries are exhausted, or the
         per-step time budget has been spent. Caller owns sleeping and emitting
         the ``GenerationRetry`` event. Backoff is agent-owned at the error
         site, mirroring ``_try_overflow_recovery`` — no step is consumed and
@@ -598,7 +574,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
         if self.backoff_max_tries <= 0:
             return None
 
-        if not _is_transient_api_error(error):
+        if not _is_retry_safe_api_error(error):
             return None
 
         if tries >= self.backoff_max_tries:
@@ -961,15 +937,13 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     async for event in self._dispatch(gen_start):
                         yield event
 
+                    backoff_started = time.monotonic()
                     step_chat = await self._generate(messages)
 
-                    # In-place transient-error backoff — rate limits and
-                    # other litellm.APIError failures get retried at the
-                    # error site with exponential backoff. No step budget
-                    # consumed; clients observe GenerationRetry events
-                    # rather than a spurious terminal GenerationError.
+                    # In-place retry-safe backoff — only explicit 429 admission
+                    # failures are sent again. Ambiguous transport and provider
+                    # failures may still have active work, so they terminate.
                     backoff_tries = 0
-                    backoff_started = time.monotonic()
                     while step_chat.failed and step_chat.error:
                         wait = self._try_backoff(
                             step_chat.error,

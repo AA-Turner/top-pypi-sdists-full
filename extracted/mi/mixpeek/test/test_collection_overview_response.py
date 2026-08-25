@@ -52,10 +52,6 @@ class TestCollectionOverviewResponse(unittest.TestCase):
                 collection_id = '',
                 collection_name = '',
                 total_documents = 56,
-                documents_last_24h = 56,
-                documents_last_7d = 56,
-                avg_processing_time_ms = 1.337,
-                success_rate = 1.337,
                 active_taxonomies = 56,
                 active_clusters = 56,
         )

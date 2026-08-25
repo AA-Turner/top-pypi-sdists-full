@@ -30,6 +30,8 @@ from urllib3.util import Retry
 import requests
 from requests.adapters import HTTPAdapter
 
+from gliner2.inference.chunking import merge_chunk_results, split_text_into_chunks
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +42,10 @@ class GLiNER2APIError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data
+        # Populated when a partitioned batch fails after earlier partitions
+        # succeeded. Callers can persist completed work before deciding to retry.
+        self.partial_results: List[Any] = []
+        self.failed_range: Optional[tuple[int, int]] = None
 
 
 class AuthenticationError(GLiNER2APIError):
@@ -490,11 +496,100 @@ class GLiNER2API:
     def create_schema(self) -> SchemaAPI:
         """Create a new schema for defining extraction tasks."""
         return SchemaAPI()
-    
-    # -------------------------------------------------------------------------
-    # Entity Extraction Methods
-    # -------------------------------------------------------------------------
-    
+
+    # Shared request plumbing -------------------------------------------------
+
+    def _task_call(self, task, text, schema, threshold, format_results,
+                   include_confidence, include_spans):
+        """Dispatch a task through the shared HTTP request implementation."""
+        return self._make_request(
+            task=task,
+            text=text,
+            schema=schema,
+            threshold=threshold,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            format_results=format_results,
+        )
+
+    @staticmethod
+    def _validate_batch_size(batch_size: int) -> None:
+        if not isinstance(batch_size, int) or isinstance(batch_size, bool):
+            raise TypeError("batch_size must be an integer")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than 0")
+
+    @staticmethod
+    def _coerce_batch_result(result: Any, expected: int) -> List[Any]:
+        """Validate one server reply against its client-side partition."""
+        if isinstance(result, list):
+            if len(result) != expected:
+                raise GLiNER2APIError(
+                    "API returned "
+                    f"{len(result)} results for a partition of {expected} texts"
+                )
+            return result
+        if expected == 1:
+            return [result]
+        raise GLiNER2APIError(
+            "API returned a non-list result for a partition of "
+            f"{expected} texts"
+        )
+
+    @staticmethod
+    def _mark_partial_failure(
+        error: GLiNER2APIError,
+        partial_results: List[Any],
+        start: int,
+        end: int,
+    ) -> None:
+        error.partial_results = list(partial_results)
+        error.failed_range = (start, end)
+
+    def _partitioned_task_call(
+        self,
+        task: str,
+        texts: List[str],
+        schema: Union[List[str], Dict],
+        batch_size: int,
+        threshold: float,
+        format_results: bool,
+        include_confidence: bool,
+        include_spans: bool,
+    ) -> List[Any]:
+        """Send ordered client-side partitions without changing wire fields."""
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        results: List[Any] = []
+        for start in range(0, len(texts), batch_size):
+            end = min(start + batch_size, len(texts))
+            partition = texts[start:end]
+            try:
+                response = self._task_call(
+                    task,
+                    partition,
+                    schema,
+                    threshold,
+                    format_results,
+                    include_confidence,
+                    include_spans,
+                )
+                results.extend(
+                    self._coerce_batch_result(response, len(partition))
+                )
+            except GLiNER2APIError as error:
+                self._mark_partial_failure(error, results, start, end)
+                raise
+        return results
+
+    @staticmethod
+    def _entity_schema(entity_types):
+        """Normalize entity descriptions to the established wire schema."""
+        return list(entity_types.keys()) if isinstance(entity_types, dict) else entity_types
+
+    # Entity Extraction Methods ----------------------------------------------
+
     def extract_entities(
         self,
         text: str,
@@ -504,44 +599,15 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> Dict[str, Any]:
-        """
-        Extract entities from text.
-        
-        Args:
-            text: Input text to extract entities from.
-            entity_types: List of entity types or dict with descriptions.
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores in results.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            Dictionary with "entities" key containing extracted entities.
-            If include_confidence=True, entity values include confidence scores.
-            If include_spans=True, entity values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
-        # Normalize entity types to list
-        if isinstance(entity_types, dict):
-            entities = list(entity_types.keys())
-        else:
-            entities = entity_types
-        
-        result = self._make_request(
-            task="extract_entities",
-            text=text,
-            schema=entities,
-            threshold=threshold,
-            include_confidence=include_confidence,
-            include_spans=include_spans,
-            format_results=format_results,
+        """Extract entities from text."""
+        result = self._task_call(
+            "extract_entities", text, self._entity_schema(entity_types),
+            threshold, format_results, include_confidence, include_spans,
         )
-        
-        # Wrap result in expected format if needed (only for formatted results)
         if format_results and isinstance(result, dict) and "entities" not in result:
             return {"entities": result}
         return result
-    
+
     def batch_extract_entities(
         self,
         texts: List[str],
@@ -552,49 +618,99 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Batch extract entities from multiple texts.
-        
-        Args:
-            texts: List of input texts.
-            entity_types: List of entity types or dict with descriptions.
-            batch_size: Batch size (used by API for optimization).
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            List of dictionaries with "entities" key.
-            If include_confidence=True, entity values include confidence scores.
-            If include_spans=True, entity values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
-        # Normalize entity types to list
-        if isinstance(entity_types, dict):
-            entities = list(entity_types.keys())
-        else:
-            entities = entity_types
-        
-        result = self._make_request(
-            task="extract_entities",
-            text=texts,
-            schema=entities,
+        """Batch extract entities from multiple texts."""
+        return self._partitioned_task_call(
+            "extract_entities",
+            texts,
+            self._entity_schema(entity_types),
+            batch_size,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+        )
+
+    def extract_entities_long(
+        self,
+        text: str,
+        entity_types: Union[List[str], Dict[str, Union[str, Dict]]],
+        threshold: float = 0.5,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        batch_size: int = 8,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Extract entities from a long document using local chunk merging."""
+        return self.batch_extract_entities_long(
+            [text],
+            entity_types,
+            batch_size=batch_size,
             threshold=threshold,
+            num_workers=num_workers,
+            format_results=format_results,
             include_confidence=include_confidence,
             include_spans=include_spans,
-            format_results=format_results,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            overlap_policy=overlap_policy,
+        )[0]
+
+    def batch_extract_entities_long(
+        self,
+        texts: List[str],
+        entity_types: Union[List[str], Dict[str, Union[str, Dict]]],
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not format_results:
+            raise ValueError(
+                "batch_extract_entities_long currently requires format_results=True"
+            )
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        if num_workers:
+            warnings.warn(
+                "num_workers is ignored by the synchronous API client",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        def request(chunk_texts, _):
+            return self.batch_extract_entities(
+                chunk_texts,
+                entity_types,
+                batch_size=batch_size,
+                threshold=threshold,
+                format_results=True,
+                include_confidence=True,
+                include_spans=True,
+            )
+
+        return self._run_long_batch(
+            texts,
+            request,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            overlap_policy=overlap_policy,
+            normalize_result=self._normalize_entity_chunk_result,
         )
-        
-        # Ensure result is a list
-        if isinstance(result, dict):
-            return [result]
-        return result
-    
-    # -------------------------------------------------------------------------
-    # Text Classification Methods
-    # -------------------------------------------------------------------------
-    
+
+    # Text Classification Methods --------------------------------------------
+
     def classify_text(
         self,
         text: str,
@@ -604,63 +720,25 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> Dict[str, Any]:
-        """
-        Classify text into categories.
-        
-        Args:
-            text: Text to classify.
-            tasks: Classification tasks where keys are task names.
-            threshold: Confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            Classification results keyed by task name.
-            If include_confidence=True, results include confidence scores.
-            If format_results=False, returns raw extraction data.
-        """
-        # Convert tasks to API format
-        # For classify_text task, schema should be {"categories": [...]}
-        # But for multi-task, we need to use the schema task
+        """Classify text into categories."""
         if len(tasks) == 1:
-            # Single task - use classify_text endpoint
-            task_name = list(tasks.keys())[0]
+            task_name = next(iter(tasks))
             task_config = tasks[task_name]
-            
-            if isinstance(task_config, dict) and "labels" in task_config:
-                categories = task_config["labels"]
-            else:
-                categories = task_config
-            
-            result = self._make_request(
-                task="classify_text",
-                text=text,
-                schema={"categories": categories},
-                threshold=threshold,
-                include_confidence=include_confidence,
-                include_spans=include_spans,
-                format_results=format_results,
+            categories = task_config["labels"] if (
+                isinstance(task_config, dict) and "labels" in task_config
+            ) else task_config
+            result = self._task_call(
+                "classify_text", text, {"categories": categories},
+                threshold, format_results, include_confidence, include_spans,
             )
-            
-            # Wrap result with task name (only for formatted results)
             if format_results and isinstance(result, dict) and task_name not in result:
                 return {task_name: result.get("classification", result)}
             return result
-        else:
-            # Multiple tasks - use schema endpoint
-            schema = {"classifications": tasks}
-            result = self._make_request(
-                task="schema",
-                text=text,
-                schema=schema,
-                threshold=threshold,
-                include_confidence=include_confidence,
-                include_spans=include_spans,
-                format_results=format_results,
-            )
-            return result
-    
+        return self._task_call(
+            "schema", text, {"classifications": tasks},
+            threshold, format_results, include_confidence, include_spans,
+        )
+
     def batch_classify_text(
         self,
         texts: List[str],
@@ -671,43 +749,97 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Batch classify multiple texts.
-        
-        Args:
-            texts: List of texts to classify.
-            tasks: Classification tasks.
-            batch_size: Batch size.
-            threshold: Confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            List of classification results.
-            If include_confidence=True, results include confidence scores.
-            If format_results=False, returns raw extraction data.
-        """
-        # Use schema task for batch classification
-        schema = {"classifications": tasks}
-        result = self._make_request(
-            task="schema",
-            text=texts,
-            schema=schema,
+        """Batch classify multiple texts."""
+        return self._partitioned_task_call(
+            "schema",
+            texts,
+            {"classifications": tasks},
+            batch_size,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+        )
+
+    def classify_text_long(
+        self,
+        text: str,
+        tasks: Dict[str, Union[List[str], Dict[str, Any]]],
+        threshold: float = 0.5,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        batch_size: int = 8,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.batch_classify_text_long(
+            [text],
+            tasks,
+            batch_size=batch_size,
             threshold=threshold,
+            num_workers=num_workers,
+            format_results=format_results,
             include_confidence=include_confidence,
             include_spans=include_spans,
-            format_results=format_results,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            overlap_policy=overlap_policy,
+        )[0]
+
+    def batch_classify_text_long(
+        self,
+        texts: List[str],
+        tasks: Dict[str, Union[List[str], Dict[str, Any]]],
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not format_results:
+            raise ValueError(
+                "batch_classify_text_long currently requires format_results=True"
+            )
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        if num_workers:
+            warnings.warn(
+                "num_workers is ignored by the synchronous API client",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        def request(chunk_texts, _):
+            return self.batch_classify_text(
+                chunk_texts,
+                tasks,
+                batch_size=batch_size,
+                threshold=threshold,
+                format_results=True,
+                include_confidence=True,
+                include_spans=True,
+            )
+
+        return self._run_long_batch(
+            texts,
+            request,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            overlap_policy=overlap_policy,
         )
-        
-        if isinstance(result, dict):
-            return [result]
-        return result
-    
-    # -------------------------------------------------------------------------
-    # JSON Extraction Methods
-    # -------------------------------------------------------------------------
-    
+
+    # JSON Extraction Methods -------------------------------------------------
+
     def extract_json(
         self,
         text: str,
@@ -717,34 +849,12 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> Dict[str, Any]:
-        """
-        Extract structured data from text.
-        
-        Args:
-            text: Text to extract data from.
-            structures: Structure definitions with field specs.
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            Extracted structures keyed by structure name.
-            If include_confidence=True, field values include confidence scores.
-            If include_spans=True, field values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
-        result = self._make_request(
-            task="extract_json",
-            text=text,
-            schema=structures,
-            threshold=threshold,
-            include_confidence=include_confidence,
-            include_spans=include_spans,
-            format_results=format_results,
+        """Extract structured data from text."""
+        return self._task_call(
+            "extract_json", text, structures,
+            threshold, format_results, include_confidence, include_spans,
         )
-        return result
-    
+
     def batch_extract_json(
         self,
         texts: List[str],
@@ -755,42 +865,97 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Batch extract structured data from multiple texts.
-        
-        Args:
-            texts: List of texts.
-            structures: Structure definitions.
-            batch_size: Batch size.
-            threshold: Confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            List of extracted structures.
-            If include_confidence=True, field values include confidence scores.
-            If include_spans=True, field values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
-        result = self._make_request(
-            task="extract_json",
-            text=texts,
-            schema=structures,
+        """Batch extract structured data from multiple texts."""
+        return self._partitioned_task_call(
+            "extract_json",
+            texts,
+            structures,
+            batch_size,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+        )
+
+    def extract_json_long(
+        self,
+        text: str,
+        structures: Dict[str, List[str]],
+        threshold: float = 0.5,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        batch_size: int = 8,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.batch_extract_json_long(
+            [text],
+            structures,
+            batch_size=batch_size,
             threshold=threshold,
+            num_workers=num_workers,
+            format_results=format_results,
             include_confidence=include_confidence,
             include_spans=include_spans,
-            format_results=format_results,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            overlap_policy=overlap_policy,
+        )[0]
+
+    def batch_extract_json_long(
+        self,
+        texts: List[str],
+        structures: Dict[str, List[str]],
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not format_results:
+            raise ValueError(
+                "batch_extract_json_long currently requires format_results=True"
+            )
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        if num_workers:
+            warnings.warn(
+                "num_workers is ignored by the synchronous API client",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        def request(chunk_texts, _):
+            return self.batch_extract_json(
+                chunk_texts,
+                structures,
+                batch_size=batch_size,
+                threshold=threshold,
+                format_results=True,
+                include_confidence=True,
+                include_spans=True,
+            )
+
+        return self._run_long_batch(
+            texts,
+            request,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            overlap_policy=overlap_policy,
         )
-        
-        if isinstance(result, dict):
-            return [result]
-        return result
-    
-    # -------------------------------------------------------------------------
-    # Relation Extraction Methods
-    # -------------------------------------------------------------------------
-    
+
+    # Relation Extraction Methods --------------------------------------------
+
     def extract_relations(
         self,
         text: str,
@@ -800,41 +965,13 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> Dict[str, Any]:
-        """
-        Extract relations between entities from text.
-        
-        Args:
-            text: Input text to extract relations from.
-            relation_types: Relation types to extract. Can be:
-                - str: Single relation type
-                - List[str]: Multiple relation types
-                - Dict[str, str]: Relation types with descriptions
-                - Dict[str, Dict]: Relation types with full configuration
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores in results.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            Dictionary with "relation_extraction" key containing extracted relations.
-            Relations are grouped by type with tuples (source, target).
-            Format: {"relation_extraction": {"relation_name": [("source", "target"), ...]}}
-        """
-        # Build schema with relations
+        """Extract relations between entities from text."""
         schema = self.create_schema().relations(relation_types).build()
-        
-        result = self._make_request(
-            task="schema",
-            text=text,
-            schema=schema,
-            threshold=threshold,
-            include_confidence=include_confidence,
-            include_spans=include_spans,
-            format_results=format_results,
+        return self._task_call(
+            "schema", text, schema,
+            threshold, format_results, include_confidence, include_spans,
         )
-        
-        return result
-    
+
     def batch_extract_relations(
         self,
         texts: List[str],
@@ -845,44 +982,107 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Batch extract relations from multiple texts.
-        
-        Args:
-            texts: List of input texts.
-            relation_types: Relation types to extract.
-            batch_size: Batch size (used by API for optimization).
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            List of dictionaries with "relation_extraction" key.
-            Format: [{"relation_extraction": {"relation_name": [("source", "target"), ...]}}]
-        """
-        # Build schema with relations
+        """Batch extract relations from multiple texts."""
         schema = self.create_schema().relations(relation_types).build()
-        
-        result = self._make_request(
-            task="schema",
-            text=texts,
-            schema=schema,
+        return self._partitioned_task_call(
+            "schema",
+            texts,
+            schema,
+            batch_size,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+        )
+
+    def extract_relations_long(
+        self,
+        text: str,
+        relation_types: Union[
+            str, List[str], Dict[str, Union[str, Dict]]
+        ],
+        threshold: float = 0.5,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        batch_size: int = 8,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.batch_extract_relations_long(
+            [text],
+            relation_types,
+            batch_size=batch_size,
             threshold=threshold,
+            num_workers=num_workers,
+            format_results=format_results,
             include_confidence=include_confidence,
             include_spans=include_spans,
-            format_results=format_results,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            overlap_policy=overlap_policy,
+        )[0]
+
+    def batch_extract_relations_long(
+        self,
+        texts: List[str],
+        relation_types: Union[
+            str, List[str], Dict[str, Union[str, Dict]]
+        ],
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not format_results:
+            raise ValueError(
+                "batch_extract_relations_long currently requires format_results=True"
+            )
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        if num_workers:
+            warnings.warn(
+                "num_workers is ignored by the synchronous API client",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        def request(chunk_texts, _):
+            return self.batch_extract_relations(
+                chunk_texts,
+                relation_types,
+                batch_size=batch_size,
+                threshold=threshold,
+                format_results=True,
+                include_confidence=True,
+                include_spans=True,
+            )
+
+        return self._run_long_batch(
+            texts,
+            request,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            overlap_policy=overlap_policy,
         )
-        
-        # Ensure result is a list
-        if isinstance(result, dict):
-            return [result]
-        return result
-    
-    # -------------------------------------------------------------------------
-    # General Extraction Methods
-    # -------------------------------------------------------------------------
-    
+
+    # General Extraction Methods ---------------------------------------------
+
+    @staticmethod
+    def _schema_dict(schema):
+        """Accept the established builder protocol or a plain dict."""
+        return schema.build() if hasattr(schema, "build") else schema
+
     def extract(
         self,
         text: str,
@@ -892,50 +1092,17 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> Dict[str, Any]:
-        """
-        Extract information from text using a schema.
-        
-        Args:
-            text: Input text to extract from.
-            schema: Schema defining what to extract.
-            threshold: Minimum confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            Extraction results organized by task name.
-            If include_confidence=True, values include confidence scores.
-            If include_spans=True, values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
-        # Build schema dict if needed
-        if isinstance(schema, SchemaAPI):
-            schema_dict = schema.build()
-        elif hasattr(schema, 'build'):
-            schema_dict = schema.build()
-        else:
-            schema_dict = schema
-        
-        # Validate schema has at least one extraction task
-        has_any_task = any(
-            key in schema_dict 
-            for key in ["entities", "classifications", "structures", "relations"]
-        )
-        if not has_any_task:
+        """Extract information from text using a schema."""
+        schema_dict = self._schema_dict(schema)
+        if not any(key in schema_dict for key in [
+            "entities", "classifications", "structures", "relations"
+        ]):
             raise ValueError("Schema must contain at least one extraction task")
-        
-        # Always use schema task to preserve all metadata (thresholds, dtypes, etc.)
-        return self._make_request(
-            task="schema",
-            text=text,
-            schema=schema_dict,
-            threshold=threshold,
-            include_confidence=include_confidence,
-            include_spans=include_spans,
-            format_results=format_results,
+        return self._task_call(
+            "schema", text, schema_dict,
+            threshold, format_results, include_confidence, include_spans,
         )
-    
+
     def batch_extract(
         self,
         texts: List[str],
@@ -946,65 +1113,304 @@ class GLiNER2API:
         include_confidence: bool = False,
         include_spans: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Extract information from multiple texts.
-        
-        Args:
-            texts: List of input texts.
-            schemas: Single schema for all texts or list of schemas.
-            batch_size: Batch size.
-            threshold: Confidence threshold.
-            format_results: Whether to format results. If False, returns raw extraction data.
-            include_confidence: Whether to include confidence scores.
-            include_spans: Whether to include character-level start/end positions.
-        
-        Returns:
-            List of extraction results.
-            If include_confidence=True, values include confidence scores.
-            If include_spans=True, values include start/end positions.
-            If format_results=False, returns raw extraction data with positions.
-        """
+        """Extract information from multiple texts."""
         if not texts:
             return []
-        
-        # Handle schema variations
+        self._validate_batch_size(batch_size)
         if isinstance(schemas, list):
             if len(schemas) != len(texts):
                 raise ValueError(
                     f"Number of schemas ({len(schemas)}) must match number of texts ({len(texts)})"
                 )
-            # Warn user about multi-schema batch limitation
             warnings.warn(
                 "Multi-schema batch (different schemas per text) is not natively supported by the API. "
                 "Each text will be processed individually, which may be slower than single-schema batch. "
                 "For better performance, use the same schema for all texts.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-            # Process each text with its schema individually
-            results = []
-            for text, schema in zip(texts, schemas):
-                results.append(self.extract(text, schema, threshold, include_confidence=include_confidence, include_spans=include_spans, format_results=format_results))
+            results: List[Dict[str, Any]] = []
+            for index, (text, schema) in enumerate(zip(texts, schemas)):
+                try:
+                    results.append(
+                        self.extract(
+                            text, schema, threshold,
+                            include_confidence=include_confidence,
+                            include_spans=include_spans,
+                            format_results=format_results,
+                        )
+                    )
+                except GLiNER2APIError as error:
+                    self._mark_partial_failure(
+                        error, results, index, index + 1
+                    )
+                    raise
             return results
-        
-        # Single schema for all texts
-        if isinstance(schemas, SchemaAPI):
-            schema_dict = schemas.build()
-        elif hasattr(schemas, 'build'):
-            schema_dict = schemas.build()
-        else:
-            schema_dict = schemas
-        
-        return self._make_request(
-            task="schema",
-            text=texts,
-            schema=schema_dict,
-            threshold=threshold,
+        return self._partitioned_task_call(
+            "schema",
+            texts,
+            self._schema_dict(schemas),
+            batch_size,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+        )
+
+    # Long-document extraction ----------------------------------------------
+
+    @staticmethod
+    def _scalar_entity_labels(schema: Any) -> set[str]:
+        schema_dict = GLiNER2API._schema_dict(schema)
+        entities = schema_dict.get("entities") if isinstance(schema_dict, dict) else None
+        labels: set[str] = set()
+        global_scalar = (
+            isinstance(schema_dict, dict)
+            and schema_dict.get("entity_dtype", "list") != "list"
+        )
+        if isinstance(entities, str) and global_scalar:
+            labels.add(entities)
+        elif isinstance(entities, list) and global_scalar:
+            labels.update(str(label) for label in entities)
+        elif isinstance(entities, dict):
+            if schema_dict.get("entity_dtype", "list") != "list":
+                labels.update(str(label) for label in entities)
+            labels.update(
+                str(label)
+                for label, config in entities.items()
+                if isinstance(config, dict)
+                and config.get("dtype", "list") != "list"
+            )
+        return labels
+
+    @staticmethod
+    def _normalize_entity_chunk_result(result: Any) -> Dict[str, Any]:
+        if isinstance(result, dict) and "entities" in result:
+            return result
+        if isinstance(result, dict):
+            return {"entities": result}
+        raise GLiNER2APIError(
+            "entity extraction returned a non-object chunk result"
+        )
+
+    def _merge_long_batch(
+        self,
+        texts: List[str],
+        chunks_by_document: List[List[Any]],
+        chunk_results: List[Any],
+        *,
+        include_confidence: bool,
+        include_spans: bool,
+        overlap_policy: Optional[str],
+        scalar_labels_by_document: Optional[List[set[str]]] = None,
+        normalize_result=None,
+    ) -> List[Dict[str, Any]]:
+        normalizer = normalize_result or (lambda result: result)
+        normalized = [normalizer(result) for result in chunk_results]
+        merged: List[Dict[str, Any]] = []
+        offset = 0
+        scalar_labels_by_document = scalar_labels_by_document or [
+            set() for _ in texts
+        ]
+        for text, chunks, scalar_labels in zip(
+            texts, chunks_by_document, scalar_labels_by_document
+        ):
+            end = offset + len(chunks)
+            merged.append(
+                merge_chunk_results(
+                    text,
+                    chunks,
+                    normalized[offset:end],
+                    include_confidence=include_confidence,
+                    include_spans=include_spans,
+                    scalar_entity_labels=scalar_labels,
+                    overlap_policy=overlap_policy,
+                )
+            )
+            offset = end
+        return merged
+
+    def _run_long_batch(
+        self,
+        texts: List[str],
+        request_chunks,
+        *,
+        chunk_size: int,
+        chunk_overlap: int,
+        include_confidence: bool,
+        include_spans: bool,
+        overlap_policy: Optional[str],
+        scalar_labels_by_document: Optional[List[set[str]]] = None,
+        normalize_result=None,
+    ) -> List[Dict[str, Any]]:
+        chunks_by_document = [
+            split_text_into_chunks(
+                text,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+            )
+            for text in texts
+        ]
+        chunk_texts = [
+            chunk.text
+            for chunks in chunks_by_document
+            for chunk in chunks
+        ]
+        try:
+            chunk_results = request_chunks(chunk_texts, chunks_by_document)
+        except GLiNER2APIError as error:
+            # Promote complete chunk prefixes into complete document results.
+            # Keep the original chunk range for diagnostics and expose the
+            # document range at the public long-batch layer.
+            error.failed_chunk_range = error.failed_range
+            completed_chunks = list(error.partial_results)
+            completed_documents = 0
+            consumed = 0
+            for chunks in chunks_by_document:
+                if consumed + len(chunks) > len(completed_chunks):
+                    break
+                consumed += len(chunks)
+                completed_documents += 1
+            if completed_documents:
+                error.partial_results = self._merge_long_batch(
+                    texts[:completed_documents],
+                    chunks_by_document[:completed_documents],
+                    completed_chunks[:consumed],
+                    include_confidence=include_confidence,
+                    include_spans=include_spans,
+                    overlap_policy=overlap_policy,
+                    scalar_labels_by_document=(
+                        scalar_labels_by_document[:completed_documents]
+                        if scalar_labels_by_document is not None else None
+                    ),
+                    normalize_result=normalize_result,
+                )
+            else:
+                error.partial_results = []
+            error.failed_range = (
+                completed_documents,
+                min(completed_documents + 1, len(texts)),
+            )
+            raise
+        return self._merge_long_batch(
+            texts,
+            chunks_by_document,
+            chunk_results,
             include_confidence=include_confidence,
             include_spans=include_spans,
-            format_results=format_results,
+            overlap_policy=overlap_policy,
+            scalar_labels_by_document=scalar_labels_by_document,
+            normalize_result=normalize_result,
         )
-    
+
+    def extract_long(
+        self,
+        text: str,
+        schema: Union[SchemaAPI, Dict[str, Any]],
+        threshold: float = 0.5,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        batch_size: int = 8,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Extract a long document using local chunking and offset merging."""
+        return self.batch_extract_long(
+            [text],
+            schema,
+            batch_size=batch_size,
+            threshold=threshold,
+            num_workers=num_workers,
+            format_results=format_results,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            overlap_policy=overlap_policy,
+        )[0]
+
+    def batch_extract_long(
+        self,
+        texts: List[str],
+        schemas: Union[
+            SchemaAPI,
+            List[SchemaAPI],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+        ],
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        num_workers: int = 0,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        chunk_size: int = 384,
+        chunk_overlap: int = 64,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Batch extract long documents without extending the server protocol."""
+        if not format_results:
+            raise ValueError("batch_extract_long currently requires format_results=True")
+        if not texts:
+            return []
+        self._validate_batch_size(batch_size)
+        if num_workers:
+            warnings.warn(
+                "num_workers is ignored by the synchronous API client",
+                UserWarning,
+                stacklevel=2,
+            )
+        if isinstance(schemas, list):
+            if len(schemas) != len(texts):
+                raise ValueError(
+                    f"Number of schemas ({len(schemas)}) must match number of texts ({len(texts)})"
+                )
+            schema_list = schemas
+        else:
+            schema_list = [schemas] * len(texts)
+
+        def request(chunk_texts, chunks_by_document):
+            if isinstance(schemas, list):
+                chunk_schemas = [
+                    schema
+                    for schema, chunks in zip(schema_list, chunks_by_document)
+                    for _ in chunks
+                ]
+                return self.batch_extract(
+                    chunk_texts,
+                    chunk_schemas,
+                    batch_size=batch_size,
+                    threshold=threshold,
+                    format_results=True,
+                    include_confidence=True,
+                    include_spans=True,
+                )
+            return self.batch_extract(
+                chunk_texts,
+                schemas,
+                batch_size=batch_size,
+                threshold=threshold,
+                format_results=True,
+                include_confidence=True,
+                include_spans=True,
+            )
+
+        return self._run_long_batch(
+            texts,
+            request,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_confidence=include_confidence,
+            include_spans=include_spans,
+            overlap_policy=overlap_policy,
+            scalar_labels_by_document=[
+                self._scalar_entity_labels(schema) for schema in schema_list
+            ],
+        )
+
     # -------------------------------------------------------------------------
     # Utility Methods
     # -------------------------------------------------------------------------

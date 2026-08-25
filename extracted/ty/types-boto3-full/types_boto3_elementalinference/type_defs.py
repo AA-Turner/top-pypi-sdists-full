@@ -70,6 +70,8 @@ __all__ = (
     "GetFeedRequestTypeDef",
     "GetFeedRequestWaitTypeDef",
     "GetFeedResponseTypeDef",
+    "GetFixtureRequestTypeDef",
+    "GetFixtureResponseTypeDef",
     "GetOutputTypeDef",
     "ListDictionariesRequestPaginateTypeDef",
     "ListDictionariesRequestTypeDef",
@@ -194,6 +196,10 @@ GetFeedRequestTypeDef = TypedDict(
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
+
+
+class GetFixtureRequestTypeDef(TypedDict):
+    fixtureId: str
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -361,6 +367,16 @@ class FixtureSummaryTypeDef(TypedDict):
     scheduledStart: NotRequired[datetime]
 
 
+class GetFixtureResponseTypeDef(TypedDict):
+    fixtureId: str
+    name: str
+    fixtureGroup: str
+    scheduledStart: datetime
+    status: str
+    competitors: list[CompetitorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 FeedSummaryTypeDef = TypedDict(
     "FeedSummaryTypeDef",
     {
@@ -459,6 +475,7 @@ CreateFeedResponseTypeDef = TypedDict(
         "id": str,
         "dataEndpoints": list[str],
         "outputs": list[GetOutputTypeDef],
+        "accessRoleArn": str,
         "status": FeedStatusType,
         "association": FeedAssociationTypeDef,
         "tags": dict[str, str],
@@ -473,6 +490,7 @@ GetFeedResponseTypeDef = TypedDict(
         "id": str,
         "dataEndpoints": list[str],
         "outputs": list[GetOutputTypeDef],
+        "accessRoleArn": str,
         "status": FeedStatusType,
         "association": FeedAssociationTypeDef,
         "tags": dict[str, str],
@@ -487,6 +505,7 @@ UpdateFeedResponseTypeDef = TypedDict(
         "id": str,
         "dataEndpoints": list[str],
         "outputs": list[GetOutputTypeDef],
+        "accessRoleArn": str,
         "status": FeedStatusType,
         "association": FeedAssociationTypeDef,
         "tags": dict[str, str],

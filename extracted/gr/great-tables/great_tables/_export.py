@@ -7,9 +7,7 @@ import webbrowser
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
-
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from ._helpers import random_id
 from ._scss import compile_scss
@@ -58,9 +56,7 @@ def _infer_render_target(
             # e.g. if you're in the normal python repl
             ipy = IPython.get_ipython()
 
-        if isinstance(ipy, TerminalInteractiveShell):
-            target = "browser"
-        elif ipy is None:
+        if isinstance(ipy, TerminalInteractiveShell) or ipy is None:
             target = "browser"
         else:
             target = "notebook"
@@ -224,6 +220,17 @@ def as_raw_html(
     ```
     """
 
+    if self._options.ihtml_active.value:
+        from ._ihtml import render_as_ihtml
+
+        fragment = render_as_ihtml(self)
+        if make_page:
+            return (
+                '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+                '<meta charset="utf-8"/>\n</head>\n<body>\n' + fragment + "\n</body>\n</html>\n"
+            )
+        return fragment
+
     built_table = self._build_data(context="html")
 
     table_html = built_table._render_as_html(
@@ -359,7 +366,7 @@ WebDrivers: TypeAlias = Literal[
 DebugDumpOptions: TypeAlias = Literal["zoom", "width_resize", "final_resize"]
 
 
-def save(
+def save(  # pragma: no cover
     self: GT,
     file: Path | str,
     selector: str = "table",
@@ -491,7 +498,7 @@ def save(
     return self
 
 
-def _save_screenshot(
+def _save_screenshot(  # pragma: no cover
     driver: webdriver.Chrome, scale: float, path: str, debug: DebugDumpOptions | None
 ) -> None:
     from io import BytesIO
@@ -571,7 +578,7 @@ def _save_screenshot(
     Image.open(fp=BytesIO(el.screenshot_as_png)).save(fp=path)
 
 
-def _dump_debug_screenshot(driver, path):
+def _dump_debug_screenshot(driver, path):  # pragma: no cover
     driver.execute_script(
         "document.body.style.border = '3px solid blue'; "
         "document.body.childNodes[0].style.border = '3px solid orange'; "

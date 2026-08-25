@@ -6,13 +6,22 @@ via DataLoader collate functions for parallel preprocessing.
 """
 
 import copy
+import logging
 import random
-import re
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Dict, Tuple, Iterator, List, Optional
+from typing import Any, Dict, Tuple, List, Optional
 import torch
 from transformers import AutoTokenizer
+
+from gliner2.processing.word_splitter import (  # noqa: F401 - public re-exports
+    CharLevelSplitter,
+    WhitespaceTokenSplitter,
+    WordSplitterSpec,
+    resolve_word_splitter,
+)
+
+logger = logging.getLogger(__name__)
 
 _TOKENIZE_CACHE_SIZE = 50_000
 
@@ -61,23 +70,36 @@ class PreprocessedBatch:
     original_schemas: List[Dict]  # For result formatting
     # Precomputed routing indices for fast embedding extraction
     text_word_indices: torch.Tensor = None  # (batch, max_words) gather indices
+    text_word_mask: torch.Tensor = None  # (batch, max_words)
     text_word_counts: List[int] = None  # actual word count per sample
     schema_special_indices: List[List[List[int]]] = None  # per-sample, per-schema positions
+    query_marker_indices: torch.Tensor = None  # (batch, max extractive queries)
+    query_marker_mask: torch.Tensor = None
+    query_group_index: torch.Tensor = None
+    cls_marker_indices: torch.Tensor = None  # (batch, max classification choices)
+    cls_marker_mask: torch.Tensor = None
+    cls_group_index: torch.Tensor = None
+    # Architecture-neutral additions (PR 3). Default-empty so the span path is
+    # unaffected; the boundary architecture populates these.
+    query_layouts: tuple = ()  # per-sample QueryLayout
+    targets: Any = None  # PaddedTargetBatch | None
+    model_texts: tuple = ()  # tokenizer-facing (possibly mutated) text per sample
+    record_specs: tuple = ()  # per-sample {task_index: RecordSpec}
 
     def to(self, device: torch.device, dtype: torch.dtype = None) -> 'PreprocessedBatch':
         """Move tensors to device and optionally cast float tensors to dtype.
 
-        Integer tensors (input_ids, text_word_indices) are moved to the device
-        but keep their original dtype regardless of the *dtype* argument.
+        Integer and boolean tensors are moved to the device but keep their
+        original dtype regardless of the *dtype* argument.
         """
-        def _cast(t, is_int=False):
+        def _cast(t):
             t = t.to(device)
-            if dtype is not None and not is_int:
+            if dtype is not None and (t.is_floating_point() or t.is_complex()):
                 t = t.to(dtype)
             return t
 
         return PreprocessedBatch(
-            input_ids=_cast(self.input_ids, is_int=True),
+            input_ids=_cast(self.input_ids),
             attention_mask=_cast(self.attention_mask),
             mapped_indices=self.mapped_indices,
             schema_counts=self.schema_counts,
@@ -91,11 +113,43 @@ class PreprocessedBatch:
             original_texts=self.original_texts,
             original_schemas=self.original_schemas,
             text_word_indices=(
-                _cast(self.text_word_indices, is_int=True)
+                _cast(self.text_word_indices)
                 if self.text_word_indices is not None else None
+            ),
+            text_word_mask=(
+                _cast(self.text_word_mask)
+                if self.text_word_mask is not None else None
             ),
             text_word_counts=self.text_word_counts,
             schema_special_indices=self.schema_special_indices,
+            query_marker_indices=(
+                _cast(self.query_marker_indices)
+                if self.query_marker_indices is not None else None
+            ),
+            query_marker_mask=(
+                _cast(self.query_marker_mask)
+                if self.query_marker_mask is not None else None
+            ),
+            query_group_index=(
+                _cast(self.query_group_index)
+                if self.query_group_index is not None else None
+            ),
+            cls_marker_indices=(
+                _cast(self.cls_marker_indices)
+                if self.cls_marker_indices is not None else None
+            ),
+            cls_marker_mask=(
+                _cast(self.cls_marker_mask)
+                if self.cls_marker_mask is not None else None
+            ),
+            cls_group_index=(
+                _cast(self.cls_group_index)
+                if self.cls_group_index is not None else None
+            ),
+            query_layouts=self.query_layouts,
+            targets=(self.targets.to(device) if self.targets is not None else None),
+            model_texts=self.model_texts,
+            record_specs=self.record_specs,
         )
 
     def pin_memory(self) -> 'PreprocessedBatch':
@@ -118,8 +172,40 @@ class PreprocessedBatch:
                 self.text_word_indices.pin_memory()
                 if self.text_word_indices is not None else None
             ),
+            text_word_mask=(
+                self.text_word_mask.pin_memory()
+                if self.text_word_mask is not None else None
+            ),
             text_word_counts=self.text_word_counts,
             schema_special_indices=self.schema_special_indices,
+            query_marker_indices=(
+                self.query_marker_indices.pin_memory()
+                if self.query_marker_indices is not None else None
+            ),
+            query_marker_mask=(
+                self.query_marker_mask.pin_memory()
+                if self.query_marker_mask is not None else None
+            ),
+            query_group_index=(
+                self.query_group_index.pin_memory()
+                if self.query_group_index is not None else None
+            ),
+            cls_marker_indices=(
+                self.cls_marker_indices.pin_memory()
+                if self.cls_marker_indices is not None else None
+            ),
+            cls_marker_mask=(
+                self.cls_marker_mask.pin_memory()
+                if self.cls_marker_mask is not None else None
+            ),
+            cls_group_index=(
+                self.cls_group_index.pin_memory()
+                if self.cls_group_index is not None else None
+            ),
+            query_layouts=self.query_layouts,
+            targets=(self.targets.pin_memory() if self.targets is not None else None),
+            model_texts=self.model_texts,
+            record_specs=self.record_specs,
         )
 
     def __contains__(self, key: str) -> bool:
@@ -144,24 +230,8 @@ class PreprocessedBatch:
 # Tokenizer
 # =============================================================================
 
-class WhitespaceTokenSplitter:
-    """Fast regex-based tokenizer for text splitting."""
-    __slots__ = ()
-
-    _PATTERN = re.compile(
-        r"""(?:https?://[^\s]+|www\.[^\s]+)
-        |[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}
-        |@[a-z0-9_]+
-        |\w+(?:[-_]\w+)*
-        |\S""",
-        re.VERBOSE | re.IGNORECASE,
-    )
-
-    def __call__(self, text: str, lower: bool = True) -> Iterator[Tuple[str, int, int]]:
-        if lower:
-            text = text.lower()
-        for m in self._PATTERN.finditer(text):
-            yield m.group(), m.start(), m.end()
+# Word splitters live in ``gliner2.processing.word_splitter`` so long-document
+# chunking can reuse them without importing the torch-backed processor.
 
 
 # =============================================================================
@@ -202,6 +272,12 @@ class SchemaTransformer:
 
     Provides efficient batch preprocessing via collate functions
     for parallel DataLoader preprocessing.
+
+    ``word_splitter`` may be ``None`` (default ``"whitespace"``), a built-in
+    name (``"whitespace"`` or ``"char"``), or a callable yielding
+    ``(token, start, end)`` with exclusive-end offsets into the original text.
+    ``"char"`` is suitable for languages without whitespace-delimited words,
+    such as Chinese.
     """
 
     # Special tokens
@@ -226,14 +302,15 @@ class SchemaTransformer:
             model_name: str = None,
             tokenizer=None,
             sampling_config: SamplingConfig = None,
-            token_pooling: str = "first"
+            token_pooling: str = "first",
+            word_splitter: Optional[WordSplitterSpec] = None,
     ):
         if model_name is None and tokenizer is None:
             raise ValueError("Either model_name or tokenizer must be provided.")
 
         self.token_pooling = token_pooling if token_pooling in ["first", "mean", "max"] else "first"
         self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(model_name)
-        self.word_splitter = WhitespaceTokenSplitter()
+        self.word_splitter = resolve_word_splitter(word_splitter)
         self.sampling_config = sampling_config or SamplingConfig()
         self.is_training = False
 
@@ -269,6 +346,12 @@ class SchemaTransformer:
             self,
             batch: List[Tuple[str, Dict]],
             max_len: Optional[int] = None,
+            *,
+            error_policy: str = "raise",
+            architecture: str = "span",
+            max_gold_per_query: int = 32,
+            on_capacity_exceeded: str = "raise",
+            ignore_missing_entities: bool = False,
     ) -> PreprocessedBatch:
         """
         Collate function for training DataLoader.
@@ -287,17 +370,34 @@ class SchemaTransformer:
             max_len: Maximum number of word tokens per text. Tokens beyond
                 this limit are dropped before encoding. ``None`` means no
                 truncation.
+            error_policy: How to handle a malformed record. ``"raise"``
+                (default, recommended for training) propagates the error;
+                ``"skip"`` omits the offending record; ``"fallback"`` inserts a
+                minimal dummy record (legacy compatibility behavior).
 
         Returns:
             PreprocessedBatch ready for model.forward()
         """
         self.is_training = True
-        return self._collate_batch(batch, max_len=max_len)
+        result = self._collate_batch(batch, max_len=max_len, error_policy=error_policy)
+        return self._add_boundary_metadata(
+            result, architecture, is_training=True,
+            max_gold_per_query=max_gold_per_query,
+            on_capacity_exceeded=on_capacity_exceeded,
+            ignore_missing_entities=ignore_missing_entities,
+        )
 
     def collate_fn_inference(
             self,
             batch: List[Tuple[str, Any]],
             max_len: Optional[int] = None,
+            *,
+            error_policy: str = "fallback",
+            architecture: str = "span",
+            build_targets: Optional[bool] = None,
+            max_gold_per_query: int = 32,
+            on_capacity_exceeded: str = "raise",
+            ignore_missing_entities: bool = False,
     ) -> PreprocessedBatch:
         """
         Collate function for inference DataLoader.
@@ -307,12 +407,65 @@ class SchemaTransformer:
             max_len: Maximum number of word tokens per text. Tokens beyond
                 this limit are dropped before encoding. ``None`` means no
                 truncation.
+            error_policy: Malformed-record handling. Defaults to ``"fallback"``
+                to preserve the robust public inference behavior; pass
+                ``"raise"`` for strict evaluation.
+            build_targets: Whether to build gold supervision targets. Defaults
+                to ``False`` (plain inference). An evaluation collator passes
+                ``True`` so a boundary eval loss can be computed while the model
+                still runs in eval mode.
 
         Returns:
             PreprocessedBatch for batch_extract
         """
         self.is_training = False
-        return self._collate_batch(batch, max_len=max_len)
+        result = self._collate_batch(batch, max_len=max_len, error_policy=error_policy)
+        return self._add_boundary_metadata(
+            result, architecture, is_training=False,
+            build_targets=build_targets, max_gold_per_query=max_gold_per_query,
+            on_capacity_exceeded=on_capacity_exceeded,
+            ignore_missing_entities=ignore_missing_entities,
+        )
+
+    @staticmethod
+    def _add_boundary_metadata(
+            batch: PreprocessedBatch,
+            architecture: str,
+            *,
+            is_training: bool,
+            max_gold_per_query: int = 32,
+            build_targets: Optional[bool] = None,
+            on_capacity_exceeded: str = "raise",
+            ignore_missing_entities: bool = False,
+    ) -> PreprocessedBatch:
+        if architecture != "boundary" or len(batch) == 0:
+            return batch
+        from gliner2.processing.boundary_preprocessing import build_boundary_batch_metadata
+
+        def _record_meta(schema):
+            if isinstance(schema, dict):
+                return schema.get("record_metadata")
+            return None
+
+        record_metadata_list = [_record_meta(s) for s in batch.original_schemas]
+        has_records = any(record_metadata_list)
+
+        layouts, targets, record_specs = build_boundary_batch_metadata(
+            schema_tokens_list=batch.schema_tokens_list,
+            task_types=batch.task_types,
+            structure_labels=batch.structure_labels,
+            text_lengths=batch.text_word_counts,
+            is_training=is_training,
+            max_gold_per_query=max_gold_per_query,
+            record_metadata_list=record_metadata_list if has_records else None,
+            build_targets=build_targets,
+            on_capacity_exceeded=on_capacity_exceeded,
+            ignore_missing_entities=ignore_missing_entities,
+        )
+        batch.query_layouts = layouts
+        batch.targets = targets
+        batch.record_specs = record_specs
+        return batch
 
     def transform_and_format(
             self,
@@ -343,8 +496,19 @@ class SchemaTransformer:
             self,
             batch: List[Tuple[str, Any]],
             max_len: Optional[int] = None,
+            error_policy: str = "raise",
     ) -> PreprocessedBatch:
-        """Internal collate implementation."""
+        """Internal collate implementation.
+
+        ``error_policy`` controls malformed-record handling:
+          * ``"raise"``    - propagate the exception (strict; no silent zero
+            targets).
+          * ``"skip"``     - drop the record.
+          * ``"fallback"`` - insert a minimal dummy record (legacy behavior).
+        """
+        if error_policy not in ("raise", "skip", "fallback"):
+            raise ValueError(f"unknown error_policy {error_policy!r}")
+
         transformed_records = []
 
         for text, schema in batch:
@@ -365,8 +529,12 @@ class SchemaTransformer:
             try:
                 transformed = self._transform_record(record, max_len=max_len)
                 transformed_records.append(transformed)
-            except Exception as e:
-                # Create minimal fallback record
+            except Exception:
+                if error_policy == "raise":
+                    raise
+                if error_policy == "skip":
+                    continue
+                # fallback: minimal dummy record (legacy compatibility)
                 transformed_records.append(self._create_fallback_record(text, schema))
 
         return self._pad_batch(transformed_records)
@@ -467,12 +635,47 @@ class SchemaTransformer:
         text_word_counts = [len(r.text_word_first_positions) for r in records]
         max_words = max(text_word_counts) if text_word_counts else 0
         text_word_indices = torch.zeros((batch_size, max_words), dtype=torch.long)
+        text_word_mask = torch.zeros((batch_size, max_words), dtype=torch.bool)
         for i, rec in enumerate(records):
             n = text_word_counts[i]
             if n > 0:
                 text_word_indices[i, :n] = torch.tensor(
                     rec.text_word_first_positions, dtype=torch.long
                 )
+                text_word_mask[i, :n] = True
+
+        query_routes = []
+        cls_routes = []
+        for rec in records:
+            query_i = []
+            cls_i = []
+            for group_index, positions in enumerate(rec.schema_special_positions):
+                routes = [(position, group_index) for position in positions[1:]]
+                if rec.task_types[group_index] == "classifications":
+                    cls_i.extend(routes)
+                else:
+                    query_i.extend(routes)
+            query_routes.append(query_i)
+            cls_routes.append(cls_i)
+
+        def _pad_routes(routes):
+            width = max((len(values) for values in routes), default=0)
+            indices = torch.zeros((batch_size, width), dtype=torch.long)
+            mask = torch.zeros((batch_size, width), dtype=torch.bool)
+            groups = torch.zeros((batch_size, width), dtype=torch.long)
+            for i, values in enumerate(routes):
+                if values:
+                    positions, group_ids = zip(*values)
+                    count = len(values)
+                    indices[i, :count] = torch.tensor(positions, dtype=torch.long)
+                    groups[i, :count] = torch.tensor(group_ids, dtype=torch.long)
+                    mask[i, :count] = True
+            return indices, mask, groups
+
+        query_marker_indices, query_marker_mask, query_group_index = _pad_routes(
+            query_routes
+        )
+        cls_marker_indices, cls_marker_mask, cls_group_index = _pad_routes(cls_routes)
 
         return PreprocessedBatch(
             input_ids=input_ids,
@@ -489,8 +692,15 @@ class SchemaTransformer:
             original_texts=[r.text for r in records],
             original_schemas=[r.schema for r in records],
             text_word_indices=text_word_indices,
+            text_word_mask=text_word_mask,
             text_word_counts=text_word_counts,
             schema_special_indices=[r.schema_special_positions for r in records],
+            query_marker_indices=query_marker_indices,
+            query_marker_mask=query_marker_mask,
+            query_group_index=query_group_index,
+            cls_marker_indices=cls_marker_indices,
+            cls_marker_mask=cls_marker_mask,
+            cls_group_index=cls_group_index,
         )
 
     def _empty_batch(self) -> PreprocessedBatch:
@@ -636,6 +846,7 @@ class SchemaTransformer:
             return
 
         json_descs = schema.get("json_descriptions", {})
+        record_meta = schema.get("record_metadata", {}) or {}
         groups = {}
 
         for item in schema["json_structures"]:
@@ -646,17 +857,33 @@ class SchemaTransformer:
             if sampling and random.random() < sampling.remove_json_structure_prob:
                 continue
 
-            all_fields = set()
+            # Record-annotated structures (natural/latent/anchorless modes) must
+            # keep a stable field set: dropping the anchor field or renaming
+            # fields would break anchor->query matching and record-target
+            # identity, crashing record spec compilation. Field shuffling is
+            # still safe because records are matched by name, not position.
+            is_record = bool(record_meta.get(parent, {}).get("mode"))
+
+            # Preserve declaration order. Converting through a set made schema
+            # prompts depend on PYTHONHASHSEED, which could change both query
+            # ordering and decoded values across otherwise identical processes.
+            common = []
+            seen_fields = set()
             for occ in occurrences:
-                all_fields.update(occ.keys())
-            common = list(all_fields)
+                for field_name in occ:
+                    if field_name not in seen_fields:
+                        common.append(field_name)
+                        seen_fields.add(field_name)
 
             if sampling and sampling.shuffle_json_fields:
                 random.shuffle(common)
 
-            chosen = [f for f in common if not (
-                    sampling and random.random() < sampling.remove_json_field_prob
-            )]
+            if sampling and not is_record:
+                chosen = [f for f in common if not (
+                        random.random() < sampling.remove_json_field_prob
+                )]
+            else:
+                chosen = list(common)
             if not chosen:
                 continue
 
@@ -665,7 +892,7 @@ class SchemaTransformer:
             descs = json_descs.get(parent, {})
             example_modes = ["none", "descriptions"]
 
-            if sampling and random.random() < sampling.synthetic_entity_label_prob:
+            if sampling and not is_record and random.random() < sampling.synthetic_entity_label_prob:
                 example_modes.remove("none")
                 synthetic = []
                 for i, real in enumerate(chosen, 1):
@@ -757,6 +984,7 @@ class SchemaTransformer:
         if "relations" not in schema:
             return
 
+        relation_descriptions = schema.get("relation_descriptions", {})
         groups = {}
         for item in schema["relations"]:
             if sampling and random.random() < sampling.remove_relations_prob:
@@ -791,7 +1019,12 @@ class SchemaTransformer:
                     uniq.append(span)
 
             labels.append([len(uniq), uniq])
-            schemas.append(self._transform_schema(parent, field_names, self.R_TOKEN))
+            schemas.append(self._transform_schema(
+                parent,
+                field_names,
+                self.R_TOKEN,
+                prompt=relation_descriptions.get(parent),
+            ))
             types.append("relations")
 
     def _process_classifications(self, schema, schemas, labels, types, sampling):
@@ -891,8 +1124,8 @@ class SchemaTransformer:
                     prompt_str += f" {self.EXAMPLE_TOKEN} {inp} {self.OUTPUT_TOKEN} {out_str}"
 
         tokens = ["(", self.P_TOKEN, prompt_str, "("]
-        for field in fields:
-            tokens.extend([child_prefix, field])
+        for field_name in fields:
+            tokens.extend([child_prefix, field_name])
         tokens.extend([")", ")"])
 
         return tokens
@@ -918,10 +1151,10 @@ class SchemaTransformer:
 
                 for span in spans:
                     positions = []
-                    for field in span:
-                        if isinstance(field, list):
+                    for element in span:
+                        if isinstance(element, list):
                             nested = []
-                            for sub in field:
+                            for sub in element:
                                 if str(sub).startswith("[selection]"):
                                     # Use case-insensitive matching for choice fields
                                     pos = self._find_sublist(
@@ -935,15 +1168,15 @@ class SchemaTransformer:
                                 nested.extend(pos)
                             positions.append(nested)
                         else:
-                            if str(field).startswith("[selection]"):
+                            if str(element).startswith("[selection]"):
                                 # Use case-insensitive matching for choice fields
                                 pos = self._find_sublist(
-                                    [str(field)[11:]], text_tokens[:len_prefix],
+                                    [str(element)[11:]], text_tokens[:len_prefix],
                                     case_insensitive=True
                                 )
                             else:
                                 pos = self._find_sublist(
-                                    self._tokenize_text(str(field)), text_tokens
+                                    self._tokenize_text(str(element)), text_tokens
                                 )
                             positions.append(pos)
                     transformed.append(positions)
@@ -1027,6 +1260,20 @@ class SchemaTransformer:
         combined.append(self.SEP_TEXT)
         combined.extend(text_tokens)
 
+        # Route only the structural marker slots in each schema. Prompt text,
+        # label descriptions, and few-shot examples may themselves tokenize to
+        # special-token IDs; treating those as child markers creates more
+        # classification logits than labels.
+        schema_marker_orig_indices = set()
+        offset = 0
+        for struct in schema_tokens_list:
+            if len(struct) > 1:
+                schema_marker_orig_indices.add(offset + 1)  # [P]
+            schema_marker_orig_indices.update(
+                offset + index for index in range(4, len(struct) - 2, 2)
+            )
+            offset += len(struct) + 1  # Schema tokens plus [SEP_STRUCT].
+
         # Build subword list, mappings, and routing indices
         subwords = []
         mappings = []
@@ -1066,15 +1313,24 @@ class SchemaTransformer:
             mappings.extend([(seg_type, orig_idx, schema_idx)] * len(sub_tokens))
 
             # Track routing indices
-            if seg_type == "text" and sub_tokens:
-                if orig_idx != last_text_orig:
-                    # New text word — record position of first subword
-                    text_word_first_positions.append(subword_pos)
-                    last_text_orig = orig_idx
+            if seg_type == "text" and orig_idx != last_text_orig:
+                # New text word. Record the position of its first subword. A word
+                # that tokenizes to *nothing* would otherwise be dropped here
+                # while char-offset mappings keep a row for it, shifting the
+                # embedding<->word alignment (which ``word_offsets``' ``max(...,0)``
+                # clamp cannot repair). Keep a placeholder row at the current
+                # subword boundary so positions stay 1:1 with words, and warn.
+                last_text_orig = orig_idx
+                if not sub_tokens:
+                    logger.warning(
+                        "text word %r (index %d) produced no subwords; inserting "
+                        "a placeholder to preserve word/embedding alignment",
+                        token, orig_idx,
+                    )
+                text_word_first_positions.append(subword_pos)
             elif seg_type == "schema":
                 # Track special token positions for schema embeddings
-                tid = self.tokenizer.convert_tokens_to_ids(sub_tokens[0]) if sub_tokens else None
-                if tid is not None and tid in self._special_ids:
+                if orig_idx in schema_marker_orig_indices:
                     schema_special_positions[schema_idx].append(subword_pos)
 
         input_ids = self.tokenizer.convert_tokens_to_ids(subwords)

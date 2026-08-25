@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 import numpy as np
 
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Curves(ExtraEval):
-    def build_curve(self, label: str) -> List[dict]:
+    def build_curve(self, label: str) -> list[dict]:
         """Build the curve for a given label.
 
         Args:
@@ -30,17 +29,35 @@ class Curves(ExtraEval):
 
         if self.useCats:
             cat_ids = list(range(self.eval["precision"].shape[2]))
+            if hasattr(self, "params") and self.params is not None and self.params.catIds:
+                real_category_ids = list(self.params.catIds)
+            else:
+                real_category_ids = sorted(self.cocoGt.cats.keys())
         else:
             cat_ids = [0]
+            real_category_ids = []
 
-        for category_id in cat_ids:
+        for category_index in cat_ids:
+            category_id = real_category_ids[category_index] if self.useCats else category_index
             _label = f"[{label}={category_id}] "
             if len(cat_ids) == 1:
                 _label = ""
 
-            precision_list = self.eval["precision"][:, :, category_id, :, :].ravel()
-            recall_list = self.recThrs
-            scores = self.eval["scores"][:, :, category_id, :, :].ravel()
+            precision_list = self.eval["precision"][:, :, category_index, :, :].ravel()
+            recall_list = np.asarray(self.recThrs).ravel()
+            scores = self.eval["scores"][:, :, category_index, :, :].ravel()
+            point_count = min(len(recall_list), len(precision_list), len(scores))
+            recall_list = recall_list[:point_count]
+            precision_list = precision_list[:point_count]
+            scores = scores[:point_count]
+            valid = precision_list > -1
+            if not np.any(valid):
+                logger.warning("Skipping category %s: precision contains no valid values", category_id)
+                continue
+
+            recall_list = recall_list[valid]
+            precision_list = precision_list[valid]
+            scores = scores[valid]
             auc = round(COCOeval_faster.calc_auc(recall_list, precision_list), 4)
 
             curve.append(
@@ -59,9 +76,9 @@ class Curves(ExtraEval):
 
     def plot_pre_rec(
         self,
-        curves: Optional[List[dict]] = None,
-        label: Optional[str] = "category_id",
-        return_fig: Optional[bool] = False,
+        curves: list[dict] | None = None,
+        label: str | None = "category_id",
+        return_fig: bool | None = False,
     ):
         """Plot the precision-recall curve.
 
@@ -81,9 +98,9 @@ class Curves(ExtraEval):
 
     def plot_f1_confidence(
         self,
-        curves: Optional[List[dict]] = None,
-        label: Optional[str] = "category_id",
-        return_fig: Optional[bool] = False,
+        curves: list[dict] | None = None,
+        label: str | None = "category_id",
+        return_fig: bool | None = False,
     ):
         """Plot the F1 confidence curve.
 
@@ -101,7 +118,7 @@ class Curves(ExtraEval):
 
         return plot_f1_confidence(curves, return_fig=return_fig)
 
-    def build_ced_curve(self, mae_count: int = 1000) -> List[dict]:
+    def build_ced_curve(self, mae_count: int = 1000) -> list[dict]:
         """Build the CED (Cumulative Error Distribution) curve for all
         categories.
 
@@ -167,16 +184,18 @@ class Curves(ExtraEval):
                 """
                 x = np.array(x)
                 _median = np.median(x)
-                _q3 = np.sqrt(np.var(x))
+                _q3 = np.percentile(x, 75)
                 result = {
                     "x": [0],
                     "y": [0],
                 }
 
-                for val in np.linspace(x.min(), (_median + _q3), count):
-                    _mask = x < val
-                    result["y"].append(_mask.sum())
-                    result["x"].append(val)
+                curve_limit = min(_median + _q3, x.max())
+                if x.min() < curve_limit:
+                    for val in np.linspace(x.min(), curve_limit, count):
+                        _mask = x < val
+                        result["y"].append(_mask.sum())
+                        result["x"].append(val)
 
                 result["y"].append(len(x))
                 result["x"].append(x.max())
@@ -198,9 +217,9 @@ class Curves(ExtraEval):
 
     def plot_ced_metric(
         self,
-        curves: Optional[List[dict]] = None,
-        normalize: Optional[bool] = True,
-        return_fig: Optional[bool] = False,
+        curves: list[dict] | None = None,
+        normalize: bool | None = True,
+        return_fig: bool | None = False,
     ):
         """Plot the CED metric curve.
 

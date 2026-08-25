@@ -76,15 +76,13 @@ class SdlcAssetGraphDto(BaseModel):
         _items = []
         if self.assets:
             for _item_assets in self.assets:
-                if _item_assets:
-                    _items.append(_item_assets.to_dict())
+                _items.append(_item_assets.to_dict() if _item_assets is not None else None)
             _dict['assets'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in links (list)
         _items = []
         if self.links:
             for _item_links in self.links:
-                if _item_links:
-                    _items.append(_item_links.to_dict())
+                _items.append(_item_links.to_dict() if _item_links is not None else None)
             _dict['links'] = _items
         # set to None if assets (nullable) is None
         # and model_fields_set contains the field

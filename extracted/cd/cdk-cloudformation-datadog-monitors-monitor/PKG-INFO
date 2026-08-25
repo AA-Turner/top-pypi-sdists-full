@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: cdk-cloudformation-datadog-monitors-monitor
-Version: 4.11.0a7
-Summary: Datadog Monitor 4.11.0
+Version: 4.11.1a7
+Summary: Datadog Monitor 4.11.1
 Home-page: https://github.com/cdklabs/cdk-cloudformation.git
 Author: Amazon Web Services
 License: Apache-2.0
@@ -10,27 +10,28 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.253.1
-Requires-Dist: constructs<11.0.0,>=10.6.0
-Requires-Dist: jsii<2.0.0,>=1.129.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.263.0
+Requires-Dist: constructs<11.0.0,>=10.8.1
+Requires-Dist: jsii<2.0.0,>=1.139.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard==2.13.3
 
 # datadog-monitors-monitor
 
-> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.0.
+> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.1.
 
 ## Description
 
-Datadog Monitor 4.11.0
+Datadog Monitor 4.11.1
 
 ## Usage
 
@@ -58,7 +59,7 @@ You can find more information about activating this type in the [AWS CloudFormat
 
 This library is auto-generated and published to all supported programming languages by the [cdklabs/cdk-cloudformation](https://github.com/cdklabs/cdk-cloudformation) project based on the API schema published for `Datadog::Monitors::Monitor`.
 
-* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.0).
+* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.1).
 * Issues related to `Datadog::Monitors::Monitor` should be reported to the [publisher](undefined).
 
 ## License

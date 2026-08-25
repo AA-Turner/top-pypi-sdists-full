@@ -41,6 +41,7 @@
 import os
 import textwrap
 
+import packaging.markers
 import packaging.requirements
 
 from pbr._compat.five import string_type
@@ -96,6 +97,24 @@ def split_sections(s):
 
 class TestRequirementParsing(base.BaseTestCase):
 
+    @staticmethod
+    def _normalize_section_key(key):
+        """Normalize a requires.txt section key for comparison.
+
+        setuptools normalizes markers when writing requires.txt from
+        PEP 508 inline markers. This helper strips differences like
+        parentheses, quoting style, and whitespace so we can compare
+        keys regardless of setuptools version.
+        """
+        if key is None:
+            return key
+        if ':' in key:
+            name, marker = key.split(':', 1)
+            marker = marker.strip().strip('()')
+            marker = str(packaging.markers.Marker(marker))
+            return '%s:%s' % (name, marker) if name else ':%s' % marker
+        return key
+
     def test_requirement_parsing(self):
         pkgs = {
             'test_reqparse': {
@@ -136,38 +155,47 @@ class TestRequirementParsing(base.BaseTestCase):
             'test': ['foo'],
             "test:(python_version=='2.7')": ['baz>3.2', 'bar>3.3'],
         }
-        venv = self.useFixture(pbr_fixtures.Venv('reqParse'))
-        bin_python = venv.python
         # Two things are tested by this
         # 1) pbr properly parses markers from requirements.txt and setup.cfg
         # 2) bdist_wheel causes pbr to not evaluate markers
-        self._run_cmd(
-            bin_python,
-            ('setup.py', 'bdist_wheel'),
-            allow_fail=False,
-            cwd=pkg_dir,
-        )
-        egg_info = os.path.join(pkg_dir, 'test_reqparse.egg-info')
+        with pbr_fixtures.Venv('reqParse') as venv:
+            self._run_cmd(
+                venv.python,
+                ('setup.py', 'bdist_wheel'),
+                allow_fail=False,
+                cwd=pkg_dir,
+            )
+            egg_info = os.path.join(pkg_dir, 'test_reqparse.egg-info')
 
-        requires_txt = os.path.join(egg_info, 'requires.txt')
-        with open(requires_txt, 'rt') as requires:
-            generated_requirements = dict(split_sections(requires))
+            requires_txt = os.path.join(egg_info, 'requires.txt')
+            with open(requires_txt, 'rt') as requires:
+                generated_requirements = dict(split_sections(requires))
 
-        # NOTE(dhellmann): We have to spell out the comparison because
-        # the rendering for version specifiers in a range is not
-        # consistent across versions of setuptools.
+            # Normalize section keys: setuptools may normalize markers
+            # differently depending on how they are passed (legacy
+            # extras_require key vs PEP 508 inline).
+            normalized_generated = {
+                self._normalize_section_key(k): v
+                for k, v in generated_requirements.items()
+            }
 
-        for section, expected in expected_requirements.items():
-            # We wrap in str since we need packaging 22.0.0 or later to do
-            # comparisons [1] and that doesn't support Python 2.7, 3.6
-            #
-            # https://github.com/pypa/packaging/commit/aebc072a06925cc0004b031e6b6f3028e5e2e686
-            # https://pypi.org/project/packaging/22.0/
-            exp_parsed = [
-                str(packaging.requirements.Requirement(s)) for s in expected
-            ]
-            gen_parsed = [
-                str(packaging.requirements.Requirement(s))
-                for s in generated_requirements[section]
-            ]
-            self.assertEqual(exp_parsed, gen_parsed)
+            # NOTE(dhellmann): We have to spell out the comparison because
+            # the rendering for version specifiers in a range is not
+            # consistent across versions of setuptools.
+
+            for section, expected in expected_requirements.items():
+                norm_section = self._normalize_section_key(section)
+                # We wrap in str since we need packaging 22.0.0 or later to do
+                # comparisons [1] and that doesn't support Python 2.7, 3.6
+                #
+                # https://github.com/pypa/packaging/commit/aebc072a06925cc0004b031e6b6f3028e5e2e686
+                # https://pypi.org/project/packaging/22.0/
+                exp_parsed = [
+                    str(packaging.requirements.Requirement(s))
+                    for s in expected
+                ]
+                gen_parsed = [
+                    str(packaging.requirements.Requirement(s))
+                    for s in normalized_generated[norm_section]
+                ]
+                self.assertEqual(exp_parsed, gen_parsed)

@@ -1,4 +1,4 @@
-# Copyright 2009-2024 Joshua Bronson. All rights reserved.
+# Copyright 2009-2026 Joshua Bronson. All rights reserved.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -12,6 +12,8 @@ from __future__ import annotations
 import typing as t
 from enum import Enum
 
+from ._typing import override
+
 
 class OnDupAction(Enum):
     """An action to take to prevent duplication from occurring."""
@@ -23,6 +25,7 @@ class OnDupAction(Enum):
     #: Keep existing items and drop new items.
     DROP_NEW = 'DROP_NEW'
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}.{self.name}'
 

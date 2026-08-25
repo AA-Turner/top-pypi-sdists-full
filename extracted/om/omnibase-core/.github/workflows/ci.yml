@@ -8,6 +8,11 @@ on:
     branches: [main, dev, "hotfix/**"]
   pull_request:
     branches: [main, dev]
+    # OMN-16215: default types (opened/synchronize/reopened) don't retrigger
+    # on a draft->ready flip. `ready_for_review` ensures undrafting a dev PR
+    # fires a full CI evaluation against the current head without requiring a
+    # new push -- see test-parallel's/tests-integration's `if:` below.
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
     branches: [main, dev]
   workflow_dispatch:
@@ -969,11 +974,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token (org secrets
+      # ONEXBOT_OCC_APP_ID / ONEXBOT_OCC_PRIVATE_KEY), scoped to the one
+      # sibling repo this job reads.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: onex_change_control
+          permission-contents: write
+
       - name: Checkout onex_change_control standards
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/onex_change_control
-          token: ${{ secrets.CROSS_REPO_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
           path: onex_change_control
           sparse-checkout: |
             standards/
@@ -3057,7 +3076,24 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    if: always() && needs.quality-gate.result == 'success' && needs.zone-filter.outputs.docs_only != 'true'
+    # OMN-16215: draft-state CI admission gate (org-wide fan-out of the
+    # onex_change_control#6686 mechanism, OMN-16214/OMN-15731). This is the
+    # single most expensive job in ci.yml (up to 40 self-hosted-or-ubuntu-latest
+    # shards, up to 70m each) so it is the highest-leverage gate target on this
+    # repo -- unlike OCC's one monolithic pre-commit job, core fans quality
+    # checks out into ~50 single-shard leaf jobs under quality-gate that already
+    # run on cheap ubuntu-latest for pull_request events; those are left
+    # ungated here (see the PR body for the full scoping table). The
+    # `base_ref != 'dev'` arm preserves the dev->main promotion-boundary
+    # guarantee (root CLAUDE.md rule #4) exactly as OMN-15731 did for OCC: a
+    # main-targeting PR always runs this unconditionally, draft or not. No
+    # `ci:ready`-style label fallback is needed -- core has no existing label
+    # pilot for this job (verified against the live workflow file before
+    # building), so this is a pure draft-state gate, not a dual-accept one.
+    if: >-
+      always() && needs.quality-gate.result == 'success' &&
+      needs.zone-filter.outputs.docs_only != 'true' &&
+      (github.event_name != 'pull_request' || github.base_ref != 'dev' || !github.event.pull_request.draft)
     # Self-hosted runners can slow sharply under memory pressure when the
     # duration cache is cold; keep the full-suite split timeout above the
     # observed 20-minute saturation boundary.
@@ -3289,7 +3325,15 @@ jobs:
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 30
-    if: always() && needs.quality-gate.result == 'success' && needs.zone-filter.outputs.docs_only != 'true'
+    # OMN-16215: draft-state CI admission gate, mirroring test-parallel's gate
+    # immediately above (same rationale: the 4-split integration matrix is the
+    # second-most-expensive job in this file; see that job's comment for the
+    # full scoping rationale). Same main-boundary carve-out, same no-label-arm
+    # decision.
+    if: >-
+      always() && needs.quality-gate.result == 'success' &&
+      needs.zone-filter.outputs.docs_only != 'true' &&
+      (github.event_name != 'pull_request' || github.base_ref != 'dev' || !github.event.pull_request.draft)
     strategy:
       fail-fast: false
       matrix:
@@ -3316,9 +3360,22 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token (org secrets
+      # ONEXBOT_OCC_APP_ID / ONEXBOT_OCC_PRIVATE_KEY) for the sibling-repo
+      # reads this test split may need.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-contents: write
+
       - name: Run integration tests (split ${{ matrix.split }}/4)
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT || github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
           uv run pytest tests/integration/ \
             --splits 4 --group ${{ matrix.split }} \
@@ -3492,6 +3549,18 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v7
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token, scoped to the one
+      # sibling repo this job reads.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: onex_change_control
+          permission-contents: write
       - name: Checkout onex_change_control
         uses: actions/checkout@v7
         with:
@@ -3505,7 +3574,7 @@ jobs:
           # Re-pinned to OCC dev HEAD at the time of this change.
           ref: 91f5b69104366c2d86e4bb21de67c3c497702111
           path: onex_change_control
-          token: ${{ secrets.CROSS_REPO_PAT || github.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -3608,7 +3677,6 @@ jobs:
       contents: read
       pull-requests: read
     env:
-      GH_TOKEN: ${{ secrets.CROSS_REPO_PAT || github.token }}
       GH_REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
@@ -3619,6 +3687,21 @@ jobs:
     steps:
       - name: Checkout (gate script)
         uses: actions/checkout@v7
+      # OMN-16373: CROSS_REPO_PAT retirement. Mint a short-lived
+      # onexbot-occ-writer App token and export it as GH_TOKEN — job-level
+      # `env:` is resolved before any step runs, so it cannot reference a
+      # step output directly. `|| github.token` fallback kept for resilience.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: onex_change_control
+          permission-contents: write
+      - name: Export GH_TOKEN
+        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token || github.token }}" >> "$GITHUB_ENV"
       - name: Require cited OCC evidence to be merged/durable before product merge
         run: python3 scripts/ci/check_occ_companion_merged.py
 

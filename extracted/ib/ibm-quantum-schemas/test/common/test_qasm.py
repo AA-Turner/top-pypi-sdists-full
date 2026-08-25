@@ -13,7 +13,7 @@
 """Tests for OpenQASM3 models."""
 
 from qiskit.circuit import Parameter, QuantumCircuit
-from samplomatic import ChangeBasis, InjectNoise, Twirl
+from samplomatic import ChangeBasis, InjectNoise, Tag, Twirl
 
 from ibm_quantum_schemas.common.qasm import OpenQasm3DataModel
 
@@ -51,7 +51,7 @@ class TestOpenQasm3DataModel:
         circuit = QuantumCircuit(3)
         circuit.h(0)
         circuit.cx(0, 1)
-        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis()]):
+        with circuit.box([Twirl(), InjectNoise("ref"), ChangeBasis(), Tag("ref2")]):
             circuit.cx(1, 2)
         circuit.measure_all()
 

@@ -39,6 +39,7 @@ class SyncJobModel(BaseModel):
     total_files: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Total files expected for this sync run.")
     files_synced: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of files synced successfully in this job.")
     files_failed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of files that failed to sync in this job.")
+    files_verified: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="OPTIONAL. Files the run re-checked and found already present, as opposed to newly transferred. A re-scan of a settled source is mostly this, so a run with files_synced=0 and files_verified>0 did work and found nothing new, which is a different state from a run that did nothing.")
     started_at: Optional[datetime] = Field(default=None, description="Timestamp when the job started.")
     completed_at: Optional[datetime] = Field(default=None, description="Timestamp when the job completed.")
     updated_at: Optional[datetime] = Field(default=None, description="Last progress update timestamp for this job.")
@@ -49,7 +50,7 @@ class SyncJobModel(BaseModel):
     lag_seconds: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Seconds since the latest progress update for running jobs.")
     current_cursor: Optional[StrictStr] = Field(default=None, description="Latest provider cursor/page token captured for this job.")
     progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
-    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "phase", "total_files", "files_synced", "files_failed", "started_at", "completed_at", "updated_at", "error", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
+    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "phase", "total_files", "files_synced", "files_failed", "files_verified", "started_at", "completed_at", "updated_at", "error", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -111,6 +112,7 @@ class SyncJobModel(BaseModel):
             "total_files": obj.get("total_files"),
             "files_synced": obj.get("files_synced") if obj.get("files_synced") is not None else 0,
             "files_failed": obj.get("files_failed") if obj.get("files_failed") is not None else 0,
+            "files_verified": obj.get("files_verified"),
             "started_at": obj.get("started_at"),
             "completed_at": obj.get("completed_at"),
             "updated_at": obj.get("updated_at"),

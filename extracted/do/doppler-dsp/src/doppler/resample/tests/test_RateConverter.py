@@ -492,6 +492,98 @@ def test_execute_ctrl_push_matches_block_and_execute(sps):
     )
 
 
+def test_plain_execute_ctrl_push_matches_the_block_form():
+    """The push form on the BASE class, not just the matched view.
+
+    `test_execute_ctrl_push_matches_block_and_execute` above exercises
+    `MatchedRateConverter`, which is a jm *view* -- a separate Python class
+    bound in its own `_ext_matchedrateconverter.c`. So the plain
+    `RateConverter`'s push binding had no test at all, and the patch-coverage
+    gate reported that fragment at 0% the first time the two faces were
+    measured apart. A view sharing an algorithm does not share a binding.
+    """
+    x = (np.arange(40, dtype=np.float32) + 1).astype(np.complex64)
+    kw = {"rate": 0.8, "compensate": 0}
+
+    block = np.array(RateConverter(**kw).execute_ctrl(x, 0.0))
+    rc = RateConverter(**kw)
+    push = np.concatenate(
+        [rc.execute_ctrl_push(complex(v), 0.0) for v in x]
+        + [np.empty(0, np.complex64)]
+    )
+    assert np.array_equal(block, push)
+
+
+def test_plain_execute_ctrl_push_honours_out():
+    """The `out=` keyword the stub publishes must be one the binding accepts.
+
+    This is the shape `kwarg-parity-check` guards: the regenerated binding
+    grew `out=` to match a stub that already advertised it. An `out=` nobody
+    calls is an `out=` nobody has proved writes anything.
+    """
+    rc = RateConverter(rate=0.8, compensate=0)
+    cap = rc.execute_ctrl_push_max_out()
+    assert cap > 0, "the push form has no input block to size from"
+
+    buf = np.zeros(cap, dtype=np.complex64)
+    ref = RateConverter(rate=0.8, compensate=0)
+    x = (np.arange(20, dtype=np.float32) + 1).astype(np.complex64)
+    for v in x:
+        got = rc.execute_ctrl_push(complex(v), 0.0, out=buf)
+        want = ref.execute_ctrl_push(complex(v), 0.0)
+        assert np.array_equal(got, want)
+        # The returned view must be backed by the caller's buffer, or `out=`
+        # allocated behind the caller's back and the keyword bought nothing.
+        if got.size:
+            assert np.array_equal(buf[: got.size], want)
+
+
+def test_plain_push_rejects_a_bad_out_buffer():
+    """The three refusals the `out=` path owes a caller.
+
+    Each is a separate branch in the binding and none had a test: the base
+    class's push form was never called at all (see
+    test_plain_execute_ctrl_push_matches_the_block_form), so its error paths
+    were unreached along with everything else.
+    """
+    rc = RateConverter(rate=0.8, compensate=0)
+    need = rc.execute_ctrl_push_max_out()
+
+    # Not an ndarray at all.
+    with pytest.raises(TypeError, match="writable, C-contiguous"):
+        rc.execute_ctrl_push(1 + 0j, 0.0, out=[0] * need)
+
+    # Right shape, wrong dtype — the marshal would write into a temp copy
+    # rather than the caller's buffer, which is silently not `out=`.
+    with pytest.raises(TypeError, match="writable, C-contiguous"):
+        rc.execute_ctrl_push(1 + 0j, 0.0, out=np.zeros(need, np.complex128))
+
+    # Right dtype, not C-contiguous.
+    with pytest.raises(TypeError, match="writable, C-contiguous"):
+        rc.execute_ctrl_push(
+            1 + 0j, 0.0, out=np.zeros(need * 2, np.complex64)[::2]
+        )
+
+    # Right in every way except size.
+    with pytest.raises(ValueError, match="need >="):
+        rc.execute_ctrl_push(
+            1 + 0j, 0.0, out=np.zeros(max(need - 1, 0), np.complex64)
+        )
+
+
+def test_plain_push_max_out_after_destroy_raises():
+    """A destroyed object answers RuntimeError, not a stale number.
+
+    `execute_ctrl_push_max_out` is what a caller sizes its `out=` buffer
+    with, so a plausible answer from a freed handle is the worst kind: it
+    would be believed.
+    """
+    rc = RateConverter(rate=0.8, compensate=0)
+    rc.destroy()
+    with pytest.raises(RuntimeError, match="destroyed"):
+        rc.execute_ctrl_push_max_out()
+
+
 def test_matched_state_round_trips_mid_stream():
     x, _ = _rrc_bpsk(17.333333333, 0.2)
     kw = {"rate": 2 / 17.333333333, "compensate": 1, "pulse": "rrc"}

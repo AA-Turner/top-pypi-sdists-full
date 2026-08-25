@@ -153,6 +153,8 @@ class ConnectorContextResult(BaseModel):
     scope_type: ScopeType = "workspace"
     scope_id: str = ""
     actor_workspace_id: str = ""
+    customer_tier: str = ""
+    customer_tier_label: str = ""
 
 
 class TabRowsResult(BaseModel):
@@ -195,6 +197,8 @@ class ScopeResolutionResult(BaseModel):
     workspace_url: str = ""
     organization_name: str = ""
     organization_url: str = ""
+    customer_tier: str = ""
+    customer_tier_label: str = ""
 
 
 class CompoundContextResult(ConnectorContextResult):
@@ -353,7 +357,10 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     target_version: str = ""
     override_reason: str = ""
     reference_url: str = ""
+    # Submitted as the override's tier filter; replaced by the target's actual
+    # tier once a scope resolves, since a mismatch is rejected by the guardrail.
     customer_tier_filter: str = "TIER_2"
+    customer_tier_label: str = ""
 
     # Loaded connector context
     versions: list[dict[str, object]] = Field(default_factory=list)

@@ -24,16 +24,12 @@ from verifiers.v1.episode import WireEpisode
 from verifiers.v1.serve.types import (
     BaseRequest,
     BaseResponse,
+    CancelRequest,
     HealthRequest,
     HealthResponse,
-    InfoRequest,
-    InfoResponse,
-    RunGroupRequest,
-    RunGroupResponse,
     RunRequest,
     RunResponse,
 )
-from verifiers.v1.trace import WireTrace
 from verifiers.v1.types import SamplingConfig
 
 logger = logging.getLogger(__name__)
@@ -51,6 +47,10 @@ class EnvClient:
         self.socket.setsockopt(zmq.RCVHWM, 0)
         self.socket.connect(address)
         self._pending: dict[str, asyncio.Future[bytes]] = {}
+        # Strong refs to in-flight fire-and-forget cancels: the loop only
+        # holds weak references to tasks, so an unreferenced one can be
+        # garbage-collected before it ever sends
+        self._cancel_tasks: set[asyncio.Task] = set()
         self._receiver: asyncio.Task | None = None
         self._decode_slots = asyncio.BoundedSemaphore(1)
 
@@ -86,10 +86,22 @@ class EnvClient:
         )
         try:
             data = await asyncio.wait_for(future, timeout)
-        except (TimeoutError, asyncio.CancelledError):
+        except TimeoutError:
             self._pending.pop(request_id, None)
             raise
-        if response_type in (HealthResponse, InfoResponse):
+        except asyncio.CancelledError:
+            self._pending.pop(request_id, None)
+            if request.method == RunRequest.method:
+                # Fire-and-forget: tell the server to abort the rollout so the
+                # episode stops consuming inference and env-runtime resources.
+                # A task on the loop outlives this (cancelled) caller.
+                task = asyncio.get_running_loop().create_task(
+                    self._send_cancel(request_id)
+                )
+                self._cancel_tasks.add(task)
+                task.add_done_callback(self._cancel_tasks.discard)
+            raise
+        if response_type is HealthResponse:
             response = response_type.model_validate(msgpack.unpackb(data, raw=False))
         else:
             # Keep large trace replies compact on the loop and expand only one at a time.
@@ -114,6 +126,17 @@ class EnvClient:
             raise RuntimeError(response.error or "env server request failed")
         return response
 
+    async def _send_cancel(self, run_request_id: str) -> None:
+        """Best-effort server-side abort of an abandoned run."""
+        with contextlib.suppress(Exception):
+            payload = msgpack.packb(
+                CancelRequest(request_id=run_request_id).model_dump(mode="json"),
+                use_bin_type=True,
+            )
+            await self.socket.send_multipart(
+                [uuid.uuid4().hex.encode(), CancelRequest.method.encode(), payload]
+            )
+
     async def health(self, timeout: float = 2.0) -> bool:
         try:
             return (
@@ -135,27 +158,19 @@ class EnvClient:
             f"env server at {self.address} did not become healthy in {timeout}s"
         )
 
-    async def info(self) -> InfoResponse:
-        """Return the taskset `num_tasks` + whether its tasks group-score (legacy v0 only)."""
-        return await self._request(InfoRequest(), InfoResponse)
-
     async def run(
         self,
         client: ClientConfig,
         model: str,
         sampling: SamplingConfig,
-        task_data: dict | None = None,
-        # TODO: remove task_idx addressing once v0 (the legacy bridge) is deprecated.
-        task_idx: int | None = None,
+        task_data: dict,
     ) -> WireEpisode:
         """Run one rollout; return its episode record — flat traces (typed
-        `Trace[WireTaskData]`) plus the shared stamp. A v1 server takes the task
-        itself (`task_data`, its dumped `TaskData`); the legacy bridge addresses
-        its server-side dataset by `task_idx`."""
+        `Trace[WireTaskData]`) plus the shared stamp. The server takes the task
+        itself (`task_data`, its dumped `TaskData`)."""
         response = await self._request(
             RunRequest(
                 task_data=task_data,
-                task_idx=task_idx,
                 client=client,
                 model=model,
                 sampling=sampling,
@@ -164,29 +179,16 @@ class EnvClient:
         )
         return response.episode
 
-    async def run_group(
-        self,
-        task_idx: int,
-        n: int,
-        client: ClientConfig,
-        model: str,
-        sampling: SamplingConfig,
-    ) -> list[WireTrace]:
-        """Run `n` rollouts for `task_idx` as a scored group — the legacy (v0) route;
-        a v1 server refuses it. Returns typed `WireTrace`s."""
-        response = await self._request(
-            RunGroupRequest(
-                task_idx=task_idx, n=n, client=client, model=model, sampling=sampling
-            ),
-            RunGroupResponse,
-        )
-        return response.traces
-
     async def close(self) -> None:
         if self._receiver is not None:
             self._receiver.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._receiver
             self._receiver = None
+        # Let scheduled fire-and-forget cancels reach the socket first, or a
+        # run cancelled right before close() leaves its server-side rollout
+        # running. Loop: awaiting one wave can schedule another
+        while self._cancel_tasks:
+            await asyncio.gather(*list(self._cancel_tasks), return_exceptions=True)
         self.socket.close()
         self.ctx.term()

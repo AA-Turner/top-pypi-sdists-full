@@ -14,8 +14,8 @@
 
 from __future__ import annotations
 
-from typing import (TYPE_CHECKING, Callable, ClassVar, Dict, Optional,
-                    Protocol, Tuple, runtime_checkable)
+from typing import (TYPE_CHECKING, Callable, ClassVar, Dict, FrozenSet, List,
+                    Optional, Protocol, Sequence, Tuple, runtime_checkable)
 
 from aws_advanced_python_wrapper.driver_info import DriverInfo
 from aws_advanced_python_wrapper.host_list_provider import (
@@ -40,6 +40,8 @@ from aws_advanced_python_wrapper.errors import (AwsWrapperError,
                                                 UnsupportedOperationError)
 from aws_advanced_python_wrapper.hostinfo import HostInfo, HostRole
 from aws_advanced_python_wrapper.utils import services_container
+from aws_advanced_python_wrapper.utils.accessible_regions import \
+    AccessibleRegions
 from aws_advanced_python_wrapper.utils.decorators import \
     preserve_transaction_status_with_timeout
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -174,6 +176,19 @@ class DatabaseDialect(Protocol):
     @abstractmethod
     def prepare_conn_props(self, props: Properties):
         ...
+
+    def filter_available_hosts(
+        self,
+        hosts: Sequence[HostInfo],
+        accessible_regions: Optional[FrozenSet[str]],
+    ) -> List[HostInfo]:
+        """Filter hosts by accessible regions.
+
+        Non-multi-region dialects return the input unchanged. Global Aurora
+        dialects override this to exclude hosts whose region is not in the
+        accessible set.
+        """
+        return list(hosts)
 
 
 class DatabaseDialectProvider(Protocol):
@@ -380,8 +395,8 @@ class RdsMysqlDialect(MysqlDatabaseDialect, BlueGreenDialect):
 
 
 class RdsPgDialect(PgDatabaseDialect, BlueGreenDialect):
-    _EXTENSIONS_QUERY = ("SELECT (setting LIKE '%rds_tools%') AS rds_tools, "
-                         "(setting LIKE '%aurora_stat_utils%') AS aurora_stat_utils "
+    _EXTENSIONS_QUERY = ("SELECT (setting OPERATOR(pg_catalog.~~) '%rds_tools%') AS rds_tools, "
+                         "(setting OPERATOR(pg_catalog.~~) '%aurora_stat_utils%') AS aurora_stat_utils "
                          "FROM pg_catalog.pg_settings "
                          "WHERE name OPERATOR(pg_catalog.=) 'rds.extensions'")
     _DIALECT_UPDATE_CANDIDATES = (DialectCode.AURORA_PG, DialectCode.GLOBAL_AURORA_PG, DialectCode.MULTI_AZ_CLUSTER_PG)
@@ -391,7 +406,7 @@ class RdsPgDialect(PgDatabaseDialect, BlueGreenDialect):
                       "WHERE id OPERATOR(pg_catalog.=) rds_tools.dbi_resource_id()")
     _BG_STATUS_QUERY = (f"SELECT version, endpoint, port, role, status "
                         f"FROM rds_tools.show_topology('aws_advanced_python_wrapper-{DriverInfo.DRIVER_VERSION}')")
-    _BG_STATUS_EXISTS_QUERY = "SELECT 'rds_tools.show_topology'::regproc"
+    _BG_STATUS_EXISTS_QUERY = "SELECT 'rds_tools.show_topology'::pg_catalog.regproc"
 
     @property
     def host_id_query(self) -> str:
@@ -497,7 +512,7 @@ class AuroraMysqlDialect(MysqlDatabaseDialect, TopologyAwareDatabaseDialect, Blu
 class AuroraPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect, AuroraLimitlessDialect, BlueGreenDialect):
     _DIALECT_UPDATE_CANDIDATES: Tuple[DialectCode, ...] = (DialectCode.GLOBAL_AURORA_PG, DialectCode.MULTI_AZ_CLUSTER_PG)
 
-    _AURORA_UTILS_EXIST_QUERY = "SELECT (setting LIKE '%aurora_stat_utils%') AS aurora_stat_utils " \
+    _AURORA_UTILS_EXIST_QUERY = "SELECT (setting OPERATOR(pg_catalog.~~) '%aurora_stat_utils%') AS aurora_stat_utils " \
                                 "FROM pg_catalog.pg_settings WHERE name OPERATOR(pg_catalog.=) 'rds.extensions'"
 
     _HAS_TOPOLOGY_QUERY = "SELECT 1 FROM pg_catalog.aurora_replica_status() LIMIT 1"
@@ -515,7 +530,7 @@ class AuroraPgDialect(PgDatabaseDialect, TopologyAwareDatabaseDialect, AuroraLim
 
     _BG_STATUS_QUERY = (f"SELECT version, endpoint, port, role, status "
                         f"FROM pg_catalog.get_blue_green_fast_switchover_metadata('aws_advanced_python_wrapper-{DriverInfo.DRIVER_VERSION}')")
-    _BG_STATUS_EXISTS_QUERY = "SELECT 'pg_catalog.get_blue_green_fast_switchover_metadata'::regproc"
+    _BG_STATUS_EXISTS_QUERY = "SELECT 'pg_catalog.get_blue_green_fast_switchover_metadata'::pg_catalog.regproc"
     _WRITER_HOST_QUERY = \
         ("SELECT SERVER_ID FROM pg_catalog.aurora_replica_status() "
          "WHERE SESSION_ID OPERATOR(pg_catalog.=) 'MASTER_SESSION_ID' "
@@ -626,17 +641,24 @@ class GlobalAuroraMysqlDialect(AuroraMysqlDialect, GlobalAuroraTopologyDialect):
             props,
             GlobalAuroraTopologyUtils(self, props))
 
+    def filter_available_hosts(
+        self,
+        hosts: Sequence[HostInfo],
+        accessible_regions: Optional[FrozenSet[str]],
+    ) -> List[HostInfo]:
+        return AccessibleRegions.filter_available_hosts(hosts, accessible_regions)
+
 
 class GlobalAuroraPgDialect(AuroraPgDialect, GlobalAuroraTopologyDialect):
-    _GLOBAL_STATUS_TABLE_EXISTS_QUERY = "select 'pg_catalog.aurora_global_db_status'::regproc"
-    _GLOBAL_INSTANCE_STATUS_EXISTS_QUERY = "select 'pg_catalog.aurora_global_db_instance_status'::regproc"
+    _GLOBAL_STATUS_TABLE_EXISTS_QUERY = "SELECT 'pg_catalog.aurora_global_db_status'::pg_catalog.regproc"
+    _GLOBAL_INSTANCE_STATUS_EXISTS_QUERY = "SELECT 'pg_catalog.aurora_global_db_instance_status'::pg_catalog.regproc"
     _TOPOLOGY_QUERY = \
-        ("SELECT SERVER_ID, CASE WHEN SESSION_ID = 'MASTER_SESSION_ID' THEN TRUE ELSE FALSE END, "
+        ("SELECT SERVER_ID, CASE WHEN SESSION_ID OPERATOR(pg_catalog.=) 'MASTER_SESSION_ID' THEN TRUE ELSE FALSE END, "
          "VISIBILITY_LAG_IN_MSEC, AWS_REGION "
          "FROM pg_catalog.aurora_global_db_instance_status()")
-    _REGION_COUNT_QUERY = "SELECT count(1) FROM pg_catalog.aurora_global_db_status()"
+    _REGION_COUNT_QUERY = "SELECT pg_catalog.count(1) FROM pg_catalog.aurora_global_db_status()"
     _REGION_BY_INSTANCE_ID_QUERY = \
-        "SELECT AWS_REGION FROM pg_catalog.aurora_global_db_instance_status() WHERE SERVER_ID = %s"
+        "SELECT AWS_REGION FROM pg_catalog.aurora_global_db_instance_status() WHERE SERVER_ID OPERATOR(pg_catalog.=) %s"
 
     @property
     def dialect_update_candidates(self) -> Optional[Tuple[DialectCode, ...]]:
@@ -682,6 +704,13 @@ class GlobalAuroraPgDialect(AuroraPgDialect, GlobalAuroraTopologyDialect):
             plugin_service,
             props,
             GlobalAuroraTopologyUtils(self, props))
+
+    def filter_available_hosts(
+        self,
+        hosts: Sequence[HostInfo],
+        accessible_regions: Optional[FrozenSet[str]],
+    ) -> List[HostInfo]:
+        return AccessibleRegions.filter_available_hosts(hosts, accessible_regions)
 
 
 class MultiAzClusterMysqlDialect(MysqlDatabaseDialect, TopologyAwareDatabaseDialect):

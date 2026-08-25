@@ -74,6 +74,8 @@ class OpenAIResponsesChatGenerator:
     ```
     """
 
+    _HAYSTACK_TO_PROVIDER_GENERATION_KWARGS: ClassVar[dict[str, str]] = {"max_output_tokens": "max_output_tokens"}
+
     SUPPORTED_MODELS: ClassVar[list[str]] = [
         "gpt-5-mini",
         "gpt-5-nano",
@@ -228,7 +230,7 @@ class OpenAIResponsesChatGenerator:
 
     def _warm_up_tools(self) -> None:
         if not self._tools_warmed_up:
-            is_openai_tool = isinstance(self.tools, list) and isinstance(self.tools[0], dict)
+            is_openai_tool = isinstance(self.tools, list) and bool(self.tools) and isinstance(self.tools[0], dict)
             # We only warm up Haystack tools, not OpenAI/MCP tools
             # The type ignore is needed because mypy cannot infer the type correctly
             if not is_openai_tool:
@@ -241,8 +243,12 @@ class OpenAIResponsesChatGenerator:
         """
         self._warm_up_tools()
         if self.client is None:
+            # openai>=3 annotates http_client as httpx2, but legacy httpx clients are supported at runtime.
+            # https://github.com/openai/openai-python/blob/main/httpx2.md
+            http_client = init_http_client(self.http_client_kwargs, async_client=False)
             self.client = OpenAI(
-                http_client=init_http_client(self.http_client_kwargs, async_client=False), **self._client_kwargs()
+                http_client=http_client,  # type: ignore[arg-type]
+                **self._client_kwargs(),
             )
 
     async def warm_up_async(self) -> None:  # noqa: RUF029
@@ -251,8 +257,12 @@ class OpenAIResponsesChatGenerator:
         """
         self._warm_up_tools()
         if self.async_client is None:
+            # openai>=3 annotates http_client as httpx2, but legacy httpx clients are supported at runtime.
+            # https://github.com/openai/openai-python/blob/main/httpx2.md
+            http_client = init_http_client(self.http_client_kwargs, async_client=True)
             self.async_client = AsyncOpenAI(
-                http_client=init_http_client(self.http_client_kwargs, async_client=True), **self._client_kwargs()
+                http_client=http_client,  # type: ignore[arg-type]
+                **self._client_kwargs(),
             )
 
     def close(self) -> None:
@@ -370,8 +380,9 @@ class OpenAIResponsesChatGenerator:
         :param streaming_callback:
             A callback function that is called when a new token is received from the stream.
         :param generation_kwargs:
-            Additional keyword arguments for text generation. These parameters will
-            override the parameters passed during component initialization.
+            Additional keyword arguments for text generation. These are merged per key with the
+            `generation_kwargs` passed at initialization: keys provided here take precedence, keys set
+            only at initialization are kept.
             For details on OpenAI API parameters, see [OpenAI documentation](https://platform.openai.com/docs/api-reference/responses/create).
         :param tools:
             The tools that the model can use to prepare calls. If set, it will override the
@@ -446,8 +457,9 @@ class OpenAIResponsesChatGenerator:
             A callback function that is called when a new token is received from the stream. Async callbacks are
             preferred; a sync callback is accepted but will run synchronously on the event loop and may block it.
         :param generation_kwargs:
-            Additional keyword arguments for text generation. These parameters will
-            override the parameters passed during component initialization.
+            Additional keyword arguments for text generation. These are merged per key with the
+            `generation_kwargs` passed at initialization: keys provided here take precedence, keys set
+            only at initialization are kept.
             For details on OpenAI API parameters, see [OpenAI documentation](https://platform.openai.com/docs/api-reference/responses/create).
         :param tools:
             A list of tools or a Toolset for which the model can prepare calls. If set, it will override the
@@ -539,7 +551,10 @@ class OpenAIResponsesChatGenerator:
                     function_spec = {**t.tool_spec}
                     if not tools_strict:
                         function_spec["strict"] = False
-                    function_spec["parameters"]["additionalProperties"] = False
+                    # Copy the parameters schema before editing it. tool_spec exposes
+                    # Tool.parameters by reference, so mutating it here would permanently alter
+                    # the user's Tool (and any other generator that shares the same Tool instance).
+                    function_spec["parameters"] = {**function_spec["parameters"], "additionalProperties": False}
                     tool_definitions.append({"type": "function", **function_spec})
 
             openai_tools = {"tools": tool_definitions}

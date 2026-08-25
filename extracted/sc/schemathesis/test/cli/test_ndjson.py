@@ -154,6 +154,39 @@ def test_interaction_with_failure(ctx, cli, hypothesis_max_examples, ndjson_path
     assert len(scenario_finished) >= 1
 
 
+def collect_failures(events):
+    return [
+        entry["failure_info"]["failure"]
+        for event in events
+        if get_event_type(event) == "ScenarioFinished"
+        for entries in get_event_data(event)["recorder"].get("checks", {}).values()
+        for entry in entries
+        if entry.get("failure_info")
+    ]
+
+
+def test_failure_details(ctx, cli, ndjson_path):
+    api = ctx.openapi.apps.failure()
+    cli.run_and_assert(
+        api.schema_url,
+        f"--report-ndjson-path={ndjson_path}",
+        "--max-examples=1",
+        "--seed=1",
+        exit_code=ExitCode.TESTS_FAILED,
+    )
+    failures = collect_failures(load_ndjson(ndjson_path))
+    assert failures
+    assert [{key: value for key, value in failure.items() if key != "case_id"} for failure in failures] == [
+        {
+            "type": "ServerError",
+            "operation": "GET /api/failure",
+            "title": "Server error",
+            "message": "",
+            "severity": "critical",
+        }
+    ] * len(failures)
+
+
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
 def test_run_subprocess(ctx, testdir, ndjson_path, hypothesis_max_examples):
     api = ctx.openapi.apps.success()
@@ -270,7 +303,7 @@ def test_enum_serialization(cli, ctx, ndjson_path):
         data = get_event_data(event)
         phase = data["phase"]
         assert isinstance(phase["name"], str)
-        assert phase["name"] in ("API probing", "Schema analysis", "Examples", "Coverage", "Fuzzing", "Stateful")
+        assert phase["name"] in ("probing", "schema_analysis", "examples", "coverage", "fuzzing", "stateful")
 
     # Status enum should be serialized as string value
     phase_finished = [e for e in events if get_event_type(e) == "PhaseFinished"]
@@ -356,6 +389,29 @@ def test_sanitization_disabled(cli, ctx, ndjson_path):
     assert len(phase_started) >= 1
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
+def test_credentials_sanitized_in_command(ctx, testdir, ndjson_path):
+    api = ctx.openapi.apps.success()
+    testdir.run(
+        str(Path(sys.executable).with_name("schemathesis")),
+        "run",
+        f"--report-ndjson-path={ndjson_path}",
+        "--max-examples=1",
+        "-H",
+        "X-API-Key: s3cret",
+        "-H",
+        "X-Trace-Id: keep-me",
+        "--auth",
+        "admin:hunter2",
+        api.schema_url,
+    )
+    assert get_event_data(load_ndjson(ndjson_path)[0])["command"] == (
+        f"st run --report-ndjson-path={ndjson_path} --max-examples=1 "
+        "-H X-API-Key: [Filtered] -H X-Trace-Id: keep-me "
+        f"--auth [Filtered] {api.schema_url}"
+    )
+
+
 def test_stateful_with_extraction_failure(cli, ctx, ndjson_path):
     # Link expression references non-existent field to trigger Err serialization
     app, _ = ctx.openapi.make_flask_app(
@@ -420,7 +476,7 @@ def test_stateful_with_extraction_failure(cli, ctx, ndjson_path):
 
     # Stateful phase should run
     phase_started = [e for e in events if get_event_type(e) == "PhaseStarted"]
-    assert any(get_event_data(e)["phase"]["name"] == "Stateful" for e in phase_started)
+    assert any(get_event_data(e)["phase"]["name"] == "stateful" for e in phase_started)
 
 
 def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):

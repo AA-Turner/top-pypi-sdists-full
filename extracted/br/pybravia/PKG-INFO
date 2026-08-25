@@ -1,12 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pybravia
-Version: 0.5.1
+Version: 0.5.3
 Summary: Python async library for remote control of Sony Bravia TVs 2013 and newer.
+Project-URL: source, https://github.com/Drafteed/pybravia
 Author: Artem Draft
 License: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: aiohttp>=3.8
+Requires-Dist: aiohttp>=3.14.0
 Requires-Dist: yarl
 Description-Content-Type: text/markdown
 
@@ -116,7 +117,9 @@ async def main():
     """Example of connect with PIN."""
     async with BraviaClient(HOST) as client:
         try:
-            connected = await client.connect(pin=PIN, clientid=CLIENTID, nickname=NICKNAME)
+            connected = await client.connect(
+                pin=PIN, clientid=CLIENTID, nickname=NICKNAME
+            )
             info = await client.get_system_info()
 
             print(info)
