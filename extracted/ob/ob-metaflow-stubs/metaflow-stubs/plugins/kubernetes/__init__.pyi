@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-21T18:12:41.298486                                                            #
+# MF version: 2.19.37.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-08-25T23:04:30.404792                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 
+from . import kube_utils as kube_utils
 from . import kubernetes_client as kubernetes_client
 from . import kubernetes as kubernetes
-from . import kube_utils as kube_utils
 from . import kubernetes_decorator as kubernetes_decorator
 from . import spot_monitor_sidecar as spot_monitor_sidecar
 

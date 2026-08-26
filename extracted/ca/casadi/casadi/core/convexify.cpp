@@ -53,7 +53,8 @@ namespace casadi {
     return "convexify(" + arg.at(0) + ")";
   }
 
-  void Convexify::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const {
+  void Convexify::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+      const std::vector<bool>& unique) const {
     Dict options;
     options["strategy"] = strategy_to_string(convexify_data_.config.strategy);
     options["margin"] = convexify_data_.config.margin;
@@ -62,7 +63,7 @@ namespace casadi {
   }
 
   int Convexify::eval(const double** arg, double** res, casadi_int* iw, double* w) const {
-    int ret = convexify_eval(&convexify_data_.config, arg[0], res[0], iw, w);
+    int ret = casadi_convexify_eval(&convexify_data_.config, arg[0], res[0], iw, w);
     casadi_assert(!ret, "Failure in convexification.");
     return 0;
   }
@@ -96,7 +97,7 @@ namespace casadi {
     g << "cvx_config.scc_offset_size = " << d.scc_offset.size() << ";\n";
     g << "cvx_config.max_iter_eig = " << d.config.max_iter_eig << ";\n";
     g << "cvx_config.verbose = " << d.config.verbose << ";\n";
-    return "convexify_eval(&cvx_config, " + Hin + "," + Hout + "," + iw + "," + "w)";
+    return "casadi_convexify_eval(&cvx_config, " + Hin + "," + Hout + "," + iw + "," + "w)";
   }
 
   void Convexify::serialize_body(SerializingStream& s) const {

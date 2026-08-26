@@ -8,14 +8,20 @@ import atexit
 import decimal
 import hashlib
 import os
+import re
 import ssl
 
 # Python 3.11+ has StrEnum built-in, use shim for 3.9/3.10
 import threading
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+    field,
+)
 from enum import StrEnum
-from typing import Any
+from typing import (
+    Any,
+)
 
 import agate  # type: ignore[import-untyped]
 import dbt_common.exceptions
@@ -34,7 +40,76 @@ TIMESTAMP_FORMAT_DEFAULT = "YYYY-MM-DDTHH:MI:SS.FF6"
 _UNSET_STATEMENT_ERROR = "Cannot fetch on unset statement"
 MAX_POOL_VALIDATION_ATTEMPTS = 3
 
+# Byte budget for sniffing a seed CSV's line terminator. One chunk is read at a
+# time until the first terminator is found, capped at the maximum so a
+# pathological single-line file cannot be slurped into memory.
+_ROW_SEPARATOR_CHUNK_SIZE = 65536
+_ROW_SEPARATOR_MAX_BYTES = 1048576
+
 LOGGER = AdapterLogger("exasol")
+
+
+def _detect_row_separator(path: str, fallback: str = ROW_SEPARATOR_DEFAULT) -> str:
+    """Detect the line terminator actually used by a seed CSV file.
+
+    Exasol's ``IMPORT ... ROW SEPARATOR`` must match the bytes in the file, not
+    the line-ending convention of the machine running dbt. A mismatch fails
+    silently: importing a CRLF file as ``LF`` appends a stray ``\\r`` to the last
+    column of every row, and importing an LF file as ``CRLF`` loads zero rows.
+    Seed files routinely disagree with the client OS (git ``core.autocrlf``,
+    Windows-authored seeds built on Linux CI), so the file itself is the only
+    reliable source of truth.
+
+    Args:
+        path: Absolute path to the seed CSV file.
+        fallback: Separator to use when the file has no line terminator at all
+            (empty or single-line-without-newline file), where the choice cannot
+            affect the result.
+
+    Returns:
+        One of ``"CRLF"``, ``"LF"`` or ``"CR"``, else ``fallback``.
+    """
+    chunk = b""
+    try:
+        with open(path, "rb") as handle:
+            while len(chunk) < _ROW_SEPARATOR_MAX_BYTES:
+                block = handle.read(_ROW_SEPARATOR_CHUNK_SIZE)
+                if not block:
+                    break
+                chunk += block
+                if b"\n" in chunk:
+                    break
+    except OSError as exc:
+        # Detection is best-effort; pyexasol will surface a real read error.
+        LOGGER.warning(f"Could not read '{path}' to detect its line endings ({exc}); assuming {fallback}.")
+        return fallback
+
+    if not chunk:
+        return fallback
+
+    crlf_count = chunk.count(b"\r\n")
+    lf_count = chunk.count(b"\n") - crlf_count
+    cr_count = chunk.count(b"\r") - crlf_count
+
+    if sum(1 for count in (crlf_count, lf_count, cr_count) if count) > 1:
+        # No single ROW SEPARATOR can parse a genuinely mixed file, so warn
+        # instead of corrupting rows silently. Newlines inside quoted fields
+        # look the same from here and are handled correctly by Exasol, so the
+        # warning is advisory rather than an error.
+        LOGGER.warning(
+            f"Seed file '{path}' mixes line endings "
+            f"(CRLF={crlf_count}, LF={lf_count}, CR={cr_count}); "
+            "using the first one found. Normalize the file, or set "
+            "'row_separator' in profiles.yml, if rows import incorrectly. "
+            "Newlines inside quoted fields are safe and may cause this warning."
+        )
+
+    index = chunk.find(b"\n")
+    if index == -1:
+        return "CR" if cr_count else fallback
+    if index > 0 and chunk[index - 1 : index] == b"\r":
+        return "CRLF"
+    return "LF"
 
 
 def connect(**kwargs: Any):
@@ -53,7 +128,8 @@ class ProtocolVersionType(StrEnum):
 
 
 class ExasolConnection(ExaConnection):
-    row_separator: str = ROW_SEPARATOR_DEFAULT
+    # ``None`` means "detect per seed file"; see _detect_row_separator.
+    row_separator: str | None = None
     timestamp_format: str = TIMESTAMP_FORMAT_DEFAULT
 
     def cursor(self):
@@ -76,7 +152,7 @@ class ExasolCredentials(Credentials):
     """Profile parameters for Exasol in dbt profiles.yml"""
 
     dsn: str
-    database: str
+    database: str = field(default="DB", kw_only=True)
     schema: str
     # One of user+pass, access_token, or refresh_token needs to be specified in profiles.yml
     user: str = ""
@@ -99,7 +175,9 @@ class ExasolCredentials(Credentials):
     ## - udf_output_port: UDFs are not supported through dbt adapter
     protocol_version: str = "v3"
     retries: int = 1
-    row_separator: str = ROW_SEPARATOR_DEFAULT
+    # Unset by default: the row separator is detected from each seed CSV file's
+    # actual bytes. Setting it here forces that value for every seed import.
+    row_separator: str | None = None
     timestamp_format: str = TIMESTAMP_FORMAT_DEFAULT
     pool_size: int | None = None
 
@@ -434,6 +512,11 @@ class ExasolConnectionManager(SQLConnectionManager):
             encryption=credentials.encryption,
             websocket_sslopt=websocket_sslopt,
             protocol_version=protocol_version,
+            # Identifiers handed to pyexasol's HTTP transport (seed IMPORT) are
+            # already resolved to their exact stored case by
+            # `_split_relation_path`, so pyexasol must quote them verbatim
+            # instead of applying its own upper-casing/safety folding.
+            quote_ident=True,
         )
         # exasol adapter specific attributes that are unknown to pyexasol
         # those can be added to ExasolConnection as members
@@ -543,6 +626,49 @@ class ExasolConnectionManager(SQLConnectionManager):
         return type_code.split("(")[0].upper()
 
 
+# Regex matching a two-part relation path (schema.identifier).
+# Each component is either:
+# 1. Quoted: starts/ends with " and contains non-quotes or doubled "" escapes (named groups 'sq', 'iq')
+# 2. Unquoted: non-empty sequence containing neither quotes nor dots (named groups 'su', 'iu')
+_RELATION_PATH_PATTERN = re.compile(
+    r'^(?:"(?P<sq>(?:[^"]|"")+)"|(?P<su>[^".]+))\.(?:"(?P<iq>(?:[^"]|"")+)"|(?P<iu>[^".]+))$'
+)
+
+
+def _split_relation_path(table_path: str) -> tuple[str, str]:
+    """Split a rendered ``schema.identifier`` path into its two components.
+
+    The path arrives from the ``0CSV|`` seed protocol as the output of
+    ``ExasolRelation.render()``, so either component may be double-quoted when a
+    project enables ``quoting``. Quoted components are unwrapped (and doubled
+    inner quotes collapsed) and passed through verbatim, because pyexasol's HTTP
+    transport quotes each component itself and rejects raw quote characters.
+    Unquoted components are upper-cased to match Exasol's folding of unquoted
+    identifiers, so the ``IMPORT INTO`` target resolves to the object the seed's
+    ``CREATE TABLE`` actually created.
+
+    Args:
+        table_path: Rendered relation path, e.g. ``MY_SCHEMA.MY_SEED`` or
+            ``"my_schema"."my_seed"``.
+
+    Returns:
+        Tuple of (schema, identifier), each ready to hand to pyexasol.
+
+    Raises:
+        DbtRuntimeError: If the path is not exactly two well-formed components
+            (each fully quoted or fully unquoted).
+    """
+    match = _RELATION_PATH_PATTERN.match(table_path)
+    if not match:
+        raise dbt_common.exceptions.DbtRuntimeError(
+            f"Could not parse seed target relation '{table_path}' into schema and identifier"
+        )
+
+    schema = match.group("sq").replace('""', '"') if match.group("sq") is not None else match.group("su").upper()
+    identifier = match.group("iq").replace('""', '"') if match.group("iq") is not None else match.group("iu").upper()
+    return schema, identifier
+
+
 class ExasolCursor:
     array_size = 1
 
@@ -569,15 +695,24 @@ class ExasolCursor:
             # Fallback: use agate column names without quoting
             column_list = None
 
+        csv_path = agate_table.original_abspath
+
+        # An explicit profiles.yml `row_separator` always wins; otherwise detect
+        # it from the file, because the client OS says nothing about the bytes on
+        # disk and a mismatch corrupts or drops rows silently.
+        row_separator = getattr(self.connection, "row_separator", None)
+        if row_separator is None:
+            row_separator = _detect_row_separator(csv_path)
+
         import_params = {
             "skip": 1,  # Skip CSV header row
-            "row_separator": self.connection.row_separator,
+            "row_separator": row_separator,
         }
 
         # Use column list if available (for proper quoting support)
         if column_list:
             self.connection.import_from_file(
-                agate_table.original_abspath,
+                csv_path,
                 (schema, table_name),
                 import_params=import_params,
                 columns=column_list,
@@ -585,7 +720,7 @@ class ExasolCursor:
         else:
             # Fallback without column specification
             self.connection.import_from_file(
-                agate_table.original_abspath,
+                csv_path,
                 (schema, table_name),
                 import_params=import_params,
             )
@@ -600,7 +735,7 @@ class ExasolCursor:
             columns_csv = parts[1] if len(parts) > 1 else None
 
             # Parse schema.table
-            schema, table_name = table_path.split(".", 1)
+            schema, table_name = _split_relation_path(table_path)
 
             # Build table_info tuple
             if columns_csv:

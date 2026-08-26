@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: chatlas
-Version: 0.21.2
+Version: 0.22.0
 Summary: A simple and consistent interface for chatting with LLMs
 Project-URL: Homepage, https://posit-dev.github.io/chatlas
 Project-URL: Documentation, https://posit-dev.github.io/chatlas
@@ -31,18 +31,18 @@ Requires-Dist: requests
 Requires-Dist: rich
 Requires-Dist: typing-extensions>=4.10; python_version < '3.13'
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.109.1; extra == 'anthropic'
+Requires-Dist: anthropic>=1.0.0; extra == 'anthropic'
 Provides-Extra: azure-openai
 Provides-Extra: bedrock
-Requires-Dist: anthropic[bedrock]>=0.109.1; extra == 'bedrock'
+Requires-Dist: anthropic[bedrock]>=1.0.0; extra == 'bedrock'
 Requires-Dist: botocore; extra == 'bedrock'
 Requires-Dist: openai>=2.50.0; extra == 'bedrock'
 Provides-Extra: bedrock-anthropic
-Requires-Dist: anthropic[bedrock]>=0.109.1; extra == 'bedrock-anthropic'
+Requires-Dist: anthropic[bedrock]>=1.0.0; extra == 'bedrock-anthropic'
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk; extra == 'databricks'
 Provides-Extra: dev
-Requires-Dist: anthropic[bedrock]>=0.109.1; extra == 'dev'
+Requires-Dist: anthropic[bedrock]>=1.0.0; extra == 'dev'
 Requires-Dist: databricks-sdk; extra == 'dev'
 Requires-Dist: google-genai>=1.14.0; extra == 'dev'
 Requires-Dist: htmltools>=0.7.0; (python_version >= '3.10') and extra == 'dev'
@@ -88,7 +88,7 @@ Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.0; extra == 'otel'
 Provides-Extra: perplexity
 Provides-Extra: posit
-Requires-Dist: anthropic>=0.109.1; extra == 'posit'
+Requires-Dist: anthropic>=1.0.0; extra == 'posit'
 Provides-Extra: snowflake
 Requires-Dist: snowflake-ml-python<=1.9.0; extra == 'snowflake'
 Provides-Extra: test

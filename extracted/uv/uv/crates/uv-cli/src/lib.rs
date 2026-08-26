@@ -7158,8 +7158,9 @@ pub struct BuildOptionsArgs {
     /// Don't build source distributions.
     ///
     /// When enabled, uv will reuse cached wheels from previously built source distributions, but
-    /// operations that require building a source distribution will exit with an error. uv may
-    /// still build editable requirements, and their build backends may run arbitrary Python code.
+    /// operations that require building a source distribution will exit with an error. First-party
+    /// packages, such as projects in the workspace, will still be built. uv will also still build
+    /// editable requirements, and their build backends may run arbitrary Python code.
     #[arg(
         long,
         env = EnvVars::UV_NO_BUILD,
@@ -7178,6 +7179,8 @@ pub struct BuildOptionsArgs {
     build: bool,
 
     /// Don't build source distributions for a specific package [env: `UV_NO_BUILD_PACKAGE`=]
+    ///
+    /// First-party packages, such as projects in the workspace, will still be built.
     #[arg(
         long,
         help_heading = "Build options",
@@ -7812,9 +7815,16 @@ pub struct MetadataArgs {
     /// Sync the environment to include module ownership metadata in the output.
     ///
     /// This adds a mapping from importable module names to references to the package nodes
-    /// that provide them. To do this, the venv will be synced in inexact mode.
+    /// that provide them. By default, the environment is synced in inexact mode.
     #[arg(long)]
     pub sync: bool,
+
+    /// Perform an exact sync, removing extraneous packages.
+    ///
+    /// By default, synchronization preserves packages that are not part of the selected
+    /// resolution. When enabled, uv removes those packages from the environment.
+    #[arg(long, requires = "sync")]
+    pub exact: bool,
 
     /// Sync dependencies to the active virtual environment.
     ///

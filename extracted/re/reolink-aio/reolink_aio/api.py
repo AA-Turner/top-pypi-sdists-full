@@ -41,7 +41,8 @@ from .const import (
 from .enums import (
     AntiFlickerEnum,
     BatteryEnum,
-    BatteryModeEnum,
+    BatteryModeIntEnum,
+    BatteryModeStrEnum,
     BinningModeEnum,
     ChimeToneEnum,
     ConnectionEnum,
@@ -1036,8 +1037,14 @@ class Host:
 
     def work_mode_battery_list(self, channel: int) -> list[str]:
         if mode_list := self.baichuan._work_mode_battery_list.get(channel):
-            return mode_list
-        return [val.name for val in BatteryModeEnum]
+            modes = []
+            for val in mode_list:
+                try:
+                    modes.append(BatteryModeStrEnum(val).name)
+                except ValueError:
+                    modes.append(val)
+            return modes
+        return [val.name for val in BatteryModeIntEnum]
 
     def work_mode_powered(self, channel: int) -> str:
         return self.baichuan._work_mode_powered.get(channel, "")
@@ -1197,7 +1204,7 @@ class Host:
         return self._hub_audio_settings[channel]["AudioCfg"]["ringToneId"]
 
     def quick_reply_dict(self, channel: int) -> dict[int, str]:
-        audio_dict = {-1: "off"}
+        audio_dict = {-1: "off", -2: UNKNOWN}
         if channel not in self._audio_file_list:
             return audio_dict
 

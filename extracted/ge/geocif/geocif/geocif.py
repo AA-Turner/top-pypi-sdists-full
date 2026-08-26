@@ -669,6 +669,19 @@ class Geocif:
         """Flags for simple regression models."""
         self.do_xai = False
         self.estimate_ci = False
+        # Every baseline fits on ABSOLUTE yield.
+        #
+        # `null` briefly detrended (0.4.942) so it would sit on the same target
+        # as the ML models. Reverted in 0.4.944: detrended residuals are
+        # zero-mean by construction, so "average the residuals, then retrend"
+        # collapses to "return the trend value at the forecast year" — i.e. it
+        # duplicates `trend` and destroys the climatological-mean bar. Keeping
+        # them distinct is what lets you say "beats the county mean but not the
+        # trend". It also never addressed the concern that motivated it: the
+        # detrending is fit on the same LOOCV training set, future years
+        # included. Metrics are computed in absolute space for every model
+        # anyway (ML predictions are retrended in predict()), so the comparison
+        # is already like-for-like.
         self.check_yield_trend = False
         self.estimate_ci_for_all = False
         # Baseline (non-ML) models and simple regressors always fit on
@@ -3272,7 +3285,17 @@ class Geocif:
             k=self.spatial_neighbor_k,
         )
 
-        # Feature columns = everything except fixed, target, stats, meta
+        # Feature columns = everything except fixed, target, stats, meta.
+        #
+        # The fixed-window medians from compute_user_median_statistics are
+        # REFERENCE columns for post-run anomaly mapping, not features: each is
+        # a region-constant mean over a hard-coded window (2013-2017 /
+        # 2018-2022) that CONTAINS the fold's own forecast year, so a 2020 fold
+        # would see 1/5 of its own target. They are already kept out of
+        # `feature_names` (they only ride along in `_get_common_columns` so
+        # `_add_median_yield_columns` can write them to the DB) — but without
+        # this exclusion the nbr_ wrapper below would manufacture
+        # `nbr_Median ... (2018-2022)` and hand it straight to the selector.
         exclude_cols = set(
             self.fixed_columns
             + self.statistics_columns
@@ -3281,6 +3304,8 @@ class Geocif:
                 "Region_ID", "lat", "lon", "Country Region",
                 f"Detrended {self.target}", "Detrended Model",
                 "Detrended Model Type",
+                f"Median {self.target} (2018-2022)",
+                f"Median {self.target} (2013-2017)",
             ]
         )
         feature_cols = [
@@ -3293,10 +3318,16 @@ class Geocif:
             admin_col=admin_col, year_col="Harvest Year",
             yield_col=self.target, prefix="nbr_",
         )
+        # df_source=df_train: the test frame is the held-out year WITH its
+        # observed yields, so letting add_neighbor_features derive its
+        # per-region yield medians from df_test itself made
+        # nbr_mean_yield_hist a weighted mean of the neighbors' observed
+        # test-year yields — test-target leakage.
         self.df_test = sn.add_neighbor_features(
             self.df_test, self.neighbor_graph, feature_cols,
             admin_col=admin_col, year_col="Harvest Year",
             yield_col=self.target, prefix="nbr_",
+            df_source=self.df_train,
         )
 
         self.logger.info(
@@ -4667,8 +4698,14 @@ class Geocif:
             #     an OLS slope badly when there are only ~15–25 points.
             #   * Minimum training length. Below it, fall back to the per-unit
             #     mean instead of fitting a slope at all.
-            #       trend     : >= 10 training years (LOO baseline).
-            #       trend_all : >= 3  (kept as a feature via use_trend_all_as_feature).
+            #   Both `trend` and `trend_all` use >= 5 training years.
+            #   `trend` was 10 until 0.4.943, which silently degraded it into
+            #   `null` on smallholder panels: Kenya admin_2 has ~10 observed
+            #   years per region, so after LOOCV drops one only 148/268
+            #   regions cleared the bar and just 162/2845 rows differed from
+            #   the per-unit mean. `trend_all` was 3, low enough that a
+            #   2-3 point "slope" was mostly noise. 5 for both: enough points
+            #   for Theil-Sen to be meaningful, low enough to fit short series.
             #
             # df_region is a CLUSTER subset (one row per admin × forecast year);
             # iterate per admin so each row gets ITS OWN per-unit fit instead of
@@ -4676,7 +4713,7 @@ class Geocif:
             # produced year-banded predictions in the togo soybean cid_vs_yield
             # diagnostic when cluster_strategy=auto_detect).
             from scipy.stats import theilslopes
-            min_years = 10 if self.model_name == "trend" else 3
+            min_years = 5
             y_pred = np.full(len(X_test), np.nan, dtype=float)
             for region_name, sub in df_region.groupby("Region", observed=True):
                 past = (

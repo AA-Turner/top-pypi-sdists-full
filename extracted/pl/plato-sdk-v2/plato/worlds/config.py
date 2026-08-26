@@ -290,6 +290,16 @@ class WorkspaceSourceSpec(BaseModel):
 
     repo: str = Field(description="Full source repo name, e.g. 'webclone/stripe/code'")
     ref: str = Field(description="Resume ref in 'session_id:step_name' format")
+    token: str | None = Field(
+        default=None,
+        description=(
+            "Scoped Chronos workspace download token (``wdt_…``) that reads the source "
+            "instead of the session's own API key. Use it to seed a workspace from a repo "
+            "the launching principal cannot see — typically another org's. The restored "
+            "tree is materialized so the first checkpoint copies every blob into this "
+            "world's own repo; no lineage pointer to the source is recorded."
+        ),
+    )
 
 
 class StateConfig(BaseModel):

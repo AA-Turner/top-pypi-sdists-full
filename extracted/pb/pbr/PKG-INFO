@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: pbr
-Version: 7.1.1
+Version: 7.0.3
 Summary: Python Build Reasonableness
 Home-page: https://docs.openstack.org/pbr/latest/
 Author: OpenStack
@@ -26,20 +26,10 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=2.6
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: setuptools
-Dynamic: author
-Dynamic: author-email
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: summary
 
 Introduction
 ============

@@ -18,7 +18,7 @@ from dbt.adapters.exasol.connections import (
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def pool_credentials():
     """Create credentials for pool tests."""
     return ExasolCredentials(
@@ -34,10 +34,6 @@ def pool_credentials():
 @pytest.fixture(autouse=True)
 def clean_pool():
     """Ensure pool is clean before and after each test."""
-    ExasolConnectionManager.cleanup_pool()
-    ExasolConnectionManager._pool_sizes.clear()
-    ExasolConnectionManager._atexit_registered = False
-    yield
     ExasolConnectionManager.cleanup_pool()
     ExasolConnectionManager._pool_sizes.clear()
     ExasolConnectionManager._atexit_registered = False

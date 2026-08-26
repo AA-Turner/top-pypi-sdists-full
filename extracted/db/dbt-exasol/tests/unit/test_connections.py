@@ -1,20 +1,27 @@
 """Unit tests for ExasolConnectionManager and ExasolCursor."""
 
 import ssl
+import tempfile
+import threading
 import unittest
+from pathlib import Path
 from unittest.mock import (
     Mock,
     patch,
 )
 
 import pyexasol
+from dbt_common.exceptions import DbtRuntimeError
 
 from dbt.adapters.exasol.connections import (
+    ROW_SEPARATOR_DEFAULT,
     ExasolConnection,
     ExasolConnectionManager,
     ExasolCredentials,
     ExasolCursor,
     ProtocolVersionType,
+    _detect_row_separator,
+    _split_relation_path,
 )
 
 
@@ -163,6 +170,42 @@ class TestGetResultFromCursor(unittest.TestCase):
         self.assertEqual(len(result), 0)
 
 
+class TestSplitRelationPath(unittest.TestCase):
+    """Test _split_relation_path, which parses the 0CSV| seed target (issue #223)."""
+
+    def test_unquoted_components_are_upper_cased(self):
+        """Exasol folds unquoted identifiers to upper case; the seed target must match."""
+        self.assertEqual(_split_relation_path("my_schema.my_seed"), ("MY_SCHEMA", "MY_SEED"))
+
+    def test_quoted_components_keep_exact_case(self):
+        """Quoted identifiers are case-sensitive and must be passed through verbatim."""
+        self.assertEqual(_split_relation_path('"my_schema"."my_seed"'), ("my_schema", "my_seed"))
+
+    def test_mixed_quoting(self):
+        """Only the quoted component keeps its case (quoting: {identifier: true})."""
+        self.assertEqual(_split_relation_path('MY_SCHEMA."my_seed"'), ("MY_SCHEMA", "my_seed"))
+
+    def test_escaped_inner_quote(self):
+        """A doubled quote inside a quoted identifier collapses to one quote."""
+        self.assertEqual(_split_relation_path('"a""b"."c"'), ('a"b', "c"))
+
+    def test_dot_inside_quoted_component_is_not_a_separator(self):
+        """A dot inside quotes belongs to the identifier, not the path."""
+        self.assertEqual(_split_relation_path('"my.schema"."t"'), ("my.schema", "t"))
+
+    def test_malformed_paths_raise(self):
+        """Anything that is not exactly schema.identifier is a hard error."""
+        for bad in ("justone", '"unterminated.x', "a.b.c", ".x", "x."):
+            with self.subTest(path=bad), self.assertRaises(DbtRuntimeError):
+                _split_relation_path(bad)
+
+    def test_partially_quoted_components_raise(self):
+        """A component must be fully quoted or fully unquoted, not a mix."""
+        for bad in ('ab"cd".x', 'x."y"z', '"a"b.c', '"a"b"c"'):
+            with self.subTest(path=bad), self.assertRaises(DbtRuntimeError):
+                _split_relation_path(bad)
+
+
 class TestExasolCursorExecute(unittest.TestCase):
     """Test ExasolCursor.execute method."""
 
@@ -183,7 +226,12 @@ class TestExasolCursorExecute(unittest.TestCase):
         self.assertEqual(result, self.cursor)
 
     def test_execute_csv_import(self):
-        """Test execute with CSV import (0CSV| prefix)."""
+        """Test execute with CSV import (0CSV| prefix).
+
+        Unquoted components are upper-cased to match Exasol's folding of
+        unquoted identifiers, so the IMPORT target resolves to the object the
+        seed's CREATE TABLE actually created.
+        """
         mock_agate_table = Mock()
         mock_agate_table.original_abspath = "/path/to/file.csv"
         self.mock_connection.row_separator = "LF"
@@ -192,10 +240,24 @@ class TestExasolCursorExecute(unittest.TestCase):
 
         self.mock_connection.import_from_file.assert_called_once_with(
             "/path/to/file.csv",
-            ("schema", "table"),
+            ("SCHEMA", "TABLE"),
             import_params={"skip": 1, "row_separator": "LF"},
         )
         self.assertEqual(result, self.cursor)
+
+    def test_execute_csv_import_quoted_relation(self):
+        """Quoted components keep their exact case (issue #223)."""
+        mock_agate_table = Mock()
+        mock_agate_table.original_abspath = "/path/to/file.csv"
+        self.mock_connection.row_separator = "LF"
+
+        self.cursor.execute('0CSV|"my_schema"."my_seed"', mock_agate_table)
+
+        self.mock_connection.import_from_file.assert_called_once_with(
+            "/path/to/file.csv",
+            ("my_schema", "my_seed"),
+            import_params={"skip": 1, "row_separator": "LF"},
+        )
 
     def test_execute_multiple_statements(self):
         """Test execute with multiple statements separated by |SEPARATEMEPLEASE|."""
@@ -801,6 +863,65 @@ class TestConnectionManagerMethods(unittest.TestCase):
         mock_connection.abort_query.assert_called_once()
 
 
+class TestGetThreadConnection(unittest.TestCase):
+    """Test ExasolConnectionManager.get_thread_connection on-demand acquisition override.
+
+    Covers connections.py:255-257 -- the current thread has no bound connection
+    (i.e. the caller is outside a ``connection_named`` / ``acquire_connection``
+    block), so ``set_connection_name`` must be invoked before delegating to the
+    base implementation.
+    """
+
+    def _make_manager(self):
+        mock_profile = Mock()
+        mock_profile.credentials = ExasolCredentials(
+            dsn="localhost:8563",
+            user="u",
+            password="p",
+            database="DB",
+            schema="S",
+        )
+        mock_profile.threads = 1
+        mock_mp_context = Mock()
+        mock_mp_context.RLock.return_value = threading.RLock()
+        return ExasolConnectionManager(mock_profile, mock_mp_context)
+
+    def test_calls_set_connection_name_when_unbound(self):
+        """When no connection is bound to the thread, set_connection_name is called
+        to lazily create one, and the resulting connection is returned."""
+        manager = self._make_manager()
+        fake_connection = Mock()
+
+        def fake_set_connection_name(name=None):
+            key = manager.get_thread_identifier()
+            manager.thread_connections[key] = fake_connection
+            return fake_connection
+
+        manager.get_if_exists = Mock(return_value=None)
+        manager.set_connection_name = Mock(side_effect=fake_set_connection_name)
+
+        result = manager.get_thread_connection()
+
+        manager.set_connection_name.assert_called_once()
+        self.assertIs(result, fake_connection)
+
+    def test_skips_set_connection_name_when_already_bound(self):
+        """When a connection is already bound to the thread, set_connection_name
+        must not be called and the existing connection is returned unchanged."""
+        manager = self._make_manager()
+        existing_connection = Mock()
+        key = manager.get_thread_identifier()
+        manager.thread_connections[key] = existing_connection
+
+        manager.get_if_exists = Mock(return_value=existing_connection)
+        manager.set_connection_name = Mock()
+
+        result = manager.get_thread_connection()
+
+        manager.set_connection_name.assert_not_called()
+        self.assertIs(result, existing_connection)
+
+
 class TestCursorImportFromFile(unittest.TestCase):
     """Test ExasolCursor import_from_file method."""
 
@@ -928,6 +1049,118 @@ class TestCursorFetchMethods(unittest.TestCase):
         result = cursor.fetchall()
         mock_stmt.fetchall.assert_called_once()
         self.assertEqual(len(result), 2)
+
+
+class TestDetectRowSeparator(unittest.TestCase):
+    """Test _detect_row_separator, which keeps seed IMPORT from silently
+    corrupting (CRLF file read as LF) or dropping (LF file read as CRLF) rows.
+    """
+
+    def _write(self, data: bytes) -> str:
+        path = Path(self._tmpdir.name) / "seed.csv"
+        path.write_bytes(data)
+        return str(path)
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+
+    def test_detects_lf(self):
+        """Unix line endings are detected as LF."""
+        self.assertEqual(_detect_row_separator(self._write(b"id,name\n1,alice\n")), "LF")
+
+    def test_detects_crlf(self):
+        """Windows line endings are detected as CRLF."""
+        self.assertEqual(_detect_row_separator(self._write(b"id,name\r\n1,alice\r\n")), "CRLF")
+
+    def test_detects_cr(self):
+        """Classic-Mac CR-only line endings are detected as CR."""
+        self.assertEqual(_detect_row_separator(self._write(b"id,name\r1,alice\r")), "CR")
+
+    def test_empty_file_uses_fallback(self):
+        """An empty file has no terminator, so the fallback is used."""
+        self.assertEqual(_detect_row_separator(self._write(b""), fallback="CRLF"), "CRLF")
+
+    def test_single_line_without_terminator_uses_fallback(self):
+        """A header-only file without a newline cannot be sniffed."""
+        self.assertEqual(_detect_row_separator(self._write(b"id,name"), fallback="LF"), "LF")
+
+    def test_missing_file_uses_fallback(self):
+        """Detection is best-effort: an unreadable path falls back, not raises."""
+        missing = str(Path(self._tmpdir.name) / "does-not-exist.csv")
+        self.assertEqual(_detect_row_separator(missing, fallback="LF"), "LF")
+
+    def test_default_fallback_is_module_default(self):
+        """Omitting `fallback` uses the OS-derived module default."""
+        self.assertEqual(_detect_row_separator(self._write(b"")), ROW_SEPARATOR_DEFAULT)
+
+    def test_crlf_file_with_lf_inside_quoted_field(self):
+        """The first terminator wins; embedded newlines do not mislead detection."""
+        path = self._write(b'id,name\r\n1,"a\nb"\r\n')
+        self.assertEqual(_detect_row_separator(path), "CRLF")
+
+    def test_mixed_line_endings_warn_and_pick_first(self):
+        """Mixed endings cannot be handled by one separator, so warn."""
+        path = self._write(b"id,name\n1,alice\r\n2,bob\n")
+        with patch("dbt.adapters.exasol.connections.LOGGER") as mock_logger:
+            self.assertEqual(_detect_row_separator(path), "LF")
+        mock_logger.warning.assert_called_once()
+        self.assertIn("mixes line endings", mock_logger.warning.call_args[0][0])
+
+    def test_uniform_line_endings_do_not_warn(self):
+        """A well-formed file must not emit spurious warnings."""
+        path = self._write(b"id,name\r\n1,alice\r\n2,bob\r\n")
+        with patch("dbt.adapters.exasol.connections.LOGGER") as mock_logger:
+            self.assertEqual(_detect_row_separator(path), "CRLF")
+        mock_logger.warning.assert_not_called()
+
+    def test_terminator_beyond_first_chunk(self):
+        """Chunked reads keep going until a terminator is found."""
+        path = self._write(b"x" * 70000 + b"\r\n" + b"1,alice\r\n")
+        self.assertEqual(_detect_row_separator(path), "CRLF")
+
+
+class TestImportRowSeparatorResolution(unittest.TestCase):
+    """Test how ExasolCursor.import_from_file resolves the row separator."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+        self.path = Path(self._tmpdir.name) / "seed.csv"
+        self.path.write_bytes(b"id,name\r\n1,alice\r\n")
+        self.agate_table = Mock()
+        self.agate_table.original_abspath = str(self.path)
+
+    def _import(self, configured_separator):
+        connection = Mock(spec=ExasolConnection)
+        connection.row_separator = configured_separator
+        ExasolCursor(connection).import_from_file(self.agate_table, ["SCHEMA", "TABLE"])
+        return connection.import_from_file.call_args[1]["import_params"]["row_separator"]
+
+    def test_detects_when_unconfigured(self):
+        """With no profiles.yml value, the CRLF file is imported as CRLF."""
+        self.assertEqual(self._import(None), "CRLF")
+
+    def test_explicit_value_always_wins(self):
+        """An explicit profiles.yml value overrides detection (back-compat)."""
+        self.assertEqual(self._import("LF"), "LF")
+
+    def test_detects_per_file_not_per_connection(self):
+        """Seeds with different line endings each get the right separator."""
+        lf_path = Path(self._tmpdir.name) / "other.csv"
+        lf_path.write_bytes(b"id,name\n1,alice\n")
+        lf_table = Mock()
+        lf_table.original_abspath = str(lf_path)
+
+        connection = Mock(spec=ExasolConnection)
+        connection.row_separator = None
+        cursor = ExasolCursor(connection)
+
+        cursor.import_from_file(self.agate_table, ["SCHEMA", "TABLE"])
+        cursor.import_from_file(lf_table, ["SCHEMA", "OTHER"])
+
+        separators = [call[1]["import_params"]["row_separator"] for call in connection.import_from_file.call_args_list]
+        self.assertEqual(separators, ["CRLF", "LF"])
 
 
 class TestCursorClose(unittest.TestCase):

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
 from datetime import datetime, timedelta, timezone
@@ -16,6 +16,7 @@ from aistore.sdk.const import (
     WHAT_ONE_XACT_STATUS,
     URL_PATH_CLUSTER,
     ACT_START,
+    ACT_XACT_STOP,
     WHAT_QUERY_XACT_STATS,
 )
 from aistore.sdk.errors import JobInfoNotFound, Timeout
@@ -30,8 +31,38 @@ from aistore.sdk.types import (
     AggregatedJobSnap,
 )
 from aistore.sdk.utils import probing_frequency, get_logger
+from aistore.sdk.xact_const import (
+    XACT_KIND_BLOB_DL,
+    XACT_KIND_RESILVER,
+    idles_before_finishing,
+    is_valid_kind,
+)
 
 logger = get_logger(__name__)
+
+# Number of consecutive idle polls required before an idle-kind job is
+# considered done -- mirrors Go's `xact.numConsecutiveIdle` (xact/api_wait.go).
+NUM_CONSECUTIVE_IDLE = 2
+
+
+class _IdleStreak:  # pylint: disable=too-few-public-methods
+    """
+    Idle-wait done-condition mirroring Go's `xact.snapsIdle`: the job must
+    report idle on `NUM_CONSECUTIVE_IDLE` consecutive polls before completing;
+    an abort on any target completes immediately.
+    """
+
+    def __init__(self):
+        self._count = 0
+
+    def __call__(self, details: AggregatedJobSnap) -> bool:
+        if details.any_aborted():
+            return True
+        if details.all_idle():
+            self._count += 1
+            return self._count >= NUM_CONSECUTIVE_IDLE
+        self._count = 0
+        return False
 
 
 class Job:
@@ -95,7 +126,27 @@ class Job:
         verbose: bool = True,
     ) -> WaitResult:
         """
-        Wait for a job to finish
+        Wait for a job to reach the appropriate "done" state for its kind.
+
+        Mirrors the Go-side `api/xaction.go: WaitForXaction(bp, args)`
+        descriptor-aware dispatch:
+          - if `self.job_kind` is an idle kind (e.g. `download`, `get-batch`,
+            `copy-listrange`, `etl-listrange`, `archive`, `list`,
+            `put-copies`, `ec-get`/`ec-put`/`ec-resp`), wait for the job to
+            reach an idle state across all targets (see `wait_for_idle`).
+          - single-target non-IC jobs (`blob-download` and `resilver`) wait
+            for terminal target snapshots.
+          - otherwise, wait for the IC status to reach a terminal state.
+
+        If `job_kind` is empty but `job_id` is set, the kind is first
+        resolved from the cluster so the job dispatches correctly (raising
+        `JobInfoNotFound` if the id does not exist).
+
+        Idle is confirmed over `NUM_CONSECUTIVE_IDLE` consecutive polls; an
+        abort on any target returns immediately with `success=False`.
+
+        For finer control (single-node fan-out, explicit idle/terminal),
+        call `wait_for_idle` or `wait_single_node` directly.
 
         Args:
             timeout (int, optional): The maximum time to wait for the job, in seconds. Default timeout is 5 minutes.
@@ -110,7 +161,46 @@ class Job:
             requests.ConnectionTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
             errors.Timeout: Timeout while waiting for the job to finish
+            errors.JobInfoNotFound: If `job_kind` is empty and `job_id` is not found
         """
+        kind = self._job_kind
+        if not kind and self._job_id:
+            kind = self._resolve_kind()
+        if kind and idles_before_finishing(kind):
+            return self._wait_for_condition(
+                _IdleStreak(),
+                timeout,
+                verbose,
+                "reached idle state",
+            )
+        if kind in (XACT_KIND_BLOB_DL, XACT_KIND_RESILVER):
+            return self.wait_single_node(timeout, verbose)
+        if kind and not is_valid_kind(kind):
+            # not an error: SDK kind table may lag server; default to terminal
+            logger.debug("unknown xaction kind %r; defaulting to terminal wait", kind)
+        return self._wait_terminal(timeout, verbose)
+
+    def _resolve_kind(self) -> str:
+        """
+        Look up this job's kind from the cluster by id and cache it, so
+        `wait()` can dispatch correctly when only a job id was provided.
+
+        Raises:
+            JobInfoNotFound: if no snapshot for `job_id` is found
+        """
+        # get_details() already scopes the query to this job's id
+        for snap in self.get_details().list_snapshots():
+            if snap.kind:
+                self._job_kind = snap.kind
+                return snap.kind
+        raise JobInfoNotFound(f"No job info found for '{self._job_id}'")
+
+    def _wait_terminal(
+        self,
+        timeout: int,
+        verbose: bool,
+    ) -> WaitResult:
+        """Poll `status()` until the job reaches a terminal state."""
         logger.disabled = not verbose
         passed = 0
         sleep_time = probing_frequency(timeout)
@@ -177,7 +267,7 @@ class Job:
             errors.Timeout: Timeout while waiting for the job to finish
         """
         return self._wait_for_condition(
-            lambda d: d.all_idle(), timeout, verbose, "reached idle state"
+            _IdleStreak(), timeout, verbose, "reached idle state"
         )
 
     def wait_single_node(
@@ -203,7 +293,7 @@ class Job:
             errors.Timeout: Timeout while waiting for the job to finish
         """
         return self._wait_for_condition(
-            lambda d: d.any_finished(), timeout, verbose, "finished"
+            AggregatedJobSnap.any_finished, timeout, verbose, "finished"
         )
 
     def start(
@@ -250,6 +340,27 @@ class Job:
             HTTP_METHOD_PUT, path=URL_PATH_CLUSTER, json=action, params=params
         )
         return resp.text
+
+    def abort(self) -> None:
+        """
+        Abort (stop) this job.
+
+        After aborting, `wait()` (or `wait_for_idle`) will return a
+        `WaitResult` with `success=False` and the abort error rather than
+        blocking until timeout.
+
+        Raises:
+            ValueError: If neither job_id nor job_kind is set
+            requests.RequestException: "There was an ambiguous exception that occurred while handling..."
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ReadTimeout: Timed out waiting response from AIStore
+        """
+        if not self._job_id and not self._job_kind:
+            raise ValueError("Cannot abort a job without an id or kind")
+        job_args = JobArgs(id=self._job_id, kind=self._job_kind)
+        action = ActionMsg(action=ACT_XACT_STOP, value=job_args.as_dict()).model_dump()
+        self._client.request(HTTP_METHOD_PUT, path=URL_PATH_CLUSTER, json=action)
 
     def get_within_timeframe(
         self, start_time: datetime, end_time: Optional[datetime] = None

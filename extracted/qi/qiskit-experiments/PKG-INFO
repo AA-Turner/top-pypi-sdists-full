@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-experiments
-Version: 0.14.1
+Version: 0.14.2
 Summary: Software for developing quantum computing programs
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0

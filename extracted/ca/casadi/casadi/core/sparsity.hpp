@@ -594,6 +594,18 @@ namespace casadi {
     /// Check if the sparsity is a reshape of another
     bool is_reshape(const Sparsity& y) const;
 
+    /** \brief Check if the nonzero pattern is the Cartesian product of a row and a column subset
+
+        If true, returns the (sorted) row and column index sets such that
+        nz(i, j) <-> i in row and j in col. The nonzero buffer of a compactible
+        matrix in CCS is laid out exactly as a column-major dense
+        row.size() x col.size() matrix, so it can be consumed by dense kernels
+        without gather/scatter.
+
+        \identifier{2gf} */
+    bool is_compactible(std::vector<casadi_int>& SWIG_OUTPUT(row),
+                        std::vector<casadi_int>& SWIG_OUTPUT(col)) const;
+
     /// @{
     /** \brief Combine two sparsity patterns
 
@@ -673,6 +685,18 @@ namespace casadi {
                               bvec_t* z, const Sparsity& z_sp,
                               bvec_t* w);
 
+    /** \brief Propagate signal activity through a matrix product, forward mode
+     *
+     * Like mul_sparsityF, but combines the two factors of each term with AND rather
+     * than OR (an inactive factor annihilates that term), so an output is active only
+     * where some term has both factors active. No memory allocation; work vector w.
+
+        \identifier{2in} */
+    static void mul_activityF(const bvec_t* x, const Sparsity& x_sp,
+                              const bvec_t* y, const Sparsity& y_sp,
+                              bvec_t* z, const Sparsity& z_sp,
+                              bvec_t* w);
+
     /** \brief Propagate sparsity using 0-1 logic through a matrix product,
 
      * no memory allocation: <tt>z = mul(x, y)</tt> with work vector
@@ -701,14 +725,33 @@ namespace casadi {
       diagsplit(const Sparsity& x,
                 const std::vector<casadi_int>& offset1,
                 const std::vector<casadi_int>& offset2);
-    static Sparsity mtimes(const Sparsity& x, const Sparsity& y);
-    static Sparsity mac(const Sparsity& x, const Sparsity& y, const Sparsity& z) { return z;}
+    static Sparsity mtimes(const Sparsity& x, const Sparsity& y,
+                           const std::string& blas = "reference");
+    static Sparsity mac(const Sparsity& x, const Sparsity& y, const Sparsity& z,
+                        const std::string& /*blas*/ = "reference") { return z;}
     static Sparsity reshape(const Sparsity& x, casadi_int nrow, casadi_int ncol);
     static Sparsity reshape(const Sparsity& x, const Sparsity& sp);
     static Sparsity sparsity_cast(const Sparsity& x, const Sparsity& sp);
     static casadi_int sprank(const Sparsity& x);
     static casadi_int norm_0_mul(const Sparsity& x, const Sparsity& A);
     static Sparsity kron(const Sparsity& a, const Sparsity& b);
+
+    /** \brief Output sparsity of casadi::KronContract
+     *
+     * Given an (mA*mB, nA*nB) pattern `sp_m` and an (xrow, xcol) pattern
+     * `sp_x`, computes the output sparsity. Both modes share the same
+     * `(yrow, ycol) = sp_m.size() / sp_x.size()` shape; what differs is
+     * which axis pair indexes the output:
+     *
+     * - `inner = true`:  (i, j) ∈ y iff ∃ (r, s) ∈ sp_x with
+     *                    (i*xrow + r, j*xcol + s) ∈ sp_m;
+     *                    output indexed by the outer block of M.
+     * - `inner = false`: (r, s) ∈ y iff ∃ (i, j) ∈ sp_x with
+     *                    (i*yrow + r, j*ycol + s) ∈ sp_m;
+     *                    output indexed by the inner block of M.
+
+        \identifier{2hn} */
+    static Sparsity kron_contract(const Sparsity& sp_m, const Sparsity& sp_x, bool inner);
     static Sparsity triu(const Sparsity& x, bool includeDiagonal=true);
     static Sparsity tril(const Sparsity& x, bool includeDiagonal=true);
 
@@ -1054,6 +1097,22 @@ namespace casadi {
           What Color Is Your Jacobian? Graph Coloring for Computing Derivatives
           A. H. GEBREMEDHIN, F. MANNE, A. POTHEN
           SIAM Rev., 47(4), 629–705 (2006)
+        or, alternatively (new_algo = true),
+          NEW ACYCLIC AND STAR COLORING ALGORITHMS WITH APPLICATION TO COMPUTING HESSIANS
+          A. H. GEBREMEDHIN, A. TARAFDAR, F. MANNE, A. POTHEN
+          SIAM J. SCI. COMPUT. Vol. 29, No. 3, pp. 1042–1072 (2007)
+
+        \identifier{2jz} */
+    Sparsity star_coloring_new(std::vector<casadi_int>& SWIG_OUTPUT(which_color),
+        const Dict& opts=Dict()) const;
+
+    /** \brief Perform a star coloring of a symmetric matrix:
+
+        A greedy distance-2 coloring algorithm
+        Algorithm 4.1 in
+          What Color Is Your Jacobian? Graph Coloring for Computing Derivatives
+          A. H. GEBREMEDHIN, F. MANNE, A. POTHEN
+          SIAM Rev., 47(4), 629–705 (2006)
 
         Ordering options: None (0), largest first (1)
 
@@ -1193,43 +1252,6 @@ namespace casadi {
 
 #endif //SWIG
   };
-
-  /** \brief Hash value of an integer
-
-      \identifier{do} */
-  template<typename T>
-  inline size_t hash_value(T v) { return size_t(v);}
-
-  /** \brief Generate a hash value incrementally (function taken from boost)
-
-      \identifier{dp} */
-  template<typename T>
-  inline void hash_combine(std::size_t& seed, T v) {
-    seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-  }
-
-  /** \brief Generate a hash value incrementally, array
-
-      \identifier{dq} */
-  template<typename T>
-  inline void hash_combine(std::size_t& seed, const T* v, std::size_t sz) {
-    for (casadi_int i=0; i<sz; ++i) hash_combine(seed, v[i]);
-  }
-
-  /** \brief Generate a hash value incrementally (function taken from boost)
-
-      \identifier{dr} */
-  template<typename T>
-  inline void hash_combine(std::size_t& seed, const std::vector<T>& v) {
-    hash_combine(seed, get_ptr(v), v.size());
-  }
-
-  template<>
-  inline size_t hash_value(std::string v) {
-    size_t seed = 0;
-    hash_combine(seed, v.c_str(), v.size());
-    return seed;
-  }
 
   /** \brief Hash a sparsity pattern
 

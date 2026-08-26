@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import random
 import struct
@@ -435,6 +436,92 @@ class PcLntabRejectionTestSuite(unittest.TestCase):
 
         # the section header names the table directly, so the whole-image scan is not needed
         self.assertEqual(_ELF_PCLNTAB_OFFSET, provider.getPcLntabOffset(binary_info))
+
+
+class TestPcLntabParseIsSharedAcrossProviders(unittest.TestCase):
+    """More than one provider instance parses the same table for one binary, so the result is
+    cached beside the offset getPcLntabOffset already caches on binary_info."""
+
+    def _binary_info(self):
+        binary_info = BinaryInfo(_build_elf_with_gopclntab(_build_truncated_pclntab_116_64()))
+        binary_info.base_addr = 0
+        binary_info.bitness = 64
+        binary_info.architecture = "intel"
+        return binary_info
+
+    def test_a_second_provider_reuses_the_first_parse(self):
+        binary_info = self._binary_info()
+        first = GoSymbolProvider(None)
+        first.update(binary_info)
+        self.assertTrue(first._func_symbols, "control: the first parse must find symbols")
+
+        parses = []
+        second = GoSymbolProvider(None)
+        original = GoSymbolProvider._parse_pclntab
+
+        def counting(self, *args, **kwargs):
+            parses.append(1)
+            return original(self, *args, **kwargs)
+
+        GoSymbolProvider._parse_pclntab = counting
+        try:
+            second.update(binary_info)
+        finally:
+            GoSymbolProvider._parse_pclntab = original
+
+        self.assertEqual(parses, [])
+        self.assertEqual(second._func_symbols, first._func_symbols)
+
+    def test_the_cached_map_is_copied_rather_than_shared(self):
+        """Two providers must not end up mutating one dict between them."""
+        binary_info = self._binary_info()
+        first = GoSymbolProvider(None)
+        first.update(binary_info)
+        second = GoSymbolProvider(None)
+        second.update(binary_info)
+
+        self.assertIsNot(first._func_symbols, second._func_symbols)
+
+    def test_a_different_binary_parses_again(self):
+        """Positive control: the cache lives on binary_info, so a second binary must not read
+        the first one's symbols."""
+        first_info = self._binary_info()
+        provider = GoSymbolProvider(None)
+        provider.update(first_info)
+
+        second_info = self._binary_info()
+        parses = []
+        original = GoSymbolProvider._parse_pclntab
+
+        def counting(self, *args, **kwargs):
+            parses.append(1)
+            return original(self, *args, **kwargs)
+
+        GoSymbolProvider._parse_pclntab = counting
+        try:
+            GoSymbolProvider(None).update(second_info)
+        finally:
+            GoSymbolProvider._parse_pclntab = original
+
+        self.assertEqual(parses, [1])
+
+
+class TestPcLntabParseFailureLogging(unittest.TestCase):
+    def test_a_parse_failure_after_a_validated_header_warns(self):
+        # the offset is only accepted once the header structure checks out, so recovering no
+        # symbols from it is a real failure - it used to leave no record at any level
+        provider = GoSymbolProvider(None)
+        binary_info = BinaryInfo(b"\xfb\xff\xff\xff\x00\x00\x01\x08")
+        # another test module's import-time logging.disable() would hide these records
+        previous_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+        self.addCleanup(logging.disable, previous_disable)
+
+        with self.assertLogs("smda.common.labelprovider.GoLabelProvider", level="WARNING") as logged:
+            provider.update(binary_info)
+
+        self.assertEqual({}, provider.getFunctionSymbols())
+        self.assertIn("pclntab", logged.output[0])
 
 
 if __name__ == "__main__":

@@ -257,6 +257,8 @@ __all__ = (
     "InsightSummaryTypeDef",
     "InsightTypeDef",
     "InsightsFilterTypeDef",
+    "IntegerConstraintsTypeDef",
+    "IntegerParameterConfigTypeDef",
     "IntegerRangeConstraintTypeDef",
     "IssueTypeDef",
     "KubeApiServerConfigRequestTypeDef",
@@ -341,6 +343,9 @@ __all__ = (
     "OutpostConfigRequestTypeDef",
     "OutpostConfigResponseTypeDef",
     "PaginatorConfigTypeDef",
+    "PodGcControllerConfigRequestTypeDef",
+    "PodGcControllerConfigResponseTypeDef",
+    "PodGcControllerVersionConfigTypeDef",
     "PodIdentityAssociationSummaryTypeDef",
     "PodIdentityAssociationTypeDef",
     "PortRangeConstraintsTypeDef",
@@ -971,6 +976,13 @@ class InsightsFilterTypeDef(TypedDict):
     kubernetesVersions: NotRequired[Sequence[str]]
     statuses: NotRequired[Sequence[InsightStatusValueType]]
 
+IntegerConstraintsTypeDef = TypedDict(
+    "IntegerConstraintsTypeDef",
+    {
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
+)
 IntegerRangeConstraintTypeDef = TypedDict(
     "IntegerRangeConstraintTypeDef",
     {
@@ -987,6 +999,12 @@ class IssueTypeDef(TypedDict):
 class ServiceNodePortRangeTypeDef(TypedDict):
     minPort: NotRequired[int]
     maxPort: NotRequired[int]
+
+class PodGcControllerConfigRequestTypeDef(TypedDict):
+    terminatedPodGcThreshold: NotRequired[int]
+
+class PodGcControllerConfigResponseTypeDef(TypedDict):
+    terminatedPodGcThreshold: NotRequired[int]
 
 class ListAccessEntriesRequestTypeDef(TypedDict):
     clusterName: str
@@ -1594,16 +1612,6 @@ FargateProfileSelectorUnionTypeDef = Union[
     FargateProfileSelectorTypeDef, FargateProfileSelectorOutputTypeDef
 ]
 
-class KubeControllerManagerConfigRequestTypeDef(TypedDict):
-    horizontalPodAutoscalerControllerConfig: NotRequired[
-        HorizontalPodAutoscalerControllerConfigRequestTypeDef
-    ]
-
-class KubeControllerManagerConfigResponseTypeDef(TypedDict):
-    horizontalPodAutoscalerControllerConfig: NotRequired[
-        HorizontalPodAutoscalerControllerConfigResponseTypeDef
-    ]
-
 class IdentityProviderConfigResponseTypeDef(TypedDict):
     oidc: NotRequired[OidcIdentityProviderConfigTypeDef]
 
@@ -1646,6 +1654,10 @@ ListInsightsRequestTypeDef = TypedDict(
     },
 )
 
+class IntegerParameterConfigTypeDef(TypedDict):
+    defaultValue: NotRequired[int]
+    constraints: NotRequired[IntegerConstraintsTypeDef]
+
 class PortRangeConstraintsTypeDef(TypedDict):
     minPort: NotRequired[IntegerRangeConstraintTypeDef]
     maxPort: NotRequired[IntegerRangeConstraintTypeDef]
@@ -1664,6 +1676,18 @@ class KubeApiServerConfigRequestTypeDef(TypedDict):
 class KubeApiServerConfigResponseTypeDef(TypedDict):
     eventTtl: NotRequired[str]
     serviceNodePortRange: NotRequired[ServiceNodePortRangeTypeDef]
+
+class KubeControllerManagerConfigRequestTypeDef(TypedDict):
+    podGcControllerConfig: NotRequired[PodGcControllerConfigRequestTypeDef]
+    horizontalPodAutoscalerControllerConfig: NotRequired[
+        HorizontalPodAutoscalerControllerConfigRequestTypeDef
+    ]
+
+class KubeControllerManagerConfigResponseTypeDef(TypedDict):
+    podGcControllerConfig: NotRequired[PodGcControllerConfigResponseTypeDef]
+    horizontalPodAutoscalerControllerConfig: NotRequired[
+        HorizontalPodAutoscalerControllerConfigResponseTypeDef
+    ]
 
 class ListPodIdentityAssociationsResponseTypeDef(TypedDict):
     associations: list[PodIdentityAssociationSummaryTypeDef]
@@ -1858,6 +1882,9 @@ class ListInsightsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class PodGcControllerVersionConfigTypeDef(TypedDict):
+    terminatedPodGcThreshold: NotRequired[IntegerParameterConfigTypeDef]
+
 class PortRangeParameterConfigTypeDef(TypedDict):
     defaultValue: NotRequired[ServiceNodePortRangeTypeDef]
     constraints: NotRequired[PortRangeConstraintsTypeDef]
@@ -2014,11 +2041,6 @@ InsightTypeDef = TypedDict(
     },
 )
 
-class KubeControllerManagerVersionConfigTypeDef(TypedDict):
-    horizontalPodAutoscalerControllerConfig: NotRequired[
-        HorizontalPodAutoscalerControllerVersionConfigTypeDef
-    ]
-
 class AssociateEncryptionConfigRequestTypeDef(TypedDict):
     clusterName: str
     encryptionConfig: Sequence[EncryptionConfigUnionTypeDef]
@@ -2035,6 +2057,12 @@ class DeleteFargateProfileResponseTypeDef(TypedDict):
 class DescribeFargateProfileResponseTypeDef(TypedDict):
     fargateProfile: FargateProfileTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class KubeControllerManagerVersionConfigTypeDef(TypedDict):
+    podGcControllerConfig: NotRequired[PodGcControllerVersionConfigTypeDef]
+    horizontalPodAutoscalerControllerConfig: NotRequired[
+        HorizontalPodAutoscalerControllerVersionConfigTypeDef
+    ]
 
 class KubeApiServerVersionConfigTypeDef(TypedDict):
     eventTtl: NotRequired[DurationParameterConfigTypeDef]

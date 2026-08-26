@@ -66,6 +66,7 @@ def TErr(err_msg: str) -> Err[CannotTransform]:
     return Err(cant_transform)
 
 
+# Remove when `simplify_power_operator_hugging` becomes stable.
 def hug_power_op(
     line: Line, features: Collection[Feature], mode: Mode
 ) -> Iterator[Line]:
@@ -133,6 +134,7 @@ def hug_power_op(
     yield new_line
 
 
+# Remove when `simplify_power_operator_hugging` becomes stable.
 def handle_is_simple_look_up_prev(line: Line, index: int, disallowed: set[int]) -> bool:
     """
     Handling the determination of is_simple_lookup for the lines prior to the doublestar
@@ -155,6 +157,7 @@ def handle_is_simple_look_up_prev(line: Line, index: int, disallowed: set[int]) 
     return True
 
 
+# Remove when `simplify_power_operator_hugging` becomes stable.
 def handle_is_simple_lookup_forward(
     line: Line, index: int, disallowed: set[int]
 ) -> bool:
@@ -181,6 +184,7 @@ def handle_is_simple_lookup_forward(
     return True
 
 
+# Remove when `simplify_power_operator_hugging` becomes stable.
 def is_expression_chained(chained_leaves: list[Leaf]) -> bool:
     """
     Function to determine if the variable is a chained call.
@@ -225,7 +229,7 @@ class StringTransformer(ABC):
 
     Collaborations:
         What contractual agreements does this StringTransformer have with other
-        StringTransfomers? Such collaborations should be eliminated/minimized
+        StringTransformers? Such collaborations should be eliminated/minimized
         as much as possible.
     """
 
@@ -852,6 +856,24 @@ class StringMerger(StringTransformer, CustomSplitMapMixin):
                 f"Not enough strings to merge (num_of_strings={num_of_strings})."
             )
 
+        # Also check for pragma comments on tokens that follow the string
+        # group (e.g. a closing bracket).  Merging strings when a pragma
+        # comment like `# type: ignore` follows would produce an unsplittable
+        # long line.
+        is_valid_index = is_valid_index_factory(line.leaves)
+        next_idx = string_idx + num_of_strings
+        while is_valid_index(next_idx):
+            next_leaf = line.leaves[next_idx]
+            if id(next_leaf) in line.comments:
+                if contains_pragma_comment(line.comments[id(next_leaf)], line.mode):
+                    return TErr(
+                        "Cannot merge strings when a pragma comment follows"
+                        " the string group."
+                    )
+            if next_leaf.type not in CLOSING_BRACKETS:
+                break
+            next_idx += 1
+
         if num_of_inline_string_comments > 1:
             return TErr(
                 f"Too many inline string comments ({num_of_inline_string_comments})."
@@ -1444,6 +1466,20 @@ class StringSplitter(BaseStringSplitter, CustomSplitMapMixin):
         if self._prefer_paren_wrap_match(LL) is not None:
             return TErr("Line needs to be wrapped in parens first.")
 
+        # If the line is just STRING + COMMA (a one-item tuple) and not inside
+        # brackets, we need to defer to StringParenWrapper to wrap it first.
+        # Otherwise, splitting the string would create multiple expressions where
+        # only the last has the comma, breaking AST equivalence. See issue #4912.
+        if (
+            not line.inside_brackets
+            and len(LL) == 2
+            and LL[0].type == token.STRING
+            and LL[1].type == token.COMMA
+        ):
+            return TErr(
+                "Line with trailing comma tuple needs to be wrapped in parens first."
+            )
+
         is_valid_index = is_valid_index_factory(LL)
 
         idx = 0
@@ -1979,8 +2015,13 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
             or self._assert_match(LL)
             or self._assign_match(LL)
             or self._dict_or_lambda_match(LL)
-            or self._prefer_paren_wrap_match(LL)
         )
+
+        if string_idx is None:
+            string_idx = self._trailing_comma_tuple_match(line)
+
+        if string_idx is None:
+            string_idx = self._prefer_paren_wrap_match(LL)
 
         if string_idx is not None:
             string_value = line.leaves[string_idx].value
@@ -2177,6 +2218,32 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
 
         return None
 
+    @staticmethod
+    def _trailing_comma_tuple_match(line: Line) -> int | None:
+        """
+        Returns:
+            string_idx such that @line.leaves[string_idx] is equal to our target
+            (i.e. matched) string, if the line is a bare trailing comma tuple
+            (STRING + COMMA) not inside brackets.
+                OR
+            None, otherwise.
+
+        This handles the case from issue #4912 where a long string with a
+        trailing comma (making it a one-item tuple) needs to be wrapped in
+        parentheses before splitting to preserve AST equivalence.
+        """
+        LL = line.leaves
+        # Match: STRING followed by COMMA, not inside brackets
+        if (
+            not line.inside_brackets
+            and len(LL) == 2
+            and LL[0].type == token.STRING
+            and LL[1].type == token.COMMA
+        ):
+            return 0
+
+        return None
+
     def do_transform(
         self, line: Line, string_indices: list[int]
     ) -> Iterator[TResult[Line]]:
@@ -2297,6 +2364,11 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
             comma_leaf = Leaf(token.COMMA, ",")
             replace_child(LL[comma_idx], comma_leaf)
             last_line.append(comma_leaf)
+
+        # GOOGLE: This is a fix for an upstream bug in Black.
+        if old_rpar_leaf is not None:
+            for comment_leaf in line.comments_after(old_rpar_leaf):
+                last_line.append(comment_leaf, preformatted=True)
 
         yield Ok(last_line)
 

@@ -31,6 +31,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <new>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -261,7 +262,7 @@ namespace casadi {
     ss << "[";
     for (casadi_int i=0; i<v.size(); ++i) {
       if (i!=0) ss << ", ";
-      ss << v[i];
+      ss << str(v[i]);
     }
     ss << "]";
     return ss.str();
@@ -274,7 +275,7 @@ namespace casadi {
     casadi_int cnt = 0;
     for (const auto& e : v) {
       if (cnt++!=0) ss << ", ";
-      ss << e;
+      ss << str(e);
     }
     ss << "}";
     return ss.str();
@@ -283,7 +284,7 @@ namespace casadi {
   template<typename T1, typename T2>
   std::string str(const std::pair<T1, T2>& p, bool more) {
     std::stringstream ss;
-    ss << "[" << p.first << "," << p.second << "]";
+    ss << "[" << str(p.first) << "," << str(p.second) << "]";
     return ss.str();
   }
 
@@ -293,7 +294,7 @@ namespace casadi {
     ss << "{";
     casadi_int count = 0;
     for (auto& e : p) {
-      ss << e.first << ": " << e.second;
+      ss << str(e.first) << ": " << str(e.second);
       if (++count < p.size()) ss << ", ";
     }
     ss << "}";
@@ -306,7 +307,7 @@ namespace casadi {
     ss << "{";
     casadi_int count = 0;
     for (auto& e : p) {
-      ss << "\"" << e.first << "\": " << e.second;
+      ss << "\"" << e.first << "\": " << str(e.second);
       if (++count < p.size()) ss << ", ";
     }
     ss << "}";
@@ -319,13 +320,35 @@ namespace casadi {
     ss << "[";
     for (casadi_int i=0; i<N; ++i) {
       if (i!=0) ss << ", ";
-      ss << v[i];
+      ss << str(v[i]);
     }
     ss << "]";
     return ss.str();
   }
 
-#endif // SWIG
+
+  /**
+   * \brief Thread-local storage wrapper that avoids destructor calls
+   *
+   * Works around MinGW-w64 bug where thread_local destructors may run
+   * after static object destructors, causing crashes at DLL unload.
+   * The wrapped object is placement-new'd into aligned storage and
+   * never destructed. Memory is reclaimed when thread exits.
+   */
+  template<typename T>
+  class ThreadLocalStorage {
+    alignas(T) char storage_[sizeof(T)];
+    bool init_ = false;
+  public:
+    T& get() {
+      if (!init_) {
+        new (storage_) T();
+        init_ = true;
+      }
+      return *reinterpret_cast<T*>(storage_);
+    }
+    // Trivial destructor - intentionally no cleanup
+  };
 
   template<typename _Mutex>
   class conditional_lock_guard {
@@ -348,6 +371,7 @@ namespace casadi {
     bool condition_;
   };
 
+#endif // SWIG
 } // namespace casadi
 
 #include "casadi_logger.hpp"

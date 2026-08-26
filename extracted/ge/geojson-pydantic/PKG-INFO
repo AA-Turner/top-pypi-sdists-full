@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: geojson-pydantic
-Version: 2.1.1
+Version: 2.1.2
 Summary: Pydantic data models for the GeoJSON spec.
 Project-URL: Source, https://github.com/developmentseed/geojson-pydantic
 Author-email: Drew Bollinger <drew@developmentseed.org>

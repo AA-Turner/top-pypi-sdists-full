@@ -43,7 +43,6 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     query_dependencies: t.List[shared_models.QueryDependency] = field(default_factory=list)
     semantic_extras: t.Dict[str, str] = field(default_factory=dict)
     freshness_tolerance_seconds: int = 0
-    lenient_dependencies: t.Set[str] = field(default_factory=set)
     tolerate_nondeterminism: bool = False
     labels: t.Dict[str, str] = field(default_factory=dict)
     clone_time_travel_limit: t.Optional[int] = None

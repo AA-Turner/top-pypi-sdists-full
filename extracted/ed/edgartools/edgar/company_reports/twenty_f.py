@@ -3,7 +3,7 @@ import re
 from functools import cached_property
 from typing import List
 
-from edgar.company_reports._base import CompanyReport
+from edgar.company_reports._base import CompanyReport, report_lookup_miss
 from edgar.company_reports._structures import FilingStructure, item_sort_key
 from edgar.documents import HTMLParser, ParserConfig
 
@@ -210,8 +210,6 @@ class TwentyF(CompanyReport):
         - Natural language: 'Item 5 - Operating and Financial Review'
         - Part lookups: 'Part I', 'Part II'
 
-        Falls back to old chunked_document for backward compatibility.
-
         Args:
             item_name: Section identifier in various formats
 
@@ -248,13 +246,7 @@ class TwentyF(CompanyReport):
                 if friendly_key in self.sections:
                     return self.sections[friendly_key].text()
 
-        # Fallback to old chunked_document for backward compatibility
-        if self._chunked_document:
-            try:
-                return self._chunked_document[item_name]
-            except (KeyError, TypeError):
-                pass
-
+        report_lookup_miss(self, item_name)
         return None
 
     def __str__(self):

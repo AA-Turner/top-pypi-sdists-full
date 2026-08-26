@@ -49,7 +49,16 @@ class TestSourceConfigInput(unittest.TestCase):
                     ''
                     ],
                 source_filters = mixpeek.models.source_filters.SourceFilters(
-                    filters = { }, )
+                    filters = { }, ),
+                field_map = {
+                    'key' : [
+                        mixpeek.models.field_passthrough.FieldPassthrough(
+                            source_path = '', 
+                            target_path = '', 
+                            default = null, 
+                            required = True, )
+                        ]
+                    }
             )
         else:
             return SourceConfigInput(

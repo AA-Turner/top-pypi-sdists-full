@@ -13,7 +13,7 @@ use uv_configuration::{
     BuildOptions, DependencyGroupsWithDefaults, ExtrasSpecification,
     ExtrasSpecificationWithDefaults, InstallOptions,
 };
-use uv_distribution_types::{Edge, Node, Resolution, ResolvedDist};
+use uv_distribution_types::{Edge, FirstParty, Node, Resolution, ResolvedDist};
 use uv_normalize::{DefaultExtras, ExtraName, GroupName, PackageName};
 use uv_platform_tags::Tags;
 use uv_pypi_types::{ConflictKind, ConflictSet, ResolverMarkerEnvironment};
@@ -22,6 +22,7 @@ use crate::lock::{
     Dependency, DependencySelectionContext, HashedDist, LockErrorKind, Package, PackageId,
     SelectedDependency, TagPolicy,
 };
+use crate::universal_marker::ActivatedConflictItems;
 use crate::{Lock, LockError, UniversalMarker};
 
 fn newly_activated_extras<'lock>(
@@ -60,6 +61,24 @@ fn add_reachability<'lock>(
             entry.insert(marker);
             true
         }
+    }
+}
+
+/// Returns the dependencies a queued package contributes, either its own or those of one extra.
+fn package_dependencies<'a>(
+    package: &'a Package,
+    extra: Option<&ExtraName>,
+) -> impl Iterator<Item = &'a Dependency> {
+    if let Some(extra) = extra {
+        Either::Left(
+            package
+                .optional_dependencies
+                .get(extra)
+                .into_iter()
+                .flatten(),
+        )
+    } else {
+        Either::Right(package.dependencies.iter())
     }
 }
 
@@ -154,8 +173,17 @@ pub trait Installable<'lock> {
         build_options: &BuildOptions,
     ) -> Result<Node, LockError> {
         let tag_policy = TagPolicy::Required(tags);
-        let HashedDist { dist, hashes } =
-            package.to_dist(self.install_path(), tag_policy, build_options, marker_env)?;
+        let HashedDist { dist, hashes } = package.to_dist(
+            self.install_path(),
+            tag_policy,
+            build_options,
+            marker_env,
+            if self.lock().is_workspace_member(package) {
+                FirstParty::Yes
+            } else {
+                FirstParty::No
+            },
+        )?;
         let version = package.version().cloned();
         let dist = ResolvedDist::Installable {
             dist: Arc::new(dist),
@@ -180,6 +208,7 @@ pub trait Installable<'lock> {
             TagPolicy::Preferred(tags),
             &BuildOptions::default(),
             marker_env,
+            FirstParty::No,
         )?;
         let version = package.version().cloned();
         let dist = ResolvedDist::Installable {
@@ -639,18 +668,7 @@ trait InstallableExt<'lock>: Installable<'lock> {
                 else {
                     continue;
                 };
-                let deps = if let Some(extra) = extra {
-                    Either::Left(
-                        package
-                            .optional_dependencies
-                            .get(extra)
-                            .into_iter()
-                            .flatten(),
-                    )
-                } else {
-                    Either::Right(package.dependencies.iter())
-                };
-                for dep in deps {
+                for dep in package_dependencies(package, extra) {
                     let mut dep_reachability = dep.complexified_marker;
                     dep_reachability.and(parent_reachability);
                     let additional_activated_extras =
@@ -726,28 +744,23 @@ trait InstallableExt<'lock>: Installable<'lock> {
             }
         }
 
+        // Unlike the traversals above, this one never activates an extra, so the activated set is
+        // fixed for its duration and can be encoded once instead of once per dependency.
+        let activated = ActivatedConflictItems::new(
+            activated_projects.iter().copied(),
+            activated_extras.iter().copied(),
+            activated_groups.iter().copied(),
+        );
+
         while let Some((package, extra)) = queue.pop_front() {
-            let deps = if let Some(extra) = extra {
-                Either::Left(
-                    package
-                        .optional_dependencies
-                        .get(extra)
-                        .into_iter()
-                        .flatten(),
-                )
-            } else {
-                Either::Right(package.dependencies.iter())
-            };
-            for dep in deps {
+            for dep in package_dependencies(package, extra) {
                 if validate_conflicts && dep.complexified_marker.has_conflict_marker() {
                     dependencies_for_conflict_validation.push((package, dep));
                 }
-                if !dep.complexified_marker.evaluate(
-                    marker_env,
-                    activated_projects.iter().copied(),
-                    activated_extras.iter().copied(),
-                    activated_groups.iter().copied(),
-                ) {
+                if !dep
+                    .complexified_marker
+                    .evaluate_activated(marker_env, &activated)
+                {
                     continue;
                 }
 

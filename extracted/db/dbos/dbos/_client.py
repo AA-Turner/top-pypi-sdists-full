@@ -20,7 +20,13 @@ from zoneinfo import ZoneInfo
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from dbos._core import DEFAULT_POLLING_INTERVAL
+from dbos._core import (
+    DEFAULT_POLLING_INTERVAL,
+    read_stream,
+    read_stream_async,
+    read_stream_offset,
+    read_stream_offset_async,
+)
 
 # Re-exported: EnqueueOptions is public as dbos.EnqueueOptions but is shared with _core.
 from dbos._enqueue_options import EnqueueOptions as EnqueueOptions
@@ -64,9 +70,6 @@ from dbos._sys_db import (
     WorkflowSchedule,
     WorkflowStatus,
     WorkflowStatusInternal,
-    _dbos_stream_closed_sentinel,
-    _no_stream_value,
-    workflow_is_active,
 )
 from dbos._workflow_commands import fork_workflow, get_workflow
 
@@ -366,37 +369,48 @@ class DBOSClient:
         self,
         name: str,
         *,
-        concurrency: Optional[int] = None,
+        global_concurrency: Optional[int] = None,
+        partition_concurrency: Optional[int] = None,
+        partition_worker_concurrency: Optional[int] = None,
+        partition_limiter: Optional[QueueRateLimit] = None,
         limiter: Optional[QueueRateLimit] = None,
         worker_concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
         polling_interval_sec: float = 1.0,
         on_conflict: QueueConflictResolution = "always_update",
         application_name: Optional[str] = None,
+        # Deprecated, retained for backwards compatibility
+        concurrency: Optional[int] = None,
+        priority_enabled: bool = False,
+        partition_queue: bool = False,
     ) -> Queue:
         """Register a queue from a client and persist it to the system database.
 
         :param name: Unique name of the queue. Used as the lookup key in the
             ``queues`` table and on every ``enqueue`` call.
-        :param concurrency: Maximum number of workflows from this queue that may
-            be running globally (across all executors) at once. ``None`` (the
+        :param global_concurrency: Maximum number of workflows from this queue that
+            may be running globally (across all executors) at once. ``None`` (the
             default) means no global limit.
+        :param partition_concurrency: Maximum number of workflows from any one
+            partition of this queue that may be running globally (across all
+            executors) at once.
+        :param partition_worker_concurrency: Maximum number of workflows from any
+            one partition of this queue that may be running on a single executor at
+            once.
+        :param partition_limiter: Rate limit applied to each partition separately,
+            of the form ``{"limit": int, "period": float}``.
+
+            Setting any ``partition_*`` limit makes the queue partitioned, so every
+            enqueue must specify a ``queue_partition_key``, while
+            ``global_concurrency``, ``worker_concurrency``, and ``limiter`` continue
+            to apply to the queue as a whole. Deduplication is not supported on
+            partitioned queues.
         :param limiter: Rate limit configuration of the form
             ``{"limit": int, "period": float}``. At most ``limit`` workflows
             from the queue will start within any rolling window of ``period``
             seconds. ``None`` disables rate limiting.
         :param worker_concurrency: Maximum number of workflows from this queue
             that may be running on a single executor at once. ``None`` means no
-            per-executor limit. May be combined with ``concurrency``.
-        :param priority_enabled: When ``True``, callers may set a workflow
-            priority via ``SetEnqueueOptions(priority=...)`` and lower numbers
-            are dequeued first. When ``False``, supplying a priority raises an
-            error at enqueue time.
-        :param partition_queue: When ``True``, every enqueue must specify a
-            ``queue_partition_key`` and concurrency / worker_concurrency limits
-            are applied per partition rather than to the queue as a whole.
-            Deduplication is not supported on partitioned queues.
+            per-executor limit. May be combined with ``global_concurrency``.
         :param polling_interval_sec: How often (in seconds) the worker thread
             wakes up to look for runnable workflows on this queue. Smaller
             values reduce dequeue latency at the cost of more database load.
@@ -408,6 +422,9 @@ class DBOSClient:
         :param application_name: The application that owns this queue and polls
             it. Defaults to the client's own application. Registering a queue
             already owned by a different application raises.
+        :param concurrency: Deprecated. Use ``global_concurrency``.
+        :param priority_enabled: Deprecated. Priority is always enabled.
+        :param partition_queue: Deprecated. Use the ``partition_*`` limits.
 
         :returns: A :class:`Queue` bound to this client's system database.
         """
@@ -417,6 +434,11 @@ class DBOSClient:
         Queue._validate_queue(
             concurrency=concurrency,
             worker_concurrency=worker_concurrency,
+            global_concurrency=global_concurrency,
+            partition_concurrency=partition_concurrency,
+            partition_worker_concurrency=partition_worker_concurrency,
+            partition_limiter=partition_limiter,
+            partition_queue=partition_queue,
             polling_interval_sec=polling_interval_sec,
             limiter=limiter,
         )
@@ -434,12 +456,22 @@ class DBOSClient:
 
         inserted = self._sys_db.upsert_queue(
             name=name,
-            concurrency=concurrency,
+            concurrency=(
+                concurrency if global_concurrency is None else global_concurrency
+            ),
             worker_concurrency=worker_concurrency,
             rate_limit_max=limiter["limit"] if limiter else None,
             rate_limit_period_sec=limiter["period"] if limiter else None,
             priority_enabled=priority_enabled,
             partition_queue=partition_queue,
+            partition_concurrency=partition_concurrency,
+            partition_worker_concurrency=partition_worker_concurrency,
+            partition_rate_limit_max=(
+                partition_limiter["limit"] if partition_limiter else None
+            ),
+            partition_rate_limit_period_sec=(
+                partition_limiter["period"] if partition_limiter else None
+            ),
             polling_interval_sec=polling_interval_sec,
             update_existing=update_existing,
             application_name=application_name,
@@ -454,27 +486,36 @@ class DBOSClient:
         self,
         name: str,
         *,
-        concurrency: Optional[int] = None,
+        global_concurrency: Optional[int] = None,
+        partition_concurrency: Optional[int] = None,
+        partition_worker_concurrency: Optional[int] = None,
+        partition_limiter: Optional[QueueRateLimit] = None,
         limiter: Optional[QueueRateLimit] = None,
         worker_concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
         polling_interval_sec: float = 1.0,
         on_conflict: QueueConflictResolution = "always_update",
         application_name: Optional[str] = None,
+        # Deprecated, retained for backwards compatibility
+        concurrency: Optional[int] = None,
+        priority_enabled: bool = False,
+        partition_queue: bool = False,
     ) -> Queue:
         """Async version of :meth:`register_queue`."""
         return await asyncio.to_thread(
             lambda: self.register_queue(
                 name,
-                concurrency=concurrency,
+                global_concurrency=global_concurrency,
+                partition_concurrency=partition_concurrency,
+                partition_worker_concurrency=partition_worker_concurrency,
+                partition_limiter=partition_limiter,
                 limiter=limiter,
                 worker_concurrency=worker_concurrency,
-                priority_enabled=priority_enabled,
-                partition_queue=partition_queue,
                 polling_interval_sec=polling_interval_sec,
                 on_conflict=on_conflict,
                 application_name=application_name,
+                concurrency=concurrency,
+                priority_enabled=priority_enabled,
+                partition_queue=partition_queue,
             )
         )
 
@@ -1193,7 +1234,13 @@ class DBOSClient:
         return WorkflowHandleClientAsyncPolling[Any](forked_workflow_id, self._sys_db)
 
     def read_stream(
-        self, workflow_id: str, key: str, *, offset: int = 0
+        self,
+        workflow_id: str,
+        key: str,
+        *,
+        offset: int = 0,
+        polling_interval_sec: Optional[float] = None,
+        timeout_seconds: Optional[float] = None,
     ) -> Generator[Any, Any, None]:
         """
         Read values from a stream as a generator.
@@ -1204,45 +1251,31 @@ class DBOSClient:
             workflow_id: The ID of the workflow that wrote to the stream
             key: The stream key to read from
             offset: The offset to start reading from (defaults to 0, the start of the stream)
+            polling_interval_sec: Polling interval in seconds when waiting for new values when not using LISTEN/NOTIFY.
+                Must be at least 0.001. Defaults to the configured notification_listener_polling_interval_sec (1.0 if not configured).
+            timeout_seconds: How long to wait for each value before raising DBOSStreamTimeoutError.
 
         Yields:
             The values written to the stream in order
         """
-        event, payload = self._sys_db.register_stream_listener(workflow_id, key)
-        final_read = False
-        try:
-            while True:
-                # Clear before reading so a notification arriving after the read
-                # leaves the event set and the wait below returns immediately.
-                event.clear()
-                # One round trip for both the value and the workflow's status.
-                status, value = self._sys_db.read_stream_value(workflow_id, key, offset)
-                if status is None:
-                    break
-                if value is not _no_stream_value:
-                    if value == _dbos_stream_closed_sentinel:
-                        return
-                    yield value
-                    offset += 1
-                    # More may be buffered; read the next offset before waiting.
-                    continue
-                if final_read:
-                    break
-                # No value yet: stop if the workflow is done, else wait for a
-                # notification. Workflow completion fires none, so the wait
-                # is bounded by the polling interval to notice termination.
-                if not workflow_is_active(status):
-                    # Cancel and timeout set a terminal status out-of-band while the workflow is still writing, so drain to the first empty offset before stopping.
-                    final_read = True
-                    continue
-                event.wait(
-                    timeout=self._sys_db._notification_listener_polling_interval_sec
-                )
-        finally:
-            self._sys_db.unregister_stream_listener(payload)
+        yield from read_stream(
+            self._sys_db,
+            workflow_id,
+            key,
+            offset=offset,
+            polling_interval=polling_interval_sec,
+            timeout_seconds=timeout_seconds,
+            checkpoint=False,
+        )
 
     async def read_stream_async(
-        self, workflow_id: str, key: str, *, offset: int = 0
+        self,
+        workflow_id: str,
+        key: str,
+        *,
+        offset: int = 0,
+        polling_interval_sec: Optional[float] = None,
+        timeout_seconds: Optional[float] = None,
     ) -> AsyncGenerator[Any, None]:
         """
         Read values from a stream as an async generator.
@@ -1253,44 +1286,102 @@ class DBOSClient:
             workflow_id: The ID of the workflow that wrote to the stream
             key: The stream key to read from
             offset: The offset to start reading from (defaults to 0, the start of the stream)
+            polling_interval_sec: Polling interval in seconds when waiting for new values when not using LISTEN/NOTIFY.
+                Must be at least 0.001. Defaults to the configured notification_listener_polling_interval_sec (1.0 if not configured).
+            timeout_seconds: How long to wait for each value before raising DBOSStreamTimeoutError.
 
         Yields:
             The values written to the stream in order
         """
-        event, payload = self._sys_db.register_stream_listener(workflow_id, key)
-        final_read = False
+        values = read_stream_async(
+            self._sys_db,
+            workflow_id,
+            key,
+            offset=offset,
+            polling_interval=polling_interval_sec,
+            timeout_seconds=timeout_seconds,
+            checkpoint=False,
+        )
         try:
-            while True:
-                # Clear before reading so a notification arriving after the read
-                # leaves the event set and the wait below returns immediately.
-                event.clear()
-                # One round trip for both the value and the workflow's status.
-                status, value = await asyncio.to_thread(
-                    self._sys_db.read_stream_value, workflow_id, key, offset
-                )
-                if status is None:
-                    break
-                if value is not _no_stream_value:
-                    if value == _dbos_stream_closed_sentinel:
-                        return
-                    yield value
-                    offset += 1
-                    # More may be buffered; read the next offset before waiting.
-                    continue
-                if final_read:
-                    break
-                # No value yet: stop if the workflow is done, else await a
-                # notification, re-reading at the fallback interval in case one
-                # was dropped.
-                if not workflow_is_active(status):
-                    # Cancel and timeout set a terminal status out-of-band while the workflow is still writing, so drain to the first empty offset before stopping.
-                    final_read = True
-                    continue
-                await event.wait_async(
-                    timeout=self._sys_db._notification_listener_polling_interval_sec
-                )
+            async for value in values:
+                yield value
         finally:
-            self._sys_db.unregister_stream_listener(payload)
+            # Close rather than abandon, so the listener is unregistered here and not at collection.
+            await values.aclose()
+
+    def read_stream_offset(
+        self,
+        workflow_id: str,
+        key: str,
+        offset: int,
+        *,
+        polling_interval_sec: Optional[float] = None,
+        timeout_seconds: Optional[float] = None,
+    ) -> Any:
+        """
+        Read the single value at one offset of a stream, waiting for it to be written.
+
+        Args:
+            workflow_id: The ID of the workflow that wrote to the stream
+            key: The stream key to read from
+            offset: The offset to read
+            polling_interval_sec: Polling interval in seconds when waiting for the value when not using LISTEN/NOTIFY.
+                Must be at least 0.001. Defaults to the configured notification_listener_polling_interval_sec (1.0 if not configured).
+            timeout_seconds: How long to wait for the value before raising DBOSStreamTimeoutError.
+                Defaults to None, waiting indefinitely.
+
+        Returns:
+            The value at the offset
+
+        Raises:
+            DBOSStreamTimeoutError: If the timeout passes, or the stream ends before reaching the offset
+        """
+        return read_stream_offset(
+            self._sys_db,
+            workflow_id,
+            key,
+            offset,
+            polling_interval=polling_interval_sec,
+            timeout_seconds=timeout_seconds,
+            checkpoint=False,
+        )
+
+    async def read_stream_offset_async(
+        self,
+        workflow_id: str,
+        key: str,
+        offset: int,
+        *,
+        polling_interval_sec: Optional[float] = None,
+        timeout_seconds: Optional[float] = None,
+    ) -> Any:
+        """
+        Read the single value at one offset of a stream, waiting for it to be written.
+
+        Args:
+            workflow_id: The ID of the workflow that wrote to the stream
+            key: The stream key to read from
+            offset: The offset to read
+            polling_interval_sec: Polling interval in seconds when waiting for the value when not using LISTEN/NOTIFY.
+                Must be at least 0.001. Defaults to the configured notification_listener_polling_interval_sec (1.0 if not configured).
+            timeout_seconds: How long to wait for the value before raising DBOSStreamTimeoutError.
+                Defaults to None, waiting indefinitely.
+
+        Returns:
+            The value at the offset
+
+        Raises:
+            DBOSStreamTimeoutError: If the timeout passes, or the stream ends before reaching the offset
+        """
+        return await read_stream_offset_async(
+            self._sys_db,
+            workflow_id,
+            key,
+            offset,
+            polling_interval=polling_interval_sec,
+            timeout_seconds=timeout_seconds,
+            checkpoint=False,
+        )
 
     # ── Schedule API ──────────────────────────────────────────────
 

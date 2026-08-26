@@ -39,6 +39,7 @@ CAPABILITY_LEVELS: dict[str, Literal['read', 'write']] = {
     "list_non_human_accounts": "read",
     "list_resources": "read",
     "list_updated_accounts": "read",
+    "probe_integration": "read",
     "release_resources": "write",
     "transfer_data": "write",
     "unassign_application": "write",

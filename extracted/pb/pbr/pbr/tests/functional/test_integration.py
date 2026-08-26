@@ -135,64 +135,72 @@ class TestIntegration(base.BaseTestCase):
                         dest.write(line)
         pip_cmd = PIP_CMD + ['-c', tmp_constraints]
 
-        with pbr_fixtures.Venv(
-            'sdist',
-            modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
-            pip_cmd=PIP_CMD,
-        ) as venv:
-            python = venv.python
-            pbr_fixtures.CapturedSubprocess(
+        venv = self.useFixture(
+            pbr_fixtures.Venv(
                 'sdist',
-                [python, 'setup.py', 'sdist'],
-                cwd=path,
-                test_case=self,
+                modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
+                pip_cmd=PIP_CMD,
             )
-
-        with pbr_fixtures.Venv(
-            'tarball',
-            modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
-            pip_cmd=PIP_CMD,
-        ) as venv:
-            python = venv.python
-            filename = os.path.join(
-                path, 'dist', os.listdir(os.path.join(path, 'dist'))[0]
-            )
+        )
+        python = venv.python
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
+                'sdist', [python, 'setup.py', 'sdist'], cwd=path
+            )
+        )
+
+        venv = self.useFixture(
+            pbr_fixtures.Venv(
                 'tarball',
-                [python] + pip_cmd + [filename],
-                test_case=self,
+                modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
+                pip_cmd=PIP_CMD,
             )
-
-        with pbr_fixtures.Venv(
-            'install-git',
-            modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
-            pip_cmd=PIP_CMD,
-        ) as venv:
-            root = venv.path
-            python = venv.python
+        )
+        python = venv.python
+        filename = os.path.join(
+            path, 'dist', os.listdir(os.path.join(path, 'dist'))[0]
+        )
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
+                'tarball', [python] + pip_cmd + [filename]
+            )
+        )
+
+        venv = self.useFixture(
+            pbr_fixtures.Venv(
                 'install-git',
-                [python] + pip_cmd + ['git+file://' + path],
-                test_case=self,
+                modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
+                pip_cmd=PIP_CMD,
             )
-            if self.short_name == 'nova':
-                found = False
-                for _, _, filenames in os.walk(root):
-                    if 'alembic.ini' in filenames:
-                        found = True
-                self.assertTrue(found)
-
-        with pbr_fixtures.Venv(
-            'install-editable',
-            modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
-            pip_cmd=PIP_CMD,
-        ) as venv:
-            python = venv.python
+        )
+        root = venv.path
+        python = venv.python
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
-                'install-editable',
-                [python] + pip_cmd + ['-e', path],
-                test_case=self,
+                'install-git', [python] + pip_cmd + ['git+file://' + path]
             )
+        )
+        if self.short_name == 'nova':
+            found = False
+            for _, _, filenames in os.walk(root):
+                if 'alembic.ini' in filenames:
+                    found = True
+            self.assertTrue(found)
+
+        venv = self.useFixture(
+            pbr_fixtures.Venv(
+                'install-editable',
+                modules=['pip', 'wheel', 'setuptools<80', PBRVERSION],
+                pip_cmd=PIP_CMD,
+            )
+        )
+        root = venv.path
+        python = venv.python
+        self.useFixture(
+            pbr_fixtures.CapturedSubprocess(
+                'install-editable', [python] + pip_cmd + ['-e', path]
+            )
+        )
 
 
 class TestInstallWithoutPbr(base.BaseTestCase):
@@ -275,31 +283,28 @@ class TestInstallWithoutPbr(base.BaseTestCase):
         # We install setuptools because we rely on setup.py below.
         # FIXME(stephenfin): We should not need to pin setuptools
         # https://github.com/pypa/setuptools/commit/ef4cd2960d75f2d49f40f5495347523be62d20e5
-        with pbr_fixtures.Venv(
-            'nopbr', ['pip', 'wheel', 'setuptools<80']
-        ) as venv:
-            python = venv.python
-            # Install both packages
+        venv = self.useFixture(
+            pbr_fixtures.Venv('nopbr', ['pip', 'wheel', 'setuptools<80'])
+        )
+        python = venv.python
+        # Install both packages
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
-                'nopbr',
-                [python] + ['setup.py', 'install'],
-                cwd=test_pkg_dir,
-                test_case=self,
+                'nopbr', [python] + ['setup.py', 'install'], cwd=test_pkg_dir
             )
-            # Execute code that should only be present if the install worked.
+        )
+        # Execute code that should only be present if the install worked.
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
-                'nopbr',
-                [python] + ['-m', 'pkgReq'],
-                cwd=test_pkg_dir,
-                test_case=self,
+                'nopbr', [python] + ['-m', 'pkgReq'], cwd=test_pkg_dir
             )
-            pbr_cmd = os.path.join(venv.path, 'bin', 'pbr')
+        )
+        pbr_cmd = os.path.join(venv.path, 'bin', 'pbr')
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
-                'nopbr',
-                [pbr_cmd] + ['freeze'],
-                cwd=test_pkg_dir,
-                test_case=self,
+                'nopbr', [pbr_cmd] + ['freeze'], cwd=test_pkg_dir
             )
+        )
 
 
 # Handle various compatability issues with pip and setuptools versions against
@@ -353,59 +358,53 @@ class TestMarkersPip(base.BaseTestCase):
         pkg_dirs = self.useFixture(pbr_fixtures.Packages(pkgs)).package_dirs
         temp_dir = self.useFixture(fixtures.TempDir()).path
         repo_dir = os.path.join(temp_dir, 'repo')
-        with pbr_fixtures.Venv('markers') as venv:
-            bin_python = venv.python
-            os.mkdir(repo_dir)
-            for module in self.modules:
+        venv = self.useFixture(pbr_fixtures.Venv('markers'))
+        bin_python = venv.python
+        os.mkdir(repo_dir)
+        for module in self.modules:
+            self.useFixture(
                 pbr_fixtures.CapturedSubprocess(
                     'pip-version',
-                    [
-                        bin_python,
-                        '-m',
-                        'pip',
-                        'install',
-                        '--upgrade',
-                        module,
-                    ],
+                    [bin_python, '-m', 'pip', 'install', '--upgrade', module],
                     cwd=venv.path,
-                    test_case=self,
                 )
-            # TODO(clarkb) do we need to install PBR from source here to avoid
-            # using the latest release?
-            for pkg in pkg_dirs:
-                self._run_cmd(
-                    bin_python,
-                    ['setup.py', 'sdist', '-d', repo_dir],
-                    cwd=pkg_dirs[pkg],
-                    allow_fail=False,
-                )
+            )
+        # TODO(clarkb) do we need to install PBR from source here to avoid
+        # using the latest release?
+        for pkg in pkg_dirs:
             self._run_cmd(
                 bin_python,
-                [
-                    '-m',
-                    'pip',
-                    'install',
-                    '--no-index',
-                    # With --no-index above we can't install deps for isolated
-                    # builds. Just rely on the existing installs for now.
-                    '--no-build-isolation',
-                    '-f',
-                    repo_dir,
-                    'test_markers',
-                ],
-                cwd=venv.path,
+                ['setup.py', 'sdist', '-d', repo_dir],
+                cwd=pkg_dirs[pkg],
                 allow_fail=False,
             )
-            pkgs = self._run_cmd(
-                bin_python,
-                ['-m', 'pip', 'freeze'],
-                cwd=venv.path,
-                allow_fail=False,
-            )[0]
-            # Depending on the version of pip/setuptools etc the name of the
-            # installed package may be noramlized to 'pkg-b'. As of March 2024
-            # 'pkg_b' is what we get and previously 'pkg-b' was the result.
-            self.assertTrue('pkg_b' in pkgs or 'pkg-b' in pkgs)
+        self._run_cmd(
+            bin_python,
+            [
+                '-m',
+                'pip',
+                'install',
+                '--no-index',
+                # With --no-index above we can't install deps for isolated
+                # builds. Just rely on the existing installs for now.
+                '--no-build-isolation',
+                '-f',
+                repo_dir,
+                'test_markers',
+            ],
+            cwd=venv.path,
+            allow_fail=False,
+        )
+        pkgs = self._run_cmd(
+            bin_python,
+            ['-m', 'pip', 'freeze'],
+            cwd=venv.path,
+            allow_fail=False,
+        )[0]
+        # Depending on the version of pip/setuptools etc the name of the
+        # installed package may be noramlized to 'pkg-b'. As of March 2024
+        # 'pkg_b' is what we get and previously 'pkg-b' was the result.
+        self.assertTrue('pkg_b' in pkgs or 'pkg-b' in pkgs)
 
 
 class TestLTSSupport(base.BaseTestCase):
@@ -417,14 +416,17 @@ class TestLTSSupport(base.BaseTestCase):
         'integration tests not enabled',
     )
     def test_lts_venv_default_versions(self):
-        with pbr_fixtures.Venv('setuptools', modules=self.modules) as venv:
-            bin_python = venv.python
-            pbr = 'file://%s#egg=pbr' % pbr_fixtures.PBR_ROOT
-            # Installing PBR is a reasonable indication that we are not broken
-            # on this particular combination of setuptools and pip.
+        venv = self.useFixture(
+            pbr_fixtures.Venv('setuptools', modules=self.modules)
+        )
+        bin_python = venv.python
+        pbr = 'file://%s#egg=pbr' % pbr_fixtures.PBR_ROOT
+        # Installing PBR is a reasonable indication that we are not broken on
+        # this particular combination of setuptools and pip.
+        self.useFixture(
             pbr_fixtures.CapturedSubprocess(
                 'lts-support',
                 [bin_python, '-m', 'pip', 'install', pbr],
                 cwd=venv.path,
-                test_case=self,
             )
+        )

@@ -465,10 +465,11 @@ namespace casadi {
 
   Dict SXFunction::generate_options(const std::string& target) const {
     Dict opts = FunctionInternal::generate_options(target);
-    //opts["default_in"] = default_in_;
+    if (target=="clone") opts["default_in"] = default_in_;
     opts["live_variables"] = live_variables_;
     opts["just_in_time_sparsity"] = just_in_time_sparsity_;
     opts["just_in_time_opencl"] = just_in_time_opencl_;
+    opts["print_instructions"] = print_instructions_;
     return opts;
   }
 
@@ -1072,7 +1073,8 @@ namespace casadi {
 
     // non-inlining call is implemented in the base-class
     if (!always_inline) {
-      return FunctionInternal::eval_mx(arg, res, false, true);
+      FunctionInternal::eval_mx(arg, res, false, true);
+      return;
     }
 
     if (verbose_) casadi_message(name_ + "::eval_mx");
@@ -1205,7 +1207,8 @@ namespace casadi {
     for (auto&& r : fseed) {
       if (!matching_arg(r, npar)) {
         casadi_assert_dev(npar==1);
-        return ad_forward(replace_fseed(fseed, npar), fsens);
+        ad_forward(replace_fseed(fseed, npar), fsens);
+        return;
       }
     }
 
@@ -1219,7 +1222,8 @@ namespace casadi {
           for (auto&& r : fseed2) {
             for (casadi_int i=0; i<n_in_; ++i) r[i] = project(r[i], sparsity_in_[i]);
           }
-          return ad_forward(fseed2, fsens);
+          ad_forward(fseed2, fsens);
+          return;
         }
       }
     }
@@ -1282,7 +1286,7 @@ namespace casadi {
           break;
         case OP_CALL:
           {
-            auto& m = call_.el.at(a.i1);
+            const auto& m = call_.el.at(a.i1);
             CallSX* call_node = static_cast<CallSX*>(it2->d[0].get());
 
             // Construct forward sensitivity function
@@ -1377,7 +1381,8 @@ namespace casadi {
     for (auto&& r : aseed) {
       if (!matching_res(r, npar)) {
         casadi_assert_dev(npar==1);
-        return ad_reverse(replace_aseed(aseed, npar), asens);
+        ad_reverse(replace_aseed(aseed, npar), asens);
+        return;
       }
     }
 
@@ -1396,7 +1401,8 @@ namespace casadi {
         for (casadi_int i=0; i<n_out_; ++i)
           if (aseed2[d][i].sparsity()!=sparsity_out_[i])
             aseed2[d][i] = project(aseed2[d][i], sparsity_out_[i]);
-      return ad_reverse(aseed2, asens);
+      ad_reverse(aseed2, asens);
+      return;
     }
 
     // Allocate results if needed
@@ -1468,7 +1474,7 @@ namespace casadi {
           break;
         case OP_CALL:
           {
-            auto& m = call_.el.at(it->i1);
+            const auto& m = call_.el.at(it->i1);
             CallSX* call_node = static_cast<CallSX*>(it2->d[0].get());
 
             // Construct reverse sensitivity function
@@ -1552,6 +1558,14 @@ namespace casadi {
         }
       }
     }
+
+    // Drop sparsity of fully structurally-zero sensitivities, matching MXFunction (#4345)
+    for (casadi_int d=0; d<nadj; ++d) {
+      for (casadi_int i=0; i<n_in_; ++i) {
+        SX& a = asens[d][i];
+        if (a.is_zero()) a = SX(a.size1(), a.size2());
+      }
+    }
   }
 
   template<typename T, typename CT>
@@ -1580,7 +1594,7 @@ namespace casadi {
 
   template<typename T>
   void SXFunction::call_fwd(const AlgEl& e, const T** arg, T** res, casadi_int* iw, T* w) const {
-    auto& m = call_.el[e.i1];
+    const auto& m = call_.el[e.i1];
     const T** call_arg   = arg;
     T** call_res         = res;
     casadi_int* call_iw  = iw;
@@ -1609,7 +1623,7 @@ namespace casadi {
 
   template<typename T>
   void SXFunction::call_rev(const AlgEl& e, T** arg, T** res, casadi_int* iw, T* w) const {
-    auto& m = call_.el[e.i1];
+    const auto& m = call_.el[e.i1];
     bvec_t** call_arg = arg;
     bvec_t** call_res       = res;
     casadi_int* call_iw     = iw;
@@ -1652,10 +1666,10 @@ namespace casadi {
       case OP_PARAMETER:
         w[e.i0] = 0; break;
       case OP_INPUT:
-        w[e.i0] = arg[e.i1]==nullptr ? 0 : arg[e.i1][e.i2];
+        w[e.i0] = (arg[e.i1]!=nullptr && is_diff_in_[e.i1]) ? arg[e.i1][e.i2] : 0;
         break;
       case OP_OUTPUT:
-        if (res[e.i0]!=nullptr) res[e.i0][e.i2] = w[e.i1];
+        if (res[e.i0]!=nullptr) res[e.i0][e.i2] = is_diff_out_[e.i0] ? w[e.i1] : 0;
         break;
       case OP_CALL:
         call_fwd(e, arg, res, iw, w);
@@ -1665,6 +1679,64 @@ namespace casadi {
       }
     }
     return 0;
+  }
+
+  int SXFunction::
+  eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w, void* mem) const {
+    const bvec_t nz = ~static_cast<bvec_t>(0);
+    // Propagate signal activity forward (bit set = active (possibly nonzero))
+    for (auto&& e : algorithm_) {
+      switch (e.op) {
+      case OP_CONST:
+        w[e.i0] = (e.d!=0) ? nz : 0; break;
+      case OP_PARAMETER:
+        w[e.i0] = nz; break;  // free variable: assume nonzero
+      case OP_INPUT:
+        w[e.i0] = (arg[e.i1]!=nullptr) ? arg[e.i1][e.i2] : 0;
+        break;
+      case OP_OUTPUT:
+        if (res[e.i0]!=nullptr) res[e.i0][e.i2] = w[e.i1];
+        break;
+      case OP_CALL:
+        call_activity(e, arg, res, iw, w);
+        break;
+      default: // Unary or binary operation
+        if (casadi_math<double>::ndeps(e.op)==1) {
+          // Zero input yields zero only for zero-preserving ops (sin, sqrt; not cos/exp)
+          w[e.i0] = w[e.i1] ? nz : (operation_checker<F0XChecker>(e.op) ? 0 : nz);
+        } else {
+          const bool z0 = w[e.i1]!=0, z1 = w[e.i2]!=0;
+          if (!z0 && !z1)      w[e.i0] = operation_checker<F00Checker>(e.op) ? 0 : nz;
+          else if (!z0 &&  z1) w[e.i0] = operation_checker<F0XChecker>(e.op) ? 0 : nz;
+          else if ( z0 && !z1) w[e.i0] = operation_checker<FX0Checker>(e.op) ? 0 : nz;
+          else                 w[e.i0] = nz;
+        }
+        break;
+      }
+    }
+    return 0;
+  }
+
+  void SXFunction::call_activity(const AlgEl& e, const bvec_t** arg, bvec_t** res,
+      casadi_int* iw, bvec_t* w) const {
+    const auto& m = call_.el[e.i1];
+    const bvec_t** call_arg = arg;
+    bvec_t** call_res       = res;
+    casadi_int* call_iw     = iw;
+    bvec_t* call_w          = w;
+    bvec_t* nz_in;
+    bvec_t* nz_out;
+
+    call_setup(m, &call_arg, &call_res, &call_iw, &call_w, &nz_in, &nz_out);
+
+    // Populate nz_in from work vector
+    for (casadi_int i=0; i<m.n_dep; ++i) nz_in[i] = w[m.dep[i]];
+    // Recurse: activity through the callee
+    m.f.eval_activity(call_arg, call_res, call_iw, call_w);
+    // Store nz_out results back in work vector
+    for (casadi_int i=0; i<m.n_res; ++i) {
+      if (m.res[i]>=0) w[m.res[i]] = nz_out[i];
+    }
   }
 
   int SXFunction::sp_reverse(bvec_t** arg, bvec_t** res,
@@ -1686,11 +1758,12 @@ namespace casadi {
         w[it->i0] = 0;
         break;
       case OP_INPUT:
-        if (arg[it->i1]!=nullptr) arg[it->i1][it->i2] |= w[it->i0];
+        if (arg[it->i1]!=nullptr && is_diff_in_[it->i1])
+          arg[it->i1][it->i2] |= w[it->i0];
         w[it->i0] = 0;
         break;
       case OP_OUTPUT:
-        if (res[it->i0]!=nullptr) {
+        if (res[it->i0]!=nullptr && is_diff_out_[it->i0]) {
           w[it->i1] |= res[it->i0][it->i2];
           res[it->i0][it->i2] = 0;
         }
@@ -1714,6 +1787,35 @@ namespace casadi {
 
   const std::vector<SX> SXFunction::sx_in() const {
     return in_;
+  }
+
+  std::vector<std::string> SXFunction::get_function() const {
+    std::map<std::string, bool> flagged;
+    for (auto&& a : algorithm_) {
+      if (a.op==OP_CALL) {
+        const auto& m = call_.el.at(a.i1);
+        const Function &f = m.f;
+        if (flagged.find(f.name())==flagged.end()) {
+          flagged[f.name()] = true;
+        }
+      }
+    }
+    std::vector<std::string> ret;
+    for (auto it : flagged) {
+      ret.push_back(it.first);
+    }
+    return ret;
+  }
+
+  const Function& SXFunction::get_function(const std::string &name) const {
+    for (auto&& a : algorithm_) {
+      if (a.op==OP_CALL) {
+        const auto& m = call_.el.at(a.i1);
+        const Function &f = m.f;
+        if (name==f.name()) return f;
+      }
+    }
+    casadi_error("No such function '" + name + "'.");
   }
 
   bool SXFunction::is_a(const std::string& type, bool recursive) const {
@@ -1942,13 +2044,25 @@ namespace casadi {
     return new SXFunction(s);
   }
 
-  void SXFunction::find(std::map<FunctionInternal*, Function>& all_fun,
+  void SXFunction::find(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
       casadi_int max_depth) const {
+    // Call to base class
+    FunctionInternal::find(all_fun, max_depth);
     for (auto&& e : algorithm_) {
       if (e.op == OP_CALL) {
         const ExtendedAlgEl& m = call_.el.at(e.i1);
         add_embedded(all_fun, m.f, max_depth);
       }
+    }
+  }
+
+  void SXFunction::change_option(const std::string& option_name,
+      const GenericType& option_value) {
+    if (option_name == "print_instructions") {
+      print_instructions_ = option_value;
+    } else {
+      // Option not found - continue to base classes
+      XFunction<SXFunction, SX, SXNode>::change_option(option_name, option_value);
     }
   }
 

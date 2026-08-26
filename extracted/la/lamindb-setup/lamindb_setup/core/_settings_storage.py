@@ -6,22 +6,12 @@ import string
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
-import fsspec
 from lamin_utils import logger
 
 from lamindb_setup.errors import StorageAlreadyManaged
 
-from ._aws_options import (
-    LAMIN_ENDPOINTS,
-    get_user_aws_options_manager,
-)
 from .hashing import hash_and_encode_as_b62
-from .upath import (
-    LocalPathClasses,
-    UPath,
-    create_path,
-    get_storage_region,
-)
+from .upath import UPath
 
 if TYPE_CHECKING:
     from lamindb import Storage
@@ -56,8 +46,16 @@ def get_storage_type(root_as_str: str) -> StorageType:
     return convert.get(protocol, protocol)  # type: ignore
 
 
+def get_storage_region(root: AnyPathStr) -> str | None:
+    from .upath import get_storage_region as _get_storage_region
+
+    return _get_storage_region(root)
+
+
 def sanitize_root_user_input(root: AnyPathStr) -> UPath:
     """Format a root path string."""
+    from .upath import LocalPathClasses, UPath
+
     root_upath = root if isinstance(root, UPath) else UPath(root)
     root_upath = root_upath.expanduser()
     if isinstance(root_upath, LocalPathClasses):  # local paths
@@ -70,6 +68,8 @@ def sanitize_root_user_input(root: AnyPathStr) -> UPath:
 
 
 def convert_sanitized_root_path_to_str(root_upath: UPath) -> str:
+    from ._aws_options import LAMIN_ENDPOINTS
+
     # embed endpoint_url into path string for storing and displaying
     if root_upath.protocol == "s3":
         endpoint_url = root_upath.storage_options.get("endpoint_url", None)
@@ -96,9 +96,26 @@ def mark_storage_root_file(path: UPath) -> UPath:
     return marker_path
 
 
+def parse_storage_mark(text: str) -> tuple[str, UUID | None]:
+    """Return `(uid, instance_id)` from a storage mark file."""
+    lines = text.splitlines()
+    existing_uid = lines[0] if lines else ""
+    marked_instance_id = None
+    for line in lines[1:]:
+        if line.startswith("instance_id="):
+            value = line.split("=", 1)[1].strip()
+            if value:
+                try:
+                    marked_instance_id = UUID(value)
+                except ValueError:
+                    pass
+            break
+    return existing_uid, marked_instance_id
+
+
 def mark_storage_root(
     root: AnyPathStr, uid: str, instance_id: UUID, instance_slug: str
-) -> Literal["__marked__"] | str:
+) -> Literal["__is_marked__"] | str:
     # we need a file in folder-like storage locations on S3 to avoid
     # permission errors from leveraging s3fs on an empty hosted storage location (path.fs.find raises a PermissionError)
     # we also need it in case a storage location is ambiguous because a server / local environment
@@ -112,16 +129,17 @@ def mark_storage_root(
             f"session in storage options: {'session' in root_upath.storage_options}"
         )
 
-    existing_uid = ""
+    existing_text = ""
     mark_upath = mark_storage_root_file(root_upath)
     if mark_upath.exists():
-        existing_uid = mark_upath.read_text().splitlines()[0]
+        existing_text = mark_upath.read_text()
+    existing_uid = existing_text.splitlines()[0] if existing_text else ""
     if existing_uid == "":
         instance_uid = instance_uid_from_uuid(instance_id)
         text = f"{uid}\ncreation info:\ninstance_slug={instance_slug}\ninstance_id={instance_id.hex}\ninstance_uid={instance_uid}"
         mark_upath.write_text(text)
     elif existing_uid != uid:
-        return uid
+        return existing_text
     # covers the case in which existing uid is the same as uid
     # and the case in which there was no existing uid
     return "__is_marked__"
@@ -131,7 +149,7 @@ def init_storage(
     root: AnyPathStr,
     instance_id: UUID,
     instance_slug: str,
-    register_hub: bool | None = None,
+    register_hub: bool = False,
     init_instance: bool = False,
     created_by: UUID | None = None,
     access_token: str | None = None,
@@ -142,11 +160,7 @@ def init_storage(
     StorageSettings,
     Literal["hub-record-not-created", "hub-record-retrieved", "hub-record-created"],
 ]:
-    from ._hub_core import (
-        delete_storage_record,
-        get_default_bucket_for_instance,
-        init_storage_hub,
-    )
+    import fsspec
 
     assert root is not None, "`root` argument can't be `None`"
 
@@ -163,6 +177,8 @@ def init_storage(
         # within LaminHub
         assert root_str.endswith(uid)
     if root_str.startswith("create-s3"):
+        from ._hub_core import get_default_bucket_for_instance
+
         if root_str != "create-s3":
             assert "--" in root_str, "example: `create-s3--eu-central-1`"
             region = root_str.replace("create-s3--", "")
@@ -190,14 +206,19 @@ def init_storage(
         raise ValueError(
             "`host` must be set for local storage locations that are registered on the hub"
         )
-    hub_record_status = init_storage_hub(
-        ssettings,
-        created_by=created_by,
-        access_token=access_token,
-        prevent_creation=not register_hub,
-        is_default=init_instance,
-        space_id=space_uuid,
-    )
+    if register_hub:
+        from ._hub_core import init_storage_hub
+
+        hub_record_status = init_storage_hub(
+            ssettings,
+            created_by=created_by,
+            access_token=access_token,
+            prevent_creation=False,
+            is_default=init_instance,
+            space_id=space_uuid,
+        )
+    else:
+        hub_record_status = "hub-record-not-created"
     # we check the write access here if the storage record has not been retrieved from the hub
     # Sergei: should it in fact still go through if hub_record_status == "hub-record-not-created"?
     if hub_record_status != "hub-record-retrieved" and not skip_mark_storage_root:
@@ -220,20 +241,26 @@ def init_storage(
                 )
                 ssettings._instance_id = None  # indicate that this storage location is not managed by the instance
             else:
+                existing_uid, marked_instance_id = parse_storage_mark(marking_result)
                 s = "S" if init_instance else "s"  # upper case for error message
                 message = (
-                    f"{s}torage location {ssettings.root_as_str} is already marked with uid {marking_result}, meaning that it is managed by another LaminDB instance -- "
+                    f"{s}torage location {ssettings.root_as_str} is already marked with uid {existing_uid}, meaning that it is managed by another LaminDB instance -- "
                     "if you manage your instance with LaminHub you get an overview of all your storage locations"
                 )
                 if init_instance:
                     raise StorageAlreadyManaged(message)
                 logger.warning(message)
-                ssettings._instance_id = UUID(
-                    "00000000000000000000000000000000"
-                )  # indicate not known
-                ssettings._uid = marking_result
+                if marked_instance_id is not None:
+                    ssettings._instance_id = marked_instance_id
+                else:
+                    ssettings._instance_id = UUID(
+                        "00000000000000000000000000000000"
+                    )  # indicate not known
+                ssettings._uid = existing_uid
             # this condition means that the hub record was created
             if ssettings._uuid is not None:
+                from ._hub_core import delete_storage_record
+
                 delete_storage_record(ssettings, access_token=access_token)  # type: ignore
                 ssettings._uuid_ = None
                 hub_record_status = "hub-record-not-created"
@@ -318,11 +345,7 @@ class StorageSettings:
             # dynamic import because of import order
             from lamindb.models import Storage
 
-            from ._settings import settings
-
-            self._record = Storage.objects.using(settings._using_key).get(
-                root=self.root_as_str
-            )
+            self._record = Storage.objects.get(root=self.root_as_str)
         return self._record
 
     @property
@@ -341,6 +364,9 @@ class StorageSettings:
     @property
     def root(self) -> UPath:
         """Root storage location."""
+        from ._aws_options import get_user_aws_options_manager
+        from .upath import create_path
+
         if self._root is None:
             # below makes network requests to get credentials
             self._root = create_path(self._root_init, access_token=self.access_token)
@@ -361,6 +387,8 @@ class StorageSettings:
         >>>    profile="some_profile", cache_regions=True
         >>> )
         """
+        from .upath import LocalPathClasses, UPath
+
         if not isinstance(self._root, LocalPathClasses) and kwargs != {}:
             self._root = UPath(self.root, **kwargs)
 
@@ -398,6 +426,8 @@ class StorageSettings:
     @property
     def region(self) -> str | None:
         """Storage region."""
+        from .upath import get_storage_region
+
         if self._region is None:
             self._region = get_storage_region(self.root_as_str)
         return self._region

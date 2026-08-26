@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lamindb_setup
-Version: 1.25.6
+Version: 1.25.7
 Summary: Setup & configure LaminDB.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10

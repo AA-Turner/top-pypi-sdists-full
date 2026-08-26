@@ -25,6 +25,8 @@ from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 
 from .literals import (
+    ApprovalActionTypeType,
+    ApprovalStatusType,
     AuthFlowType,
     CapabilityTypeType,
     ExecutionStatusType,
@@ -50,6 +52,7 @@ from .literals import (
     TaskSortOrderType,
     TaskStatusType,
     TaskTypeType,
+    ToolClassificationType,
     UserTypeType,
     ValidationStatusType,
     WebhookTypeType,
@@ -65,6 +68,8 @@ __all__ = (
     "AdditionalServiceDetailsTypeDef",
     "AdditionalServiceRegistrationStepTypeDef",
     "AgentSpaceTypeDef",
+    "ApprovalActionTypeDef",
+    "ApprovalPatternTypeDef",
     "AssetContentTypeDef",
     "AssetFileBodyOutputTypeDef",
     "AssetFileBodyTypeDef",
@@ -212,6 +217,8 @@ __all__ = (
     "MCPServerBearerTokenConfigTypeDef",
     "MCPServerConfigurationOutputTypeDef",
     "MCPServerConfigurationTypeDef",
+    "MCPServerDatadogConfigurationOutputTypeDef",
+    "MCPServerDatadogConfigurationTypeDef",
     "MCPServerDetailsTypeDef",
     "MCPServerGrafanaConfigurationOutputTypeDef",
     "MCPServerGrafanaConfigurationTypeDef",
@@ -222,6 +229,7 @@ __all__ = (
     "MCPServerSigV4ConfigurationOutputTypeDef",
     "MCPServerSigV4ConfigurationTypeDef",
     "MCPServerSigV4ServiceDetailsTypeDef",
+    "MCPToolDetailTypeDef",
     "MessageTypeDef",
     "NewRelicApiKeyConfigTypeDef",
     "NewRelicServiceAuthorizationConfigTypeDef",
@@ -307,6 +315,8 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateAgentSpaceInputTypeDef",
     "UpdateAgentSpaceOutputTypeDef",
+    "UpdateApprovalActionRequestTypeDef",
+    "UpdateApprovalActionResponseTypeDef",
     "UpdateAssetFileRequestTypeDef",
     "UpdateAssetFileResponseTypeDef",
     "UpdateAssetRequestTypeDef",
@@ -336,6 +346,8 @@ class AWSConfigurationTypeDef(TypedDict):
     assumableRoleArn: str
     accountId: str
     accountType: Literal["monitor"]
+    agentElevatedRoleArn: NotRequired[str]
+    agentElevatedRoleArnStatus: NotRequired[ValidationStatusType]
 
 class RegisteredAzureDevOpsServiceDetailsTypeDef(TypedDict):
     organizationName: str
@@ -418,6 +430,18 @@ class AgentSpaceTypeDef(TypedDict):
     description: NotRequired[str]
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
+    preferences: NotRequired[dict[Literal["elevatedActionsEnabled"], bool]]
+
+class ApprovalActionTypeDef(TypedDict):
+    toolUseId: NotRequired[str]
+    interruptId: NotRequired[str]
+    approvalId: NotRequired[str]
+    buttonText: NotRequired[str]
+    action: NotRequired[ApprovalActionTypeType]
+
+class ApprovalPatternTypeDef(TypedDict):
+    tool: str
+    argumentPins: Mapping[str, str]
 
 class AssetSourceUrlContentTypeDef(TypedDict):
     url: str
@@ -500,6 +524,7 @@ class CreateAgentSpaceInputTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    preferences: NotRequired[Mapping[Literal["elevatedActionsEnabled"], bool]]
 
 class ReferenceInputTypeDef(TypedDict):
     system: str
@@ -834,21 +859,9 @@ class MCPServerOAuthClientCredentialsConfigTypeDef(TypedDict):
     exchangeParameters: NotRequired[Mapping[str, str]]
     scopes: NotRequired[Sequence[str]]
 
-class MCPServerConfigurationOutputTypeDef(TypedDict):
-    tools: list[str]
-
-class MCPServerConfigurationTypeDef(TypedDict):
-    tools: Sequence[str]
-
-class MCPServerGrafanaConfigurationOutputTypeDef(TypedDict):
-    endpoint: str
-    organizationId: NotRequired[str]
-    tools: NotRequired[list[str]]
-
-class MCPServerGrafanaConfigurationTypeDef(TypedDict):
-    endpoint: str
-    organizationId: NotRequired[str]
-    tools: NotRequired[Sequence[str]]
+class MCPToolDetailTypeDef(TypedDict):
+    name: str
+    toolClassification: NotRequired[ToolClassificationType]
 
 class MCPServerNewRelicConfigurationTypeDef(TypedDict):
     accountId: str
@@ -860,12 +873,6 @@ class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
     roleArn: NotRequired[str]
     mcpRoleArn: NotRequired[str]
     customHeaders: NotRequired[Mapping[str, str]]
-
-class MCPServerSigV4ConfigurationOutputTypeDef(TypedDict):
-    tools: list[str]
-
-class MCPServerSigV4ConfigurationTypeDef(TypedDict):
-    tools: Sequence[str]
 
 class UserMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -978,11 +985,6 @@ SendMessageContentBlockStopEventTypeDef = TypedDict(
     },
 )
 
-class SendMessageContextTypeDef(TypedDict):
-    currentPage: NotRequired[str]
-    lastMessage: NotRequired[str]
-    userActionResponse: NotRequired[str]
-
 class SendMessageResponseCreatedEventTypeDef(TypedDict):
     responseId: NotRequired[str]
     sequenceNumber: NotRequired[int]
@@ -1015,6 +1017,8 @@ class SourceAwsConfigurationTypeDef(TypedDict):
     accountType: Literal["source"]
     assumableRoleArn: str
     externalId: NotRequired[str]
+    agentElevatedRoleArn: NotRequired[str]
+    agentElevatedRoleArnStatus: NotRequired[ValidationStatusType]
 
 class ServiceNowConfigurationTypeDef(TypedDict):
     instanceId: NotRequired[str]
@@ -1043,6 +1047,7 @@ class UpdateAgentSpaceInputTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     locale: NotRequired[str]
+    preferences: NotRequired[Mapping[Literal["elevatedActionsEnabled"], bool]]
 
 class UpdateBacklogTaskRequestTypeDef(TypedDict):
     agentSpaceId: str
@@ -1093,6 +1098,21 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
     oauth: NotRequired[OAuthAdditionalStepDetailsTypeDef]
+
+class SendMessageContextTypeDef(TypedDict):
+    currentPage: NotRequired[str]
+    lastMessage: NotRequired[str]
+    userActionResponse: NotRequired[str]
+    approvalAction: NotRequired[ApprovalActionTypeDef]
+
+class UpdateApprovalActionRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    approvalId: str
+    action: ApprovalActionTypeType
+    finalPattern: NotRequired[ApprovalPatternTypeDef]
+    reason: NotRequired[str]
+    ttlSeconds: NotRequired[int]
+    singleUse: NotRequired[bool]
 
 class AssetFileTypeDef(TypedDict):
     path: str
@@ -1216,6 +1236,12 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class UpdateAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateApprovalActionResponseTypeDef(TypedDict):
+    approvalId: str
+    status: ApprovalStatusType
+    expiresAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAssetResponseTypeDef(TypedDict):
@@ -1410,6 +1436,40 @@ class MCPServerAuthorizationConfigTypeDef(TypedDict):
     bearerToken: NotRequired[MCPServerBearerTokenConfigTypeDef]
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
 
+class MCPServerConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+    toolDetails: NotRequired[list[MCPToolDetailTypeDef]]
+
+class MCPServerConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
+    toolDetails: NotRequired[Sequence[MCPToolDetailTypeDef]]
+
+class MCPServerDatadogConfigurationOutputTypeDef(TypedDict):
+    enabledElevatedTools: NotRequired[list[MCPToolDetailTypeDef]]
+
+class MCPServerDatadogConfigurationTypeDef(TypedDict):
+    enabledElevatedTools: NotRequired[Sequence[MCPToolDetailTypeDef]]
+
+class MCPServerGrafanaConfigurationOutputTypeDef(TypedDict):
+    endpoint: str
+    organizationId: NotRequired[str]
+    tools: NotRequired[list[str]]
+    enabledElevatedTools: NotRequired[list[MCPToolDetailTypeDef]]
+
+class MCPServerGrafanaConfigurationTypeDef(TypedDict):
+    endpoint: str
+    organizationId: NotRequired[str]
+    tools: NotRequired[Sequence[str]]
+    enabledElevatedTools: NotRequired[Sequence[MCPToolDetailTypeDef]]
+
+class MCPServerSigV4ConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+    toolDetails: NotRequired[list[MCPToolDetailTypeDef]]
+
+class MCPServerSigV4ConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
+    toolDetails: NotRequired[Sequence[MCPToolDetailTypeDef]]
+
 class MCPServerSigV4ServiceDetailsTypeDef(TypedDict):
     name: str
     endpoint: str
@@ -1488,14 +1548,6 @@ class SendMessageContentBlockDeltaTypeDef(TypedDict):
     textDelta: NotRequired[SendMessageTextDeltaTypeDef]
     jsonDelta: NotRequired[SendMessageJsonDeltaTypeDef]
 
-class SendMessageRequestTypeDef(TypedDict):
-    agentSpaceId: str
-    executionId: str
-    content: str
-    context: NotRequired[SendMessageContextTypeDef]
-    userId: NotRequired[str]
-    assetIds: NotRequired[Sequence[str]]
-
 class SendMessageResponseCompletedEventTypeDef(TypedDict):
     responseId: NotRequired[str]
     usage: NotRequired[SendMessageUsageInfoTypeDef]
@@ -1511,6 +1563,8 @@ class SlackTransmissionTargetTypeDef(TypedDict):
 class RegisteredServiceTypeDef(TypedDict):
     serviceId: str
     serviceType: ServiceType
+    createdAt: datetime
+    updatedAt: datetime
     name: NotRequired[str]
     accessibleResources: NotRequired[list[dict[str, Any]]]
     additionalServiceDetails: NotRequired[AdditionalServiceDetailsTypeDef]
@@ -1523,6 +1577,15 @@ class RegisterServiceOutputTypeDef(TypedDict):
     kmsKeyArn: str
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class SendMessageRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    executionId: str
+    content: str
+    context: NotRequired[SendMessageContextTypeDef]
+    userId: NotRequired[str]
+    assetIds: NotRequired[Sequence[str]]
+    modelTier: NotRequired[str]
 
 class CreateAssetFileResponseTypeDef(TypedDict):
     file: AssetFileTypeDef
@@ -1778,7 +1841,7 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationOutputTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationOutputTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
-    mcpserverdatadog: NotRequired[dict[str, Any]]
+    mcpserverdatadog: NotRequired[MCPServerDatadogConfigurationOutputTypeDef]
     mcpserver: NotRequired[MCPServerConfigurationOutputTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
     mcpserversplunk: NotRequired[dict[str, Any]]
@@ -1799,7 +1862,7 @@ class ServiceConfigurationTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
-    mcpserverdatadog: NotRequired[Mapping[str, Any]]
+    mcpserverdatadog: NotRequired[MCPServerDatadogConfigurationTypeDef]
     mcpserver: NotRequired[MCPServerConfigurationTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
     mcpserversplunk: NotRequired[Mapping[str, Any]]

@@ -61,24 +61,19 @@ def _expr226(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
 
 class MapTreeNode_2[KEY, VALUE](MapTreeLeaf_2):
     def __init__(
-        self,
-        k: KEY,
-        v: VALUE,
-        left: MapTreeLeaf_2[KEY, VALUE] | None,
-        right: MapTreeLeaf_2[KEY, VALUE] | None,
-        h: int32,
+        self, k: KEY, v: VALUE, left: MapTreeLeaf_2[KEY, VALUE] | None, right: MapTreeLeaf_2[KEY, VALUE] | None, h: int
     ) -> None:
         super().__init__(k, v)
         self.left: MapTreeLeaf_2[Any, Any] | None = left
         self.right: MapTreeLeaf_2[Any, Any] | None = right
-        self.h: int32 = h
+        self.h: int = h
 
 
 MapTreeNode_2_reflection = _expr226
 
 
 def MapTreeNode_2__ctor_Z39DE9543[KEY, VALUE](
-    k: KEY, v: VALUE, left: MapTreeLeaf_2[KEY, VALUE] | None, right: MapTreeLeaf_2[KEY, VALUE] | None, h: int32
+    k: KEY, v: VALUE, left: MapTreeLeaf_2[KEY, VALUE] | None, right: MapTreeLeaf_2[KEY, VALUE] | None, h: int
 ) -> MapTreeNode_2[KEY, VALUE]:
     return MapTreeNode_2(k, v, left, right, h)
 
@@ -91,7 +86,7 @@ def MapTreeNode_2__get_Right[KEY, VALUE](_: MapTreeNode_2[KEY, VALUE]) -> MapTre
     return _.right
 
 
-def MapTreeNode_2__get_Height[KEY, VALUE](_: MapTreeNode_2[KEY, VALUE]) -> int32:
+def MapTreeNode_2__get_Height[KEY, VALUE](_: MapTreeNode_2[KEY, VALUE]) -> int:
     return _.h
 
 
@@ -99,19 +94,21 @@ def MapTreeModule_empty[KEY, VALUE](__unit: Unit = UNIT) -> MapTreeLeaf_2[KEY, V
     return None
 
 
-def MapTreeModule_sizeAux[KEY, VALUE](acc_mut: int32, m_mut: MapTreeLeaf_2[KEY, VALUE] | None) -> int32:
+def MapTreeModule_sizeAux[KEY, VALUE](acc_mut: int, m_mut: MapTreeLeaf_2[KEY, VALUE] | None) -> int:
     while True:
         (acc, m) = (acc_mut, m_mut)
         if m is not None:
             m2: MapTreeLeaf_2[Any, Any] = m
             if isinstance(m2, MapTreeNode_2):
                 mn: MapTreeNode_2[Any, Any] = m2
-                acc_mut = MapTreeModule_sizeAux(acc + int32.ONE, MapTreeNode_2__get_Left(mn))
+                acc_mut = MapTreeModule_sizeAux(
+                    (acc + 1) if (acc <= 2147483646) else int32(acc + 1), MapTreeNode_2__get_Left(mn)
+                )
                 m_mut = MapTreeNode_2__get_Right(mn)
                 continue
 
             else:
-                return acc + int32.ONE
+                return (acc + 1) if (acc <= 2147483646) else int32(acc + 1)
 
         else:
             return acc
@@ -119,75 +116,75 @@ def MapTreeModule_sizeAux[KEY, VALUE](acc_mut: int32, m_mut: MapTreeLeaf_2[KEY, 
         break
 
 
-def MapTreeModule_size[_A, _B](x: MapTreeLeaf_2[_A, _B] | None = None) -> int32:
-    return MapTreeModule_sizeAux(int32.ZERO, x)
+def MapTreeModule_size[_A, _B](x: MapTreeLeaf_2[_A, _B] | None = None) -> int:
+    return MapTreeModule_sizeAux(0, x)
 
 
 def MapTreeModule_mk[KEY, VALUE](
     l: MapTreeLeaf_2[KEY, VALUE] | None, k: KEY, v: VALUE, r: MapTreeLeaf_2[KEY, VALUE] | None = None
 ) -> MapTreeLeaf_2[KEY, VALUE] | None:
-    hl: int32
+    hl: int
     m: MapTreeLeaf_2[Any, Any] | None = l
     if m is not None:
         m2: MapTreeLeaf_2[Any, Any] = m
-        hl = MapTreeNode_2__get_Height(m2) if isinstance(m2, MapTreeNode_2) else int32.ONE
+        hl = MapTreeNode_2__get_Height(m2) if isinstance(m2, MapTreeNode_2) else 1
 
     else:
-        hl = int32.ZERO
+        hl = 0
 
-    hr: int32
+    hr: int
     m_1: MapTreeLeaf_2[Any, Any] | None = r
     if m_1 is not None:
         m2_1: MapTreeLeaf_2[Any, Any] = m_1
-        hr = MapTreeNode_2__get_Height(m2_1) if isinstance(m2_1, MapTreeNode_2) else int32.ONE
+        hr = MapTreeNode_2__get_Height(m2_1) if isinstance(m2_1, MapTreeNode_2) else 1
 
     else:
-        hr = int32.ZERO
+        hr = 0
 
-    m_2: int32 = hr if (hl < hr) else hl
-    if m_2 == int32.ZERO:
+    m_2: int = hr if (hl < hr) else hl
+    if m_2 == 0:
         return MapTreeLeaf_2__ctor_5BDDA1(k, v)
 
     else:
-        return MapTreeNode_2__ctor_Z39DE9543(k, v, l, r, m_2 + int32.ONE)
+        return MapTreeNode_2__ctor_Z39DE9543(k, v, l, r, (m_2 + 1) if (m_2 <= 2147483646) else int32(m_2 + 1))
 
 
 def MapTreeModule_rebalance[KEY, VALUE](
     t1: MapTreeLeaf_2[KEY, VALUE] | None, k: KEY, v: VALUE, t2: MapTreeLeaf_2[KEY, VALUE] | None = None
 ) -> MapTreeLeaf_2[KEY, VALUE] | None:
-    t1h: int32
+    t1h: int
     m: MapTreeLeaf_2[Any, Any] | None = t1
     if m is not None:
         m2: MapTreeLeaf_2[Any, Any] = m
-        t1h = MapTreeNode_2__get_Height(m2) if isinstance(m2, MapTreeNode_2) else int32.ONE
+        t1h = MapTreeNode_2__get_Height(m2) if isinstance(m2, MapTreeNode_2) else 1
 
     else:
-        t1h = int32.ZERO
+        t1h = 0
 
-    t2h: int32
+    t2h: int
     m_1: MapTreeLeaf_2[Any, Any] | None = t2
     if m_1 is not None:
         m2_1: MapTreeLeaf_2[Any, Any] = m_1
-        t2h = MapTreeNode_2__get_Height(m2_1) if isinstance(m2_1, MapTreeNode_2) else int32.ONE
+        t2h = MapTreeNode_2__get_Height(m2_1) if isinstance(m2_1, MapTreeNode_2) else 1
 
     else:
-        t2h = int32.ZERO
+        t2h = 0
 
-    if t2h > (t1h + int32.TWO):
+    if t2h > ((t1h + 2) if (t1h <= 2147483645) else int32(t1h + 2)):
         match_value: MapTreeLeaf_2[Any, Any] = value_1(t2)
         if isinstance(match_value, MapTreeNode_2):
             t2_0027: MapTreeNode_2[Any, Any] = match_value
 
-            def _arrow227(__unit: Unit = UNIT) -> int32:
+            def _arrow227(__unit: Unit = UNIT) -> int:
                 m_2: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Left(t2_0027))
                 if m_2 is not None:
                     m2_2: MapTreeLeaf_2[Any, Any] = m_2
-                    return MapTreeNode_2__get_Height(m2_2) if isinstance(m2_2, MapTreeNode_2) else int32.ONE
+                    return MapTreeNode_2__get_Height(m2_2) if isinstance(m2_2, MapTreeNode_2) else 1
 
                 else:
-                    return int32.ZERO
+                    return 0
 
-            if _arrow227() > (t1h + int32.ONE):
+            if _arrow227() > ((t1h + 1) if (t1h <= 2147483646) else int32(t1h + 1)):
                 match_value_1: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Left(t2_0027))
                 if isinstance(match_value_1, MapTreeNode_2):
                     t2l: MapTreeNode_2[Any, Any] = match_value_1
@@ -221,21 +218,21 @@ def MapTreeModule_rebalance[KEY, VALUE](
         else:
             raise Exception("internal error: Map.rebalance")
 
-    elif t1h > (t2h + int32.TWO):
+    elif t1h > ((t2h + 2) if (t2h <= 2147483645) else int32(t2h + 2)):
         match_value_2: MapTreeLeaf_2[Any, Any] = value_1(t1)
         if isinstance(match_value_2, MapTreeNode_2):
             t1_0027: MapTreeNode_2[Any, Any] = match_value_2
 
-            def _arrow228(__unit: Unit = UNIT) -> int32:
+            def _arrow228(__unit: Unit = UNIT) -> int:
                 m_3: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Right(t1_0027))
                 if m_3 is not None:
                     m2_3: MapTreeLeaf_2[Any, Any] = m_3
-                    return MapTreeNode_2__get_Height(m2_3) if isinstance(m2_3, MapTreeNode_2) else int32.ONE
+                    return MapTreeNode_2__get_Height(m2_3) if isinstance(m2_3, MapTreeNode_2) else 1
 
                 else:
-                    return int32.ZERO
+                    return 0
 
-            if _arrow228() > (t2h + int32.ONE):
+            if _arrow228() > ((t2h + 1) if (t2h <= 2147483646) else int32(t2h + 1)):
                 match_value_3: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Right(t1_0027))
                 if isinstance(match_value_3, MapTreeNode_2):
                     t1r: MapTreeNode_2[Any, Any] = match_value_3
@@ -278,10 +275,10 @@ def MapTreeModule_add[KEY, VALUE](
 ) -> MapTreeLeaf_2[KEY, VALUE] | None:
     if m is not None:
         m2: MapTreeLeaf_2[Any, Any] = m
-        c: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
+        c: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
         if isinstance(m2, MapTreeNode_2):
             mn: MapTreeNode_2[Any, Any] = m2
-            if c < int32.ZERO:
+            if c < 0:
                 return erase(
                     MapTreeModule_rebalance(
                         MapTreeModule_add(comparer, k, v, MapTreeNode_2__get_Left(mn)),
@@ -291,7 +288,7 @@ def MapTreeModule_add[KEY, VALUE](
                     )
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 return MapTreeNode_2__ctor_Z39DE9543(
                     k, v, MapTreeNode_2__get_Left(mn), MapTreeNode_2__get_Right(mn), MapTreeNode_2__get_Height(mn)
                 )
@@ -306,14 +303,14 @@ def MapTreeModule_add[KEY, VALUE](
                     )
                 )
 
-        elif c < int32.ZERO:
-            return MapTreeNode_2__ctor_Z39DE9543(k, v, MapTreeModule_empty(), m, int32.TWO)
+        elif c < 0:
+            return MapTreeNode_2__ctor_Z39DE9543(k, v, MapTreeModule_empty(), m, 2)
 
-        elif c == int32.ZERO:
+        elif c == 0:
             return MapTreeLeaf_2__ctor_5BDDA1(k, v)
 
         else:
-            return MapTreeNode_2__ctor_Z39DE9543(k, v, m, MapTreeModule_empty(), int32.TWO)
+            return MapTreeNode_2__ctor_Z39DE9543(k, v, m, MapTreeModule_empty(), 2)
 
     else:
         return MapTreeLeaf_2__ctor_5BDDA1(k, v)
@@ -326,15 +323,15 @@ def MapTreeModule_tryFind[KEY, VALUE](
         (comparer, k, m) = (comparer_mut, k_mut, m_mut)
         if m is not None:
             m2: MapTreeLeaf_2[Any, Any] = m
-            c: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
-            if c == int32.ZERO:
+            c: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
+            if c == 0:
                 return some(MapTreeLeaf_2__get_Value(m2))
 
             elif isinstance(m2, MapTreeNode_2):
                 mn: MapTreeNode_2[Any, Any] = m2
                 comparer_mut = comparer
                 k_mut = k
-                m_mut = MapTreeNode_2__get_Left(mn) if (c < int32.ZERO) else MapTreeNode_2__get_Right(mn)
+                m_mut = MapTreeNode_2__get_Left(mn) if (c < 0) else MapTreeNode_2__get_Right(mn)
                 continue
 
             else:
@@ -504,10 +501,10 @@ def MapTreeModule_remove[KEY, VALUE](
 ) -> MapTreeLeaf_2[KEY, VALUE] | None:
     if m is not None:
         m2: MapTreeLeaf_2[Any, Any] = m
-        c: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
+        c: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
         if isinstance(m2, MapTreeNode_2):
             mn: MapTreeNode_2[Any, Any] = m2
-            if c < int32.ZERO:
+            if c < 0:
                 return erase(
                     MapTreeModule_rebalance(
                         MapTreeModule_remove(comparer, k, MapTreeNode_2__get_Left(mn)),
@@ -517,7 +514,7 @@ def MapTreeModule_remove[KEY, VALUE](
                     )
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 if MapTreeNode_2__get_Left(mn) is None:
                     return erase(MapTreeNode_2__get_Right(mn))
 
@@ -544,7 +541,7 @@ def MapTreeModule_remove[KEY, VALUE](
                     )
                 )
 
-        elif c == int32.ZERO:
+        elif c == 0:
             return erase(MapTreeModule_empty())
 
         else:
@@ -564,8 +561,8 @@ def MapTreeModule_change[KEY, VALUE](
         m2: MapTreeLeaf_2[Any, Any] = m
         if isinstance(m2, MapTreeNode_2):
             mn: MapTreeNode_2[Any, Any] = m2
-            c: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(mn))
-            if c < int32.ZERO:
+            c: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(mn))
+            if c < 0:
                 return erase(
                     MapTreeModule_rebalance(
                         MapTreeModule_change(comparer, k, u, MapTreeNode_2__get_Left(mn)),
@@ -575,7 +572,7 @@ def MapTreeModule_change[KEY, VALUE](
                     )
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 match_value_1: Option[Any] = u(some(MapTreeLeaf_2__get_Value(mn)))
                 if match_value_1 is not None:
                     return MapTreeNode_2__ctor_Z39DE9543(
@@ -613,16 +610,16 @@ def MapTreeModule_change[KEY, VALUE](
                 )
 
         else:
-            c_1: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
-            if c_1 < int32.ZERO:
+            c_1: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
+            if c_1 < 0:
                 match_value_2: Option[Any] = u(None)
                 if match_value_2 is not None:
-                    return MapTreeNode_2__ctor_Z39DE9543(k, value_1(match_value_2), MapTreeModule_empty(), m, int32.TWO)
+                    return MapTreeNode_2__ctor_Z39DE9543(k, value_1(match_value_2), MapTreeModule_empty(), m, 2)
 
                 else:
                     return m
 
-            elif c_1 == int32.ZERO:
+            elif c_1 == 0:
                 match_value_3: Option[Any] = u(some(MapTreeLeaf_2__get_Value(m2)))
                 if match_value_3 is not None:
                     return MapTreeLeaf_2__ctor_5BDDA1(k, value_1(match_value_3))
@@ -633,7 +630,7 @@ def MapTreeModule_change[KEY, VALUE](
             else:
                 match_value_4: Option[Any] = u(None)
                 if match_value_4 is not None:
-                    return MapTreeNode_2__ctor_Z39DE9543(k, value_1(match_value_4), m, MapTreeModule_empty(), int32.TWO)
+                    return MapTreeNode_2__ctor_Z39DE9543(k, value_1(match_value_4), m, MapTreeModule_empty(), 2)
 
                 else:
                     return m
@@ -654,16 +651,16 @@ def MapTreeModule_mem[KEY, VALUE](
         (comparer, k, m) = (comparer_mut, k_mut, m_mut)
         if m is not None:
             m2: MapTreeLeaf_2[Any, Any] = m
-            c: int32 = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
+            c: int = comparer.Compare(k, MapTreeLeaf_2__get_Key(m2))
             if isinstance(m2, MapTreeNode_2):
                 mn: MapTreeNode_2[Any, Any] = m2
-                if c < int32.ZERO:
+                if c < 0:
                     comparer_mut = comparer
                     k_mut = k
                     m_mut = MapTreeNode_2__get_Left(mn)
                     continue
 
-                elif c == int32.ZERO:
+                elif c == 0:
                     return True
 
                 else:
@@ -673,7 +670,7 @@ def MapTreeModule_mem[KEY, VALUE](
                     continue
 
             else:
-                return c == int32.ZERO
+                return c == 0
 
         else:
             return False
@@ -923,15 +920,15 @@ def MapTreeModule_foldSectionOpt[KEY, VALUE, A](
                 m2: MapTreeLeaf_2[Any, Any] = m_1
                 if isinstance(m2, MapTreeNode_2):
                     mn: MapTreeNode_2[Any, Any] = m2
-                    c_lo_key: int32 = comparer.Compare(lo, MapTreeLeaf_2__get_Key(mn))
-                    c_key_hi: int32 = comparer.Compare(MapTreeLeaf_2__get_Key(mn), hi)
-                    x_2: Any = fold_from_to(f_1, MapTreeNode_2__get_Left(mn), x_1) if (c_lo_key < int32.ZERO) else x_1
+                    c_lo_key: int = comparer.Compare(lo, MapTreeLeaf_2__get_Key(mn))
+                    c_key_hi: int = comparer.Compare(MapTreeLeaf_2__get_Key(mn), hi)
+                    x_2: Any = fold_from_to(f_1, MapTreeNode_2__get_Left(mn), x_1) if (c_lo_key < 0) else x_1
                     x_3: Any = (
                         f_1(MapTreeLeaf_2__get_Key(mn), MapTreeLeaf_2__get_Value(mn), x_2)
-                        if ((c_key_hi <= int32.ZERO) if (c_lo_key <= int32.ZERO) else False)
+                        if ((c_key_hi <= 0) if (c_lo_key <= 0) else False)
                         else x_2
                     )
-                    if c_key_hi < int32.ZERO:
+                    if c_key_hi < 0:
                         f_1_mut = f_1
                         m_1_mut = MapTreeNode_2__get_Right(mn)
                         x_1_mut = x_3
@@ -941,9 +938,9 @@ def MapTreeModule_foldSectionOpt[KEY, VALUE, A](
                         return x_3
 
                 else:
-                    c_lo_key_1: int32 = comparer.Compare(lo, MapTreeLeaf_2__get_Key(m2))
-                    c_key_hi_1: int32 = comparer.Compare(MapTreeLeaf_2__get_Key(m2), hi)
-                    if (c_key_hi_1 <= int32.ZERO) if (c_lo_key_1 <= int32.ZERO) else False:
+                    c_lo_key_1: int = comparer.Compare(lo, MapTreeLeaf_2__get_Key(m2))
+                    c_key_hi_1: int = comparer.Compare(MapTreeLeaf_2__get_Key(m2), hi)
+                    if (c_key_hi_1 <= 0) if (c_lo_key_1 <= 0) else False:
                         return f_1(MapTreeLeaf_2__get_Key(m2), MapTreeLeaf_2__get_Value(m2), x_1)
 
                     else:
@@ -954,7 +951,7 @@ def MapTreeModule_foldSectionOpt[KEY, VALUE, A](
 
             break
 
-    if comparer.Compare(lo, hi) == int32.ONE:
+    if comparer.Compare(lo, hi) == 1:
         return x
 
     else:
@@ -995,32 +992,32 @@ def MapTreeModule_toList[KEY, VALUE](m: MapTreeLeaf_2[KEY, VALUE] | None = None)
     return loop(m, empty_1())
 
 
-def MapTreeModule_copyToArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None, arr: Array[Any], i: int32) -> None:
-    j: int32 = i
+def MapTreeModule_copyToArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None, arr: Array[Any], i: int) -> None:
+    j: int = i
 
-    def _arrow230(x: _A, y: _B, arr: Any = arr) -> None:
+    def _arrow229(x: _A, y: _B, arr: Any = arr) -> None:
         nonlocal j
         arr[j] = (x, y)
-        j = j + int32.ONE
+        j = (j + 1) if (j <= 2147483646) else int32(j + 1)
 
-    MapTreeModule_iter(_arrow230, m)
+    MapTreeModule_iter(_arrow229, m)
 
 
 def MapTreeModule_toArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None = None) -> Array[Any]:
     res: Array[Any] = zero_create(MapTreeModule_size(m), (cast(Any, None), cast(Any, None)))
-    MapTreeModule_copyToArray(m, res, int32.ZERO)
+    MapTreeModule_copyToArray(m, res, 0)
     return res
 
 
 def MapTreeModule_ofList[_A, _B](
     comparer: IComparer_1[_A], l: FSharpList[tuple[_A, _B]]
 ) -> MapTreeLeaf_2[_A, _B] | None:
-    def _arrow231(
+    def _arrow230(
         acc: MapTreeLeaf_2[_A, _B] | None, tupled_arg: tuple[_A, _B], comparer: Any = comparer
     ) -> MapTreeLeaf_2[_A, _B] | None:
         return erase(MapTreeModule_add(comparer, tupled_arg[0], tupled_arg[1], acc))
 
-    return erase(fold_1(_arrow231, MapTreeModule_empty(), l))
+    return erase(fold_1(_arrow230, MapTreeModule_empty(), l))
 
 
 def MapTreeModule_mkFromEnumerator[_A, _B](
@@ -1045,7 +1042,7 @@ def MapTreeModule_ofArray[KEY, VALUE](
     comparer: IComparer_1[KEY], arr: Array[tuple[KEY, VALUE]]
 ) -> MapTreeLeaf_2[KEY, VALUE] | None:
     res: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeModule_empty())
-    for idx in range(int32.ZERO, int32(len(arr)) - int32.ONE, 1):
+    for idx in range(0, tmp if (-2147483648 <= (tmp := len(arr) - 1) <= 2147483647) else int32(tmp), 1):
         for_loop_var: tuple[Any, Any] = arr[idx]
         res = MapTreeModule_add(comparer, for_loop_var[0], for_loop_var[1], res)
     return res
@@ -1065,12 +1062,15 @@ def MapTreeModule_ofSeq[KEY, VALUE](
             return erase(MapTreeModule_mkFromEnumerator(comparer, MapTreeModule_empty(), ie))
 
 
-def _expr232(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr231(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return record_type(
         "Map.MapTreeModule.MapIterator`2",
         Array([gen0, gen1]),
         MapTreeModule_MapIterator_2,
-        lambda: [("stack_", list_type(option_type(MapTreeLeaf_2_reflection(gen0, gen1)))), ("started_", bool_type)],
+        lambda: [
+            ("stack", list_type(option_type(MapTreeLeaf_2_reflection(gen0, gen1))), "stack_"),
+            ("started", bool_type, "started_"),
+        ],
     )
 
 
@@ -1083,7 +1083,7 @@ class MapTreeModule_MapIterator_2[KEY, VALUE](Record):
         return int(self.GetHashCode())
 
 
-MapTreeModule_MapIterator_2_reflection = _expr232
+MapTreeModule_MapIterator_2_reflection = _expr231
 
 
 def MapTreeModule_collapseLHS[KEY, VALUE](
@@ -1184,7 +1184,7 @@ def MapTreeModule_moveNext[KEY, VALUE](i: MapTreeModule_MapIterator_2[KEY, VALUE
 def MapTreeModule_mkIEnumerator[A, B](m: MapTreeLeaf_2[A, B] | None = None) -> IEnumerator[Any]:
     i: MapTreeModule_MapIterator_2[Any, Any] = MapTreeModule_mkIterator(m)
 
-    class ObjectExpr233(EnumeratorBase[Any], DisposableBase):
+    class ObjectExpr232(EnumeratorBase[Any], DisposableBase):
         def System_Collections_Generic_IEnumerator_1_get_Current(self, __unit: Unit = UNIT) -> Any:
             return MapTreeModule_current(i)
 
@@ -1201,7 +1201,7 @@ def MapTreeModule_mkIEnumerator[A, B](m: MapTreeLeaf_2[A, B] | None = None) -> I
         def Dispose(self, __unit: Unit = UNIT) -> None:
             pass
 
-    return ObjectExpr233()
+    return ObjectExpr232()
 
 
 def MapTreeModule_toSeq[_A, _B](s: MapTreeLeaf_2[_A, _B] | None = None) -> IEnumerable_1[Any]:
@@ -1220,19 +1220,19 @@ def MapTreeModule_leftmost[KEY, VALUE](m_mut: MapTreeLeaf_2[KEY, VALUE] | None) 
         (m,) = (m_mut,)
         if m is not None:
             m2: MapTreeLeaf_2[Any, Any] = m
-            (pattern_matching_result, nd_1) = nullable[int32, MapTreeNode_2[Any, Any]]()
+            (pattern_matching_result, nd_1) = nullable[int, MapTreeNode_2[Any, Any]]()
             if isinstance(m2, MapTreeNode_2):
-                if MapTreeNode_2__get_Height(m2) > int32.ONE:
-                    pattern_matching_result = int32(0)
+                if MapTreeNode_2__get_Height(m2) > 1:
+                    pattern_matching_result = 0
                     nd_1 = m2
 
                 else:
-                    pattern_matching_result = int32(1)
+                    pattern_matching_result = 1
 
             else:
-                pattern_matching_result = int32(1)
+                pattern_matching_result = 1
 
-            if pattern_matching_result == int32.ZERO:
+            if pattern_matching_result == 0:
                 if MapTreeNode_2__get_Left(nd_1) is None:
                     return (MapTreeLeaf_2__get_Key(nd_1), MapTreeLeaf_2__get_Value(nd_1))
 
@@ -1254,19 +1254,19 @@ def MapTreeModule_rightmost[KEY, VALUE](m_mut: MapTreeLeaf_2[KEY, VALUE] | None)
         (m,) = (m_mut,)
         if m is not None:
             m2: MapTreeLeaf_2[Any, Any] = m
-            (pattern_matching_result, nd_1) = nullable[int32, MapTreeNode_2[Any, Any]]()
+            (pattern_matching_result, nd_1) = nullable[int, MapTreeNode_2[Any, Any]]()
             if isinstance(m2, MapTreeNode_2):
-                if MapTreeNode_2__get_Height(m2) > int32.ONE:
-                    pattern_matching_result = int32(0)
+                if MapTreeNode_2__get_Height(m2) > 1:
+                    pattern_matching_result = 0
                     nd_1 = m2
 
                 else:
-                    pattern_matching_result = int32(1)
+                    pattern_matching_result = 1
 
             else:
-                pattern_matching_result = int32(1)
+                pattern_matching_result = 1
 
-            if pattern_matching_result == int32.ZERO:
+            if pattern_matching_result == 0:
                 if MapTreeNode_2__get_Right(nd_1) is None:
                     return (MapTreeLeaf_2__get_Key(nd_1), MapTreeLeaf_2__get_Value(nd_1))
 
@@ -1283,7 +1283,7 @@ def MapTreeModule_rightmost[KEY, VALUE](m_mut: MapTreeLeaf_2[KEY, VALUE] | None)
         break
 
 
-def _expr236(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr235(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Map.FSharpMap", Array([gen0, gen1]), FSharpMap)
 
 
@@ -1292,7 +1292,7 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
         self.comparer: IComparer_1[Any] = comparer
         self.tree: MapTreeLeaf_2[Any, Any] | None = tree
 
-    def GetHashCode(self, __unit: Unit = UNIT) -> int32:
+    def GetHashCode(self, __unit: Unit = UNIT) -> int:
         this: FSharpMap[Any, Any] = self
         return FSharpMap__ComputeHashCode(this)
 
@@ -1328,10 +1328,10 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
     def ToString(self, __unit: Unit = UNIT) -> str:
         this: FSharpMap[Any, Any] = self
 
-        def _arrow234(kv: Any) -> str:
+        def _arrow233(kv: Any) -> str:
             return format("({0}, {1})", kv[0], kv[1])
 
-        return ("map [" + join("; ", map_1(_arrow234, this))) + "]"
+        return ("map [" + join("; ", map_1(_arrow233, this))) + "]"
 
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
         _: FSharpMap[Any, Any] = self
@@ -1341,14 +1341,14 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
         _: FSharpMap[Any, Any] = self
         return MapTreeModule_mkIEnumerator(_.tree)
 
-    def CompareTo(self, other: Any = None) -> int32:
+    def CompareTo(self, other: Any = None) -> int:
         this: FSharpMap[Any, Any] = self
 
-        def _arrow235(kvp1: Any, kvp2: Any) -> int32:
-            c: int32 = this.comparer.Compare(kvp1[0], kvp2[0])
-            return c if (c != int32.ZERO) else compare(kvp1[1], kvp2[1])
+        def _arrow234(kvp1: Any, kvp2: Any) -> int:
+            c: int = this.comparer.Compare(kvp1[0], kvp2[0])
+            return c if (c != 0) else compare(kvp1[1], kvp2[1])
 
-        return compare_with(_arrow235, this, other) if isinstance(other, FSharpMap) else int32.ONE
+        return compare_with(_arrow234, this, other) if isinstance(other, FSharpMap) else 1
 
     def System_Collections_Generic_ICollection_1_Add2B595(self, x: Any = UNIT) -> None:
         ignore(x)
@@ -1365,18 +1365,18 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
         m: FSharpMap[Any, Any] = self
         return equals(FSharpMap__get_Item(m, x[0]), x[1]) if FSharpMap__ContainsKey(m, x[0]) else False
 
-    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, arr: Array[Any], i: int32) -> None:
+    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, arr: Array[Any], i: int) -> None:
         m: FSharpMap[Any, Any] = self
         MapTreeModule_copyToArray(m.tree, arr, i)
 
     def System_Collections_Generic_ICollection_1_get_IsReadOnly(self, __unit: Unit = UNIT) -> bool:
         return True
 
-    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         m: FSharpMap[Any, Any] = self
         return FSharpMap__get_Count(m)
 
-    def System_Collections_Generic_IReadOnlyCollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_IReadOnlyCollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         m: FSharpMap[Any, Any] = self
         return FSharpMap__get_Count(m)
 
@@ -1389,7 +1389,7 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
         return FSharpMap__ContainsKey(this, key)
 
     @property
-    def Count(self, __unit: Unit = UNIT) -> int32:
+    def Count(self, __unit: Unit = UNIT) -> int:
         this: FSharpMap[Any, Any] = self
         return FSharpMap__get_Count(this)
 
@@ -1407,7 +1407,7 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
             yield kv[0]
 
 
-FSharpMap_reflection = _expr236
+FSharpMap_reflection = _expr235
 
 
 def FSharpMap__ctor[KEY, VALUE](
@@ -1497,7 +1497,7 @@ def FSharpMap__Partition[KEY, VALUE](
     return (FSharpMap__ctor(m.comparer, pattern_input[0]), FSharpMap__ctor(m.comparer, pattern_input[1]))
 
 
-def FSharpMap__get_Count[KEY, VALUE](m: FSharpMap[KEY, VALUE]) -> int32:
+def FSharpMap__get_Count[KEY, VALUE](m: FSharpMap[KEY, VALUE]) -> int:
     return MapTreeModule_size(m.tree)
 
 
@@ -1554,11 +1554,11 @@ def FSharpMap__ToArray[KEY, VALUE](m: FSharpMap[KEY, VALUE]) -> Array[Any]:
     return MapTreeModule_toArray(m.tree)
 
 
-def FSharpMap__ComputeHashCode[KEY, VALUE](this: FSharpMap[KEY, VALUE]) -> int32:
-    def combine_hash(x: int32, y: int32) -> int32:
-        return ((x << int32.ONE) + y) + int32(631)
+def FSharpMap__ComputeHashCode[KEY, VALUE](this: FSharpMap[KEY, VALUE]) -> int:
+    def combine_hash(x: int, y: int) -> int:
+        return int32(((x << 1) + y) + 631)
 
-    res: int32 = int32.ZERO
+    res: int = 0
     with Disposable(get_enumerator(this)) as enumerator:
         while enumerator.System_Collections_IEnumerator_MoveNext():
             active_pattern_result: tuple[Any, Any] = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
@@ -1713,7 +1713,7 @@ def empty[KEY, VALUE](comparer: IComparer_1[KEY]) -> FSharpMap[KEY, VALUE]:
     return FSharpMap_Empty(comparer)
 
 
-def count[_A, _B](table: FSharpMap[_A, _B]) -> int32:
+def count[_A, _B](table: FSharpMap[_A, _B]) -> int:
     return FSharpMap__get_Count(table)
 
 

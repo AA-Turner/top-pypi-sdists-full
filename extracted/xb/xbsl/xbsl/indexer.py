@@ -45,13 +45,14 @@ from xbsl import __version__
 from xbsl import parser as P
 from xbsl import dataset, metamodel, terms
 from xbsl.dataset import PLACEHOLDER
-from xbsl.engine import SourceFile, find_sources, load
+from xbsl.engine import QUERY_SUFFIX, SourceFile, find_sources, load
 from xbsl.lexer import Token, linemap, tokens
 from xbsl.parser import parse
 from xbsl.rules._syntax import (
     _skip_balanced,
     _type_head,
     code_tokens,
+    query_ranges,
     signatures,
     type_expr,
 )
@@ -388,7 +389,8 @@ def _next_significant(toks: list, i: int, n: int) -> int:
     return j
 
 
-def _module_references(s: SourceFile, referable: set[str], module: str, path: str) -> list[dict]:
+def _module_references(s: SourceFile, referable: set[str], module: str, path: str,
+                       objects: set[str] | None = None) -> list[dict]:
     """Usages of indexable names in an .xbsl module: calls, member accesses, chain roots.
 
     For every identifier token whose value is in referable and which is a call (before `(`),
@@ -397,10 +399,17 @@ def _module_references(s: SourceFile, referable: set[str], module: str, path: st
     (otherwise ""). The name in a method/constructor declaration is skipped - that is a
     definition, not a usage; an annotation name (after `@`) is not counted as a reference.
     Positions: line 1-based, col 0-based (for the editor).
+
+    Inside a QUERY an object name counts on its own, touching neither a dot nor a parenthesis:
+    `ИЗ Товары КАК Т` names the table, and that is the very line a rename has to follow. Only
+    a name the project declares as an OBJECT is taken this way - a method name inside a query
+    is not a call - and the paired query file of a virtual table is one query from end to end,
+    so its FROM clause is covered by the same reading.
     """
     refs: list[dict] = []
     toks = tokens(s)
     n = len(toks)
+    query_spans = query_ranges(s) if objects else []
     for i, t in enumerate(toks):
         if t.kind != "IDENT" or t.value not in referable:
             continue
@@ -415,7 +424,11 @@ def _module_references(s: SourceFile, referable: set[str], module: str, path: st
         after_dot = prev is not None and prev.kind == "OP" and prev.value == "."
         before_dot = nxt is not None and nxt.kind == "OP" and nxt.value == "."
         is_call = nxt is not None and nxt.kind == "OP" and nxt.value == "("
-        if not (after_dot or before_dot or is_call):
+        in_query_table = (
+            objects is not None and t.value in objects
+            and any(start <= t.start < end for start, end in query_spans)
+        )
+        if not (after_dot or before_dot or is_call or in_query_table):
             continue
         qualifier = ""
         if after_dot:
@@ -711,10 +724,16 @@ def _form_components(s: SourceFile, data: dict, form: str, path: str) -> list[di
 # --- index ----------------------------------------------------------------------------------
 
 def _discover(root: Path) -> list[Path]:
-    """Source files under the root (or the root itself if it is a file), sorted."""
+    """Source files under the root (or the root itself if it is a file), sorted.
+
+    The query file of a virtual table counts as a source: it names project objects and their
+    fields, so leaving it out kept exactly those usages out of "find usages" - and out of the
+    editor's rename, while the CLI has been reading the same files since 14.08.
+    """
     if root.is_file():
-        return [root] if root.suffix in (".xbsl", ".yaml") else []
-    return find_sources(root, "*.yaml") + find_sources(root, "*.xbsl")
+        return [root] if root.suffix in (".xbsl", ".yaml", QUERY_SUFFIX) else []
+    return (find_sources(root, "*.yaml") + find_sources(root, "*.xbsl")
+            + find_sources(root, f"*{QUERY_SUFFIX}"))
 
 
 def build_index(root: Path) -> dict:
@@ -736,7 +755,7 @@ def build_index(root: Path) -> dict:
     # _project_object_info).
     local_types: dict[str, list[dict]] = defaultdict(list)
     for s in xbsl_sources:
-        owner = s.path.name[: -len(".xbsl")].split(".", 1)[0]
+        owner = s.path.stem.split(".", 1)[0]
         module_path = rel(s.path)
         for name, line in _file_local_type_decls(s):
             local_types[owner].append({"name": name, "path": module_path, "line": line})
@@ -752,7 +771,7 @@ def build_index(root: Path) -> dict:
         # The module that DECLARES the type: another module names it qualified
         # (`Каталог.Карточка`), and the type inference has to find the same record by either
         # spelling. The record is kept under the bare name; the qualified one is derived.
-        owner = s.path.name[: -len(".xbsl")].split(".", 1)[0]
+        owner = s.path.stem.split(".", 1)[0]
         for m in module.members:
             if isinstance(m, P.Structure):
                 rec = {
@@ -852,7 +871,7 @@ def build_index(root: Path) -> dict:
 
     methods: list[dict] = dictionary_methods
     for s in xbsl_sources:
-        module = s.path.name[: -len(".xbsl")]
+        module = s.path.stem
         module_path = rel(s.path)
         for decl in _method_decls(s):
             methods.append({
@@ -972,15 +991,16 @@ def build_index(root: Path) -> dict:
     # call/member/chain root in modules, plus methods in yaml handlers. Resolving a concrete
     # target (a method of module X, an object, a form component) is done by the navigation
     # core against this list.
+    object_names = {o["name"] for o in objects}
     referable = (
-        {o["name"] for o in objects}
+        object_names
         | {c["name"] for c in components}
         | {m["name"] for m in methods}
     )
     references: list[dict] = []
     for s in xbsl_sources:
-        module = s.path.name[: -len(".xbsl")]
-        references.extend(_module_references(s, referable, module, rel(s.path)))
+        module = s.path.stem
+        references.extend(_module_references(s, referable, module, rel(s.path), object_names))
     for s in yaml_sources:
         references.extend(_handler_references(s, s.path.stem, rel(s.path)))
 

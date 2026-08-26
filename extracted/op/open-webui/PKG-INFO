@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: open-webui
-Version: 0.11.0
+Version: 0.11.1
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -67,7 +67,7 @@ Classifier: Topic :: Multimedia
 Requires-Python: <3.13.0a1,>=3.11
 Requires-Dist: accelerate==1.13.0
 Requires-Dist: aiocache==0.12.3
-Requires-Dist: aiodns==4.0.4
+Requires-Dist: aiodns==3.6.1
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: aiohttp==3.13.5
 Requires-Dist: aiosqlite==0.22.1
@@ -138,6 +138,7 @@ Requires-Dist: pymdown-extensions==10.21.3
 Requires-Dist: pymysql==1.2.0
 Requires-Dist: pypandoc==1.17
 Requires-Dist: pypdf==6.7.5
+Requires-Dist: python-docx==1.2.0
 Requires-Dist: python-mimeparse==2.0.0
 Requires-Dist: python-multipart==0.0.32
 Requires-Dist: python-pptx==1.0.2
@@ -166,9 +167,7 @@ Requires-Dist: youtube-transcript-api==1.2.4
 Provides-Extra: all
 Requires-Dist: azure-search-documents==12.0.0; extra == 'all'
 Requires-Dist: colbert-ai==0.2.22; extra == 'all'
-Requires-Dist: docker~=7.1.0; extra == 'all'
 Requires-Dist: elasticsearch==9.4.1; extra == 'all'
-Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
 Requires-Dist: oracledb==3.4.2; extra == 'all'
 Requires-Dist: pgvector==0.4.2; extra == 'all'
 Requires-Dist: pinecone==6.0.2; extra == 'all'
@@ -176,8 +175,6 @@ Requires-Dist: playwright==1.60.0; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.12; extra == 'all'
 Requires-Dist: pymilvus==2.6.14; extra == 'all'
 Requires-Dist: pymongo==4.17.0; extra == 'all'
-Requires-Dist: pytest-docker~=3.2.5; extra == 'all'
-Requires-Dist: pytest~=8.4.1; extra == 'all'
 Requires-Dist: qdrant-client==1.18.0; extra == 'all'
 Requires-Dist: unstructured==0.22.31; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'

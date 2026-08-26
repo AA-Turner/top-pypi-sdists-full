@@ -89,13 +89,16 @@ class CASADI_EXPORT FmuInternal : public SharedObjectInternal {
 
   virtual int get_derivatives(void* instance, double* derivatives, size_t nx) const = 0;
 
+  // Set current time
+  virtual int set_time(void* instance, double t) const = 0;
+
   // Set real values
   virtual int set_real(void* instance, const unsigned int* vr, size_t n_vr,
     const double* values, size_t n_values) const = 0;
 
   // Get/evaluate real values
   virtual int get_real(void* instance, const unsigned int* vr, size_t n_vr,
-    double* values, size_t n_values) const = 0;
+    double* values, size_t n_values, FmuMemory* m = nullptr) const = 0;
 
   // Forward mode AD
   virtual int get_directional_derivative(void* instance, const unsigned int* vr_out, size_t n_out,
@@ -160,6 +163,15 @@ class CASADI_EXPORT FmuInternal : public SharedObjectInternal {
   // DLL suffix, per the FMI specification
   static std::string dll_suffix();
 
+  // Compile the C sources in the DaeBuilder::export_fmu map into a shared library;
+  // returns the map augmented with the amalgamation source and the compiled binary.
+  // opts: compiler, compiler_options, include_dirs.
+  static Dict compile_fmu(const std::string& name, const Dict& files, const Dict& opts);
+
+  // Pack a {local_file -> archive path} map into a single .fmu at 'path', then remove
+  // the local files. Returns the .fmu path.
+  static std::string pack_fmu(const Dict& files, const std::string& path);
+
   // Load an FMI function
   template<typename T>
   T* load_function(const std::string& symname);
@@ -193,6 +205,12 @@ class CASADI_EXPORT FmuInternal : public SharedObjectInternal {
 
   // Request the calculation of a variable
   void request(FmuMemory* m, size_t ind) const;
+
+  // Pass values to the FMU
+  int set_all(FmuMemory* m, const double* values, size_t n_values) const;
+
+  // Get values from the FMU
+  int get_all(FmuMemory* m, double* values, size_t n_values) const;
 
   // Calculate all requested variables
   int eval(FmuMemory* m) const;
@@ -317,6 +335,9 @@ class CASADI_EXPORT FmuInternal : public SharedObjectInternal {
   // Does the FMU declare restrictions on instantiation?
   bool can_be_instantiated_only_once_per_process_;
 
+  // Start time
+  double start_time_;
+
   /// DLL
   Importer li_;
 
@@ -325,6 +346,9 @@ class CASADI_EXPORT FmuInternal : public SharedObjectInternal {
 
   // Is there an independent variable?
   bool has_independent_;
+
+  // Corresponding value reference
+  unsigned int independent_vr_;
 
   // Meta information about the input/output variable subsets
   std::vector<double> nominal_in_, nominal_out_;
@@ -358,7 +382,7 @@ T* FmuInternal::load_function(const std::string& symname) {
   // Load the function
   signal_t f = li_.get_function(symname);
   // Ensure that it was found
-  casadi_assert(f != 0, "Cannot retrieve '" + symname + "'");
+  casadi_assert(f != nullptr, "Cannot retrieve '" + symname + "'");
   // Return function with the right type
   return reinterpret_cast<T*>(f);
 }

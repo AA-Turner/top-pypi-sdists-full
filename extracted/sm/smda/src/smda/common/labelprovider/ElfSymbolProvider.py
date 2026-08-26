@@ -4,6 +4,8 @@ import logging
 
 import lief
 
+from smda.utility.lief_helper import lief_name
+
 from .AbstractLabelProvider import AbstractLabelProvider
 from .import_parsers import parse_elf_relocation_imports
 from .ItaniumDemangler import demangle_itanium_symbol
@@ -85,23 +87,14 @@ class ElfSymbolProvider(AbstractLabelProvider):
 
     _isDefinedSymbol = staticmethod(is_defined_elf_symbol)
 
-    @staticmethod
-    def _getSymbolName(symbol):
-        try:
-            raw_name = symbol.name
-        except (AttributeError, UnicodeDecodeError):
-            return ""
-        return raw_name if isinstance(raw_name, str) else ""
+    _getSymbolName = staticmethod(lief_name)
 
     @classmethod
     def _formatSymbolName(cls, symbol):
         raw_name = cls._getSymbolName(symbol)
         if not raw_name:
             return ""
-        try:
-            demangled_name = getattr(symbol, "demangled_name", None)
-        except (AttributeError, UnicodeDecodeError):
-            demangled_name = None
+        demangled_name = lief_name(symbol, "demangled_name")
         if demangled_name and demangled_name != raw_name:
             return demangled_name
         return demangle_itanium_symbol(raw_name)
@@ -147,15 +140,15 @@ class ElfSymbolProvider(AbstractLabelProvider):
         return function_symbols
 
     def parseImports(self, lief_binary):
-        """Return relocation-backed imports with demangled, human-readable names.
+        """Return relocation-backed imports as the binary spells them.
 
-        Only this label view is demangled. ElfApiResolver consumes the undecorated
-        map so API references keep matching PE and Mach-O import names.
+        This is not a label view. It reaches xmetadata["imported_functions"], which
+        BinarySynthesizer writes back as the literal names of a reconstructed import table,
+        and which SmdaReport._mergeImportedFunctions fills from the undecorated API-resolver
+        view as well - so a demangled spelling here is both an unusable import name and a
+        second spelling of names already in the same dict.
         """
-        return {
-            address: (lib, demangle_itanium_symbol(name))
-            for address, (lib, name) in parse_elf_relocation_imports(lief_binary).items()
-        }
+        return parse_elf_relocation_imports(lief_binary)
 
     def collectSymbols(self, lief_binary):
         if not isinstance(lief_binary, lief.ELF.Binary):

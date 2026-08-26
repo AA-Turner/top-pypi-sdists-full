@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import IntEnum
 from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
-from .core import FSharpRef, int32
+from .core import FSharpRef
 from .types import IntegerTypes
 
 
@@ -98,11 +98,11 @@ class Uri:
         return unquote(res.geturl())
 
     @staticmethod
-    def create(uri: str | Uri, kind_or_uri: UriKind | Uri | str | int32 = UriKind.Absolute) -> Uri:
+    def create(uri: str | Uri, kind_or_uri: UriKind | Uri | str | int = UriKind.Absolute) -> Uri:
         return Uri(uri, kind_or_uri)
 
     @staticmethod
-    def try_create(uri: str | Uri, kind_or_uri: UriKind | Uri | str | int32, out: FSharpRef[Uri]) -> bool:
+    def try_create(uri: str | Uri, kind_or_uri: UriKind | Uri | str | int, out: FSharpRef[Uri]) -> bool:
         try:
             out.contents = Uri.create(uri, kind_or_uri)
             return True

@@ -24,6 +24,7 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import (
     apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
+    generate_s3_access_grants_configs,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
@@ -241,8 +242,8 @@ class EmrEksSparkSessionManager(SparkSessionManager):
     def _get_service_specific_configs(self) -> dict:
         """Build EMR on EKS-specific spark configs (Layer 2).
 
-        Includes compatibility mode configs and OpenLineage for data lineage tracking
-        (same as EC2/Glue, minus Glue-specific spark.glue.* keys).
+        Includes compatibility mode configs, OpenLineage for data lineage tracking, and
+        S3 Access Grants (same as EC2/Glue, minus Glue-specific spark.glue.* keys).
         OpenLineage can be disabled via ClientConfig(overrides={"emr-containers": {"enable_open_lineage": False}}).
         """
         configs = apply_compatibility_mode_configs({})
@@ -264,7 +265,13 @@ class EmrEksSparkSessionManager(SparkSessionManager):
         else:
             logger.info("OpenLineage disabled via ClientConfig overrides")
 
+        configs.update(self._get_s3_access_grants_configs())
+
         return configs
+
+    def _get_s3_access_grants_configs(self) -> dict:
+        """Get S3 Access Grants spark configs (shared implementation in spark_config_builder)."""
+        return generate_s3_access_grants_configs(getattr(self, "project", None))
 
     def _build_endpoint_params(self):
         """Build the parameters needed for create_managed_endpoint API call.

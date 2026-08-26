@@ -36,6 +36,34 @@ logger = logging.getLogger(__name__)
 # Default True preserves behavior for any direct caller that bypasses run().
 _MAKE_MAPS = True
 
+# How many regions to name on the per-region error scatters. Labelling every
+# point is unreadable at admin_2 scale — a Kenya county run put ~260 overlapping
+# names on each panel, hiding the very outliers the plot exists to surface.
+# Only the extremes are named; every region is still plotted as a point.
+_SCATTER_LABEL_N = 8
+# Extra labels for the largest-x regions, so the tail of the x-relationship
+# (biggest area / highest-yielding regions) stays identifiable even when those
+# regions have unremarkable error.
+_SCATTER_LABEL_N_X = 2
+
+
+def _log_scale_appropriate(values):
+    """Should an axis showing ``values`` use a log scale?
+
+    True only when the data is strictly positive AND a heavy tail crushes the
+    bulk on a linear axis (max/median > 30). Kenya admin_2 MAPE spans ~1% to
+    ~8000% — two junk-yield regions pinned the other 258 onto the x-axis line.
+    RMSE (~3x spread), yield (~3x) and area/production shares (which contain
+    exact zeros) all stay linear. Needs >= 8 points so a couple of values
+    can't flip the scale.
+    """
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    if len(v) < 8 or (v <= 0).any():
+        return False
+    med = float(np.median(v))
+    return med > 0 and float(v.max()) / med > 30
+
 # Re-export for local use
 _display_model_name = ut.display_model_name
 
@@ -662,6 +690,20 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
     df_all = pd.concat(frames, ignore_index=True).dropna(subset=["Yield (tn per ha)"])
     # Match the display units of the (already converted) predictions
     df_all = _convert_yield_columns(df_all, _yield_display_for(parser, crop)[1])
+    # Every window bound below is derived from Harvest Year, so rows without a
+    # parseable year are unusable. A statistics CSV can exist while carrying no
+    # observed yields (all-NaN yield column -> empty frame here) or no parseable
+    # years; both leave nothing to average. Fall back to the same empty-dict
+    # contract as the no-files case above instead of crashing on int(NaN).
+    df_all["Harvest Year"] = pd.to_numeric(df_all["Harvest Year"], errors="coerce")
+    df_all = df_all.dropna(subset=["Harvest Year"])
+    if df_all.empty:
+        logger.warning(
+            f"No usable observed baselines for {crop} in {list(countries)}: "
+            f"statistics CSV(s) found but no rows with both a yield and a "
+            f"Harvest Year. Skipping anomaly baselines."
+        )
+        return {}
     max_year = int(df_all["Harvest Year"].max())
     # 10yr upper bound: exclude current forecast year (use current_year-1 if known,
     # otherwise fall back to max_year-1 which may exclude the last observed season)
@@ -3346,7 +3388,19 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                                         s=45, color=_color, edgecolor="black",
                                         linewidth=0.4, alpha=0.85, zorder=3,
                                     )
-                                    for _, _r in _sub.iterrows():
+                                    # Name only the extremes. Every region is
+                                    # still drawn; labelling all of them buried
+                                    # the outliers under overlapping text at
+                                    # admin_2 scale. Worst error first, plus the
+                                    # largest-x regions so the tail stays
+                                    # identifiable.
+                                    _lab = _sub.nlargest(_SCATTER_LABEL_N, _metric)
+                                    if _SCATTER_LABEL_N_X:
+                                        _lab = pd.concat(
+                                            [_lab, _sub.nlargest(_SCATTER_LABEL_N_X, _xcol)]
+                                        )
+                                    _lab = _lab.drop_duplicates(subset=["Region"])
+                                    for _, _r in _lab.iterrows():
                                         _ax.annotate(
                                             _r["Region"][:12],
                                             xy=(_r[_xcol], _r[_metric]),
@@ -3362,6 +3416,20 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                                 _ax.set_xlabel(_xlabel)
                                 if _ci == 0:
                                     _ax.set_ylabel(_ylabel)
+                            # Log axes where the tail would otherwise crush the
+                            # bulk (decided once from the pooled data — panels
+                            # share axes, so all panels switch together).
+                            # Metric example: MAPE 1%..8000% -> log y; RMSE
+                            # stays linear. Share axes (contain zeros) and
+                            # yield (~3x spread) stay linear.
+                            if _log_scale_appropriate(_df_area[_metric].values):
+                                for _ax in axes[0]:
+                                    _ax.set_yscale("log")
+                            if _log_scale_appropriate(
+                                _df_area[_xcol].dropna().values
+                            ):
+                                for _ax in axes[0]:
+                                    _ax.set_xscale("log")
                             fig.suptitle(
                                 f"Per-region {_metric} vs {_xlabel} — {base_title} (latest stage)",
                                 fontweight="bold", fontsize=11,

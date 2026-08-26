@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-21T18:12:41.337722                                                            #
+# MF version: 2.19.37.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-08-25T23:04:30.451529                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ if typing.TYPE_CHECKING:
 from ...metaflow_current import current as current
 from ...exception import MetaflowException as MetaflowException
 from ...mf_extensions.outerbounds.remote_config import init_config as init_config
+from .kube_utils import KubernetesException as KubernetesException
 from .kubernetes_client import KubernetesClient as KubernetesClient
 
 ARGO_EVENTS_EVENT: None
@@ -68,6 +69,8 @@ KUBERNETES_SANDBOX_INIT_SCRIPT: None
 
 OTEL_ENDPOINT: None
 
+OTEL_SERVICE_NAME: str
+
 S3_ENDPOINT_URL: None
 
 S3_SERVER_SIDE_ENCRYPTION: None
@@ -95,9 +98,6 @@ STDOUT_PATH: str
 STDERR_PATH: str
 
 METAFLOW_PARALLEL_STEP_CLI_OPTIONS_TEMPLATE: str
-
-class KubernetesException(metaflow.exception.MetaflowException, metaclass=type):
-    ...
 
 class KubernetesKilledException(metaflow.exception.MetaflowException, metaclass=type):
     ...

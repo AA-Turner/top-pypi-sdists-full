@@ -41,8 +41,9 @@ def _claude_dir() -> Path:
     return _common.resolve_state_dir(".claude")
 
 
-def _run_uid_file() -> Path:
-    return _claude_dir() / f".lamindb_run_uid_{_session_id()}"
+def _run_uid_file(session_id: str | None = None) -> Path:
+    sid = session_id if session_id is not None else _session_id()
+    return _claude_dir() / f".lamindb_run_uid_{sid}"
 
 
 def _transcript_path_file() -> Path:
@@ -221,7 +222,13 @@ def finish_claudecode_session() -> None:
             _transcript_path_file().unlink()
             return
 
-        entries = _parse_transcript(transcript_path)
+        entries = _common.wait_for_finish_invocation(
+            read_fn=lambda: _parse_transcript(transcript_path),
+            is_done_fn=lambda entries: _common.contains_finish_invocation(
+                entries, _SHELL_TOOL_NAMES
+            ),
+            transcript_path=transcript_path,
+        )
         html_doc = _common.render_transcript_html(
             entries,
             is_bookkeeping_bash_cmd=_is_bookkeeping_bash_cmd,

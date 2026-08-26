@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.935"
+version = "0.4.944"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -114,6 +114,7 @@ dependencies = [
     # pandas 3.0.5. Drop this pin once the object-into-float assignment sites
     # are refactored to hold the wrapper outside the numeric frame.
     "pandas<3",
+    "openpyxl",               # pandas .xlsx engine - crop calendars, AMIS workbooks
 ]
 
 [project.optional-dependencies]
@@ -260,7 +261,8 @@ gmt = ">=6.5"
 pygmt = ">=0.14"
 # compiled numerics / ML (avoid PyPI source builds; pins mirror [project])
 numpy = "*"
-pandas = "*"
+pandas = "<3"             # mirror [project]: a conda-pinned pandas 3.x breaks the pypi solve
+openpyxl = "*"
 scipy = "*"
 matplotlib = "<3.11"
 numba = ">=0.59"

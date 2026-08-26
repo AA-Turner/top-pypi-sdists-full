@@ -48,6 +48,6 @@ class TableFilters:
         """Whether a `warehouse.schema.table` ref survives the client-side filters."""
         if self.schemas and _schema_name(table_ref) not in self.schemas:
             return False
-        if self.table_pattern and not _matches_pattern(table_ref, self.table_pattern):
-            return False
-        return True
+        return not (
+            self.table_pattern and not _matches_pattern(table_ref, self.table_pattern)
+        )

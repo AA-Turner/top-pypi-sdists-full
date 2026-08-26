@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Support version parsing of git tag with the ``<semver>+<local>`` pattern
-    according to the `PEP 440 specification <https://peps.python.org/pep-0440/#local-version-identifiers>`__.

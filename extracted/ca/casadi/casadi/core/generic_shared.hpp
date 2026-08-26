@@ -314,11 +314,12 @@ class CASADI_EXPORT WeakCache {
 
 // gcc-12 is overzealous about use-after-free warnings
 // <12 or >12 works fine
+#if __GNUC__
 #pragma GCC diagnostic push
 #if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ == 12)
 #pragma GCC diagnostic ignored "-Wuse-after-free"
 #endif
-
+#endif
 /**
  * Key is stored as a weakref
  * Value is stored as regular ref
@@ -387,7 +388,37 @@ class CASADI_EXPORT RevWeakCache {
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
 };
 
+#if __GNUC__
 #pragma GCC diagnostic pop
+#endif
+
+/**
+ * Simple cache template for regular (non-weak) key-value pairs
+ * Both key and value are stored as regular references
+ */
+template<typename K, typename T>
+class CASADI_EXPORT SimpleCache {
+  public:
+    void tocache(const K& key, const T& value) {
+      cache_[key] = value;
+    }
+
+    bool incache(const K& key, T& value) const {
+      auto it = cache_.find(key);
+      if (it != cache_.end()) {
+        value = it->second;
+        return true;
+      }
+      return false;
+    }
+
+    const std::unordered_map<K, T>& cache_map() const {
+      return cache_;
+    }
+
+  private:
+    std::unordered_map<K, T> cache_;
+};
 
 } // namespace casadi
 

@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from collections import defaultdict
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
-from skylos.analysis.penalties import apply_penalties
+from skylos.analysis.penalties import _check_abstract_overrides, apply_penalties
 from skylos.deadcode.config_entrypoints import configured_entrypoint_reason
 from skylos.engines.go_runner import GoEngineError
 
@@ -138,6 +138,65 @@ class TestSkylos:
         assert skylos.refs == []
         assert skylos.dynamic == set()
         assert isinstance(skylos.exports, defaultdict)
+
+    def test_instance_can_be_reused_without_leaking_prior_scan_state(
+        self, skylos, tmp_path
+    ):
+        old_module = tmp_path / "old_module.py"
+        old_module.write_text("def old_helper():\n    return 1\n", encoding="utf-8")
+
+        first = json.loads(
+            skylos.analyze(str(tmp_path), thr=0, grep_verify=False, trace_file=False)
+        )
+
+        old_module.unlink()
+        new_module = tmp_path / "new_module.py"
+        new_module.write_text("def new_helper():\n    return 2\n", encoding="utf-8")
+        second = json.loads(
+            skylos.analyze(str(tmp_path), thr=0, grep_verify=False, trace_file=False)
+        )
+
+        first_names = {finding["simple_name"] for finding in first["unused_functions"]}
+        second_names = {
+            finding["simple_name"] for finding in second["unused_functions"]
+        }
+        assert "old_helper" in first_names
+        assert "old_helper" not in second_names
+        assert "new_helper" in second_names
+
+    def test_reused_instance_clears_full_scan_caches_before_empty_scan(
+        self, skylos, tmp_path
+    ):
+        source_root = tmp_path / "source"
+        source_root.mkdir()
+        (source_root / "module.py").write_text(
+            "class Worker:\n    def helper(self):\n        return 1\n",
+            encoding="utf-8",
+        )
+
+        skylos.analyze(str(source_root), thr=0, grep_verify=False, trace_file=False)
+        stale_only_attributes = {
+            "_module_root_path",
+            "pattern_trackers",
+            "_global_type_map",
+            "_abstract_override_indexes",
+            "_grep_verify_report",
+            "_dead_code_liveness_report",
+            "ts_consumed_exports",
+            "_ts_demoted_exports",
+        }
+        assert stale_only_attributes <= skylos.__dict__.keys()
+
+        empty_root = tmp_path / "empty"
+        empty_root.mkdir()
+        result = json.loads(
+            skylos.analyze(str(empty_root), thr=0, grep_verify=False, trace_file=False)
+        )
+
+        assert result["analysis_summary"]["total_files"] == 0
+        assert stale_only_attributes.isdisjoint(skylos.__dict__)
+        assert skylos._project_root == empty_root
+        assert skylos._analysis_scope["repository_root"] == str(empty_root)
 
     def test_module_name_generation(self, skylos):
         root = Path("/project")
@@ -416,6 +475,136 @@ class TestSkylos:
         assert mock_import.references == 1
         assert mock_original.references == 2
 
+    def test_mark_refs_qualified_prefix_includes_descendant_definitions(
+        self, skylos, mock_definition
+    ):
+        nested = mock_definition(
+            name="package.Parent.Nested.target",
+            simple_name="target",
+            type="function",
+        )
+        other = mock_definition(
+            name="package.Other.target",
+            simple_name="target",
+            type="function",
+        )
+        skylos.defs = {
+            nested.name: nested,
+            other.name: other,
+        }
+        skylos.refs = [("package.Parent.target", Path("caller.py"))]
+        skylos._global_type_map = {}
+
+        skylos._mark_refs()
+
+        assert nested.references == 1
+        assert other.references == 0
+
+    def test_mark_refs_qualified_prefix_prefers_unique_same_file_definition(
+        self, skylos, mock_definition
+    ):
+        local = mock_definition(
+            name="package.Parent.Local.target",
+            simple_name="target",
+            type="function",
+        )
+        local.filename = Path("local.py")
+        remote = mock_definition(
+            name="package.Parent.Remote.target",
+            simple_name="target",
+            type="function",
+        )
+        remote.filename = Path("remote.py")
+        skylos.defs = {
+            local.name: local,
+            remote.name: remote,
+        }
+        skylos.refs = [("package.Parent.target", Path("local.py"))]
+        skylos._global_type_map = {}
+
+        skylos._mark_refs()
+
+        assert local.references == 1
+        assert remote.references == 0
+
+    def test_mark_refs_qualified_prefix_excludes_sibling_name_prefix(
+        self, skylos, mock_definition
+    ):
+        """`package.Parent` must not reach `package.Parents`.
+
+        The qualified lookup bounds its search at ``qualifier + "/"``, the code
+        point right after ``.``. A sibling whose name merely starts with the
+        same characters is not a dotted descendant and must stay unmatched.
+        """
+        sibling = mock_definition(
+            name="package.Parents.target",
+            simple_name="target",
+            type="function",
+        )
+        nested = mock_definition(
+            name="package.Parent.Nested.target",
+            simple_name="target",
+            type="function",
+        )
+        skylos.defs = {
+            sibling.name: sibling,
+            nested.name: nested,
+        }
+        skylos.refs = [("package.Parent.target", Path("caller.py"))]
+        skylos._global_type_map = {}
+
+        skylos._mark_refs()
+
+        assert nested.references == 1
+        assert sibling.references == 0
+
+    def test_mark_refs_qualified_prefix_leaves_three_way_ambiguity_unresolved(
+        self, skylos, mock_definition
+    ):
+        """More than two prefix matches stays ambiguous.
+
+        The qualified lookup stops collecting at two matches because callers
+        only distinguish zero / one / more-than-one. Truncation must not make
+        an unresolvable reference look resolvable.
+        """
+        definitions = []
+        for suffix, filename in (("A", "a.py"), ("B", "a.py"), ("C", "b.py")):
+            definition = mock_definition(
+                name=f"pkg.P.{suffix}.target",
+                simple_name="target",
+                type="function",
+            )
+            definition.filename = Path(filename)
+            definitions.append(definition)
+        skylos.defs = {d.name: d for d in definitions}
+        skylos.refs = [("pkg.P.target", Path("a.py"))]
+        skylos._global_type_map = {}
+
+        skylos._mark_refs()
+
+        assert [d.references for d in definitions] == [0, 0, 0]
+
+    def test_mark_refs_qualified_prefix_narrows_three_matches_by_file(
+        self, skylos, mock_definition
+    ):
+        """A unique same-file match wins even past the two-match cutoff."""
+        definitions = []
+        for suffix, filename in (("A", "a.py"), ("B", "b.py"), ("C", "c.py")):
+            definition = mock_definition(
+                name=f"pkg.P.{suffix}.target",
+                simple_name="target",
+                type="function",
+            )
+            definition.filename = Path(filename)
+            definitions.append(definition)
+        skylos.defs = {d.name: d for d in definitions}
+        skylos.refs = [("pkg.P.target", Path("c.py"))]
+        skylos._global_type_map = {}
+
+        skylos._mark_refs()
+
+        assert [d.references for d in definitions] == [0, 0, 1]
+
 
 class TestHeuristics:
     @pytest.fixture
@@ -649,6 +838,243 @@ class TestAnalyze:
         assert _architecture_iad_strict({"strict": True}) is False
         assert _architecture_iad_strict({"enforce_iad": True}) is True
         assert _architecture_iad_strict({"strict_iad": True}) is True
+
+    def test_init_explicit_all_only_keeps_declared_symbols_live(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            "from .core import public_reexport as package_api, stale_reexport\n\n"
+            '__all__ = ["LIVE_CONSTANT", "public_function", "package_api"]\n\n'
+            'LIVE_CONSTANT: str = "live"\n'
+            'DEAD_CONSTANT: str = "dead"\n\n'
+            "def public_function():\n"
+            "    return LIVE_CONSTANT\n\n"
+            "def dead_function():\n"
+            '    return "dead"\n',
+            encoding="utf-8",
+        )
+        (package / "core.py").write_text(
+            "def public_reexport():\n"
+            "    return 'public'\n\n"
+            "def stale_reexport():\n"
+            "    return 'stale'\n\n"
+            "def LIVE_CONSTANT():\n"
+            "    return 'same simple name in another module'\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in (
+                "unused_functions",
+                "unused_variables",
+                "unused_imports",
+            )
+            for item in result.get(category, [])
+        }
+
+        assert ("__init__.py", "LIVE_CONSTANT") not in dead
+        assert ("__init__.py", "public_function") not in dead
+        assert ("__init__.py", "public_reexport") not in dead
+        assert ("core.py", "public_reexport") not in dead
+        assert ("__init__.py", "DEAD_CONSTANT") in dead
+        assert ("__init__.py", "dead_function") in dead
+        assert ("__init__.py", "stale_reexport") in dead
+        assert ("core.py", "LIVE_CONSTANT") in dead
+
+    def test_init_empty_explicit_all_exports_nothing(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            "__all__ = []\n\n"
+            "PUBLIC_LOOKING_CONSTANT = 'dead'\n\n"
+            "def public_looking_function():\n"
+            "    return 'dead'\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in ("unused_functions", "unused_variables")
+            for item in result.get(category, [])
+        }
+
+        assert ("__init__.py", "PUBLIC_LOOKING_CONSTANT") in dead
+        assert ("__init__.py", "public_looking_function") in dead
+
+    def test_init_static_all_mutations_remain_authoritative(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            '__all__: list[str] = ["FIRST"]\n'
+            '__all__ += ("SECOND",)\n'
+            '__all__.append("third")\n'
+            '__all__.extend(["fourth"])\n\n'
+            'FIRST = "first"\n'
+            'SECOND = "second"\n\n'
+            "def third():\n"
+            '    return "third"\n\n'
+            "def fourth():\n"
+            '    return "fourth"\n\n'
+            "def stale():\n"
+            '    return "stale"\n',
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in ("unused_functions", "unused_variables")
+            for item in result.get(category, [])
+        }
+
+        assert ("__init__.py", "FIRST") not in dead
+        assert ("__init__.py", "SECOND") not in dead
+        assert ("__init__.py", "third") not in dead
+        assert ("__init__.py", "fourth") not in dead
+        assert ("__init__.py", "stale") in dead
+
+    def test_init_dynamic_all_mutation_falls_back_to_public_surface(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            'DYNAMIC_EXPORTS = ["maybe_exported"]\n'
+            '__all__ = ["declared"]\n'
+            "__all__.extend(DYNAMIC_EXPORTS)\n\n"
+            "def declared():\n"
+            '    return "declared"\n\n'
+            "def maybe_exported():\n"
+            '    return "maybe"\n\n'
+            "def public_because_surface_is_unknown():\n"
+            '    return "unknown"\n',
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in ("unused_functions", "unused_variables")
+            for item in result.get(category, [])
+        }
+
+        assert ("__init__.py", "declared") not in dead
+        assert ("__init__.py", "maybe_exported") not in dead
+        assert ("__init__.py", "public_because_surface_is_unknown") not in dead
+
+    def test_dynamic_all_preserves_observed_exports_in_regular_module(self, tmp_path):
+        (tmp_path / "app.py").write_text(
+            'DYNAMIC_NAME = "maybe_exported"\n'
+            '__all__ = ["known"]\n'
+            "__all__.append(DYNAMIC_NAME)\n\n"
+            "def known():\n"
+            '    return "known"\n\n'
+            "def stale():\n"
+            '    return "stale"\n',
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in ("unused_functions", "unused_variables")
+            for item in result.get(category, [])
+        }
+
+        assert ("app.py", "known") not in dead
+        assert ("app.py", "stale") in dead
+
+    def test_external_init_reexport_does_not_rescue_unrelated_local_name(
+        self, tmp_path
+    ):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            'from external import foo\n\n__all__ = ["foo"]\n',
+            encoding="utf-8",
+        )
+        (package / "local.py").write_text(
+            "def foo():\n    return 'dead local symbol'\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for item in result.get("unused_functions", [])
+        }
+
+        assert ("local.py", "foo") in dead
+
+    def test_init_without_explicit_all_remains_a_public_surface(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            "PUBLIC_CONSTANT = 'public'\n\n"
+            "def public_function():\n"
+            "    return PUBLIC_CONSTANT\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path),
+                conf=0,
+                grep_verify=False,
+                trace_file=False,
+            )
+        )
+        dead = {
+            (Path(item["file"]).name, item["simple_name"])
+            for category in ("unused_functions", "unused_variables")
+            for item in result.get(category, [])
+        }
+
+        assert ("__init__.py", "PUBLIC_CONSTANT") not in dead
+        assert ("__init__.py", "public_function") not in dead
 
     def test_package_subdir_scan_keeps_absolute_imports_live(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
@@ -1786,7 +2212,11 @@ max_args = false
                     None,
                 )
 
-                result_json = skylos.analyze("/fake/path", thr=60)
+                result_json = skylos.analyze(
+                    "/fake/path",
+                    thr=60,
+                    grep_verify=False,
+                )
                 result = json.loads(result_json)
 
                 assert len(result["unused_functions"]) == 1
@@ -1856,6 +2286,7 @@ class TestClass:
 
                     mock_visitor_class.assert_called_once_with("test_module", f.name)
                     mock_visitor.visit.assert_called_once()
+                    mock_framework_visitor_class.assert_called_once_with()
 
                     assert defs == []
                     assert refs == []
@@ -1870,6 +2301,63 @@ class TestClass:
                     assert empty_file_finding is None
             finally:
                 Path(f.name).unlink()
+
+    def test_proc_file_rejects_symlinked_python_source(self, tmp_path):
+        scan_root = tmp_path / "repo"
+        scan_root.mkdir()
+        outside = tmp_path / "outside.py"
+        outside.write_text(
+            "def outside_helper():\n    return 'secret'\n",
+            encoding="utf-8",
+        )
+        source_link = scan_root / "linked.py"
+        source_link.symlink_to(outside)
+
+        result = proc_file(
+            str(source_link),
+            "linked",
+            project_root=scan_root,
+        )
+
+        assert len(result) == 28
+        assert result[0] == []
+        assert result[19] == []
+        assert result[25]["rule_id"] == "SKY-ANALYSIS-INCOMPLETE"
+        assert result[25]["kind"] == "source_read_error"
+        assert result[25]["error_type"] == "SourceReadError"
+
+    def test_proc_file_rejects_oversized_python_source(self, monkeypatch, tmp_path):
+        from skylos.analysis import file_worker
+
+        monkeypatch.setattr(file_worker, "MAX_PYTHON_SOURCE_BYTES", 32)
+        source = tmp_path / "oversized.py"
+        source.write_bytes(b"#" * 33)
+
+        result = proc_file(str(source), "oversized", project_root=tmp_path)
+
+        assert len(result) == 28
+        assert result[0] == []
+        assert result[19] == []
+        assert result[25]["kind"] == "source_read_error"
+        assert result[25]["error_type"] == "SourceReadError"
+
+    def test_proc_file_accepts_source_at_size_limit(self, monkeypatch, tmp_path):
+        from skylos.analysis import file_worker
+
+        source_text = "value = 1\n"
+        monkeypatch.setattr(
+            file_worker,
+            "MAX_PYTHON_SOURCE_BYTES",
+            len(source_text.encode("utf-8")),
+        )
+        source = tmp_path / "bounded.py"
+        source.write_text(source_text, encoding="utf-8")
+
+        result = proc_file(str(source), "bounded", project_root=tmp_path)
+
+        assert len(result) == 28
+        assert result[19] == [source_text]
+        assert result[25] is None
 
     def test_proc_file_with_invalid_python(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -2085,6 +2573,79 @@ class TestClass:
 
 
 class TestApplyPenalties:
+    def test_abstract_override_lookup_indexes_definitions_once(self, mock_definition):
+        class CountingDefinitions(dict):
+            def __init__(self, definitions):
+                super().__init__(definitions)
+                self.items_calls = 0
+                self.values_calls = 0
+
+            def items(self):
+                self.items_calls += 1
+                return super().items()
+
+            def values(self):
+                self.values_calls += 1
+                return super().values()
+
+        base_class = mock_definition(
+            name="models.Base", simple_name="Base", type="class"
+        )
+        base_method = mock_definition(
+            name="models.Base.render_report_segment",
+            simple_name="render_report_segment",
+            type="method",
+        )
+        child_class = mock_definition(
+            name="models.Child", simple_name="Child", type="class"
+        )
+        child_class.base_classes = ["models.Base"]
+        child_method = mock_definition(
+            name="models.Child.render_report_segment",
+            simple_name="render_report_segment",
+            type="method",
+        )
+        external_class = mock_definition(
+            name="models.ExternalChild", simple_name="ExternalChild", type="class"
+        )
+        external_class.base_classes = ["framework.ExternalBase"]
+        external_methods = [
+            mock_definition(
+                name=f"models.ExternalChild.external_hook_{index}",
+                simple_name=f"external_hook_{index}",
+                type="method",
+            )
+            for index in range(2)
+        ]
+        definitions = CountingDefinitions(
+            {
+                definition.name: definition
+                for definition in (
+                    base_class,
+                    base_method,
+                    child_class,
+                    child_method,
+                    external_class,
+                    *external_methods,
+                )
+            }
+        )
+        analyzer = Skylos()
+        analyzer.defs = definitions
+        analyzer._global_abstract_methods = {}
+        analyzer._global_protocol_classes = set()
+        framework = Mock()
+        framework.abstract_methods = {}
+        framework.protocol_classes = set()
+
+        assert _check_abstract_overrides(child_method, analyzer, framework) is True
+        assert child_method.suppression_code == "parent_override"
+        for method in external_methods:
+            assert _check_abstract_overrides(method, analyzer, framework) == -40
+
+        assert definitions.values_calls == 1
+        assert definitions.items_calls == 0
+
     @pytest.mark.parametrize(
         ("filename", "def_type", "expected_reason"),
         [
@@ -3388,6 +3949,133 @@ def fake_call():
             "low_entropy_uuid",
         }
 
+    def test_analyze_flags_concrete_ellipsis_default(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("SKYLOS_JOBS", "1")
+        src = tmp_path / "app.py"
+        src.write_text(
+            "def read(length: int = ...) -> int:\n"
+            "    return length + 5\n"
+            "\n"
+            "read()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, enable_quality=True, grep_verify=False)
+        )
+        findings = [
+            finding
+            for finding in result.get("quality", [])
+            if finding.get("rule_id") == "SKY-L026"
+        ]
+
+        assert result.get("analysis_errors", []) == []
+        assert len(findings) == 1
+        assert findings[0]["name"] == "read"
+        assert findings[0]["parameter"] == "length"
+        assert findings[0]["line"] == 1
+
+    def test_analyze_handles_protocol_positional_only_ellipsis_default(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("SKYLOS_JOBS", "1")
+        src = tmp_path / "protocols.py"
+        src.write_text(
+            """
+from typing import Protocol
+
+class SupportsRead(Protocol):
+    def read(self, length: int = ..., /) -> bytes:
+        ...
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, enable_quality=True, grep_verify=False)
+        )
+        assert result.get("analysis_errors", []) == []
+        l032 = [
+            f for f in result.get("quality", []) if f.get("rule_id") == "SKY-L032"
+        ]
+        l026 = [
+            f for f in result.get("quality", []) if f.get("rule_id") == "SKY-L026"
+        ]
+        assert l032 == []
+        assert l026 == []
+
+    def test_analyze_keeps_ellipsis_defaults_valid_in_stub_files(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("SKYLOS_JOBS", "1")
+        (tmp_path / "contracts.pyi").write_text(
+            "def read(length: int = ...) -> int: ...\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, enable_quality=True, grep_verify=False)
+        )
+        l026 = [
+            finding
+            for finding in result.get("quality", [])
+            if finding.get("rule_id") == "SKY-L026"
+        ]
+
+        assert result.get("analysis_errors", []) == []
+        assert l026 == []
+
+    def test_analyze_handles_positional_only_boolean_traps_and_setters(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("SKYLOS_JOBS", "1")
+        src = tmp_path / "boolean_traps.py"
+        src.write_text(
+            """
+def render_page(page: str, recurse: bool = True, /, name: str = "index") -> str:
+    return page
+
+def paginate(page: str, deep=True, /, name: str = "index") -> str:
+    return page
+
+class Settings:
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._enabled = value
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, enable_quality=True, grep_verify=False)
+        )
+        assert result.get("analysis_errors", []) == []
+        findings = [
+            finding
+            for finding in result.get("quality", [])
+            if finding.get("rule_id") == "SKY-L029"
+        ]
+        assert [finding["simple_name"] for finding in findings] == [
+            "recurse",
+            "deep",
+        ]
+
     def test_analyze_flags_no_effect_statement(self, tmp_path):
         src = tmp_path / "app.py"
         src.write_text(
@@ -3593,6 +4281,300 @@ def test_changed_files_scans_dotenv_for_secrets(tmp_path):
         )
 
     assert ".env" in scanned
+
+
+def test_computed_checksum_field_does_not_hide_real_secret_in_analyzer(tmp_path):
+    github_token = "ghp_" + "1234567890abcdef" * 2 + "1234"
+    (tmp_path / "app.py").write_text(
+        "integrity = sum(len(project.integrity_warnings) "
+        "for project in report.projects)\n"
+        f'checksum = "{github_token}"\n',
+        encoding="utf-8",
+    )
+
+    result = json.loads(analyze(str(tmp_path), enable_secrets=True, grep_verify=False))
+    findings = [
+        finding
+        for finding in result.get("secrets", [])
+        if finding.get("rule_id") == "SKY-S101" and finding.get("file") == "app.py"
+    ]
+
+    assert not any(finding.get("line") == 1 for finding in findings)
+    assert any(
+        finding.get("line") == 2 and finding.get("provider") == "github"
+        for finding in findings
+    )
+
+
+def _issue_706_cache_file(root):
+    github_token = "ghp_" + "1234567890abcdef" * 2 + "1234"
+    cache_file = root / ".skylos" / "cache" / "grep_results.json"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.write_text(  # skylos: ignore[SKY-D324] all callers pass pytest-owned temp roots
+        json.dumps(
+            {
+                "version": 1,
+                "entries": {
+                    "stale": {
+                        "results": [f"app.py:1:cached_helper(); token={github_token}"],
+                        "last_access": 1,
+                        "created": 1,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return cache_file
+
+
+def _issue_706_cache_findings(result):
+    return [
+        finding
+        for finding in result.get("secrets", [])
+        if finding.get("file") == ".skylos/cache/grep_results.json"
+    ]
+
+
+def _issue_706_init_ignored_cache_repo(root):
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / ".gitignore").write_text(  # skylos: ignore[SKY-D324] all callers pass pytest-owned temp roots
+        ".skylos/\n", encoding="utf-8"
+    )
+
+
+def test_recursive_secret_scan_skips_untracked_generated_grep_cache(tmp_path):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_init_ignored_cache_repo(tmp_path)
+    _issue_706_cache_file(tmp_path)
+
+    result = json.loads(
+        analyze(str(tmp_path), enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_706_cache_findings(result) == []
+
+
+def test_non_git_project_skips_its_generated_grep_cache(tmp_path):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_cache_file(tmp_path)
+
+    result = json.loads(
+        analyze(str(tmp_path), enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_706_cache_findings(result) == []
+
+
+def test_grep_evidence_with_secret_is_not_persisted_in_project(tmp_path):
+    _issue_706_init_ignored_cache_repo(tmp_path)
+    github_token = "ghp_" + "1234567890abcdef" * 2 + "1234"
+    (tmp_path / "target.py").write_text(
+        "def cached_helper():\n    pass\n",
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence.yaml"
+    evidence.write_text(
+        f"entry: target.py # {github_token}\n",
+        encoding="utf-8",
+    )
+
+    first = json.loads(
+        analyze(
+            str(tmp_path),
+            conf=0,
+            enable_secrets=True,
+            grep_verify=True,
+        )
+    )
+    cache_file = tmp_path / ".skylos" / "cache" / "grep_results.json"
+
+    assert list(cache_file.parent.glob(cache_file.name)) == []
+    assert any(
+        finding.get("file") == "evidence.yaml"
+        and finding.get("provider") == "github"
+        for finding in first.get("secrets", [])
+    )
+    assert not any(
+        finding.get("full_name") == "target.cached_helper"
+        for finding in first.get("unused_functions", [])
+    )
+
+    evidence.write_text("entry: target.py\n", encoding="utf-8")
+    second = json.loads(
+        analyze(
+            str(tmp_path),
+            conf=0,
+            enable_secrets=True,
+            grep_verify=True,
+        )
+    )
+
+    assert list(cache_file.parent.glob(cache_file.name)) == []
+    assert _issue_706_cache_findings(second) == []
+    assert second.get("secrets", []) == []
+    assert not any(
+        finding.get("full_name") == "target.cached_helper"
+        for finding in second.get("unused_functions", [])
+    )
+
+
+def test_recursive_secret_scan_keeps_tracked_grep_cache_visible(tmp_path):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_init_ignored_cache_repo(tmp_path)
+    cache_file = _issue_706_cache_file(tmp_path)
+    subprocess.run(
+        ["git", "add", "-f", "--", ".skylos/cache/grep_results.json"],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    result = json.loads(
+        analyze(str(tmp_path), enable_secrets=True, grep_verify=False)
+    )
+
+    cache_findings = _issue_706_cache_findings(result)
+    assert cache_findings
+    assert any(finding.get("provider") == "github" for finding in cache_findings)
+    assert cache_file.exists()
+
+
+def test_nested_git_repo_uses_its_own_tracked_cache_state(tmp_path):
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_init_ignored_cache_repo(nested)
+    _issue_706_cache_file(nested)
+    subprocess.run(
+        ["git", "add", "-f", "--", ".skylos/cache/grep_results.json"],
+        cwd=nested,
+        check=True,
+    )
+
+    result = json.loads(
+        analyze(str(nested), enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_706_cache_findings(result)
+
+
+def test_generated_grep_cache_git_probe_failure_scans_fail_closed(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_cache_file(tmp_path)
+    monkeypatch.setattr("skylos.analyzer._git_tracking_status", lambda _path: None)
+
+    result = json.loads(
+        analyze(str(tmp_path), enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_706_cache_findings(result)
+
+
+@pytest.mark.parametrize("target_kind", ["file", "cache_dir", "cache_root"])
+def test_explicit_generated_grep_cache_scan_is_not_suppressed(tmp_path, target_kind):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_init_ignored_cache_repo(tmp_path)
+    cache_file = _issue_706_cache_file(tmp_path)
+    targets = {
+        "file": cache_file,
+        "cache_dir": cache_file.parent,
+        "cache_root": cache_file.parent.parent,
+    }
+
+    result = json.loads(
+        analyze(str(targets[target_kind]), enable_secrets=True, grep_verify=False)
+    )
+
+    assert any(
+        finding.get("provider") == "github"
+        for finding in result.get("secrets", [])
+    )
+
+
+def test_changed_files_explicitly_selected_grep_cache_is_scanned(tmp_path):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    _issue_706_init_ignored_cache_repo(tmp_path)
+    cache_file = _issue_706_cache_file(tmp_path)
+
+    result = json.loads(
+        analyze(
+            str(tmp_path),
+            enable_secrets=True,
+            grep_verify=False,
+            changed_files={str(cache_file)},
+        )
+    )
+
+    assert _issue_706_cache_findings(result)
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        ".skylos/cache/other.json",
+        "src/.skylos/cache/grep_results.json",
+    ],
+)
+def test_grep_cache_lookalike_paths_remain_scannable(tmp_path, relative_path):
+    (tmp_path / "app.py").write_text("print('clean')\n", encoding="utf-8")
+    github_token = "ghp_" + "1234567890abcdef" * 2 + "1234"
+    lookalike = tmp_path / relative_path
+    lookalike.parent.mkdir(parents=True, exist_ok=True)
+    lookalike.write_text(  # skylos: ignore[SKY-D215,SKY-D324] literal pytest parametrization under tmp_path
+        json.dumps({"token": github_token}), encoding="utf-8"
+    )
+
+    result = json.loads(
+        analyze(str(tmp_path), enable_secrets=True, grep_verify=False)
+    )
+
+    assert any(
+        finding.get("file") == relative_path
+        and finding.get("provider") == "github"
+        for finding in result.get("secrets", [])
+    )
+
+
+@pytest.mark.parametrize(
+    "returncode,expected",
+    [(0, True), (1, False), (2, None)],
+)
+def test_generated_grep_cache_tracking_status_is_fail_closed(
+    tmp_path, returncode, expected
+):
+    from skylos.analyzer import _git_tracking_status
+
+    (tmp_path / ".git").mkdir()
+    candidate = tmp_path / ".skylos" / "cache" / "grep_results.json"
+    with patch(
+        "skylos.analyzer.subprocess.run",
+        return_value=subprocess.CompletedProcess([], returncode),
+    ) as git_run:
+        actual = _git_tracking_status(candidate)
+
+    assert actual is expected
+    assert git_run.call_args.args[0] == [
+        "git",
+        "ls-files",
+        "--error-unmatch",
+        "--",
+        ".skylos/cache/grep_results.json",
+    ]
+
+
+def test_generated_grep_cache_tracking_timeout_is_unknown(tmp_path):
+    from skylos.analyzer import _git_tracking_status
+
+    (tmp_path / ".git").mkdir()
+    candidate = tmp_path / ".skylos" / "cache" / "grep_results.json"
+    with patch(
+        "skylos.analyzer.subprocess.run",
+        side_effect=subprocess.TimeoutExpired("git", 5),
+    ):
+        assert _git_tracking_status(candidate) is None
 
 
 _ISSUE_693_UV_LOCK = """\

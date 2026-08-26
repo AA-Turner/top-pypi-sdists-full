@@ -71,6 +71,7 @@ from mixpeek.models.app_logs_response import AppLogsResponse
 from mixpeek.models.app_response import AppResponse
 from mixpeek.models.app_user_response import AppUserResponse
 from mixpeek.models.apply_cluster_enrichment_request import ApplyClusterEnrichmentRequest
+from mixpeek.models.apply_mode import ApplyMode
 from mixpeek.models.apply_promo_request import ApplyPromoRequest
 from mixpeek.models.apply_promo_response import ApplyPromoResponse
 from mixpeek.models.apply_result import ApplyResult

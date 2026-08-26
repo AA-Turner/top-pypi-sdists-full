@@ -243,7 +243,6 @@ class RunCache:
         self._profiles = profiles
         self._deferred_relation_resolver = deferred_relation_resolver
         self._dev_cloned_nodes: t.Set[str] = set()
-        self._deferred_fqns: t.Set[str] = set()
         self._adapter_ext = adapter_ext
         self._config = config
         self._manifest = manifest
@@ -432,9 +431,6 @@ class RunCache:
         - The node is not ephemeral
         - The node is not in the selected resource set
 
-        Also tracks the deferred relation name in ``_deferred_nodes`` for lenient
-        dependency matching in cache requests.
-
         Args:
             node: The manifest node to potentially defer.
 
@@ -481,7 +477,6 @@ class RunCache:
                 dev_relation.render(),
                 target_relation_name,
             )
-        self._deferred_fqns.add(self._adapter_ext.relation_to_fqn(target_relation))
         return defer_rel
 
     def cache_compiled_view_sql(self, node: ManifestSQLNode) -> None:
@@ -1475,7 +1470,6 @@ class RunCache:
                 sql=sql,
                 semantic_extras=self._persisted_docs_semantic_extras(node),
                 freshness_tolerance_seconds=0,
-                lenient_dependencies=set(),
                 tolerate_nondeterminism=True,
                 labels=self._get_request_labels(node),
                 clone_time_travel_limit=self._clone_time_travel_limit,
@@ -1558,12 +1552,6 @@ class RunCache:
             for name, v in traversal_result.view_definitions.items()
         ]
 
-        if self._run_cache_config.enable_lenient_dependencies:
-            all_seen_fqns = traversal_result.seen_tables | set(traversal_result.view_definitions)
-            lenient_dependencies: t.Set[str] = self._deferred_fqns & all_seen_fqns
-        else:
-            lenient_dependencies = set()
-
         semantic_extras = {
             key: _serialize_semantic_extra(key, node_config.get(key))
             for key in SEMANTIC_EXTRAS_CONFIG_KEYS
@@ -1591,7 +1579,6 @@ class RunCache:
             freshness_tolerance_seconds=self._run_cache_config.resolve_freshness_tolerance(
                 node_config
             ),
-            lenient_dependencies=lenient_dependencies,
             tolerate_nondeterminism=self._run_cache_config.resolve_tolerate_nondeterminism(
                 node_config
             ),

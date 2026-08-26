@@ -18,6 +18,7 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import List, Optional
 from typing_extensions import Annotated
+from tako.aio.models.answer_request import AnswerRequest
 from tako.aio.models.answer_response import AnswerResponse
 from tako.aio.models.contents_request import ContentsRequest
 from tako.aio.models.contents_response import ContentsResponse
@@ -51,7 +52,7 @@ class TakoApi:
     @validate_call
     async def answer(
         self,
-        search_request: SearchRequest,
+        answer_request: AnswerRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,10 +68,10 @@ class TakoApi:
     ) -> AnswerResponse:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one. Pass output_schema on effort 'fast' or 'deep' to also receive structured output.
 
-        :param search_request: (required)
-        :type search_request: SearchRequest
+        :param answer_request: (required)
+        :type answer_request: AnswerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,7 +95,7 @@ class TakoApi:
         """ # noqa: E501
 
         _param = self._answer_serialize(
-            search_request=search_request,
+            answer_request=answer_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -122,7 +123,7 @@ class TakoApi:
     @validate_call
     async def answer_with_http_info(
         self,
-        search_request: SearchRequest,
+        answer_request: AnswerRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -138,10 +139,10 @@ class TakoApi:
     ) -> ApiResponse[AnswerResponse]:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one. Pass output_schema on effort 'fast' or 'deep' to also receive structured output.
 
-        :param search_request: (required)
-        :type search_request: SearchRequest
+        :param answer_request: (required)
+        :type answer_request: AnswerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -165,7 +166,7 @@ class TakoApi:
         """ # noqa: E501
 
         _param = self._answer_serialize(
-            search_request=search_request,
+            answer_request=answer_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -193,7 +194,7 @@ class TakoApi:
     @validate_call
     async def answer_without_preload_content(
         self,
-        search_request: SearchRequest,
+        answer_request: AnswerRequest,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -209,10 +210,10 @@ class TakoApi:
     ) -> RESTResponseType:
         """Answer
 
-        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one.
+        Fast-pipeline retrieval plus an LLM-synthesized answer. Tako may omit sources that cannot provide usable text. This endpoint returns 3 web results when you omit sources.web.count. The effort level also selects the synthesis model: 'instant' answers with the fastest model, and 'fast' (the default) and 'deep' answer with a stronger one. Pass output_schema on effort 'fast' or 'deep' to also receive structured output.
 
-        :param search_request: (required)
-        :type search_request: SearchRequest
+        :param answer_request: (required)
+        :type answer_request: AnswerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -236,7 +237,7 @@ class TakoApi:
         """ # noqa: E501
 
         _param = self._answer_serialize(
-            search_request=search_request,
+            answer_request=answer_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -259,7 +260,7 @@ class TakoApi:
 
     def _answer_serialize(
         self,
-        search_request,
+        answer_request,
         _request_auth,
         _content_type,
         _headers,
@@ -285,8 +286,8 @@ class TakoApi:
         # process the header parameters
         # process the form parameters
         # process the body parameter
-        if search_request is not None:
-            _body_params = search_request
+        if answer_request is not None:
+            _body_params = answer_request
 
 
         # set the HTTP header `Accept`

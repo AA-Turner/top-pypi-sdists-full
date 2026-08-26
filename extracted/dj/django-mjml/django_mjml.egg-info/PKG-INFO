@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-mjml
-Version: 1.5
+Version: 1.6
 Summary: Use MJML in Django templates
 Home-page: https://github.com/liminspace/django-mjml
 Author: Igor Melnyk @liminspace
@@ -12,7 +12,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,9 +23,9 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Framework :: Django
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: django<6.1,>=2.2
+Requires-Dist: django<7.0,>=3.2
 Provides-Extra: requests
 Requires-Dist: requests>=2.24; extra == "requests"
 Dynamic: author
@@ -76,9 +75,9 @@ Installation
 Requirements:
 ^^^^^^^^^^^^^
 
-* ``Django`` from 2.2 to 6.0
+* ``Django`` from 3.2 to 6.1
 * ``requests`` from 2.24.0 (only if you are going to use API HTTP-server for rendering)
-* ``mjml`` from 4.14.1 to 4.17.2 (older version may work, but not tested anymore)
+* ``mjml`` from 4.18.0 to 5.4.0 (older version may work, but not tested anymore)
 
 **\1\. Install** ``mjml``.
 

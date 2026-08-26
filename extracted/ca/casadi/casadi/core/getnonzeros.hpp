@@ -58,13 +58,21 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{i4} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Evaluate the MX node on a const/linear/nonlinear partition
 
         \identifier{28g} */
     void eval_linear(const std::vector<std::array<MX, 3> >& arg,
                         std::vector<std::array<MX, 3> >& res) const override;
+
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2hz} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override {
+      return sp_forward(arg, res, iw, w);
+    }
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -90,7 +98,8 @@ namespace casadi {
     casadi_int op() const override { return OP_GETNONZEROS;}
 
     /// Get the nonzeros of matrix
-    MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz) const override;
+    MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz,
+        bool unique=false) const override;
 
     /** \brief Deserialize without type information
 
@@ -129,7 +138,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{ic} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /// Evaluate the function (template)
     template<typename T>

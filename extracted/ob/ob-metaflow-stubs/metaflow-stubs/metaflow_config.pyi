@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-21T18:12:41.237066                                                            #
+# MF version: 2.19.37.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-08-25T23:04:30.353056                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -324,6 +324,8 @@ OTEL_ENDPOINT: None
 ZIPKIN_ENDPOINT: None
 
 CONSOLE_TRACE_ENABLED: bool
+
+OTEL_SERVICE_NAME: str
 
 DISABLE_TRACING: bool
 

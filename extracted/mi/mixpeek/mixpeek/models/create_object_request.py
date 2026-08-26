@@ -28,17 +28,17 @@ from typing_extensions import Self
 
 class CreateObjectRequest(BaseModel):
     """
-    Request model for creating a bucket object.  Objects can be created with blobs from two sources: 1. Direct data (URLs, base64) - Use CreateBlobRequest.data field 2. Upload references - Use CreateBlobRequest.upload_id field (from POST /buckets/{id}/uploads)  Upload Reference Workflow:     For large files or client-side uploads, use the presigned URL workflow:     1. POST /buckets/{id}/uploads → Returns {upload_id, presigned_url}     2. User uploads file to presigned_url (client-side)     3. POST /uploads/{upload_id}/confirm → Validates upload     4. POST /buckets/{id}/objects with upload_id in blobs (this endpoint)  Use Cases:     - Single blob with direct data (simple)     - Multiple blobs from presigned uploads (recommended for large files)     - Mix of direct data and upload references     - Combine multiple uploads into one object  See Also:     - CreateBlobRequest for blob field documentation     - POST /buckets/{id}/uploads for presigned URL generation
+    Request model for creating a bucket object.  Objects can be created with blobs from two sources: 1. Direct data (URLs, base64) - Use CreateBlobRequest.data field 2. Upload references - Use CreateBlobRequest.upload_id field (from POST /buckets/{id}/uploads)  Upload Reference Workflow:     For large files or client-side uploads, use the presigned URL workflow:     1. POST /buckets/{id}/uploads → Returns {upload_id, presigned_url}     2. User uploads file to presigned_url (client-side)     3. POST /uploads/{upload_id}/confirm → Validates upload     4. POST /buckets/{id}/objects with upload_id in blobs (this endpoint)  Use Cases:     - Single blob with direct data (simple)     - Multiple blobs from presigned uploads (recommended for large files)     - Mix of direct data and upload references     - Combine multiple uploads into one object  BACKE-3565: a thin subclass of shared.buckets.objects.models.CreateObjectRequest. It inherits the shared fields (key_prefix, blobs, skip_duplicates, canonicalize_source, force_remirror) and the ONE canonical ``normalize_blobs`` validator, adding only the api-surface fields below (idempotency_key, edges). Being a subclass, the field surface can only be a SUPERSET of the shared model, so a consumer reading a field one twin declares can never find the other twin omitting it (the BACKE-3564 bug shape).  See Also:     - CreateBlobRequest for blob field documentation     - POST /buckets/{id}/uploads for presigned URL generation
     """ # noqa: E501
     key_prefix: Optional[StrictStr] = Field(default=None, description="Storage key/path prefix of the object, this will be used to retrieve the object from the storage. It's at the root of the object.")
     blobs: Optional[List[CreateBlobRequest]] = Field(default=None, description="List of blobs to be created in this object")
-    edges: Optional[List[EdgeModel]] = Field(default=None, description="Typed, directed relationships from this object to other objects (customer-owned, root-level — never `_internal`). Populated by source adapters from companion/sidecar files, or directly on upsert. Flows to the document + MVS payload so the `traverse_edge` retriever stage can follow it.")
-    idempotency_key: Optional[Annotated[str, Field(strict=True, max_length=255)]] = Field(default=None, description="Client-generated idempotency key for safe retries. If an object with the same idempotency_key already exists in this bucket, the existing object is returned instead of creating a duplicate. Use a UUID or deterministic hash per object.")
     skip_duplicates: Optional[StrictBool] = Field(default=False, description="Skip duplicate blobs, if a blob with the same hash already exists, it will be skipped.")
     canonicalize_source: Optional[StrictBool] = Field(default=True, description="Mirror non-S3 sources into internal S3 and reference canonically.")
     force_remirror: Optional[StrictBool] = Field(default=False, description="Force re-upload to S3 even if a blob with identical content already exists.")
+    edges: Optional[List[EdgeModel]] = Field(default=None, description="Typed, directed relationships from this object to other objects (customer-owned, root-level — never `_internal`). Populated by source adapters from companion/sidecar files, or directly on upsert. Flows to the document + MVS payload so the `traverse_edge` retriever stage can follow it.")
+    idempotency_key: Optional[Annotated[str, Field(strict=True, max_length=255)]] = Field(default=None, description="Client-generated idempotency key for safe retries. If an object with the same idempotency_key already exists in this bucket, the existing object is returned instead of creating a duplicate. Use a UUID or deterministic hash per object.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["key_prefix", "blobs", "edges", "idempotency_key", "skip_duplicates", "canonicalize_source", "force_remirror"]
+    __properties: ClassVar[List[str]] = ["key_prefix", "blobs", "skip_duplicates", "canonicalize_source", "force_remirror", "edges", "idempotency_key"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -114,11 +114,11 @@ class CreateObjectRequest(BaseModel):
         _obj = cls.model_validate({
             "key_prefix": obj.get("key_prefix"),
             "blobs": [CreateBlobRequest.from_dict(_item) for _item in obj["blobs"]] if obj.get("blobs") is not None else None,
-            "edges": [EdgeModel.from_dict(_item) for _item in obj["edges"]] if obj.get("edges") is not None else None,
-            "idempotency_key": obj.get("idempotency_key"),
             "skip_duplicates": obj.get("skip_duplicates") if obj.get("skip_duplicates") is not None else False,
             "canonicalize_source": obj.get("canonicalize_source") if obj.get("canonicalize_source") is not None else True,
-            "force_remirror": obj.get("force_remirror") if obj.get("force_remirror") is not None else False
+            "force_remirror": obj.get("force_remirror") if obj.get("force_remirror") is not None else False,
+            "edges": [EdgeModel.from_dict(_item) for _item in obj["edges"]] if obj.get("edges") is not None else None,
+            "idempotency_key": obj.get("idempotency_key")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

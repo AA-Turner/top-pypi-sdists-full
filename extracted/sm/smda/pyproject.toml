@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64.0.0,<83.1.0", "wheel>=0.47.0"]
+requires = ["setuptools>=64.0.0,<84.1.0", "wheel>=0.47.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -25,11 +25,16 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "capstone",
+    # capstone 6 renames the arm64 modules and constants to aarch64. Its compatibility shim
+    # is partial - 6 of the 20 ARM64_* constants used here are absent from it, and the shim
+    # only loads at all once capstone.arm64* has been imported - so 6.x is a port, not an
+    # import-order fix. Measured against 6.0.0a10.
+    "capstone<6",
     "dncil",
     "dnfile",
     "lief>=0.16.0",
     "pycxxfilt>=0.1.0",
+    "purepdb>=0.3.0",
 ]
 
 [project.urls]
@@ -48,7 +53,7 @@ dev = [
     # floating version reddens unrelated PRs on someone else's release schedule
     # (0.0.69/0.0.70 added unsound-return-statement and unsound-yield, 35 errors
     # against an unchanged tree). Bump deliberately, with the new rules addressed.
-    "ty==0.0.68",
+    "ty==0.0.69",
     "tqdm",
     "twine",
 ]
@@ -88,14 +93,16 @@ markers = [
 # A DeprecationWarning from LIEF or capstone on a new interpreter is exactly the signal
 # the 3.14 matrix leg exists to surface, and it passed silently before this.
 #
-# The one exception: LIEF warns rather than raising when a Mach-O header carries a
-# cpu_type outside its enum, which is precisely the malformed input the Mach-O readers
-# are expected to survive. Suppressing it belongs here and not in src/ - warnings.
-# catch_warnings() mutates the process-wide filter list, so a library doing it is not
-# thread-safe for consumers.
+# The exceptions: LIEF warns rather than raising when a header field falls outside the
+# enum it maps to - a Mach-O cpu_type, or a PE COFF symbol's complex_type read out of a
+# mapped image, where the symbol table's file offset lands on unrelated bytes. Both are
+# precisely the malformed input the readers are expected to survive. Suppressing them
+# belongs here and not in src/ - warnings.catch_warnings() mutates the process-wide
+# filter list, so a library doing it is not thread-safe for consumers.
 filterwarnings = [
     "error",
     "ignore:[0-9]+ is not a valid CPU_TYPE:RuntimeWarning",
+    "ignore:[0-9]+ is not a valid COMPLEX_TYPE:RuntimeWarning",
 ]
 
 [tool.coverage.run]
@@ -207,11 +214,6 @@ rules = { "invalid-assignment" = "ignore", "not-iterable" = "ignore" }
 [[tool.ty.overrides]]
 include = ["src/smda/synthesis/PeSynthesizer.py"]
 rules = { "invalid-argument-type" = "ignore" }
-
-# The pdbparse dependency is optional; suppress unresolved-import for it
-[[tool.ty.overrides]]
-include = ["src/smda/common/labelprovider/PdbSymbolProvider.py"]
-rules = { "unresolved-import" = "ignore" }
 
 # atheris is installed only in the fuzzing CI job, and targets.py is deliberately
 # importable without it so the regression replay path works in the normal test run

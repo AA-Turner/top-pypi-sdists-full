@@ -16,18 +16,24 @@ from ._disconnect import disconnect
 from ._init_instance import load_from_isettings
 from ._silence_loggers import silence_loggers
 from .core._settings import settings
-from .core._settings_instance import InstanceSettings
 from .core._settings_load import load_instance_settings
 from .core._settings_save import save_instance_settings
-from .core._settings_storage import StorageSettings
-from .core._settings_store import instance_settings_file
+from .core._settings_store import (
+    find_local_current_instance_file,
+    instance_settings_file,
+)
 from .core.cloud_sqlite_locker import unlock_cloud_sqlite_upon_exception
 from .core.django import reset_django
-from .errors import CannotSwitchDefaultInstance, InstanceNotFoundError
+from .errors import (
+    CannotSwitchDefaultInstance,
+    ConnectWithinDevDirError,
+    InstanceNotFoundError,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from .core._settings_instance import InstanceSettings
     from .core._settings_user import UserSettings
 
 # this is for testing purposes only
@@ -139,12 +145,15 @@ def _connect_instance(
     access_token: str | None = None,
     raise_systemexit: bool = False,
 ) -> InstanceSettings:
+    from .core._settings_instance import InstanceSettings
+    from .core._settings_storage import StorageSettings
+
     settings_file = instance_settings_file(name, owner)
     make_hub_request = True
     if settings_file.exists():
         isettings = load_instance_settings(settings_file)
-        # skip hub request for a purely local instance
-        if isettings.is_remote:
+        # skip hub request only for purely local, non-hub-managed instances
+        if isettings.is_remote or isettings.is_managed_by_hub:
             make_hub_request = True
         else:
             make_hub_request = False
@@ -218,7 +227,7 @@ def _connect_instance(
             )
             if settings_file.exists():
                 isettings = load_instance_settings(settings_file)
-                if isettings.is_remote:
+                if isettings.is_remote or isettings.is_managed_by_hub:
                     raise exception
             else:
                 raise exception
@@ -283,13 +292,32 @@ def reset_django_module_variables():
 def _connect_cli(
     instance: str,
     use_root_db_user: bool = False,
-    persist_global_env: bool = True,
-    show_dev_dir_hint: bool = True,
-    show_connected_log: bool = True,
+    here: bool = False,
 ) -> None:
+    from pathlib import Path
+
     from lamindb_setup import settings as settings_
 
+    persist_global_env: bool = True
+    show_dev_dir_hint: bool = True
+    show_connected_log: bool = True
+    if here:
+        persist_global_env = False
+        show_dev_dir_hint = False
+        show_connected_log = False
+
     owner, name = get_owner_name_from_identifier(instance)
+    marker_file = find_local_current_instance_file()
+    if marker_file is not None:
+        current_instance = marker_file.read_text().strip()
+        target_instance = f"{owner}/{name}"
+        if current_instance != target_instance:
+            raise ConnectWithinDevDirError(
+                "You're trying to connect within the dev-dir of instance "
+                f"{current_instance}. Either cd into another directory or unset the"
+                " dev-dir: lamin settings dev-dir unset"
+            )
+
     isettings = _connect_instance(
         owner,
         name,
@@ -324,6 +352,11 @@ def _connect_cli(
         logger.important_hint(
             "to map a local dev directory, call: lamin settings set dev-dir ."
         )
+    if here:
+        cwd = Path.cwd().resolve()
+        settings_.dev_dir = cwd
+        logger.important(f"set dev-dir: {cwd}")
+        logger.important(f"connected lamindb: {isettings.slug}")
     return None
 
 

@@ -4,19 +4,19 @@ from typing import Any
 
 from .array_ import Array
 from .bases import StringableBase
-from .core import byte, float32, float64, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .core import byte, float32, int16, int32, int64, sbyte, uint16, uint32, uint64
 from .exceptions import to_string
 from .reflection import TypeInfo, class_type
 from .string_ import format, get_length, is_null_or_empty, join, replace, replicate, substring
 from .util import UNIT, Unit, clear, range, string_hash, to_enumerable
 
 
-def _expr229() -> TypeInfo:
+def _expr236() -> TypeInfo:
     return class_type("System.Text.StringBuilder", None, StringBuilder)
 
 
 class StringBuilder(StringableBase):
-    def __init__(self, value: str, capacity: int32) -> None:
+    def __init__(self, value: str, capacity: int) -> None:
         self.buf: list[str] = []
         if not is_null_or_empty(value):
             (self.buf.append(value))
@@ -29,28 +29,28 @@ class StringBuilder(StringableBase):
         x: StringBuilder = self
         return (to_string(x) == to_string(other)) if isinstance(other, StringBuilder) else False
 
-    def GetHashCode(self, __unit: Unit = UNIT) -> int32:
+    def GetHashCode(self, __unit: Unit = UNIT) -> int:
         x: StringBuilder = self
         return string_hash(to_string(x))
 
 
-StringBuilder_reflection = _expr229
+StringBuilder_reflection = _expr236
 
 
-def StringBuilder__ctor_Z18115A39(value: str, capacity: int32) -> StringBuilder:
+def StringBuilder__ctor_Z18115A39(value: str, capacity: int) -> StringBuilder:
     return StringBuilder(value, capacity)
 
 
-def StringBuilder__ctor_Z524259A4(capacity: int32) -> StringBuilder:
+def StringBuilder__ctor_Z524259A4(capacity: int) -> StringBuilder:
     return StringBuilder__ctor_Z18115A39("", capacity)
 
 
 def StringBuilder__ctor_Z721C83C5(value: str) -> StringBuilder:
-    return StringBuilder__ctor_Z18115A39(value, int32.SIXTEEN)
+    return StringBuilder__ctor_Z18115A39(value, 16)
 
 
 def StringBuilder__ctor(__unit: Unit = UNIT) -> StringBuilder:
-    return StringBuilder__ctor_Z18115A39("", int32.SIXTEEN)
+    return StringBuilder__ctor_Z18115A39("", 16)
 
 
 def StringBuilder__Append_Z721C83C5(x: StringBuilder, s: str) -> StringBuilder:
@@ -58,7 +58,7 @@ def StringBuilder__Append_Z721C83C5(x: StringBuilder, s: str) -> StringBuilder:
     return x
 
 
-def StringBuilder__Append_487EF8FB(x: StringBuilder, s: str, start_index: int32, count: int32) -> StringBuilder:
+def StringBuilder__Append_487EF8FB(x: StringBuilder, s: str, start_index: int, count: int) -> StringBuilder:
     (x.buf.append(substring(s, start_index, count)))
     return x
 
@@ -68,7 +68,7 @@ def StringBuilder__Append_244C7CD6(x: StringBuilder, c: str) -> StringBuilder:
     return x
 
 
-def StringBuilder__Append_61B1CA(x: StringBuilder, c: str, repeat_count: int32) -> StringBuilder:
+def StringBuilder__Append_61B1CA(x: StringBuilder, c: str, repeat_count: int) -> StringBuilder:
     s: str = replicate(repeat_count, c)
     (x.buf.append(s))
     return x
@@ -94,8 +94,8 @@ def StringBuilder__Append_Z6EF82811(x: StringBuilder, o: uint16) -> StringBuilde
     return x
 
 
-def StringBuilder__Append_Z524259A4(x: StringBuilder, o: int32) -> StringBuilder:
-    (x.buf.append(int32(o).to_string()))
+def StringBuilder__Append_Z524259A4(x: StringBuilder, o: int) -> StringBuilder:
+    (x.buf.append(str(o)))
     return x
 
 
@@ -119,7 +119,7 @@ def StringBuilder__Append_Z7138B98C(x: StringBuilder, o: float32) -> StringBuild
     return x
 
 
-def StringBuilder__Append_5E38073B(x: StringBuilder, o: float64) -> StringBuilder:
+def StringBuilder__Append_5E38073B(x: StringBuilder, o: float) -> StringBuilder:
     (x.buf.append(to_string(o)))
     return x
 
@@ -206,38 +206,46 @@ def StringBuilder__Clear(x: StringBuilder) -> StringBuilder:
     return x
 
 
-def StringBuilder__get_Chars_Z524259A4(x: StringBuilder, index: int32) -> str:
-    len_1: int32 = int32.ZERO
-    i: int32 = int32.ZERO
-    while ((len_1 + get_length(x.buf[i])) <= index) if (i < int32(len(x.buf))) else False:
-        len_1 = len_1 + get_length(x.buf[i])
-        i = i + int32.ONE
-    if True if (index < int32.ZERO) else (i >= int32(len(x.buf))):
+def StringBuilder__get_Chars_Z524259A4(x: StringBuilder, index: int) -> str:
+    len_1: int = 0
+    i: int = 0
+    while (
+        ((tmp if (-2147483648 <= (tmp := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp)) <= index)
+        if (i < len(x.buf))
+        else False
+    ):
+        len_1 = tmp_1 if (-2147483648 <= (tmp_1 := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp_1)
+        i = (i + 1) if (i <= 2147483646) else int32(i + 1)
+    if True if (index < 0) else (i >= len(x.buf)):
         raise Exception("Index was outside the bounds of the array")
 
     else:
-        pos: int32 = index - len_1
+        pos: int = tmp_2 if (-2147483648 <= (tmp_2 := index - len_1) <= 2147483647) else int32(tmp_2)
         return x.buf[i][pos]
 
 
-def StringBuilder__set_Chars_413E0D0A(x: StringBuilder, index: int32, value: str) -> None:
-    len_1: int32 = int32.ZERO
-    i: int32 = int32.ZERO
-    while ((len_1 + get_length(x.buf[i])) <= index) if (i < int32(len(x.buf))) else False:
-        len_1 = len_1 + get_length(x.buf[i])
-        i = i + int32.ONE
-    if True if (index < int32.ZERO) else (i >= int32(len(x.buf))):
+def StringBuilder__set_Chars_413E0D0A(x: StringBuilder, index: int, value: str) -> None:
+    len_1: int = 0
+    i: int = 0
+    while (
+        ((tmp if (-2147483648 <= (tmp := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp)) <= index)
+        if (i < len(x.buf))
+        else False
+    ):
+        len_1 = tmp_1 if (-2147483648 <= (tmp_1 := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp_1)
+        i = (i + 1) if (i <= 2147483646) else int32(i + 1)
+    if True if (index < 0) else (i >= len(x.buf)):
         raise Exception("Index was outside the bounds of the array")
 
     else:
-        pos: int32 = index - len_1
-        x.buf[i] = (x.buf[i][int32.ZERO : (pos - int32.ONE) + int32.ONE] + value) + x.buf[i][
-            pos + int32.ONE : len(x.buf[i])
+        pos: int = tmp_2 if (-2147483648 <= (tmp_2 := index - len_1) <= 2147483647) else int32(tmp_2)
+        x.buf[i] = (x.buf[i][0 : ((pos - 1) if (pos >= -2147483647) else int32(pos - 1)) + 1] + value) + x.buf[i][
+            (pos + 1) if (pos <= 2147483646) else int32(pos + 1) : len(x.buf[i])
         ]
 
 
 def StringBuilder__Replace_Z766F94C0(x: StringBuilder, old_value: str, new_value: str) -> StringBuilder:
-    for i in range(int32(len(x.buf)) - int32.ONE, int32.ZERO, -1):
+    for i in range(tmp if (-2147483648 <= (tmp := len(x.buf) - 1) <= 2147483647) else int32(tmp), 0, -1):
         x.buf[i] = replace(x.buf[i], old_value, new_value)
     return x
 
@@ -247,14 +255,14 @@ def StringBuilder__Replace_Z384F8060(x: StringBuilder, old_value: str, new_value
     return StringBuilder__Append_Z721C83C5(StringBuilder__Clear(x), str_1)
 
 
-def StringBuilder__get_Length(x: StringBuilder) -> int32:
-    len_1: int32 = int32.ZERO
-    for i in range(int32(len(x.buf)) - int32.ONE, int32.ZERO, -1):
-        len_1 = len_1 + get_length(x.buf[i])
+def StringBuilder__get_Length(x: StringBuilder) -> int:
+    len_1: int = 0
+    for i in range(tmp if (-2147483648 <= (tmp := len(x.buf) - 1) <= 2147483647) else int32(tmp), 0, -1):
+        len_1 = tmp_1 if (-2147483648 <= (tmp_1 := len_1 + get_length(x.buf[i])) <= 2147483647) else int32(tmp_1)
     return len_1
 
 
-def StringBuilder__ToString_Z37302880(x: StringBuilder, first_index: int32, length: int32) -> str:
+def StringBuilder__ToString_Z37302880(x: StringBuilder, first_index: int, length: int) -> str:
     return substring(to_string(x), first_index, length)
 
 

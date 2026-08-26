@@ -17,6 +17,7 @@
 //    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+// C-REPLACE "fabs" "casadi_fabs"
 // C-REPLACE "fmax" "casadi_fmax"
 // C-REPLACE "nullptr" "0"
 
@@ -366,6 +367,7 @@ void casadi_cvx_house_apply(casadi_int n, casadi_int m, casadi_int s, T1* A,
   }
 }
 
+// SYMBOL "cvx_scalar"
 template<typename T1>
 T1 casadi_cvx_scalar(T1 epsilon, casadi_int reflect, T1 eig) {
   return fmax(epsilon, reflect ? fabs(eig) : eig);

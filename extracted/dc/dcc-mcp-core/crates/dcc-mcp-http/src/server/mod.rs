@@ -1,14 +1,20 @@
 //! The main `McpHttpServer` type.
 
 use axum::{Json, Router, routing};
+use http::{Method, Request, Response, StatusCode};
 use parking_lot::RwLock;
 use serde_json::json;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 use tokio::{net::TcpListener, sync::watch, task::JoinHandle};
+use tower_http::classify::{
+    ClassifiedResponse, ClassifyResponse, MakeClassifier, NeverClassifyEos, ServerErrorsAsFailures,
+    ServerErrorsFailureClass,
+};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{MakeSpan, TraceLayer};
 use uuid::Uuid;
 
 use crate::{
@@ -26,6 +32,79 @@ mod background_impl;
 #[cfg(feature = "auto-gateway")]
 mod gateway_impl;
 mod spawn_impl;
+
+/// Request-aware HTTP failure classification for the server trace layer.
+///
+/// A `503 Service Unavailable` is the documented, structured response for an
+/// exact `GET /v1/readyz` request without a query while readiness is red. It is
+/// a routine probe result, not a transport or handler failure. Every other
+/// server error keeps tower-http's default failure classification.
+#[derive(Clone, Copy, Debug, Default)]
+struct HttpTraceClassifier;
+
+#[derive(Clone, Copy, Debug)]
+struct HttpResponseClassifier {
+    readyz: bool,
+}
+
+impl MakeClassifier for HttpTraceClassifier {
+    type Classifier = HttpResponseClassifier;
+    type FailureClass = ServerErrorsFailureClass;
+    type ClassifyEos = NeverClassifyEos<ServerErrorsFailureClass>;
+
+    fn make_classifier<B>(&self, request: &Request<B>) -> Self::Classifier {
+        HttpResponseClassifier {
+            readyz: request.method() == Method::GET
+                && request.uri().path() == "/v1/readyz"
+                && request.uri().query().is_none(),
+        }
+    }
+}
+
+/// Build request spans from non-sensitive routing fields only.
+///
+/// tower-http's default span records the full URI, including its query. Query
+/// values and headers are intentionally excluded from operator logs.
+#[derive(Clone, Copy, Debug, Default)]
+struct HttpTraceMakeSpan;
+
+impl<B> MakeSpan<B> for HttpTraceMakeSpan {
+    fn make_span(&mut self, request: &Request<B>) -> tracing::Span {
+        tracing::debug_span!(
+            "request",
+            method = %request.method(),
+            path = %request.uri().path(),
+            version = ?request.version(),
+        )
+    }
+}
+
+fn http_trace_layer() -> TraceLayer<HttpTraceClassifier, HttpTraceMakeSpan> {
+    TraceLayer::new(HttpTraceClassifier).make_span_with(HttpTraceMakeSpan)
+}
+
+impl ClassifyResponse for HttpResponseClassifier {
+    type FailureClass = ServerErrorsFailureClass;
+    type ClassifyEos = NeverClassifyEos<ServerErrorsFailureClass>;
+
+    fn classify_response<B>(
+        self,
+        response: &Response<B>,
+    ) -> ClassifiedResponse<Self::FailureClass, Self::ClassifyEos> {
+        if self.readyz && response.status() == StatusCode::SERVICE_UNAVAILABLE {
+            ClassifiedResponse::Ready(Ok(()))
+        } else {
+            ServerErrorsAsFailures::new().classify_response(response)
+        }
+    }
+
+    fn classify_error<E>(self, error: &E) -> Self::FailureClass
+    where
+        E: fmt::Display + 'static,
+    {
+        ServerErrorsAsFailures::new().classify_error(error)
+    }
+}
 
 /// Live DCC instance metadata that is propagated to `FileRegistry` on every
 /// heartbeat tick so that `list_dcc_instances` always shows current state.
@@ -593,7 +672,7 @@ impl McpHttpServer {
             .layer(RequestBodyLimitLayer::new(
                 self.config.queue.max_request_body_bytes,
             ))
-            .layer(TraceLayer::new_for_http());
+            .layer(http_trace_layer());
 
         // Prometheus `/metrics` endpoint (issue #331). Mounted on the
         // same router so scrapers share the MCP server's listening

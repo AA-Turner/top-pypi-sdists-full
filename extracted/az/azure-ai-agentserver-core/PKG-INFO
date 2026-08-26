@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 2.0.0
+Version: 2.1.0
 Summary: Foundation utilities and host framework for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -18,19 +18,19 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: azure-core>=1.37.0
-Requires-Dist: isodate>=0.6.1
-Requires-Dist: starlette>=0.45.0
-Requires-Dist: hypercorn>=0.17.0
-Requires-Dist: opentelemetry-api>=1.43.0
-Requires-Dist: opentelemetry-sdk>=1.43.0
-Requires-Dist: microsoft-opentelemetry>=1.3.5
+Requires-Dist: azure-core<2.0.0,>=1.37.0
+Requires-Dist: isodate<1.0.0,>=0.6.1
+Requires-Dist: starlette<2.0.0,>=0.45.0
+Requires-Dist: hypercorn<1.0.0,>=0.17.0
+Requires-Dist: opentelemetry-api<2.0.0,>=1.43.0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.43.0
+Requires-Dist: microsoft-opentelemetry<2.0.0,>=1.3.5
 Requires-Dist: aiohttp<4.0.0a0,>=3.10.0
-Requires-Dist: azure-identity>=1.17.0
+Requires-Dist: azure-identity<2.0.0,>=1.17.0
 Provides-Extra: otlp-grpc
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.43.0; extra == "otlp-grpc"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.43.0; extra == "otlp-grpc"
 Provides-Extra: hosted
-Requires-Dist: azure-identity>=1.16.0; extra == "hosted"
+Requires-Dist: azure-identity<2.0.0,>=1.17.0; extra == "hosted"
 Dynamic: license-file
 
 # Azure AI Agent Server Core client library for Python
@@ -226,8 +226,17 @@ python my_agent.py
 
 The `@task` decorator builds crash-resilient agents that survive container restarts, OOM kills, and redeployments. Task state is persisted to a task store, enabling automatic recovery and multi-turn suspend/resume patterns.
 
+The resilient task subsystem is **opt-in**: call `set_resilient_tasks_enabled(True)` (before host startup, typically at import time) so the framework constructs the `TaskManager` and runs crash recovery. Without it, `.run()` / `.start()` raise `TaskManagerNotInitialized`.
+
 ```python
-from azure.ai.agentserver.core.tasks import task, TaskContext
+from azure.ai.agentserver.core.tasks import (
+    set_resilient_tasks_enabled,
+    task,
+    TaskContext,
+)
+
+# Opt in to the durable task subsystem (required for @task to run).
+set_resilient_tasks_enabled(True)
 
 @task(name="process_document")
 async def process_document(ctx: TaskContext[dict]) -> dict:

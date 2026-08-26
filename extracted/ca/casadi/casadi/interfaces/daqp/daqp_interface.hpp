@@ -108,6 +108,9 @@ namespace casadi {
     /** \brief Thread-local memory object type */
     std::string codegen_mem_type() const override { return "struct casadi_daqp_data"; }
 
+    /** \brief Is thread-local memory object needed? */
+    bool codegen_needs_mem() const override { return true; }
+
     // Initialize the solver
     void init(const Dict& opts) override;
 
@@ -156,6 +159,8 @@ namespace casadi {
 
     // Memory structure
     casadi_daqp_prob<double> p_;
+
+    std::vector<int> integrality_;
 
   };
 } // end namespace casadi

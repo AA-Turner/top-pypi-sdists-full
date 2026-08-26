@@ -14,10 +14,12 @@ from __future__ import annotations
 from contextlib import ExitStack
 import logging
 from pathlib import Path
+import sys
 
 # Import built-in modules
 import threading
 import time
+from types import SimpleNamespace
 from typing import Any
 from typing import List
 from typing import Optional
@@ -468,6 +470,135 @@ class TestDccServerBase:
         }
         capture.close.assert_called_once_with()
         assert server._handle is None
+
+    @pytest.mark.parametrize(
+        ("failure_site", "auxiliary_error_type"),
+        [
+            ("rendering", ValueError),
+            ("rendering", KeyboardInterrupt),
+            ("rendering", SystemExit),
+            ("rendering", GeneratorExit),
+            ("context", None),
+            ("store", None),
+            ("report", KeyboardInterrupt),
+            ("report", SystemExit),
+            ("report", GeneratorExit),
+            ("close", OSError),
+            ("close", KeyboardInterrupt),
+            ("close", SystemExit),
+            ("close", GeneratorExit),
+        ],
+    )
+    def test_start_failure_preserves_original_identity_when_capture_fails(
+        self,
+        tmp_path,
+        failure_site,
+        auxiliary_error_type,
+    ):
+        from dcc_mcp_core.feedback import FeedbackStore
+        from dcc_mcp_core.host_errors import _HostErrorCapture
+        from dcc_mcp_core.schemas.finding import FindingRuntimeContext
+
+        class _UnprintableStartupError(RuntimeError):
+            def __str__(self):
+                raise auxiliary_error_type("startup exception rendering failed")
+
+        class _FailingStore:
+            def append(self, _entry):
+                raise OSError("feedback storage unavailable")
+
+        context = FindingRuntimeContext(
+            dcc_type="photoshop",
+            adapter="dcc-mcp-photoshop",
+            adapter_version="0.4.0",
+            core_version="0.20.15",
+            host_version="26.4.1",
+            os="win32",
+            owning_repo="dcc-mcp/dcc-mcp-photoshop",
+        )
+        store = FeedbackStore(path=tmp_path / "feedback.jsonl")
+
+        def fail_context():
+            raise OSError("finding context unavailable")
+
+        capture = _HostErrorCapture(
+            "photoshop",
+            77,
+            instance_id="photoshop-77",
+            core_version="0.20.15",
+            adapter_version="0.4.0",
+            log_dir=str(tmp_path),
+            persist_to_file=False,
+            finding_context=fail_context if failure_site == "context" else context,
+            feedback_store=_FailingStore() if failure_site == "store" else store,
+        )
+        close_capture = capture.close
+        if failure_site == "report":
+
+            def fail_report(*_args, **_kwargs):
+                raise auxiliary_error_type("capture report failed")
+
+            capture.report_exception = fail_report
+        if failure_site == "close":
+
+            def fail_close():
+                close_capture()
+                raise auxiliary_error_type("capture close failed")
+
+            capture.close = fail_close
+
+        server = self._make_server(tmp_path, dcc_name="photoshop")
+        server._host_error_capture = capture
+        original = _UnprintableStartupError() if failure_site == "rendering" else RuntimeError("listener bind failed")
+
+        def fail_start():
+            raise original
+
+        server._server.start = fail_start
+        caught = None
+        try:
+            server.start(install_atexit_hook=False)
+        except BaseException as exc:
+            caught = exc
+        finally:
+            close_capture()
+
+        assert caught is original
+        assert server._handle is None
+        assert capture._installed is False
+        if failure_site in {"rendering", "close"}:
+            assert len(store.recent()) == 1
+
+    def test_host_error_capture_wires_startup_finding_context_and_store(self, tmp_path):
+        from dcc_mcp_core.feedback import FeedbackStore
+
+        server = self._make_server(tmp_path, dcc_name="photoshop")
+        server._feedback_store = FeedbackStore(path=tmp_path / "feedback.jsonl")
+        server._log_dir = str(tmp_path)
+        server._options = SimpleNamespace(
+            server_name="dcc-mcp-photoshop",
+            server_version="0.4.0",
+            sidecar=SimpleNamespace(display_name=None, adapter_version="0.4.0"),
+        )
+        server._version_string = lambda: "26.4.1"
+        capture = server.observability.init_host_error_capture(
+            core_version="0.20.15",
+            adapter_version="0.4.0",
+        )
+
+        capture.report(
+            "listener bind failed",
+            source="dcc_server.start",
+            phase="startup",
+            exception_type="builtins.RuntimeError",
+        )
+
+        [finding] = server.feedback_store.recent()
+        assert finding["adapter"] == "dcc-mcp-photoshop"
+        assert finding["adapter_version"] == "0.4.0"
+        assert finding["host_version"] == "26.4.1"
+        assert finding["core_version"] == "0.20.15"
+        assert finding["os"] == sys.platform
 
     def test_resources_returns_public_inner_handle(self, tmp_path):
         server = self._make_server(tmp_path)

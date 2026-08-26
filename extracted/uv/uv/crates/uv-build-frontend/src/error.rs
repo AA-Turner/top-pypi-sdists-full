@@ -49,11 +49,6 @@ pub enum Error {
     MissingHeader(#[from] Box<MissingHeaderError>),
     #[error("Failed to build PATH for build script")]
     BuildScriptPath(#[source] env::JoinPathsError),
-    // For the convenience of typing `setup_build` properly.
-    #[error("Building source distributions for `{0}` is disabled")]
-    NoSourceDistBuild(PackageName),
-    #[error("Building source distributions is disabled")]
-    NoSourceDistBuilds,
     #[error("Cyclic build dependency detected for `{0}`")]
     CyclicBuildDependency(PackageName),
     #[error(
@@ -75,8 +70,6 @@ impl IsBuildBackendError for Error {
             | Self::RequirementsResolve(_, _)
             | Self::RequirementsInstall(_, _)
             | Self::Virtualenv(_)
-            | Self::NoSourceDistBuild(_)
-            | Self::NoSourceDistBuilds
             | Self::CyclicBuildDependency(_)
             | Self::UnmatchedRuntime(_, _) => false,
             Self::CommandFailed(_, _)
@@ -450,6 +443,8 @@ impl Error {
 
 #[cfg(test)]
 mod test {
+    use std::assert_matches;
+
     use crate::{Error, PythonRunnerOutput};
     use indoc::indoc;
     use std::process::ExitStatus;
@@ -504,7 +499,7 @@ mod test {
             Some("pygraphviz-1.11"),
         );
 
-        assert!(matches!(err, Error::MissingHeader { .. }));
+        assert_matches!(err, Error::MissingHeader { .. });
         let formatted = format_error_with_hints(&err);
         insta::assert_snapshot!(formatted, @r#"
         Failed building wheel through setup.py (exit code: 0)
@@ -557,7 +552,7 @@ mod test {
             None,
             Some("pygraphviz-1.11"),
         );
-        assert!(matches!(err, Error::MissingHeader { .. }));
+        assert_matches!(err, Error::MissingHeader { .. });
         let formatted = format_error_with_hints(&err);
         insta::assert_snapshot!(formatted, @"
         Failed building wheel through setup.py (exit code: 0)
@@ -600,7 +595,7 @@ mod test {
             None,
             Some("pygraphviz-1.11"),
         );
-        assert!(matches!(err, Error::MissingHeader { .. }));
+        assert_matches!(err, Error::MissingHeader { .. });
         let formatted = format_error_with_hints(&err);
         insta::assert_snapshot!(formatted, @r#"
         Failed building wheel through setup.py (exit code: 0)
@@ -646,7 +641,7 @@ mod test {
             Some(&Version::new([1, 11])),
             Some("pygraphviz-1.11"),
         );
-        assert!(matches!(err, Error::MissingHeader { .. }));
+        assert_matches!(err, Error::MissingHeader { .. });
         let formatted = format_error_with_hints(&err);
         insta::assert_snapshot!(formatted, @"
         Failed building wheel through setup.py (exit code: 0)

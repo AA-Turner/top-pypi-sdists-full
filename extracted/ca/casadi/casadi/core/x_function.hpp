@@ -160,6 +160,23 @@ namespace casadi {
     Function slice(const std::string& name, const std::vector<casadi_int>& order_in,
                    const std::vector<casadi_int>& order_out, const Dict& opts) const override;
 
+    /** \brief Apply an ordered list of simplify passes
+
+        \identifier{2io} */
+    Function simplify_passes(
+        const std::vector<std::pair<std::string, casadi_int> >& tasks) const override;
+
+    /** \brief Apply simplify passes in-place on a set of inputs/outputs
+
+        Each pass is a (task, count) pair; count>0 runs the task that many times,
+        count==0 runs it until a fixed point.
+
+        \identifier{2ip} */
+    void apply_simplify_passes(
+                      const std::vector<std::pair<std::string, casadi_int> >& tasks,
+                      std::vector<MatType>& new_in,
+                      std::vector<MatType>& new_out) const;
+
     /** \brief Generate code for the declarations of the C function
 
         \identifier{xz} */
@@ -331,7 +348,7 @@ namespace casadi {
     if (verbose_) casadi_message(name_ + "::init");
     // Make sure that inputs are symbolic
     for (casadi_int i=0; i<n_in_; ++i) {
-      if (in_.at(i).nnz()>0 && !in_.at(i).is_valid_input()) {
+      if (!in_.at(i).is_valid_input()) {
         casadi_error("For " + this->name_ + ": Xfunction input arguments must be purely symbolic."
                      "\nArgument " + str(i) + "(" + name_in_[i] + ") is not symbolic.");
       }
@@ -464,7 +481,8 @@ namespace casadi {
 
       // FIXME(@jaeandersson)
       casadi_int iind = 0, oind = 0;
-      casadi_assert(n_in_ == 1, "Not implemented");
+      casadi_assert(n_in_>=1 && is_diff_in_[0], "Not implemented");
+      casadi_assert(n_in_ == 1 || !any(vector_tail(is_diff_in_)), "Not implemented");
       casadi_assert(n_out_ == 1, "Not implemented");
 
       // Create return object
@@ -777,6 +795,10 @@ namespace casadi {
           sparsity_in_.at(iind).find(nzmap);
           asens[d][iind].sparsity().get_nz(nzmap);
 
+          // Collect the (Jacobian nonzero, sensitivity nonzero) assignment pairs
+          adds.clear();
+          tmp.clear();
+
           // For all the output nonzeros treated in the sweep
           for (casadi_int el = D2.colind(offset_nadir+d); el<D2.colind(offset_nadir+d+1); ++el) {
 
@@ -793,10 +815,14 @@ namespace casadi {
               casadi_int anz = nzmap[inz];
               if (anz<0) continue;
 
-              // Get the input seed
-              ret.at(0).nz(elJ) = asens[d][iind].nz(anz);
+              // Queue the assignment
+              adds.push_back(elJ);
+              tmp.push_back(anz);
             }
           }
+
+          // Add contribution to the Jacobian in a single batched assignment
+          ret.at(0).nz(adds) = asens[d][iind].nz(tmp);
         }
 
         // Update direction offsets
@@ -853,10 +879,6 @@ namespace casadi {
       }
 
       Dict options = opts;
-      if (opts.find("is_diff_in")==opts.end())
-        options["is_diff_in"] = join(is_diff_in_, is_diff_out_, is_diff_in_);
-      if (opts.find("is_diff_out")==opts.end())
-        options["is_diff_out"] = is_diff_out_;
       options["allow_duplicate_io_names"] = true;
       // Assemble function and return
       return Function(name, ret_in, ret_out, inames, onames, options);
@@ -904,11 +926,6 @@ namespace casadi {
       }
 
       Dict options = opts;
-      if (opts.find("is_diff_in")==opts.end())
-        options["is_diff_in"] = join(is_diff_in_, is_diff_out_, is_diff_out_);
-      if (opts.find("is_diff_out")==opts.end())
-        options["is_diff_out"] = is_diff_in_;
-
       options["allow_duplicate_io_names"] = true;
       // Assemble function and return
       return Function(name, ret_in, ret_out, inames, onames, options);
@@ -924,32 +941,48 @@ namespace casadi {
                  const std::vector<std::string>& onames,
                  const Dict& opts) const {
     try {
+      // Select only differentiable inputs and outputs
+      std::vector<MatType> diff_in = vector_select(in_, is_diff_in_);
+      std::vector<MatType> diff_out = vector_select(out_, is_diff_out_);
+
+      std::vector<MatType> non_diff_in = vector_select(in_, is_diff_in_, true);
+
+      // Create flattened function with only differentiable inputs/outputs
       Dict tmp_options = generate_options("tmp");
       tmp_options["allow_free"] = true;
       tmp_options["allow_duplicate_io_names"] = true;
-      // Temporary single-input, single-output function FIXME(@jaeandersson)
-      Function tmp("flattened_" + name, {veccat(in_)}, {veccat(out_)}, tmp_options);
+      std::vector<bool> tmp_is_diff = {true};
+      if (!non_diff_in.empty()) tmp_is_diff.push_back(false);
 
-      // Expression for the extended Jacobian
+      tmp_options["is_diff_in"] = tmp_is_diff;
+      std::vector<MatType> tmp_args = {veccat(diff_in)};
+      if (!non_diff_in.empty()) tmp_args.push_back(veccat(non_diff_in));
+
+      Function tmp("flattened_" + name_, tmp_args, {veccat(diff_out)}, tmp_options);
+      // Expression for the Jacobian of differentiable inputs/outputs only
       MatType J = tmp.get<DerivedType>()->jac(Dict()).at(0);
 
-      // Split up extended Jacobian
+      // Split up Jacobian into blocks (only for differentiable inputs/outputs)
       std::vector<casadi_int> r_offset = {0}, c_offset = {0};
-      for (auto& e : out_) r_offset.push_back(r_offset.back() + e.numel());
-      for (auto& e : in_) c_offset.push_back(c_offset.back() + e.numel());
+      for (auto& e : diff_out) r_offset.push_back(r_offset.back() + e.numel());
+      for (auto& e : diff_in) c_offset.push_back(c_offset.back() + e.numel());
       auto Jblocks = MatType::blocksplit(J, r_offset, c_offset);
 
-      // Collect all outputs
+      // Assemble full Jacobian output, inserting zeros for non-differentiable blocks
       std::vector<MatType> ret_out;
       ret_out.reserve(onames.size());
-      for (casadi_int i = 0; i < n_out_; ++i) {
-        for (casadi_int j = 0; j < n_in_; ++j) {
-          MatType b = Jblocks.at(i).at(j);
-          if (!is_diff_out_.at(i) || !is_diff_in_.at(j)) {
-            b = MatType(b.size());
+      casadi_int diff_i = 0;
+      for (casadi_int i=0; i<n_out_; ++i) {
+        casadi_int diff_j = 0;
+        for (casadi_int j=0; j<n_in_; ++j) {
+          if (is_diff_out_.at(i) && is_diff_in_.at(j)) {
+            ret_out.push_back(Jblocks.at(diff_i).at(diff_j));
+            diff_j++;
+          } else {
+            ret_out.push_back(MatType(out_.at(i).numel(), in_.at(j).numel()));
           }
-          ret_out.push_back(b);
         }
+        if (is_diff_out_.at(i)) diff_i++;
       }
 
       // All inputs of the return function
@@ -962,6 +995,21 @@ namespace casadi {
       Dict options = opts;
       options["allow_free"] = true;
       options["allow_duplicate_io_names"] = true;
+
+      if (opts.find("is_diff_in")==opts.end()) {
+        std::vector<bool> is_diff_in = join(is_diff_in_, is_diff_out_);
+        options["is_diff_in"] = is_diff_in;
+      }
+
+      if (opts.find("is_diff_out")==opts.end()) {
+        std::vector<bool> is_diff_out;
+        for (casadi_int i=0; i<n_out_; ++i) {
+          for (casadi_int j=0; j<n_in_; ++j) {
+            is_diff_out.push_back(is_diff_in_[j] && is_diff_out_[i]);
+          }
+        }
+        options["is_diff_out"] = is_diff_out;
+      }
 
       // Assemble function and return
       return Function(name, ret_in, ret_out, inames, onames, options);
@@ -993,6 +1041,65 @@ namespace casadi {
     // Assemble function
     return Function(name, ret_in, ret_out,
                     ret_in_name, ret_out_name, opts);
+  }
+
+  template<typename DerivedType, typename MatType, typename NodeType>
+  void XFunction<DerivedType, MatType, NodeType>
+  ::apply_simplify_passes(
+      const std::vector<std::pair<std::string, casadi_int> >& tasks,
+      std::vector<MatType>& new_in,
+      std::vector<MatType>& new_out) const {
+    for (const auto& tc : tasks) {
+      const std::string& task = tc.first;
+      // count>0: run exactly that many times; count==0: run until a fixed point
+      casadi_int count = tc.second;
+      casadi_assert(count>=0,
+        "simplify task '" + task + "': run count must be >= 0 (0 = until fixed point)");
+      casadi_int prev_nodes = -1;
+      casadi_int max_iter = count==0 ? 100 : count;
+      for (casadi_int it=0; it<max_iter; ++it) {
+        if (task=="empty_inputs") {
+          // What symbols occur in the outputs?
+          std::vector<MatType> syms = MatType::symvar(veccat(new_out));
+          // Loop over inputs
+          for (MatType& e : new_in) {
+            // If current input symbols do not occur in outputs
+            if (!contains_any(syms, MatType::symvar(e))) {
+              // Replace input by an empty matrix
+              e = MatType(e.size());
+            }
+          }
+        } else if (task=="combine_terms") {
+          MatType::simplify_combine_terms(new_in, new_out);
+        } else if (task=="cse") {
+          new_out = MatType::cse(new_out);
+        } else if (task=="ref_count") {
+          MatType::simplify_ref_count(new_in, new_out);
+        } else if (task=="const_folding") {
+          MatType::simplify_const_folding(new_in, new_out);
+        } else {
+          casadi_error("No such simplify task: '" + task + "'.\n");
+        }
+        if (count!=0) continue;
+        // Stop once the graph size stops shrinking
+        casadi_int nodes = MatType::n_nodes(veccat(new_out));
+        if (prev_nodes != -1 && nodes >= prev_nodes) break;
+        prev_nodes = nodes;
+      }
+    }
+  }
+
+  template<typename DerivedType, typename MatType, typename NodeType>
+  Function XFunction<DerivedType, MatType, NodeType>
+  ::simplify_passes(
+      const std::vector<std::pair<std::string, casadi_int> >& tasks) const {
+    std::vector<MatType> new_in = in_;
+    std::vector<MatType> new_out = out_;
+    Dict final_options = generate_options("clone");
+    final_options["allow_duplicate_io_names"] = true;
+    final_options["allow_free"] = true;
+    apply_simplify_passes(tasks, new_in, new_out);
+    return Function(name_, new_in, new_out, name_in_, name_out_, final_options);
   }
 
   template<typename DerivedType, typename MatType, typename NodeType>
@@ -1147,7 +1254,7 @@ namespace casadi {
           const Function::AuxOut& aux,
           const Dict& opts) const {
 
-    Dict g_ops = generate_options("clone");
+    Dict g_ops = generate_options("tmp");
     Dict f_options;
     f_options["helper_options"] = g_ops;
     f_options["final_options"] = g_ops;

@@ -1,0 +1,2 @@
+import{Ct as e,Wi as t,Xi as n,Yi as r,_a as i,ea as a,nt as o,ra as s,ua as c}from"./index-BD_kIOMy-CD0yYbHE.js";import"./prefect-ui-library-BWV0d2Z4.js";import{t as l}from"./usePageTitle-C4H8y9Hr.js";var u=n({__name:`Artifacts`,setup(n){return l(`Artifacts`),(n,l)=>{let u=s(`p-layout-default`);return a(),t(u,{class:`artifacts`},{header:c(()=>[r(i(o))]),default:c(()=>[r(i(e))]),_:1})}}});export{u as default};
+//# sourceMappingURL=Artifacts-BYfCR85f.js.map

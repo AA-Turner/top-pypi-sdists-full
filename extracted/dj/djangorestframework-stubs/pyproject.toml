@@ -1,15 +1,13 @@
 [project]
 name = "djangorestframework-stubs"
-version = "3.18.0"
-requires-python = ">=3.10"
+version = "3.18.1"
+requires-python = ">=3.11"
 description = "PEP-484 stubs for django-rest-framework"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.txt"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -18,7 +16,7 @@ classifiers = [
     "Framework :: Django",
 ]
 dependencies = [
-    "django-stubs>=6.0.9",
+    "django-stubs>=6.1.0",
     "typing-extensions>=4.0",
     "types-PyYAML",
 ]
@@ -91,7 +89,7 @@ addopts = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -143,15 +141,12 @@ ignore = [
 [tool.ruff.lint.flake8-tidy-imports.banned-api."_typeshed.Self"]
 msg = "Use typing_extensions.Self (PEP 673) instead."
 
-[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.assert_type"]
-msg = "Use typing_extensions.assert_type instead."
-
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
 extra-standard-library = ["_typeshed"]
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 include = [
     "rest_framework-stubs",
     "tests",

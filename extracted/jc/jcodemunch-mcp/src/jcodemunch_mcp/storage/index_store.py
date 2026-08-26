@@ -70,7 +70,52 @@ INDEX_VERSION = 17
 #   got a name taken from an unrelated run of source. The wrong name is baked
 #   into the symbol id, and re-indexing does NOT fix it — the file content is
 #   unchanged, so the incremental path never re-parses it.
-PARSER_GENERATION = 1
+#
+# gen 2 (2026-08-25): NOT a new defect — the counter simply was not bumped
+#   when four parser changes altered which symbols exist. All four are the
+#   shape this exists for: the file content is unchanged, so the incremental
+#   path never re-reads it and the new symbols never appear.
+#     .246 a class field initializer no longer donates members to its class
+#     .254 Python package-relative imports built no graph edge
+#     .267 Kotlin and Bash constants are extracted
+#     #428 Rust, Go, Java and PHP constants are extracted
+#
+#   ⚠⚠ The 8 indexes measured at generation 1 on 2026-08-25 were
+#   PERMANENTLY EXEMPT from repair, because a stamp EQUAL to the constant is
+#   indistinguishable from a current one. That is the half with no other
+#   remedy, and it is why this is a bump rather than a trigger change:
+#   re-running the upgrade more often cannot reach an index that already
+#   claims to be current.
+#
+#   ⚠ Effect size is SMALL and should not be oversold: measured on NestJS at
+#   a pinned commit, 0.5% of ids changed (58 gone, 61 new, 10,652 identical).
+#   The case is the drift, not corruption.
+#
+#   ⚠⚠ THE REAL LESSON, and it outlives this bump: this counter is a MANUAL
+#   assertion about an AUTOMATED thing, so it drifts silently and the drift
+#   is invisible precisely where it matters. Bumping it fixes today and not
+#   the mechanism. Deriving it from the extractor sources and the grammar
+#   versions is specced in docs/prd-extraction-fingerprint.md; until that
+#   exists, ANY parser change that alters which symbols exist must bump this
+#   line in the same commit.
+#
+# gen 3 (1.108.299, #549): Racket `struct` forms now contribute the accessors,
+#   predicate, setters and constructors the macro generates — names that occur
+#   NOWHERE in the file text, so they exist in an index only if synthesised.
+#
+#   ⚠ #548 shipped Racket itself WITHOUT a bump and that was correct: `.rkt`
+#   was `wrong_extension` in every existing index, so the language arrived
+#   through DISCOVERY. This one is the opposite case and the distinction is
+#   the whole test — 1.108.297 and 1.108.298 both parse `.rkt`, so an index
+#   built by either holds Racket files at generation 2 with the old symbol
+#   set, the content is unchanged, and the incremental path will never re-read
+#   them. Coverage does not need a bump; extraction does.
+#
+#   ⚠ Scope is NARROW and should not be oversold: `.rkt`/`.rktl`/`.rktd` only,
+#   and the window of affected indexes opened on 2026-08-24. It is bumped
+#   anyway because a stamp equal to the constant is unrepairable later, which
+#   makes the cheap decision now and the impossible one afterwards.
+PARSER_GENERATION = 3
 
 
 @dataclass(frozen=True)

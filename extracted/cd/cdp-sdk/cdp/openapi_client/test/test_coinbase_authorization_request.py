@@ -36,7 +36,9 @@ class TestCoinbaseAuthorizationRequest(unittest.TestCase):
         model = CoinbaseAuthorizationRequest()
         if include_optional:
             return CoinbaseAuthorizationRequest(
-                metadata = {customer_id=cust_12345, order_reference=order-67890}
+                metadata = {customer_id=cust_12345, order_reference=order-67890},
+                customer_display = {referenceCode=REF-ABC123},
+                external_reference_id = 'merchant-reference-abc123'
             )
         else:
             return CoinbaseAuthorizationRequest(

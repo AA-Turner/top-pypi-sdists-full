@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maigret
-Version: 0.6.4
+Version: 0.6.5
 Summary: 🕵️‍♂️ Collect a dossier on a person by username from thousands of sites.
 License: MIT
 License-File: LICENSE
@@ -25,7 +25,7 @@ Requires-Dist: PySocks (>=1.7.1,<2.0.0)
 Requires-Dist: XMind (>=1.2.0,<2.0.0)
 Requires-Dist: aiodns (>=3,<5)
 Requires-Dist: aiohttp (>=3.12.14,<4.0.0)
-Requires-Dist: aiohttp-socks (>=0.10.1,<0.12.0)
+Requires-Dist: aiohttp-socks (>=0.10.1,<0.13.0)
 Requires-Dist: alive_progress (>=3.2.0,<4.0.0)
 Requires-Dist: arabic-reshaper (>=3.0.0,<4.0.0) ; extra == "pdf"
 Requires-Dist: asgiref (>=3.9.1,<4.0.0)
@@ -39,6 +39,7 @@ Requires-Dist: networkx (>=2.6.3,<3.0.0)
 Requires-Dist: platformdirs (>=4.3.8,<5.0.0)
 Requires-Dist: pycountry (>=24.6.1,<27.0.0)
 Requires-Dist: python-bidi (>=0.6.3,<0.7.0) ; extra == "pdf"
+Requires-Dist: python-dateutil (>=2.8.1)
 Requires-Dist: pyvis (>=0.3.2,<0.4.0)
 Requires-Dist: reportlab (>=4.4.3,<5.0.0)
 Requires-Dist: requests (>=2.32.4,<3.0.0)
@@ -103,7 +104,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://www.ipcook.com/?ref=githubmaigret&utm_source=github&utm_medium=referral&utm_campaign=maigret">
-    <img src="https://github.com/user-attachments/assets/8c02d81a-8135-408d-a5e0-7558a1f49a2d" width="250" alt="IPcook">
+    <img src="https://github.com/user-attachments/assets/8c02d81a-8135-408d-a5e0-7558a1f49a2d" width="400" alt="IPcook">
   </a>
 </p>
 

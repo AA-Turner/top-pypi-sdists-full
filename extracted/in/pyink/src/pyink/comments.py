@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Final, Union
 
-from pyink import ink_comments
-from pyink.mode import Mode, Preview
+from pyink.mode import Mode
 from pyink.nodes import (
     CLOSING_BRACKETS,
+    OPENING_BRACKETS,
     STANDALONE_COMMENT,
     STATEMENT,
     WHITESPACE,
@@ -20,6 +20,8 @@ from pyink.nodes import (
 )
 from blib2to3.pgen2 import token
 from blib2to3.pytree import Leaf, Node
+
+from pyink import ink_comments
 
 # types
 LN = Union[Leaf, Node]
@@ -177,8 +179,7 @@ def make_comment(content: str, mode: Mode) -> str:
     ):
         content = " " + content[1:]  # Replace NBSP by a simple space
     if (
-        Preview.standardize_type_comments in mode
-        and content
+        content
         and "\N{NO-BREAK SPACE}" not in content
         and is_type_comment_string("#" + content, mode=mode)
     ):
@@ -356,6 +357,18 @@ def convert_one_fmt_off_pair(
                 previous_consumed = comment.consumed
                 continue
 
+            # Avoid preprocessing `# fmt: skip` that fall outside the specified
+            # formatting line ranges. Converting a `# fmt: skip` located outside of
+            # line ranges into a `STANDALONE_COMMENT` would remove structure (like
+            # closing brackets) from the AST, which then breaks bracket tracking
+            # and spacing during unchanged line reconstruction.
+            if is_fmt_skip and lines:
+                comment_lineno = leaf.lineno - comment.newlines
+                if not any(start <= comment_lineno <= end for start, end in lines):
+                    if not ink_comments.is_skip_target_safe(leaf):
+                        previous_consumed = comment.consumed
+                        continue
+
             if not _is_valid_standalone_fmt_comment(
                 comment, leaf, is_fmt_off, is_fmt_skip
             ):
@@ -450,6 +463,14 @@ def _handle_regular_fmt_block(
 
     hidden_value = "".join(parts)
     comment_lineno = leaf.lineno - comment.newlines
+    leaf_is_ignored = any(
+        ignored is leaf
+        or (
+            isinstance(ignored, Node)
+            and any(child is leaf for child in ignored.leaves())
+        )
+        for ignored in ignored_nodes
+    )
 
     if contains_fmt_directive(comment.value, FMT_OFF):
         fmt_off_prefix = ""
@@ -463,7 +484,7 @@ def _handle_regular_fmt_block(
         standalone_comment_prefix += fmt_off_prefix
         hidden_value = comment.value + "\n" + hidden_value
 
-    if is_fmt_skip:
+    if is_fmt_skip and not leaf_is_ignored:
         hidden_value += comment.leading_whitespace + comment.value
 
     if hidden_value.endswith("\n"):
@@ -632,6 +653,17 @@ def _get_compound_statement_header(
     return header_leaves
 
 
+def _find_closest_previous_sibling(node: LN) -> LN | None:
+    """Find the closest previous sibling by walking up the ancestor chain."""
+    current: LN | None = node
+    while current is not None:
+        prev_sibling = current.prev_sibling
+        if prev_sibling is not None:
+            return prev_sibling
+        current = current.parent
+    return None
+
+
 def _generate_ignored_nodes_from_fmt_skip(
     leaf: Leaf, comment: ProtoComment, mode: Mode
 ) -> Iterator[LN]:
@@ -645,23 +677,33 @@ def _generate_ignored_nodes_from_fmt_skip(
     if not comments or comment.value != comments[0].value:
         return
 
-    if Preview.fix_fmt_skip_in_one_liners in mode and not prev_sibling and parent:
+    if prev_sibling is None and parent is not None:
         prev_sibling = parent.prev_sibling
 
-    if prev_sibling is not None:
-        leaf.prefix = leaf.prefix[comment.consumed :]
+    if prev_sibling is None and comment.type == token.COMMENT:
+        prev_sibling = _find_closest_previous_sibling(leaf)
 
-        if Preview.fix_fmt_skip_in_one_liners not in mode:
-            siblings = [prev_sibling]
-            while (
-                "\n" not in prev_sibling.prefix
-                and prev_sibling.prev_sibling is not None
-            ):
-                prev_sibling = prev_sibling.prev_sibling
-                siblings.insert(0, prev_sibling)
-            yield from siblings
-            return
-
+    if parent is not None and parent.type == syms.suite and leaf.type == token.NEWLINE:
+        # The `# fmt: skip` is on the colon line of the if/while/def/class/...
+        # statements. The ignored nodes should be previous siblings of the
+        # parent suite node. Do this before the generic "same physical line"
+        # logic so multiline headers are preserved as a whole.
+        leaf.prefix = ""
+        parent_sibling = parent.prev_sibling
+        while parent_sibling is not None and parent_sibling.type != syms.suite:
+            ignored_nodes.insert(0, parent_sibling)
+            parent_sibling = parent_sibling.prev_sibling
+        # Special case for `async_stmt` where the ASYNC token is on the
+        # grandparent node.
+        grandparent = parent.parent
+        if (
+            grandparent is not None
+            and grandparent.prev_sibling is not None
+            and grandparent.prev_sibling.type == token.ASYNC
+        ):
+            ignored_nodes.insert(0, grandparent.prev_sibling)
+        yield from iter(ignored_nodes)
+    elif prev_sibling is not None:
         # Generates the nodes to be ignored by `fmt: skip`.
 
         # Nodes to ignore are the ones on the same line as the
@@ -682,6 +724,14 @@ def _generate_ignored_nodes_from_fmt_skip(
         # or NEWLINE leaves.
 
         current_node = prev_sibling
+        if (
+            isinstance(current_node, Leaf)
+            and current_node.type in OPENING_BRACKETS
+            and current_node.parent
+            and current_node.parent.type == syms.atom
+        ):
+            current_node = current_node.parent
+
         ignored_nodes = [current_node]
         if current_node.prev_sibling is None and current_node.parent is not None:
             current_node = current_node.parent
@@ -718,7 +768,10 @@ def _generate_ignored_nodes_from_fmt_skip(
                 current_node = current_node.parent
 
             if current_node.type in (token.NEWLINE, token.INDENT):
-                current_node.prefix = ""
+                if not list_comments(
+                    current_node.prefix, is_endmarker=False, mode=mode
+                ):
+                    current_node.prefix = ""
                 break
 
             if current_node.type == token.DEDENT:
@@ -740,35 +793,25 @@ def _generate_ignored_nodes_from_fmt_skip(
                 current_node = current_node.parent
 
         # Special handling for compound statements with semicolon-separated bodies
-        if Preview.fix_fmt_skip_in_one_liners in mode and isinstance(parent, Node):
+        if isinstance(parent, Node):
             body_node = _find_compound_statement_context(parent)
             if body_node is not None:
                 header_nodes = _get_compound_statement_header(body_node, parent)
                 if header_nodes:
                     ignored_nodes = header_nodes + ignored_nodes
 
+        leaf_is_ignored = any(
+            ignored is leaf
+            or (
+                isinstance(ignored, Node)
+                and any(child is leaf for child in ignored.leaves())
+            )
+            for ignored in ignored_nodes
+        )
+        if not leaf_is_ignored:
+            leaf.prefix = leaf.prefix[comment.consumed :]
+
         yield from ignored_nodes
-    elif (
-        parent is not None and parent.type == syms.suite and leaf.type == token.NEWLINE
-    ):
-        # The `# fmt: skip` is on the colon line of the if/while/def/class/...
-        # statements. The ignored nodes should be previous siblings of the
-        # parent suite node.
-        leaf.prefix = ""
-        parent_sibling = parent.prev_sibling
-        while parent_sibling is not None and parent_sibling.type != syms.suite:
-            ignored_nodes.insert(0, parent_sibling)
-            parent_sibling = parent_sibling.prev_sibling
-        # Special case for `async_stmt` where the ASYNC token is on the
-        # grandparent node.
-        grandparent = parent.parent
-        if (
-            grandparent is not None
-            and grandparent.prev_sibling is not None
-            and grandparent.prev_sibling.type == token.ASYNC
-        ):
-            ignored_nodes.insert(0, grandparent.prev_sibling)
-        yield from iter(ignored_nodes)
 
 
 def is_fmt_on(container: LN, mode: Mode) -> bool:

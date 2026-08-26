@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: smg-grpc-proto
-Version: 0.4.14
+Version: 0.4.15
 Summary: SMG gRPC proto definitions for vLLM, TRT-LLM, MLX, TokenSpeed, and SGLang
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>, Keyang Ru <rukeyang@gmail.com>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/lightseekorg/smg
-Project-URL: Repository, https://github.com/lightseekorg/smg
+Project-URL: Homepage, https://github.com/smg-project/smg
+Project-URL: Repository, https://github.com/smg-project/smg
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,7 +24,7 @@ Dynamic: license-file
 [![PyPI](https://img.shields.io/pypi/v/smg-grpc-proto)](https://pypi.org/project/smg-grpc-proto/)
 [![Python](https://img.shields.io/pypi/pyversions/smg-grpc-proto)](https://pypi.org/project/smg-grpc-proto/)
 
-Protocol Buffer definitions for [SMG](https://github.com/lightseekorg/smg) (Shepherd Model Gateway) gRPC services.
+Protocol Buffer definitions for [SMG](https://github.com/smg-project/smg) (Shepherd Model Gateway) gRPC services.
 
 This package provides pre-compiled Python gRPC stubs for:
 - **SGLang** scheduler service (`sglang_scheduler.proto`)
@@ -51,7 +51,7 @@ from smg_grpc_proto import trtllm_service_pb2, trtllm_service_pb2_grpc
 
 ## Proto Source
 
-The proto source files live in [`grpc_client/proto/`](https://github.com/lightseekorg/smg/tree/main/grpc_client/proto) in the SMG repository. Python stubs are generated at build time using `grpcio-tools` and shipped in the wheel.
+The proto source files live in [`grpc_client/proto/`](https://github.com/smg-project/smg/tree/main/grpc_client/proto) in the SMG repository. Python stubs are generated at build time using `grpcio-tools` and shipped in the wheel.
 
 ## Development
 

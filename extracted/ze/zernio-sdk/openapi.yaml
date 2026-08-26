@@ -176,6 +176,7 @@ x-documentation:
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
     - `whatsapp.template.category_updated` - Meta reclassified a WhatsApp Business template's category (drives tariff and marketing opt-out applicability). `template.changeType` is `scheduled` (24h advance notice) or `applied`; `template.category` is always the category right now.
+    - `whatsapp.account.name_status_updated` - Meta finished reviewing a WhatsApp display-name change. `name.status` carries the outcome (APPROVED, DECLINED, PENDING_REVIEW). Fires only on a review outcome; a name applied without review (`name_status: AVAILABLE_WITHOUT_REVIEW`) produces no event.
     - `call.received` - An inbound call (phone/PSTN or WhatsApp) reached one of your numbers and was routed to its destination
     - `call.ended` - A call ended; carries duration, end reason, cost breakdown, and the recording when enabled
     - `call.failed` - A call failed with a hard error before or during bridging
@@ -429,10 +430,10 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
 
-      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.* and whatsapp.template.* to accounts, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
   - name: Webhook Events
     description: |
       Incoming webhook deliveries sent by Zernio to your configured endpoint URL.
@@ -841,6 +842,16 @@ components:
             Video creative for single-creative shape. Mutually
             exclusive with `imageUrl` and with `creatives[]`. Required
             on the single-creative shape if `imageUrl` is not supplied.
+        welcomeMessage:
+          type: object
+          required: [text, prefillText]
+          properties:
+            text: { type: string, minLength: 1, description: "Greeting shown when the chat opens. Replaces Meta's default (\"Hi! Can we help you?\")." }
+            prefillText: { type: string, minLength: 1, description: "Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it promotes (e.g. a specific product)." }
+          description: |
+            Custom chat welcome message (Meta's `page_welcome_message`,
+            "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager).
+            Single-creative shape only; for `creatives[]` set it per entry.
         creatives:
           type: array
           minItems: 1
@@ -890,6 +901,13 @@ components:
                 description: |
                   Video creative. Mutually exclusive with this entry's
                   `imageUrl`. Required if `imageUrl` is not supplied.
+              welcomeMessage:
+                type: object
+                required: [text, prefillText]
+                properties:
+                  text: { type: string, minLength: 1, description: "Greeting shown when the chat opens. Replaces Meta's default." }
+                  prefillText: { type: string, minLength: 1, description: "Message put into the user's text input, ready to send. Replaces Meta's default." }
+                description: Custom chat welcome message for this entry. See the top-level `welcomeMessage` for the single-creative shape.
         adSetId:
           type: string
           description: |
@@ -2382,7 +2400,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -2914,7 +2932,7 @@ components:
               description: 'Post thumbnail or first media item URL. Platform CDN URLs expire, fetch promptly.'
             permalink:
               type: [string, "null"]
-              description: 'Public URL of the post. Null for posts published through Zernio that were never re-synced.'
+              description: 'Public URL of the post. Null when no URL was ever stored for it, for example a platform draft or a post recovered without one.'
         account:
           type: object
           required: [id, platform, username]
@@ -3648,7 +3666,8 @@ components:
               description: |
                 WhatsApp only. Which kind of interactive reply the user sent:
                 `button_reply` (tap on an interactive button), `list_reply` (tap on a
-                list row), or `nfm_reply` (a WhatsApp Flow submission).
+                list row), or `nfm_reply` (a WhatsApp Flow submission or an
+                `address_message` submission, see `nfmReplyName`).
             interactiveId:
               type: string
               description: |
@@ -3672,7 +3691,17 @@ components:
               description: |
                 WhatsApp only. Parsed Flow response JSON. Populated when
                 `flowResponseJson` is valid JSON; otherwise omitted. Keys and
-                value types depend on the specific Flow that was submitted.
+                value types depend on the specific Flow that was submitted. An
+                `address_message` submission (`nfmReplyName: address_message`) carries
+                the address fields (`name`, `address`, `city`, `state`, `in_pin_code`,
+                ...), either at the top level or nested under `values`; read both.
+            nfmReplyName:
+              type: string
+              description: |
+                WhatsApp only. `nfm_reply.name` as Meta sent it, e.g. `flow` or
+                `address_message`. Address submissions share the `nfm_reply`
+                envelope with Flow submissions and are otherwise indistinguishable
+                in `flowResponseData`; use this field to tell them apart.
             order:
               type: object
               description: |
@@ -4569,6 +4598,54 @@ components:
               type: string
               format: date-time
               description: Present only when changeType is `scheduled`. ISO-8601 timestamp when the scheduled category takes effect.
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadWhatsAppAccountNameStatusUpdated:
+      type: object
+      description: |
+        Webhook payload for the `whatsapp.account.name_status_updated` event.
+        Fired when Meta finishes reviewing a WhatsApp display-name change on a
+        connected number. Maps Meta's `phone_number_name_update` WABA webhook
+        field onto our event envelope. Fires only for a review outcome
+        (APPROVED, DECLINED, PENDING_REVIEW); a name applied without review
+        reports `name_status: AVAILABLE_WITHOUT_REVIEW` on the phone node
+        instead, and Meta never sends this webhook field for that case.
+      required: [id, event, account, name, timestamp]
+      properties:
+        id:
+          type: string
+          description: Stable webhook event ID
+        event:
+          type: string
+          enum: [whatsapp.account.name_status_updated]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: string }
+        name:
+          type: object
+          required: [status, requestedName, rejectionReason, displayPhoneNumber]
+          properties:
+            status:
+              type: string
+              enum: [APPROVED, DECLINED, PENDING_REVIEW]
+              description: 'Normalized from Meta''s `decision` (REJECTED -> DECLINED, DEFERRED -> PENDING_REVIEW; the review is still open on DEFERRED, not a rejection).'
+            requestedName:
+              type: [string, "null"]
+              description: The display name Meta reviewed. Null if Meta did not send one.
+            rejectionReason:
+              type: [string, "null"]
+              description: 'Meta''s free-form decline reason. Null on approval, or when Meta sends the literal string "NONE".'
+            displayPhoneNumber:
+              type: [string, "null"]
+              description: 'The phone number this review is for, as Meta reported it.'
         timestamp:
           type: string
           format: date-time
@@ -8098,7 +8175,7 @@ components:
           enum: [carousel, video, document, image, null]
           description: "Creative format, classified from the media the creative carries. `null` when the creative carries no media to classify — an unsynced creative and a genuine text-only ad are indistinguishable, so neither is guessed at. Returned by `GET /v1/ads`, `GET /v1/ads/{adId}` and the ad nodes of `GET /v1/ads/tree`."
           example: video
-        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, job_applicants], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 9 (incl. `lead_conversion` = website pixel lead optimization and `catalog_sales` = Advantage+ catalog ads). TikTok supports the 7 non-`lead_conversion` goals. LinkedIn supports all except app_promotion / lead_conversion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
+        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, job_applicants], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 10 (incl. `lead_conversion` = website pixel lead optimization, `catalog_sales` = Advantage+ catalog ads and `page_likes` = Page Likes conversion location under Engagement). TikTok supports engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion. LinkedIn supports all Meta goals except app_promotion / lead_conversion / catalog_sales / page_likes. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
         isExternal: { type: boolean, description: True for ads synced from platform ad managers }
         budget:
           type: [object, "null"]
@@ -9558,6 +9635,31 @@ webhooks:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookPayloadWhatsAppTemplateCategoryUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.account.name_status_updated:
+    post:
+      operationId: onWhatsAppAccountNameStatusUpdated
+      summary: WhatsApp display-name review outcome event
+      description: |
+        Fired when Meta finishes reviewing a WhatsApp Business display-name
+        change. Forwarded from Meta's `phone_number_name_update` webhook
+        field on the WhatsApp Business Account. Fires only on a review
+        outcome (`name.status` APPROVED, DECLINED, or PENDING_REVIEW); a name
+        applied without review reports `name_status:
+        AVAILABLE_WITHOUT_REVIEW` on the phone node instead and produces no
+        event here. `decision` REJECTED maps to DECLINED and DEFERRED maps to
+        PENDING_REVIEW, matching the `name_status` vocabulary returned by
+        `GET /v1/whatsapp/number-info`. Delivery is at-least-once; dedupe on
+        `(account.accountId, name.status, name.requestedName)`.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppAccountNameStatusUpdated'
       responses:
         '200':
           description: Webhook received successfully
@@ -16889,12 +16991,20 @@ paths:
       operationId: handleOAuthCallback
       tags: [Connect]
       summary: Complete OAuth callback
-      description: Exchange the OAuth authorization code for tokens and connect the account to the specified profile.
+      description: |
+        Exchange the OAuth authorization code for tokens and connect the account to the specified profile.
+
+        Facebook, Google Business, Snapchat and WhatsApp are not accepted here: their account identity is a destination chosen after OAuth, which this single-shot exchange cannot do. Connect them through the redirect flow from `GET /v1/connect/{platform}`, or, for WhatsApp Embedded Signup, through `POST /v1/connect/whatsapp/embedded-signup`.
       parameters:
         - name: platform
           in: path
           required: true
-          schema: { type: string }
+          description: |
+            Social platform to complete the connect for. Discord, Slack and Telegram are absent because they are
+            served by their own dedicated routes, documented separately.
+          schema:
+            type: string
+            enum: [instagram, twitter, threads, linkedin, youtube, tiktok, reddit, pinterest]
       requestBody:
         required: true
         content:
@@ -16908,11 +17018,14 @@ paths:
                 profileId: { type: string }
       responses:
         '200': { description: Account connected }
-        '400': { description: Invalid params }
+        '400': { description: 'Invalid params, or the platform requires choosing a destination (code: platform_requires_destination)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: BYOK required for AppSumo Twitter }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: 'No access to the profile, or BYOK required for AppSumo Twitter' }
+        '404': { description: Profile not found }
         '500': { description: 'Internal error while connecting the account' }
         '502': { description: 'The platform rejected the token exchange (type: platform_error; an upstream 4xx status is forwarded instead of 502)' }
+        '503': { description: 'Connections for this platform are temporarily disabled (code: platform_disabled)' }
 
   /v1/connect/{platform}/ads:
     get:
@@ -19653,6 +19766,8 @@ paths:
         Posts (or updates) the business owner reply to a Google Business review.
         The reply is associated with the account's currently selected location (set via /v1/accounts/{accountId}/gmb-locations).
         Calling this endpoint a second time on the same review overwrites the previous reply (PUT semantics on Google's side).
+        Google keeps no history, so an automated retry silently replaces a reply someone edited by hand in the Google Business Profile UI.
+        Read the review before retrying if a human may have answered it.
       parameters:
         - name: accountId
           in: path
@@ -20772,6 +20887,86 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /v1/connect/whatsapp/embedded-signup:
+    post:
+      x-resource-group: "accounts"
+      operationId: connectWhatsAppEmbeddedSignup
+      tags: [Connect]
+      summary: Connect WhatsApp from Embedded Signup
+      description: 'Exchange the authorization code Meta Embedded Signup returns to your browser SDK. This is the headless completion path for WhatsApp: the code never passes through a redirect_uri, so POST /v1/connect/{platform} cannot accept it.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, profileId]
+              properties:
+                code: { type: string, description: 'Authorization code from the WA_EMBEDDED_SIGNUP postMessage' }
+                profileId: { type: string }
+                wabaId: { type: string, description: 'WhatsApp Business Account id, when the SDK reported one' }
+                phoneNumberId: { type: string }
+                isCoexistence: { type: boolean, description: 'Number is also live in the WhatsApp Business app' }
+                expectedPhoneNumber: { type: string, description: 'Rejects the connect when Meta returns a different number' }
+      responses:
+        '200': { description: Number connected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '409': { description: 'The number is already connected on another profile or workspace' }
+
+  /v1/connect/discord:
+    post:
+      x-resource-group: "accounts"
+      operationId: connectDiscordChannel
+      tags: [Connect]
+      summary: Connect a Discord channel
+      description: 'Finalize a Discord connect by binding one channel to a profile. Served by a dedicated route, so it is not reachable through POST /v1/connect/{platform}. One connected account per channel: repeat the call with a different channelId to add another.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [guildId, channelId, profileId]
+              properties:
+                guildId: { type: string, description: 'Discord server (guild) the channel belongs to' }
+                channelId: { type: string, description: 'Text, announcement or forum channel to publish to' }
+                profileId: { type: string, description: 'Profile to connect the channel to' }
+      responses:
+        '200': { description: Channel connected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '404': { description: Profile not found }
+
+  /v1/connect/slack:
+    post:
+      x-resource-group: "accounts"
+      operationId: connectSlackChannel
+      tags: [Connect]
+      summary: Connect a Slack channel
+      description: 'Finalize a Slack connect by creating the per-channel account. Served by a dedicated route, so it is not reachable through POST /v1/connect/{platform}. Send pendingDataToken for a first connect (the nonce from the OAuth redirect) or accountId to add another channel to a workspace already connected.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId, channelId]
+              properties:
+                profileId: { type: string }
+                channelId: { type: string, description: 'Slack channel id, C... or G...' }
+                pendingDataToken: { type: string, description: 'Nonce from the OAuth redirect. Required unless accountId is sent.' }
+                accountId: { type: string, description: 'Existing Slack account whose workspace token is reused. Required unless pendingDataToken is sent.' }
+      responses:
+        '200': { description: Channel connected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: Slack connections are temporarily unavailable }
+        '404': { description: Profile not found }
 
   /v1/connect/telegram:
     get:
@@ -24457,7 +24652,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -24576,7 +24771,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -25216,6 +25411,14 @@ paths:
                             code: { type: [string, "null"], description: Error code if available }
                             retryAfter: { type: [integer, "null"], description: Seconds to wait before retry (rate limits) }
                       lastUpdated: { type: string, format: date-time }
+                      accountsSkipped:
+                        type: array
+                        description: 'Connected accounts that were not queried: their platform does not support this feature, or the account is not enabled for it'
+                        items:
+                          type: object
+                          properties:
+                            accountId: { type: string }
+                            platform: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -26131,8 +26334,7 @@ paths:
                     commerce messages (single product, product list, catalog, and
                     carousel). When set, takes priority over `buttons` and
                     `quickReplies`. The shape mirrors Meta's Cloud API `interactive`
-                    object verbatim, so any payload that works against Meta directly
-                    will also work here.
+                    object for the types in the enum below.
 
                     Use `buttons` / `quickReplies` for simple button replies
                     (WhatsApp's `interactive.type: "button"`): the abstraction caps at
@@ -26178,6 +26380,18 @@ paths:
                     For `catalog_message`, `action` may also be omitted (we default it
                     to `{ "name": "catalog_message" }`).
 
+                    For `address_message`, `parameters.country` is required (Meta
+                    rejects the whole send without it); everything else in
+                    `parameters` (`values`, `saved_addresses`, `validation_errors`)
+                    is forwarded to Meta as-is. This is Meta's native structured
+                    shipping-address capture, generally available in India as of
+                    2026-08; check Meta's documentation for current country
+                    availability before relying on it elsewhere. The submitted
+                    address arrives as an `nfm_reply` on the `message.received`
+                    webhook, same as a Flow submission, but with
+                    `metadata.nfmReplyName` set to `address_message` so you can
+                    tell the two apart.
+
                     Tap events come back via the `message.received` webhook with
                     `metadata.interactiveType` set to `list_reply` or `nfm_reply`.
                     Carts submitted from commerce messages arrive as `metadata.order`;
@@ -26186,7 +26400,7 @@ paths:
                   properties:
                     type:
                       type: string
-                      enum: [list, cta_url, flow, location_request_message, request_contact_info, voice_call, product, product_list, catalog_message, carousel]
+                      enum: [list, cta_url, flow, location_request_message, request_contact_info, voice_call, product, product_list, catalog_message, carousel, address_message]
                       description: Which interactive layout to render.
                     header:
                       type: object
@@ -26370,6 +26584,24 @@ paths:
                                   header: { type: object, description: "Media cards only, required. Carries the card's image or video." }
                                   body: { type: object, description: Optional card body text. }
                                   action: { type: object, description: "Product cards: `{ catalog_id, product_retailer_id }` (required). Media cards: the card's button action (e.g. `cta_url` with `parameters.display_text` and `parameters.url`)." }
+                        - type: object
+                          description: |
+                            Address-request action. `type` on the parent must be
+                            `address_message`. Renders Meta's native structured
+                            address form in-chat (generally available in India as
+                            of 2026-08; check Meta's documentation for current
+                            country availability).
+                          required: [name, parameters]
+                          properties:
+                            name: { type: string, enum: [address_message] }
+                            parameters:
+                              type: object
+                              required: [country]
+                              properties:
+                                country: { type: string, description: 'ISO 3166-1 alpha-2 country code Meta should localize the address form for (e.g. IN). Required: Meta rejects the send without it.' }
+                                values: { type: object, additionalProperties: true, description: Optional pre-filled address field values. }
+                                saved_addresses: { type: array, items: { type: object, additionalProperties: true }, description: Optional list of the recipient's previously saved addresses to offer as quick picks. }
+                                validation_errors: { type: object, additionalProperties: { type: string }, description: Optional per-field error messages to show when re-prompting after a failed validation. }
                 replyMarkup:
                   type: object
                   description: Telegram-native keyboard markup. Ignored on other platforms.
@@ -27370,6 +27602,14 @@ paths:
                             code: { type: [string, "null"], description: Error code if available }
                             retryAfter: { type: [integer, "null"], description: Seconds to wait before retry (rate limits) }
                       lastUpdated: { type: string, format: date-time }
+                      accountsSkipped:
+                        type: array
+                        description: 'Connected accounts that were not queried: their platform does not support this feature, or the account is not enabled for it'
+                        items:
+                          type: object
+                          properties:
+                            accountId: { type: string }
+                            platform: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -28888,6 +29128,14 @@ paths:
                             code: { type: [string, "null"], description: Error code if available }
                             retryAfter: { type: [integer, "null"], description: Seconds to wait before retry (rate limits) }
                       lastUpdated: { type: string, format: date-time }
+                      accountsSkipped:
+                        type: array
+                        description: 'Connected accounts that were not queried: their platform does not support this feature, or the account is not enabled for it'
+                        items:
+                          type: object
+                          properties:
+                            accountId: { type: string }
+                            platform: { type: string }
                   summary:
                     type: object
                     properties:
@@ -29222,6 +29470,11 @@ paths:
       description: |
         Update a message template's components. Only certain fields can be updated depending on
         the template's current approval state. Approved templates can only have components updated.
+
+        A successful update sends the template back to Meta for review, so the `status` returned
+        here is normally `PENDING`. The final outcome arrives later on the
+        `whatsapp.template.status_updated` webhook. A template already in `PENDING` cannot be
+        edited again until Meta finishes reviewing it.
       security:
         - bearerAuth: []
       parameters:
@@ -29275,7 +29528,10 @@ paths:
                     properties:
                       id: { type: string }
                       name: { type: string }
-                      status: { type: string }
+                      status:
+                        type: string
+                        description: 'Approval state read back from Meta after the update, normally PENDING. If the state cannot be read back, the last known status is returned instead.'
+                        example: PENDING
         '400': { description: Validation error (missing fields) }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -39032,7 +39288,7 @@ paths:
                 name: { type: string, maxLength: 255 }
                 goal:
                   type: string
-                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, job_applicants, conversions, app_promotion, catalog_sales]
+                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, job_applicants, conversions, app_promotion, catalog_sales, page_likes]
                   description: Mapped to the ODAX objective (same mapping as POST /v1/ads/create).
                 specialAdCategories:
                   type: array
@@ -39800,7 +40056,7 @@ paths:
         - { name: source, in: query, schema: { type: string, enum: [zernio, all], default: all }, description: "`all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager — matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default — use the `status` param for that." }
         - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] } }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AdStatus' }, description: Filter by derived campaign status (post-aggregation) }
-        - { name: adAccountId, in: query, schema: { type: string }, description: Platform ad account ID }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "One or more platform ad account IDs to scope the tree to (agency profiles connect a whole Business Manager but a workspace usually cares about a subset). Comma-separate for multiple (`?adAccountId=act_1,act_2,act_3`); single value keeps its old shape. Max 50 accounts per request; the plural aliases `adAccountIds` and `platformAdAccountIds` are rejected with a 400 to stop them from silently returning the unfiltered fleet." }
         - { name: pageId, in: query, schema: { type: string }, description: "Meta only: Facebook Page ID. Prunes the tree to ads whose creative is backed by this Page — campaigns and ad sets with no ad on the Page drop out, and rolled-up metrics cover only the Page's ads. Mirrors the same filter on /v1/ads and /v1/ads/campaigns." }
         - { name: accountId, in: query, schema: { type: string }, description: Social account ID }
         - { name: profileId, in: query, schema: { type: string }, description: Profile ID }
@@ -40258,6 +40514,55 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Ad not found }
         '429': { description: Meta rate limit reached }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/{adId}/media:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdMedia
+      tags: ["Ad Creatives"]
+      x-platforms: ["meta"]
+      summary: Direct video and image URLs for an ad
+      description: |-
+        Returns the direct signed URLs for every video and image asset used by an ad's live
+        creative, normalised across shapes: single image/video, carousel,
+        Reels/Story (`object_story_spec.video_data`) and dynamic
+        creative (`asset_feed_spec`). Video items include Meta's poster thumbnail and the
+        video's Meta id when available.
+
+        Reads Meta live rather than the stored creative blob because Meta's signed fbcdn
+        URLs carry an `oe=<hex>` expiration (image_url ~24 h, video source ~12 d). Treat
+        URLs as short-lived — re-fetch this endpoint before serving or downloading assets
+        instead of caching URLs beyond that window.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string }, description: "Zernio ad id (24-char hex) or platform ad id." }
+      responses:
+        '200':
+          description: Media assets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adId: { type: string }
+                  platform: { type: string, description: "'facebook' or 'instagram' — only Meta is supported for now." }
+                  media:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string, enum: [image, video] }
+                        url: { type: string, description: "Direct file URL (signed; short-lived — see description)." }
+                        thumbnailUrl: { type: string, description: "Video poster URL (videos only)." }
+                        videoId: { type: string, description: "Meta video id (videos only), reusable as video.id on the create endpoints." }
+                        length: { type: number, description: "Video length in seconds (videos only)." }
+                        index: { type: integer, description: "0-based position for carousel children or asset_feed_spec entries." }
+        '400': { description: "Invalid input" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Ad not found }
+        '422': { description: No active Meta connection for this ad. Reconnect the account. }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/keywords/ideas:
@@ -40726,8 +41031,8 @@ paths:
         Instagram account on the profile can read the ad's media, the call returns
         ads_connection_required (the Facebook side, if any, is still readable via ?placement=facebook).
 
-        Meta-only. Other ad platforms (TikTok, LinkedIn, Pinterest, Google, X) do not
-        expose a public per-ad comments API and return feature_not_available.
+        Meta-only for now. Other ad platforms (TikTok, LinkedIn, Pinterest, Google, X)
+        are not wired to this endpoint and return feature_not_available.
 
         Requires the Ads add-on. Response shape matches GET /v1/inbox/comments/{postId}.
 
@@ -42300,7 +42605,7 @@ paths:
                           value: { type: string }
                 goal:
                   type: string
-                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, job_applicants]
+                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, job_applicants]
                   description: |
                     Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
@@ -42310,6 +42615,7 @@ paths:
                     - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
                     - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
                     - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
+                    - `page_likes`: Page Likes conversion location under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled from the connected Page. The creative CTA is fixed to LIKE_PAGE targeting that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives the link and the Like button from the Page).
 
                     **TikTok**
                     - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
@@ -42714,7 +43020,8 @@ paths:
                     Meta only. Hand-built carousel: 2-10 authored cards in DETERMINISTIC order, mapped to
                     the creative's `link_data.child_attachments`. Unlike `dynamicCreative`,
                     you control the card order and per-card copy/link. Requires top-level `body`,
-                    `linkUrl` and `callToAction`.
+                    `linkUrl` and `callToAction`. Those become the ad's own Destination and
+                    button (`link_data.link` / `link_data.call_to_action`), and double as the per-card fallback when a card omits its own.
                     Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`,
                     `placementAssets`, `existingCreativeId`, `adSetId`, `leadGenFormId` and goal
                     `catalog_sales`.
@@ -42873,6 +43180,26 @@ paths:
                 negativeKeywords: { type: array, items: { type: string, maxLength: 80 }, description: "Google Search only; other platforms return 400. BROAD-match negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords." }
                 additionalHeadlines: { type: array, items: { type: string }, description: "Google Search RSA only. Extra headlines." }
                 additionalDescriptions: { type: array, items: { type: string }, description: "Google Search RSA only. Extra descriptions." }
+                sitelinks:
+                  type: array
+                  minItems: 2
+                  maxItems: 20
+                  description: |
+                    Google Search only. Sitelink assets to create and attach at the campaign level.
+                    Each entry becomes an Asset (with sitelink_asset + Asset.final_urls) plus a
+                    CampaignAsset link (field_type SITELINK). Approval is async — Google reviews
+                    assets after creation; poll asset.policy_summary later to read the verdict.
+                    Google requires at least two sitelinks to surface them on an ad; four or more
+                    is Google's own recommendation for maximum visibility. The response's
+                    creative.sitelinks[] echoes each input plus its Google resourceName.
+                  items:
+                    type: object
+                    required: [text, linkUrl]
+                    properties:
+                      text: { type: string, minLength: 1, maxLength: 25, description: "The clickable link text shown under the ad. 25-char cap comes from Google." }
+                      linkUrl: { type: string, format: uri, description: "Final URL the sitelink navigates to." }
+                      description1: { type: string, minLength: 1, maxLength: 35, description: "First description line under the link text (optional). 35-char cap." }
+                      description2: { type: string, minLength: 1, maxLength: 35, description: "Second description line (optional; usually paired with description1)." }
                 advantageAudience: { type: integer, enum: [0, 1], description: "Meta only. Controls the Advantage audience feature (targeting_automation). 0 = disabled (default), 1 = enabled. Meta Marketing API requires this field on all ad set creation requests." }
                 attributionSpec:
                   type: array
@@ -43711,9 +44038,13 @@ paths:
       summary: Ad video library
       description: |-
         Lists the ad account's video library (Meta's `/act_X/advideos`), rows returned verbatim.
-        The default projection covers id, title, status, poster frames and length; `fields` is a
-        raw-passthrough override. Any `id` here is reusable as `video.id` on the create
-        endpoints, so N ads that differ only in copy share one upload.
+        The default projection covers id, title, status, poster frames, length and `source` (the
+        playable MP4); `fields` is a raw-passthrough override. Any `id` here is reusable as
+        `video.id` on the create endpoints, so N ads that differ only in copy share one upload.
+
+        `source` lets you PLAY a video before picking it, which a poster frame alone can't settle
+        when several videos share a first frame. It is a signed CDN URL that EXPIRES, so treat it
+        as good for preview at selection time only — never persist it, re-list to get a fresh one.
 
         This is the only way to reach a video uploaded OUTSIDE Zernio (Ads Manager, another
         tool); videos we uploaded also come back as `creative.videoId` on GET /v1/ads.
@@ -43740,7 +44071,7 @@ paths:
                   adAccountId: { type: string }
                   data:
                     type: array
-                    items: { type: object, description: "Raw Meta ad video row (id, title, status, picture, thumbnails, length)." }
+                    items: { type: object, description: "Raw Meta ad video row (id, title, status, picture, thumbnails, length, source)." }
                   paging:
                     type: object
                     properties:

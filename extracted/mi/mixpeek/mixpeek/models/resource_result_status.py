@@ -30,6 +30,8 @@ class ResourceResultStatus(str, Enum):
     CREATED = 'created'
     SKIPPED = 'skipped'
     FAILED = 'failed'
+    EXISTS = 'exists'
+    DRIFTED = 'drifted'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

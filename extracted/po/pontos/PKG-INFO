@@ -1,36 +1,35 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pontos
-Version: 26.8.0
+Version: 26.8.2
 Summary: Common utilities and tools maintained by Greenbone AG
+Project-URL: homepage, https://github.com/greenbone/pontos/
+Project-URL: repository, https://github.com/greenbone/pontos/
+Project-URL: documentation, https://greenbone.github.io/pontos/
+Author-email: Greenbone AG <info@greenbone.net>
 License-Expression: GPL-3.0-or-later
 License-File: LICENSE
-Author: Greenbone AG
-Author-email: info@greenbone.net
-Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: colorful (>=0.5.4)
-Requires-Dist: httpx[http2] (>=0.23)
-Requires-Dist: lxml (>=4.9.0)
-Requires-Dist: packaging (>=26.3)
-Requires-Dist: python-dateutil (>=2.8.2)
-Requires-Dist: rich (>=12.4.4)
-Requires-Dist: semver (>=2.13)
-Requires-Dist: shtab (>=1.11.0)
-Requires-Dist: tomlkit (>=0.15.1)
-Requires-Dist: typing-extensions (>=4.0) ; python_version < "3.12"
-Project-URL: Documentation, https://greenbone.github.io/pontos/
-Project-URL: Homepage, https://github.com/greenbone/pontos/
-Project-URL: Repository, https://github.com/greenbone/pontos/
+Requires-Python: <4.0,>=3.10
+Requires-Dist: colorful>=0.5.4
+Requires-Dist: httpx[http2]>=0.23
+Requires-Dist: lxml>=4.9.0
+Requires-Dist: packaging>=26.3
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: rich>=12.4.4
+Requires-Dist: semver>=2.13
+Requires-Dist: shtab>=1.11.0
+Requires-Dist: tomlkit>=0.15.1
+Requires-Dist: typing-extensions>=4.0; python_version < '3.12'
 Description-Content-Type: text/markdown
 
 ![Greenbone Logo](https://www.greenbone.net/wp-content/uploads/gb_new-logo_horizontal_rgb_small.png)
@@ -202,4 +201,3 @@ Licensed under the [GNU General Public License v3.0 or later](LICENSE).
 [pip]: https://pip.pypa.io/
 [pipx]: https://pypa.github.io/pipx/
 [autohooks]: https://github.com/greenbone/autohooks
-

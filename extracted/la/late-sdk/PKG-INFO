@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.566
+Version: 1.4.581
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -407,9 +407,12 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.configure_tik_tok_ads_brand_identity()` | Set TikTok brand identity |
 | `connect.connect_ads()` | Connect ads for a platform |
 | `connect.connect_bluesky_credentials()` | Connect Bluesky account |
+| `connect.connect_discord_channel()` | Connect a Discord channel |
 | `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
 | `connect.connect_shopify_with_token()` | Connect a Shopify store with a custom-app Admin token |
+| `connect.connect_slack_channel()` | Connect a Slack channel |
 | `connect.connect_whats_app_credentials()` | Connect WhatsApp via credentials |
+| `connect.connect_whats_app_embedded_signup()` | Connect WhatsApp from Embedded Signup |
 | `connect.handle_o_auth_callback()` | Complete OAuth callback |
 | `connect.initiate_telegram_connect()` | Connect Telegram directly |
 | `connect.select_facebook_page()` | Select Facebook page |
@@ -511,6 +514,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_creatives.list_ad_videos()` | Ad video library |
 | `ad_creatives.create_ad_creative()` | Create a standalone creative |
 | `ad_creatives.get_ad_creative()` | Creative details |
+| `ad_creatives.get_ad_media()` | Direct video and image URLs for an ad |
 | `ad_creatives.get_ad_previews()` | Render previews of an existing ad |
 | `ad_creatives.update_ad_creative()` | Rename a creative |
 | `ad_creatives.delete_ad_creative()` | Delete a creative |

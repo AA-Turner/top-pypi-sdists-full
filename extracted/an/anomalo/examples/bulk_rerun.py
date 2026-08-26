@@ -48,7 +48,7 @@ def _rerun_checks(
     days_of_month_to_skip=DEFAULT_DAYS_OF_MONTH_TO_SKIP,
 ):
     if not end:
-        end = datetime.datetime.now().strftime("%Y-%m-%d")
+        end = datetime.datetime.now().strftime("%Y-%m-%d")  # noqa: DTZ005 (call-datetime-now-without-tzinfo)
     info = api_client.get_table_information(
         warehouse_id=warehouse_id, table_name=table_name
     )

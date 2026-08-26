@@ -173,6 +173,7 @@ pycbc_streamed_result__dealloc__(pycbc_streamed_result* self)
   Py_XDECREF(self->core_span);
   Py_XDECREF(self->start_time);
   Py_XDECREF(self->end_time);
+  self->rows.reset();
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -288,6 +289,9 @@ pycbc_streamed_result*
 create_pycbc_streamed_result(std::chrono::milliseconds timeout_ms)
 {
   PyObject* pyObj_res = PyObject_CallObject((PyObject*)&pycbc_streamed_result_type, nullptr);
+  if (pyObj_res == nullptr) {
+    return nullptr;
+  }
   pycbc_streamed_result* s_res = reinterpret_cast<pycbc_streamed_result*>(pyObj_res);
   s_res->timeout_ms = timeout_ms;
   return s_res;
@@ -336,6 +340,11 @@ pycbc_scan_iterator__iternext__(PyObject* self)
   }
 
   if (!result.has_value()) {
+    // Intentional C-API protocol deviation: on error we return an exception
+    // object as a normal row instead of calling PyErr_SetString()/returning
+    // NULL. The Python wrapper checks each row with
+    // isinstance(resp, PycbcCoreException) and raises it itself, so
+    // build_exception()'s result must be returned, not raised, here.
     return build_exception(
       result.error(), __FILE__, __LINE__, "Error retrieving next scan result item.");
   }
@@ -423,6 +432,10 @@ create_pycbc_scan_iterator(couchbase::core::scan_result result)
 {
   PyObject* pyObj_iter = PyObject_CallObject((PyObject*)&pycbc_scan_iterator_type, nullptr);
   if (!pyObj_iter) {
+    // The scan was already dispatched to the server (orchestrator.scan()) before this
+    // wrapper could be allocated. Cancel the scan_result explicitly so it doesn't keep
+    // running with no handle able to reach it.
+    result.cancel();
     return nullptr;
   }
 

@@ -22,7 +22,7 @@ from .types import FSharpRef as FSharpRef_1
 from .util import UNIT, Disposable, Unit, dispose, equals, get_enumerator, ignore, nullable, to_enumerable
 
 
-def _expr17(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr16(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Fable.Collections.Dictionary", Array([gen0, gen1]), Dictionary)
 
 
@@ -32,7 +32,7 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
         self.comparer: IEqualityComparer_1[Any] = comparer
         this.contents = self
         self.hash_map: Any = make_dict(Array[Any]([]))
-        self.init_004010: int32 = int32.ONE
+        self.init_004010: int = 1
         with Disposable(get_enumerator(pairs)) as enumerator:
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 pair: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
@@ -57,32 +57,32 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_ICollection_1_Contains2B595(self, item: Any = UNIT) -> bool:
         this: Dictionary[Any, Any] = self
         match_value: Any | None = erase(Dictionary__TryFind_2B595(this, item[0]))
-        (pattern_matching_result,) = nullable[int32]()
+        (pattern_matching_result,) = nullable[int]()
         if match_value is not None:
             if equals(match_value[1], item[1]):
-                pattern_matching_result = int32(0)
+                pattern_matching_result = 0
 
             else:
-                pattern_matching_result = int32(1)
+                pattern_matching_result = 1
 
         else:
-            pattern_matching_result = int32(1)
+            pattern_matching_result = 1
 
-        if pattern_matching_result == int32.ZERO:
+        if pattern_matching_result == 0:
             return True
 
         else:
             return False
 
-    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, array: Array[Any], array_index: int32) -> None:
+    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, array: Array[Any], array_index: int) -> None:
         this: Dictionary[Any, Any] = self
 
-        def action(i: int32, e: Any) -> None:
-            array[array_index + i] = e
+        def action(i: int, e: Any) -> None:
+            array[tmp if (-2147483648 <= (tmp := array_index + i) <= 2147483647) else int32(tmp)] = e
 
         iterate_indexed(action, this)
 
-    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         this: Dictionary[Any, Any] = self
         return Dictionary__get_Count(this)
 
@@ -92,18 +92,18 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_ICollection_1_Remove2B595(self, item: Any = UNIT) -> bool:
         this: Dictionary[Any, Any] = self
         match_value: Any | None = erase(Dictionary__TryFind_2B595(this, item[0]))
-        (pattern_matching_result,) = nullable[int32]()
+        (pattern_matching_result,) = nullable[int]()
         if match_value is not None:
             if equals(match_value[1], item[1]):
-                pattern_matching_result = int32(0)
+                pattern_matching_result = 0
 
             else:
-                pattern_matching_result = int32(1)
+                pattern_matching_result = 1
 
         else:
-            pattern_matching_result = int32(1)
+            pattern_matching_result = 1
 
-        if pattern_matching_result == int32.ZERO:
+        if pattern_matching_result == 0:
             return Dictionary__Remove_2B595(this, item[0])
 
         else:
@@ -128,13 +128,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Keys(self, __unit: Unit = UNIT) -> ICollection[KEY]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow14(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
-            def _arrow13(pair: Any) -> KEY:
+        def _arrow9(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
+            def _arrow8(pair: Any) -> KEY:
                 return pair[0]
 
-            return map(_arrow13, this)
+            return map(_arrow8, this)
 
-        return Array[Any](delay(_arrow14))
+        return Array[Any](delay(_arrow9))
 
     def System_Collections_Generic_IDictionary_2_Remove2B595(self, key: KEY = UNIT) -> bool:
         this: Dictionary[Any, Any] = self
@@ -154,13 +154,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Values(self, __unit: Unit = UNIT) -> ICollection[VALUE]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow16(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
-            def _arrow15(pair: Any) -> VALUE:
+        def _arrow11(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
+            def _arrow10(pair: Any) -> VALUE:
                 return pair[1]
 
-            return map(_arrow15, this)
+            return map(_arrow10, this)
 
-        return Array[Any](delay(_arrow16))
+        return Array[Any](delay(_arrow11))
 
     def get_item(self, key: KEY = UNIT) -> VALUE:
         this: Dictionary[Any, Any] = self
@@ -175,7 +175,7 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
         return Dictionary__ContainsKey_2B595(this, key)
 
     @property
-    def Count(self, __unit: Unit = UNIT) -> int32:
+    def Count(self, __unit: Unit = UNIT) -> int:
         this: Dictionary[Any, Any] = self
         return Dictionary__get_Count(this)
 
@@ -207,7 +207,7 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
         self.Remove(key)
 
 
-Dictionary_reflection = _expr17
+Dictionary_reflection = _expr16
 
 
 def Dictionary__ctor_6623D9B3[KEY, VALUE](
@@ -216,34 +216,34 @@ def Dictionary__ctor_6623D9B3[KEY, VALUE](
     return Dictionary(pairs, comparer)
 
 
-def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -> tuple[bool, int32, int32]:
-    h: int32 = this.comparer.GetHashCode(k)
+def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -> tuple[bool, int, int]:
+    h: int = this.comparer.GetHashCode(k)
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow18(__unit: Unit = UNIT) -> list[Any]:
+    def _arrow17(__unit: Unit = UNIT) -> list[Any]:
         return out_arg
 
-    def _arrow19(v: list[Any]) -> None:
+    def _arrow18(v: list[Any]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow18, _arrow19)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow17, _arrow18)), out_arg)
     if match_value[0]:
 
-        def _arrow20(pair: Any, this: Any = this, k: Any = k) -> bool:
+        def _arrow19(pair: Any, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, pair[0])
 
-        return (True, h, find_index(_arrow20, match_value[1]))
+        return (True, h, find_index(_arrow19, match_value[1]))
 
     else:
-        return (False, h, int32.NEG_ONE)
+        return (False, h, -1)
 
 
 def Dictionary__TryFind_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -> Any | None:
-    match_value: tuple[bool, int32, int32] = Dictionary__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             return get_item_from_dict(this.hash_map, match_value[1])[match_value[2]]
 
         case _:
@@ -258,13 +258,13 @@ def Dictionary__Clear[KEY, VALUE](this: Dictionary[KEY, VALUE]) -> None:
     this.hash_map.clear()
 
 
-def Dictionary__get_Count[KEY, VALUE](this: Dictionary[KEY, VALUE]) -> int32:
-    count: int32 = int32.ZERO
+def Dictionary__get_Count[KEY, VALUE](this: Dictionary[KEY, VALUE]) -> int:
+    count: int = 0
     enumerator: Any = get_enumerator(to_enumerable(this.hash_map.values()))
     try:
         while enumerator.System_Collections_IEnumerator_MoveNext():
             pairs: list[Any] = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
-            count = count + int32(len(pairs))
+            count = tmp if (-2147483648 <= (tmp := count + len(pairs)) <= 2147483647) else int32(tmp)
 
     finally:
         dispose(enumerator)
@@ -282,9 +282,9 @@ def Dictionary__get_Item_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY)
 
 
 def Dictionary__set_Item_5BDDA1[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY, v: VALUE) -> None:
-    match_value: tuple[bool, int32, int32] = Dictionary__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     if match_value[0]:
-        if match_value[2] > int32.NEG_ONE:
+        if match_value[2] > -1:
             get_item_from_dict(this.hash_map, match_value[1])[match_value[2]] = (k, v)
 
         else:
@@ -296,9 +296,9 @@ def Dictionary__set_Item_5BDDA1[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY
 
 
 def Dictionary__Add_5BDDA1[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY, v: VALUE) -> None:
-    match_value: tuple[bool, int32, int32] = Dictionary__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     if match_value[0]:
-        if match_value[2] > int32.NEG_ONE:
+        if match_value[2] > -1:
             raise ArgumentException__ctor_Z721C83C5(
                 format("An item with the same key has already been added. Key: {0}", k)
             )
@@ -312,9 +312,9 @@ def Dictionary__Add_5BDDA1[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY, v: 
 
 
 def Dictionary__ContainsKey_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -> bool:
-    match_value: tuple[bool, int32, int32] = Dictionary__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             return True
 
         case _:
@@ -322,9 +322,9 @@ def Dictionary__ContainsKey_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: K
 
 
 def Dictionary__Remove_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -> bool:
-    match_value: tuple[bool, int32, int32] = Dictionary__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             get_item_from_dict(this.hash_map, match_value[1]).pop(match_value[2])
             return True
 

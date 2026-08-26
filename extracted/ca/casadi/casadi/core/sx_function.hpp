@@ -166,6 +166,16 @@ class CASADI_EXPORT SXFunction :
     return ret;
   }
 
+  /** \brief Get list of dependency functions
+
+      \identifier{2es} */
+  std::vector<std::string> get_function() const override;
+
+  /** \brief Get a dependency function
+
+      \identifier{2et} */
+  const Function& get_function(const std::string &name) const override;
+
   /** \brief Hessian (forward over adjoint) via source code transformation
 
       \identifier{up} */
@@ -351,6 +361,12 @@ class CASADI_EXPORT SXFunction :
   int sp_forward(const bvec_t** arg, bvec_t** res,
                   casadi_int* iw, bvec_t* w, void* mem) const override;
 
+  /** \brief Propagate signal activity forward
+
+      \identifier{2ie} */
+  int eval_activity(const bvec_t** arg, bvec_t** res,
+                  casadi_int* iw, bvec_t* w, void* mem) const override;
+
   /** \brief  Propagate sparsity backwards
 
       \identifier{v7} */
@@ -362,7 +378,13 @@ class CASADI_EXPORT SXFunction :
   SX instructions_sx() const override;
 
   // Get all embedded functions, recursively
-  void find(std::map<FunctionInternal*, Function>& all_fun, casadi_int max_depth) const override;
+  void find(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
+    casadi_int max_depth) const override;
+
+    /** \brief Change option after object creation for debugging
+
+        \identifier{2eu} */
+    void change_option(const std::string& option_name, const GenericType& option_value) override;
 
   /** \brief Get default input value
 
@@ -387,6 +409,10 @@ class CASADI_EXPORT SXFunction :
 protected:
   template<typename T>
   void call_fwd(const AlgEl& e, const T** arg, T** res, casadi_int* iw, T* w) const;
+
+  // Activity propagation through a call node
+  void call_activity(const AlgEl& e, const bvec_t** arg, bvec_t** res,
+                 casadi_int* iw, bvec_t* w) const;
 
   template<typename T>
   void call_rev(const AlgEl& e, T** arg, T** res, casadi_int* iw, T* w) const;

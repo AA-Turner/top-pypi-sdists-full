@@ -224,6 +224,15 @@ class SsoAuth:
             except AuthenticationError:
                 return False
 
+    def has_noninteractive_credential(self) -> bool:
+        """Whether we can authenticate without falling back to the interactive browser flow.
+
+        True if we already have a cached login, or if OAuth client credentials or dbt
+        platform tokens (e.g. DBT_CLOUD_TOKEN) are configured -- any of which `_login()`
+        can use on its own, without a human present to complete a browser redirect.
+        """
+        return bool(self._client_secret) or bool(self._dbt_platform_tokens) or self.is_logged_in()
+
     def org_id(self, login: bool = False) -> str:
         with self._token_info_lock:
             self._get_or_refresh_token_info(login)
@@ -338,6 +347,14 @@ class SsoAuth:
             # this will raise an error and abort if none of the tokens can be exchanged
             # this is deliberate; if platform tokens are present they need to work and not fall back to browser auth
             return self._exchange_dbt_platform_token_for_state_token()
+
+        if self._is_headless_environment():
+            raise AuthenticationError(
+                "No credentials for dbt State detected. To authenticate without a browser, "
+                "set DBT_CLOUD_TOKEN and DBT_CLOUD_ACCOUNT_HOST environment variables. "
+                "Otherwise, invoke dbt from an attached terminal to log in through the browser. "
+                "See https://docs.getdbt.com/docs/deploy/dbt-state-cicd for more information."
+            )
 
         with SsoHttpServer() as server:
             thread = threading.Thread(target=server.handle_request, daemon=True)

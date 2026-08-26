@@ -1,12 +1,31 @@
 #!/usr/bin/python
 
-import contextlib
 import logging
 
 import lief
 
+from smda.utility.lief_helper import lief_name
+
 from .AbstractLabelProvider import AbstractLabelProvider
 from .import_parsers import parse_pe_delay_imports, parse_pe_imports, resolve_pe_base_addr
+from .ItaniumDemangler import demangle_itanium_symbol
+from .MsvcDemangler import demangle_msvc_symbol
+
+
+def _readable_name(name):
+    """Expand a decorated PE symbol name, whichever compiler decorated it.
+
+    The MSVC arm keys on the leading "?" rather than on ItaniumDemangler's
+    is_msvc_cpp_symbol, whose job is language detection rather than dispatch: it wants a
+    class-qualified shape, so it turns away the global operator forms ("??2@YAPAXI@Z" and
+    friends) that this demangler reads perfectly well - 9 of the 355 names it expands in the
+    reference corpus. Letting the demangler itself decide costs nothing, because a name it
+    cannot read comes back unchanged.
+    """
+    if name.startswith("?"):
+        return demangle_msvc_symbol(name)
+    return demangle_itanium_symbol(name)
+
 
 lief.logging.disable()
 LOGGER = logging.getLogger(__name__)
@@ -61,13 +80,9 @@ class PeSymbolProvider(AbstractLabelProvider):
                 # forwarder/extern entries redirect to another module's export and have no
                 # local address (LIEF sets .address to 0 for them) - not a local function.
                 continue
-            function_name = ""
-            with contextlib.suppress(UnicodeDecodeError, AttributeError):
-                # here may occur a LIEF exception that we want to skip ->
-                # UnicodeDecodeError: 'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
-                function_name = function.name
+            function_name = lief_name(function)
             if function_name and all(ord(c) in range(0x20, 0x7F) for c in function_name):
-                function_symbols[active_base + function.address] = function_name
+                function_symbols[active_base + function.address] = _readable_name(function_name)
         return function_symbols
 
     def parseSymbols(self, lief_binary, base_addr=None):
@@ -86,15 +101,11 @@ class PeSymbolProvider(AbstractLabelProvider):
                     # 0/-1/-2 are undefined-external/absolute/debug: not a locally defined
                     # function, so its value is not a usable in-image offset.
                     continue
-                function_name = ""
-                with contextlib.suppress(UnicodeDecodeError, AttributeError):
-                    # here may occur a LIEF exception that we want to skip ->
-                    # UnicodeDecodeError: 'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
-                    function_name = symbol.name
+                function_name = lief_name(symbol)
                 if function_name and all(ord(c) in range(0x20, 0x7F) for c in function_name):
                     function_offset = active_base + sections[section_idx - 1].virtual_address + symbol.value
                     if function_offset not in function_symbols:
-                        function_symbols[function_offset] = function_name
+                        function_symbols[function_offset] = _readable_name(function_name)
         if num_candidates and not function_symbols:
             # the previous failure mode was silent: a whole corpus could be built unnamed
             # without anything complaining, so say so rather than contributing nothing

@@ -63,7 +63,7 @@ from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
 from xpander_sdk.modules.tools_repository.sub_modules.tool import Tool
 from xpander_sdk.modules.tools_repository.tools_repository_module import ToolsRepository
 from xpander_sdk.modules.tools_repository.utils.schemas import build_model_from_schema
-from xpander_sdk.utils.cache import backend_config_cache, scope_token
+from xpander_sdk.utils.cache import agent_payload_cache, backend_config_cache, scope_token
 from xpander_sdk.utils.event_loop import run_sync
 from xpander_sdk.utils.tools import get_openai_agents_sdk_tools
 
@@ -351,10 +351,10 @@ class Agent(XPanderSharedModel):
             if version:
                 headers["x-agent-version"] = str(version)
 
-            # Cached: agent config is near-static and re-fetched per task/boot and
-            # per sub-agent trigger. Keyed by tenant scope + agent id + version.
-            response_data: dict = await backend_config_cache.get_or_fetch(
-                f"agent:{scope_token(configuration)}:{agent_id}:v{version or 'latest'}",
+            # short-TTL cache: the payload is mutable state (tool attach/detach must reach the next task);
+            # scope from the client's EFFECTIVE config so a None configuration never collides across tenants
+            response_data: dict = await agent_payload_cache.get_or_fetch(
+                f"agent:{scope_token(client.configuration)}:{agent_id}:v{version or 'latest'}",
                 lambda: client.make_request(
                     path=APIRoute.GetAgent.format(agent_id=agent_id), headers=headers
                 ),

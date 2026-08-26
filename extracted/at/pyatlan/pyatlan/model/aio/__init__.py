@@ -10,10 +10,10 @@ for all operations that involve API calls or iteration.
 """
 
 from .asset import AsyncIndexSearchResults, AsyncSearchResults
+from .atlan_request import AsyncAtlanRequestResponse
 from .audit import AsyncAuditSearchResults
 from .core import AsyncAtlanRequest, AsyncAtlanResponse
 from .custom_metadata import AsyncCustomMetadataDict, AsyncCustomMetadataProxy
-from .atlan_request import AsyncAtlanRequestResponse
 from .group import AsyncGroupResponse
 from .keycloak_events import AsyncAdminEventResponse, AsyncKeycloakEventResponse
 from .lineage import AsyncLineageListResults
@@ -23,7 +23,6 @@ from .search_log import AsyncSearchLogResults
 from .task import AsyncTaskSearchResponse
 from .translators import AsyncAtlanTagTranslator, AsyncBaseTranslator
 from .user import AsyncUserResponse
-from .workflow import AsyncWorkflowSearchResponse
 
 __all__ = [
     # Asset search results
@@ -48,8 +47,6 @@ __all__ = [
     # Group response
     "AsyncAtlanRequestResponse",
     "AsyncGroupResponse",
-    # Workflow search response
-    "AsyncWorkflowSearchResponse",
     # Task search response
     "AsyncTaskSearchResponse",
     # Async translators

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keystonemiddleware
-Version: 13.0.0
+Version: 13.0.1
 Summary: Middleware for OpenStack Identity
 Home-page: https://docs.openstack.org/keystonemiddleware/latest/
 Author: OpenStack

@@ -1,1 +1,0 @@
-import{o as e}from"./chunk-CMxvf4Kt.js";import{o as t}from"./bundle-mjs-NviOedTj.js";import{t as n}from"./spinner-Bk-3akUn.js";import"./dist-DZS4voUN2.js";var r=e(t(),1);function i(){return(0,r.createElement)(n,{className:`size-4 text-muted-foreground`})}export{i as t};

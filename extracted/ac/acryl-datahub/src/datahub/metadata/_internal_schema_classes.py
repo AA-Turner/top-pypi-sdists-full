@@ -17138,7 +17138,7 @@ class IncidentInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'incidentInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentInfo")
 
     def __init__(self,
@@ -20105,7 +20105,7 @@ class MLFeatureTableKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlFeatureTableKey'
-    ASPECT_INFO = {'keyForEntity': 'mlFeatureTable', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation']}
+    ASPECT_INFO = {'keyForEntity': 'mlFeatureTable', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey")
 
     def __init__(self,
@@ -20577,7 +20577,7 @@ class SchemaFieldKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'schemaFieldKey'
-    ASPECT_INFO = {'keyForEntity': 'schemaField', 'entityCategory': 'core', 'entityAspects': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains']}
+    ASPECT_INFO = {'keyForEntity': 'schemaField', 'entityCategory': 'core', 'entityAspects': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey")
 
     def __init__(self,
@@ -24370,6 +24370,9 @@ class DataHubPageModuleTypeClass(object):
     
     DATA_PRODUCTS = "DATA_PRODUCTS"
     """Module displaying child data products of a given domain"""
+    
+    SUB_DATA_PRODUCTS = "SUB_DATA_PRODUCTS"
+    """Module displaying the child data products of a data product"""
     
     RELATED_TERMS = "RELATED_TERMS"
     """Module displaying the related terms of a given glossary term"""
@@ -34739,9 +34742,9 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
     'chart': ['chartInfo', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
     'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
-    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation'],
+    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
     'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
-    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
+    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
     'test': ['testInfo'],
     'structuredProperty': ['propertyDefinition', 'structuredPropertySettings', 'institutionalMemory', 'status'],
     'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],

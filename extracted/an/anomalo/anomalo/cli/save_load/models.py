@@ -137,7 +137,7 @@ class ModelWithMetadata(SerializableModel):
         ts = (getattr(self, "metadata", None) or {}).get("last_edited_at")
         if not ts:
             return None
-        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")  # noqa: DTZ007 (call-datetime-strptime-without-zone)
 
     def _may_overwrite(self, other: ModelWithMetadata) -> bool:
         my_dt = self._last_edited_at()

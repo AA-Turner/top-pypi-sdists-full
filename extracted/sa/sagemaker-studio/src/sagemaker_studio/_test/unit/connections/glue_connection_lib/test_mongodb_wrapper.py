@@ -369,6 +369,120 @@ class TestMongoDBConnectionWrapper(unittest.TestCase):
         connection_options_arg = call_args[2]
         self.assertNotIn("authenticationType", connection_options_arg)
 
+    # ==========================================================================
+    # IAM authentication TLS enforcement tests
+    #
+    # The MONGODB-AWS SASL exchange carries the access key id, the session
+    # token, and a signed GetCallerIdentity payload, so TLS is mandatory for
+    # IAM auth. enforceSSL originates from customer-supplied
+    # ConnectionProperties (JDBC_ENFORCE_SSL, which defaults to "false") and
+    # reaches us via CreateConnection/UpdateConnection, so the console form
+    # that sets it to 'true' for DocumentDB IAM is not an enforcement point.
+    # The wrapper must require TLS here, at the auth-decision point.
+    # ==========================================================================
+
+    def _iam_wrapper_inputs(self, additional_options=None):
+        """Build wrapper inputs for a DOCUMENTDB connection with IAM auth."""
+        iam_connection = {
+            "Name": "docdb-iam-connection",
+            "ConnectionType": "DOCUMENTDB",
+            "AuthenticationConfiguration": {
+                "AuthenticationType": "IAM",
+            },
+            "ConnectionProperties": {
+                "CONNECTION_URL": "mongodb://docdb-host:27017",
+            },
+        }
+
+        return GlueConnectionWrapperInputs(
+            connection=iam_connection,
+            additional_options=additional_options or {},
+            kms_client=Mock(),
+            secrets_manager_client=Mock(),
+        )
+
+    @patch(
+        "sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.mongodb_wrapper.JDBCUrlUpdateHelper.update_url_in_props"
+    )
+    def test_get_resolved_connection_iam_auth_forces_enforce_ssl(self, mock_update_url):
+        """Test that IAM auth forces enforceSSL=true even when it arrives as false."""
+        mock_jdbc_conf = Mock()
+        mock_jdbc_conf.as_map.return_value = {
+            "fullUrl": "mongodb://docdb-host:27017",
+            "vendor": "mongodb",
+            "enforceSSL": "false",  # what a connection created outside the console yields
+        }
+        mock_update_url.return_value = {"fullUrl": "mongodb://docdb-host:27017"}
+
+        wrapper = MongoDBConnectionWrapper(self._iam_wrapper_inputs())
+
+        with patch.object(wrapper, "get_jdbc_conf", return_value=mock_jdbc_conf):
+            wrapper.get_resolved_connection()
+
+        connection_options_arg = mock_update_url.call_args[0][2]
+        self.assertEqual(connection_options_arg.get("enforceSSL"), "true")
+
+    @patch(
+        "sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.mongodb_wrapper.JDBCUrlUpdateHelper.update_url_in_props"
+    )
+    def test_get_resolved_connection_basic_auth_does_not_force_enforce_ssl(self, mock_update_url):
+        """Test that non-IAM connections keep the enforceSSL value they were given."""
+        mock_jdbc_conf = Mock()
+        mock_jdbc_conf.as_map.return_value = {
+            "fullUrl": "mongodb://host:27017",
+            "vendor": "mongodb",
+            "enforceSSL": "false",
+        }
+        mock_update_url.return_value = {"fullUrl": "mongodb://host:27017"}
+
+        wrapper = MongoDBConnectionWrapper(self.wrapper_inputs)
+
+        with patch.object(wrapper, "get_jdbc_conf", return_value=mock_jdbc_conf):
+            wrapper.get_resolved_connection()
+
+        connection_options_arg = mock_update_url.call_args[0][2]
+        self.assertEqual(connection_options_arg.get("enforceSSL"), "false")
+
+    def test_get_resolved_connection_iam_auth_uri_carries_tls(self):
+        """Test end-to-end (real URL helper) that the IAM connection URI requires TLS."""
+        mock_jdbc_conf = Mock()
+        mock_jdbc_conf.as_map.return_value = {
+            "fullUrl": "mongodb://docdb-host:27017",
+            "url": "mongodb://docdb-host:27017",
+            "vendor": "mongodb",
+            "enforceSSL": "false",
+        }
+
+        wrapper = MongoDBConnectionWrapper(self._iam_wrapper_inputs())
+
+        with patch.object(wrapper, "get_jdbc_conf", return_value=mock_jdbc_conf):
+            result = wrapper.get_resolved_connection()
+
+        spark_properties = result["SparkProperties"]
+        self.assertEqual(spark_properties["connection.uri"], "mongodb://docdb-host:27017/?ssl=true")
+        self.assertEqual(spark_properties.get("authenticationType"), "IAM")
+        # enforceSSL is stripped before the options ship: the downstream
+        # connector reads connection settings only from connection.uri.
+        self.assertNotIn("enforceSSL", spark_properties)
+        self.assertNotIn("ssl", spark_properties)
+
+    def test_get_resolved_connection_iam_auth_rejects_disable_update_uri(self):
+        """Test that IAM auth fails closed when disableUpdateUri blocks adding TLS."""
+        mock_jdbc_conf = Mock()
+        mock_jdbc_conf.as_map.return_value = {
+            "fullUrl": "mongodb://docdb-host:27017",
+            "url": "mongodb://docdb-host:27017",
+            "vendor": "mongodb",
+        }
+
+        wrapper = MongoDBConnectionWrapper(self._iam_wrapper_inputs({"disableUpdateUri": "true"}))
+
+        with patch.object(wrapper, "get_jdbc_conf", return_value=mock_jdbc_conf):
+            with self.assertRaises(ValueError) as context:
+                wrapper.get_resolved_connection()
+
+        self.assertIn("TLS is required", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,26 +1,27 @@
 Metadata-Version: 2.4
 Name: python-heatclient
-Version: 5.2.0
+Version: 5.3.0
 Summary: OpenStack Orchestration API Client Library
-Home-page: https://docs.openstack.org/python-heatclient/latest
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/python-heatclient
+Project-URL: Repository, https://opendev.org/openstack/python-heatclient
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: cliff>=2.8.0
@@ -34,15 +35,8 @@ Requires-Dist: keystoneauth1>=3.8.0
 Requires-Dist: python-swiftclient>=3.2.0
 Requires-Dist: PyYAML>=3.13
 Requires-Dist: requests>=2.14.2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =================
 python-heatclient
@@ -83,4 +77,3 @@ provides a Python API (the ``heatclient`` module) and a command-line tool
 .. _How to Contribute: https://docs.openstack.org/infra/manual/developers.html
 .. _Specs: https://specs.openstack.org/openstack/heat-specs/
 .. _Template: https://opendev.org/openstack/heat-templates/
-

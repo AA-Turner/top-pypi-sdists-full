@@ -307,6 +307,9 @@ namespace casadi {
     /// Check if the sparsity is a reshape of another
     bool is_reshape(const SparsityInternal& y) const;
 
+    /// Check if the nonzero pattern is a Cartesian product (row x col)
+    bool is_compactible(std::vector<casadi_int>& row, std::vector<casadi_int>& col) const;
+
     /** \brief Breadth-first search for coarse decomposition
 
       * The implementation is a modified version of cs_bfs in CSparse
@@ -720,6 +723,13 @@ namespace casadi {
 
         \identifier{fn} */
     Sparsity uni_coloring(const Sparsity& AT, casadi_int cutoff) const;
+
+    /** \brief Perform a star coloring
+
+     * See description in public class.
+
+        \identifier{2jy} */
+    Sparsity star_coloring_new(std::vector<casadi_int>& which_color, const Dict& opts) const;
 
     /** \brief A greedy distance-2 coloring algorithm
 

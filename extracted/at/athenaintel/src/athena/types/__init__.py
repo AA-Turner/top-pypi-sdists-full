@@ -97,6 +97,8 @@ if typing.TYPE_CHECKING:
         InputMessageContentOneItem_ToolResult,
         InputMessageContentOneItem_ToolUse,
     )
+    from .me_share_point_provisioning_out import MeSharePointProvisioningOut
+    from .me_sources_response_out import MeSourcesResponseOut
     from .meeting_artifacts_out import MeetingArtifactsOut
     from .meeting_out import MeetingOut
     from .meeting_participant_out import MeetingParticipantOut
@@ -245,6 +247,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InputMessageContentOneItem_Thinking": ".input_message_content_one_item",
     "InputMessageContentOneItem_ToolResult": ".input_message_content_one_item",
     "InputMessageContentOneItem_ToolUse": ".input_message_content_one_item",
+    "MeSharePointProvisioningOut": ".me_share_point_provisioning_out",
+    "MeSourcesResponseOut": ".me_sources_response_out",
     "MeetingArtifactsOut": ".meeting_artifacts_out",
     "MeetingOut": ".meeting_out",
     "MeetingParticipantOut": ".meeting_participant_out",
@@ -417,6 +421,8 @@ __all__ = [
     "InputMessageContentOneItem_Thinking",
     "InputMessageContentOneItem_ToolResult",
     "InputMessageContentOneItem_ToolUse",
+    "MeSharePointProvisioningOut",
+    "MeSourcesResponseOut",
     "MeetingArtifactsOut",
     "MeetingOut",
     "MeetingParticipantOut",

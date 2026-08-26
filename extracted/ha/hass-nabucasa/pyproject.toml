@@ -41,7 +41,7 @@ license = "GPL-3.0-only"
 name = "hass-nabucasa"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "2.4.0"
+version = "2.5.0"
 
 [project.urls]
 "Source Code" = "https://github.com/NabuCasa/hass-nabucasa"

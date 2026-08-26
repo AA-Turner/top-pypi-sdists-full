@@ -598,8 +598,10 @@ class MutationResult(Result):
     def __init__(self,
                  orig,  # type: pycbc_result
                  key=None,        # type: Optional[str]
+                 transcoder=None,  # type: Optional[Transcoder]
+                 is_subdoc=None,  # type: Optional[bool]
                  ):
-        super().__init__(orig, key=key)
+        super().__init__(orig, key=key, transcoder=transcoder, is_subdoc=is_subdoc)
         self._raw_mutation_token = self._orig.raw_result.get('token', None)
         self._mutation_token = None
 
@@ -1163,6 +1165,11 @@ class QueryResult:
         .. note::
             If using the *acouchbase* API be sure to use ``async for`` when looping over rows.
 
+        .. note::
+            A ``KeyboardInterrupt`` raised while iterating rows is only checked for at
+            internal timeout boundaries while waiting on the server, so it may take a moment
+            to be delivered rather than firing instantly.
+
         Returns:
             Iterable: Either an iterable or async iterable.
         """
@@ -1216,6 +1223,11 @@ class AnalyticsResult:
         .. note::
             If using the *acouchbase* API be sure to use ``async for`` when looping over rows.
 
+        .. note::
+            A ``KeyboardInterrupt`` raised while iterating rows is only checked for at
+            internal timeout boundaries while waiting on the server, so it may take a moment
+            to be delivered rather than firing instantly.
+
         Returns:
             Iterable: Either an iterable or async iterable.
         """
@@ -1254,6 +1266,11 @@ class SearchResult:
 
         .. note::
             If using the *acouchbase* API be sure to use ``async for`` when looping over rows.
+
+        .. note::
+            A ``KeyboardInterrupt`` raised while iterating rows is only checked for at
+            internal timeout boundaries while waiting on the server, so it may take a moment
+            to be delivered rather than firing instantly.
 
         Returns:
             Iterable: Either an iterable or async iterable.
@@ -1299,6 +1316,11 @@ class ViewResult:
 
         .. note::
             If using the *acouchbase* API be sure to use ``async for`` when looping over rows.
+
+        .. note::
+            A ``KeyboardInterrupt`` raised while iterating rows is only checked for at
+            internal timeout boundaries while waiting on the server, so it may take a moment
+            to be delivered rather than firing instantly.
 
         Returns:
             Iterable: Either an iterable or async iterable.

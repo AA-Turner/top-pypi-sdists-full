@@ -546,6 +546,8 @@ __all__ = (
     "ReservationEndDateTypeType",
     "ReservationStateType",
     "ReservationTypeType",
+    "ReservedCapacityAllocationStrategyType",
+    "ReservedCapacityFallbackMarketTypeType",
     "ReservedInstanceStateType",
     "ResetFpgaImageAttributeNameType",
     "ResetImageAttributeNameType",
@@ -1251,7 +1253,9 @@ FleetInstanceMatchCriteriaType = Literal["open"]
 FleetInstanceMetadataEndpointStateType = Literal["disabled", "enabled"]
 FleetOnDemandAllocationStrategyType = Literal["lowest-price", "prioritized"]
 FleetReplacementStrategyType = Literal["launch", "launch-before-terminate"]
-FleetReservationTypeType = Literal["interruptible-capacity-reservation"]
+FleetReservationTypeType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand-capacity-reservation"
+]
 FleetStateCodeType = Literal[
     "active",
     "deleted",
@@ -3123,7 +3127,9 @@ MacModificationTaskTypeType = Literal["sip-modification", "volume-ownership-dele
 MacSystemIntegrityProtectionSettingStatusType = Literal["disabled", "enabled"]
 ManagedByType = Literal["account", "declarative-policy"]
 ManagedResourceDefaultVisibilityType = Literal["hidden", "visible"]
-MarketTypeType = Literal["capacity-block", "interruptible-capacity-reservation", "spot"]
+MarketTypeType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand", "spot"
+]
 MembershipTypeType = Literal["igmp", "static"]
 MetadataDefaultHttpTokensStateType = Literal["no-preference", "optional", "required"]
 MetricType = Literal[
@@ -3309,6 +3315,8 @@ ReservationStateType = Literal[
     "unsupported",
 ]
 ReservationTypeType = Literal["capacity-block", "odcr"]
+ReservedCapacityAllocationStrategyType = Literal["prioritized"]
+ReservedCapacityFallbackMarketTypeType = Literal["on-demand"]
 ReservedInstanceStateType = Literal[
     "active", "payment-failed", "payment-pending", "queued", "queued-deleted", "retired"
 ]
@@ -3951,6 +3959,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

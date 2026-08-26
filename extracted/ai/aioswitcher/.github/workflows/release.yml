@@ -41,7 +41,7 @@ jobs:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           python-version: ${{ env.MAIN_PY_VER }}
           enable-cache: true
@@ -63,7 +63,7 @@ jobs:
 
       - name: Determine version and create changelog
         id: bumper
-        uses: tomerfi/version-bumper-action@2d160ea4d1b4e1bc5534c9eece726a1227b19afd  # 2.0.9
+        uses: tomerfi/version-bumper-action@e86a2f297e4fd485980773d83aabd1be35422ba1  # 2.1.0
         with:
           bump: '${{ github.event.inputs.bump }}'
 

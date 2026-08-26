@@ -74,7 +74,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{fy} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -95,6 +96,11 @@ namespace casadi {
 
         \identifier{g1} */
     int sp_forward(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override;
+
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2iu} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override;
 
     /** \brief  Propagate sparsity backwards
 
@@ -168,6 +174,11 @@ namespace casadi {
 
         \identifier{gb} */
     size_t sz_w() const override;
+
+    /** \brief Length of w the generated code needs (QR factorization buffers)
+
+        \identifier{2hv} */
+    size_t codegen_sz_w() const override;
 
     /** \brief Generate code for the operation
 

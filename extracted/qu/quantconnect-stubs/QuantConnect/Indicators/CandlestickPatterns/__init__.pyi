@@ -496,6 +496,11 @@ class MatHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         """Gets a flag indicating when this indicator is ready and fully initialized"""
         ...
 
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
+        ...
+
     @overload
     def __init__(self, name: str, penetration: float = 0.5) -> None:
         """
@@ -700,6 +705,11 @@ class RiseFallThreeMethods(QuantConnect.Indicators.CandlestickPatterns.Candlesti
     @property
     def is_ready(self) -> bool:
         """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
         ...
 
     @overload
@@ -1683,6 +1693,11 @@ class AbandonedBaby(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
     @property
     def is_ready(self) -> bool:
         """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
         ...
 
     @overload

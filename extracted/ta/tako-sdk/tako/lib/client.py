@@ -22,6 +22,7 @@ from __future__ import annotations
 from tako import ApiClient, Configuration
 from tako.aio import ApiClient as AsyncApiClient, Configuration as AsyncConfiguration
 from tako.aio.api.tako_api import TakoApi as AsyncTakoApi
+from tako.aio.models.answer_request import AnswerRequest as AsyncAnswerRequest
 from tako.aio.models.answer_response import AnswerResponse as AsyncAnswerResponse
 from tako.aio.models.contents_request import ContentsRequest as AsyncContentsRequest
 from tako.aio.models.contents_response import ContentsResponse as AsyncContentsResponse
@@ -35,6 +36,7 @@ from tako.aio.models.search_response import SearchResponse as AsyncSearchRespons
 from tako.aio.models.thin_viz_card import ThinVizCard as AsyncThinVizCard
 from tako.api.tako_api import TakoApi
 from tako.lib.agent import AgentResource, AsyncAgentResource
+from tako.models.answer_request import AnswerRequest
 from tako.models.answer_response import AnswerResponse
 from tako.models.contents_request import ContentsRequest
 from tako.models.contents_response import ContentsResponse
@@ -58,7 +60,7 @@ class Tako:
     def search(self, request: SearchRequest) -> SearchResponse:
         return self._api.search(request)
 
-    def answer(self, request: SearchRequest) -> AnswerResponse:
+    def answer(self, request: AnswerRequest) -> AnswerResponse:
         return self._api.answer(request)
 
     def create_card(self, request: CreateCardRequest) -> ThinVizCard:
@@ -115,7 +117,7 @@ class AsyncTako:
     async def search(self, request: AsyncSearchRequest) -> AsyncSearchResponse:
         return await self._api.search(request)
 
-    async def answer(self, request: AsyncSearchRequest) -> AsyncAnswerResponse:
+    async def answer(self, request: AsyncAnswerRequest) -> AsyncAnswerResponse:
         return await self._api.answer(request)
 
     async def create_card(self, request: AsyncCreateCardRequest) -> AsyncThinVizCard:

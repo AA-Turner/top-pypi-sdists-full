@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: querysource
-Version: 4.5.11
+Version: 4.5.13
 Summary: Aiohttp web service for querying several databases easily
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: BSD-3-Clause
@@ -93,7 +93,6 @@ Requires-Dist: altair==5.5.0
 Requires-Dist: tqdm<=4.67.1,>=4.65.0
 Requires-Dist: phonenumbers==9.0.9
 Requires-Dist: navigator-auth>=0.15.8
-Requires-Dist: ai-parrot[llms]>=0.17.4
 Provides-Extra: analytics
 Requires-Dist: pygwalker>=0.4.8.9; extra == "analytics"
 Requires-Dist: numpy<2.4,>=2.0.0; extra == "analytics"

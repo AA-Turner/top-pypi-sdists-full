@@ -3929,8 +3929,20 @@ def cow_templates_replicate_upstream(cr, mark_colname=None):
         sql.SQL(
             """
             UPDATE ir_ui_view AS specific
-            SET arch_db = generic.arch_db
+            SET arch_db = generic.arch_db,
+                inherit_id = COALESCE(
+                    (
+                        SELECT sp.id FROM ir_ui_view AS sp
+                        WHERE sp.key = generic_parent.key
+                        AND sp.website_id = specific.website_id
+                        AND sp.type = 'qweb'
+                        LIMIT 1
+                    ),
+                    generic.inherit_id
+                )
             FROM ir_ui_view AS generic
+            LEFT JOIN ir_ui_view AS generic_parent
+                ON generic_parent.id = generic.inherit_id
             WHERE
                 specific.{} IS NOT NULL AND
                 specific.website_id IS NOT NULL AND

@@ -224,6 +224,12 @@ namespace casadi {
     int sp_forward(const bvec_t** arg, bvec_t** res,
                   casadi_int* iw, bvec_t* w, void* mem) const override;
 
+    /** \brief Propagate signal activity forward
+
+        \identifier{2iw} */
+    int eval_activity(const bvec_t** arg, bvec_t** res,
+                  casadi_int* iw, bvec_t* w, void* mem) const override;
+
     /** \brief  Propagate sparsity backwards
 
         \identifier{2m} */
@@ -271,6 +277,16 @@ namespace casadi {
       return ret;
     }
 
+    /** \brief Get list of dependency functions
+
+        \identifier{2ev} */
+    std::vector<std::string> get_function() const override;
+
+    /** \brief Get a dependency function
+
+        \identifier{2ew} */
+    const Function& get_function(const std::string &name) const override;
+
     /** \brief Number of nodes in the algorithm
 
         \identifier{2q} */
@@ -313,7 +329,8 @@ namespace casadi {
     void substitute_inplace(std::vector<MX>& vdef, std::vector<MX>& ex) const;
 
     // Get all embedded functions, recursively
-    void find(std::map<FunctionInternal*, Function>& all_fun, casadi_int max_depth) const override;
+    void find(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
+        casadi_int max_depth) const override;
 
     /** \brief Change option after object creation for debugging
 

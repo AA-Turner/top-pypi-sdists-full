@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: twscrape
-Version: 0.20.0
+Version: 0.20.1
 Summary: Twitter GraphQL and Search API implementation with SNScrape data models
 Project-URL: repository, https://github.com/vladkens/twscrape
 Author-email: vladkens <v.pronsky@gmail.com>
@@ -41,7 +41,7 @@ Description-Content-Type: text/markdown
 twscrape is an async Python library and CLI for X/Twitter Search and GraphQL endpoints. It runs on your own account pool, keeps sessions in SQLite, rotates accounts when an endpoint is rate-limited, and returns either parsed SNScrape-style models or raw API responses.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.0/.github/example.png" alt="example of cli usage" height="400px">
+  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.1/.github/example.png" alt="example of cli usage" height="400px">
 </div>
 
 ## Install
@@ -72,7 +72,7 @@ TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
 
 <p align="center">
   <a href="https://www.rapidproxy.io/?ref=twscrape">
-    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.0/.github/rapidproxy.jpg" alt="RapidProxy logo" width="460">
+    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.1/.github/rapidproxy.jpg" alt="RapidProxy logo" width="460">
   </a>
 </p>
 
@@ -199,6 +199,7 @@ Users and timelines:
 user_login = "xdevelopers"
 user_id = 2244994945
 
+await api.user_by_id(user_id)  # User
 await api.user_by_login(user_login)  # User
 await api.user_about(user_login)  # AccountAbout
 await gather(api.following(user_id, limit=20))  # list[User]
@@ -256,6 +257,7 @@ twscrape tweet_details TWEET_ID
 twscrape tweet_replies TWEET_ID --limit=20
 twscrape tweet_thread TWEET_ID --limit=20
 twscrape retweeters TWEET_ID --limit=20
+twscrape user_by_id USER_ID
 twscrape user_by_login USERNAME
 twscrape user_about USERNAME
 twscrape user_media USER_ID --limit=20

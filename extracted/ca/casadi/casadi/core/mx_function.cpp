@@ -77,7 +77,7 @@ namespace casadi {
 
   Dict MXFunction::generate_options(const std::string& target) const {
     Dict opts = FunctionInternal::generate_options(target);
-    //opts["default_in"] = default_in_;
+    if (target=="clone") opts["default_in"] = default_in_;
     opts["live_variables"] = live_variables_;
     opts["print_instructions"] = print_instructions_;
     return opts;
@@ -351,7 +351,9 @@ namespace casadi {
             alloc_arg(e.data->sz_arg());
             alloc_res(e.data->sz_res());
             alloc_iw(e.data->sz_iw());
-            sz_w = std::max(sz_w, e.data->sz_w());
+            // workloc_ (register offsets) is shared by VM eval and codegen, so
+            // the scratch region must cover whichever needs more
+            sz_w = std::max(sz_w, std::max(e.data->sz_w(), e.data->codegen_sz_w()));
             if (workloc_[e.res[c]] < 0) {
               workloc_[e.res[c]] = wind;
               wind += e.data->sparsity(c).nnz();
@@ -419,13 +421,15 @@ namespace casadi {
       "Set option 'allow_free' to allow free variables.");
     }
 
-    // Does any embedded function have reference counting for codegen?
+    // Does any nodes require reference counting for codegen?
+    // NOTE: this excludes CALL nodes
     for (auto&& a : algorithm_) {
       if (a.data->has_refcount()) {
         has_refcount_ = true;
         break;
       }
     }
+
   }
 
   int MXFunction::eval(const double** arg, double** res,
@@ -615,7 +619,7 @@ namespace casadi {
         casadi_int nz_offset=e.data->offset();
         const bvec_t* argi = arg[i];
         bvec_t* w1 = w + workloc_[e.res.front()];
-        if (argi!=nullptr) {
+        if (argi!=nullptr && is_diff_in_[i]) {
           std::copy(argi+nz_offset, argi+nz_offset+nnz, w1);
         } else {
           std::fill_n(w1, nnz, 0);
@@ -627,7 +631,11 @@ namespace casadi {
         casadi_int nz_offset=e.data->offset();
         bvec_t* resi = res[i];
         bvec_t* w1 = w + workloc_[e.arg.front()];
-        if (resi!=nullptr) std::copy(w1, w1+nnz, resi+nz_offset);
+        if (resi!=nullptr && is_diff_out_[i]) {
+          std::copy(w1, w1+nnz, resi+nz_offset);
+        } else if (resi!=nullptr) {
+          std::fill_n(resi+nz_offset, nnz, 0);
+        }
       } else {
         // Point pointers to the data corresponding to the element
         for (casadi_int i=0; i<e.arg.size(); ++i)
@@ -640,6 +648,70 @@ namespace casadi {
       }
     }
     return 0;
+  }
+
+  int MXFunction::
+  eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w, void* mem) const {
+    // Temporaries to hold pointers to operation input and outputs
+    const bvec_t** arg1=arg+n_in_;
+    bvec_t** res1=res+n_out_;
+
+    // Propagate signal activity forward (ignores is_diff: this is a value analysis)
+    for (auto&& e : algorithm_) {
+      if (e.op==OP_INPUT) {
+        casadi_int nnz=e.data.nnz();
+        casadi_int i=e.data->ind();
+        casadi_int nz_offset=e.data->offset();
+        const bvec_t* argi = arg[i];
+        bvec_t* w1 = w + workloc_[e.res.front()];
+        if (argi!=nullptr) {
+          std::copy(argi+nz_offset, argi+nz_offset+nnz, w1);
+        } else {
+          std::fill_n(w1, nnz, 0);
+        }
+      } else if (e.op==OP_OUTPUT) {
+        casadi_int nnz=e.data.dep().nnz();
+        casadi_int i=e.data->ind();
+        casadi_int nz_offset=e.data->offset();
+        bvec_t* resi = res[i];
+        bvec_t* w1 = w + workloc_[e.arg.front()];
+        if (resi!=nullptr) std::copy(w1, w1+nnz, resi+nz_offset);
+      } else {
+        for (casadi_int i=0; i<e.arg.size(); ++i)
+          arg1[i] = e.arg[i]>=0 ? w+workloc_[e.arg[i]] : nullptr;
+        for (casadi_int i=0; i<e.res.size(); ++i)
+          res1[i] = e.res[i]>=0 ? w+workloc_[e.res[i]] : nullptr;
+        if (e.data->eval_activity(arg1, res1, iw, w)) return 1;
+      }
+    }
+    return 0;
+  }
+
+  std::vector<std::string> MXFunction::get_function() const {
+    std::map<std::string, bool> flagged;
+    for (auto it=algorithm_.begin(); it!=algorithm_.end(); it++) {
+      if (it->op==OP_CALL) {
+        const Function &f = it->data->which_function();
+        if (flagged.find(f.name())==flagged.end()) {
+          flagged[f.name()] = true;
+        }
+      }
+    }
+    std::vector<std::string> ret;
+    for (auto it : flagged) {
+      ret.push_back(it.first);
+    }
+    return ret;
+  }
+
+  const Function& MXFunction::get_function(const std::string &name) const {
+    for (auto it=algorithm_.begin(); it!=algorithm_.end(); it++) {
+      if (it->op==OP_CALL) {
+        const Function &f = it->data->which_function();
+        if (name==f.name()) return f;
+      }
+    }
+    casadi_error("No such function '" + name + "'.");
   }
 
   int MXFunction::sp_reverse(bvec_t** arg, bvec_t** res,
@@ -662,7 +734,8 @@ namespace casadi {
         casadi_int nz_offset=it->data->offset();
         bvec_t* argi = arg[i];
         bvec_t* w1 = w + workloc_[it->res.front()];
-        if (argi!=nullptr) for (casadi_int k=0; k<nnz; ++k) argi[nz_offset+k] |= w1[k];
+        if (argi!=nullptr && is_diff_in_[i])
+          for (casadi_int k=0; k<nnz; ++k) argi[nz_offset+k] |= w1[k];
         std::fill_n(w1, nnz, 0);
       } else if (it->op==OP_OUTPUT) {
         // Pass output seeds
@@ -671,10 +744,9 @@ namespace casadi {
         casadi_int nz_offset=it->data->offset();
         bvec_t* resi = res[i] ? res[i] + nz_offset : nullptr;
         bvec_t* w1 = w + workloc_[it->arg.front()];
-        if (resi!=nullptr) {
+        if (resi!=nullptr && is_diff_out_[i]) {
           for (casadi_int k=0; k<nnz; ++k) w1[k] |= resi[k];
           std::fill_n(resi, nnz, 0);
-
         }
       } else {
         // Point pointers to the data corresponding to the element
@@ -726,7 +798,8 @@ namespace casadi {
 
       // non-inlining call is implemented in the base-class
       if (!should_inline(false, always_inline, never_inline)) {
-        return FunctionInternal::eval_mx(arg, res, false, true);
+        FunctionInternal::eval_mx(arg, res, false, true);
+        return;
       }
 
       // Symbolic work, non-differentiated
@@ -801,7 +874,8 @@ namespace casadi {
       for (auto&& r : fseed) {
         if (!matching_arg(r, npar)) {
           casadi_assert_dev(npar==1);
-          return ad_forward(replace_fseed(fseed, npar), fsens);
+          ad_forward(replace_fseed(fseed, npar), fsens);
+          return;
         }
       }
 
@@ -960,7 +1034,8 @@ namespace casadi {
       for (auto&& r : aseed) {
         if (!matching_res(r, npar)) {
           casadi_assert_dev(npar==1);
-          return ad_reverse(replace_aseed(aseed, npar), asens);
+          ad_reverse(replace_aseed(aseed, npar), asens);
+          return;
         }
       }
 
@@ -1218,6 +1293,7 @@ namespace casadi {
   }
 
   void MXFunction::codegen_incref(CodeGenerator& g) const {
+    FunctionInternal::codegen_incref(g);
     std::set<void*> added;
     for (auto&& a : algorithm_) {
       a.data->codegen_incref(g, added);
@@ -1225,6 +1301,7 @@ namespace casadi {
   }
 
   void MXFunction::codegen_decref(CodeGenerator& g) const {
+    FunctionInternal::codegen_decref(g);
     std::set<void*> added;
     for (auto&& a : algorithm_) {
       a.data->codegen_decref(g, added);
@@ -1897,8 +1974,10 @@ namespace casadi {
     return new MXFunction(s);
   }
 
-  void MXFunction::find(std::map<FunctionInternal*, Function>& all_fun,
+  void MXFunction::find(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
       casadi_int max_depth) const {
+    // Call to base class
+    FunctionInternal::find(all_fun, max_depth);
     for (auto&& e : algorithm_) {
       if (e.op == OP_CALL) add_embedded(all_fun, e.data.which_function(), max_depth);
     }

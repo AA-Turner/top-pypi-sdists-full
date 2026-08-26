@@ -1,1 +1,0 @@
-var e=[{id:`fable`,label:`Fable`},{id:`opus`,label:`Opus`},{id:`sonnet`,label:`Sonnet 4.6`},{id:`sonnet_5`,label:`Sonnet 5`},{id:`haiku`,label:`Haiku`}];function t(t){if(t==null)return!1;let n=t.toLowerCase();return e.some(e=>e.id===n)||n.includes(`claude`)}export{t as n,e as t};

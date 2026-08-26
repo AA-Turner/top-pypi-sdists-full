@@ -133,7 +133,7 @@ std::string OptiNode::format_stacktrace(const Dict& stacktrace, casadi_int inden
       description += "\n" + s_indent + contents.substr(it);
     }
   } catch(...) {
-    // pass
+    return description;
   }
   return description;
 }
@@ -399,7 +399,9 @@ void OptiNode::register_dual(MetaCon& c) {
       ret = MX(ret_sp, sign_map((c.flipped ? -1 : 1)*flat)[0].T());
     } else {
       casadi_int block_size = N / c.n;
-      std::vector<MX> original_blocks = vertsplit(fabs(flat), block_size);
+      std::vector<MX> original_blocks = vertsplit(
+        c.type==OPTI_EQUALITY ||
+        c.type==OPTI_GENERIC_EQUALITY ? flat : fabs(flat), block_size);
       std::vector<MX> blocks(N);
       for (casadi_int i=0;i<c.n;++i) {
         casadi_int p = c.flipped? c.n-i-1: i;
@@ -532,7 +534,7 @@ std::string OptiNode::return_status() const {
   try {
     mystats = stats();
   } catch (...) {
-    //
+    return "unknown";
   }
   if (mystats.find("return_status")!=mystats.end()) {
     std::stringstream ss;
@@ -547,7 +549,7 @@ bool OptiNode::return_success(bool accept_limit) const {
   try {
     mystats = stats();
   } catch (...) {
-    //
+    return false;
   }
   bool success = false;
   if (mystats.find("success")!=mystats.end()) success = mystats.at("success");

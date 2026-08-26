@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.11.0
+Version: 1.11.3
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -104,6 +104,7 @@ Requires-Dist: httpx; extra == 'ibm-watsonx-s3'
 Requires-Dist: pandas; extra == 'ibm-watsonx-s3'
 Requires-Dist: pyarrow; extra == 'ibm-watsonx-s3'
 Requires-Dist: pyiceberg; extra == 'ibm-watsonx-s3'
+Requires-Dist: s3fs; extra == 'ibm-watsonx-s3'
 Requires-Dist: tenacity; extra == 'ibm-watsonx-s3'
 Provides-Extra: image
 Requires-Dist: unstructured[image]; extra == 'image'

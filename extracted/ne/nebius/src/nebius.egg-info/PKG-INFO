@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nebius
-Version: 0.5.7
+Version: 0.6.0
 Summary: Nebius Python SDK
 Author-email: Daniil Drizhuk <complynx@nebius.com>, Ivan Kornilov <ivan.kornilov@nebius.com>, Marat Reymers <marat-reymers@nebius.com>, Andrei Zenkov <andrei.zenkov@nebius.com>
 License: The MIT License (MIT)
@@ -54,14 +54,9 @@ Requires-Dist: grpc-stubs>=1.53.0.3; extra == "dev"
 Requires-Dist: types-protobuf>=5.29.1; extra == "dev"
 Requires-Dist: types-PyYAML>=5.0; extra == "dev"
 Requires-Dist: grpcio-status>=1.56.2; extra == "dev"
-Provides-Extra: generators
-Requires-Dist: m2r2>=0.3.4; extra == "generators"
-Requires-Dist: grpcio-tools>=1.56.2; extra == "generators"
-Requires-Dist: mypy-protobuf>=3.6; extra == "generators"
-Requires-Dist: protovalidate>=0.5; extra == "generators"
-Requires-Dist: pydoctor<25.0,>=24.11.2; extra == "generators"
-Requires-Dist: beautifulsoup4>=4.12.3; extra == "generators"
-Requires-Dist: tomlkit>=0.13.2; extra == "generators"
+Provides-Extra: docs
+Requires-Dist: pydoctor<25.0,>=24.11.2; extra == "docs"
+Requires-Dist: beautifulsoup4>=4.12.3; extra == "docs"
 Dynamic: license-file
 
 # Nebius Python® SDK

@@ -107,14 +107,58 @@ async def test_xclid_curl_client_scopes_cookies_to_x(monkeypatch):
         await client.aclose()
 
 
-def test_logged_out_entry_is_account_error():
+async def test_logged_out_entry_is_account_error():
     html = (
         '<script src="https://abs.twimg.com/x-web/client-web/'
         'entry-client-logged-out-a1b2c3.js"></script>'
     )
 
     with pytest.raises(xclid.XClIdAccountError, match="Logged-out X web app"):
-        xclid.get_scripts_list(html)
+        await xclid.parse_anim_idx(html, MockClient())
+
+
+def test_script_list_combines_direct_and_reconstructed_urls():
+    html = (
+        '<script src="https://abs.twimg.com/x-web/x-web/app-a1b2c3.js"></script>'
+        '<script src="https://abs.twimg.com/responsive-web/client-web/vendor.1234567a.js"></script>'
+        '<script src="/responsive-web/client-web/main.15e48250ae23af9ea.js"></script>'
+        '{100:"shared~feature"}+{100:"00c0ffee00c0ffee"}'
+    )
+
+    urls = xclid.get_scripts_list(html)
+
+    assert urls == [
+        "https://abs.twimg.com/x-web/x-web/app-a1b2c3.js",
+        "https://abs.twimg.com/responsive-web/client-web/vendor.1234567a.js",
+        "https://abs.twimg.com/responsive-web/client-web/main.15e48250ae23af9ea.js",
+        "https://abs.twimg.com/responsive-web/client-web/shared~feature.00c0ffee00c0ffeea.js",
+    ]
+
+
+# In the legacy webpack fixtures the name map comes BEFORE the hash map: hash values
+# must be excluded from the name map by format alone, or they overwrite the names.
+def test_legacy_webpack_build_with_7_hex_hashes():
+    html = '{100:"main",200:"shared~feature"}+{100:"a1b2c3d",200:"0badca4"}'
+
+    urls = xclid.get_scripts_list(html)
+
+    assert urls == [
+        "https://abs.twimg.com/responsive-web/client-web/main.a1b2c3da.js",
+        "https://abs.twimg.com/responsive-web/client-web/shared~feature.0badca4a.js",
+    ]
+
+
+def test_legacy_webpack_build_with_16_hex_hashes():
+    # Hash format served since 2026-08-24, e.g. main.15e48250ae23af9ea.js
+    # https://github.com/vladkens/twscrape/issues/327
+    html = '{100:"main",200:"shared~feature"}+{100:"15e48250ae23af9e",200:"00c0ffee00c0ffee"}'
+
+    urls = xclid.get_scripts_list(html)
+
+    assert urls == [
+        "https://abs.twimg.com/responsive-web/client-web/main.15e48250ae23af9ea.js",
+        "https://abs.twimg.com/responsive-web/client-web/shared~feature.00c0ffee00c0ffeea.js",
+    ]
 
 
 async def test_find_indices_url_complete_scan_is_parse_error():

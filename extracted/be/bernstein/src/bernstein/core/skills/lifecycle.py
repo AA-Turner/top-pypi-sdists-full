@@ -38,6 +38,8 @@ Out of scope for this module (deferred to follow-up tracks):
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import shutil
 import tomllib
 from dataclasses import dataclass
@@ -53,7 +55,7 @@ from bernstein.core.security.path_containment import (
     contained_subpath,
 )
 from bernstein.core.skills.lint import LintSeverity, lint_skill
-from bernstein.core.skills.manifest import SkillManifest
+from bernstein.core.skills.manifest import SkillManifest, parse_skill_md
 from bernstein.core.skills.sanitizer import strip_invisible_tags
 
 # ---------------------------------------------------------------------------
@@ -689,6 +691,210 @@ def install_local(
     return InstallResult(name=name, install_dir=install_dir, digest=digest, changed=True)
 
 
+# ---------------------------------------------------------------------------
+# Agent Plugins directory layout (#3772, slice 1 of #3540)
+# ---------------------------------------------------------------------------
+
+#: Filename of the Agent Plugins v1.0.0 root manifest.
+PLUGIN_MANIFEST_FILENAME: str = "plugin.json"
+
+#: Lockfile ``source`` tag for skills installed from a plugin directory.
+_PLUGIN_LOCK_SOURCE: str = "plugin"
+
+
+@dataclass(frozen=True)
+class SkippedSkill:
+    """A skill inside a plugin tree that was not installed."""
+
+    name: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class PluginInstallResult:
+    """Outcome of installing every skill under an Agent Plugins directory."""
+
+    installed: list[InstallResult]
+    skipped: list[SkippedSkill]
+
+
+def _resolve_plugin_skills_dir(source: Path, data: dict[str, object]) -> Path | None:
+    """Resolve the ``skills`` field of a plugin manifest, containment-checked.
+
+    ``plugin.json`` is untrusted input: it arrives with whatever tree the
+    user was handed. An absolute value, a ``../`` component, or an
+    ordinary-looking component that is a symlink out of the tree would
+    otherwise make ``skills_dir.iterdir()`` walk a directory outside the
+    plugin root, and every ``SKILL.md`` found there would be copied into
+    the install scope. ``contained_subpath`` pairs a string-shape check
+    (rejects absolute and ``..`` shapes before any filesystem call) with a
+    realpath comparison (catches the symlink case), so a manifest that
+    escapes the root is treated as not-a-plugin.
+
+    Returns ``None`` on any refusal so layout detection and install share
+    one resolution path and cannot drift apart.
+    """
+    skills_field = data.get("skills")
+    if not isinstance(skills_field, str) or not skills_field:
+        return None
+    try:
+        return contained_subpath(source, skills_field, label="plugin skills directory")
+    except (PathContainmentError, OSError):
+        return None
+
+
+def is_agent_plugins_layout(source: Path) -> bool:
+    """Strict Agent Plugins v1.0.0 layout detection.
+
+    A directory counts as an Agent Plugins layout only when a root
+    ``plugin.json`` parses with a non-empty ``name`` field and a ``skills``
+    field that resolves to a ``skills/`` subdirectory. Strict by design
+    (#3772 decision): avoids misfiring on unrelated directories that merely
+    happen to contain a ``skills/`` folder. The ``skills`` field must stay
+    inside the plugin root (see :func:`_resolve_plugin_skills_dir`).
+    """
+    if not source.is_dir():
+        return False
+    manifest_path = source / PLUGIN_MANIFEST_FILENAME
+    if not manifest_path.is_file():
+        return False
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(raw, dict):
+        return False
+    data = cast("dict[str, object]", raw)
+    name = data.get("name")
+    if not isinstance(name, str) or not name:
+        return False
+    skills_dir = _resolve_plugin_skills_dir(source, data)
+    return skills_dir is not None and skills_dir.is_dir()
+
+
+def install_plugin_local(
+    source: Path,
+    *,
+    scope: InstallScope,
+    workdir: Path,
+    home: Path | None = None,
+    strict_lint: bool = False,
+    accept_risk: bool = False,
+) -> PluginInstallResult:
+    """Install every skill under an Agent Plugins directory layout.
+
+    A non-plugin directory raises :class:`SkillLifecycleError`. Each
+    conformant ``skills/<name>/SKILL.md`` is installed through
+    :func:`install_local` and recorded in ``skills.lock`` with its content
+    digest (``source="plugin"``) so a later ``sync`` can detect drift. An
+    invalid individual skill is skipped with a diagnostic naming it rather
+    than aborting the whole plugin install.
+    """
+    if not source.is_dir():
+        raise SkillLifecycleError(
+            f"{source}: not an Agent Plugins directory layout "
+            f"(root {PLUGIN_MANIFEST_FILENAME} with name + skills/ required)"
+        )
+    manifest_path = source / PLUGIN_MANIFEST_FILENAME
+    try:
+        manifest_raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SkillLifecycleError(
+            f"{source}: not an Agent Plugins directory layout "
+            f"(root {PLUGIN_MANIFEST_FILENAME} with name + skills/ required)"
+        ) from exc
+    if not isinstance(manifest_raw, dict):
+        raise SkillLifecycleError(
+            f"{source}: not an Agent Plugins directory layout "
+            f"(root {PLUGIN_MANIFEST_FILENAME} with name + skills/ required)"
+        )
+    manifest = cast("dict[str, object]", manifest_raw)
+    name_field = manifest.get("name")
+    if not isinstance(name_field, str) or not name_field:
+        raise SkillLifecycleError(
+            f"{source}: not an Agent Plugins directory layout "
+            f"(root {PLUGIN_MANIFEST_FILENAME} with name + skills/ required)"
+        )
+    # Resolved once, containment-checked: the same value is used for the
+    # walk below and for the lockfile paths, never re-joined from the raw
+    # manifest string.
+    skills_dir = _resolve_plugin_skills_dir(source, manifest)
+    if skills_dir is None or not skills_dir.is_dir():
+        raise SkillLifecycleError(
+            f"{source}: plugin manifest 'skills' must resolve to a directory inside the plugin root"
+        )
+
+    installed: list[InstallResult] = []
+    skipped: list[SkippedSkill] = []
+    for skill_dir in sorted(skills_dir.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.is_file():
+            continue
+        name = skill_dir.name
+        # Per-skill isolation: one bad SKILL.md must not abort the pack.
+        try:
+            # The field-level check proved skills_dir is inside the plugin;
+            # this proves the entry is too. A skill directory symlinked out
+            # of the pack would install content the operator never saw.
+            if _escapes(skills_dir, skill_dir):
+                raise SkillLifecycleError(f"{skill_dir}: skill directory resolves outside the plugin")
+            parse_skill_md(skill_md)
+            installed.append(
+                install_local(
+                    skill_dir,
+                    scope=scope,
+                    workdir=workdir,
+                    home=home,
+                    strict_lint=strict_lint,
+                    accept_risk=accept_risk,
+                )
+            )
+        except Exception as exc:  # per-skill skip contract: one bad SKILL.md must not abort the pack
+            skipped.append(SkippedSkill(name=name, reason=str(exc)))
+
+    if installed:
+        _record_plugin_lock(installed, skills_dir, workdir=workdir)
+    return PluginInstallResult(installed=installed, skipped=skipped)
+
+
+def _record_plugin_lock(
+    installed: list[InstallResult],
+    skills_dir: Path,
+    *,
+    workdir: Path,
+) -> None:
+    """Merge plugin-installed skills into ``skills.lock`` ([[skills]] rows).
+
+    Each row's ``path`` names the ``skills/<name>/`` directory the skill
+    came from (not the plugin root), so a later ``sync``/drift reader can
+    locate the individual skill tree.
+    """
+    lock_path = workdir / SKILLS_LOCK_FILENAME
+    entries = _read_lock(lock_path)
+    for result in installed:
+        entries[result.name] = LockEntry(
+            name=result.name,
+            source=_PLUGIN_LOCK_SOURCE,
+            path=str(skills_dir / result.name),
+            digest=result.digest.digest,
+        )
+    _write_lock(lock_path, list(entries.values()))
+
+
+def _escapes(root: Path, candidate: Path) -> bool:
+    """Whether *candidate* resolves outside *root* once symlinks are followed.
+
+    The string-shape half of the containment barrier does not apply here:
+    these paths come from ``iterdir``/``rglob`` over a tree we were handed,
+    so the only lie available is a symlink, and ``realpath`` is the check
+    that sees through it.
+    """
+    prefix = os.path.join(os.path.realpath(root), "")
+    return not os.path.realpath(candidate).startswith(prefix)
+
+
 def _copy_skill_tree(source: Path, dest: Path) -> None:
     """Copy a skill directory tree, preserving SKILL.md + sibling buckets.
 
@@ -696,8 +902,15 @@ def _copy_skill_tree(source: Path, dest: Path) -> None:
     ``scripts``, ``assets``) are mirrored; anything else under the source
     directory is ignored so a dotfile from the author's editor cannot leak
     into the installed copy.
+
+    Every copied path must resolve inside *source*: the tree is untrusted
+    input, and a symlinked bucket or nested file would otherwise publish
+    content from outside the tree the operator inspected -- the same escape
+    :func:`_resolve_plugin_skills_dir` refuses one level up.
     """
     skill_md = source / "SKILL.md"
+    if _escapes(source, skill_md):
+        raise SkillLifecycleError(f"{skill_md}: SKILL.md resolves outside the skill directory")
     shutil.copy2(skill_md, dest / "SKILL.md")
     for bucket in ("references", "scripts", "assets"):
         src_bucket = source / bucket
@@ -712,6 +925,8 @@ def _copy_skill_tree(source: Path, dest: Path) -> None:
         for child in sorted(src_bucket.rglob("*")):
             if not child.is_file():
                 continue
+            if _escapes(source, child):
+                raise SkillLifecycleError(f"{child}: {bucket} entry resolves outside the skill directory")
             rel = child.relative_to(src_bucket)
             target = dst_bucket / rel
             target.parent.mkdir(parents=True, exist_ok=True)

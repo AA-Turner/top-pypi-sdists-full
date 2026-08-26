@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspnego
-Version: 0.12.1
+Version: 0.12.2
 Summary: Windows Negotiate Authentication Client and Server
 Author-email: Jordan Borean <jborean93@gmail.com>
 License-Expression: MIT
@@ -14,11 +14,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
-Requires-Dist: sspilib>=0.3.0; sys_platform == "win32"
+Requires-Dist: sspilib>=0.5.0; sys_platform == "win32"
 Provides-Extra: kerberos
 Requires-Dist: gssapi>=1.6.0; sys_platform != "win32" and extra == "kerberos"
 Requires-Dist: krb5>=0.3.0; sys_platform != "win32" and extra == "kerberos"

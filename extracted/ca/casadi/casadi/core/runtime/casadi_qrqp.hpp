@@ -20,6 +20,7 @@
 
 // C-REPLACE "fmin" "casadi_fmin"
 // C-REPLACE "fmax" "casadi_fmax"
+// C-REPLACE "fabs" "casadi_fabs"
 // C-REPLACE "std::numeric_limits<T1>::min()" "casadi_real_min"
 // C-REPLACE "std::numeric_limits<T1>::infinity()" "casadi_inf"
 // C-REPLACE "static_cast<int>" "(int) "
@@ -145,9 +146,11 @@ void casadi_qrqp_work(const casadi_qrqp_prob<T1>* p, casadi_int* sz_arg, casadi_
   *sz_iw += p->qp->nz; // lincomb
 }
 
-// SYMBOL "qrqp_init"
+// SYMBOL "qrqp_set_work"
 template<typename T1>
-void casadi_qrqp_init(casadi_qrqp_data<T1>* d, casadi_int** iw, T1** w) {
+void casadi_qrqp_set_work(casadi_qrqp_data<T1>* d, const T1*** arg, T1*** res,
+    casadi_int** iw, T1** w) {
+  (void)arg; (void)res;
   // Local variables
   casadi_int nnz_a, nnz_kkt, nnz_v, nnz_r;
   const casadi_qrqp_prob<T1>* p = d->prob;
@@ -740,7 +743,7 @@ void casadi_qrqp_expand_step(casadi_qrqp_data<T1>* d) {
   casadi_axpy(p->qp->nx, 1., d->dlam, d->tinfeas);
 }
 
-// SYMBOL "casadi_qrqp_pr_direction"
+// SYMBOL "qrqp_pr_direction"
 template<typename T1>
 int casadi_qrqp_pr_direction(casadi_qrqp_data<T1>* d) {
   casadi_int i;
@@ -757,7 +760,7 @@ int casadi_qrqp_pr_direction(casadi_qrqp_data<T1>* d) {
   return 0;
 }
 
-// SYMBOL "casadi_qrqp_du_direction"
+// SYMBOL "qrqp_du_direction"
 template<typename T1>
 int casadi_qrqp_du_direction(casadi_qrqp_data<T1>* d) {
   casadi_int i;

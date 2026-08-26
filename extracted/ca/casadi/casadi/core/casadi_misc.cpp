@@ -26,7 +26,11 @@
 #include "mx.hpp"
 
 #include "casadi_misc.hpp"
+#include "global_options.hpp"
+#include "filesystem_impl.hpp"
+
 #include "casadi_os.hpp"
+#include <sstream>
 #ifdef HAVE_MKSTEMPS
 #define CASADI_NEED_UNISTD
 #else // HAVE_MKSTEMPS
@@ -184,74 +188,6 @@ namespace casadi {
     return ret;
   }
 
-  // Better have a bool return flag saying if we need reorer at all
-  std::vector<casadi_int> tensor_permute_mapping(const std::vector<casadi_int>& dims,
-      const std::vector<casadi_int>& order) {
-
-     // Get problem dimensions
-     casadi_int N = casadi::product(dims);
-     casadi_int n = dims.size();
-     // Quick return if no elements
-     if (N==0) return std::vector<casadi_int>();
-
-     // One dimension => null-permutation
-     if (n==1) return range(N);
-
-     // Allocate space for resulting mapping
-     std::vector<casadi_int> mapping(N);
-     // Quick return if scalar
-     if (n==0) return mapping;
-
-
-     // Compute cumulative product
-     std::vector<casadi_int> cumprod(n+1, 1);
-     for (casadi_int k=1;k<dims.size();++k) cumprod[k]=cumprod[k-1]*dims[k-1];
-
-     // Elementary stride
-     casadi_int stride = cumprod[order[0]];
-
-     // Split problem in inner and outer part
-     casadi_int N_inner = dims[order[0]];
-     casadi_int N_outer = N/N_inner;
-
-     // Reorder dims, cumprod
-     std::vector<casadi_int> new_dims(n-1), new_cumprod(n-1, 1);
-     for (casadi_int k=0;k<n-1;++k) {
-       new_dims[k] = dims[order[k+1]];
-       new_cumprod[k] = cumprod[order[k+1]];
-     }
-
-     // Bank of counters
-     std::vector<casadi_int> index_counters(n-1);
-
-     // Inex into mapping
-     casadi_int m_ind = 0;
-
-     for (casadi_int i=0;i<N_outer;++i) {
-       // Compute index
-       casadi_int ind = 0;
-       for (casadi_int k=0;k<n-1;++k) ind+=index_counters[k]*new_cumprod[k];
-
-       // Fill in mapping
-       for (casadi_int j=0;j<N_inner;++j) {
-         mapping.at(m_ind++) = ind;
-         ind+=stride;
-       }
-
-       // Bump first counter
-       index_counters[0]++;
-
-       // Overflow counters when needed
-       for (casadi_int k=0;k<n-2;++k) {
-         if (index_counters[k]==new_dims[k]) {
-           index_counters[k] = 0;
-           index_counters[k+1]++;
-         }
-       }
-     }
-     return mapping;
-  }
-
   bvec_t* get_bvec_t(std::vector<double>& v) {
     if (v.empty()) {
       return nullptr;
@@ -297,6 +233,68 @@ namespace casadi {
     return ret;
   }
 
+  bool version_gt(const std::string& version_left, const std::string& version_right) {
+    std::vector<casadi_int> left_parts, right_parts;
+
+    // Parse left version
+    std::stringstream left_stream(version_left);
+    std::string part;
+    while (std::getline(left_stream, part, '.')) {
+      left_parts.push_back(std::stoi(part));
+    }
+
+    // Parse right version
+    std::stringstream right_stream(version_right);
+    while (std::getline(right_stream, part, '.')) {
+      right_parts.push_back(std::stoi(part));
+    }
+
+    // Compare component by component
+    casadi_int min_size = std::min(left_parts.size(), right_parts.size());
+    for (casadi_int i = 0; i < min_size; ++i) {
+      if (left_parts[i] > right_parts[i]) return true;
+      if (left_parts[i] < right_parts[i]) return false;
+    }
+
+    // If all components are equal, the longer version is greater
+    return left_parts.size() > right_parts.size();
+  }
+
+  bool version_ge(const std::string& version_left, const std::string& version_right) {
+    std::vector<casadi_int> left_parts, right_parts;
+
+    // Parse left version
+    std::stringstream left_stream(version_left);
+    std::string part;
+    while (std::getline(left_stream, part, '.')) {
+      left_parts.push_back(std::stoi(part));
+    }
+
+    // Parse right version
+    std::stringstream right_stream(version_right);
+    while (std::getline(right_stream, part, '.')) {
+      right_parts.push_back(std::stoi(part));
+    }
+
+    // Compare component by component
+    casadi_int min_size = std::min(left_parts.size(), right_parts.size());
+    for (casadi_int i = 0; i < min_size; ++i) {
+      if (left_parts[i] > right_parts[i]) return true;
+      if (left_parts[i] < right_parts[i]) return false;
+    }
+
+    // If all components are equal, the longer version is greater or equal
+    return left_parts.size() >= right_parts.size();
+  }
+
+  bool version_lt(const std::string& version_left, const std::string& version_right) {
+    return version_gt(version_right, version_left);
+  }
+
+  bool version_le(const std::string& version_left, const std::string& version_right) {
+    return version_ge(version_right, version_left);
+  }
+
 #ifdef HAVE_SIMPLE_MKSTEMPS
 int simple_mkstemps_fd(const std::string& prefix, const std::string& suffix, std::string &result) {
     // Characters available for inventing filenames
@@ -338,7 +336,10 @@ std::string simple_mkstemps(const std::string& prefix, const std::string& suffix
   std::string ret;
   int fd = simple_mkstemps_fd(prefix, suffix, ret);
   if (fd==-1) {
-    casadi_error("Failed to create temporary file: '" + ret + "'");
+    casadi_error("Failed to create temporary file: '" + ret + ". '"
+      + (Filesystem::is_enabled() ? "" : "Does the directory exits? "
+      "Note that CasADi needs to be compiled with WITH_GHC_FILESYSTEM=ON "
+      "for directories to be automatically created."));
   } else {
 #ifdef _WIN32
       _close(fd);
@@ -350,20 +351,35 @@ std::string simple_mkstemps(const std::string& prefix, const std::string& suffix
 }
 #endif // HAVE_SIMPLE_MKSTEMPS
 
-  std::string temporary_file(const std::string& prefix, const std::string& suffix) {
+  std::string temporary_file(const std::string& prefix,
+      const std::string& suffix,
+      const std::string& directory) {
+
+    std::string temp_dir = Filesystem::ensure_trailing_slash(directory);
+    if (temp_dir.empty()) temp_dir = GlobalOptions::getTempWorkDir();
+
+    if (Filesystem::is_enabled()) {
+      casadi_assert(Filesystem::ensure_directory_exists(temp_dir),
+        "Unable to create the required directory for '" + temp_dir + "'.");
+    }
+
     #ifdef HAVE_MKSTEMPS
     // Preferred solution
-    std::string ret = prefix + "XXXXXX" + suffix;
+    std::string ret = temp_dir + prefix + "XXXXXX" + suffix;
     if (mkstemps(&ret[0], static_cast<int>(suffix.size())) == -1) {
-      casadi_error("Failed to create temporary file: '" + ret + "'");
+      casadi_error("Failed to create temporary file: '" + ret + "'. "
+      + (Filesystem::is_enabled() ? "" : "Does the directory exits? "
+      "Note that CasADi needs to be compiled with WITH_GHC_FILESYSTEM=ON "
+      "for directories to be automatically created."));
     }
     return ret;
     #else // HAVE_MKSTEMPS
     #ifdef HAVE_SIMPLE_MKSTEMPS
-    return simple_mkstemps(prefix, suffix);
+    return simple_mkstemps(temp_dir + prefix, suffix);
     #else // HAVE_SIMPLE_MKSTEMPS
+    casadi_assert(temp_dir=="./", "tmpnam fallback not compatible with custom temporary directory");
     // Fallback, may result in deprecation warnings
-    return prefix + std::string(tmpnam(nullptr)) + suffix;
+    return std::string(tmpnam(nullptr)) + suffix;
     #endif // HAVE_SIMPLE_MKSTEMPS
     #endif // HAVE_MKSTEMPS
   }

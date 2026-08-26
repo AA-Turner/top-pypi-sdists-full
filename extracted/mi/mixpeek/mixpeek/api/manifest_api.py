@@ -20,6 +20,7 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictBool, StrictStr
 from typing import Any, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.apply_mode import ApplyMode
 from mixpeek.models.apply_result import ApplyResult
 from mixpeek.models.diff_result import DiffResult
 from mixpeek.models.lint_response import LintResponse
@@ -48,6 +49,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -63,12 +65,14 @@ class ManifestApi:
     ) -> ApplyResult:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order. Fails if any resource already exists (create-only mode). Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes (MG-1511):** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).
+        :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,6 +98,7 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            mode=mode,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -125,6 +130,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,12 +146,14 @@ class ManifestApi:
     ) -> ApiResponse[ApplyResult]:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order. Fails if any resource already exists (create-only mode). Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes (MG-1511):** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).
+        :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -171,6 +179,7 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            mode=mode,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -202,6 +211,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -217,12 +227,14 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order. Fails if any resource already exists (create-only mode). Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes (MG-1511):** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched (MG-1513).
+        :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -248,6 +260,7 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            mode=mode,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -274,6 +287,7 @@ class ManifestApi:
         self,
         manifest_file,
         dry_run,
+        mode,
         _request_auth,
         _content_type,
         _headers,
@@ -299,6 +313,10 @@ class ManifestApi:
         if dry_run is not None:
             
             _query_params.append(('dry_run', dry_run))
+            
+        if mode is not None:
+            
+            _query_params.append(('mode', mode.value))
             
         # process the header parameters
         # process the form parameters

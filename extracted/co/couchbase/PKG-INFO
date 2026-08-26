@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: couchbase
-Version: 4.6.2
+Version: 4.6.3
 Summary: Python Client for Couchbase
 Home-page: https://github.com/couchbase/couchbase-python-client
 Author: Couchbase, Inc.

@@ -99,7 +99,7 @@ class CorporateEventEnumeratorFactory(System.Object):
 class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """Provides an implementation of ISubscriptionEnumeratorFactory to handle live custom data."""
 
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, object_store: QuantConnect.Interfaces.IObjectStore, date_adjustment: typing.Callable[[datetime.datetime], datetime.datetime] = None, minimum_interval_check: typing.Optional[datetime.timedelta] = None) -> None:
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, object_store: QuantConnect.Interfaces.IObjectStore, date_adjustment: typing.Callable[[datetime.datetime], datetime.datetime] = None, minimum_interval_check: typing.Optional[datetime.timedelta] = None, fall_back_to_backup_universe_files: bool = False) -> None:
         """
         Initializes a new instance of the LiveCustomDataSubscriptionEnumeratorFactory class
         
@@ -107,6 +107,9 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
         :param object_store: The object store to use
         :param date_adjustment: Func that allows adjusting the datetime to use
         :param minimum_interval_check: Allows specifying the minimum interval between each enumerator refresh and data check, default is 30 minutes
+        :param fall_back_to_backup_universe_files: Whether to fall back to the backup universe file ("*.backup"), if any, as a last resort
+        when the expected universe file is not available and the market is open or close to opening.
+        Only meaningful for universe subscriptions backed by local files
         """
         ...
 

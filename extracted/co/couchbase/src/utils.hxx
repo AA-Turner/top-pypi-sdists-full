@@ -27,6 +27,7 @@
 #include <core/cluster_credentials.hxx>
 #include <core/cluster_options.hxx>
 #include <core/io/dns_config.hxx>
+#include <core/logger/logger.hxx>
 #include <core/operations/document_analytics.hxx>
 #include <core/operations/document_query.hxx>
 #include <core/operations/document_search.hxx>
@@ -67,17 +68,6 @@ extract_field(PyObject* source_obj, T& dest)
   }
 }
 
-// Extract boolean field directly (specialized - checks Py_True/Py_False directly)
-inline void
-extract_bool_field(PyObject* source_obj, bool& dest)
-{
-  if (source_obj == Py_True) {
-    dest = true;
-  } else if (source_obj == Py_False) {
-    dest = false;
-  }
-}
-
 template<typename T>
 inline void
 extract_field(PyObject* kwargs, const char* key, T& dest)
@@ -103,16 +93,6 @@ inline void
 extract_field_if_not_empty(PyObject* dict, const char* key, T& dest)
 {
   PyObject* pyObj = PyDict_GetItemString(dict, key);
-  if (pyObj != nullptr && pyObj != Py_None) {
-    dest = py_to_cbpp<T>(pyObj);
-  }
-}
-
-template<typename T>
-inline void
-extract_field_if_not_empty(PyObject* dict, PyObject* interned_key, T& dest)
-{
-  PyObject* pyObj = PyDict_GetItem(dict, interned_key);
   if (pyObj != nullptr && pyObj != Py_None) {
     dest = py_to_cbpp<T>(pyObj);
   }
@@ -167,33 +147,6 @@ extract_required_field(PyObject* kwargs,
   return true;
 }
 
-template<typename T>
-inline bool
-extract_required_field(PyObject* dict,
-                       PyObject* interned_key,
-                       T& dest,
-                       const char* context,
-                       const char* file,
-                       int line)
-{
-  PyObject* pyObj = PyDict_GetItem(dict, interned_key);
-  if (pyObj == nullptr || pyObj == Py_None) {
-    raise_required_field_missing(interned_key, context, file, line);
-    return false;
-  }
-
-  dest = py_to_cbpp<T>(pyObj);
-
-  if constexpr (std::is_same_v<T, std::string>) {
-    if (dest.empty()) {
-      raise_required_field_empty(interned_key, context, file, line);
-      return false;
-    }
-  }
-
-  return true;
-}
-
 inline void
 extract_legacy_span_field(PyObject* source_obj,
                           std::shared_ptr<couchbase::tracing::request_span>& dest)
@@ -228,66 +181,96 @@ extract_legacy_span_field(PyObject* dict,
   }
 }
 
-// Add a field to result dict (auto-converts C++ value to Python)
+// Shared convention for every add_* helper below (add_field, add_bool_field,
+// add_string_field_if_not_empty): return 0 on success, -1 on failure, self-reported via
+// PyErr_WriteUnraisable (matches logger.hxx) since most callers (generated code) never check
+// the return value.
 template<typename T>
-inline void
+inline int
 add_field(PyObject* dict, const char* key, const T& value)
 {
   PyObject* pyObj = cbpp_to_py(value);
-  PyDict_SetItemString(dict, key, pyObj);
+  if (pyObj == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to convert field '{}' for result dict.", key);
+    return -1;
+  }
+  int rv = PyDict_SetItemString(dict, key, pyObj);
   Py_DECREF(pyObj);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set field '{}' on result dict.", key);
+  }
+  return rv;
 }
 
 template<typename T>
-inline void
+inline int
 add_field(PyObject* dict, PyObject* interned_key, const T& value)
 {
   PyObject* pyObj = cbpp_to_py(value);
-  PyDict_SetItem(dict, interned_key, pyObj);
+  if (pyObj == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to convert an interned-key field for result dict.");
+    return -1;
+  }
+  int rv = PyDict_SetItem(dict, interned_key, pyObj);
   Py_DECREF(pyObj);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set an interned-key field on result dict.");
+  }
+  return rv;
 }
 
-inline void
+// value is a new reference; always consumed (DECREF'd) on both success and failure.
+inline int
 add_field(PyObject* dict, const char* key, PyObject* value)
 {
-  PyDict_SetItemString(dict, key, value);
+  if (value == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Field '{}' value was null when adding to result dict.", key);
+    return -1;
+  }
+  int rv = PyDict_SetItemString(dict, key, value);
   Py_DECREF(value);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set field '{}' on result dict.", key);
+  }
+  return rv;
 }
 
-inline void
+inline int
 add_bool_field(PyObject* dict, const char* key, bool value)
 {
-  PyDict_SetItemString(dict, key, value ? Py_True : Py_False);
+  int rv = PyDict_SetItemString(dict, key, value ? Py_True : Py_False);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set bool field '{}' on result dict.", key);
+  }
+  return rv;
 }
 
-inline void
+inline int
 add_string_field_if_not_empty(PyObject* dict, const char* key, const std::string& value)
 {
-  if (!value.empty()) {
-    PyObject* pyObj = PyUnicode_FromString(value.c_str());
-    PyDict_SetItemString(dict, key, pyObj);
-    Py_DECREF(pyObj);
+  if (value.empty()) {
+    return 0;
   }
-}
-
-// Add duration field to dict (specialized - as milliseconds)
-inline void
-add_duration_field(PyObject* dict, const char* key, const std::chrono::milliseconds& value)
-{
-  PyDict_SetItemString(dict, key, PyLong_FromUnsignedLongLong(value.count()));
-}
-
-inline void
-add_cpp_core_span_field(
-  PyObject* dict,
-  const char* key,
-  const std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>& wrapperSpan)
-{
-  PyObject* pyObj = cbpp_wrapper_span_to_py(wrapperSpan);
-  if (pyObj != nullptr) {
-    PyDict_SetItemString(dict, key, pyObj);
-    Py_DECREF(pyObj);
+  PyObject* pyObj = PyUnicode_FromString(value.c_str());
+  if (pyObj == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to convert string field '{}' for result dict.", key);
+    return -1;
   }
+  int rv = PyDict_SetItemString(dict, key, pyObj);
+  Py_DECREF(pyObj);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set string field '{}' on result dict.", key);
+  }
+  return rv;
 }
 
 // ======================================================================
@@ -311,7 +294,7 @@ update_cluster_options_from_py(couchbase::core::cluster_options& options,
     pyObj_trust_store = PyDict_GetItemString(pyObj_options, "trust_store_path");
   }
   if (pyObj_trust_store && PyUnicode_Check(pyObj_trust_store)) {
-    options.trust_certificate = PyUnicode_AsUTF8(pyObj_trust_store);
+    safe_utf8_string(pyObj_trust_store, options.trust_certificate);
   }
 
   // TLS options
@@ -369,7 +352,7 @@ update_cluster_options_from_py(couchbase::core::cluster_options& options,
   {
     PyObject* pyObj_server_group = PyDict_GetItemString(pyObj_options, "preferred_server_group");
     if (pyObj_server_group && PyUnicode_Check(pyObj_server_group)) {
-      options.server_group = std::string(PyUnicode_AsUTF8(pyObj_server_group));
+      safe_utf8_string(pyObj_server_group, options.server_group);
     }
   }
 
@@ -422,9 +405,10 @@ update_cluster_options_from_py(couchbase::core::cluster_options& options,
   PyObject* pyObj_dns_nameserver = PyDict_GetItemString(pyObj_options, "dns_nameserver");
   PyObject* pyObj_dns_port = PyDict_GetItemString(pyObj_options, "dns_port");
   if (pyObj_dns_srv_timeout || pyObj_dns_nameserver || pyObj_dns_port) {
-    auto nameserver = pyObj_dns_nameserver && PyUnicode_Check(pyObj_dns_nameserver)
-                        ? std::string(PyUnicode_AsUTF8(pyObj_dns_nameserver))
-                        : options.dns_config.nameserver();
+    std::string nameserver = options.dns_config.nameserver();
+    if (pyObj_dns_nameserver && PyUnicode_Check(pyObj_dns_nameserver)) {
+      safe_utf8_string(pyObj_dns_nameserver, nameserver);
+    }
     auto port = pyObj_dns_port && PyLong_Check(pyObj_dns_port)
                   ? static_cast<uint16_t>(PyLong_AsUnsignedLong(pyObj_dns_port))
                   : options.dns_config.port();
@@ -449,6 +433,10 @@ cluster_options_to_py(const couchbase::core::cluster_options& opts,
 
   // timeouts
   PyObject* timeout_dict = PyDict_New();
+  if (timeout_dict == nullptr) {
+    Py_DECREF(dict);
+    return nullptr;
+  }
   add_field<std::chrono::milliseconds>(timeout_dict, "bootstrap_timeout", opts.bootstrap_timeout);
   add_field<std::chrono::milliseconds>(timeout_dict, "resolve_timeout", opts.resolve_timeout);
   add_field<std::chrono::milliseconds>(timeout_dict, "connect_timeout", opts.connect_timeout);
@@ -471,7 +459,7 @@ cluster_options_to_py(const couchbase::core::cluster_options& opts,
   // DNS configuration
   add_bool_field(dict, "enable_dns_srv", opts.enable_dns_srv);
   add_field(dict, "dns_nameserver", opts.dns_config.nameserver());
-  add_field(dict, "use_ip_protocol", opts.dns_config.port());
+  add_field(dict, "dns_port", opts.dns_config.port());
 
   // TLS options
   add_bool_field(dict, "enable_tls", opts.enable_tls);
@@ -515,6 +503,10 @@ cluster_options_to_py(const couchbase::core::cluster_options& opts,
 
   // Credentials
   PyObject* creds_dict = cbpp_to_py(creds);
+  if (creds_dict == nullptr) {
+    Py_DECREF(dict);
+    return nullptr;
+  }
   PyDict_SetItemString(dict, "credentials", creds_dict);
   Py_DECREF(creds_dict);
 
@@ -594,15 +586,17 @@ get_default_timeout(const Request& req)
 {
   if constexpr (std::is_same_v<Request, couchbase::core::operations::analytics_request>) {
     return couchbase::core::timeout_defaults::analytics_timeout;
-  }
-  if constexpr (std::is_same_v<Request, couchbase::core::operations::query_request>) {
+  } else if constexpr (std::is_same_v<Request, couchbase::core::operations::query_request>) {
     return couchbase::core::timeout_defaults::query_timeout;
-  }
-  if constexpr (std::is_same_v<Request, couchbase::core::operations::search_request>) {
+  } else if constexpr (std::is_same_v<Request, couchbase::core::operations::search_request>) {
     return couchbase::core::timeout_defaults::search_timeout;
-  }
-  if constexpr (std::is_same_v<Request, couchbase::core::operations::document_view_request>) {
+  } else if constexpr (std::is_same_v<Request,
+                                      couchbase::core::operations::document_view_request>) {
     return couchbase::core::timeout_defaults::view_timeout;
+  } else {
+    // Dependent-false: only fires if this branch is actually instantiated via a request type
+    // that is currently not supported.
+    static_assert(!std::is_same_v<Request, Request>, "get_default_timeout: unhandled Request type");
   }
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: godot-ai
-Version: 3.1.5
+Version: 3.2.0
 Summary: Production-grade MCP server and AI tools for the Godot engine
 Author: Godot AI contributors
 Project-URL: Homepage, https://github.com/hi-godot/godot-ai
@@ -52,7 +52,7 @@ Dynamic: license-file
 [![Godot Asset Library](https://img.shields.io/badge/Godot-Asset%20Library-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/asset-library/asset/5050)
 [![Discord](https://img.shields.io/badge/Discord-Join%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/FDZ5fr2QkP)
 
-**Connect MCP clients directly to a live Godot editor** via the [Model Context Protocol](https://modelcontextprotocol.io/introduction). Over **120 ops across ~43 MCP tools** ([full list](docs/TOOLS.md)) let AI assistants (Claude Code, Codex, **Grok Build**, Antigravity, Hermes Agent, etc.) build scenes, edit nodes and scripts, wire signals, and configure UI, materials, animations, particles, cameras, and environments.
+**Connect MCP clients directly to a live Godot editor** via the [Model Context Protocol](https://modelcontextprotocol.io/introduction). Over **120 ops across ~43 MCP tools** ([full list](docs/TOOLS.md)) let AI assistants (Claude Code, Codex, **Grok Build**, Antigravity, Hermes Agent, **DeepSeek Harness**, etc.) build scenes, edit nodes and scripts, wire signals, and configure UI, materials, animations, particles, cameras, and environments.
 
 > 🎉 **Now on the [Godot Asset Library](https://godotengine.org/asset-library/asset/5050) and the [new Godot Asset Store](https://store.godotengine.org/asset/dlight/godot-ai/)** — one-click install from Godot's **AssetLib** tab. You'll still need [uv](https://docs.astral.sh/uv/) for the Python server (see [Quick Start](#quick-start)).
 
@@ -126,16 +126,21 @@ The dock lists every supported client with a status dot and per-row
 **Configure** / **Remove** buttons, or press **Configure all**. Auto-configure
 covers:
 
-- **Claude Code**, **Claude Desktop**, **Antigravity**, **Hermes Agent**
+- **Claude Code**, **Claude Desktop**, **Antigravity**, **Hermes Agent**, **DeepSeek Harness**
 
 <details>
 <summary><strong>…and 17+ more clients</strong></summary>
 
 Codex, **Grok Build**, Cursor, Devin Desktop (formerly Windsurf), VS Code, VS Code Insiders, Zed, Gemini CLI, Cline,
 Kilo Code, Roo Code, Zoo Code, Kiro, Trae, Cherry Studio, OpenCode, Qwen Code,
-Kimi Code.
+Kimi Code, Pi Agent.
 
 </details>
+
+> **Pi Coding Agent:** Pi has no built-in MCP support. Choose a Pi MCP
+> extension that reads `~/.pi/agent/mcp.json`; see the
+> [Pi package gallery](https://pi.dev/packages) and follow your chosen
+> extension's installation instructions.
 
 Nearly every client is configured with the client-owned `godot-ai attach`
 stdio bridge: the client launches a local command that starts or adopts the
@@ -147,6 +152,57 @@ auto-configure can't find a compatible local launcher, the row exposes a
 configuration supports URL transport also show an advanced URL fallback.
 (Cherry Studio intentionally stays URL-mode — its MCP servers are managed
 inside the app, not via an external config file.)
+
+<details>
+<summary><strong>Registering per-project instead of globally</strong></summary>
+
+CLI-configured clients register at **user** scope by default, which is a single
+global config the client loads in every workspace — so the Godot AI tools are
+present even in projects that have nothing to do with Godot.
+
+Set **Editor Settings → Plugins → `godot_ai/mcp_client_scope`** to `project` and
+Configure writes the entry into the project's own config (for Claude Code,
+`<project>/.mcp.json`) instead. The server is then loaded only when the client is
+opened on that project. `local` is also accepted for clients that support it.
+
+The default stays `user` so existing installs are unchanged on upgrade. To move
+an existing entry, change the setting and press **Configure** again — Configure
+clears `godot-ai` out of every scope before writing the new one, so the old
+entry doesn't linger. **Remove**, by contrast, only targets the scope that is
+currently selected, so switch back before removing if you changed the setting.
+
+> [!IMPORTANT]
+> That clearing step runs at **every** setting, including the default `user`.
+> One of its passes is `claude mcp remove --scope project godot-ai`, which
+> rewrites the `.mcp.json` in the client CLI's working directory — see the
+> first caveat below for why that is not necessarily this project's folder. If
+> a repository keeps a hand-maintained `godot-ai` entry in a checked-in
+> `.mcp.json`, pressing **Configure** deletes that entry and leaves the file
+> dirty. Only a key named `godot-ai` is touched; other servers are left in
+> place. After a successful **Configure** the client's row names the scopes it
+> attempted to clear (the remove results are not checked, so a scope can be
+> listed without its removal having succeeded); if Configure fails, the dock's
+> "Run this manually" text lists these removes alongside the register line so
+> you can run them yourself.
+
+Two caveats for `project` scope:
+
+- The client CLI resolves the project config against **its own working
+  directory**, which is the one the Godot editor was launched from — not
+  necessarily the project folder. Launching Godot from the project directory
+  (or from a shell already `cd`'d into it) puts `.mcp.json` where you expect.
+- Claude Code will not actually load a `project`-scoped server until you
+  approve it: run `claude` in that project once and accept the prompt. Until
+  then `claude mcp get godot-ai` reports *Pending approval*, and an older
+  `user`-scoped entry can keep answering in its place.
+- Status for a project- or local-scoped entry is read back by asking the client
+  CLI about the server rather than by reading the config file directly. The
+  dock reports configured / not configured correctly and will flag an entry
+  that resolved from a different scope than the one you selected, but it can no
+  longer spot a stale entry whose *arguments* drifted — press **Configure**
+  again after changing the port or excluded domains.
+
+</details>
 
 ### 4. Try it
 

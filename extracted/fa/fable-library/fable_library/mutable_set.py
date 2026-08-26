@@ -19,7 +19,7 @@ from .types import FSharpRef
 from .util import UNIT, Disposable, Unit, dispose, get_enumerator, ignore, to_enumerable
 
 
-def _expr9(gen0: TypeInfo) -> TypeInfo:
+def _expr12(gen0: TypeInfo) -> TypeInfo:
     return class_type("Fable.Collections.HashSet", Array([gen0]), HashSet)
 
 
@@ -29,7 +29,7 @@ class HashSet[T](MutableSet[Any], Set[Any], EnumerableBase[Any]):
         self.comparer: IEqualityComparer_1[Any] = comparer
         this.contents = self
         self.hash_map: Any = make_dict(Array[Any]([]))
-        self.init_004011: int32 = int32.ONE
+        self.init_004011: int = 1
         with Disposable(get_enumerator(items)) as enumerator:
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 item: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
@@ -55,15 +55,15 @@ class HashSet[T](MutableSet[Any], Set[Any], EnumerableBase[Any]):
         this: HashSet[Any] = self
         return HashSet__Contains_2B595(this, item)
 
-    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, array: Array[T], array_index: int32) -> None:
+    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, array: Array[T], array_index: int) -> None:
         this: HashSet[Any] = self
 
-        def action(i: int32, e: T) -> None:
-            array[array_index + i] = e
+        def action(i: int, e: T) -> None:
+            array[tmp if (-2147483648 <= (tmp := array_index + i) <= 2147483647) else int32(tmp)] = e
 
         iterate_indexed(action, this)
 
-    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         this: HashSet[Any] = self
         return HashSet__get_Count(this)
 
@@ -79,7 +79,7 @@ class HashSet[T](MutableSet[Any], Set[Any], EnumerableBase[Any]):
         return HashSet__Contains_2B595(this, item)
 
     @property
-    def Count(self, __unit: Unit = UNIT) -> int32:
+    def Count(self, __unit: Unit = UNIT) -> int:
         this: HashSet[Any] = self
         return HashSet__get_Count(this)
 
@@ -111,41 +111,41 @@ class HashSet[T](MutableSet[Any], Set[Any], EnumerableBase[Any]):
         self.Remove(value)
 
 
-HashSet_reflection = _expr9
+HashSet_reflection = _expr12
 
 
 def HashSet__ctor_Z6150332D[T](items: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> HashSet[T]:
     return HashSet(items, comparer)
 
 
-def HashSet__TryFindIndex_2B595[T](this: HashSet[T], k: T) -> tuple[bool, int32, int32]:
-    h: int32 = this.comparer.GetHashCode(k)
+def HashSet__TryFindIndex_2B595[T](this: HashSet[T], k: T) -> tuple[bool, int, int]:
+    h: int = this.comparer.GetHashCode(k)
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow10(__unit: Unit = UNIT) -> list[T]:
+    def _arrow13(__unit: Unit = UNIT) -> list[T]:
         return out_arg
 
-    def _arrow11(v: list[T]) -> None:
+    def _arrow14(v: list[T]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow10, _arrow11)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow13, _arrow14)), out_arg)
     if match_value[0]:
 
-        def _arrow12(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
+        def _arrow15(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, v_1)
 
-        return (True, h, find_index(_arrow12, match_value[1]))
+        return (True, h, find_index(_arrow15, match_value[1]))
 
     else:
-        return (False, h, int32.NEG_ONE)
+        return (False, h, -1)
 
 
 def HashSet__TryFind_2B595[T](this: HashSet[T], k: T) -> Option[T]:
-    match_value: tuple[bool, int32, int32] = HashSet__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = HashSet__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             return some(get_item_from_dict(this.hash_map, match_value[1])[match_value[2]])
 
         case _:
@@ -160,13 +160,13 @@ def HashSet__Clear[T](this: HashSet[T]) -> None:
     this.hash_map.clear()
 
 
-def HashSet__get_Count[T](this: HashSet[T]) -> int32:
-    count: int32 = int32.ZERO
+def HashSet__get_Count[T](this: HashSet[T]) -> int:
+    count: int = 0
     enumerator: Any = get_enumerator(to_enumerable(this.hash_map.values()))
     try:
         while enumerator.System_Collections_IEnumerator_MoveNext():
             items: list[Any] = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
-            count = count + int32(len(items))
+            count = tmp if (-2147483648 <= (tmp := count + len(items)) <= 2147483647) else int32(tmp)
 
     finally:
         dispose(enumerator)
@@ -175,9 +175,9 @@ def HashSet__get_Count[T](this: HashSet[T]) -> int32:
 
 
 def HashSet__Add_2B595[T](this: HashSet[T], k: T) -> bool:
-    match_value: tuple[bool, int32, int32] = HashSet__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = HashSet__TryFindIndex_2B595(this, k)
     if match_value[0]:
-        if match_value[2] > int32.NEG_ONE:
+        if match_value[2] > -1:
             return False
 
         else:
@@ -191,9 +191,9 @@ def HashSet__Add_2B595[T](this: HashSet[T], k: T) -> bool:
 
 
 def HashSet__Contains_2B595[T](this: HashSet[T], k: T) -> bool:
-    match_value: tuple[bool, int32, int32] = HashSet__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = HashSet__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             return True
 
         case _:
@@ -201,9 +201,9 @@ def HashSet__Contains_2B595[T](this: HashSet[T], k: T) -> bool:
 
 
 def HashSet__Remove_2B595[T](this: HashSet[T], k: T) -> bool:
-    match_value: tuple[bool, int32, int32] = HashSet__TryFindIndex_2B595(this, k)
+    match_value: tuple[bool, int, int] = HashSet__TryFindIndex_2B595(this, k)
     match match_value:
-        case [True, _, i_0] if i_0 > int32.NEG_ONE:
+        case [True, _, i_0] if i_0 > -1:
             get_item_from_dict(this.hash_map, match_value[1]).pop(match_value[2])
             return True
 

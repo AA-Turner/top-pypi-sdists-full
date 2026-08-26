@@ -13,15 +13,16 @@ from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
+from lamindb_setup import disconnect as disconnect_
+from lamindb_setup._connect_instance import _connect_cli as connect_
 from lamindb_setup._init_instance import (
+    DEFAULT_STORAGE_PATH,
     DOC_DB,
     DOC_INSTANCE_NAME,
     DOC_MODULES,
     DOC_STORAGE_ARG,
 )
 
-from lamin_cli import connect as connect_
-from lamin_cli import disconnect as disconnect_
 from lamin_cli import init as init_
 from lamin_cli import login as login_
 from lamin_cli import logout as logout_
@@ -76,7 +77,11 @@ COMMAND_GROUPS = {
 # Otherwise rich-click takes over the formatting.
 if os.environ.get("NO_RICH"):
     import click as click
-    from lamindb_setup.errors import CurrentInstanceNotConfigured, NoWriteAccess
+    from lamindb_setup.errors import (
+        ConnectWithinDevDirError,
+        CurrentInstanceNotConfigured,
+        NoWriteAccess,
+    )
 
     class OrderedExceptionHandlingGroup(click.Group):
         """Overwrites list_commands to return commands in order of definition."""
@@ -93,7 +98,11 @@ if os.environ.get("NO_RICH"):
         def invoke(self, ctx: click.Context):
             try:
                 return super().invoke(ctx)
-            except (CurrentInstanceNotConfigured, NoWriteAccess) as e:
+            except (
+                ConnectWithinDevDirError,
+                CurrentInstanceNotConfigured,
+                NoWriteAccess,
+            ) as e:
                 raise click.ClickException(str(e)) from None
 
         def list_commands(self, ctx: click.Context) -> Mapping[str, click.Command]:
@@ -103,13 +112,21 @@ if os.environ.get("NO_RICH"):
 
 else:
     import rich_click as click
-    from lamindb_setup.errors import CurrentInstanceNotConfigured, NoWriteAccess
+    from lamindb_setup.errors import (
+        ConnectWithinDevDirError,
+        CurrentInstanceNotConfigured,
+        NoWriteAccess,
+    )
 
     class OrderedRichExceptionHandlingGroup(click.RichGroup):
         def invoke(self, ctx: click.Context):
             try:
                 return super().invoke(ctx)
-            except (CurrentInstanceNotConfigured, NoWriteAccess) as e:
+            except (
+                ConnectWithinDevDirError,
+                CurrentInstanceNotConfigured,
+                NoWriteAccess,
+            ) as e:
                 raise click.ClickException(str(e)) from None
 
     def lamin_group_decorator(f):
@@ -187,7 +204,7 @@ def schema_to_modules_callback(ctx, param, value):
 
 # fmt: off
 @main.command()
-@click.option("--storage", type=str, default = ".", help=DOC_STORAGE_ARG)
+@click.option("--storage", type=str, default=DEFAULT_STORAGE_PATH, help=DOC_STORAGE_ARG)
 @click.option("--name", type=str, default=None, help=DOC_INSTANCE_NAME)
 @click.option("--db", type=str, default=None, help=DOC_DB)
 @click.option("--modules", type=str, default=None, help=DOC_MODULES)
@@ -198,16 +215,33 @@ def init(
     db: str | None,
     modules: str | None,
 ):
-    """Initialize a database instance.
+    """Initialize a LaminDB instance.
 
-    Examples:
+    Create a new development directory for your source code and `cd` into it:
 
     ```
-    lamin init --storage ./mydata
+    mkdir mydata && cd mydata
+    ```
+
+    Initialize a local SQLite database in that directory:
+
+    ```
+    lamin init
+    lamin init --modules bionty
+    lamin init --modules bionty,pertdb
+    ```
+
+    Initialize a SQLite database that's hosted on S3 along with all files managed by the LaminDB instance:
+
+    ```
     lamin init --storage s3://my-bucket
     lamin init --storage gs://my-bucket
-    lamin init --storage ./mydata --modules bionty
-    lamin init --storage ./mydata --modules bionty,pertdb
+    ```
+
+    Initialize a PostgresSQL database with a storage location on S3:
+
+    ```
+    lamin init --storage s3://my-bucket --db "postgresql://user:password@host:port/database"
     ```
 
     → Python/R alternative: {func}`~lamindb.setup.init`
@@ -221,7 +255,7 @@ def init(
 @click.option("--here", is_flag=True, default=False, help="Connect in the current directory without changing the global default instance.")
 # fmt: on
 def connect(instance: str, here: bool):
-    """Set the default database instance for this environment or directory.
+    """Set the default database for this environment or directory.
 
     This command updates your local configuration to target the specified instance:
     all subsequent CLI commands and Python/R sessions will auto-connect to this instance.
@@ -245,7 +279,7 @@ def connect(instance: str, here: bool):
 @main.command()
 @click.option("--here", is_flag=True, default=False, help="Disconnect local directory context without changing the global default instance.")
 def disconnect(here: bool):
-    """Unset the default database instance for this environment or directory.
+    """Unset the default database for this environment or directory.
 
     - Without `--here`, it clears the global default instance.
     - With `--here`, it removes the nearest local marker from the current
@@ -884,6 +918,12 @@ def update(
     default=None,
     help="Either 'artifact', 'transform', or 'record'. If not passed, chooses based on path suffix.",
 )
+@click.option(
+    "--store-kwargs",
+    type=str,
+    default=None,
+    help='Fine-grained settings for uploads as a JSON object (normally not needed), e.g. \'{"chunksize": 1000000}\'.',
+)
 def save(
     path: str,
     key: str,
@@ -894,6 +934,7 @@ def save(
     space: str,
     branch: str,
     registry: Literal["artifact", "transform", "record"] | None,
+    store_kwargs: str | None,
 ):
     """Save a file or folder as an `artifact`, `transform`, or `record`.
 
@@ -901,6 +942,12 @@ def save(
 
     ```
     lamin save my_table.csv --key my_tables/my_table.csv
+    ```
+
+    Pass `--store-kwargs` as a JSON object for fine-grained upload settings (normally not needed):
+
+    ```
+    lamin save my_table.csv --key my_tables/my_table.csv --store-kwargs '{"chunksize": 1000000}'
     ```
 
     Save **source code** as {class}`~lamindb.Transform`:
@@ -915,7 +962,7 @@ def save(
     lamin save my-topic/my-note.md  # resolves `my-topic` as a record type
     ```
 
-    Save a **README** for the entire database instance:
+    Save a **README** for the entire database:
 
     ```
     lamin save README.md
@@ -965,6 +1012,7 @@ def save(
         space=space,
         branch=branch,
         registry=registry,
+        store_kwargs=store_kwargs,
     ) is not None:
         sys.exit(1)
 
@@ -997,6 +1045,17 @@ def track(ctx: click.Context):
     # work with the agent
     lamin finish
     ```
+
+    :::{dropdown} `lamin track copilot` says it can't find the active session?
+
+    In VS Code, make sure **"Copilot"** is selected — not **"Local"** — in the mode picker below the chat input box. `lamin track copilot` can only see sessions that go through the "Copilot"; sessions run via "Local" aren't visible to it.
+
+    ```{image} https://lamin-site-assets.s3.amazonaws.com/.lamindb/f7Nw4RNYkvlw966d0000.png
+    :alt: Copilot mode picker
+    :width: 500px
+    ```
+
+    :::
 
     → Python/R alternative: {func}`~lamindb.track` and {func}`~lamindb.finish` for (non-shell) scripts or notebooks
     """
@@ -1059,8 +1118,8 @@ def _finish_tracked_session() -> None:
         from lamin_cli.agents.claude import finish_claudecode_session
         return finish_claudecode_session()
 
-    from lamin_cli.agents.copilot import _state_dir as _copilot_state_dir
-    if list(_copilot_state_dir().glob(".lamindb_run_uid_copilot_*")):
+    from lamin_cli.agents.copilot import _session_id_from_env
+    if _session_id_from_env():
         from lamin_cli.agents.copilot import finish_copilot_session
         return finish_copilot_session()
 

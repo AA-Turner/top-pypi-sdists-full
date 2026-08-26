@@ -11,6 +11,7 @@ import pytest
 
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.labelprovider.PeSymbolProvider import PeSymbolProvider
+from smda.common.labelprovider.RustSymbolProvider import RustSymbolProvider
 from smda.common.labelprovider.WinApiResolver import WinApiResolver
 from smda.Disassembler import Disassembler
 from smda.SmdaConfig import SmdaConfig
@@ -279,6 +280,24 @@ class TestPeSymbolProviderMetadata(unittest.TestCase):
             imported = binary_info.getImportedFunctions()
         self.assertEqual(imported, {0x402000: ("kernel32.dll", "ExitProcess")})
 
+    def test_imported_functions_keep_msvc_decorated_names(self):
+        decorated = "?compute@Solver@@QEAAHH@Z"
+        pe_binary = _MockPeBinary(
+            imports=[_MockImportLibrary("solver.dll", [_MockImportEntry(decorated, 0x2000)])],
+            imagebase=0x140000000,
+        )
+        provider = PeSymbolProvider(None)
+        self.assertEqual(provider.parseImports(pe_binary, base_addr=0x400000), {0x402000: ("solver.dll", decorated)})
+
+        binary_info = BinaryInfo(b"")
+        binary_info.base_addr = 0x400000
+        with (
+            mock.patch.object(binary_info, "getLiefBinary", return_value=pe_binary),
+            mock.patch("lief.PE.Binary", _MockPeBinary),
+        ):
+            imported = binary_info.getImportedFunctions()
+        self.assertEqual(imported, {0x402000: ("solver.dll", decorated)})
+
     def test_rebased_dump_xmetadata_and_api_parity(self):
         pe_binary = _MockPeBinary(
             imports=[_MockImportLibrary("KERNEL32.dll", [_MockImportEntry("CreateFileW", 0x3000)])],
@@ -435,6 +454,101 @@ class TestPeCoffSymbolFixture(unittest.TestCase):
 
         self.assertIn("mainCRTStartup", names)
         self.assertIn("__tmainCRTStartup", names)
+
+    def test_rust_names_reach_the_report_demangled(self):
+        names = {f.function_name for f in self.report.getFunctions() if f.function_name}
+
+        # RustSymbolProvider resolved PE COFF symbols through Symbol.section, which lief
+        # never populates, so it contributed nothing and these arrived spelled "_RNv..."
+        self.assertEqual([name for name in names if name.startswith(("_R", "__R"))], [])
+        self.assertIn("std::rt::lang_start::<()>::{closure#0}", names)
+
+
+class TestPeCxxSymbolFixture(unittest.TestCase):
+    """A PE whose COFF symbol table carries Itanium C++ names.
+
+    None of the other bundled PEs has any: the Rust fixture's names are all Rust-mangled,
+    and the rest carry no symbol table at all. Built here rather than sampled - a small C++
+    translation unit compiled for x86_64-w64-mingw32 by g++ 16.2.0 at -O1 -g.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        fixture = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cxx_pe_gnu_xored")
+        raw = Path(fixture).read_bytes()
+        binary = bytes(byte ^ (index % 256) for index, byte in enumerate(raw))
+        binary_info = BinaryInfo(binary)
+        binary_info.file_path = ""
+        binary_info.base_addr = 0x140000000
+        provider = PeSymbolProvider(None)
+        provider.update(binary_info)
+        cls.symbols = provider.getFunctionSymbols()
+
+    def _symbols(self):
+        return self.symbols
+
+    def test_itanium_cxx_names_are_demangled(self):
+        names = set(self._symbols().values())
+
+        self.assertEqual([name for name in names if name.startswith(("_Z", "__Z"))], [])
+        self.assertIn("demo::Widget::Widget()", names)
+        self.assertIn("demo::Widget::~Widget()", names)
+
+    def test_a_rust_name_would_be_left_to_the_rust_provider(self):
+        # the two providers partition the namespace: this one expands Itanium C++, and a
+        # name the Rust evidence gate claims is not its to rewrite
+        provider = RustSymbolProvider(None)
+
+        self.assertFalse(provider._is_rust_symbol("_ZN12FileExplorerC2Ev"))
+        self.assertTrue(provider._is_rust_symbol("_RNvC6_123foo3bar"))
+
+    def test_a_signature_with_arguments_is_expanded(self):
+        measure = [name for name in self._symbols().values() if "measure" in name]
+
+        self.assertEqual(len(measure), 1)
+        self.assertIn("demo::Widget::measure(", measure[0])
+        self.assertIn("double) const", measure[0])
+
+
+class TestPeMsvcSymbolFixture(unittest.TestCase):
+    """The MSVC arm of the dispatch, on a PE that really carries decorated names.
+
+    tests/msvc_cxx_pe_xored is a small C++ translation unit built for
+    x86_64-pc-windows-msvc by clang-cl 22.1.7, exporting free functions, a namespace, a
+    class returned by value and one extern "C" name.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        fixture = os.path.join(os.path.dirname(os.path.abspath(__file__)), "msvc_cxx_pe_xored")
+        raw = Path(fixture).read_bytes()
+        binary = bytes(byte ^ (index % 256) for index, byte in enumerate(raw))
+        binary_info = BinaryInfo(binary)
+        binary_info.file_path = ""
+        binary_info.base_addr = 0x180000000
+        provider = PeSymbolProvider(None)
+        provider.update(binary_info)
+        cls.symbols = provider.getFunctionSymbols()
+
+    def test_no_exported_name_is_left_decorated(self):
+        self.assertEqual([name for name in self.symbols.values() if name.startswith("?")], [])
+
+    def test_a_namespaced_signature_is_expanded(self):
+        names = set(self.symbols.values())
+
+        self.assertIn("double __cdecl geometry::dot(struct Matrix const &, struct Matrix const &)", names)
+        self.assertIn("int __cdecl geometry::classify(struct Matrix const *, char, bool)", names)
+
+    def test_a_class_returned_by_value_keeps_its_return_type(self):
+        names = set(self.symbols.values())
+
+        self.assertIn(
+            "struct Matrix __cdecl geometry::combine(struct Matrix const &, double, unsigned int)",
+            names,
+        )
+
+    def test_an_undecorated_name_is_left_alone(self):
+        self.assertIn("c_linkage", set(self.symbols.values()))
 
 
 if __name__ == "__main__":

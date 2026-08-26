@@ -26,6 +26,7 @@ class TargetVersion(Enum):
     PY312 = 12
     PY313 = 13
     PY314 = 14
+    PY315 = 15
 
     def pretty(self) -> str:
         assert self.name[:2] == "PY"
@@ -56,6 +57,8 @@ class Feature(Enum):
     TYPE_PARAM_DEFAULTS = 20
     UNPARENTHESIZED_EXCEPT_TYPES = 21
     T_STRINGS = 22
+    LAZY_IMPORTS = 23
+    UNPACKING_IN_COMPREHENSIONS = 24
     FORCE_OPTIONAL_PARENTHESES = 50
 
     # __future__ flags
@@ -209,12 +212,36 @@ VERSION_TO_FEATURES: dict[TargetVersion, set[Feature]] = {
         Feature.UNPARENTHESIZED_EXCEPT_TYPES,
         Feature.T_STRINGS,
     },
+    TargetVersion.PY315: {
+        Feature.F_STRINGS,
+        Feature.DEBUG_F_STRINGS,
+        Feature.NUMERIC_UNDERSCORES,
+        Feature.TRAILING_COMMA_IN_CALL,
+        Feature.TRAILING_COMMA_IN_DEF,
+        Feature.ASYNC_KEYWORDS,
+        Feature.FUTURE_ANNOTATIONS,
+        Feature.ASSIGNMENT_EXPRESSIONS,
+        Feature.RELAXED_DECORATORS,
+        Feature.POS_ONLY_ARGUMENTS,
+        Feature.UNPACKING_ON_FLOW,
+        Feature.ANN_ASSIGN_EXTENDED_RHS,
+        Feature.PARENTHESIZED_CONTEXT_MANAGERS,
+        Feature.PATTERN_MATCHING,
+        Feature.EXCEPT_STAR,
+        Feature.VARIADIC_GENERICS,
+        Feature.TYPE_PARAMS,
+        Feature.TYPE_PARAM_DEFAULTS,
+        Feature.UNPARENTHESIZED_EXCEPT_TYPES,
+        Feature.T_STRINGS,
+        Feature.LAZY_IMPORTS,
+        Feature.UNPACKING_IN_COMPREHENSIONS,
+    },
 }
 
 
 def supports_feature(target_versions: set[TargetVersion], feature: Feature) -> bool:
     if not target_versions:
-        raise ValueError("target_versions must not be empty")
+        raise ValueError("At least one target Python version must be specified.")
 
     return all(feature in VERSION_TO_FEATURES[version] for version in target_versions)
 
@@ -226,31 +253,20 @@ class Preview(Enum):
     # for https://github.com/psf/black/issues/3117 to be fixed.
     string_processing = auto()
     hug_parens_with_braces_and_square_brackets = auto()
-    wrap_long_dict_values_in_parens = auto()
-    multiline_string_handling = auto()
-    always_one_newline_after_import = auto()
-    fix_fmt_skip_in_one_liners = auto()
-    standardize_type_comments = auto()
     wrap_comprehension_in = auto()
-    # Remove parentheses around multiple exception types in except and
-    # except* without as. See PEP 758 for details.
-    remove_parens_around_except_types = auto()
-    normalize_cr_newlines = auto()
-    fix_module_docstring_detection = auto()
-    fix_type_expansion_split = auto()
-    remove_parens_from_assignment_lhs = auto()
+    simplify_power_operator_hugging = auto()
+    wrap_long_dict_values_in_parens = auto()
+    fix_if_guard_explosion_in_case_statement = auto()
+    pyi_overload_group_blank_lines = auto()
+    pyi_blank_line_before_decorated_class = auto()
 
 
 UNSTABLE_FEATURES: set[Preview] = {
-    # Many issues, see summary in https://github.com/psf/black/issues/4042
+    # Many issues, see summary in https://github.com/psf/black/issues/4208
     Preview.string_processing,
     # See issue #4036 (crash), #4098, #4099 (proposed tweaks)
     Preview.hug_parens_with_braces_and_square_brackets,
 }
-
-
-class Deprecated(UserWarning):
-    """Visible deprecation warning."""
 
 
 class Quote(Enum):
@@ -298,7 +314,6 @@ class Mode:
     is_pyink: bool = False
     pyink_indentation: Literal[2, 4] = 4
     pyink_ipynb_indentation: Literal[1, 2] = 1
-    pyink_ipynb_unicode_escape: bool = False
     pyink_annotation_pragmas: tuple[str, ...] = DEFAULT_ANNOTATION_PRAGMAS
     unstable: bool = False
     enabled_features: set[Preview] = field(default_factory=set)
@@ -311,11 +326,6 @@ class Mode:
         except those in UNSTABLE_FEATURES are enabled. Any features in
         `self.enabled_features` are also enabled.
         """
-        # The following feature is temporarily disabled in Pyink because it is
-        # not compatible with range formatting. It's because format skipping in
-        # Black is broken.
-        if feature is Preview.always_one_newline_after_import and self.is_pyink:
-            return False
         if self.unstable:
             return True
         if feature in self.enabled_features:
@@ -339,10 +349,9 @@ class Mode:
             + "@"
             + ",".join(sorted(self.python_cell_magics))
         )
-        if len(features_and_magics) > _MAX_CACHE_KEY_PART_LENGTH:
-            features_and_magics = sha256(features_and_magics.encode()).hexdigest()[
-                :_MAX_CACHE_KEY_PART_LENGTH
-            ]
+        features_and_magics = sha256(features_and_magics.encode()).hexdigest()[
+            :_MAX_CACHE_KEY_PART_LENGTH
+        ]
         parts = [
             version_str,
             str(self.line_length),
@@ -358,7 +367,6 @@ class Mode:
             str(int(self.is_pyink)),
             str(self.pyink_indentation),
             str(self.pyink_ipynb_indentation),
-            str(int(self.pyink_ipynb_unicode_escape)),
             sha256(str(self.pyink_annotation_pragmas).encode()).hexdigest()[:8],
             features_and_magics,
         ]

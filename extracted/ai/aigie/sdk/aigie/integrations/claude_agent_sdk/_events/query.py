@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aigie.context_manager import merge_metadata
 from aigie.integrations.claude_agent_sdk._events import _tool_catalog
+from aigie.integrations.claude_agent_sdk._plan import root_execution_plan
 from aigie.integrations.claude_agent_sdk.cost_tracking import calculate_claude_cost
 from aigie.integrations.claude_agent_sdk.monitoring import DriftDetector
 from aigie.integrations.claude_agent_sdk.native_callback import (
@@ -21,9 +22,6 @@ from aigie.integrations.claude_agent_sdk.native_callback import (
     _usage_dict,
     _utc_now,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +451,8 @@ class QueryEvents:
                 query_metadata["reasoning_tokens"] = usage["reasoning_tokens"]
             if self.session_id:
                 query_metadata["claude_session_id"] = self.session_id
+            query_turns = self.total_turns
+            query_metadata["execution_plan"] = root_execution_plan(self, success, query_turns)
             query_update = {
                 "id": self.query_span_id,
                 "trace_id": self.trace_id,  # Required for backend merge
@@ -470,7 +470,7 @@ class QueryEvents:
                 "completion_tokens": span_output_tokens,
                 "total_tokens": span_total_tokens,
                 "total_cost": span_cost,
-                "turn_count": self._session_context.total_turns if self._session_context else 1,
+                "turn_count": query_turns,
             }
             if self.session_id:
                 query_update["session_id"] = self.session_id

@@ -1,17 +1,16 @@
 from collections.abc import Callable
 from typing import Any, cast
 
-from .core import int32
 from .protocols import IComparer_1, IEqualityComparer_1
 from .util import UNIT, Unit, compare, physical_hash, structural_hash
 from .util import equals as equals_1
 
 
 def HashIdentity_FromFunctions[T](
-    hasher: Callable[[T], int32], equals: Callable[[T, T], bool]
+    hasher: Callable[[T], int], equals: Callable[[T, T], bool]
 ) -> IEqualityComparer_1[Any]:
     class ObjectExpr0(IEqualityComparer_1[Any]):
-        def GetHashCode(self, x: T = UNIT, hasher: Any = hasher) -> int32:
+        def GetHashCode(self, x: T = UNIT, hasher: Any = hasher) -> int:
             return hasher(x)
 
         def Equals(self, x_1: T, y: T, equals: Any = equals) -> bool:
@@ -26,7 +25,7 @@ def HashIdentity_FromFunctions[T](
 
 def HashIdentity_Structural[T](__unit: Unit = UNIT) -> IEqualityComparer_1[Any]:
     class ObjectExpr1(IEqualityComparer_1[Any]):
-        def GetHashCode(self, x: T = UNIT) -> int32:
+        def GetHashCode(self, x: T = UNIT) -> int:
             return structural_hash(x)
 
         def Equals(self, x_1: T, y: T) -> bool:
@@ -37,7 +36,7 @@ def HashIdentity_Structural[T](__unit: Unit = UNIT) -> IEqualityComparer_1[Any]:
 
 def HashIdentity_Reference[T](__unit: Unit = UNIT) -> IEqualityComparer_1[Any]:
     class ObjectExpr2(IEqualityComparer_1[Any]):
-        def GetHashCode(self, x: T = UNIT) -> int32:
+        def GetHashCode(self, x: T = UNIT) -> int:
             return physical_hash(x)
 
         def Equals(self, x_1: T, y: T) -> bool:
@@ -46,13 +45,13 @@ def HashIdentity_Reference[T](__unit: Unit = UNIT) -> IEqualityComparer_1[Any]:
     return ObjectExpr2()
 
 
-def ComparisonIdentity_FromFunction[T](comparer: Callable[[T, T], int32]) -> IComparer_1[T]:
+def ComparisonIdentity_FromFunction[T](comparer: Callable[[T, T], int]) -> IComparer_1[T]:
     class ObjectExpr3(IComparer_1[Any]):
-        def Compare(self, x: T, y: T, comparer: Any = comparer) -> int32:
+        def Compare(self, x: T, y: T, comparer: Any = comparer) -> int:
             return (
-                (int32.ZERO if equals_1(y, cast(Any, None)) else int32.NEG_ONE)
+                (0 if equals_1(y, cast(Any, None)) else -1)
                 if equals_1(x, cast(Any, None))
-                else (int32.ONE if equals_1(y, cast(Any, None)) else comparer(x, y))
+                else (1 if equals_1(y, cast(Any, None)) else comparer(x, y))
             )
 
     return ObjectExpr3()
@@ -60,7 +59,7 @@ def ComparisonIdentity_FromFunction[T](comparer: Callable[[T, T], int32]) -> ICo
 
 def ComparisonIdentity_Structural[T](__unit: Unit = UNIT) -> IComparer_1[T]:
     class ObjectExpr4(IComparer_1[Any]):
-        def Compare(self, x: T, y: T) -> int32:
+        def Compare(self, x: T, y: T) -> int:
             return compare(x, y)
 
     return ObjectExpr4()

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_devops_agent.literals import AuthFlowType
+    from mypy_boto3_devops_agent.literals import AgentSpacePreferenceKeyType
 
-    data: AuthFlowType = "iam"
+    data: AgentSpacePreferenceKeyType = "elevatedActionsEnabled"
     ```
 """
 
@@ -23,6 +23,9 @@ else:
 
 
 __all__ = (
+    "AgentSpacePreferenceKeyType",
+    "ApprovalActionTypeType",
+    "ApprovalStatusType",
     "AuthFlowType",
     "CapabilityTypeType",
     "DevOpsAgentServiceServiceName",
@@ -67,18 +70,22 @@ __all__ = (
     "TaskSortOrderType",
     "TaskStatusType",
     "TaskTypeType",
+    "ToolClassificationType",
     "UserTypeType",
     "ValidationStatusType",
     "WebhookTypeType",
 )
 
 
+AgentSpacePreferenceKeyType = Literal["elevatedActionsEnabled"]
+ApprovalActionTypeType = Literal["APPROVED", "REJECTED"]
+ApprovalStatusType = Literal["APPROVED", "PENDING", "REDEEMED", "REJECTED", "REVOKED"]
 AuthFlowType = Literal["iam", "idc", "idp"]
 CapabilityTypeType = Literal[
     "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
 ]
 EventChannelTypeType = Literal["webhook"]
-ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT"]
+ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT", "WAITING"]
 GitLabTokenTypeType = Literal["group", "personal"]
 GithubRepoOwnerTypeType = Literal["organization", "user"]
 GoalStatusType = Literal["ACTIVE", "COMPLETE", "PAUSED"]
@@ -100,7 +107,7 @@ MCPServerAuthorizationMethodType = Literal[
     "api-key", "bearer-token", "oauth-3lo", "oauth-client-credentials"
 ]
 MonitorAccountTypeType = Literal["monitor"]
-NewRelicRegionType = Literal["EU", "US"]
+NewRelicRegionType = Literal["EU", "JP", "US"]
 OrderTypeType = Literal["ASC", "DESC"]
 PostRegisterServiceSupportedServiceType = Literal[
     "azureidentity",
@@ -164,8 +171,10 @@ TaskStatusType = Literal[
     "PENDING_TRIAGE",
     "SKIPPED",
     "TIMED_OUT",
+    "WAITING",
 ]
 TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
+ToolClassificationType = Literal["DESTRUCTIVE", "MUTATIVE", "READ_ONLY"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]
 ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]
@@ -173,8 +182,11 @@ DevOpsAgentServiceServiceName = Literal["devops-agent"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -349,6 +361,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -363,8 +376,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -391,6 +402,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -458,10 +471,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -479,6 +492,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -544,7 +558,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -565,6 +578,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

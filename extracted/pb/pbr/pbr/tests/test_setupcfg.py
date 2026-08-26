@@ -18,13 +18,11 @@ from __future__ import print_function
 
 import io
 import os
-import setuptools
 import tempfile
 import textwrap
 import warnings
 
 from pbr._compat.five import ConfigParser
-from pbr._compat import packaging as packaging_compat
 from pbr import setupcfg
 from pbr.tests import base
 
@@ -151,11 +149,6 @@ class TestBasics(base.BaseTestCase):
             ],
             'include_package_data': True,
         }
-        # Hardcode this exclusion - we only have one for now.
-        if packaging_compat.parse_version(
-            setuptools.__version__
-        ) >= packaging_compat.parse_version('72.0.0'):
-            del expected['tests_require']
         config = config_from_ini(config_text)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -184,18 +177,10 @@ class TestBasics(base.BaseTestCase):
             "The '[files] modules' option is deprecated",
             "The '[backwards_compat] zip_safe' option is deprecated",
             "The '[backwards_compat] dependency_links' option is deprecated",
+            "The '[backwards_compat] tests_require' option is deprecated",
             "The '[backwards_compat] include_package_data' option is deprecated",
         ):
             self.assertIn(warning_message, warning_messages)
-
-        # Hardcode this exclusion - we only have one for now.
-        if packaging_compat.parse_version(
-            setuptools.__version__
-        ) >= packaging_compat.parse_version('72.0.0'):
-            self.assertIn(
-                "The '[backwards_compat] tests_require' option is deprecated",
-                warning_messages,
-            )
 
     def test_bug_2120575(self):
         # check behavior with description, long_description (modern)
@@ -352,87 +337,6 @@ class TestInvalidMarkers(base.BaseTestCase):
         config = {'extras': {'test': "foo :bad_marker>'1.0'"}}
         self.assertRaises(
             SyntaxError, setupcfg.setup_cfg_to_setup_kwargs, config
-        )
-
-
-class TestWheelMarkers(base.BaseTestCase):
-    """Test that markers use PEP 508 inline format for wheel builds.
-
-    setuptools >= 83 no longer supports the legacy extras_require key format
-    (e.g. ':(marker)') and silently drops those dependencies. This tests that
-    pbr uses PEP 508 inline markers when building wheels.
-
-    See https://bugs.launchpad.net/pbr/+bug/2162730
-    """
-
-    def test_install_requires_with_marker_bdist_wheel(self):
-        config = config_from_ini(
-            u"""
-            [metadata]
-            requires_dist =
-                foo
-                bar>=1.0;sys_platform!='win32'
-                baz>=2.0;python_version>='3.6'
-        """
-        )
-        kwargs = setupcfg.setup_cfg_to_setup_kwargs(
-            config, script_args=['bdist_wheel']
-        )
-        self.assertIn('foo', kwargs['install_requires'])
-        self.assertIn(
-            "bar>=1.0; sys_platform!='win32'", kwargs['install_requires']
-        )
-        self.assertIn(
-            "baz>=2.0; python_version>='3.6'", kwargs['install_requires']
-        )
-        self.assertEqual({}, kwargs['extras_require'])
-
-    def test_extras_with_marker_bdist_wheel(self):
-        config = config_from_ini(
-            u"""
-            [metadata]
-            long_description = foo
-            [extras]
-            test =
-                foo:python_version=='2.6'
-                bar
-                baz<1.6 :python_version=='2.6'
-                zaz :python_version>'1.0'
-        """
-        )
-        kwargs = setupcfg.setup_cfg_to_setup_kwargs(
-            config, script_args=['bdist_wheel']
-        )
-        self.assertIn('bar', kwargs['extras_require']['test'])
-        self.assertIn(
-            "foo; python_version=='2.6'", kwargs['extras_require']['test']
-        )
-        self.assertIn(
-            "baz<1.6; python_version=='2.6'", kwargs['extras_require']['test']
-        )
-        self.assertIn(
-            "zaz; python_version>'1.0'", kwargs['extras_require']['test']
-        )
-        self.assertNotIn(
-            "test:(python_version=='2.6')", kwargs['extras_require']
-        )
-
-    def test_no_legacy_extras_keys_in_wheel(self):
-        config = config_from_ini(
-            u"""
-            [metadata]
-            requires_dist =
-                pyroute2>=0.7.3;sys_platform!='win32'
-        """
-        )
-        kwargs = setupcfg.setup_cfg_to_setup_kwargs(
-            config, script_args=['bdist_wheel']
-        )
-        for key in kwargs['extras_require']:
-            self.assertNotIn(':(', key)
-        self.assertIn(
-            "pyroute2>=0.7.3; sys_platform!='win32'",
-            kwargs['install_requires'],
         )
 
 

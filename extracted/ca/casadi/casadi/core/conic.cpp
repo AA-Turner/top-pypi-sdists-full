@@ -54,7 +54,7 @@ namespace casadi {
   void conic_debug(const Function& f, std::ostream &file) {
     casadi_assert_dev(!f.is_null());
     const Conic* n = f.get<Conic>();
-    return n->generateNativeCode(file);
+    n->generateNativeCode(file);
   }
 
   std::vector<std::string> conic_in() {
@@ -404,7 +404,11 @@ namespace casadi {
         "When false, the corresponding bounds may be equal or different."}},
       {"print_problem",
        {OT_BOOL,
-        "Print a numeric description of the problem"}}
+        "Print a numeric description of the problem"}},
+      {"solver_version_check",
+       {OT_BOOL,
+        "When the plugin loads an externally supplied solver, "
+         "check that its version is compatible with the plugin [Default: true]"}}
      }
   };
 
@@ -413,6 +417,7 @@ namespace casadi {
     FunctionInternal::init(opts);
 
     print_problem_ = false;
+    solver_version_check_ = true;
 
     // Read options
     for (auto&& op : opts) {
@@ -422,8 +427,12 @@ namespace casadi {
         equality_ = op.second;
       } else if (op.first=="print_problem") {
         print_problem_ = op.second;
+      } else if (op.first=="solver_version_check") {
+        solver_version_check_ = op.second;
       }
     }
+
+    if (solver_version_check_) deps_version_check("init");
 
     // Check options
     if (!discrete_.empty()) {
@@ -446,6 +455,13 @@ namespace casadi {
     set_qp_prob();
   }
 
+  void Conic::finalize() {
+    if (solver_version_check_) deps_version_check("finalize");
+
+    // Recursive call
+    FunctionInternal::finalize();
+  }
+
   /** \brief Initalize memory block */
   int Conic::init_mem(void* mem) const {
     if (ProtoFunction::init_mem(mem)) return 1;
@@ -457,7 +473,7 @@ namespace casadi {
   void Conic::set_work(void* mem, const double**& arg, double**& res,
                           casadi_int*& iw, double*& w) const {
 
-    auto m = static_cast<ConicMemory*>(mem);
+    auto *m = static_cast<ConicMemory*>(mem);
 
     casadi_qp_data<double>& d_qp = m->d_qp;
     d_qp.h = arg[CONIC_H];
@@ -542,7 +558,7 @@ namespace casadi {
       uout() << "lbx:" << std::vector<double>(arg[CONIC_LBX], arg[CONIC_LBX]+nx_) << std::endl;
       uout() << "ubx:" << std::vector<double>(arg[CONIC_UBX], arg[CONIC_UBX]+nx_) << std::endl;
     }
-    auto m = static_cast<ConicMemory*>(mem);
+    auto *m = static_cast<ConicMemory*>(mem);
 
     if (inputs_check_) {
       check_inputs(arg[CONIC_LBX], arg[CONIC_UBX], arg[CONIC_LBA], arg[CONIC_UBA]);
@@ -709,7 +725,7 @@ namespace casadi {
 
   Dict Conic::get_stats(void* mem) const {
     Dict stats = FunctionInternal::get_stats(mem);
-    auto m = static_cast<ConicMemory*>(mem);
+    auto *m = static_cast<ConicMemory*>(mem);
 
     stats["success"] = m->d_qp.success;
     stats["unified_return_status"] = string_from_UnifiedReturnStatus(m->d_qp.unified_return_status);
@@ -737,10 +753,12 @@ namespace casadi {
   void Conic::serialize_body(SerializingStream &s) const {
     FunctionInternal::serialize_body(s);
 
-    s.version("Conic", 3);
+    s.version("Conic", 4);
     s.pack("Conic::discrete", discrete_);
     s.pack("Conic::equality", equality_);
     s.pack("Conic::print_problem", print_problem_);
+    s.pack("Conic::solver_version_check", solver_version_check_);
+
     s.pack("Conic::H", H_);
     s.pack("Conic::A", A_);
     s.pack("Conic::Q", Q_);
@@ -760,15 +778,21 @@ namespace casadi {
   }
 
   Conic::Conic(DeserializingStream & s) : FunctionInternal(s) {
-    int version = s.version("Conic", 1, 3);
+    int version = s.version("Conic", 1, 4);
     s.unpack("Conic::discrete", discrete_);
     if (version>=3) {
       s.unpack("Conic::equality", equality_);
     }
     s.unpack("Conic::print_problem", print_problem_);
+    if (version>=4) {
+      s.unpack("Conic::solver_version_check", solver_version_check_);
+    } else {
+      solver_version_check_ = true;
+    }
     if (version==1) {
       s.unpack("Conic::error_on_fail", error_on_fail_);
     }
+
     s.unpack("Conic::H", H_);
     s.unpack("Conic::A", A_);
     set_qp_prob();
@@ -794,7 +818,7 @@ namespace casadi {
     g << "p_qp.sp_a = " << g.sparsity(A_) << ";\n";
     g << "p_qp.sp_h = " << g.sparsity(H_) << ";\n";
     g << "casadi_qp_setup(&p_qp);\n";
-    g << "casadi_qp_init(&d_qp, &iw, &w);\n";
+    g << "casadi_qp_set_work(&d_qp, &arg, &res, &iw, &w);\n";
 
 
     g << "d_qp.h = arg[" << CONIC_H << "];\n";

@@ -93,6 +93,72 @@ def build_code_item(insns, tries=None, handlers_blob=b"", registers_size=1, ins_
     return header + insns + padding + try_items + handlers_blob
 
 
+class DalvikOrphanPassBudgetTestSuite(unittest.TestCase):
+    """The orphan pass runs last, so a spent budget usually lands in it. Its poll used to re-ask
+    the callback, and a caller scopes a budget by where it is called from - once the pass that
+    set it has returned, the same callback answers "not spent" and the drain carries on. The
+    verdict latches instead."""
+
+    class _Watched(list):
+        """A list that records what the loop actually pulled from it."""
+
+        def __init__(self, items):
+            super().__init__(items)
+            self.consumed = []
+
+        def __iter__(self):
+            for item in list.__iter__(self):
+                self.consumed.append(item)
+                yield item
+
+    def _drainOrphans(self, spend_on_entry):
+        from smda.dalvik.DalvikDisassembler import DalvikDisassembler
+
+        with open(os.path.join(config.PROJECT_ROOT, "tests", "blockblast_classes_xored"), "rb") as handle:
+            dex = bytes(byte ^ (index % 256) for index, byte in enumerate(handle.read()))
+        offsets = self._Watched([0x10, 0x20, 0x30])
+        entered = {"orphan_pass": False}
+
+        def fake_discover(_self, _raw, known_code_offsets):
+            entered["orphan_pass"] = True
+            return offsets
+
+        class _Budgeted(Disassembler):
+            def _callbackAnalysisTimeout(self):
+                return spend_on_entry and entered["orphan_pass"]
+
+        with mock.patch.object(DalvikDisassembler, "_discoverOrphanCodeItems", fake_discover):
+            _Budgeted(config, backend="dalvik").disassembleUnmappedBuffer(dex)
+        return offsets.consumed
+
+    def test_a_budget_spent_when_the_orphan_pass_starts_stops_the_drain(self):
+        self.assertEqual(self._drainOrphans(spend_on_entry=True), [0x10])
+
+    def test_a_verdict_that_tripped_once_still_reports_a_timeout(self):
+        """The latch itself: a budget scoped to one pass answers "spent" while that pass runs and
+        "not spent" afterwards. Re-asking it at the end reported ok for a run that was cut short."""
+        with open(os.path.join(config.PROJECT_ROOT, "tests", "blockblast_classes_xored"), "rb") as handle:
+            dex = bytes(byte ^ (index % 256) for index, byte in enumerate(handle.read()))
+        asked = {"count": 0}
+
+        class _Budgeted(Disassembler):
+            def _callbackAnalysisTimeout(self):
+                asked["count"] += 1
+                return asked["count"] == 1
+
+        report = _Budgeted(config, backend="dalvik").disassembleUnmappedBuffer(dex)
+
+        # re-asking answered "not spent" 66 more times and reported ok for 64 functions it had
+        # already stopped analysing; the latch answers once and stands
+        self.assertEqual(asked["count"], 1)
+        self.assertEqual(report.status, "timeout")
+
+    def test_the_same_drain_takes_every_orphan_within_budget(self):
+        """Positive control: with the budget intact the loop pulls all three, so the single
+        entry above is the poll stopping it rather than the list being short."""
+        self.assertEqual(self._drainOrphans(spend_on_entry=False), [0x10, 0x20, 0x30])
+
+
 class DalvikDisassemblerTestSuite(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -865,6 +931,70 @@ class DalvikDisassemblerTestSuite(unittest.TestCase):
         # invoke-custom operand pretty-print path
         self.assertEqual(resolver.formatRef("call_site", 0), cs_display)
         self.assertEqual(resolver.formatRef("method_handle", 0), mh_display)
+
+    def testAnOrphanLabelIsChosenByTypeNotByName(self):
+        """A DEX method name is arbitrary UTF-8, so it cannot decide what the object is."""
+        from smda.dalvik.DalvikDisassembler import DalvikDisassembler, _OrphanCodeItemMethod
+
+        code_item = build_code_item(bytes.fromhex("0e00"))
+
+        def label_for(method):
+            disassembler = DalvikDisassembler(config)
+            disassembler.disassembly = DisassemblyResult()
+            binary_info = BinaryInfo(code_item)
+            binary_info.raw_data = code_item
+            binary_info.architecture = "dalvik"
+            disassembler.disassembly.binary_info = binary_info
+            return disassembler.analyzeFunction(None, SyntheticDalvikResolver(), method).label
+
+        genuine = _OrphanCodeItemMethod(0x10)
+        self.assertEqual(label_for(genuine), "orphan_code_item@0x10")
+
+        impostor = SyntheticDalvikMethod()
+        impostor.name = genuine.name
+        self.assertEqual(label_for(impostor), "LSynthetic;->method()V")
+
+    def testAnUnreadableTypeObjectIsNotLaunderedIntoADescriptor(self):
+        """A lief object repr must not reach a report field dressed as a type descriptor."""
+        from smda.dalvik.DalvikDisassembler import DexReferenceResolver
+
+        class _EmptyDex:
+            strings = []
+            methods = []
+            fields = []
+            types = []
+            prototypes = []
+            classes = []
+
+        class _UnreadableValue:
+            # neither fullname nor name, so the str() fallback is what answers
+            def __str__(self):
+                return "<lief.DEX.Type object at 0x7f0000000000>"
+
+        class _UnreadableType:
+            def __init__(self):
+                self.value = _UnreadableValue()
+
+        class _ReadableValue:
+            def __str__(self):
+                return "java.lang.String"
+
+        class _ReadableType:
+            def __init__(self):
+                self.value = _ReadableValue()
+
+        resolver = DexReferenceResolver(_EmptyDex(), raw_data=b"")
+        # both are held for the whole test: _formatType caches by id(), so a temporary that
+        # dies before the next one is built can hand its address to it
+        unreadable, readable = _UnreadableType(), _ReadableType()
+        # normalization rewrites dots to slashes, so testing its output for the "<lief."
+        # prefix cannot see one: "L<lief/DEX/Type object at 0x...>;" passes that test
+        self.assertEqual(
+            resolver._normalizeTypeString("<lief.DEX.Type object at 0x7f00>"), "L<lief/DEX/Type object at 0x7f00>;"
+        )
+        self.assertEqual(resolver._formatType(unreadable), "<_UnreadableType>")
+        # a value that really does spell a type still reads through the same fallback
+        self.assertEqual(resolver._formatType(readable), "Ljava/lang/String;")
 
     def testEncodedValueExtensionRulesPerAosp(self):
         """encoded_value: byte/short/int/long sign-extend, char zero-extends, float/double right-zero-extend."""

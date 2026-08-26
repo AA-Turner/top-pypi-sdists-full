@@ -80,6 +80,31 @@ namespace casadi {
         \identifier{1qg} */
     virtual bool is_minus_one() const { return false;}
 
+    /** \brief Check if identically 0.5
+
+        \identifier{2ej} */
+    virtual bool is_half() const { return false;}
+
+    /** \brief Check if identically inf
+
+        \identifier{2e4} */
+    virtual bool is_inf() const { return false;}
+
+    /** \brief Check if identically -inf
+
+        \identifier{2e5} */
+    virtual bool is_minus_inf() const { return false;}
+
+    /** \brief Check if integer
+
+        \identifier{2e6} */
+    virtual bool is_integer() const { return false;}
+
+    /** \brief Check if not negative
+
+        \identifier{2e7} */
+    virtual bool is_nonnegative() const { return false;}
+
     /** \brief Check if a certain value
 
         \identifier{1qh} */
@@ -165,7 +190,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{1qv} */
-    virtual void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const;
+    virtual void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const;
 
     /** \brief Evaluate the MX node on a const/linear/nonlinear partition
 
@@ -204,6 +230,18 @@ namespace casadi {
 
         \identifier{1qy} */
     virtual int sp_forward(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const;
+
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2im} */
+    virtual int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const {
+      for (casadi_int k=0; k<nout(); ++k) {
+        bvec_t* v = res[k];
+        if (!v) continue;
+        for (casadi_int i=0; i<sparsity(k).nnz(); ++i) v[i] = ~static_cast<bvec_t>(0);
+      }
+      return 0;
+    }
 
     /** \brief  Propagate sparsity backwards
 
@@ -423,6 +461,15 @@ namespace casadi {
         \identifier{1rt} */
     virtual size_t sz_w() const { return 0;}
 
+    /** \brief Length of w the node's GENERATED code needs (may exceed sz_w)
+
+        For nodes whose VM eval and codegen have different scratch needs, e.g. a
+        determinant/solve whose eval uses Linsol memory but whose generated C
+        carves the factorization buffers from w.
+
+        \identifier{2hp} */
+    virtual size_t codegen_sz_w() const { return sz_w();}
+
     /// Set unary dependency
     void set_dep(const MX& dep);
 
@@ -450,6 +497,9 @@ namespace casadi {
     /// Get the value (only for scalar constant nodes)
     virtual double to_double() const;
 
+    /// Get the value (only for scalar constant nodes)
+    virtual casadi_int to_int() const;
+
     /// Get the value (only for constant nodes)
     virtual DM get_DM() const;
 
@@ -470,6 +520,12 @@ namespace casadi {
 
     /// Create a repeated sum node
     virtual MX get_repsum(casadi_int m, casadi_int n) const;
+
+    /// Create a Kronecker-product node
+    virtual MX get_kron(const MX& b) const;
+
+    /// Create a Kronecker-contraction node
+    virtual MX get_kron_contract(const MX& x, bool inner) const;
 
     /// Create a vertical concatenation node (vectors only)
     virtual MX get_vertcat(const std::vector<MX>& x) const;
@@ -496,7 +552,8 @@ namespace casadi {
     /** \brief Matrix multiplication and addition
 
         \identifier{1ru} */
-    virtual MX get_mac(const MX& y, const MX& z) const;
+    virtual MX get_mac(const MX& y, const MX& z,
+                       const std::string& blas = "reference") const;
 
     /** \brief Einstein product and addition
 
@@ -574,7 +631,8 @@ namespace casadi {
     *   returns Matrix(sp,a[nz])
 
         \identifier{1s4} */
-    virtual MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz) const;
+    virtual MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz,
+        bool unique=false) const;
 
     /** \brief Get the nonzeros of matrix, parametrically
     *
@@ -683,19 +741,20 @@ namespace casadi {
     virtual MX get_subassign(const MX& y, const Slice& i, const Slice& j) const;
 
     /// Create set sparse
-    virtual MX get_project(const Sparsity& sp) const;
+    virtual MX get_project(const Sparsity& sp, bool unique=false) const;
 
     /// Get a unary operation
-    virtual MX get_unary(casadi_int op) const;
+    virtual MX get_unary(casadi_int op, bool unique=false) const;
 
     /// Get a binary operation operation
-    MX get_binary(casadi_int op, const MX& y) const;
+    MX get_binary(casadi_int op, const MX& y, bool unique_x=false, bool unique_y=false) const;
 
     /// Get a binary operation operation (matrix-matrix)
-    virtual MX _get_binary(casadi_int op, const MX& y, bool scX, bool scY) const;
+    virtual MX _get_binary(casadi_int op, const MX& y, bool scX, bool scY,
+        bool unique_x=false, bool unique_y=false) const;
 
     /// Determinant
-    virtual MX get_det() const;
+    virtual MX get_det(const Linsol& linear_solver) const;
 
     /// Inverse
     virtual MX get_inv() const;
@@ -726,6 +785,9 @@ namespace casadi {
 
     /// Monitor
     MX get_monitor(const std::string& comment) const;
+
+    /// Dump
+    MX get_dump(const std::string& base_filename, const Dict& opts) const;
 
     /// Find
     MX get_find() const;

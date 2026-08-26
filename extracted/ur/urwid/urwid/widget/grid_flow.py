@@ -95,8 +95,9 @@ class GridFlow(
         self.v_sep = v_sep
         self.align = align
         self.first_position: weakref.WeakKeyDictionary[Padding[Columns], int] = weakref.WeakKeyDictionary()
-        self._cache_maxcol: int | None = self._get_maxcol(())
-        super().__init__(self.generate_display_widget((typing.cast("int", self._cache_maxcol),)))
+        maxcol = self._get_maxcol(())
+        self._cache_maxcol: int | None = maxcol
+        super().__init__(self.generate_display_widget((maxcol,)))
 
     def _repr_words(self) -> list[str]:
         if len(self.contents) > 1:
@@ -506,7 +507,7 @@ class GridFlow(
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
         self.get_display_widget(size)
-        return super().rows(size, focus=focus)
+        return typing.cast("int", super().rows(size, focus=focus))  # int or Never - depends on kind
 
     def render(
         self,
@@ -519,12 +520,12 @@ class GridFlow(
     def get_cursor_coords(self, size: tuple[int] | tuple[()]) -> tuple[int, int]:
         """Get cursor from display widget."""
         self.get_display_widget(size)
-        return super().get_cursor_coords(size)
+        return typing.cast("tuple[int, int]", super().get_cursor_coords(size))
 
     def move_cursor_to_coords(self, size: tuple[int] | tuple[()], col: int, row: int) -> bool:
         """Set the widget in focus based on the col + row."""
         self.get_display_widget(size)
-        rval = super().move_cursor_to_coords(size, col, row)
+        rval = typing.cast("bool", super().move_cursor_to_coords(size, col, row))
         self._set_focus_from_display_widget()
         return rval
 
@@ -549,4 +550,4 @@ class GridFlow(
     def get_pref_col(self, size: tuple[int] | tuple[()]) -> int:
         """Return pref col from display widget."""
         self.get_display_widget(size)
-        return super().get_pref_col(size)
+        return typing.cast("int", super().get_pref_col(size))

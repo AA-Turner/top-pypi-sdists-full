@@ -40,6 +40,20 @@ class _MockMachoBinary:
         self.sections = []
 
 
+class _UnreadableValueSymbol:
+    name = "_main"
+
+    @property
+    def value(self):
+        raise RuntimeError("symbol table unreadable")
+
+
+class _UnreadableAddressStub:
+    @property
+    def address(self):
+        raise RuntimeError("stub table unreadable")
+
+
 def _xor_fixture(data):
     return bytes(byte ^ (index % 256) for index, byte in enumerate(data))
 
@@ -137,6 +151,19 @@ class TestMachoSymbolProviderBehavior(unittest.TestCase):
         provider.update(binary_info)
         self.assertEqual(provider.getSymbol(0x100096320), "_runtime.etext")
 
+    def test_frostyferret_cxx_imports_stay_decorated_in_both_views(self):
+        _, raw, loader = _load_fixture("malpedia/osx.frostyferret")
+        binary_info = _binary_info(raw, loader)
+        provider = MachoSymbolProvider(None)
+        provider.update(binary_info)
+
+        imported = provider.parseImports(binary_info.getLiefBinary())
+
+        self.assertEqual(imported[0x1000101E0][1], "__Znwm")
+        self.assertEqual(imported[0x1000101D8][1], "__ZdlPv")
+        self.assertEqual(provider.getApi(0x1000101E0), imported[0x1000101E0])
+        self.assertEqual(binary_info.getImportedFunctions()[0x1000101E0][1], "__Znwm")
+
     def test_go_provider_parses_macho_pclntab(self):
         _, raw, loader = _load_fixture("objective-see/turtle")
         binary_info = _binary_info(raw, loader)
@@ -165,6 +192,56 @@ class TestMachoSymbolProviderBehavior(unittest.TestCase):
         binary_info = BinaryInfo(b"not a container")
 
         self.assertIsNone(GoSymbolProvider(None).getTextStart(binary_info))
+
+
+class TestMachoSymbolProviderFailureLogging(unittest.TestCase):
+    """Every path here runs only after the isinstance(lief.MachO.Binary) gate has matched."""
+
+    def setUp(self):
+        # this module's import-time logging.disable() would hide these records
+        previous_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+        self.addCleanup(logging.disable, previous_disable)
+
+    def test_a_failing_export_table_is_reported_at_warning(self):
+        macho = _MockMachoBinary([_UnreadableValueSymbol()])
+        provider = MachoSymbolProvider(None)
+
+        with (
+            mock.patch("lief.MachO.Binary", _MockMachoBinary),
+            self.assertLogs("smda.common.labelprovider.MachoSymbolProvider", level="WARNING") as logged,
+        ):
+            self.assertEqual({}, provider.parseExports(macho))
+
+        self.assertIn("exports", logged.output[0])
+
+    def test_a_failing_symbol_table_is_reported_at_warning(self):
+        macho = _MockMachoBinary([_UnreadableValueSymbol()])
+        provider = MachoSymbolProvider(None)
+
+        with (
+            mock.patch("lief.MachO.Binary", _MockMachoBinary),
+            self.assertLogs("smda.common.labelprovider.MachoSymbolProvider", level="WARNING") as logged,
+        ):
+            self.assertEqual({}, provider.parseSymbols(macho))
+
+        self.assertIn("symbols", logged.output[0])
+
+    def test_a_failing_stub_table_is_reported_at_warning(self):
+        macho = _MockMachoBinary([])
+        macho.symbol_stubs = [_UnreadableAddressStub()]
+        binary_info = BinaryInfo(b"not a container")
+        provider = MachoSymbolProvider(None)
+
+        with (
+            mock.patch("lief.MachO.Binary", _MockMachoBinary),
+            mock.patch.object(binary_info, "getLiefBinary", return_value=macho),
+            self.assertLogs("smda.common.labelprovider.MachoSymbolProvider", level="WARNING") as logged,
+        ):
+            provider.update(binary_info)
+
+        self.assertEqual({}, provider.getFunctionSymbols())
+        self.assertIn("stubs", logged.output[0])
 
 
 class TestMachoCorpusIntegration(unittest.TestCase):
@@ -357,12 +434,42 @@ class TestSwiftDemangleCorpusRegression(unittest.TestCase):
         self.assertEqual(typed_function.function_name, self._JOKERSPY_TYPE_DEMANGLED)
 
 
+class TestMachoSymbolNameCollection(unittest.TestCase):
+    class _Exploding:
+        @property
+        def symbols(self):
+            raise RuntimeError("lief refused the symbol table")
+
+        exported_symbols = [_MockMachoSymbol("_$s4mainAAyyF", 0x1000)]
+
+    def test_both_symbol_tables_feed_the_batch(self):
+        class _Binary:
+            symbols = [_MockMachoSymbol("_$s4mainAAyyF", 0x1000), _MockMachoSymbol(None, 0x2000)]
+            exported_symbols = [_MockMachoSymbol("__Z3uidv", 0x3000)]
+
+        self.assertEqual(
+            MachoSymbolProvider._collectSymbolNames(_Binary()),
+            ["_$s4mainAAyyF", "__Z3uidv"],
+        )
+
+    def test_an_unreadable_symbol_table_does_not_lose_the_other_one(self):
+        self.assertEqual(MachoSymbolProvider._collectSymbolNames(self._Exploding()), ["_$s4mainAAyyF"])
+
+
+class _CompletedProcess:
+    def __init__(self, stdout, returncode=0):
+        self.stdout = stdout
+        self.returncode = returncode
+
+
 class TestMachoDemanglerToolFanout(unittest.TestCase):
     def setUp(self):
         MachoDemangler._UNUSABLE_DEMANGLERS.clear()
+        MachoDemangler._SWIFT_CACHE.clear()
         MachoDemangler._find_demangler.cache_clear()
         MachoDemangler.demangle_macho_symbol.cache_clear()
         self.addCleanup(MachoDemangler._UNUSABLE_DEMANGLERS.clear)
+        self.addCleanup(MachoDemangler._SWIFT_CACHE.clear)
         self.addCleanup(MachoDemangler._find_demangler.cache_clear)
         self.addCleanup(MachoDemangler.demangle_macho_symbol.cache_clear)
 
@@ -381,6 +488,98 @@ class TestMachoDemanglerToolFanout(unittest.TestCase):
             self.assertEqual([MachoDemangler.demangle_macho_symbol(name) for name in names], names)
 
         self.assertEqual(len(calls), 1)
+
+    def test_priming_answers_every_swift_name_in_one_process(self):
+        names = [f"_$s4test{index}Vyyf" for index in range(25)]
+        calls = []
+
+        def _run(argv, **kwargs):
+            calls.append(kwargs.get("input"))
+            fed = kwargs["input"].splitlines()
+            return _CompletedProcess("\n".join(f"test.demangled{index}()" for index, _ in enumerate(fed)))
+
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(MachoDemangler.subprocess, "run", _run),
+        ):
+            MachoDemangler.primeSwiftSymbols(names)
+            # the batch already answered these, so resolving them must spawn nothing further
+            resolved = [MachoDemangler.demangle_macho_symbol(name) for name in names]
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls[0].splitlines()), 25)
+        self.assertTrue(all(name.startswith("test.demangled") for name in resolved))
+
+    def test_a_reply_with_the_wrong_line_count_is_discarded(self):
+        names = ["_$s4testAVyyf", "_$s4testBVyyf", "_$s4testCVyyf"]
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(MachoDemangler.subprocess, "run", return_value=_CompletedProcess("only.one.answer()")),
+        ):
+            MachoDemangler.primeSwiftSymbols(names)
+
+        # answers are positional; a short reply would label symbols with each other's names
+        self.assertEqual(MachoDemangler._SWIFT_CACHE, {})
+
+    def test_a_nonzero_exit_leaves_the_names_alone(self):
+        names = ["_$s4testAVyyf"]
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(
+                MachoDemangler.subprocess, "run", return_value=_CompletedProcess("nonsense", returncode=1)
+            ),
+        ):
+            MachoDemangler.primeSwiftSymbols(names)
+
+        self.assertEqual(MachoDemangler._SWIFT_CACHE, {})
+
+    def test_a_batch_that_cannot_run_is_not_retried_per_symbol(self):
+        names = [f"_$s4test{index}Vyyf" for index in range(25)]
+        calls = []
+
+        def _explode(argv, **kwargs):
+            calls.append(argv)
+            raise OSError("cannot execute")
+
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(MachoDemangler.subprocess, "run", _explode),
+        ):
+            MachoDemangler.primeSwiftSymbols(names)
+            self.assertEqual([MachoDemangler.demangle_macho_symbol(name) for name in names], names)
+
+        self.assertEqual(len(calls), 1)
+
+    def test_a_name_carrying_a_newline_is_kept_out_of_the_batch(self):
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(MachoDemangler.subprocess, "run", return_value=_CompletedProcess("one.answer()")) as run,
+        ):
+            MachoDemangler.primeSwiftSymbols(["_$s4testAVyyf", "_$s4test\nBVyyf"])
+
+        # the batch protocol is one name per line, so a name holding a newline would
+        # shift every answer after it
+        self.assertEqual(run.call_args.kwargs["input"], "_$s4testAVyyf")
+
+    def test_priming_is_skipped_once_the_demangler_is_known_unusable(self):
+        MachoDemangler._UNUSABLE_DEMANGLERS.add("swift")
+        with mock.patch.object(MachoDemangler.subprocess, "run") as run:
+            MachoDemangler.primeSwiftSymbols(["_$s4testAVyyf"])
+        run.assert_not_called()
+
+    def test_priming_without_a_swift_toolchain_runs_no_process(self):
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value=None),
+            mock.patch.object(MachoDemangler.subprocess, "run") as run,
+        ):
+            MachoDemangler.primeSwiftSymbols(["_$s4testAVyyf"])
+        run.assert_not_called()
+        self.assertEqual(MachoDemangler._SWIFT_CACHE, {})
+
+    def test_priming_without_a_swift_name_runs_no_process(self):
+        with mock.patch.object(MachoDemangler.subprocess, "run") as run:
+            MachoDemangler.primeSwiftSymbols(["_plain", "__Z3uidv", ""])
+        run.assert_not_called()
 
     def test_the_executable_lookup_happens_once_per_command(self):
         lookups = []

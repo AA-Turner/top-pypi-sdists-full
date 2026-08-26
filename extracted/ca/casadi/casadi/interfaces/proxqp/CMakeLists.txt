@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10.2)
+cmake_minimum_required(VERSION 3.16.3)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -12,4 +12,8 @@ casadi_plugin_link_libraries(Conic proxqp proxsuite::proxsuite)
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set_target_properties(casadi_conic_proxqp PROPERTIES COMPILE_FLAGS "-Wno-unused-variable -Wno-unknown-warning-option -Wno-type-limits")
+endif()
+
+if(MINGW)
+  target_compile_options(casadi_conic_proxqp PRIVATE -Wa,-mbig-obj)
 endif()

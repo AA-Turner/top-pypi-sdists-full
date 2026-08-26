@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable, Mapping
 from enum import IntEnum
 import logging
 import os
@@ -18,6 +19,8 @@ import rapidfuzz
 from mycli.compat import WIN
 from mycli.packages.completion_engine import is_inside_quotes, suggest_type
 from mycli.packages.filepaths import complete_path, parse_path, suggest_path
+from mycli.packages.polars_completion import complete_polars_transform
+from mycli.packages.ptoolkit.history import frecency_score
 from mycli.packages.special import llm
 from mycli.packages.special.dsn_aliases import DsnAliases
 from mycli.packages.special.favoritequeries import (
@@ -950,17 +953,20 @@ class SQLCompleter(Completer):
         keyword_casing: str = "auto",
         indexed_column_suffix: str = '*',
         config_property_names: Collection[str] = (),
+        frecency_provider: Callable[[], Mapping[str, float]] | None = None,
     ) -> None:
         super(self.__class__, self).__init__()
         self.smart_completion = smart_completion
         self.indexed_column_suffix = indexed_column_suffix
         self.config_property_names = tuple(sorted(config_property_names))
+        self.frecency_provider = frecency_provider
         self.reserved_words = set()
         for x in self.keywords:
             self.reserved_words.update(x.split())
         self.name_pattern = re.compile(r"^[_a-zA-Z][_a-zA-Z0-9\$]*$")
 
         self.special_commands: list[str] = []
+        self.special_command_snippets: dict[str, str] = {}
         self.table_formats = supported_formats
         if keyword_casing not in ("upper", "lower", "auto"):
             keyword_casing = "auto"
@@ -976,10 +982,11 @@ class SQLCompleter(Completer):
     def escaped_names(self, names: Collection[str]) -> list[str]:
         return [self.escape_name(name) for name in names]
 
-    def extend_special_commands(self, special_commands: list[str]) -> None:
+    def extend_special_commands(self, special_commands: Mapping[str, str]) -> None:
         # Special commands are not part of all_completions since they can only
         # be at the beginning of a line.
         self.special_commands.extend(special_commands)
+        self.special_command_snippets.update(special_commands)
 
     def extend_database_names(self, databases: list[str]) -> None:
         self.databases.extend([self.escape_name(db) for db in databases])
@@ -1433,10 +1440,23 @@ class SQLCompleter(Completer):
         complete_event: CompleteEvent | None,
         smart_completion: bool | None = None,
     ) -> Iterable[Completion]:
+        polars_completions = complete_polars_transform(document.text_before_cursor)
+        if polars_completions is not None:
+            return (
+                Completion(
+                    candidate.text,
+                    candidate.start_position,
+                    display=candidate.display,
+                    display_meta=candidate.display_meta,
+                )
+                for candidate in polars_completions
+            )
+
         word_before_cursor = document.get_word_before_cursor(WORD=True)
         last_for_len = last_word(word_before_cursor, include="most_punctuations")
         text_for_len = last_for_len.lower()
         last_for_len_paths = last_word(word_before_cursor, include='alphanum_underscore')
+        frecency = self.frecency_provider() if self.frecency_provider is not None else {}
 
         if smart_completion is None:
             smart_completion = self.smart_completion
@@ -1444,17 +1464,20 @@ class SQLCompleter(Completer):
         # If smart_completion is off then match any word that starts with
         # 'word_before_cursor'.
         if not smart_completion:
-            matches = self.find_matches(
+            matches: Iterable[tuple[str, int]] = self.find_matches(
                 word_before_cursor,
                 self.all_completions,
                 start_only=True,
                 fuzzy=False,
                 text_before_cursor=document.text_before_cursor,
             )
+            if frecency:
+                matches = sorted(matches, key=lambda item: -frecency_score(item[0], frecency))
             return (Completion(x[0], -len(text_for_len)) for x in matches)
 
         completions: list[tuple[str, int, int]] = []
         indexed_column_candidates: set[str] = set()
+        special_command_candidates: set[str] = set()
         suggestions = suggest_type(document.text, document.text_before_cursor)
         rigid_sort = False
         length_based_on_path = False
@@ -1673,15 +1696,18 @@ class SQLCompleter(Completer):
                 completions.extend([(*x, rank) for x in users_m])
 
             elif suggestion["type"] == "special":
-                special_m = self.find_matches(
-                    word_before_cursor,
-                    self.special_commands,
-                    start_only=True,
-                    fuzzy=False,
-                    text_before_cursor=document.text_before_cursor,
+                special_m = list(
+                    self.find_matches(
+                        word_before_cursor,
+                        self.special_commands,
+                        start_only=True,
+                        fuzzy=False,
+                        text_before_cursor=document.text_before_cursor,
+                    )
                 )
                 # specials are special, and go early in the candidates, first if possible
                 completions.extend([(*x, 0) for x in special_m])
+                special_command_candidates.update(x[0] for x in special_m)
 
             elif suggestion["type"] == "favoritequery":
                 if hasattr(FavoriteQueries, 'instance') and hasattr(FavoriteQueries.instance, 'list'):
@@ -1811,15 +1837,16 @@ class SQLCompleter(Completer):
 
         def completion_sort_key(item: tuple[str, int, int], text_for_len: str):
             candidate, fuzziness, rank = item
+            candidate_frecency = frecency_score(candidate, frecency) if frecency else 0.0
             if not text_for_len:
-                # sort only by the rank (the order of the completion type)
-                return (0, rank, 0)
+                # Sort by the rank (the order of the completion type), then frecency.
+                return (0, rank, -candidate_frecency, 0)
             elif candidate.lower().startswith(text_for_len):
-                # sort only by the length of the candidate
-                return (0, 0, -1000 + len(candidate))
-            # sort by fuzziness and rank
+                # Direct prefix matches are equally relevant; prefer frecency before length.
+                return (0, 0, -candidate_frecency, -1000 + len(candidate))
+            # Sort by fuzziness, rank, and frecency.
             # todo add alpha here, or original order?
-            return (fuzziness, rank, 0)
+            return (fuzziness, rank, -candidate_frecency, 0)
 
         if rigid_sort:
             uniq_completions_str = dict.fromkeys(x[0] for x in completions)
@@ -1837,6 +1864,7 @@ class SQLCompleter(Completer):
                     x,
                     -len(last_for_len_paths),
                     display=f'{x}{self.indexed_column_suffix}' if x in indexed_column_candidates else None,
+                    display_meta=self.special_command_snippets.get(x) if x in special_command_candidates else None,
                     style=_INDEXED_COLUMN_STYLE if x in indexed_column_candidates else '',
                 )
                 for x in uniq_completions_str
@@ -1847,6 +1875,7 @@ class SQLCompleter(Completer):
                     x,
                     -len(text_for_len),
                     display=f'{x}{self.indexed_column_suffix}' if x in indexed_column_candidates else None,
+                    display_meta=self.special_command_snippets.get(x) if x in special_command_candidates else None,
                     style=_INDEXED_COLUMN_STYLE if x in indexed_column_candidates else '',
                 )
                 for x in uniq_completions_str

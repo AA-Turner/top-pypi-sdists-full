@@ -5,6 +5,7 @@ Link creation utilities for temporal, semantic, and entity links.
 import logging
 import re
 import time
+from collections.abc import Sequence
 from datetime import UTC
 
 from ..._vector_index import ann_search_tuning_settings, configured_vector_extension
@@ -17,8 +18,9 @@ from ..causal_links import (
 )
 from ..db.base import DatabaseConnection
 from ..db.ops import DataAccessOps
+from ..db.postgresql import setting_rejected_by_server
 from ..memory_engine import fq_table
-from .types import CausalRelation, EntityResolutionResult
+from .types import CausalRelation, EmbeddingLike, EntityResolutionResult, embedding_to_pgvector
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,16 @@ def _normalize_entity_name(name: str) -> str:
     form.
     """
     return _WHITESPACE_RUN_RE.sub(" ", name).strip()
+
+
+def _entity_resolve_flag(ent) -> bool:
+    """Whether this candidate name should be resolved against existing entities.
+
+    Defaults to True (extraction's behaviour). Only dict candidates can opt out, which is how
+    retain marks the entities its *caller* supplied: those are authoritative names, not guesses
+    at which entity is meant (#3479).
+    """
+    return bool(ent.get("resolve", True)) if isinstance(ent, dict) else True
 
 
 # Maximum number of temporal links to keep per unit (from_unit_id).
@@ -213,7 +225,7 @@ def _prepare_entities_for_resolution(
         # own entity list) identical, and the upstream dedup in
         # entity_processing runs on the raw text. Without this, the same entity
         # would be resolved twice for one fact and its mention_count bumped twice.
-        seen_in_fact: set[str] = set()
+        seen_in_fact: dict[str, dict] = {}
         for ent in entity_list:
             if hasattr(ent, "text"):
                 raw_text, entity_type = ent.text, "CONCEPT"
@@ -230,11 +242,19 @@ def _prepare_entities_for_resolution(
                 dropped_empty += 1
                 continue
 
-            if normalized_text.lower() in seen_in_fact:
+            resolve = _entity_resolve_flag(ent)
+            kept = seen_in_fact.get(normalized_text.lower())
+            if kept is not None:
+                # Same name after normalization. Keep the first spelling but carry the stricter
+                # flag: entity_processing dedups on the RAW text, so a caller's literal
+                # "Acme Corp" and the extractor's "Acme\nCorp" both reach here, and dropping the
+                # caller's outright would let the name be resolved away after all (#3479).
+                kept["resolve"] = kept["resolve"] and resolve
                 continue
-            seen_in_fact.add(normalized_text.lower())
 
-            formatted_entities.append({"text": normalized_text, "type": entity_type})
+            entity = {"text": normalized_text, "type": entity_type, "resolve": resolve}
+            seen_in_fact[normalized_text.lower()] = entity
+            formatted_entities.append(entity)
         all_entities.append(formatted_entities)
 
     if dropped_empty:
@@ -263,6 +283,7 @@ def _prepare_entities_for_resolution(
                 {
                     "text": entity["text"],
                     "type": entity["type"],
+                    "resolve": entity["resolve"],
                     "nearby_entities": entities,
                 }
             )
@@ -504,7 +525,7 @@ async def compute_semantic_links_ann(
     conn,
     bank_id: str,
     unit_ids: list[str],
-    embeddings: list[list[float]],
+    embeddings: Sequence[EmbeddingLike],
     fact_types: list[str] | None = None,
     top_k: int = 50,
     *,
@@ -574,16 +595,20 @@ async def compute_semantic_links_ann(
         # are safe to apply at session/transaction scope for the configured
         # backend. VectorChord probe values are index-shaped, so vchordrq uses
         # index storage fallback parameters instead of a blanket SET LOCAL.
+        #
+        # A GUC the server has already rejected is skipped rather than attempted:
+        # hnsw.iterative_scan needs pgvector 0.8+, and pgvector reserves the "hnsw."
+        # prefix, so an older server errors on it — which inside this transaction would
+        # abort the whole link computation rather than merely fail to apply.
         for guc, value in ann_search_tuning_settings(configured_vector_extension(), kind="low_latency"):
+            if setting_rejected_by_server(guc):
+                continue
             await conn.execute(f"SET LOCAL {guc} = {value}")
 
         t_setup = time_mod.time()
         await conn.execute("CREATE TEMP TABLE _ann_seeds (unit_id text, emb_text text, fact_type text) ON COMMIT DROP")
 
-        records = [
-            (uid, emb if isinstance(emb, str) else str(emb), ft)
-            for uid, emb, ft in zip(unit_ids, embeddings, fact_types)
-        ]
+        records = [(uid, embedding_to_pgvector(emb), ft) for uid, emb, ft in zip(unit_ids, embeddings, fact_types)]
         await conn.copy_records_to_table("_ann_seeds", records=records, columns=["unit_id", "emb_text", "fact_type"])
         logger.debug(f"[ANN] Temp table setup: {time_mod.time() - t_setup:.3f}s ({len(records)} seeds)")
 
@@ -647,7 +672,7 @@ async def compute_semantic_links_ann(
 
 def compute_semantic_links_within_batch(
     unit_ids: list[str],
-    embeddings: list[list[float]],
+    embeddings: Sequence[EmbeddingLike],
     top_k: int = 50,
     *,
     threshold: float,
@@ -708,7 +733,7 @@ async def create_semantic_links_batch(
     conn,
     bank_id: str,
     unit_ids: list[str],
-    embeddings: list[list[float]],
+    embeddings: Sequence[EmbeddingLike],
     top_k: int = 50,
     *,
     threshold: float,

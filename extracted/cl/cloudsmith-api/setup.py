@@ -11,10 +11,10 @@
 """
 
 
-from setuptools import setup, find_packages  # noqa: H301
+from setuptools import find_packages, setup  # noqa: H301
 
 NAME = "cloudsmith_api"
-VERSION = "2.0.31"
+VERSION = "2.0.32"
 # To install the library, run the following
 #
 # python setup.py install
@@ -26,21 +26,25 @@ REQUIRES = [
     "certifi>=2017.4.17",
     "python-dateutil>=2.1",
     "six>=1.10",
-    "urllib3>=1.23"
+    "urllib3>=1.23",
 ]
-    
+
 
 setup(
     name=NAME,
     version=VERSION,
     description="Cloudsmith API (v1)",
     author_email="support@cloudsmith.io",
-    url="https://api.cloudsmith.io/?format&#x3D;openapi",
+    url="https://api.cloudsmith.io/?format=openapi",
+    license="Apache-2.0",
+    license_files=["LICENSE"],
+    python_requires=">=3.10",
     keywords=["Swagger", "Cloudsmith API (v1)"],
     install_requires=REQUIRES,
-    packages=find_packages(),
+    packages=find_packages(exclude=("test", "test.*")),
     include_package_data=True,
     long_description="""\
     The API to the Cloudsmith Service  # noqa: E501
-    """
+    """,
+    long_description_content_type="text/plain",
 )

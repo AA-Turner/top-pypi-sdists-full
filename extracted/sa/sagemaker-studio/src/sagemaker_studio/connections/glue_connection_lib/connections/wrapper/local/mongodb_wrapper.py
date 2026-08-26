@@ -48,6 +48,15 @@ class MongoDBConnectionWrapper(NativeConnectionWrapper):
                 "marking options for downstream MONGODB-AWS handling."
             )
             connection_options["authenticationType"] = "IAM"
+            # TLS is mandatory for IAM auth, so require it here -- at the
+            # auth-decision point -- rather than trusting the caller to have set
+            # enforceSSL. The connection properties this reads are customer
+            # supplied and reach us from CreateConnection/UpdateConnection, so a
+            # console form that sets ENFORCE_SSL=true for IAM is not an
+            # enforcement point. Without this, the MONGODB-AWS SASL exchange
+            # (access key id, session token, signed GetCallerIdentity payload)
+            # would go out over a plaintext mongodb:// connection.
+            connection_options[SparkOptionsKey.ENFORCE_SSL] = "true"
 
         logger.debug("updating MongoDB/DocumentDB urls.")
 

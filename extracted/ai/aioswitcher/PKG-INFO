@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aioswitcher
-Version: 6.2.0
+Version: 6.3.0
 Summary: PyPi module integrating with various Switcher devices
 Project-URL: homepage, https://pypi.org/project/aioswitcher/
 Project-URL: repository, https://github.com/tomerfi/aioswitcher

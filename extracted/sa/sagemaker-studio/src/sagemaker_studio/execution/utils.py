@@ -312,9 +312,13 @@ class RemoteExecutionUtils:
         if is_git_project:
             local_file_path = re.sub(r"^/?src/", "", local_file_path)
         else:  # S3
-            project_s3_path = project_s3_path.replace(
-                "/dev", "/shared"
-            )  # replace with 'shared' if there's 'dev'
+            # Anchor the replacement to the trailing "/dev" project-scope
+            # segment only. An unanchored str.replace("/dev", "/shared") also
+            # rewrites "/dev" inside the bucket name (e.g. buckets beginning
+            # with "dev-", where the "s3://dev" boundary matches) or any
+            # intermediate path segment, corrupting the S3 URI. project_s3_path
+            # has already been rstrip("/")-ed above, so the scope is terminal.
+            project_s3_path = re.sub(r"/dev$", "/shared", project_s3_path)
             local_file_path = re.sub(r"^/?shared/", "", local_file_path)
             return f"{project_s3_path}/{local_file_path}"
         return f"{project_s3_path}{S3PathForProject.WORKFLOW_PROJECT_FILES_LOCATION.value}{local_file_path}"

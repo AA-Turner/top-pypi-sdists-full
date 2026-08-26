@@ -5,6 +5,7 @@ import struct
 
 import lief
 
+from smda.common.analysis_budget import analysisTimeoutTripped
 from smda.common.ExceptionHandling import reraise_non_operational_exception
 from smda.dalvik.DalvikFunctionAnalysisState import DalvikFunctionAnalysisState
 from smda.dalvik.DalvikOpcodeDecoder import (
@@ -230,9 +231,13 @@ class DexReferenceResolver:
             if name:
                 return self._normalizeTypeString(name)
             with contextlib.suppress(Exception):
-                normalized = self._normalizeTypeString(str(value))
-                if normalized and not normalized.startswith("<lief."):
-                    return normalized
+                # guard before normalizing, as the outer fallback does: normalization
+                # rewrites dots to slashes, so it strips the very prefix this tests for
+                raw_value_string = str(value)
+                if not raw_value_string.startswith("<"):
+                    normalized = self._normalizeTypeString(raw_value_string)
+                    if normalized:
+                        return normalized
         name = self._safeAttr(type_obj, "name", None)
         if name:
             return self._normalizeTypeString(name)
@@ -1333,9 +1338,10 @@ class DalvikDisassembler:
                 metadata["heuristics"].append("unreachable-code-surface")
 
         # Prefer a clean orphan label over formatMethod's fallback for synthetic methods.
-        orphan_name = getattr(method, "name", None)
-        if orphan_name and str(orphan_name).startswith("orphan_code_item@"):
-            state.label = orphan_name
+        # A DEX method name is arbitrary UTF-8, so ask what the object is rather than
+        # matching the name this class writes.
+        if isinstance(method, _OrphanCodeItemMethod):
+            state.label = method.name
         else:
             state.label = resolver.formatMethod(method)
         # Drop internal dedupe set before finalizing (not part of public metadata).
@@ -1611,7 +1617,7 @@ class DalvikDisassembler:
         analyzed_count = 0
         known_code_offsets = set()
         for method in methods:
-            if cbAnalysisTimeout and cbAnalysisTimeout():
+            if analysisTimeoutTripped(self.disassembly, cbAnalysisTimeout):
                 break
             if not getattr(method, "has_class", False):
                 method_counts["skipped_no_class"] += 1
@@ -1644,10 +1650,10 @@ class DalvikDisassembler:
 
         # Recover code_items hidden from the method table (orphans).
         method_counts["orphans_discovered"] = 0
-        if not (cbAnalysisTimeout and cbAnalysisTimeout()):
+        if not analysisTimeoutTripped(self.disassembly, cbAnalysisTimeout):
             orphan_offsets = self._discoverOrphanCodeItems(raw_for_resolver, known_code_offsets)
             for code_offset in orphan_offsets:
-                if cbAnalysisTimeout and cbAnalysisTimeout():
+                if analysisTimeoutTripped(self.disassembly, cbAnalysisTimeout):
                     break
                 if code_offset in self.disassembly.functions:
                     continue
@@ -1670,7 +1676,7 @@ class DalvikDisassembler:
                     LOGGER.debug("Orphan code_item @0x%x rejected: %s", code_offset, exc)
 
         self.disassembly.analysis_end_ts = datetime.datetime.now(datetime.timezone.utc)
-        if cbAnalysisTimeout and cbAnalysisTimeout():
+        if analysisTimeoutTripped(self.disassembly, cbAnalysisTimeout):
             self.disassembly.analysis_timeout = True
         self._logAnalysisSummary(self.disassembly.binary_info.version, method_counts, analyzed_count)
         return self.disassembly

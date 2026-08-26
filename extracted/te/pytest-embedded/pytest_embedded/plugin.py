@@ -36,6 +36,7 @@ from .dut_factory import (
     _pexpect_fr_gn,
     app_fn,
     dut_gn,
+    espemu_gn,
     gdb_gn,
     openocd_gn,
     pexpect_proc_fn,
@@ -60,6 +61,7 @@ from .utils import (
 )
 
 if t.TYPE_CHECKING:
+    from pytest_embedded_espemu import EspEmu
     from pytest_embedded_idf import CaseTester, IdfDut, LinuxSerial
     from pytest_embedded_jtag import Gdb, OpenOcd
     from pytest_embedded_qemu import Qemu
@@ -70,7 +72,7 @@ if t.TYPE_CHECKING:
 _T = t.TypeVar('_T')
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     base_group = parser.getgroup('embedded')
     base_group.addoption(
         '--count',
@@ -140,6 +142,7 @@ def pytest_addoption(parser):
         '- idf: auto-detect more app info with idf specific rules, auto flash-in\n'
         '- jtag: openocd and gdb\n'
         '- qemu: use qemu simulator instead of the real target\n'
+        '- espemu: use esp-emu simulator instead of the real target\n'
         '- arduino: auto-detect more app info with arduino specific rules, auto flash-in\n'
         '- wokwi: use wokwi simulator instead of the real target\n'
         '- nuttx: service for nuttx project, optionally with espressif devices\n'
@@ -302,6 +305,24 @@ def pytest_addoption(parser):
     qemu_group.addoption(
         '--keyfile',
         help='Flash Encryption (pre-encrypted workflow) key path. (Default: None)',
+    )
+
+    espemu_group = parser.getgroup('embedded-espemu')
+    espemu_group.addoption(
+        '--espemu-image-path',
+        help='esp-emu image path. (Default: "<app_path>/<build_dir>/espemu_image.bin")',
+    )
+    espemu_group.addoption(
+        '--espemu-prog-path',
+        help='esp-emu program path. (Default: "esp-emu")',
+    )
+    espemu_group.addoption(
+        '--espemu-cli-args',
+        help='esp-emu cli default arguments. (Default: None)',
+    )
+    espemu_group.addoption(
+        '--espemu-extra-args',
+        help='esp-emu cli extra arguments, will append to the argument list. (Default: None)',
     )
 
     wokwi_group = parser.getgroup('embedded-wokwi')
@@ -1070,6 +1091,37 @@ def qemu_efuse_path(request: FixtureRequest) -> str | None:
     return _request_param_or_config_option_or_default(request, 'qemu_efuse_path', None)
 
 
+##########
+# espemu #
+##########
+@pytest.fixture
+@multi_dut_argument
+def espemu_image_path(request: FixtureRequest) -> str | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'espemu_image_path', None)
+
+
+@pytest.fixture
+@multi_dut_argument
+def espemu_prog_path(request: FixtureRequest) -> str | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'espemu_prog_path', None)
+
+
+@pytest.fixture
+@multi_dut_argument
+def espemu_cli_args(request: FixtureRequest) -> str | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'espemu_cli_args', None)
+
+
+@pytest.fixture
+@multi_dut_argument
+def espemu_extra_args(request: FixtureRequest) -> str | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'espemu_extra_args', None)
+
+
 @pytest.fixture
 @multi_dut_argument
 def skip_regenerate_image(request: FixtureRequest) -> str | None:
@@ -1166,6 +1218,10 @@ def parametrize_fixtures(
     qemu_cli_args,
     qemu_extra_args,
     qemu_efuse_path,
+    espemu_image_path,
+    espemu_prog_path,
+    espemu_cli_args,
+    espemu_extra_args,
     wokwi_diagram,
     wokwi_usb_serial_jtag,
     skip_regenerate_image,
@@ -1259,6 +1315,13 @@ def qemu(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['Qemu
 
 @pytest.fixture
 @multi_dut_generator_fixture
+def espemu(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['EspEmu']:
+    """An esp-emu subprocess that could read/redirect/write"""
+    return espemu_gn(**locals())
+
+
+@pytest.fixture
+@multi_dut_generator_fixture
 def wokwi(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['Wokwi']:
     """A wokwi subprocess that could read/redirect/write"""
     return wokwi_gn(**locals())
@@ -1274,6 +1337,7 @@ def dut(
     serial: t.Union['Serial', 'LinuxSerial'] | None,
     qemu: t.Optional['Qemu'],
     wokwi: t.Optional['Wokwi'],
+    espemu: t.Optional['EspEmu'],
 ) -> Dut | list[Dut]:
     """
     A device under test (DUT) object that could gather output from various sources and redirect them to the pexpect
@@ -1415,7 +1479,7 @@ class PytestEmbedded:
 
             from esp_bool_parser import parse_bool_expr
 
-            target = config.getoption('--target', None)
+            target = config.getoption('target', None)
             if hasattr(item, 'callspec'):
                 target = item.callspec.params.get('target', None)
             if target == 'auto' or not isinstance(target, str):
@@ -1491,7 +1555,7 @@ class PytestEmbedded:
         self._raise_dut_failed_cases_if_exists(all_duts)  # type: ignore
 
     @pytest.hookimpl(trylast=True)  # combine all possible junit reports should be the last step
-    def pytest_sessionfinish(self, session: Session, exitstatus: int) -> None:
+    def pytest_sessionfinish(self, session: Session) -> None:
         modifier: JunitMerger = session.config.stash[_junit_merger_key]
         _stash_session_tempdir = session.config.stash.get(_session_tempdir_key, None)
         _stash_junit_report_path = session.config.stash.get(_junit_report_path_key, None)
@@ -1509,4 +1573,8 @@ class PytestEmbedded:
             if self.prettify_junit_report:
                 _prettify_xml(_stash_junit_report_path)
 
-        exitstatus = int(modifier.failed)  # True -> 1  False -> 0  # noqa
+        # escalate the session exit status to failure if the merged junit report contains failures,
+        # without downgrading an already-failing run
+        current_exitstatus = getattr(session, 'exitstatus', pytest.ExitCode.OK)
+        if modifier.failed and current_exitstatus == pytest.ExitCode.OK:
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED

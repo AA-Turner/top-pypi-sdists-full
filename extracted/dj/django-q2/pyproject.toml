@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "django-q2"
-version = "1.11.0"
+version = "1.11.1"
 description = "A multiprocessing distributed task queue for Django"
 requires-python = ">=3.10,<4"
 readme = "README.rst"

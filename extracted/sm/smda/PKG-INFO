@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.4.7
+Version: 4.5.0
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License: BSD 2-Clause
@@ -18,11 +18,13 @@ Classifier: Topic :: Software Development :: Disassemblers
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: capstone
+License-File: NOTICE
+Requires-Dist: capstone<6
 Requires-Dist: dncil
 Requires-Dist: dnfile
 Requires-Dist: lief>=0.16.0
 Requires-Dist: pycxxfilt>=0.1.0
+Requires-Dist: purepdb>=0.3.0
 Provides-Extra: dev
 Requires-Dist: build; extra == "dev"
 Requires-Dist: diff-cover; extra == "dev"
@@ -31,7 +33,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
-Requires-Dist: ty==0.0.68; extra == "dev"
+Requires-Dist: ty==0.0.69; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Provides-Extra: ida
@@ -46,6 +48,7 @@ Dynamic: license-file
 
 
 # SMDA
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/danielplohmann/smda)
 
 SMDA is a minimalist recursive disassembler library that is optimized for accurate Control Flow Graph (CFG) recovery from memory dumps.
 It is based on [Capstone](http://www.capstone-engine.org/) and currently provides native backends for x86/x64 Intel and AArch64 (ARM64) machine code, experimental CIL (.NET) disassembly, and Dalvik bytecode from raw DEX files.
@@ -93,6 +96,21 @@ A typical workflow using SMDA could like this:
 There is also a demo script:
 
 * analyze.py -- example usage: perform disassembly on a file or memory dump and optionally store results in JSON to a given output path.
+
+#### Raw buffers and the instruction set
+
+`disassembleFile` reads the instruction set from the container header. `disassembleBuffer` has no
+header to read, so it guesses: DEX and AArch64 are recognized from the bytes, and anything else is
+analysed as x86. A buffer holding ARM32, MIPS, PowerPC, SPARC, SH4, m68k, Xtensa, NIOS2 or OpenRISC
+code is now recognized as well, and comes back as `status == "error"` naming the instruction set
+rather than as a report whose every block is wrong.
+
+The guess is evidence, not proof: it looks for a run of that architecture's function-return
+encoding, aligned, close enough together to be one code region, and not sitting inside text. Across
+60939 files of every type on one machine it named nothing that was not that architecture, and it
+recognized all ten bundled foreign samples. It is still a guess over bytes the caller supplies, and
+it is biased towards silence, so **pass `architecture=` whenever you know it** - an explicitly named
+architecture is never overruled.
 
 ### Batch mode
 
@@ -151,6 +169,30 @@ The largest built-in performance lever is the optional per-function metadata in 
 run (a stable metric, unlike wall-clock on a loaded machine): hashing accounts for 10.0%,
 nesting 4.6% and SCC 3.2% of all calls, and disabling all three removes 17.8%. Turn off whatever
 a downstream consumer does not read.
+
+`RESOLVE_TAILCALLS` runs the other way round: it is **off** by default and buys recovery for time.
+Only the x86/x64 and AArch64 recursive disassemblers read it — the CIL and Dalvik backends run their
+own analysis pipelines and ignore it, so enabling it costs and buys nothing there. Where it does
+apply, it promotes the target of a jump that leaves a function into a function of its own, in a pass
+after gap analysis, so what it is worth depends on how much a binary tail-calls. On `libstdc++.so.6`
+it adds 337 functions (8473 to 8810) for 40-130% more analysis time, the spread being how much the
+measuring machine had to spare; on Go ELF and Mach-O memory images it adds 8 functions each, for
+20-26%. A jump into an already-recovered function is treated as a tailcall either way — only
+promoting targets that are not yet known needs this pass.
+
+Analysis is also bounded by `TIMEOUT` (300s by default), but cooperatively rather than as a
+wall-clock guarantee. The budget is polled between function candidates, between passes, every 256
+basic blocks within a single function, between tailcall resolutions, and inside the record walks
+that carve an exception table out of a headerless image. The verdict latches the first time it trips, so
+every later pass sees it: a function the budget cut short is left truncated rather than being
+carved into a second function by the gap scan, and the function set stays a lower bound. It bounds
+how much *new* work is begun rather than how long a call takes to return: whatever is already in
+flight — the block being decoded, the candidate being analyzed — finishes first, so a run overshoots
+by that much. Label providers are the exception, and deliberately so: they parse before analysis
+begins and each caps its own table reads, so `TIMEOUT` does not bound them. A run that exceeded the budget comes back with
+`status == "timeout"`: the function set is a lower bound, not the whole binary. Check the status
+before comparing counts across samples, and pass `TIMEOUT = 0` to disable the bound entirely. A
+caller that needs a hard wall-clock ceiling has to impose one itself.
 
 ### IDA Pro integration
 
@@ -231,6 +273,14 @@ Run tests with:
 make test
 ```
 
+## Escaper Output Compatibility
+
+Anything that stores escaped-operand signatures - minhashes and escaped-block shingles, as MCRIT does - has to know when SMDA's escaping itself changed, because a hash computed under the older escaping will not match one computed now. Two constants carry that, and they move independently.
+
+`SmdaConfig.ESCAPER_DOWNWARD_COMPATIBILITY` (currently `4.4.5`) covers mnemonic groups and escaped operands, which is what `getMnemonicGroup` and `getEscapedOperands` produce. `SmdaFunction.INTEL_PIC_HASH_ESCAPE_VERSION` (currently `4.3.5`) covers the separate `escapeBinary` path behind pic-hashes. A report whose `smda_version` is below the relevant marker was produced under different escaping, so its stored hashes have to be recomputed before they can be compared against current ones.
+
+If you change any `InstructionEscaper`'s output, bump `ESCAPER_DOWNWARD_COMPATIBILITY` in the same commit. `tests/testEscaperFingerprint.py` hashes a committed corpus of escaped representations and fails when that output moves, which is the reminder to do it.
+
 ## Version History
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
@@ -243,6 +293,7 @@ Thanks to Jonathan Crussell for helping me to beef up SMDA enough to make it a d
 Thanks to Willi Ballenthin for improving the handling of ELF files, including properly handling API usage!
 Thanks to Daniel Enders for his contributions to the parsing of the Golang function registry and label information!
 The project uses the implementation of Tarjan's Algorithm by Bas Westerbaan and the implementation of Lengauer-Tarjan's Algorithm for the DominatorTree by Armin Rigo.
+Rust symbol demangling is derived from the rust_demangler package by Team bi0s (MIT), with behaviour reimplemented from Ghidra's Rust demanglers (Apache-2.0); see [NOTICE](NOTICE) for the full list of third-party components.
 Thanks to r0ny123 for his major code quality improvements via ruff and various contributions for several aspects of this project!
 
 Pull requests welcome! :)

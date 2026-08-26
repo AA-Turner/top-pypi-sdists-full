@@ -195,7 +195,6 @@ class RunCacheConfig:
         default=FRESHNESS_TOLERANCE_DEFAULT, metadata={"parser": _parse_time}
     )
     tolerate_nondeterminism: bool = True
-    enable_lenient_dependencies: bool = True
     clone_incremental_in_dev: CloneIncrementalInDev = field(
         default=CloneIncrementalInDev.IF_TABLE_MISSING,
         metadata={"parser": _parse_clone_incremental_in_dev},

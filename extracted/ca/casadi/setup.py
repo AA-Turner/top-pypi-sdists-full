@@ -85,16 +85,6 @@ class CMakeBuild(build_ext):
         )
         
         print("extdir",extdir)
-        # Exclude files based on Python version
-        if sys.version_info[0] == 2:
-            exclude_files = ["casadi/tools/structure3.py"]
-        elif sys.version_info[0] == 3:
-            exclude_files = ["casadi/tools/structure.py"]
-
-        for exclude_file in exclude_files:
-            file_path = os.path.join(extdir, exclude_file)
-            if os.path.exists(file_path):
-                os.remove(file_path)
 
 with open('./README.md', encoding='utf-8') as f:
     long_description = f.read()
@@ -104,7 +94,7 @@ with open('./requirements.txt') as f:
 
 setup(
     name='casadi',
-    version='3.7.2',
+    version='3.8.0',
     author='Joel Andersson, Joris Gillis, Greg Horn',
     author_email='developer_first_name@casadi.org',
     maintainer='Joris Gillis',

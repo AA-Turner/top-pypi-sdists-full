@@ -1693,6 +1693,88 @@ function _ceToggleCompaction(idx) {
   row.style.display = (row.style.display === 'none' || !row.style.display) ? 'block' : 'none';
 }
 
+// ── Per-runtime signal coverage ─────────────────────────────────────────
+// "Compactions: 0" is two different statements wearing the same clothes: the
+// runtime ran clean, or we cannot see compactions on that runtime at all.
+// ClawMetry only emits compaction events for a minority of its adapters, so
+// for most runtimes the second reading is the true one. Rendering them
+// identically tells a user their Codex sessions never blow out when we were
+// never going to know either way. Reads /api/context-coverage.
+// A utilisation percentage is only as honest as its denominator. When the
+// context window came from our fallback rather than a lookup, the gauge has
+// to say so: rendering a guessed denominator with the same authority as a
+// looked-up one is how a dashboard tells a confident lie. Sources are
+// model_table / explicit_marker / observed_floor / default (see
+// clawmetry/context_windows.py).
+function _ceWindowProvenance(pt) {
+  if (!pt) return '';
+  var src = pt.window_source || pt.context_window_source || '';
+  if (!src || src === 'model_table' || src === 'explicit_marker' || src === 'observed_floor') return '';
+  return ' · <span style="color:#d97706;" title="No context-window size is known for this model, so the gauge uses ClawMetry\'s 200K fallback. Set CLAWMETRY_CONTEXT_WINDOW to pin it, or add the model to clawmetry/context_windows.py.">estimated window</span>';
+}
+
+async function loadContextCoverage() {
+  var el = document.getElementById('ce-coverage-panel');
+  if (!el) return;
+  var data;
+  try {
+    data = await fetch('/api/context-coverage').then(function(r){ return r.json(); });
+  } catch (e) {
+    el.innerHTML = '';   // never block the tab on the honesty panel
+    return;
+  }
+  var rows = (data && data.runtimes) || [];
+  if (!rows.length) { el.innerHTML = ''; return; }
+
+  var SIGNALS = [
+    { key: 'utilization', label: 'Window %' },
+    { key: 'compaction',  label: 'Compaction' },
+    { key: 'overflow',    label: 'Overflow' }
+  ];
+  function cell(c) {
+    if (!c) return '<td></td>';
+    var v = c.verdict;
+    if (v === 'observed') {
+      return '<td style="padding:6px 10px;color:#16a34a;font-weight:600;">' + escHtml(String(c.count)) + '</td>';
+    }
+    if (v === 'supported_none_seen') {
+      return '<td style="padding:6px 10px;color:var(--text-muted);">0</td>';
+    }
+    // unsupported: the number is not a number, it is a blind spot.
+    return '<td style="padding:6px 10px;color:#d97706;" title="' + escHtml(c.note || '') + '">'
+      + 'not visible</td>';
+  }
+  var body = rows.map(function(r) {
+    return '<tr style="border-top:1px solid var(--border-primary);">'
+      + '<td style="padding:6px 10px;font-weight:600;">' + escHtml(r.runtime) + '</td>'
+      + '<td style="padding:6px 10px;color:var(--text-muted);">' + escHtml(String(r.sessions)) + '</td>'
+      + SIGNALS.map(function(sg){ return cell(r[sg.key]); }).join('')
+      + '</tr>';
+  }).join('');
+
+  var blind = rows.filter(function(r) {
+    return SIGNALS.some(function(sg){ return r[sg.key] && r[sg.key].verdict === 'unsupported'; });
+  });
+
+  el.innerHTML = '<div style="border:1px solid var(--border-primary);border-radius:10px;padding:14px;">'
+    + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">What we can see, per runtime</div>'
+    + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;max-width:720px;">'
+    + 'A zero only means "ran clean" when we could have seen otherwise. Where a signal is '
+    + '<span style="color:#d97706;">not visible</span>, the runtime does not record it and ClawMetry is blind to it.</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    + '<thead><tr style="color:var(--text-muted);text-align:left;">'
+    + '<th style="padding:6px 10px;font-weight:600;">Runtime</th>'
+    + '<th style="padding:6px 10px;font-weight:600;">Sessions</th>'
+    + SIGNALS.map(function(sg){ return '<th style="padding:6px 10px;font-weight:600;">' + escHtml(sg.label) + '</th>'; }).join('')
+    + '</tr></thead><tbody>' + body + '</tbody></table>'
+    + (blind.length
+        ? '<div style="font-size:11px;color:var(--text-muted);margin-top:10px;">'
+          + escHtml(String(blind.length)) + ' of ' + escHtml(String(rows.length))
+          + ' runtimes have at least one blind spot. Hover a cell for why.</div>'
+        : '')
+    + '</div>';
+}
+
 async function loadContextEconomics() {
   var gaugeEl = document.getElementById('ce-gauge-panel');
   var sumEl = document.getElementById('ce-summary');
@@ -1711,6 +1793,7 @@ async function loadContextEconomics() {
     gaugeEl.innerHTML = '<div style="color:#e74c3c;font-size:13px;padding:16px;">' + t("app.failed_to_load_context_economics", null, "Failed to load context economics") + ': ' + escHtml(String(e)) + '</div>';
     return;
   }
+  try { loadContextCoverage(); } catch (e) { /* panel is additive, never fatal */ }
   var util = data.utilization || [];
   var comps = data.compactions || [];
   var overflow = data.overflow_sessions || [];
@@ -1775,7 +1858,7 @@ async function loadContextEconomics() {
         + '<span style="font-size:12px;color:var(--text-muted);">' + _ceFmtTokens(_last.tokens) + ' / ' + _ceFmtTokens(_last.window) + ' tokens (' + _lp + '%)' + (_last.model ? (' · ' + escHtml(String(_last.model))) : '') + '</span></div>'
         + '<div style="height:14px;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:7px;overflow:hidden;">'
         + '<div style="height:100%;width:' + Math.min(100, _lp) + '%;background:' + _lcolor + ';border-radius:7px;transition:width .5s;"></div></div>'
-        + '<div style="font-size:10px;color:var(--text-faint);margin-top:4px;">' + escHtml(_lscope) + ' · ' + escHtml(String(_last.ts || '')) + '</div>'
+        + '<div style="font-size:10px;color:var(--text-faint);margin-top:4px;">' + escHtml(_lscope) + ' · ' + escHtml(String(_last.ts || '')) + _ceWindowProvenance(_last) + '</div>'
         + '</div>';
     }
   }
@@ -5352,7 +5435,8 @@ var _Q_RUNTIME_NAMES = {
   nemoclaw: 'NemoClaw', grok: 'Grok', pi: 'Pi', deepagents: 'DeepAgents',
   qm: 'QM', deepseek_harness: 'DeepSeek Harness', exo: 'Exo',
   kimi: 'Kimi CLI',
-  devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands'
+  devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
+  openworker: 'OpenWorker',
 };
 function _qRuntimeLabel(id) {
   return _Q_RUNTIME_NAMES[id] || id;
@@ -10241,6 +10325,36 @@ var _loopSignalsExpanded = false;
 var _loopSignalsNotifiedSig = null;
 var _loopSignalsPermissionAsked = false;
 
+// Plain words for each detector kind. The stored signature is an internal id
+// ("daemon_detect_file_blast_radius"); nobody opening this for the first time
+// should have to decode it.
+var LOOP_KIND_LABEL = {
+  stuck_loop: 'Repeating itself',
+  no_progress: 'Busy but not finishing',
+  repeated_tool_failure: 'The same step keeps failing',
+  action_discrepancy: 'Carried on after a failure',
+  file_blast_radius: 'Changed a lot of files at once',
+  credential_access: 'Opened a password or key file',
+  network_egress: 'Contacted somewhere new',
+  privilege_change: 'Asked for admin rights'
+};
+
+// What ignoring this is estimated to cost. Blank when we do not know, because
+// a made-up number is worse than an honest gap.
+function loopMoney(n) {
+  var v = Number(n) || 0;
+  if (v <= 0) return '';
+  return v < 0.01 ? '<$0.01' : '$' + v.toFixed(2);
+}
+
+function loopBasisHint(basis) {
+  if (basis === 'burn_rate') return 'Measured: this session spend rate over the time it has been off track.';
+  // Say plainly that this one is rough, because it is the reason the row is
+  // not marked critical however large the number looks.
+  if (basis === 'window_fraction') return 'Rough guide only: the session cost shared across the flagged part of the window. Too approximate to raise the alert level on its own.';
+  return 'We do not have cost data for this session.';
+}
+
 function _loopSignalsMaybeNotify(rows) {
   if (!rows || !rows.length) return;
   if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -10299,19 +10413,31 @@ async function loadLoopSignals() {
     // for an alerts upsell.
     _loopSignalsMaybeNotify(rows);
     // Render table — keep it dead simple: Time | Session | Pattern | Repeat.
-    var head = '<div style="display:grid;grid-template-columns:130px 160px 1fr 70px;gap:10px;padding:4px 0;border-bottom:1px solid var(--border-secondary);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">'
-      + '<div>Last seen</div><div>Session</div><div>Pattern</div><div style="text-align:right;">Repeats</div></div>';
+    // Ordered by what it costs to ignore (the API sorts; we just render).
+    var totalRisk = loopMoney(data && data.spend_at_risk_usd);
+    var head = '<div style="display:grid;grid-template-columns:130px 150px 1fr 80px 70px;gap:10px;padding:4px 0;border-bottom:1px solid var(--border-secondary);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">'
+      + '<div>Last seen</div><div>Session</div><div>What happened</div>'
+      + '<div style="text-align:right;" title="Estimated cost of the flagged stretch, not the whole session.">At risk</div>'
+      + '<div style="text-align:right;">Repeats</div></div>';
     var body = rows.map(function(r) {
       var ts = r.last_seen || r.first_seen || '';
       try { ts = new Date(ts).toLocaleString(); } catch (e) {}
       var sid = String(r.session_id || '').slice(0, 16);
-      var sig = String(r.signature || '');
-      if (sig.length > 60) sig = sig.slice(0, 57) + '...';
+      // Prefer the detector headline, then a plain-words kind label, and only
+      // fall back to the raw signature for proxy-emitted rows that have
+      // neither.
+      var what = String(r.title || '') || LOOP_KIND_LABEL[r.kind] || String(r.signature || '');
+      if (what.length > 70) what = what.slice(0, 67) + '...';
       var rc = r.repeat_count != null ? r.repeat_count : '-';
-      return '<div style="display:grid;grid-template-columns:130px 160px 1fr 70px;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-secondary);">'
+      var risk = loopMoney(r.spend_at_risk_usd);
+      var riskCell = risk
+        ? '<span title="' + escHtml(loopBasisHint(r.spend_basis)) + '">' + escHtml(risk) + '</span>'
+        : '<span style="color:var(--text-muted);" title="' + escHtml(loopBasisHint('')) + '">no cost data</span>';
+      return '<div style="display:grid;grid-template-columns:130px 150px 1fr 80px 70px;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-secondary);">'
         + '<div style="color:var(--text-muted);">' + escHtml(ts) + '</div>'
         + '<div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(String(r.session_id || '')) + '">' + escHtml(sid) + '</div>'
-        + '<div style="color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(String(r.signature || '')) + '">' + escHtml(sig) + '</div>'
+        + '<div style="color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(String(r.detail || r.signature || '')) + '">' + escHtml(what) + '</div>'
+        + '<div style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;">' + riskCell + '</div>'
         + '<div style="text-align:right;color:#ef4444;font-weight:700;">' + escHtml(String(rc)) + '</div>'
         + '</div>';
     }).join('');
@@ -10330,7 +10456,13 @@ async function loadLoopSignals() {
         + '<a href="https://app.clawmetry.com/upgrade?ref=loops" target="_blank" rel="noopener" style="color:var(--accent,#7c5cff);font-weight:600;text-decoration:none;">Unlock loop history and alerts in Cloud-Pro</a>'
         + '</div>';
     }
-    tableEl.innerHTML = head + body + cta;
+    // Lead with the money when we have it: the first thing a reader wants to
+    // know is not how many loops there were, it is what they are costing.
+    var summary = totalRisk
+      ? '<div style="padding:6px 0 8px;font-size:12px;color:var(--text-secondary);">About ' + escHtml(totalRisk)
+        + ' of spend is tied up in what is listed below. Stopping an agent here stops that meter.</div>'
+      : '';
+    tableEl.innerHTML = summary + head + body + cta;
   } catch (e) {
     // Fail closed: hide the badge so we don't show a stale or wrong count.
     badge.style.display = 'none';
@@ -10940,6 +11072,10 @@ function _renderRetention(state) {
     return;
   }
   label.textContent = (state && state.explanation) || '';
+  // What is in force right now, so a later Save can tell shrinking from
+  // raising and only confirm the destructive direction.
+  window._cmRetentionEffectiveDays =
+    (state && typeof state.effective_days === 'number') ? state.effective_days : null;
   if (state && state.configured_days) {
     input.value = state.configured_days;
   } else if (state && state.effective_days) {
@@ -10980,6 +11116,26 @@ async function saveRetentionSetting(usePlanDefault) {
         status.textContent = 'Enter a whole number of days, 1 or more.';
         status.style.color = 'var(--danger, #dc2626)';
       }
+      return;
+    }
+  }
+  // Shortening retention DELETES history, within the hour, permanently. The
+  // shrink-only design makes the control safe against granting yourself more
+  // retention than you bought; it does nothing to protect you from deleting
+  // your own evidence by typing a smaller number. Those are different risks
+  // and the first one was mistaken for the second. So: say what will go, and
+  // ask. Only when the new period is SHORTER than what is in force -- raising
+  // it, or returning to the plan default, destroys nothing and should not
+  // nag.
+  var _cur = window._cmRetentionEffectiveDays;
+  if (!usePlanDefault && typeof _cur === 'number' && days < _cur) {
+    var _msg = 'Keep event history for ' + days + ' day'
+      + (days === 1 ? '' : 's') + ' instead of ' + _cur + '?\n\n'
+      + 'Everything older than ' + days + ' day' + (days === 1 ? '' : 's')
+      + ' is deleted from this machine within the hour, and cannot be '
+      + 'recovered.';
+    if (!window.confirm(_msg)) {
+      if (status) { status.textContent = 'Left unchanged.'; status.style.color = ''; }
       return;
     }
   }
@@ -11659,7 +11815,8 @@ var _CM_RT_LABEL = {
   pi: 'Pi', deepagents: 'Deep Agents', n8n: 'n8n', antigravity: 'Antigravity',
   copilot: 'GitHub Copilot', grok: 'Grok', qm: 'QM',
   deepseek_harness: 'DeepSeek Harness', exo: 'Exo', kimi: 'Kimi CLI',
-  devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands'
+  devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
+  openworker: 'OpenWorker',
 };
 // The CLOSED session-prefix runtimes (the only keys that can ride a session_id
 // prefix). Foreign OTLP / OpenLLMetry apps are NOT in here — they have no
@@ -11670,7 +11827,8 @@ var _CM_RT_PREFIXES = {
   cursor: 1, aider: 1, goose: 1, opencode: 1, qwen_code: 1, pi: 1, deepagents: 1,
   n8n: 1, antigravity: 1, copilot: 1, grok: 1, qm: 1, deepseek_harness: 1, exo: 1,
   kimi: 1,
-  devin: 1, gemini_cli: 1, cline: 1, openhands: 1
+  devin: 1, gemini_cli: 1, cline: 1, openhands: 1,
+  openworker: 1,
 };
 // Dynamic registry of foreign OTLP/OpenLLMetry apps surfaced by the daemon
 // (runtimeSummary/agentInventory carry `otlp:true` + a `displayName`). These are
@@ -11749,6 +11907,17 @@ function _cmRuntimeLabel(rt) { return _CM_RT_LABEL[rt] || rt; }
 // stops saying "yet" to the first two. Falls back to the old wording when
 // coverage is absent (older daemon, or a node-wide request).
 function _cmCoverageNoteHtml(cov, rtLabel) {
+  // A partial runtime HAS a number and it must not be hidden — hiding it
+  // would understate real spend. But it covers only part of the work, so it
+  // is a floor, and saying nothing would present it as a total. That is the
+  // same overstatement this whole surface exists to stop, pointed the other
+  // way.
+  if (cov && cov.cost_is_partial) {
+    return '<strong>' + escHtml(rtLabel) + ': at least this much</strong>'
+      + (cov.partial_note
+         ? '<div style="margin-top:3px;">' + escHtml(cov.partial_note) + '</div>'
+         : '');
+  }
   if (cov && cov.suppress_zero) {
     var head = '<strong>' + escHtml(cov.headline || '') + '</strong>';
     var why = cov.detail ? '<div style="margin-top:3px;">' + escHtml(cov.detail) + '</div>' : '';
@@ -20974,6 +21143,248 @@ async function saveClaudeCoverageKey() {
   }
 }
 
+// ── Repo AI-readiness ─────────────────────────────────────────────────────
+// Before you blame the agent, look at what you handed it. Scores the repo an
+// agent actually worked in on how legible it is, and puts that grade next to
+// the stuck-loop counts the detectors recorded for the same repo.
+//
+// Free and ungated. Every figure is a filesystem fact or a DuckDB row; the
+// renderer never invents one. Two honesty rules are load-bearing here and
+// must survive any edit:
+//   1. An `unknown` check is drawn OUTSIDE the weight bar, hatched, labelled
+//      "not counted". It carries weight 0 and must never be shaded as if it
+//      passed or failed.
+//   2. `stuck_rate === null` means no agent has worked here. It renders as
+//      "nothing to compare yet", never as 0%.
+var _cmReadinessPath = '';
+var _cmReadinessBusy = false;
+
+async function loadRepoReadiness(path) {
+  var body = document.getElementById('rr-body');
+  if (!body) return;
+  if (typeof path === 'string' && path) _cmReadinessPath = path;
+  if (_cmReadinessBusy) return;
+  _cmReadinessBusy = true;
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var url = '/api/repo-readiness?days=30';
+  if (_cmReadinessPath) url += '&path=' + encodeURIComponent(_cmReadinessPath);
+  if (rt && rt !== 'all') url += '&runtime=' + encodeURIComponent(rt);
+  try {
+    // fetchJsonWithTimeout, not a bare fetch: on a busy node the daemon
+    // serialises DuckDB reads and a plain fetch never settles, which pins the
+    // card on "Scanning the repo..." forever with no way back. Same helper and
+    // budget the rest of the app uses.
+    var data = await fetchJsonWithTimeout(url, 25000);
+    _cmRenderReadinessPicker(data);
+    body.innerHTML = _cmRenderReadiness(data);
+  } catch (e) {
+    var why = String((e && e.message) || e);
+    body.innerHTML = '<div class="rr-empty">'
+      + (/abort|timeout/i.test(why)
+        ? 'The scan is taking longer than usual, most likely because the '
+          + 'agent database is busy. Nothing is wrong with your repo.'
+        : 'Could not scan the repo: ' + escapeHtml(why))
+      + ' <a href="javascript:loadRepoReadiness()">Try again</a></div>';
+  } finally {
+    _cmReadinessBusy = false;
+  }
+}
+
+function _cmRenderReadinessPicker(data) {
+  var sel = document.getElementById('rr-repo-pick');
+  if (!sel) return;
+  var repos = (data && data.repos) || [];
+  var current = (data && data.report && data.report.path) || '';
+  if (!repos.length) {
+    sel.style.display = 'none';
+    var lbl = document.querySelector('.rr-pick-label');
+    if (lbl) lbl.style.display = 'none';
+    return;
+  }
+  sel.style.display = '';
+  sel.innerHTML = repos.map(function (r) {
+    var n = r.signals && r.signals.sessions;
+    var suffix = n ? ' (' + n + ' session' + (n === 1 ? '' : 's') + ')' : '';
+    var gone = r.exists ? '' : ' [not on this machine]';
+    return '<option value="' + escapeHtml(r.path) + '"'
+      + (r.path === current ? ' selected' : '') + '>'
+      + escapeHtml(r.name + suffix + gone) + '</option>';
+  }).join('');
+}
+
+function _cmReadinessVerdict(rep, days) {
+  // One plain sentence joining the grade to what actually happened here.
+  var sig = rep.signals || {};
+  var head = 'Graded <b>' + escapeHtml(rep.score) + ' &middot; '
+    + escapeHtml(rep.score_label) + '</b>.';
+  if (!sig.has_history) {
+    return head + ' No agent session on this machine has run in this repo yet, '
+      + 'so there is nothing to compare the grade against.';
+  }
+  var n = sig.sessions, stuck = sig.stuck_sessions;
+  var tail;
+  if (!stuck) {
+    tail = ' Agents ran <b>' + n + '</b> session' + (n === 1 ? '' : 's')
+      + ' here in the last ' + days + ' days and none of them got stuck.';
+  } else {
+    tail = ' Agents ran <b>' + n + '</b> session' + (n === 1 ? '' : 's')
+      + ' here in the last ' + days + ' days, and <b>' + stuck + '</b> of them '
+      + 'got stuck (' + sig.stuck_rate + '%).';
+  }
+  return head + tail;
+}
+
+var _CM_RR_COLORS = { pass: '#22c55e', warn: '#f59e0b', fail: '#ef4444' };
+var _CM_RR_GLYPH = { pass: '&#10003;', warn: '!', fail: '&#10005;', unknown: '?' };
+var _CM_RR_SIGNAL_LABEL = {
+  stuck_loop: 'Stuck loops',
+  no_progress: 'No progress',
+  repeated_tool_failure: 'Repeated tool failures',
+  action_discrepancy: 'Carried on after a failure'
+};
+
+function _cmRenderReadiness(data) {
+  if (!data || data.status === 'error') {
+    return '<div class="rr-empty">Could not scan the repo: '
+      + escapeHtml((data && data.detail) || 'unknown error') + '</div>';
+  }
+  if (data.status === 'no_repo' || !data.report) {
+    // Two different empty states. With repos in the picker, the selected one
+    // is a checkout that is gone from the machine that scanned it; telling
+    // that reader to "run an agent inside a code repo" would be nonsense.
+    var hasOthers = data.repos && data.repos.length;
+    return '<div class="rr-empty">'
+      + escapeHtml(data.detail || (hasOthers
+        ? 'That checkout is no longer on the machine that scanned it, so there '
+          + 'is nothing left to read. Its history is still in the picker above.'
+        : 'Nothing to score yet.'))
+      + (hasOthers ? ' Pick another repo above.'
+                   : ' Run an agent inside a code repo and this fills in on its own.')
+      + '</div>';
+  }
+  var rep = data.report;
+  if (rep.status === 'not_found') {
+    return '<div class="rr-empty">That repo is no longer on this machine, so '
+      + 'there is nothing to read. Its session history is still in the picker '
+      + 'above.</div>';
+  }
+  var days = data.window_days || 30;
+  var checks = rep.checks || [];
+  var counted = checks.filter(function (c) { return c.weight > 0; });
+  var unknown = checks.filter(function (c) { return c.status === 'unknown'; });
+  var totalW = counted.reduce(function (a, c) { return a + c.weight; }, 0) || 1;
+
+  var html = '';
+  // Per-runtime honesty (FLYWHEEL 0a.2). The hosted card is served from a
+  // snapshot the daemon scored against EVERY runtime's declared files,
+  // because the daemon cannot know which runtime the viewer picked. When a
+  // runtime filter is on and the payload says all_runtimes, say so out loud
+  // rather than letting node-wide data read as runtime-scoped.
+  var rtSel = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  if (data.scope === 'all_runtimes' && rtSel && rtSel !== 'all') {
+    html += '<div class="rr-scope-note">Scored against every runtime, not just '
+      + escapeHtml(rtSel) + '. This card comes from the snapshot your machine '
+      + 'uploaded, and that scan does not know which runtime you have selected.'
+      + '</div>';
+  }
+  html += '<div class="rr-verdict">' + _cmReadinessVerdict(rep, days) + '</div>';
+  html += '<div class="rr-top">';
+
+  // Grade block.
+  html += '<div class="rr-grade">'
+    + '<div class="rr-letter" style="color:' + escapeHtml(rep.score_color) + ';">'
+    + escapeHtml(rep.score) + '</div>'
+    + '<div class="rr-grade-label" style="color:' + escapeHtml(rep.score_color) + ';">'
+    + escapeHtml(rep.score_label) + '</div>'
+    + '<div class="rr-grade-pct">' + rep.score_pct + '% of the checks that count</div>'
+    + '</div>';
+
+  // Weight bar: one segment per counted check, width = its share of the grade.
+  // Warn is drawn at half opacity because it earns half credit.
+  html += '<div class="rr-bar-wrap"><div class="rr-bar">';
+  counted.forEach(function (c) {
+    var col = _CM_RR_COLORS[c.status] || '#64748b';
+    var op = c.status === 'warn' ? '0.55' : '1';
+    html += '<div class="rr-seg" title="' + escapeHtml(c.label + ': ' + c.status)
+      + '" style="width:' + (c.weight / totalW * 100).toFixed(2) + '%;'
+      + 'background:' + col + ';opacity:' + op + ';"></div>';
+  });
+  html += '</div>';
+  if (unknown.length) {
+    html += '<div class="rr-uncounted"><span class="rr-hatch"></span>'
+      + '<span class="rr-uncounted-text">' + unknown.length + ' check'
+      + (unknown.length === 1 ? '' : 's') + ' we could not read. Not counted, '
+      + 'in either direction.</span></div>';
+  }
+  html += '<div class="rr-legend">'
+    + '<span><i class="rr-dot" style="background:' + _CM_RR_COLORS.pass + ';"></i>Ready</span>'
+    + '<span><i class="rr-dot" style="background:' + _CM_RR_COLORS.warn + ';opacity:.55;"></i>Half credit</span>'
+    + '<span><i class="rr-dot" style="background:' + _CM_RR_COLORS.fail + ';"></i>Missing</span>'
+    + '</div></div>';
+
+  // What actually happened in this repo.
+  html += '<div class="rr-signals"><div class="rr-signals-h">What happened here</div>';
+  var sig = rep.signals || {};
+  if (!sig.has_history) {
+    html += '<div class="rr-empty" style="font-size:12.5px;">No sessions recorded '
+      + 'in this repo yet.</div>';
+  } else {
+    var inc = sig.incidents || {};
+    html += '<div class="rr-chips">';
+    Object.keys(_CM_RR_SIGNAL_LABEL).forEach(function (k) {
+      var n = inc[k] || 0;
+      html += '<span class="rr-chip ' + (n ? 'rr-chip-hot' : 'rr-chip-zero') + '">'
+        + '<b>' + n + '</b>' + escapeHtml(_CM_RR_SIGNAL_LABEL[k]) + '</span>';
+    });
+    html += '</div>';
+  }
+  html += '</div></div>';
+
+  // The checks.
+  html += '<div class="rr-checks">';
+  checks.forEach(function (c) {
+    var col = c.status === 'unknown' ? 'var(--text-faint)'
+      : (_CM_RR_COLORS[c.status] || 'var(--text-faint)');
+    html += '<div class="rr-check">'
+      + '<div class="rr-glyph" style="color:' + col + ';">'
+      + (_CM_RR_GLYPH[c.status] || '?') + '</div>'
+      + '<div class="rr-check-main">'
+      + '<div class="rr-check-h"><span class="rr-check-label">'
+      + escapeHtml(c.label) + '</span>'
+      + '<span class="rr-weight">'
+      + (c.weight > 0 ? 'worth ' + c.weight + ' points' : 'not counted')
+      + '</span></div>'
+      + '<div class="rr-detail">' + escapeHtml(c.detail || '') + '</div>';
+    if (c.remediation) {
+      html += '<div class="rr-fix">' + escapeHtml(c.remediation) + '</div>';
+    }
+    if (c.evidence) {
+      html += '<div class="rr-evidence">read from ' + escapeHtml(c.evidence) + '</div>';
+    }
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  // Per-runtime honesty: a repo can be legible to one runtime and invisible
+  // to another, and a single node-wide tick would hide that.
+  var cov = rep.runtime_coverage || [];
+  if (cov.length > 1) {
+    html += '<div class="rr-cov"><div class="rr-cov-h">Which runtimes would find '
+      + 'their instructions here</div><div class="rr-cov-pills">';
+    cov.forEach(function (r) {
+      html += '<span class="rr-pill' + (r.has_instructions ? ' on' : '') + '" title="'
+        + escapeHtml((r.has_instructions ? 'Reads: ' + r.files.join(', ')
+                                         : 'Looked for: ' + r.looked_for.join(', ')))
+        + '">' + escapeHtml(r.label) + '</span>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '<div class="rr-evidence" style="margin-top:14px;">Scanned '
+    + escapeHtml(rep.path) + '. Nothing was run and nothing left this machine.</div>';
+  return html;
+}
+
 async function loadHarness() {
   var el = document.getElementById('harness-container');
   if (!el) return;
@@ -20985,6 +21396,9 @@ async function loadHarness() {
   var _cov = document.getElementById('claude-coverage');
   if (rt === 'claude_code') { loadClaudeCoverage(); }
   else if (_cov) { _cov.style.display = 'none'; _cov.innerHTML = ''; }
+  // Repo readiness is runtime-scoped (a repo legible to Claude Code can be
+  // invisible to Cursor), so it re-fetches with the switcher, like the panel.
+  loadRepoReadiness();
   try {
     if (!_cmHarnessTemplates) {
       var t = await fetch('/api/harness/templates').then(function (r) { return r.json(); });
@@ -27648,7 +28062,7 @@ function clearSwimlaneLanes() {
 }
 
 // One-click preset: most-recent session per distinct runtime (cap 4). This is
-// the headline demo path — the 26 runtimes side by side. Respects the global
+// the headline demo path — the 27 runtimes side by side. Respects the global
 // runtime switcher: when scoped to one runtime, only that runtime is picked.
 function swimlanePresetPerRuntime() {
   var rtFilter = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';

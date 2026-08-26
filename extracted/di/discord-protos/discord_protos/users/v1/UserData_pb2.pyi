@@ -480,6 +480,19 @@ class UserData(_message.Message):
         CLASSIFICATION_TYPE_SPAM_CEILING_ADMIN: UserData._ClassificationType.ValueType  # 5940
         CLASSIFICATION_TYPE_QUEST_REWARD_ABUSE_ADMIN: UserData._ClassificationType.ValueType  # 5950
         CLASSIFICATION_TYPE_QUEST_REWARD_ABUSE_POST_WARNING_ADMIN: UserData._ClassificationType.ValueType  # 5980
+        CLASSIFICATION_TYPE_BOT_DELETE_IMPERSONATION_ADMIN: UserData._ClassificationType.ValueType  # 5990
+        CLASSIFICATION_TYPE_BOT_DELETE_UNSOLICITED_ACCOUNT_CHANGES_ADMIN: UserData._ClassificationType.ValueType  # 6000
+        CLASSIFICATION_TYPE_BOT_DELETE_TOKEN_SOLICITATION_ADMIN: UserData._ClassificationType.ValueType  # 6010
+        CLASSIFICATION_TYPE_BOT_DELETE_PLATFORM_BAN_EVASION_ADMIN: UserData._ClassificationType.ValueType  # 6020
+        CLASSIFICATION_TYPE_BOT_DELETE_CUSTOM_ADMIN: UserData._ClassificationType.ValueType  # 6030
+        CLASSIFICATION_TYPE_BOT_DELETE_CSAM_ADMIN: UserData._ClassificationType.ValueType  # 6040
+        CLASSIFICATION_TYPE_BOT_DELETE_NCAIM_ADMIN: UserData._ClassificationType.ValueType  # 6050
+        CLASSIFICATION_TYPE_BOT_DELETE_SPAM_ADMIN: UserData._ClassificationType.ValueType  # 6060
+        CLASSIFICATION_TYPE_BOT_DELETE_SPAM_SILENT_ADMIN: UserData._ClassificationType.ValueType  # 6070
+        CLASSIFICATION_TYPE_APP_GROWTH_HALT_SINGLE_SPAM_ADMIN: UserData._ClassificationType.ValueType  # 6080
+        CLASSIFICATION_TYPE_APP_GROWTH_HALT_SINGLE_4PA_ADMIN: UserData._ClassificationType.ValueType  # 6090
+        CLASSIFICATION_TYPE_BAD_BOT_QUARANTINE_SINGLE_ADMIN: UserData._ClassificationType.ValueType  # 6100
+        CLASSIFICATION_TYPE_BAD_BOT_QUARANTINE_PROPAGATE_ADMIN: UserData._ClassificationType.ValueType  # 6110
         CLASSIFICATION_TYPE_HIGH_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7005
         CLASSIFICATION_TYPE_MEDIUM_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7015
         CLASSIFICATION_TYPE_LOW_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7025
@@ -1033,6 +1046,19 @@ class UserData(_message.Message):
     CLASSIFICATION_TYPE_SPAM_CEILING_ADMIN: UserData.ClassificationType.ValueType  # 5940
     CLASSIFICATION_TYPE_QUEST_REWARD_ABUSE_ADMIN: UserData.ClassificationType.ValueType  # 5950
     CLASSIFICATION_TYPE_QUEST_REWARD_ABUSE_POST_WARNING_ADMIN: UserData.ClassificationType.ValueType  # 5980
+    CLASSIFICATION_TYPE_BOT_DELETE_IMPERSONATION_ADMIN: UserData.ClassificationType.ValueType  # 5990
+    CLASSIFICATION_TYPE_BOT_DELETE_UNSOLICITED_ACCOUNT_CHANGES_ADMIN: UserData.ClassificationType.ValueType  # 6000
+    CLASSIFICATION_TYPE_BOT_DELETE_TOKEN_SOLICITATION_ADMIN: UserData.ClassificationType.ValueType  # 6010
+    CLASSIFICATION_TYPE_BOT_DELETE_PLATFORM_BAN_EVASION_ADMIN: UserData.ClassificationType.ValueType  # 6020
+    CLASSIFICATION_TYPE_BOT_DELETE_CUSTOM_ADMIN: UserData.ClassificationType.ValueType  # 6030
+    CLASSIFICATION_TYPE_BOT_DELETE_CSAM_ADMIN: UserData.ClassificationType.ValueType  # 6040
+    CLASSIFICATION_TYPE_BOT_DELETE_NCAIM_ADMIN: UserData.ClassificationType.ValueType  # 6050
+    CLASSIFICATION_TYPE_BOT_DELETE_SPAM_ADMIN: UserData.ClassificationType.ValueType  # 6060
+    CLASSIFICATION_TYPE_BOT_DELETE_SPAM_SILENT_ADMIN: UserData.ClassificationType.ValueType  # 6070
+    CLASSIFICATION_TYPE_APP_GROWTH_HALT_SINGLE_SPAM_ADMIN: UserData.ClassificationType.ValueType  # 6080
+    CLASSIFICATION_TYPE_APP_GROWTH_HALT_SINGLE_4PA_ADMIN: UserData.ClassificationType.ValueType  # 6090
+    CLASSIFICATION_TYPE_BAD_BOT_QUARANTINE_SINGLE_ADMIN: UserData.ClassificationType.ValueType  # 6100
+    CLASSIFICATION_TYPE_BAD_BOT_QUARANTINE_PROPAGATE_ADMIN: UserData.ClassificationType.ValueType  # 6110
     CLASSIFICATION_TYPE_HIGH_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7005
     CLASSIFICATION_TYPE_MEDIUM_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7015
     CLASSIFICATION_TYPE_LOW_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7025
@@ -1407,6 +1433,7 @@ class UserData(_message.Message):
         AGE_ASSURANCE_METHOD_ML_AGE_INFERENCE: UserData._AgeAssuranceMethod.ValueType  # 8
         AGE_ASSURANCE_METHOD_GOOGLE_WALLET: UserData._AgeAssuranceMethod.ValueType  # 9
         AGE_ASSURANCE_METHOD_NEW_METHOD: UserData._AgeAssuranceMethod.ValueType  # 10
+        AGE_ASSURANCE_METHOD_MANUAL_REVIEW: UserData._AgeAssuranceMethod.ValueType  # 11
 
     class AgeAssuranceMethod(_AgeAssuranceMethod, metaclass=_AgeAssuranceMethodEnumTypeWrapper): ...
     AGE_ASSURANCE_METHOD_UNSPECIFIED: UserData.AgeAssuranceMethod.ValueType  # 0
@@ -1420,6 +1447,7 @@ class UserData(_message.Message):
     AGE_ASSURANCE_METHOD_ML_AGE_INFERENCE: UserData.AgeAssuranceMethod.ValueType  # 8
     AGE_ASSURANCE_METHOD_GOOGLE_WALLET: UserData.AgeAssuranceMethod.ValueType  # 9
     AGE_ASSURANCE_METHOD_NEW_METHOD: UserData.AgeAssuranceMethod.ValueType  # 10
+    AGE_ASSURANCE_METHOD_MANUAL_REVIEW: UserData.AgeAssuranceMethod.ValueType  # 11
 
     class _AgeAssuranceVendor:
         ValueType = _typing.NewType("ValueType", _builtins.int)

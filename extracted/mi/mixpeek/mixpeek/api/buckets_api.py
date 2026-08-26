@@ -1767,6 +1767,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_patch_request: BucketPatchRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1788,6 +1789,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_patch_request: (required)
         :type bucket_patch_request: BucketPatchRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1813,6 +1816,7 @@ class BucketsApi:
         _param = self._patch_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_patch_request=bucket_patch_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1844,6 +1848,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_patch_request: BucketPatchRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1865,6 +1870,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_patch_request: (required)
         :type bucket_patch_request: BucketPatchRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1890,6 +1897,7 @@ class BucketsApi:
         _param = self._patch_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_patch_request=bucket_patch_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1921,6 +1929,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_patch_request: BucketPatchRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1942,6 +1951,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_patch_request: (required)
         :type bucket_patch_request: BucketPatchRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1967,6 +1978,7 @@ class BucketsApi:
         _param = self._patch_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_patch_request=bucket_patch_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1993,6 +2005,7 @@ class BucketsApi:
         self,
         bucket_identifier,
         bucket_patch_request,
+        force_schema_break,
         _request_auth,
         _content_type,
         _headers,
@@ -2017,6 +2030,10 @@ class BucketsApi:
         if bucket_identifier is not None:
             _path_params['bucket_identifier'] = bucket_identifier
         # process the query parameters
+        if force_schema_break is not None:
+            
+            _query_params.append(('force_schema_break', force_schema_break))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -2075,6 +2092,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_update_request: BucketUpdateRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2096,6 +2114,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_update_request: (required)
         :type bucket_update_request: BucketUpdateRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2121,6 +2141,7 @@ class BucketsApi:
         _param = self._update_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_update_request=bucket_update_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2152,6 +2173,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_update_request: BucketUpdateRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2173,6 +2195,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_update_request: (required)
         :type bucket_update_request: BucketUpdateRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2198,6 +2222,7 @@ class BucketsApi:
         _param = self._update_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_update_request=bucket_update_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2229,6 +2254,7 @@ class BucketsApi:
         self,
         bucket_identifier: StrictStr,
         bucket_update_request: BucketUpdateRequest,
+        force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2250,6 +2276,8 @@ class BucketsApi:
         :type bucket_identifier: str
         :param bucket_update_request: (required)
         :type bucket_update_request: BucketUpdateRequest
+        :param force_schema_break:
+        :type force_schema_break: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2275,6 +2303,7 @@ class BucketsApi:
         _param = self._update_bucket_serialize(
             bucket_identifier=bucket_identifier,
             bucket_update_request=bucket_update_request,
+            force_schema_break=force_schema_break,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2301,6 +2330,7 @@ class BucketsApi:
         self,
         bucket_identifier,
         bucket_update_request,
+        force_schema_break,
         _request_auth,
         _content_type,
         _headers,
@@ -2325,6 +2355,10 @@ class BucketsApi:
         if bucket_identifier is not None:
             _path_params['bucket_identifier'] = bucket_identifier
         # process the query parameters
+        if force_schema_break is not None:
+            
+            _query_params.append(('force_schema_break', force_schema_break))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

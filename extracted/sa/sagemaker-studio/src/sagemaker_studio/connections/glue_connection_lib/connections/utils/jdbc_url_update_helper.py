@@ -231,7 +231,32 @@ class JDBCUrlUpdateHelper:
 
         JDBCUrlUpdateHelper._validate_mongo_uri(disable_update_uri, updated_url)
 
+        # TLS is mandatory for IAM auth: the MONGODB-AWS SASL exchange carries the
+        # access key id, the session token, and a signed GetCallerIdentity payload.
+        # Forced here as well as in MongoDBConnectionWrapper so that the URI this
+        # method returns is never IAM-marked without TLS, whatever the caller passed
+        # in `props`. Note the case-insensitive comparison: `enforceSSL` reaches us
+        # verbatim from customer-supplied ConnectionProperties, which are not
+        # normalized upstream, and treating "TRUE" as false fails open.
+        is_iam_auth = mongodb_props.get("authenticationType", "").upper() == "IAM"
+        use_ssl = is_iam_auth or mongodb_props.get("ssl", "false").lower() == "true"
+        url_declares_tls = "ssl=true" in updated_url or "tls=true" in updated_url
+
         if disable_update_uri == "true":
+            # The caller owns the URI here, so TLS cannot be appended to it. Fail
+            # closed rather than silently dropping the requirement: the translated
+            # `ssl` key is not honored by the downstream connector, which reads
+            # connection settings only from `connection.uri`.
+            if use_ssl and not url_declares_tls:
+                # Do not embed the URL in the exception message -- see the
+                # rationale in _validate_mongo_uri.
+                raise ValueError(
+                    "TLS is required for this connection but 'disableUpdateUri' is "
+                    "enabled, so it cannot be added to the connection URL. Add "
+                    "'ssl=true' to the Mongo/DocumentDB URL, or disable "
+                    "'disableUpdateUri'."
+                )
+            mongodb_props.pop("ssl", None)
             return mongodb_props
 
         username = mongodb_props.get("username", "")
@@ -249,9 +274,13 @@ class JDBCUrlUpdateHelper:
 
         # STEP-3 Below Options cannot be passed directly to the connector (https://www.mongodb.com/docs/spark-connector/current/configuration/write/) but these are important for Mongo DB that's why we are using URL append
         # Add SSL parameters
-        if mongodb_props.get("ssl", "false") == "true" and "ssl=true" not in updated_url:
+        if use_ssl and not url_declares_tls:
             ssl_params = {"ssl": "true"}
-            if additional_options.get("ssl.domain_match", "true") != "true":
+            # `ssl.domain_match=false` turns off hostname verification, which
+            # reduces TLS to protection against a passive observer only. Not
+            # honored under IAM auth -- an attacker able to present any valid
+            # certificate could otherwise still collect the SASL exchange.
+            if not is_iam_auth and additional_options.get("ssl.domain_match", "true") != "true":
                 ssl_params["sslInvalidHostNameAllowed"] = "true"
             updated_url = JDBCUrlUpdateHelper._add_mongo_url_params(updated_url, ssl_params)
 

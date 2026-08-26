@@ -1,4 +1,5 @@
 import logging
+import struct
 import unittest
 from types import SimpleNamespace
 
@@ -389,20 +390,6 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertEqual(result.ins2fn.get(0x100E), 0x1000)
 
-    def test_resolve_indirect_switch_stops_at_image_end(self):
-        disassembler = IntelDisassembler.__new__(IntelDisassembler)
-        disassembler.disassembly = SimpleNamespace(
-            isAddrWithinMemoryImage=lambda addr: 0x1000 <= addr < 0x1008,
-            getByte=lambda addr: 0 if 0x1000 <= addr < 0x1008 else None,
-        )
-        disassembler.fc_manager = SimpleNamespace(getFunctionStartCandidates=lambda: set())
-
-        # walks from 0x1004 past the image end without raising on the None byte
-        self.assertEqual(
-            disassembler.resolveIndirectSwitch(0x1000, 1),
-            list(range(0x1004, 0x1008)),
-        )
-
     def test_push_ret_obfuscation_detected_at_address_zero(self):
         # a push at address 0 (base-0 buffer) must not disable push-ret detection;
         # the stub at 0x0 becomes a candidate through the call in the second function
@@ -427,6 +414,86 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertIn(0x0, result.functions)
         self.assertEqual(result.ins2fn.get(0x10), 0x0)
+
+    def test_push_ret_through_a_register_does_not_reference_address_zero(self):
+        # `push eax; ret` names no literal, so the operand reader returns its
+        # "nothing found" 0 -- which a base-0 image accepts as a real address
+        buf = (
+            b"\xcc" * 0x100
+            + b"\x55"  # 0x100: push ebp
+            + b"\x89\xe5"  # 0x101: mov ebp, esp
+            + b"\x31\xc0"  # 0x103: xor eax, eax
+            + b"\x50"  # 0x105: push eax
+            + b"\xc3"  # 0x106: ret
+            + b"\xcc" * 0x100
+        )
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = 0
+        binary_info.bitness = 32
+        binary_info.architecture = "intel"
+
+        result = IntelDisassembler(SmdaConfig()).analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+        self.assertIn(0x100, result.functions)
+        self.assertNotIn(0, result.code_refs_to)
+
+    def test_push_ret_through_a_literal_still_resolves(self):
+        """Positive control for the pair above, in the same layout: a push naming a
+        real address must still be followed, on either side of the register case."""
+        buf = (
+            b"\xcc" * 0x100
+            + b"\x55"  # 0x100: push ebp
+            + b"\x89\xe5"  # 0x101: mov ebp, esp
+            + b"\x68\x20\x02\x00\x00"  # 0x103: push 0x220
+            + b"\xc3"  # 0x108: ret
+            + b"\xcc" * 0x117
+            + b"\x31\xc0"  # 0x220: xor eax, eax
+            + b"\xc3"  # 0x222: ret
+        )
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = 0
+        binary_info.bitness = 32
+        binary_info.architecture = "intel"
+
+        result = IntelDisassembler(SmdaConfig()).analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+        self.assertIn(0x100, result.functions)
+        self.assertEqual(result.ins2fn.get(0x220), 0x100)
+
+    def _indirect_call_image(self, slot_value):
+        # 0x100: push ebp; mov ebp, esp; call dword ptr [0x300]; pop ebp; ret
+        buf = bytearray(0x400)
+        code = b"\x55" + b"\x89\xe5" + b"\xff\x15" + struct.pack("<I", 0x300) + b"\x5d" + b"\xc3"
+        buf[0x100 : 0x100 + len(code)] = code
+        struct.pack_into("<I", buf, 0x300, slot_value)
+        buf[0x200:0x203] = b"\x31\xc0\xc3"  # xor eax, eax; ret -- a real local target
+        binary_info = BinaryInfo(bytes(buf))
+        binary_info.base_addr = 0
+        binary_info.bitness = 32
+        binary_info.architecture = "intel"
+        return IntelDisassembler(SmdaConfig()).analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+    def test_an_unrelocated_call_slot_books_the_slot_not_address_zero(self):
+        # a dumped import slot the loader never filled reads back 0, and a base-0 image
+        # accepts 0 as an address, so the call was booked against address 0
+        result = self._indirect_call_image(slot_value=0)
+
+        self.assertNotIn(0, result.code_refs_to)
+        self.assertIn(0x300, result.code_refs_from[0x103])
+
+    def test_a_slot_outside_the_image_books_the_slot(self):
+        result = self._indirect_call_image(slot_value=0x7FFFFFFF)
+
+        self.assertNotIn(0x7FFFFFFF, result.code_refs_to)
+        self.assertIn(0x300, result.code_refs_from[0x103])
+
+    def test_a_slot_holding_a_local_target_still_books_the_target(self):
+        """Positive control: an in-image slot value is the real destination and must keep
+        being booked as one, which is what the import-like arm must not swallow."""
+        result = self._indirect_call_image(slot_value=0x200)
+
+        self.assertIn(0x200, result.code_refs_from[0x103])
+        self.assertNotIn(0x300, result.code_refs_from[0x103])
 
     def test_accepts_missing_timeout_callback(self):
         binary_info = BinaryInfo(b"\x90\xc3")
@@ -990,6 +1057,18 @@ class TestIntelDisassembler(unittest.TestCase):
         for read_only in (self._ins("cmp", "rax, 1"), self._ins("test", "rax, rax"), self._ins("push", "rax")):
             preceding = [self._ins("mov", "rax, 0x3c"), read_only]
             self.assertEqual(disassembler._resolveSyscallNumber(preceding, 64), 60)
+
+    def test_syscall_number_unresolved_on_pop_all_clobber(self):
+        disassembler = self._create_disassembler()
+        # popa/popad restores eax from the stack and carries no explicit operand, so the
+        # operand-less arm let the stale mov value through as the syscall number. 32-bit
+        # only - the encoding is invalid in long mode. capstone spells them popal/popaw.
+        for pop_all in (self._ins("popal", ""), self._ins("popaw", "")):
+            preceding = [self._ins("mov", "eax, 0x1"), pop_all]
+            self.assertIsNone(disassembler._resolveSyscallNumber(preceding, 32))
+        # pushal writes only esp, so it must not stop resolution
+        pushed = [self._ins("mov", "eax, 0x1"), self._ins("pushal", "")]
+        self.assertEqual(disassembler._resolveSyscallNumber(pushed, 32), 1)
 
     def test_syscall_number_unresolved_on_implicit_rax_clobber(self):
         disassembler = self._create_disassembler()

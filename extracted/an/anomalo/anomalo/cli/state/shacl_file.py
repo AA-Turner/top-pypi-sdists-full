@@ -98,7 +98,7 @@ class ShaclFileDriver:
             # This allows the system to work even if the shapes file is missing
             import logging
 
-            logging.warning(
+            logging.warning(  # noqa: LOG015 (root-logger-call)
                 f"Could not load SHACL shapes from {shapes_path}: {e}. "
                 "Skipping SHACL validation."
             )
@@ -106,7 +106,7 @@ class ShaclFileDriver:
 
         # Perform validation
         try:
-            conforms, results_graph, results_text = validate(
+            conforms, _results_graph, results_text = validate(
                 graph,
                 shacl_graph=shapes_graph,
                 inference="rdfs",

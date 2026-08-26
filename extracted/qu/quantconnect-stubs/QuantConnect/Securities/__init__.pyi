@@ -8970,6 +8970,12 @@ class Futures(System.Object):
         MICRO_Y_5_TREASURY_BOND: str = "5YY"
         """Micro 5-Year Yield Futures"""
 
+        MICRO_ULTRA_TEN_YEAR_US_TREASURY_NOTE: str = "MTN"
+        """Micro Ultra 10-Year U.S. Treasury Note Futures"""
+
+        MICRO_ULTRA_US_TREASURY_BOND: str = "MWN"
+        """Micro Ultra U.S. Treasury Bond Futures"""
+
     class Indices(System.Object):
         """Indices group"""
 
@@ -9192,6 +9198,9 @@ class Futures(System.Object):
 
         SILVER_5000_OZ: str = "ZI"
         """Silver 5000 Oz Futures"""
+
+        ONE_OUNCE_GOLD: str = "1OZ"
+        """1-Ounce Gold Futures"""
 
     class Softs(System.Object):
         """Softs group"""

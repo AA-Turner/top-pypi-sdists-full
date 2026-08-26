@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from textual.timer import Timer
 
 from deepagents_code import _env_vars, theme
+from deepagents_code._paths import PATHS
 from deepagents_code.auth_display import format_auth_indicator
 from deepagents_code.config import Glyphs, get_glyphs, is_ascii_mode
 from deepagents_code.model_config import (
@@ -591,11 +592,10 @@ class ModelSelectorScreen(ModalScreen[tuple[str, str] | None]):
     def _help_text(self) -> str:
         """Build the footer help text.
 
-        Curated/onboarding mode omits the Ctrl+S, Ctrl+R, and Ctrl+N hints.
-        Escape stays bound but is left off the hint line — modal dismissal via
-        Escape is conventional, and advertising it would only lengthen an
-        already-wrapping line. Shift+Tab is likewise bound (`action_move_up`,
-        routed by `_SupportsReverseNav`) but omitted: this modal binds Tab to
+        Curated/onboarding mode omits the Ctrl+S, Ctrl+R, Ctrl+N, and Escape
+        hints. Standard mode advertises Escape as `Esc close`. Shift+Tab is
+        likewise bound (`action_move_up`, routed by `_SupportsReverseNav`) but
+        omitted: this modal binds Tab to
         autocomplete, so the shared "Tab/Shift+Tab navigate" phrasing from
         `tui.key_hints` would misdescribe Tab here. In standard mode the full
         line exceeds the modal width, so the help `Static` is sized to grow
@@ -626,7 +626,7 @@ class ModelSelectorScreen(ModalScreen[tuple[str, str] | None]):
             names_hint = "Ctrl+N names" if self._show_specs else "Ctrl+N IDs"
             if self._default_scope is not None:
                 parts.append(f"Ctrl+S {self._default_scope.hint}")
-            parts.extend(("Ctrl+R recommended", names_hint))
+            parts.extend(("Ctrl+R recommended", names_hint, "Esc close"))
         sep = f" {glyphs.bullet} "
         return sep.join(parts)
 
@@ -2218,8 +2218,9 @@ class ModelSelectorScreen(ModalScreen[tuple[str, str] | None]):
         # `ModelNotAllowedError` for it, handled separately below, so this text
         # never has to account for `models.allowed`.
         write_remedy = (
-            "Could not update ~/.deepagents/config.toml. It may be unwritable "
-            "(check permissions for ~/.deepagents/) or malformed; see the log "
+            f"Could not update {PATHS.display(PATHS.profile.config_file)}. It may "
+            "be unwritable (check permissions for "
+            f"{PATHS.display(PATHS.profile.root)}) or malformed; see the log "
             "for the specific error."
         )
 

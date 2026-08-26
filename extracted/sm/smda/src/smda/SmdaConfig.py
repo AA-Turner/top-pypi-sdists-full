@@ -4,8 +4,13 @@ import os
 
 class SmdaConfig:
     # keep this in sync with smda.__version__
-    VERSION = "4.4.7"
-    ESCAPER_DOWNWARD_COMPATIBILITY = "1.13.16"
+    VERSION = "4.5.0"
+    # Bump this whenever any architecture's InstructionEscaper changes its
+    # output (mnemonic groups or escaped operands). Downstream indexes such as
+    # MCRIT treat reports whose smda_version is below this value as stale.
+    # Last output change: 4.4.5 (segment-qualified memory operands, AVX-512
+    # registers, six mnemonic groups).
+    ESCAPER_DOWNWARD_COMPATIBILITY = "4.4.5"
     CONFIG_FILE_PATH = str(os.path.abspath(__file__))
     PROJECT_ROOT = str(os.path.abspath(os.sep.join([CONFIG_FILE_PATH, "..", "..", ".."])))
 
@@ -17,7 +22,11 @@ class SmdaConfig:
     LOG_FORMAT = "%(asctime)-15s: %(name)-32s - %(message)s"
 
     ### SMDA disassembler config
-    # maximum time in seconds for disassembly to complete
+    # cooperative budget in seconds for disassembly, polled between candidates, between passes,
+    # every 256 basic blocks within a function and between tailcall resolutions. The verdict
+    # latches the first time it trips, so a function the budget cut short is not re-promoted
+    # by a later pass; work already in flight still finishes, so a run overshoots rather than
+    # being cut off; 0 disables it
     TIMEOUT = 300
     # maximum number of bytes to allocate while loading
     MAX_IMAGE_SIZE = 100 * 1024 * 1024
@@ -25,6 +34,9 @@ class SmdaConfig:
     STORE_BUFFER = False
     # extract strings during disassembly
     WITH_STRINGS = False
+    # the options named USE_*, RESOLVE_*, RECORD_*, CANDIDATE_QUEUE and HIGH_ACCURACY steer
+    # recursive candidate discovery and are read by the intel and aarch64 backends only; the
+    # cil and dalvik backends run their own analysis pipelines and ignore them
     # the queue to use for candidate management
     CANDIDATE_QUEUE = "PriorityQueue"  # choose from: ["BracketQueue", "PriorityQueue"]
     # improve disassembly by resolving references through data flows
@@ -42,13 +54,28 @@ class SmdaConfig:
     # are only performed where the interior .pdata start has a non-fall-through inbound
     # jmp/call from another recovered function, never from candidate membership alone.
     USE_PE_X64_PDATA_ENDS = False
-    # promote unclaimed ELF .eh_frame FDE starts as late AArch64 candidates (after the primary
-    # pass, before gap analysis); off until validated against ground-truth function boundaries
+    # promote unclaimed ELF .eh_frame FDE starts as late candidates on both instruction sets
+    # (after the primary pass, before gap analysis). Unwind ranges are not function starts by
+    # definition - .eh_frame also covers ranges that are not independent functions. Measured
+    # against symbol-table boundaries over 50 locally built gcc/clang ELF binaries (11384
+    # labelled functions, analysed stripped): recall 93.79% -> 94.68%, so 101 more real starts,
+    # against 56 more addresses landing strictly inside a labelled function body. Off by
+    # default because that is a deliberate baseline move rather than a free win - one bundled
+    # fixture changes - so enabling it belongs with a corpus run, not with a config edit
     USE_ELF_EH_FRAME_CANDIDATES = False
     # extend the AArch64 adr/adrp address-materialization scan to Mach-O instruction sections,
     # recording targets as weak address evidence; off until validated with exact-address ground
     # truth for the Mach-O corpus
     USE_MACHO_ADDRESS_REF_CANDIDATES = False
+    # promote unclaimed Mach-O LC_FUNCTION_STARTS entries as late candidates (after the primary
+    # pass, before gap analysis). The linker writes the table and stripping keeps it, and segment
+    # file offsets and VM offsets coincide in Mach-O, so it also reads correctly out of a mapped
+    # image - unlike a PE COFF symbol table. Scored against the corpus samples' own symbol tables
+    # instead of the table this pass consumes, with symbols-as-candidates forced off so the metric
+    # is independent: recall 97.99% -> 98.74% of 1985 symbol-declared starts, 15 more recovered
+    # and 5 fewer functions that no symbol names. Off by default because it moves 5 of the 12
+    # Mach-O corpus samples, all upwards - a deliberate baseline update, not a config edit
+    USE_MACHO_FUNCTION_STARTS = False
     RESOLVE_REGISTER_CALLS = True
     # resolve "call/jmp dword ptr [<reg> + <disp>]" against a runtime-built import table and
     # record the API plus the slot it lives in; annotation only, it books no code refs
@@ -72,6 +99,15 @@ class SmdaConfig:
     LARGE_INPUT_RSS_FACTOR = 500
     MEMORY_BUDGET_FRACTION = 0.5
     HIGH_ACCURACY = True
+    # promote the targets of jumps that leave a function into functions of their own, in a
+    # pass after gap analysis. Off by default, and measurement says keep it that way: against
+    # symbol-table boundaries over 50 locally built gcc/clang ELF binaries it recovers 70 more
+    # real starts but adds 235 addresses strictly inside a labelled function body, so it breaks
+    # real functions apart faster than it finds new ones. It is also never free - on
+    # libstdc++.so.6 it adds 337 functions (8473 -> 8810) for 40-130% more analysis time
+    # depending on the machine; on Go ELF and Mach-O memory images, 8 functions each for 20-26%.
+    # A jump into an already-recovered function is still treated as a tailcall with the pass
+    # off - only the promotion of not-yet-known targets needs it.
     RESOLVE_TAILCALLS = False
     # optional metadata generation options; the largest built-in performance lever.
     # Measured on the cutwail fixture, as a share of all Python calls per run: hashing 10.0%,

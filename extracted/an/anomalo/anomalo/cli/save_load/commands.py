@@ -21,7 +21,7 @@ class SaveLoad:
         if restrict_warehouse_id:
             restrict_warehouse_id = int(restrict_warehouse_id)
             if restrict_warehouse_id not in warehouse_ids:
-                raise Exception(f"Warehouse with ID {restrict_warehouse_id} not found")
+                raise Exception(f"Warehouse with ID {restrict_warehouse_id} not found")  # noqa: TRY002 (raise-vanilla-class)
             return {restrict_warehouse_id: warehouse_ids[restrict_warehouse_id]}
         return warehouse_ids
 
@@ -35,7 +35,7 @@ class SaveLoad:
         if restrict_table_id:
             restrict_table_id = int(restrict_table_id)
             if restrict_table_id not in table_ids:
-                raise Exception(
+                raise Exception(  # noqa: TRY002 (raise-vanilla-class)
                     f"Table ID {restrict_table_id} not found in warehouse with ID {restrict_warehouse_id}"
                 )
             return {restrict_table_id}
@@ -103,7 +103,7 @@ class SaveLoad:
     ) -> State:
         state = State()
         warehouses = self._warehouse_ids(restrict_warehouse_id=restrict_warehouse_id)
-        for wh_id in warehouses.keys():
+        for wh_id in warehouses:
             if restrict_warehouse_id and restrict_warehouse_id != wh_id:
                 continue
             wh_state = Warehouse(wh_id, name=warehouses[wh_id])

@@ -31,7 +31,7 @@
 
 // Set default object file suffix
 #ifndef OBJECT_FILE_SUFFIX
-#define OBJECT_FILE_SUFFIX CASADI_OBJECT_FILE_SUFFIX
+#define OBJECT_FILE_SUFFIX CasadiMeta::object_file_suffix()
 #endif // OBJECT_FILE_SUFFIX
 
 #include <cstdlib>
@@ -108,6 +108,14 @@ namespace casadi {
       {"compiler_output_flag",
        {OT_STRING,
        "Compiler flag to denote object output. Default: '-o '"}},
+      {"compiler_include_flag",
+       {OT_STRING,
+       "Compiler flag to add an include directory. Default: '-I' ('/I' on MSVC)"}},
+      {"include_dirs",
+       {OT_STRINGVECTOR,
+       "List of include directories, each passed to the compiler prefixed with "
+       "'compiler_include_flag'. OS-agnostic alternative to passing '-I...' via 'flags'. "
+       "Default: None"}},
       {"linker_output_flag",
        {OT_STRING,
        "Linker flag to denote shared library output. Default: '-o '"}},
@@ -137,10 +145,11 @@ namespace casadi {
     cleanup_ = true;
     bool temp_suffix = true;
     std::string bare_name = "tmp_casadi_compiler_shell";
-    std::string directory = "";
+    std::string directory = FunctionInternal::get_jit_directory(opts);
 
     std::vector<std::string> compiler_flags;
     std::vector<std::string> linker_flags;
+    std::vector<std::string> include_dirs;
     std::string suffix = OBJECT_FILE_SUFFIX;
 
 #ifdef _WIN32
@@ -150,7 +159,16 @@ namespace casadi {
     std::string linker_setup = "/DLL";
     std::string compiler_output_flag = "/Fo";
     std::string linker_output_flag = "/out:";
+    std::string compiler_include_flag = "/I";
     extra_suffixes_ = {".exp", ".lib"};
+#elif defined(__APPLE__)
+    std::string compiler = "clang";
+    std::string linker = "clang";
+    std::string compiler_setup = "-fPIC -c";
+    std::string linker_setup = "-shared";
+    std::string compiler_output_flag = "-o ";
+    std::string linker_output_flag = "-o ";
+    std::string compiler_include_flag = "-I";
 #else
     std::string compiler = "gcc";
     std::string linker = "gcc";
@@ -158,6 +176,7 @@ namespace casadi {
     std::string linker_setup = "-shared";
     std::string compiler_output_flag = "-o ";
     std::string linker_output_flag = "-o ";
+    std::string compiler_include_flag = "-I";
 #endif
 
     // Read options
@@ -166,8 +185,6 @@ namespace casadi {
         compiler = op.second.to_string();
       } else if (op.first=="linker") {
         linker = op.second.to_string();
-      } else if (op.first=="directory") {
-        directory = op.second.to_string();
       } else if (op.first=="compiler_setup") {
         compiler_setup = op.second.to_string();
       } else if (op.first=="cleanup") {
@@ -182,6 +199,10 @@ namespace casadi {
         compiler_output_flag = op.second.to_string();
       } else if (op.first=="linker_output_flag") {
         linker_output_flag = op.second.to_string();
+      } else if (op.first=="compiler_include_flag") {
+        compiler_include_flag = op.second.to_string();
+      } else if (op.first=="include_dirs") {
+        include_dirs = op.second.to_string_vector();
       } else if (op.first=="extra_suffixes") {
         extra_suffixes_ = op.second.to_string_vector();
       } else if (op.first=="name") {
@@ -193,29 +214,22 @@ namespace casadi {
 
     // Name of temporary file
     if (temp_suffix) {
-      obj_name_ = temporary_file(directory + bare_name, suffix);
+      obj_name_ = temporary_file(bare_name, suffix, directory);
     } else {
       obj_name_ = directory + bare_name + suffix;
     }
     base_name_ = std::string(obj_name_.begin(), obj_name_.begin()+obj_name_.size()-suffix.size());
     bin_name_ = base_name_+SHARED_LIBRARY_SUFFIX;
 
-#ifndef _WIN32
-    // Have relative paths start with ./
-    if (obj_name_.at(0)!='/') {
-      obj_name_ = "./" + obj_name_;
-    }
-
-    if (bin_name_.at(0)!='/') {
-      bin_name_ = "./" + bin_name_;
-    }
-#endif // _WIN32
-
     // Construct the compiler command
     std::stringstream cccmd;
     cccmd << compiler;
     for (auto i=compiler_flags.begin(); i!=compiler_flags.end(); ++i) {
       cccmd << " " << *i;
+    }
+    // Include directories (OS-agnostic: prefix with the compiler's include flag)
+    for (const std::string& dir : include_dirs) {
+      cccmd << " " << compiler_include_flag << dir;
     }
     cccmd << " " << compiler_setup;
 

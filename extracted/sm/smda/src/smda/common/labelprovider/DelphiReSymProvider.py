@@ -252,7 +252,7 @@ class DelphiReSymProvider(AbstractLabelProvider):
         # Determine code areas
         code_areas = binary_info.code_areas
         if not code_areas:
-            LOGGER.debug("No code areas found, skipping DelphiReSym parsing")
+            LOGGER.warning("No code areas found, skipping DelphiReSym parsing")
             return
 
         # Code areas are virtual addresses - convert to file offsets for scanning
@@ -266,7 +266,7 @@ class DelphiReSymProvider(AbstractLabelProvider):
 
         # Validate the offsets are within binary bounds
         if self._code_start < 0 or self._code_end > len(self._binary):
-            LOGGER.debug(
+            LOGGER.warning(
                 f"Code area offsets out of bounds: {self._code_start}-{self._code_end}, binary size: {len(self._binary)}"
             )
             return
@@ -596,7 +596,7 @@ class DelphiReSymProvider(AbstractLabelProvider):
             me_addr = self._read_ptr(me_ref_offset)
 
             if me_addr is None:
-                continue
+                break
 
             me_offset = self._addr_to_offset(me_addr)
             method_info = self._extract_method_info(me_offset)

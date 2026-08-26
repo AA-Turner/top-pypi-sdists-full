@@ -369,11 +369,12 @@ namespace casadi {
     virtual bool has_function(const std::string& fname) const {return false;}
 
     // Add embedded function to map, helper function
-    void add_embedded(std::map<FunctionInternal*, Function>& all_fun,
+    void add_embedded(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
       const Function& dep, casadi_int max_depth) const;
 
     // Get all embedded functions, recursively
-    virtual void find(std::map<FunctionInternal*, Function>& all_fun, casadi_int max_depth) const {}
+    virtual void find(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
+      casadi_int max_depth) const;
 
     /** \brief Which variables enter with some order
 
@@ -386,6 +387,15 @@ namespace casadi {
     virtual std::vector<bool> which_depends(const std::string& s_in,
                                            const std::vector<std::string>& s_out,
                                            casadi_int order, bool tr=false) const;
+
+    /** \brief Apply an ordered list of simplify passes (used by transform)
+
+        Each pass is a (task, count) pair; count>0 runs the task that many times,
+        count==0 runs it until a fixed point.
+
+        \identifier{2ix} */
+    virtual Function simplify_passes(
+        const std::vector<std::pair<std::string, casadi_int> >& tasks) const;
 
     ///@{
     /** \brief  Is the class able to propagate seeds through the algorithm?
@@ -790,12 +800,18 @@ namespace casadi {
     /** \brief Wrap in an Function instance consisting of only one MX call
 
         \identifier{li} */
+    ///@{
+    Function wrap(const std::string& name) const;
     Function wrap() const;
+    /// @}
 
     /** \brief Wrap in an Function instance consisting of only one MX call
 
         \identifier{lj} */
+    /// @{
+    Function wrap_as_needed(const std::string& name, const Dict& opts) const;
     Function wrap_as_needed(const Dict& opts) const;
+    /// @}
 
     /** \brief Get all functions in the cache
 
@@ -846,12 +862,12 @@ namespace casadi {
     /** \brief Codegen incref for dependencies
 
         \identifier{lr} */
-    virtual void codegen_incref(CodeGenerator& g) const {}
+    virtual void codegen_incref(CodeGenerator& g) const;
 
     /** \brief Codegen decref for dependencies
 
         \identifier{ls} */
-    virtual void codegen_decref(CodeGenerator& g) const {}
+    virtual void codegen_decref(CodeGenerator& g) const;
 
     /** \brief Codegen decref for alloc_mem
 
@@ -903,6 +919,18 @@ namespace casadi {
         \identifier{m1} */
     virtual std::string codegen_mem_type() const { return ""; }
 
+    /** \brief Is thread-local memory object needed?
+
+        \identifier{2ex} */
+    virtual bool codegen_needs_mem() const { return false; }
+
+    /** \brief Is thread-local memory object managed by checkout/release
+
+    * without a need for alloc_mem, init_mem, free_mem?
+
+        \identifier{2ey} */
+    virtual bool codegen_mem_is_opaque() const { return false; }
+
     /** \brief Export / Generate C code for the dependency function
 
         \identifier{m2} */
@@ -917,6 +945,11 @@ namespace casadi {
 
         \identifier{m4} */
     virtual void jit_dependencies(const std::string& fname) {}
+
+    /** \brief Get JIT directory from options
+
+        \identifier{2ec} */
+    static std::string get_jit_directory(const Dict& jit_options);
 
     /** \brief Export function in a specific language
 
@@ -1150,6 +1183,16 @@ namespace casadi {
     virtual int sp_forward(const bvec_t** arg, bvec_t** res,
                             casadi_int* iw, bvec_t* w, void* mem) const;
 
+    /** \brief Propagate signal activity forward
+     *
+     * bvec bit set = active (possibly nonzero), clear = inactive (definitely zero).
+     * Unlike sp_forward (a dependency analysis), this respects multiplicative
+     * annihilation and nonzero constants. Default is the sound fallback: all active.
+
+        \identifier{2iy} */
+    virtual int eval_activity(const bvec_t** arg, bvec_t** res,
+                            casadi_int* iw, bvec_t* w, void* mem) const;
+
     /** \brief  Propagate sparsity forward, specific block
 
         \identifier{mx} */
@@ -1293,7 +1336,7 @@ namespace casadi {
 
         \identifier{ni} */
     std::string jit_name_;
-
+    std::string jit_directory_;
     std::string jit_base_name_;
 
     /** \brief Use a temporary name
@@ -1316,6 +1359,11 @@ namespace casadi {
        \identifier{nm} */
     casadi_release_t release_;
 
+    /** \brief Incref/decref redirected to C functions
+
+        \identifier{2gg} */
+    signal_t incref_, decref_;
+
     /** \brief Dict of statistics (resulting from evaluate)
 
         \identifier{nn} */
@@ -1325,6 +1373,11 @@ namespace casadi {
 
         \identifier{no} */
     bool has_refcount_;
+
+    /** \brief Reference counting in dependent functions
+
+        \identifier{2f2} */
+    bool has_refcount_in_deps_;
 
     /** \brief Values to prepopulate the function cache with
 
@@ -1402,6 +1455,9 @@ namespace casadi {
 
     // Store a reference to a custom Jacobian
     Function custom_jacobian_;
+
+    // Registered functions
+    std::vector<Function> registered_functions_;
 
     // Counter for unique names for dumping inputs and output
 #ifdef CASADI_WITH_THREAD
@@ -1766,9 +1822,6 @@ namespace casadi {
     if (arg.size()==inp.size()) {
       // Matching dimensions already
       return arg;
-    } else if (arg.is_empty()) {
-      // Empty matrix means set zero
-      return M(inp.size());
     } else if (arg.is_scalar()) {
       // Scalar assign means set all
       return M(inp, arg);
@@ -1779,10 +1832,15 @@ namespace casadi {
                && inp.size2()%arg.size2()==0) {
       // Horizontal repmat
       return repmat(arg, 1, inp.size2()/arg.size2());
-    } else {
-      casadi_assert_dev(npar!=-1);
-      // Multiple evaluation
+    } else if (npar!=-1 && arg.size1()==inp.size1() && arg.size2()>0 && inp.size2()>0
+               && (npar*inp.size2())%arg.size2()==0) {
+      // Multiple evaluation: grow argument horizontally to npar*inp columns
       return repmat(arg, 1, (npar*inp.size2())/arg.size2());
+    } else {
+      // Empty matrix means set zero (kept last so a 0-by-N argument is first given the
+      // chance to be recognised as a parallel/repmat call above)
+      casadi_assert_dev(arg.is_empty());
+      return M(inp.size());
     }
   }
 

@@ -603,6 +603,7 @@ class SeeqNames:
             startup_file = 'appserver-startup'
             upgrade_file = 'appserver-upgrade'
             async_upgrade_file = 'appserver-async-upgrade'
+            sync_migrations_file = 'appserver-sync-migrations'
             licensing_file = 'appserver-licensing'
             requests = 'appserver-requests'
             request_monitors = 'appserver-requestmonitors'

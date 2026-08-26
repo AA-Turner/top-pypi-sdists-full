@@ -149,6 +149,7 @@ def prepare_session_data(data_dict: dict):
         releaseName=data_dict.get("releaseName"),
         branchName=data_dict.get("branchName"),
         stackName=data_dict.get("stackName"),
+        subStackName=data_dict.get("subStackName"),
         SDKBuildNum=data_dict.get("SDKBuildNum"),
         SDKUrl=data_dict.get("SDKUrl"),
         studioUrl=data_dict.get("studioUrl"),

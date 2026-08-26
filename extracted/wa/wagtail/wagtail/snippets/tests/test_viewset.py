@@ -33,6 +33,7 @@ from wagtail.documents.tests.utils import get_test_document_file
 from wagtail.images import get_image_model
 from wagtail.images.tests.utils import get_test_image_file
 from wagtail.models import Locale, Workflow, WorkflowContentType
+from wagtail.permissions import policy_registry
 from wagtail.snippets.blocks import SnippetChooserBlock
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
@@ -49,7 +50,8 @@ from wagtail.test.testapp.models import (
     SnippetChooserModel,
     VariousOnDeleteModel,
 )
-from wagtail.test.utils import WagtailTestUtils
+from wagtail.test.testapp.wagtail_hooks import FullFeaturedPermissionPolicy
+from wagtail.test.utils import PageFixturesMixin, WagtailTestUtils
 from wagtail.test.utils.template_tests import AdminTemplateTestUtils
 from wagtail.utils.timestamps import render_timestamp
 
@@ -312,6 +314,22 @@ class TestSnippetChooserPanelWithIcon(BaseSnippetViewSetTests):
         response_json = response.json()
         self.assertEqual(response_json["step"], "chosen")
         self.assertEqual(response_json["result"]["string"], "New snippet")
+
+
+class TestSnippetChooserViewSetWidgetClass(SimpleTestCase):
+    def test_widget_class_returns_class(self):
+        chooser_viewset = FullFeaturedSnippet.snippet_viewset.chooser_viewset
+        widget_class = chooser_viewset.widget_class
+
+        self.assertIsInstance(widget_class, type)
+        self.assertTrue(issubclass(widget_class, AdminSnippetChooser))
+        self.assertEqual(widget_class.model, FullFeaturedSnippet)
+        self.assertEqual(widget_class.icon, "cog")
+
+        widget_instance = widget_class()
+        self.assertIsInstance(widget_instance, widget_class)
+        self.assertEqual(widget_instance.model, FullFeaturedSnippet)
+        self.assertEqual(widget_instance.icon, "cog")
 
 
 class TestAdminURLs(BaseSnippetViewSetTests):
@@ -597,7 +615,9 @@ class TestFilterSetClass(BaseSnippetViewSetTests):
 
 
 @tag("transaction")
-class TestFilterSetClassSearch(WagtailTestUtils, TransactionTestCase):
+class TestFilterSetClassSearch(
+    PageFixturesMixin, WagtailTestUtils, TransactionTestCase
+):
     fixtures = ["test_empty.json"]
 
     def setUp(self):
@@ -1790,6 +1810,11 @@ class TestCustomPermissionPolicy(BaseSnippetViewSetTests):
         self.assertEqual(self.user.get_full_name(), "[FORBIDDEN] Joe")
         response = self.client.get(self.get_url("edit", args=(quote(self.object.pk),)))
         self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_registered_policy(self):
+        permission_policy = policy_registry.get_by_type(self.model)
+        self.assertIsInstance(permission_policy, FullFeaturedPermissionPolicy)
+        self.assertIs(permission_policy, self.model.snippet_viewset.permission_policy)
 
 
 class TestSnippetIndexViewBreadcrumbs(SimpleTestCase):

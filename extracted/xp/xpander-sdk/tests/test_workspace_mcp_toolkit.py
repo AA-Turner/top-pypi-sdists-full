@@ -243,3 +243,27 @@ async def test_a_tool_declaring_agent_as_a_parameter_still_receives_it(monkeypat
 
 def bridge_args(client: _FakeClient) -> dict:
     return client.calls[-1]["payload"]["arguments"]
+
+
+# ===== start-failure notes carry the workspace's classified reason =====
+
+def test_failure_reason_extracts_http_detail():
+    from xpander_sdk.modules.backend.frameworks.agno import _workspace_mcp_failure_reason
+
+    class _Resp:
+        text = ""
+
+        def json(self):
+            return {"detail": "'x' exited before completing the MCP handshake - the command must be a long-running stdio MCP server, not an installer or one-shot tool"}
+
+    err = Exception("502 Bad Gateway")
+    err.response = _Resp()
+    reason = _workspace_mcp_failure_reason(err)
+    assert "exited before completing the MCP handshake" in reason
+    assert len(reason) <= 203
+
+
+def test_failure_reason_empty_for_bare_errors():
+    from xpander_sdk.modules.backend.frameworks.agno import _workspace_mcp_failure_reason
+
+    assert _workspace_mcp_failure_reason(Exception("boom")) == ""

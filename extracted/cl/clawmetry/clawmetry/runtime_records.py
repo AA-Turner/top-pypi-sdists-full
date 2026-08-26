@@ -42,12 +42,18 @@ UNAVAILABLE = "unavailable"
 # Not yet verified against a real capture of this runtime. Honest ignorance —
 # rendered as "not verified", never as a zero and never as a claim.
 UNKNOWN = "unknown"
+# The runtime records it for SOME of its work and not the rest, and nothing on
+# disk marks which is which. A total is therefore a floor, not a bill. This
+# state exists because collapsing it into ON_DISK reintroduces exactly the bug
+# this module was written to remove: a number presented as complete when it is
+# not. Surfaces must show the number AND say it is a floor.
+PARTIAL = "partial"
 
-_STATES = frozenset({ON_DISK, DERIVED, UNAVAILABLE, UNKNOWN})
+_STATES = frozenset({ON_DISK, DERIVED, UNAVAILABLE, UNKNOWN, PARTIAL})
 
 # Signals a surface can ask about. Deliberately short: these are the three the
 # broken-looking panels actually depend on. Adding a fourth means being able to
-# answer it for all 26 runtimes, which is the bar that keeps this table true.
+# answer it for all 27 runtimes, which is the bar that keeps this table true.
 SIGNALS = ("tokens", "cost", "model")
 
 
@@ -200,9 +206,21 @@ RUNTIME_RECORDS: dict[str, dict] = {
              "both for a free local model and for a pricing lookup it could "
              "not resolve, so a genuine zero and a missing price look alike.",
     ),
+    "openworker": _e(
+        ON_DISK, DERIVED, ON_DISK,
+        "The token split rides a per-message sidecar tagged with the model "
+        "that produced that turn",
+        note="OpenWorker persists the token split (input/output/cache read and "
+             "write) on every assistant message, tagged with the model that "
+             "produced it, so a session that switches models is priced per "
+             "model. It writes no dollars anywhere, so cost is always derived "
+             "from the pricing table, never reported. Its audit log also "
+             "carries token columns; those meter the Auto-Approve reviewer, "
+             "not the agent, and are deliberately excluded from session cost.",
+    ),
     # ── partial / conditional ────────────────────────────────────────────
     "n8n": _e(
-        ON_DISK, ON_DISK, ON_DISK,
+        PARTIAL, PARTIAL, ON_DISK,
         "tokens + cost where the model sub-node records usage",
         note="n8n records tokens and cost only for workflow steps whose model "
              "node reports usage. Steps that do not report leave real spend "
@@ -268,10 +286,13 @@ def state_of(runtime: str | None, signal: str) -> str:
 
 
 def is_recorded(runtime: str | None, signal: str) -> bool:
-    """True when a real number can be shown for ``signal`` — either the
-    runtime wrote it or ClawMetry can derive it. False means the panel must
-    say so instead of rendering a zero."""
-    return state_of(runtime, signal) in (ON_DISK, DERIVED)
+    """True when a real number can be shown for ``signal`` — the runtime wrote
+    it, ClawMetry can derive it, or it covers part of the work. False means the
+    panel must say so instead of rendering a zero.
+
+    ``PARTIAL`` counts as recorded: there IS a number and suppressing it would
+    hide real spend. It carries a caveat instead, via ``coverage_payload``."""
+    return state_of(runtime, signal) in (ON_DISK, DERIVED, PARTIAL)
 
 
 def unrecorded_signals(runtime: str | None) -> list[str]:
@@ -352,6 +373,10 @@ def coverage_payload(runtime: str | None, *, has_data: bool = False) -> dict:
             # A UI reading one boolean gets the safe behaviour by default.
             "suppress_zero": status in ("not_recorded", "unverified"),
             "cost_is_estimate": cost_state == DERIVED,
+            # The number is real but covers only part of the work, so it is a
+            # floor. Shown, never suppressed, and never presented as a total.
+            "cost_is_partial": cost_state == PARTIAL,
+            "partial_note": (rec.get("note") or "") if cost_state == PARTIAL else "",
         }
     except Exception:
         return {
@@ -360,4 +385,5 @@ def coverage_payload(runtime: str | None, *, has_data: bool = False) -> dict:
             "records": {s: UNKNOWN for s in SIGNALS},
             "unrecorded": [], "unverified": list(SIGNALS),
             "suppress_zero": False, "cost_is_estimate": False,
+            "cost_is_partial": False, "partial_note": "",
         }

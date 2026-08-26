@@ -1,8 +1,6 @@
 from abc import abstractmethod
 from typing import Any, Protocol
 
-from .core import int32
-
 
 class IGenericAdder_1[T](Protocol):
     @abstractmethod
@@ -17,7 +15,7 @@ class IGenericAverager_1[T](Protocol):
     def Add(self, __arg0: Any, __arg1: Any, /) -> Any: ...
 
     @abstractmethod
-    def DivideByInt(self, __arg0: Any, __arg1: int32, /) -> Any: ...
+    def DivideByInt(self, __arg0: Any, __arg1: int, /) -> Any: ...
 
     @abstractmethod
     def GetZero(self, /) -> Any: ...

@@ -2786,7 +2786,7 @@ def register_generated_tools(mcp, _get_client):
             source: `all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager — matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default — use the `status` param for that.
             platform
             status: Filter by derived campaign status (post-aggregation)
-            ad_account_id: Platform ad account ID
+            ad_account_id: One or more platform ad account IDs to scope the tree to (agency profiles connect a whole Business Manager but a workspace usually cares about a subset). Comma-separate for multiple (`?adAccountId=act_1,act_2,act_3`); single value keeps its old shape. Max 50 accounts per request; the plural aliases `adAccountIds` and `platformAdAccountIds` are rejected with a 400 to stop them from silently returning the unfiltered fleet.
             page_id: Meta only: Facebook Page ID. Prunes the tree to ads whose creative is backed by this Page — campaigns and ad sets with no ad on the Page drop out, and rolled-up metrics cover only the Page's ads. Mirrors the same filter on /v1/ads and /v1/ads/campaigns.
             account_id: Social account ID
             profile_id: Profile ID
@@ -3229,6 +3229,7 @@ def register_generated_tools(mcp, _get_client):
         negative_keywords: list[str] | None = None,
         additional_headlines: list[str] | None = None,
         additional_descriptions: list[str] | None = None,
+        sitelinks: list[dict[str, Any]] | None = None,
         advantage_audience: int | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         gender: str = "all",
@@ -3263,6 +3264,7 @@ def register_generated_tools(mcp, _get_client):
         - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
         - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
+        - `page_likes`: Page Likes conversion location under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled from the connected Page. The creative CTA is fixed to LIKE_PAGE targeting that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives the link and the Like button from the Page).
 
         **TikTok**
         - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
@@ -3435,7 +3437,8 @@ def register_generated_tools(mcp, _get_client):
                 carousel_cards: Meta only. Hand-built carousel: 2-10 authored cards in DETERMINISTIC order, mapped to
         the creative's `link_data.child_attachments`. Unlike `dynamicCreative`,
         you control the card order and per-card copy/link. Requires top-level `body`,
-        `linkUrl` and `callToAction`.
+        `linkUrl` and `callToAction`. Those become the ad's own Destination and
+        button (`link_data.link` / `link_data.call_to_action`), and double as the per-card fallback when a card omits its own.
         Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`,
         `placementAssets`, `existingCreativeId`, `adSetId`, `leadGenFormId` and goal
         `catalog_sales`.
@@ -3500,6 +3503,13 @@ def register_generated_tools(mcp, _get_client):
                 negative_keywords: Google Search only; other platforms return 400. BROAD-match negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
                 additional_headlines: Google Search RSA only. Extra headlines.
                 additional_descriptions: Google Search RSA only. Extra descriptions.
+                sitelinks: Google Search only. Sitelink assets to create and attach at the campaign level.
+        Each entry becomes an Asset (with sitelink_asset + Asset.final_urls) plus a
+        CampaignAsset link (field_type SITELINK). Approval is async — Google reviews
+        assets after creation; poll asset.policy_summary later to read the verdict.
+        Google requires at least two sitelinks to surface them on an ad; four or more
+        is Google's own recommendation for maximum visibility. The response's
+        creative.sitelinks[] echoes each input plus its Google resourceName.
                 advantage_audience: Meta only. Controls the Advantage audience feature (targeting_automation). 0 = disabled (default), 1 = enabled. Meta Marketing API requires this field on all ad set creation requests.
                 attribution_spec: Meta only. Conversion attribution window for the ad set — maps 1:1 to Meta's
         ad-set `attribution_spec`. Only honored for conversion goals (`conversions`,
@@ -3705,6 +3715,7 @@ def register_generated_tools(mcp, _get_client):
                 negative_keywords=negative_keywords,
                 additional_headlines=additional_headlines,
                 additional_descriptions=additional_descriptions,
+                sitelinks=sitelinks,
                 advantage_audience=advantage_audience,
                 attribution_spec=attribution_spec,
                 gender=gender,
@@ -3780,6 +3791,26 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_creatives.get_ad_previews(ad_id=ad_id, formats=formats)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Direct video and image URLs for an ad",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_creatives_get_ad_media(ad_id: str) -> str:
+        """Direct video and image URLs for an ad
+
+        Args:
+            ad_id: Zernio ad id (24-char hex) or platform ad id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.get_ad_media(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -7367,11 +7398,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Complete OAuth callback
 
-        Args:
-            platform: (required)
-            code: (required)
-            state: (required)
-            profile_id: (required)"""
+            Args:
+                platform: Social platform to complete the connect for. Discord, Slack and Telegram are absent because they are
+        served by their own dedicated routes, documented separately.
+         (required)
+                code: (required)
+                state: (required)
+                profile_id: (required)"""
         client = _get_client()
         try:
             response = client.connect.handle_o_auth_callback(
@@ -8084,6 +8117,102 @@ def register_generated_tools(mcp, _get_client):
                 temp_token=temp_token,
                 user_profile=user_profile,
                 redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect WhatsApp from Embedded Signup",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_whats_app_embedded_signup(
+        code: str,
+        profile_id: str,
+        waba_id: str | None = None,
+        phone_number_id: str | None = None,
+        is_coexistence: bool | None = None,
+        expected_phone_number: str | None = None,
+    ) -> str:
+        """Connect WhatsApp from Embedded Signup
+
+        Args:
+            code: Authorization code from the WA_EMBEDDED_SIGNUP postMessage (required)
+            profile_id: (required)
+            waba_id: WhatsApp Business Account id, when the SDK reported one
+            phone_number_id
+            is_coexistence: Number is also live in the WhatsApp Business app
+            expected_phone_number: Rejects the connect when Meta returns a different number"""
+        client = _get_client()
+        try:
+            response = client.connect.connect_whats_app_embedded_signup(
+                code=code,
+                profile_id=profile_id,
+                waba_id=waba_id,
+                phone_number_id=phone_number_id,
+                is_coexistence=is_coexistence,
+                expected_phone_number=expected_phone_number,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Discord channel",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_discord_channel(guild_id: str, channel_id: str, profile_id: str) -> str:
+        """Connect a Discord channel
+
+        Args:
+            guild_id: Discord server (guild) the channel belongs to (required)
+            channel_id: Text, announcement or forum channel to publish to (required)
+            profile_id: Profile to connect the channel to (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.connect_discord_channel(
+                guild_id=guild_id, channel_id=channel_id, profile_id=profile_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Slack channel",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_slack_channel(
+        profile_id: str,
+        channel_id: str,
+        pending_data_token: str | None = None,
+        account_id: str | None = None,
+    ) -> str:
+        """Connect a Slack channel
+
+        Args:
+            profile_id: (required)
+            channel_id: Slack channel id, C... or G... (required)
+            pending_data_token: Nonce from the OAuth redirect. Required unless accountId is sent.
+            account_id: Existing Slack account whose workspace token is reused. Required unless pendingDataToken is sent."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_slack_channel(
+                profile_id=profile_id,
+                channel_id=channel_id,
+                pending_data_token=pending_data_token,
+                account_id=account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -11586,8 +11715,7 @@ def register_generated_tools(mcp, _get_client):
         commerce messages (single product, product list, catalog, and
         carousel). When set, takes priority over `buttons` and
         `quickReplies`. The shape mirrors Meta's Cloud API `interactive`
-        object verbatim, so any payload that works against Meta directly
-        will also work here.
+        object for the types in the enum below.
 
         Use `buttons` / `quickReplies` for simple button replies
         (WhatsApp's `interactive.type: "button"`): the abstraction caps at
@@ -11632,6 +11760,18 @@ def register_generated_tools(mcp, _get_client):
 
         For `catalog_message`, `action` may also be omitted (we default it
         to `{ "name": "catalog_message" }`).
+
+        For `address_message`, `parameters.country` is required (Meta
+        rejects the whole send without it); everything else in
+        `parameters` (`values`, `saved_addresses`, `validation_errors`)
+        is forwarded to Meta as-is. This is Meta's native structured
+        shipping-address capture, generally available in India as of
+        2026-08; check Meta's documentation for current country
+        availability before relying on it elsewhere. The submitted
+        address arrives as an `nfm_reply` on the `message.received`
+        webhook, same as a Flow submission, but with
+        `metadata.nfmReplyName` set to `address_message` so you can
+        tell the two apart.
 
         Tap events come back via the `message.received` webhook with
         `metadata.interactiveType` set to `list_reply` or `nfm_reply`.
@@ -11910,6 +12050,7 @@ def register_generated_tools(mcp, _get_client):
         body: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
+        welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
         budget_amount: float | None = None,
@@ -11957,6 +12098,9 @@ def register_generated_tools(mcp, _get_client):
                 video: Video creative for single-creative shape. Mutually
         exclusive with `imageUrl` and with `creatives[]`. Required
         on the single-creative shape if `imageUrl` is not supplied.
+                welcome_message: Custom chat welcome message (Meta's `page_welcome_message`,
+        "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager).
+        Single-creative shape only; for `creatives[]` set it per entry.
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
@@ -12060,6 +12204,7 @@ def register_generated_tools(mcp, _get_client):
                 body=body,
                 image_url=image_url,
                 video=video,
+                welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
                 budget_amount=budget_amount,
@@ -12110,6 +12255,7 @@ def register_generated_tools(mcp, _get_client):
         body: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
+        welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
         budget_amount: float | None = None,
@@ -12157,6 +12303,9 @@ def register_generated_tools(mcp, _get_client):
                 video: Video creative for single-creative shape. Mutually
         exclusive with `imageUrl` and with `creatives[]`. Required
         on the single-creative shape if `imageUrl` is not supplied.
+                welcome_message: Custom chat welcome message (Meta's `page_welcome_message`,
+        "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager).
+        Single-creative shape only; for `creatives[]` set it per entry.
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
@@ -12261,6 +12410,7 @@ def register_generated_tools(mcp, _get_client):
                 body=body,
                 image_url=image_url,
                 video=video,
+                welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
                 budget_amount=budget_amount,
@@ -12310,6 +12460,7 @@ def register_generated_tools(mcp, _get_client):
         body: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
+        welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
         budget_amount: float | None = None,
@@ -12357,6 +12508,9 @@ def register_generated_tools(mcp, _get_client):
                 video: Video creative for single-creative shape. Mutually
         exclusive with `imageUrl` and with `creatives[]`. Required
         on the single-creative shape if `imageUrl` is not supplied.
+                welcome_message: Custom chat welcome message (Meta's `page_welcome_message`,
+        "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager).
+        Single-creative shape only; for `creatives[]` set it per entry.
                 creatives: Multi-creative shape: N CTWA ads under one campaign + one
         ad set, sharing budget and targeting. Mutually exclusive
         with the top-level single-creative fields (`headline` /
@@ -12459,6 +12613,7 @@ def register_generated_tools(mcp, _get_client):
                 body=body,
                 image_url=image_url,
                 video=video,
+                welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
                 budget_amount=budget_amount,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.935
+Version: 0.4.944
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -74,6 +74,7 @@ Requires-Dist: geopy>=2.0
 Requires-Dist: scikit-image>=0.21
 Requires-Dist: matplotlib<3.11
 Requires-Dist: pandas<3
+Requires-Dist: openpyxl
 Provides-Extra: dashboard
 Requires-Dist: panel>=1.4.0; extra == "dashboard"
 Requires-Dist: hvplot>=0.10.0; extra == "dashboard"
@@ -126,33 +127,48 @@ Generate Climatic Impact-Drivers (CIDs) from Earth Observation (EO) data, build 
 
 ### Requirements
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [pixi](https://pixi.sh/latest/#installation)
+
+Pixi provisions Python 3.11 and the compiled geospatial stack (GDAL, rasterio,
+fiona, shapely, pyproj, rtree, cartopy) from conda-forge, so no system GDAL and
+no pre-built Windows wheels are needed.
 
 ### Install
 
 ```bash
 cd geocif                   # project root (where pyproject.toml lives)
-uv sync                     # creates .venv and installs all dependencies
+pixi install                # resolves pixi.lock into .pixi/
 ```
 
-On **Windows**, uv automatically pulls pre-built geospatial wheels (GDAL, rasterio, fiona, shapely, pyproj, rtree) from the URLs in `[tool.uv.sources]`. On **Linux/macOS**, those entries are skipped (platform marker) and packages are installed from PyPI.
-
-To activate the environment:
+Verify:
 
 ```bash
-# Windows
-.venv\Scripts\activate
+pixi run python -c "from osgeo import gdal; import geocif; print(geocif.__version__)"
+```
 
-# Linux/macOS
-source .venv/bin/activate
+Run commands inside the environment with `pixi run <cmd>`, or open a shell in it
+with `pixi shell`.
+
+### Extra environments
+
+```bash
+pixi run -e dev pytest      # dev tooling
+pixi install -e full        # all pixi features
 ```
 
 ### Fresh reinstall
 
 ```bash
-rm -rf .venv && uv sync
+rm -rf .pixi && pixi install
 ```
+
+### Installing as a library
+
+`pip install geocif` still works and resolves from `[project.dependencies]`;
+this is how the cluster env pulls the package. Note that four optional extras
+(`shap_fast`, `powershap`, `geospann`, `desreg`) pin dependencies that conflict
+with geocif's own core pins and cannot currently be installed alongside it — see
+the comments in `pyproject.toml`.
 
 ## Config files
 

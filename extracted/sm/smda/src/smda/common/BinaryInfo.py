@@ -7,10 +7,16 @@ import lief
 from smda.common.labelprovider.ElfSymbolProvider import ElfSymbolProvider
 from smda.common.labelprovider.MachoSymbolProvider import MachoSymbolProvider
 from smda.common.labelprovider.PeSymbolProvider import PeSymbolProvider
-from smda.utility.lief_helper import safe_lief_parse
+from smda.utility.lief_helper import lief_name, safe_lief_parse
 from smda.utility.MachoFileLoader import MachoFileLoader
 
 LOGGER = logging.getLogger(__name__)
+
+
+# lief spells the ELF header's type as an enum member; read it the way the symbol providers
+# read theirs, so a lief that names it differently leaves every ELF looking relocated rather
+# than raising in the middle of an analysis
+_ELF_TYPE_EXEC = getattr(getattr(lief.ELF.Header, "FILE_TYPE", None), "EXEC", None)
 
 
 class BinaryInfo:
@@ -53,6 +59,7 @@ class BinaryInfo:
     is_library = False
     is_buffer = False
     has_backend = False
+    format_recognized = False
     sha256 = ""
     sha1 = ""
     md5 = ""
@@ -71,6 +78,7 @@ class BinaryInfo:
         self.has_backend = False
         self._lief_binary = None
         self._lief_type = None
+        self._position_independent_elf = None
         self._symbol_provider = None
         self.abi = ""
 
@@ -91,6 +99,27 @@ class BinaryInfo:
                 self._lief_type = "OTHER"
         return self._lief_type
 
+    def isPositionIndependentElf(self):
+        """Whether this is an ELF the loader places at a base of its own choosing.
+
+        Every absolute address such an image stores has to be relocated when it is loaded, and
+        no compiler emits a switch table that way: it emits offsets from a base the code
+        computes for itself, precisely so the table needs no relocation. An absolute table of
+        code addresses in a shared object is therefore something else - the function pointers a
+        tail call dispatches through, whose targets are separate functions.
+
+        An ELF whose header type cannot be read answers True as well. The caller uses this to
+        refuse to read a table, and refusing one costs a switch its case bodies where admitting
+        one merges whole functions together.
+        """
+        if self._position_independent_elf is None:
+            self._position_independent_elf = False
+            if self._getLiefType() == "ELF":
+                header = getattr(self.getLiefBinary(), "header", None)
+                file_type = getattr(header, "file_type", None)
+                self._position_independent_elf = file_type is None or file_type != _ELF_TYPE_EXEC
+        return self._position_independent_elf
+
     def getBinaryData(self):
         """Safely retrieves binary data from either raw_data or a file path."""
         data = self.raw_data
@@ -99,7 +128,7 @@ class BinaryInfo:
                 with open(self.file_path, "rb") as fin:
                     data = fin.read()
             except OSError as e:
-                LOGGER.debug("Failed to read binary from path %s: %s", self.file_path, e)
+                LOGGER.warning("Failed to read binary from path %s: %s", self.file_path, e)
                 return None
         return data
 
@@ -221,18 +250,18 @@ class BinaryInfo:
                 section_size = section.virtual_size or section.sizeof_raw_data
                 if section_size % 0x1000 != 0:
                     section_size += 0x1000 - (section_size % 0x1000)
-                yield section.name, section_start, section_start + section_size
+                yield lief_name(section), section_start, section_start + section_size
         elif lief_type == "ELF":
             for section in parsed_binary.sections:
                 section_start = section.virtual_address
                 section_size = section.size
-                yield section.name, section_start, section_start + section_size
+                yield lief_name(section), section_start, section_start + section_size
         elif lief_type == "MACH_O":
             adjustment = symbol_provider._get_address_adjustment(parsed_binary)
             for section in parsed_binary.sections:
                 section_start = section.virtual_address + adjustment
                 section_size = section.size
-                yield section.name, section_start, section_start + section_size
+                yield lief_name(section), section_start, section_start + section_size
 
     def isInCodeAreas(self, address):
         is_inside = False

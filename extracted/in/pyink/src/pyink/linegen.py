@@ -81,6 +81,7 @@ from pyink.strings import (
     normalize_string_prefix,
     normalize_string_quotes,
     normalize_unicode_escape_sequences,
+    str_width,
 )
 from pyink.trans import (
     CannotTransform,
@@ -618,6 +619,12 @@ class LineGenerator(Visitor[Line]):
         yield from self.visit_default(node)
 
     def visit_fstring(self, node: Node) -> Iterator[Line]:
+        # If the fstring was converted to a STANDALONE_COMMENT by
+        # normalize_fmt_off (e.g. it was inside a # fmt: off block),
+        # skip the fstring-to-string conversion and just visit normally.
+        if any(child.type == STANDALONE_COMMENT for child in node.children):
+            yield from self.visit_default(node)
+            return
         # currently we don't want to format and split f-strings at all.
         string_leaf = fstring_tstring_to_string(node)
         node.replace(string_leaf)
@@ -633,6 +640,11 @@ class LineGenerator(Visitor[Line]):
         yield from self.visit_STRING(string_leaf)
 
     def visit_tstring(self, node: Node) -> Iterator[Line]:
+        # If the tstring was converted to a STANDALONE_COMMENT by
+        # normalize_fmt_off, skip the conversion and just visit normally.
+        if any(child.type == STANDALONE_COMMENT for child in node.children):
+            yield from self.visit_default(node)
+            return
         # currently we don't want to format and split t-strings at all.
         string_leaf = fstring_tstring_to_string(node)
         node.replace(string_leaf)
@@ -723,6 +735,7 @@ class LineGenerator(Visitor[Line]):
         self.visit_guard = partial(v, keywords=Ø, parens={"if"})
 
 
+# Remove when `simplify_power_operator_hugging` becomes stable.
 def _hugging_power_ops_line_to_string(
     line: Line,
     features: Collection[Feature],
@@ -749,11 +762,15 @@ def transform_line(
 
     line_str = line_to_string(line)
 
-    # We need the line string when power operators are hugging to determine if we should
-    # split the line. Default to line_str, if no power operator are present on the line.
-    line_str_hugging_power_ops = (
-        _hugging_power_ops_line_to_string(line, features, mode) or line_str
-    )
+    if Preview.simplify_power_operator_hugging in mode:
+        line_str_hugging_power_ops = line_str
+    else:
+        # We need the line string when power operators are hugging to determine if we
+        # should split the line. Default to line_str, if no power operator are present
+        # on the line.
+        line_str_hugging_power_ops = (
+            _hugging_power_ops_line_to_string(line, features, mode) or line_str
+        )
 
     ll = mode.line_length
     sn = mode.string_normalization
@@ -807,7 +824,9 @@ def transform_line(
                 # *current* transformation fits in the line length.  This is true only
                 # for simple cases.  All others require running more transforms via
                 # `transform_line()`.  This check doesn't know if those would succeed.
-                if is_line_short_enough(lines[0], mode=mode):
+                if is_line_short_enough(lines[0], mode=mode) or (
+                    omit and _over_length_only_due_to_subscript_comment(lines[0], mode)
+                ):
                     yield from lines
                     return
 
@@ -847,9 +866,11 @@ def transform_line(
                 transformers = [delimiter_split, standalone_comment_split, rhs]
             else:
                 transformers = [rhs]
-    # It's always safe to attempt hugging of power operations and pretty much every line
-    # could match.
-    transformers.append(hug_power_op)
+
+    if Preview.simplify_power_operator_hugging not in mode:
+        # It's always safe to attempt hugging of power operations and pretty much every
+        # line could match.
+        transformers.append(hug_power_op)
 
     for transform in transformers:
         # We are accumulating lines in `result` because we might want to abort
@@ -946,8 +967,7 @@ def left_hand_split(
             current_leaves.append(leaf)
             if current_leaves is head_leaves:
                 if leaf.type == leaf_type and (
-                    Preview.fix_type_expansion_split not in mode
-                    or not (leaf_type == token.LPAR and depth > 0)
+                    not (leaf_type == token.LPAR and depth > 0)
                 ):
                     matching_bracket = leaf
                     current_leaves = body_leaves
@@ -1571,10 +1591,8 @@ def normalize_invisible_parens(
         ):
             check_lpar = True
 
-        # Check for assignment LHS with preview feature enabled
         if (
-            Preview.remove_parens_from_assignment_lhs in mode
-            and index == 0
+            index == 0
             and isinstance(child, Node)
             and child.type == syms.atom
             and node.type == syms.expr_stmt
@@ -1646,7 +1664,18 @@ def normalize_invisible_parens(
                 break
 
             elif not is_multiline_string(child):
-                wrap_in_parentheses(node, child, visible=False)
+                if (
+                    Preview.fix_if_guard_explosion_in_case_statement in mode
+                    and node.type == syms.guard
+                ):
+                    mock_line = Line(mode=mode)
+                    for leaf in child.leaves():
+                        mock_line.append(leaf)
+                    # If it's a guard AND it's short, we DON'T wrap
+                    if not is_line_short_enough(mock_line, mode=mode):
+                        wrap_in_parentheses(node, child, visible=False)
+                else:
+                    wrap_in_parentheses(node, child, visible=False)
 
         comma_check = child.type == token.COMMA
 
@@ -1854,12 +1883,14 @@ def maybe_make_parens_invisible_in_atom(
             # and option to skip this check for `for` and `with` statements.
             not remove_brackets_around_comma
             and max_delimiter_priority_in_atom(node) >= COMMA_PRIORITY
-            # Skip this check in Preview mode in order to
             # Remove parentheses around multiple exception types in except and
             # except* without as. See PEP 758 for details.
             and not (
-                Preview.remove_parens_around_except_types in mode
-                and Feature.UNPARENTHESIZED_EXCEPT_TYPES in features
+                # GOOGLE: Disable this feature for now because it is very
+                # disruptive and the formatted syntax isn't compatible with
+                # Python <= 3.13.
+                False
+                # Feature.UNPARENTHESIZED_EXCEPT_TYPES in features
                 # is a tuple
                 and is_tuple(node)
                 # has a parent node
@@ -1904,9 +1935,10 @@ def maybe_make_parens_invisible_in_atom(
         middle = node.children[1]
         # make parentheses invisible
         if (
-            # If the prefix of `middle` includes a type comment with
+            # If the prefix of `middle` or `last` includes a type comment with
             # ignore annotation, then we do not remove the parentheses
             not ink_comments.comment_contains_pragma(middle.prefix.strip(), mode)
+            and not ink_comments.comment_contains_pragma(last.prefix.strip(), mode)
         ):
             first.value = ""
             last.value = ""
@@ -2041,6 +2073,37 @@ def generate_trailers_to_omit(line: Line, line_length: int) -> Iterator[set[Leaf
                 closing_bracket = leaf
 
 
+def _over_length_only_due_to_subscript_comment(line: Line, mode: Mode) -> bool:
+    """Return True if `line` only exceeds `mode.line_length` because of an inline
+    comment attached to a subscript opening bracket (`[`).
+
+    This is the shape produced by the original of the issue #4733 reproducer:
+    a comment inside the annotation's subscript brackets renders at the end of
+    the head line after Black splits the statement, pushing it past the limit.
+    Taking the FORCE_OPTIONAL_PARENTHESES "second opinion" in that case wraps
+    the annotation in extra parens and migrates the comment outside the
+    subscript, which then oscillates on the next formatter pass.
+    """
+    if not line.leaves:
+        return False
+    # The over-length must be caused entirely by a trailing comment.
+    indent = " " * line.indentation_spaces()
+    leaves_iter = iter(line.leaves)
+    first = next(leaves_iter)
+    text_without_comments = f"{first.prefix}{indent}{first.value}"
+    text_without_comments += "".join(str(leaf) for leaf in leaves_iter)
+    if str_width(text_without_comments) > mode.line_length:
+        return False
+    # And the comment must be attached to a subscript opening bracket.
+    for leaf_id, comments in line.comments.items():
+        if not comments:
+            continue
+        leaf = next((lf for lf in line.leaves if id(lf) == leaf_id), None)
+        if leaf is None or leaf.type != token.LSQB:
+            return False
+    return True
+
+
 def run_transformer(
     line: Line,
     transform: Transformer,
@@ -2068,6 +2131,12 @@ def run_transformer(
         or result[0].contains_uncollapsable_pragma_comments()
         or result[0].contains_unsplittable_type_ignore()
         or is_line_short_enough(result[0], mode=mode)
+        # result[0] only exceeds the length because of a comment attached to a
+        # subscript opening bracket.  Taking the FORCE_OPTIONAL_PARENTHESES
+        # "second opinion" wraps the annotation in extra invisible parens and
+        # migrates the comment outside the subscript, which then oscillates with
+        # a deeper-bracket split on the next formatter pass (issue #4733).
+        or _over_length_only_due_to_subscript_comment(result[0], mode)
         # If any leaves have no parents (which _can_ occur since
         # `transform(line)` potentially destroys the line's underlying node
         # structure), then we can't proceed. Doing so would cause the below

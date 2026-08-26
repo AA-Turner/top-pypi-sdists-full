@@ -141,9 +141,38 @@ std::unique_ptr<std::istream> Filesystem::ifstream_ptr(const std::string& path,
   return ret;
 }
 
+void Filesystem::copy_file(const std::string& src, const std::string& dest) {
+  auto in = ifstream_ptr(src, std::ios::binary, true);
+  auto out = ofstream_ptr(dest, std::ios::binary);
+  *out << in->rdbuf();
+}
+
 bool Filesystem::exists(const std::string& path) {
   auto ret = ifstream_compat(path);
   return static_cast<bool>(ret);
+}
+
+std::string Filesystem::ensure_trailing_slash(const std::string& path) {
+  if (!path.empty() && path.back() != '/' && path.back() != '\\') {
+    return path + '/';
+  }
+  return path;
+}
+
+bool Filesystem::is_absolute(const std::string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  if (path.front() == '.') {
+    return false;
+  }
+  if (path.front() == '/') {
+    return true;
+  }
+  if (path.size() > 1 && path[1] == ':') {
+    return true;
+  }
+  return false;
 }
 
 } // namespace casadi

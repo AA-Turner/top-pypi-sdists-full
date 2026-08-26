@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.7.0.5
+Version: 1.7.0.6
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -158,7 +158,6 @@ Requires-Dist: cachetools<6.0.0; extra == "cassandra"
 Requires-Dist: cassandra-driver<4.0.0,>=3.30.1; extra == "cassandra"
 Requires-Dist: numpy<2; extra == "cassandra"
 Provides-Extra: circuit-breaker
-Requires-Dist: gql[requests]>=4.0.0; extra == "circuit-breaker"
 Provides-Extra: clickhouse
 Requires-Dist: cachetools<6.0.0; extra == "clickhouse"
 Requires-Dist: clickhouse-sqlalchemy<0.2.5,>=0.2.0; extra == "clickhouse"
@@ -462,6 +461,10 @@ Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "iceberg-catalog"
 Provides-Extra: informatica
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "informatica"
 Requires-Dist: requests<3.0.0; extra == "informatica"
+Provides-Extra: informix
+Requires-Dist: jdk4py<22.0,>=21.0; extra == "informix"
+Requires-Dist: JPype1<2.0.0; extra == "informix"
+Requires-Dist: sqlglot[c]==30.12.0; extra == "informix"
 Provides-Extra: json-schema
 Requires-Dist: requests<3.0.0; extra == "json-schema"
 Provides-Extra: kafka
@@ -909,7 +912,6 @@ Requires-Dist: google-cloud-dataplex<3.0.0; extra == "all"
 Requires-Dist: google-cloud-logging<4.0.0; extra == "all"
 Requires-Dist: google-cloud-resource-manager<2.0.0; extra == "all"
 Requires-Dist: google-cloud-secret-manager<3.0.0,>=2.0.0; extra == "all"
-Requires-Dist: gql[requests]>=4.0.0; extra == "all"
 Requires-Dist: graphql-core<4.0.0,>=3.0.0; extra == "all"
 Requires-Dist: greenlet<4.0.0; extra == "all"
 Requires-Dist: grpcio-tools<2.0.0,>=1.44.0; extra == "all"
@@ -1407,7 +1409,6 @@ Requires-Dist: deltalake!=0.6.4,<1.0.0,>=0.6.3; (platform_system != "Darwin" or 
 Requires-Dist: feast<1,>=0.34.0; extra == "integration-tests"
 Requires-Dist: flask-openid<2.0.0,>=1.3.0; extra == "integration-tests"
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.80.0; extra == "integration-tests"
-Requires-Dist: gql[requests]>=4.0.0; extra == "integration-tests"
 Requires-Dist: greenlet<4.0.0; extra == "integration-tests"
 Requires-Dist: hdbcli<3.0.0,>=2.11.20; (platform_machine != "aarch64" and platform_machine != "arm64") and extra == "integration-tests"
 Requires-Dist: ibm_db_sa==0.4.3; (platform_machine == "x86_64" or platform_system == "Darwin") and extra == "integration-tests"

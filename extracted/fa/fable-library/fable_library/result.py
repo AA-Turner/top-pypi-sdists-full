@@ -4,7 +4,6 @@ from collections.abc import Callable
 from typing import Any
 
 from .array_ import Array
-from .core import int32
 from .list import FSharpList, empty, singleton
 from .option import Option, some
 from .reflection import TypeInfo, union_type
@@ -12,7 +11,7 @@ from .union import Union, narrow, tagged_union
 from .util import equals
 
 
-def _expr8(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr20(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return union_type(
         "FSharp.Core.FSharpResult`2",
         Array([gen0, gen1]),
@@ -40,7 +39,7 @@ class Error[T, TERROR](_FSharpResult_2[T, TERROR]):
 
 type FSharpResult_2[T, TERROR] = Ok[T, TERROR] | Error[T, TERROR]
 
-FSharpResult_2_reflection = _expr8
+FSharpResult_2_reflection = _expr20
 
 
 def Result_Map[A, B, C](mapping: Callable[[A], B], result: FSharpResult_2[A, C]) -> FSharpResult_2[B, C]:
@@ -99,13 +98,13 @@ def Result_Contains[A, B](value: A, result: FSharpResult_2[A, B]) -> bool:
             return False
 
 
-def Result_Count[A, B](result: FSharpResult_2[A, B]) -> int32:
+def Result_Count[A, B](result: FSharpResult_2[A, B]) -> int:
     match result.tag:
         case 0:
-            return int32.ONE
+            return 1
 
         case _:
-            return int32.ZERO
+            return 0
 
 
 def Result_DefaultValue[A, B](default_value: A, result: FSharpResult_2[A, B]) -> A:

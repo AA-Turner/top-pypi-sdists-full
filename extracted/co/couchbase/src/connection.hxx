@@ -27,9 +27,11 @@
 #include "utils.hxx"
 #include <asio/io_context.hpp>
 #include <core/cluster.hxx>
+#include <core/logger/logger.hxx>
 #include <future>
 #include <list>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 
@@ -80,7 +82,8 @@ public:
   template<typename Request>
   PyObject* execute_kv_op(pycbc_kv_request* request);
 
-  // execute_multi_op is public so it can be called by handle_multi_op() in pycbc_connection.hxx
+  // execute_multi_op is public so the pycbc_connection__*_multi__ handlers in
+  // pycbc_connection.cxx can call it
   template<typename Request>
   PyObject* execute_multi_op(PyObject* arg);
 
@@ -126,7 +129,17 @@ private:
     PyObject* result = create_pycbc_result(pyObj_resp);
     Py_XDECREF(pyObj_resp);
 
-    if (pyObj_callback != nullptr) {
+    if (result == nullptr) {
+      // Result conversion failed and an exception is pending. Report it here: the
+      // barrier path has no thread state on the main thread to inherit it (it would
+      // otherwise be silently dropped when this IO thread's GIL state is released),
+      // and the callback path has no error channel from this IO thread at all.
+      PyErr_WriteUnraisable(pyObj_errback != nullptr ? pyObj_errback : pyObj_callback);
+      CB_LOG_WARNING("PYCBC: Failed to convert cluster operation result.");
+      if (barrier != nullptr) {
+        barrier->set_value(nullptr);
+      }
+    } else if (pyObj_callback != nullptr) {
       PyObject* ret = PyObject_CallFunctionObjArgs(pyObj_callback, result, nullptr);
       Py_XDECREF(ret);
       Py_XDECREF(result);
@@ -145,6 +158,11 @@ private:
   {
     pycbc_streamed_result* streamed_res =
       create_pycbc_streamed_result(couchbase::core::timeout_defaults::key_value_durable_timeout);
+    if (streamed_res == nullptr) {
+      PyObject* alloc_error =
+        get_exception_as_object("Failed to create streamed result", __FILE__, __LINE__);
+      return { true, alloc_error };
+    }
 
     bool conversion_failed = false;
     for (const auto& entry : resp.entries) {
@@ -226,6 +244,22 @@ private:
           PyObject* result = finalize_kv_result<Request>(
             std::move(resp), std::move(wrapper_span), std::move(start_time));
 
+          if (result == nullptr) {
+            // Result conversion failed and an exception is pending. Report it here: the
+            // barrier path has no thread state on the main thread to inherit it (it would
+            // otherwise be silently dropped when this IO thread's GIL state is released),
+            // and the callback path has no error channel from this IO thread at all.
+            PyErr_WriteUnraisable(pyObj_errback != nullptr ? pyObj_errback : pyObj_callback);
+            CB_LOG_WARNING("PYCBC: Failed to finalize KV result.");
+            if (barrier != nullptr) {
+              barrier->set_value(nullptr);
+            }
+            Py_XDECREF(pyObj_callback);
+            Py_XDECREF(pyObj_errback);
+            PyGILState_Release(state);
+            return;
+          }
+
           PyObject* target_handler =
             PyObject_TypeCheck(result, &pycbc_exception_type) ? pyObj_errback : pyObj_callback;
 
@@ -250,6 +284,12 @@ private:
     PyObject* pyObj,
     const std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>& wrapper_span)
   {
+    // Callers pass the result of a conversion that can fail; cbpp_wrapper_span_to_py returns
+    // Py_None rather than NULL for an absent span, so pyObj is otherwise always dereferenced.
+    if (pyObj == nullptr) {
+      return;
+    }
+
     auto cluster_labels = wrapper_span != nullptr ? get_cluster_labels()
                                                   : std::make_pair(std::optional<std::string>{},
                                                                    std::optional<std::string>{});
@@ -276,6 +316,10 @@ private:
     std::optional<std::chrono::system_clock::time_point> start_time = std::nullopt,
     std::optional<std::chrono::system_clock::time_point> end_time = std::nullopt)
   {
+    if (pyObj == nullptr) {
+      return;
+    }
+
     if (start_time.has_value() && end_time.has_value()) {
       PyType* pyObj_ptr = reinterpret_cast<PyType*>(pyObj);
       PyObject* pyObj_start_time =
@@ -435,10 +479,14 @@ Connection::execute_multi_op(PyObject* arg)
   staging.reserve(num_docs);
 
   PyObject* pyObj_multi_result = create_pycbc_result();
+  if (pyObj_multi_result == nullptr) {
+    return nullptr;
+  }
   pycbc_result* multi_result = reinterpret_cast<pycbc_result*>(pyObj_multi_result);
 
   for (size_t i = 0; i < num_docs; ++i) {
     PyObject* pyObj_binding = PyList_GetItem(arg, i); // Borrowed ref
+    // Unchecked by contract, see validate_connection_and_multi_request
     pycbc_kv_request* request = reinterpret_cast<pycbc_kv_request*>(pyObj_binding);
     std::string key_str = py_to_cbpp<std::string>(request->key);
     std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
@@ -492,13 +540,27 @@ Connection::execute_multi_op(PyObject* arg)
   for (auto& s : staging) {
     PyObject* res =
       finalize_kv_result<Request>(s.fut.get(), std::move(s.wrapper_span), std::move(s.start_time));
+    // OOM is not a per-key condition, so abandon the whole multi result rather than
+    // reporting a partial one. An exception is already pending.
+    if (res == nullptr) {
+      Py_DECREF(pyObj_multi_result);
+      return nullptr;
+    }
     if (PyObject_TypeCheck(res, &pycbc_exception_type)) {
       all_okay = false;
     }
-    PyDict_SetItemString(multi_result->raw_result, s.key_str.c_str(), res);
+    int rc = PyDict_SetItemString(multi_result->raw_result, s.key_str.c_str(), res);
     Py_DECREF(res);
+    if (rc < 0) {
+      Py_DECREF(pyObj_multi_result);
+      return nullptr;
+    }
   }
-  PyDict_SetItemString(multi_result->raw_result, "all_okay", all_okay ? Py_True : Py_False);
+  if (PyDict_SetItemString(multi_result->raw_result, "all_okay", all_okay ? Py_True : Py_False) <
+      0) {
+    Py_DECREF(pyObj_multi_result);
+    return nullptr;
+  }
 
   return pyObj_multi_result;
 }
@@ -543,6 +605,9 @@ Connection::execute_streaming_op(PyObject* kwargs)
     }
 
     pycbc_streamed_result* streamed_res = create_pycbc_streamed_result(streaming_timeout);
+    if (streamed_res == nullptr) {
+      throw std::runtime_error("Failed to create streamed result");
+    }
     // Keep the streamed_result alive until the callback is done by INCREFing it here and DECREFing
     // in the callback
     Py_INCREF(streamed_res);
@@ -584,6 +649,7 @@ Connection::execute_streaming_op(PyObject* kwargs)
           if (error) {
             rows->put(error);
           } else {
+            bool row_conversion_failed = false;
             for (const auto& row : resp.rows) {
               PyObject* pyObj_row;
               if constexpr (std::is_same_v<response_type,
@@ -595,24 +661,36 @@ Connection::execute_streaming_op(PyObject* kwargs)
                 // special case for query/analytics_query; we want bytes from str
                 pyObj_row = PyBytes_FromStringAndSize(row.c_str(), row.length());
               }
+              if (pyObj_row == nullptr) {
+                row_conversion_failed = true;
+                break;
+              }
               rows->put(pyObj_row);
             }
 
-            // Push sentinel to signal end of rows
-            Py_INCREF(Py_None);
-            rows->put(Py_None);
-
-            PyObject* result_obj = build_stream_end_result_obj(resp);
-            if (result_obj) {
-              rows->put(result_obj);
+            if (row_conversion_failed) {
+              // Row conversion failed with an exception pending; queue it as the
+              // final row instead of a raw NULL, mirroring the `error` case above.
+              PyObject* conversion_error =
+                get_exception_as_object("Failed to convert row", __FILE__, __LINE__);
+              rows->put(conversion_error);
             } else {
-              PyObject* pycbc_exc = build_pycbc_exception_from_python_exc(
-                "Failed to create stream end result.", __FILE__, __LINE__);
-              if (pycbc_exc != nullptr) {
-                rows->put(pycbc_exc);
+              // Push sentinel to signal end of rows
+              Py_INCREF(Py_None);
+              rows->put(Py_None);
+
+              PyObject* result_obj = build_stream_end_result_obj(resp);
+              if (result_obj) {
+                rows->put(result_obj);
               } else {
-                Py_INCREF(Py_None);
-                rows->put(Py_None);
+                PyObject* pycbc_exc = build_pycbc_exception_from_python_exc(
+                  "Failed to create stream end result.", __FILE__, __LINE__);
+                if (pycbc_exc != nullptr) {
+                  rows->put(pycbc_exc);
+                } else {
+                  Py_INCREF(Py_None);
+                  rows->put(Py_None);
+                }
               }
             }
           }
@@ -637,7 +715,7 @@ Connection::execute_streaming_op(PyObject* kwargs)
   } catch (const std::exception& e) {
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     return nullptr;
   }
 }
@@ -687,14 +765,20 @@ Connection::execute_mgmt_op(PyObject* kwargs)
     if (barrier) {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's conversion failed; that failure was already reported via
+        // PyErr_WriteUnraisable there, so nothing is pending on this thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;

@@ -101,7 +101,7 @@ class Ident:
         self.out[i] = c
         return True
 
-    def punycode_decode(self) -> Optional[None]:
+    def punycode_decode(self) -> Optional[bool]:
         count = 0
         punycode_bytes = self.punycode
         try:
@@ -151,10 +151,9 @@ class Ident:
             n += i // lent
             i %= lent
 
-            try:
-                c = chr(n)
-            except (ValueError, OverflowError):
+            if not 0 <= n <= 0x10FFFF or 0xD800 <= n <= 0xDFFF:
                 return None
+            c = chr(n)
 
             if not self.insert(i, c):
                 return None
@@ -163,7 +162,7 @@ class Ident:
             try:
                 punycode_bytes[count]
             except IndexError:
-                return
+                return True
 
             delta = delta // damp
             damp = 2
@@ -490,7 +489,7 @@ class Parser:
 
 
 class Printer:
-    # Based on Ghidra's rust-demangle.c, we limit recursion to prevent stack overflows
+    # Following Ghidra's RustDemanglerV0, we limit recursion to prevent stack overflows
     # or excessive resource usage on malformed inputs.
     # Must fire well below CPython's own recursion limit (default 1000), or a
     # self-referential backref chain raises RecursionError before this guard.
@@ -559,7 +558,7 @@ class Printer:
             if abi:
                 self.out += 'extern "'
                 self.out += "-".join(abi.split("_"))
-                self.out += '"'
+                self.out += '" '
 
             self.out += "fn("
             self.print_sep_list("print_type", ", ")

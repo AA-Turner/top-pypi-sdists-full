@@ -1,6 +1,6 @@
 [project]
 name = "dbt-exasol"
-version = "1.12.0"
+version = "1.12.1"
 description = "Adapter to dbt-core for warehouse Exasol"
 authors = [
   { name = "Torsten Glunde", email = "torsten.glunde@alligator-company.com" },
@@ -72,6 +72,7 @@ omit = [
   "dbt/__init__.py",
   "dbt/adapters/__init__.py",
   "dbt/adapters/exasol/__init__.py",
+  "dbt/adapters/exasol/version.py",
   "dbt/include/__init__.py",
   "dbt/include/exasol/__init__.py",
 ]

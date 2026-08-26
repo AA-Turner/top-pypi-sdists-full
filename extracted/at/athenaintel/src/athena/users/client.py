@@ -4,6 +4,7 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.me_sources_response_out import MeSourcesResponseOut
 from ..types.user_info_out import UserInfoOut
 from .raw_client import AsyncRawUsersClient, RawUsersClient
 
@@ -47,6 +48,32 @@ class UsersClient:
         client.users.me()
         """
         _response = self._raw_client.me(request_options=request_options)
+        return _response.data
+
+    def me_sources(self, *, request_options: typing.Optional[RequestOptions] = None) -> MeSourcesResponseOut:
+        """
+        Counts of the caller's connected Microsoft 365 sources (mail, files, sites, chats) plus live SharePoint provisioning progress. Built for computer-asset apps to render a 'setting up your sources' state right after a viewer's first sign-in, while the background fan-outs are still filling in SharePoint and Teams.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MeSourcesResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.users.me_sources()
+        """
+        _response = self._raw_client.me_sources(request_options=request_options)
         return _response.data
 
 
@@ -97,4 +124,38 @@ class AsyncUsersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.me(request_options=request_options)
+        return _response.data
+
+    async def me_sources(self, *, request_options: typing.Optional[RequestOptions] = None) -> MeSourcesResponseOut:
+        """
+        Counts of the caller's connected Microsoft 365 sources (mail, files, sites, chats) plus live SharePoint provisioning progress. Built for computer-asset apps to render a 'setting up your sources' state right after a viewer's first sign-in, while the background fan-outs are still filling in SharePoint and Teams.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MeSourcesResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.users.me_sources()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.me_sources(request_options=request_options)
         return _response.data

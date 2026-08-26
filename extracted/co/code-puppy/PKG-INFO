@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.784
+Version: 0.0.785
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -20,7 +20,7 @@ Requires-Dist: anthropic<1,>=0.108.0
 Requires-Dist: anyio>=4.7.0
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3>=1.43.9
-Requires-Dist: code-puppy-core-plugins>=0.0.26
+Requires-Dist: code-puppy-core-plugins>=0.0.27
 Requires-Dist: httpx[http2]>=0.24.1
 Requires-Dist: json-repair>=0.46.2
 Requires-Dist: keyring>=24.0.0

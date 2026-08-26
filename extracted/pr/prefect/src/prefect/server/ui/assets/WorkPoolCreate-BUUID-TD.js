@@ -1,0 +1,2 @@
+import{Wi as e,Xi as t,Yi as n,_a as r,bn as i,ea as a,ra as o,ua as s,vn as c}from"./index-BD_kIOMy-CD0yYbHE.js";import"./prefect-ui-library-BWV0d2Z4.js";import{t as l}from"./usePageTitle-C4H8y9Hr.js";var u=t({__name:`WorkPoolCreate`,setup(t){return l(`Create Work Pool`),(t,l)=>{let u=o(`p-layout-default`);return a(),e(u,null,{header:s(()=>[n(r(i))]),default:s(()=>[n(r(c))]),_:1})}}});export{u as default};
+//# sourceMappingURL=WorkPoolCreate-BUUID-TD.js.map

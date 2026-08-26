@@ -11,6 +11,20 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     """
     Computes the yield of the previous year for each region.
 
+    The value is taken from the most recent year STRICTLY BEFORE each row's
+    Harvest Year that has data — the same "closest prior" rule
+    ``compute_lag_yield`` uses via ``only_historic=True``, so gaps in a
+    region's series are tolerated. A region's earliest year has no
+    predecessor and is left NaN (NaN-native models handle it).
+
+    Before 2026-08-25 this masked on ``Harvest Year == harvest_year`` — the
+    SAME year — so the column was an exact copy of ``target_col``. Two
+    consequences, both now closed: the ``last_year`` baseline model
+    (geocif.py ``_predict_baseline``) predicted the very value it was scored
+    against, and a copy of the target reached any model with
+    ``last_year_yield_as_feature = True`` or, via the ``nbr_Last Year ...``
+    wrapper, ``use_spatial_neighbors = True``.
+
     Args:
         df (DataFrame): The original DataFrame containing yield data.
         target_col (str): The column name from which to compute the previous year yield.
@@ -26,16 +40,25 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     for region, group in _pbar(
         df.groupby("Region"), desc="Last year yields", leave=False
     ):
-        unique_years = group["Harvest Year"].unique()
+        # One value per year for this region, sorted so we can look backwards.
+        per_year = (
+            group.dropna(subset=[target_col])
+            .groupby("Harvest Year")[target_col]
+            .first()
+            .sort_index()
+        )
+        if per_year.empty:
+            continue
+        years = per_year.index.to_numpy()
 
-        for harvest_year in unique_years:
-            mask = (group["Harvest Year"] == harvest_year) & (group["Region"] == region)
-            last_year_yield = group.loc[mask, target_col].values
-            if last_year_yield.size > 0:
-                df.loc[
-                    (df["Region"] == region) & (df["Harvest Year"] == harvest_year),
-                    f"Last Year {target_col}",
-                ] = last_year_yield[0]
+        for harvest_year in group["Harvest Year"].unique():
+            prior = years[years < harvest_year]
+            if prior.size == 0:
+                continue  # earliest year for this region: no predecessor
+            df.loc[
+                (df["Region"] == region) & (df["Harvest Year"] == harvest_year),
+                f"Last Year {target_col}",
+            ] = per_year.loc[prior.max()]
 
     return df
 
@@ -73,7 +96,8 @@ def compute_closest_years(all_years, harvest_year, number_lag_years, only_histor
 
 
 def compute_median_statistics(
-    df, all_seasons_with_yield, number_median_years, target_col="Yield (tn per ha)"
+    df, all_seasons_with_yield, number_median_years, target_col="Yield (tn per ha)",
+    only_historic=True,
 ):
     """
     Enhances the DataFrame with a new column that contains the median yield from the closest lag years.
@@ -83,6 +107,14 @@ def compute_median_statistics(
         all_seasons_with_yield (array-like): List of seasons that have yield data.
         number_median_years (int): Number of years to consider for computing the median yield.
         target_col (str): The column name from which to compute the median yield.
+        only_historic (bool): Restrict the window to years strictly BEFORE each
+            row's Harvest Year (default True). The pre-2026-08-25 behavior
+            (False) picked the *closest* years in either direction, so a 2018
+            row's "Median ..." column averaged 2019/2020 values — future
+            information that is unavailable at deployment time and leaked into
+            every hindcast fold (directly when *_as_feature was on, and via the
+            ``nbr_`` neighbor wrapper even when it was off). Earliest years now
+            get NaN instead of a future-only window; NaN-native models handle it.
 
     Returns:
         DataFrame: The original DataFrame enhanced with a new column for median lag yield.
@@ -101,8 +133,11 @@ def compute_median_statistics(
 
         for harvest_year in unique_years:
             closest_years = compute_closest_years(
-                all_seasons_with_yield, harvest_year, number_median_years
+                all_seasons_with_yield, harvest_year, number_median_years,
+                only_historic=only_historic,
             )
+            if not closest_years:
+                continue
             mask = (group["Harvest Year"].isin(closest_years)) & (
                 group["Region"] == region
             )

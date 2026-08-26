@@ -1,0 +1,2 @@
+import{i as e}from"./index-BNvZXlIx.js";import{i as t}from"./usePrefectApi-BcD0191k.js";async function n(n){let r=await t.get(`apiUrl`,void 0,n),i={baseUrl:r};return r.startsWith(`/`)&&e()===`development`&&(i.baseUrl=`http://127.0.0.1:4200${r}`),{config:i}}export{n as t};
+//# sourceMappingURL=useApiConfig-JE6H6yYJ.js.map

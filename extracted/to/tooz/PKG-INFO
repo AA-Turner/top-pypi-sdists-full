@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooz
-Version: 9.0.1
+Version: 9.1.0
 Summary: Coordination library for distributed systems.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

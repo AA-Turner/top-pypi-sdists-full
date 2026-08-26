@@ -76,6 +76,7 @@ class StandardCapabilityName(str, Enum):
     UNASSIGN_APPLICATION_ENTITLEMENT = 'unassign_application_entitlement'
     ASSIGN_APPLICATION_ENTITLEMENT = 'assign_application_entitlement'
     VALIDATE_CREDENTIAL_CONFIG = 'validate_credential_config'
+    PROBE_INTEGRATION = 'probe_integration'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

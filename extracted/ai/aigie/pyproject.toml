@@ -17,9 +17,15 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov",
-    "ruff>=0.16.3",
-    "mypy>=2.3.1",
-    "pre-commit>=4.6.2",
+    # Exact pins, not floors: these are the versions CI and
+    # .pre-commit-config.yaml run, and a lint or type gate that passes
+    # locally under a different version says nothing about the one that
+    # will judge the PR. Move all five call sites together: here, setup.py,
+    # .pre-commit-config.yaml, .github/workflows/ci.yaml, and the RUFF_PIN /
+    # MYPY_PIN pair in scripts/agent-check.sh.
+    "ruff==0.15.12",
+    "mypy==2.3.1",
+    "pre-commit==4.6.2",
     # Autonomous v2 build/lint tooling — ADR 0001
     # Pinned, not floored: grpcio-tools decides the protobuf gencode version
     # stamped into sdk/aigie/**/_pb/*.py. 1.80.0 emits 6.31.1 gencode, which is
@@ -27,8 +33,9 @@ dev = [
     # runtime accepts. 1.83.0 emits 7.35.1 gencode — that both fails the
     # proto-check stub diff and needs a protobuf 7 runtime. Bump this only
     # together with the regenerated stubs and the runtime range in setup.py.
-    "grpcio-tools==1.83.0",
+    "grpcio-tools==1.80.0",
     "import-linter>=2.13",
+    "diff-cover==10.5.1",
 ]
 
 [tool.uv]
@@ -66,6 +73,12 @@ omit = [
 ]
 
 [tool.coverage.report]
+# The one enforced coverage number. coverage.py reads it from `make coverage`
+# and from CI's `pytest --cov` alike, so there is no second place for it to
+# drift out of step with. Whole-tree floors are weak on their own — at 22k
+# statements an untested module moves the total by well under a point — so CI
+# also gates coverage of the lines a PR actually changed.
+fail_under = 50
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

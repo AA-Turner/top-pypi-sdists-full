@@ -55,15 +55,26 @@ add_exception_objects(PyObject* pyObj_module);
 /**
  * Cache frequently-used Python exception classes from couchbase.exceptions module
  * for efficient access. Should be called during module initialization.
+ *
+ * @return 0 on success, -1 with a Python exception set on failure.
  */
-void
+int
 cache_exception_classes();
 
 /**
- * Get the PyTypeObject for the exception base type.
+ * Set a RuntimeError carrying message, but only if no Python exception is already pending.
+ * Intended for `catch` blocks: whatever threw may have already set a more specific exception
+ * that should not be replaced.
+ *
+ * @param message Error message (typically the caught exception's what())
  */
-PyTypeObject*
-get_exception_type();
+inline void
+set_runtime_error_if_unset(const char* message)
+{
+  if (!PyErr_Occurred()) {
+    PyErr_SetString(PyExc_RuntimeError, message);
+  }
+}
 
 /**
  * Create a new exception base object.
@@ -96,24 +107,6 @@ build_exception(const std::error_code& ec,
  */
 PyObject*
 raise_invalid_argument(const char* message, const char* file = __FILE__, int line = __LINE__);
-
-/**
- * Raise InvalidArgumentException for missing required field.
- */
-PyObject*
-raise_required_field_missing(PyObject* interned_key,
-                             const char* context,
-                             const char* file = __FILE__,
-                             int line = __LINE__);
-
-/**
- * Raise InvalidArgumentException for empty required field.
- */
-PyObject*
-raise_required_field_empty(PyObject* interned_key,
-                           const char* context,
-                           const char* file = __FILE__,
-                           int line = __LINE__);
 
 /**
  * Raise FeatureUnavailableException with the given message.
@@ -187,64 +180,33 @@ build_exc_info_dict(const char* file, int line, const char* message)
     return nullptr;
   }
 
-  if (file != nullptr) {
-    PyObject* pyObj_cinfo = Py_BuildValue("(s,i)", file, line);
-    PyDict_SetItemString(exc_info, "cinfo", pyObj_cinfo);
-    Py_DECREF(pyObj_cinfo);
-  } else {
-    PyObject* pyObj_cinfo = Py_BuildValue("(s,i)", "", line);
-    PyDict_SetItemString(exc_info, "cinfo", pyObj_cinfo);
-    Py_DECREF(pyObj_cinfo);
+  PyObject* pyObj_cinfo = Py_BuildValue("(s,i)", file != nullptr ? file : "", line);
+  if (pyObj_cinfo == nullptr) {
+    Py_DECREF(exc_info);
+    return nullptr;
+  }
+  int rv = PyDict_SetItemString(exc_info, "cinfo", pyObj_cinfo);
+  Py_DECREF(pyObj_cinfo);
+  if (rv < 0) {
+    Py_DECREF(exc_info);
+    return nullptr;
   }
 
   if (message != nullptr) {
     PyObject* msg_str = PyUnicode_FromString(message);
-    PyDict_SetItemString(exc_info, "message", msg_str);
+    if (msg_str == nullptr) {
+      Py_DECREF(exc_info);
+      return nullptr;
+    }
+    rv = PyDict_SetItemString(exc_info, "message", msg_str);
     Py_DECREF(msg_str);
+    if (rv < 0) {
+      Py_DECREF(exc_info);
+      return nullptr;
+    }
   }
 
   return exc_info;
-}
-
-template<typename Context>
-inline PyObject*
-build_base_error_context(const Context& ctx)
-{
-  PyObject* dict = PyDict_New();
-  if (dict == nullptr) {
-    return nullptr;
-  }
-
-  if (ctx.last_dispatched_to.has_value()) {
-    PyObject* pyObj_tmp = PyUnicode_FromString(ctx.last_dispatched_to.value().c_str());
-    PyDict_SetItemString(dict, "last_dispatched_to", pyObj_tmp);
-    Py_DECREF(pyObj_tmp);
-  }
-
-  if (ctx.last_dispatched_from.has_value()) {
-    PyObject* pyObj_tmp = PyUnicode_FromString(ctx.last_dispatched_from.value().c_str());
-    PyDict_SetItemString(dict, "last_dispatched_from", pyObj_tmp);
-    Py_DECREF(pyObj_tmp);
-  }
-
-  PyObject* pyObj_tmp = PyLong_FromLong(ctx.retry_attempts);
-  PyDict_SetItemString(dict, "retry_attempts", pyObj_tmp);
-  Py_DECREF(pyObj_tmp);
-
-  PyObject* retry_reasons = PySet_New(nullptr);
-  for (const auto& rr : ctx.retry_reasons) {
-    auto reason = retry_reason_to_string(rr);
-    PyObject* reason_str = PyUnicode_FromString(reason.c_str());
-    PySet_Add(retry_reasons, reason_str);
-    Py_DECREF(reason_str);
-  }
-  Py_ssize_t set_size = PySet_Size(retry_reasons);
-  if (set_size > 0) {
-    PyDict_SetItemString(dict, "retry_reasons", retry_reasons);
-  }
-  Py_DECREF(retry_reasons);
-
-  return dict;
 }
 
 template<typename Context>

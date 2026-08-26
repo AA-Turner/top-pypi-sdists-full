@@ -695,6 +695,9 @@ _DAEMON_METHODS = frozenset({
     # repeatedly-overflow-then-retry session flag. Powers the Context
     # Economics tab (routes/context_economics.py:/api/context-economics).
     "query_context_economics",
+    # Per-runtime blowout-signal coverage (routes/context_economics.py:
+    # /api/context-coverage).
+    "query_context_coverage",
     # Phase 4 (issue #1088 follow-up, 2026-05-13): channel-message
     # foundation. Three helpers proved out the schema; the remaining 18
     # per-provider channel routes follow once these go green.
@@ -728,6 +731,12 @@ _DAEMON_METHODS = frozenset({
     # dashboard. Read by routes/health.py:/api/loop-signals via the daemon
     # proxy so the dashboard process never opens DuckDB writable.
     "query_recent_loop_signals",
+    # WO-5 (repo AI-readiness): sessions joined to their loop signals by the
+    # directory they ran in, so the Harness tab can put a repo's readiness
+    # grade next to the stuck rate that repo actually produced. Read by
+    # routes/readiness.py through this proxy -- the dashboard process never
+    # opens DuckDB writable.
+    "query_repo_activity",
     # Issue #1364 (MOAT 1.b): surface OTel spans we already persist.
     # Powers /api/spans + the Brain-tab "Spans" table.
     "query_recent_spans",
@@ -752,6 +761,19 @@ _DAEMON_METHODS = frozenset({
     # set_agent_meta. The handler calls put_span(span=...) by keyword (the proxy
     # only forwards kwargs).
     "put_span",
+    # WO-7 daemon-free intake. The OTLP /v1/logs receiver runs in the
+    # DASHBOARD process, which does not own the DuckDB writer lock, so its
+    # batch write has to come through here or it silently no-ops on every
+    # real install (the same trap put_span hit above). Call it by KEYWORD:
+    # put_otlp_batch(records=[...], events=[...]) — the proxy forwards
+    # **kwargs only. One call per OTLP export batch, not per record.
+    "put_otlp_batch",
+    # Read side of the same table: per-team / per-repo / per-person rollups
+    # over the daemon-free path, and the persisted-row count /api/otel-status
+    # shows so an operator can tell durable storage from the in-memory cache.
+    "query_otlp_records",
+    "query_otlp_rollup",
+    "count_otlp_records",
     # Issue #1364 (Tier-1 2026-05-15): /api/fallbacks model/provider
     # transition aggregator. Replaces a JSONL walker that opened up to 100
     # transcript files per request — multi-second on a busy workspace.
@@ -938,6 +960,20 @@ _DAEMON_METHODS = frozenset({
     # reads the per-team rollup through the daemon proxy. Every other method
     # the agent CLI calls was already allowlisted; guards-in-same-PR rule.
     "query_usage_by_team",
+    # Guard baselines (learned normal per cohort). The daemon writes them on
+    # every detector tick and a dashboard read needs the same proxy, because
+    # the daemon holds the DuckDB writer lock
+    # (memory: feedback_cli_methods_need_daemon_allowlist).
+    "record_guard_observation",
+    "query_guard_baseline",
+    "prune_guard_baseline",
+    # Session phase (clawmetry/adapters/phase.py). The daemon stamps a
+    # transition on every ingest pass and the dashboard reads it back to say
+    # how long a session has been waiting; both sides need the proxy because
+    # the daemon holds the writer lock
+    # (memory: feedback_cli_methods_need_daemon_allowlist).
+    "record_session_phase",
+    "query_session_phases",
 })
 
 

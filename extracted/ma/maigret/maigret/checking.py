@@ -59,6 +59,59 @@ def _is_dns_error(exc: Exception) -> bool:
     return any(m in text for m in _DNS_ERROR_MARKERS)
 
 
+# The two HTTP transports disagree about what a SOCKS5 proxy URL means.
+#
+#   python_socks (via aiohttp_socks, used by SimpleAiohttpChecker)
+#     accepts exactly socks5/socks4/http and raises
+#     ValueError('Invalid scheme component: socks5h') on anything else, so
+#     socks5h:// is a hard crash before a single request is made. Its rdns
+#     flag defaults to True for SOCKS5, so socks5:// there already means
+#     proxy-side DNS.
+#
+#   libcurl (via curl_cffi, used by CurlCffiChecker for tls_fingerprint sites)
+#     keeps the classic distinction: socks5:// resolves the hostname on the
+#     client and passes an address to the proxy, socks5h:// passes the
+#     hostname and lets the proxy resolve it.
+#
+# So a single `--proxy socks5://...` resolves most of the database at the
+# proxy but the tls_fingerprint sites locally: their hostnames leak to the
+# local resolver, and geo-balanced hosts get resolved for the wrong network.
+# See issue #2955.
+#
+# Normalizing the scheme per transport makes both spellings mean proxy-side
+# DNS everywhere, so users need not know which transport handles which site.
+# Only SOCKS5 is remapped: python_socks defaults rdns to False for SOCKS4,
+# so rewriting socks4 would change behavior instead of aligning it.
+PYTHON_SOCKS_TRANSPORT = 'python_socks'
+LIBCURL_TRANSPORT = 'libcurl'
+
+_PROXY_SCHEME_ALIASES = {
+    PYTHON_SOCKS_TRANSPORT: {'socks5h': 'socks5'},
+    LIBCURL_TRANSPORT: {'socks5': 'socks5h'},
+}
+
+
+def normalize_proxy_scheme(proxy: Optional[str], transport: str) -> Optional[str]:
+    """Rewrite a proxy URL's scheme to the spelling `transport` understands.
+
+    Only the scheme is rewritten; host, port, credentials and path are passed
+    through as given, as are non-SOCKS5 schemes, schemeless values and empty
+    values.
+    """
+    if not proxy:
+        return proxy
+
+    scheme, separator, remainder = proxy.partition('://')
+    if not separator:
+        return proxy
+
+    replacement = _PROXY_SCHEME_ALIASES[transport].get(scheme.lower())
+    if replacement is None:
+        return proxy
+
+    return f'{replacement}://{remainder}'
+
+
 SUPPORTED_IDS = (
     "username",
     "yandex_public_id",
@@ -142,7 +195,7 @@ class CheckerBase:
 class SimpleAiohttpChecker(CheckerBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.proxy = kwargs.get('proxy')
+        self.proxy = normalize_proxy_scheme(kwargs.get('proxy'), PYTHON_SOCKS_TRANSPORT)
         self.cookie_jar = kwargs.get('cookie_jar')
         # 'async' (default) uses aiohttp's DefaultResolver, which is AsyncResolver
         # (powered by aiodns / c-ares) when aiodns is installed. 'threaded' uses
@@ -208,6 +261,24 @@ class SimpleAiohttpChecker(CheckerBase):
             try:
                 async with request_method(**kwargs) as response:
                     status_code = response.status
+                    # A response_url check runs with redirects disabled, so any
+                    # 3xx reads as "user not found". Some sites intermittently
+                    # bounce a request back to the SAME url to plant a session
+                    # cookie (joyreactor.cc: 302 + `Set-Cookie: jr_captcha=1`,
+                    # roughly one request in five to seven): that is not a
+                    # not-found, it is a retry request. The session keeps the
+                    # cookie, so one repeat returns the real page. Set-Cookie
+                    # is what makes it a handshake — without it, a site that
+                    # always self-redirects would just cost two requests.
+                    if (
+                        not allow_redirects
+                        and 300 <= status_code < 400
+                        and str(response.headers.get("Location", "")) == url
+                        and response.headers.get("Set-Cookie")
+                        and attempt < transient_retries
+                    ):
+                        logger.debug(f"Self-redirect to {url}, retrying")
+                        continue
                     response_content = await response.content.read()
                     charset = self.encoding or response.charset or "utf-8"
                     decoded_content = response_content.decode(charset, "ignore")
@@ -339,7 +410,7 @@ class CurlCffiChecker(CheckerBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.browser_emulate = kwargs.get('browser_emulate', 'chrome')
-        self.proxy = kwargs.get('proxy')
+        self.proxy = normalize_proxy_scheme(kwargs.get('proxy'), LIBCURL_TRANSPORT)
 
     def prepare(self, url, headers=None, allow_redirects=True, timeout=0, method='get', payload=None, encoding=None):
         self.url = url
@@ -669,7 +740,7 @@ def make_protocol_checker(options: Dict[str, Any], protocol: str):
 
 
 def debug_response_logging(url, html_text, status_code, check_error):
-    with open("debug.log", "a") as f:
+    with open("debug.log", "a", encoding="utf-8") as f:
         status = status_code or "No response"
         f.write(f"url: {url}\nerror: {check_error}\nr: {status}\n")
         if html_text:

@@ -50,6 +50,15 @@ _ENTRY_PAD_SEQUENCES = {
 # MSVC aligns function entries to 16 bytes.
 _CODE_ALIGNMENT = 16
 
+# Delphi method tables are runs of 32-bit pointers into code. A run is only read as a table
+# when most of its entries are already recovered functions and code takes a data reference to
+# it; measured on a PE corpus, the self-validation test alone admits a thousand addresses that
+# point at data. The scan polls the analysis budget once per 64 KiB rather than per entry.
+_POINTER_TABLE_ENTRY_SIZE = 4
+_POINTER_TABLE_MIN_RUN = 4
+_POINTER_TABLE_MIN_KNOWN_RATIO = 0.8
+_POINTER_TABLE_POLL_BYTES = 0x10000
+
 # Written as `A(BA)+B` rather than the equivalent `(AB){2,}` so the pattern starts with a literal:
 # only then does the regex engine emit a prefix fast-search instead of entering the matcher at
 # every offset of the mapped image.
@@ -63,6 +72,15 @@ _RE_PLTSEC_BLOCK = re.compile(
 _RE_PLTSEC_ENTRY = re.compile(b"\xf3\x0f\x1e\xfa\xf2\xff\x25(?P<function>.{4})", re.DOTALL)
 
 _PDATA_ENTRY_SIZE = 12
+# items (candidates, matches or exception records) a scan steps over between budget polls, mirroring
+# _TIMEOUT_POLL_BLOCKS in the engine. A whole exception table is walked inside one call, so
+# the poll in the pass around it never comes round again while that walk is running
+_TIMEOUT_POLL_INTERVAL = 4096
+_PUSH_RBP = 0x55
+_PUSH_PAIR_PROLOGUE = b"\x41\x57\x41\x56"  # push r15; push r14
+# How far back a declared entry has to sit for the byte in question to be inside it rather
+# than an entry itself: one instruction's worth of the openings this pattern appears behind.
+_DECLARED_START_WINDOW = 8
 _PDATA_MIN_ENTRIES = 16
 _PDATA_SEED_ENTRIES = 4
 # A sample only finds a table if it lands inside one with a whole seed window left, so this
@@ -195,7 +213,11 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
             window_bytes = self.disassembly.getRawBytes(offset, max(256, length))
             return window_bytes[:length]
 
+        scanned = 0
         while True:
+            scanned += 1
+            if scanned % 4096 == 0 and self._candidateTimeoutTripped():
+                return None
             unskipped_pad = False
             if self.disassembly.binary_info.base_addr + self.disassembly.binary_info.binary_size < self.gap_pointer:
                 LOGGER.debug("nextGapCandidate() gap_ptr: 0x%08x - finishing", self.gap_pointer)
@@ -363,6 +385,109 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
             return self.disassembly.binary_info.base_addr + function_pointer
         raise Exception("resolvePointerReference: undefined bitness")
 
+    def locateDeferredCandidates(self):
+        yield from self.locateEhFrameCandidates()
+        yield from self.locateMachoFunctionStartCandidates()
+
+    def locateLateCandidates(self):
+        yield from self.locatePointerTableCandidates()
+
+    def locatePointerTableCandidates(self):
+        """Entries of a function-pointer table that the primary pass did not recover.
+
+        The entries a Delphi program only ever calls through its method table are reachable no
+        other way - no call names them, so nothing seeds them. A run of aligned dwords is read
+        as a table only when most of its entries are already recovered functions and code takes
+        a data reference to the run itself; both facts are products of the passes before this
+        one, which is why it runs after gap analysis rather than at the deferred hook.
+        """
+        if not self._delphi_detected or self.bitness != 32:
+            return
+        functions = self.disassembly.functions
+        if not functions:
+            return
+        buffer = memoryview(self.disassembly.binary_info.binary)
+        base_addr = self.disassembly.binary_info.base_addr
+        lowest, highest = min(functions), max(functions)
+        referenced = set()
+        for targets in self.disassembly.data_refs_from.values():
+            referenced.update(targets)
+        is_code = self.disassembly.isCode
+        # insertion-ordered set: a table can be laid out twice, and re-analyzing a start
+        # the previous run already accepted would be wasted work
+        accepted = {}
+        run_start = None
+        scan_end = len(buffer) - (len(buffer) % _POINTER_TABLE_ENTRY_SIZE)
+        for entry_addr, value in self._pointerTableEntries(buffer, 0, scan_end):
+            if lowest <= value <= highest and not is_code(entry_addr):
+                if run_start is None:
+                    run_start = entry_addr - base_addr
+            elif run_start is not None:
+                self._admitPointerTableRun(buffer, run_start, entry_addr - base_addr, referenced, accepted)
+                run_start = None
+        if self._candidateTimeoutTripped():
+            return
+        if run_start is not None:
+            self._admitPointerTableRun(buffer, run_start, scan_end, referenced, accepted)
+        # register every accepted start before analyzing any of them, so an earlier one cannot
+        # absorb a later one it branches into
+        self._candidate_offsets.update(accepted)
+        for start in accepted:
+            if self._candidateTimeoutTripped():
+                return
+            if is_code(start):
+                continue
+            yield start
+
+    def _pointerTableEntries(self, buffer, start, end):
+        """Walk aligned dwords of [start, end), polling the analysis budget between chunks.
+
+        Every traversal of the image and of a single run goes through here, so no one of them
+        can run for seconds without the budget being consulted: a crafted image can make one
+        run as long as the image itself, and a run is walked twice more after it is found.
+        """
+        base_addr = self.disassembly.binary_info.base_addr
+        offset = start
+        while offset < end:
+            if self._candidateTimeoutTripped():
+                return
+            chunk_end = min(offset + _POINTER_TABLE_POLL_BYTES, end)
+            entry_addr = base_addr + offset
+            for (value,) in struct.iter_unpack("<I", buffer[offset:chunk_end]):
+                yield entry_addr, value
+                entry_addr += _POINTER_TABLE_ENTRY_SIZE
+            offset = chunk_end
+
+    def _admitPointerTableRun(self, buffer, run_start, run_end, referenced, accepted):
+        """Read one run of code-pointer-shaped dwords as a method table, or decline it.
+
+        The run is re-read from the image rather than carried along as a list of entries, so
+        what a single run costs is bounded time rather than memory proportional to the image.
+        """
+        entries = (run_end - run_start) // _POINTER_TABLE_ENTRY_SIZE
+        if entries < _POINTER_TABLE_MIN_RUN:
+            return
+        functions = self.disassembly.functions
+        known = 0
+        is_referenced = False
+        for entry_addr, value in self._pointerTableEntries(buffer, run_start, run_end):
+            if value in functions:
+                known += 1
+            if not is_referenced and entry_addr in referenced:
+                is_referenced = True
+        if self._candidateTimeoutTripped() or not is_referenced:
+            return
+        if known < _POINTER_TABLE_MIN_KNOWN_RATIO * entries:
+            return
+        for _, value in self._pointerTableEntries(buffer, run_start, run_end):
+            if value in functions or self.disassembly.isCode(value):
+                continue
+            if not self._passesCodeFilter(value):
+                continue
+            self.ensureCandidate(value)
+            if value in self.candidates:
+                accepted[value] = None
+
     def locateCandidates(self):
         # add guaranteed / high-value starts first so that, if the candidate cap is hit, the most reliable
         # candidates are retained before the high-volume prologue and stub-chain scans can consume the budget.
@@ -387,7 +512,7 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
     def locateReferenceCandidates(self):
         # check for potential call instructions and check if their destinations have a common function prologue
         for match_count, call_match in enumerate(re.finditer(b"\xe8", self.disassembly.binary_info.binary)):
-            if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+            if match_count % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
                 return
             if not self._passesCodeFilter(self.disassembly.binary_info.base_addr + call_match.start()):
                 continue
@@ -409,7 +534,7 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
         # also check for "jmp dword ptr <offset>", as they sometimes point to local functions (i.e. non-API)
         if self.bitness == 32:
             for match_count, match in enumerate(re.finditer(b"\xff\x25", self.disassembly.binary_info.binary)):
-                if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                if match_count % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
                     return
                 function_addr = self.resolvePointerReference(match.start())
                 if not self._passesCodeFilter(function_addr):
@@ -422,7 +547,7 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
                     self.setInitialCandidate(function_addr)
             # also check for "call dword ptr <offset>", as they sometimes point to local functions (i.e. non-API)
             for match_count, match in enumerate(re.finditer(b"\xff\x15", self.disassembly.binary_info.binary)):
-                if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+                if match_count % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
                     return
                 function_addr = self.resolvePointerReference(match.start())
                 if not self._passesCodeFilter(function_addr):
@@ -434,14 +559,55 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
                     )
                     self.setInitialCandidate(function_addr)
 
+    def _followsDeclaredStart(self, addr):
+        """Whether a function the image itself declares begins in the bytes just before addr.
+
+        Symbols, call references and exception records are all located before the prologue
+        scan runs, so this asks a question the raw bytes cannot: if a declared entry sits a
+        few bytes back, addr is inside that entry's opening instruction rather than being an
+        entry of its own. The window is one instruction's worth of the shortest openings -
+        widening it to a full 15 costs a real shift on the reference images, and eight covers
+        every shape measured.
+        """
+        for candidate_addr in range(max(0, addr - _DECLARED_START_WINDOW), addr):
+            candidate = self.candidates.get(candidate_addr & self.getBitMask())
+            if candidate is not None and (
+                candidate.call_ref_sources or candidate.is_symbol or candidate.is_exception_handler
+            ):
+                return True
+        return False
+
     def _seedPrologueMatches(self, pattern):
         """returns True once the analysis timeout trips, so callers can stop scanning
         further patterns instead of each one re-discovering the timeout on its own first match."""
         binary = self.disassembly.binary_info.binary
         for match_count, prologue_match in enumerate(re.finditer(pattern, binary)):
-            if match_count % 4096 == 0 and self._candidateTimeoutTripped():
+            if match_count % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
                 return True
             offset = prologue_match.start()
+            # `push r15; push r14` is a run of callee-saved pushes rather than a distinguishing
+            # first instruction, so it matches wherever such a run reaches r15. clang orders
+            # `push rbp` first in a function that keeps no frame pointer, and the pair then
+            # matches one byte into the prologue and names the body instead of the entry - the
+            # same shape as the hotpatch adjustment below, where the match is real and its
+            # address is one instruction late.
+            # The scan reads raw bytes and establishes no instruction boundary, so a 0x55 here
+            # is equally `push rbp` or the last byte of something else - `push 0x55` spells the
+            # same byte, and shifting onto it books an address one byte inside the real entry.
+            # The image itself settles it: symbols, call references and exception records are
+            # all located before this scan runs, so a declared entry opening in the bytes just
+            # before that 0x55 places it inside that entry's first instruction. That is the
+            # same kind of evidence the hotpatch adjustment below defers to.
+            if offset and prologue_match.group() == _PUSH_PAIR_PROLOGUE and binary[offset - 1] == _PUSH_RBP:
+                if self._followsDeclaredStart(
+                    (self.disassembly.binary_info.base_addr + offset - 1) & self.getBitMask()
+                ):
+                    # A declared entry opens in the bytes just before that 0x55, so the byte is
+                    # inside its first instruction - `push 0x55` spells one - and neither this
+                    # match nor the byte before it starts a function. Seeding either books an
+                    # address inside a function the image already names.
+                    continue
+                offset -= 1
             candidate_addr = (self.disassembly.binary_info.base_addr + offset) & self.getBitMask()
             if not self._passesCodeFilter(candidate_addr):
                 continue
@@ -597,6 +763,8 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
         count = 0
         previous_end = 0
         while count < limit:
+            if count and count % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
+                break
             record = self._readExceptionRecord(binary, size, offset, previous_end)
             if record is None:
                 break
@@ -646,6 +814,8 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
             return
         LOGGER.debug("carved %d RUNTIME_FUNCTION entries at 0x%08x", table_count, table_offset)
         for index in range(table_count):
+            if index and index % _TIMEOUT_POLL_INTERVAL == 0 and self._candidateTimeoutTripped():
+                return
             rva_start, rva_end, rva_unwind_info = struct.unpack_from(
                 "<III", binary, table_offset + index * _PDATA_ENTRY_SIZE
             )

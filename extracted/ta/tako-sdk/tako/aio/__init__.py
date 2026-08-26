@@ -56,7 +56,10 @@ __all__ = [
     "AnswerAgentRunRequest",
     "AnswerAgentRunSummary",
     "AnswerAgentStreamEnvelope",
+    "AnswerRequest",
     "AnswerResponse",
+    "AnswerStructuredOutputError",
+    "AnswerStructuredOutputErrorCode",
     "BaseAPIError",
     "Block",
     "Block1",
@@ -169,7 +172,10 @@ from tako.aio.models.answer_agent_run_list import AnswerAgentRunList as AnswerAg
 from tako.aio.models.answer_agent_run_request import AnswerAgentRunRequest as AnswerAgentRunRequest
 from tako.aio.models.answer_agent_run_summary import AnswerAgentRunSummary as AnswerAgentRunSummary
 from tako.aio.models.answer_agent_stream_envelope import AnswerAgentStreamEnvelope as AnswerAgentStreamEnvelope
+from tako.aio.models.answer_request import AnswerRequest as AnswerRequest
 from tako.aio.models.answer_response import AnswerResponse as AnswerResponse
+from tako.aio.models.answer_structured_output_error import AnswerStructuredOutputError as AnswerStructuredOutputError
+from tako.aio.models.answer_structured_output_error_code import AnswerStructuredOutputErrorCode as AnswerStructuredOutputErrorCode
 from tako.aio.models.base_api_error import BaseAPIError as BaseAPIError
 from tako.aio.models.block import Block as Block
 from tako.aio.models.block1 import Block1 as Block1

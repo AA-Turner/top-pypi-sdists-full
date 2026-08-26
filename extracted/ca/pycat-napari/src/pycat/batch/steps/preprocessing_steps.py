@@ -74,6 +74,7 @@ def replay_preprocessing(state: dict, image_path: Path, params: dict, output_dir
         _max_radius = max(4, int(min(np.asarray(arr).shape[-2:]) * 0.05))
         _br = min(ball_radius, _max_radius)
         _ws = min(window_size, _max_radius * 2)
+
         # ── BATCH MUST PASS RAW COUNTS. It was pre-normalising, and that is the bug. ──
         #
         # **Gable's report: batch segments the same image differently from the recording.**
@@ -136,12 +137,78 @@ def replay_preprocessing(state: dict, image_path: Path, params: dict, output_dir
         print("[PyCAT Batch]   Preprocessing done (active layer: segmentation).")
 
 
+def _selected_upscale_roles(state: dict, selected_names) -> set:
+    """Map each recorded ``selected_layers`` name (from the ``upscaling`` step)
+    to the role it refers to: ``'segmentation'``, ``'fluorescence'``, or
+    ``('channel', key)`` for a named ``channels_by_name`` entry (split-file /
+    3+ fluorophore configs).
+
+    Uses the SAME name-matching rule as ``_active_layer_channel_role``
+    (longest-KNOWN-name-found-inside-the-recorded-name wins) so a recorded
+    name resolves to the identical role every other replay step already
+    treats it as -- see ``replay_upscaling``'s docstring for why this exists.
+
+    Deliberately ONE-DIRECTIONAL: only ``known_name in recorded_name`` is
+    checked, never the reverse. Upscaling records the BARE, unprefixed layer
+    names the user had selected (no "Upscaled"/"Pre-Processed" stage prefix
+    yet -- it's the first step to touch them), so the recorded name for the
+    PRIMARY channel of a split-file/sample-identity recording can be exactly
+    its own bare name, e.g. "In_Cell". napari disambiguates the companion's
+    duplicate base name with a " [N]" suffix ("In_Cell [1]"), so that bare
+    primary name is ALWAYS a literal substring of the companion's key. The
+    reverse check (``recorded_name in known_name``) would then match
+    "in_cell" inside "in_cell [1]" and -- because the companion's key is
+    longer -- win the "longest match" comparison, misrouting the primary's
+    OWN selection to the companion's role and losing it entirely (both
+    recorded names collapse onto the same role, and the primary channel is
+    never recognised as selected at all). ``_resolve_image_layer`` gets away
+    with checking both directions because its callers always resolve
+    ALREADY-STAGE-PREFIXED names ("Upscaled In_Cell"), which are safely
+    longer than any bare channel key -- that safety margin does not exist
+    here, so only the one direction that actually generalises is used.
+    """
+    roles = set()
+    channels_raw = state.get('channels_by_name') or {}
+    primary_name = str(state.get('_primary_channel_name') or '').lower()
+    for raw_name in (selected_names or []):
+        name = str(raw_name).lower()
+        if 'segmentation' in name:
+            roles.add('segmentation')
+            continue
+        if 'fluorescence' in name:
+            roles.add('fluorescence')
+            continue
+        best_len, best_role = -1, None
+        if primary_name and primary_name in name:
+            best_len, best_role = len(primary_name), 'segmentation'
+        for key in channels_raw:
+            lk = key.lower()
+            if lk and lk in name and len(lk) > best_len:
+                best_len, best_role = len(lk), ('channel', key)
+        if best_role is not None:
+            roles.add(best_role)
+    return roles
+
+
 def replay_upscaling(state: dict, image_path: Path, params: dict, output_dir: Path):
     """
     Apply the same bicubic-interpolation upscaling used by run_upscaling_func
-    in the GUI, doubling resolution (capped at 2048x2048). Updates both the
-    raw image and preprocessed image in state, and the relevant data_instance
-    fields, mirroring what the GUI does for every selected layer.
+    in the GUI, doubling resolution (capped at 2048x2048).
+
+    run_upscaling_func upscales ONLY the layers the user had highlighted in
+    the viewer when they clicked "Run Upscaling" (it iterates
+    ``viewer.layers.selection``) -- e.g. a recording that upscaled only the
+    segmentation channel, deliberately leaving fluorescence at native
+    resolution (measuring intensity on interpolated pixels is
+    pseudoreplicated -- see the Cell Analyzer's own upscaled-image warning),
+    must not have batch silently upscale fluorescence too. This honours the
+    recorded ``selected_layers`` (see ``_selected_upscale_roles``) and
+    upscales only the matching role(s): the segmentation image
+    (``state['image']``/``state['preprocessed']``), the fluorescence image,
+    and/or named ``channels_by_name``/``channels_processed_by_name`` entries.
+    A legacy config recorded before ``selected_layers`` existed (missing or
+    empty) falls back to the original broad behaviour -- upscale everything
+    in state, under 2048px -- so old recordings keep working unchanged.
 
     Does NOT reproduce run_upscaling_func's dtype/range "correction" (clip or
     rescale toward [0, 1] / [0, 65535]) -- that logic is calibrated for the
@@ -161,21 +228,93 @@ def replay_upscaling(state: dict, image_path: Path, params: dict, output_dir: Pa
 
     data_instance = state['data_instance']
     image = state['image']
-    num_row, num_col = image.shape[-2], image.shape[-1]
+    orig_shape = image.shape
 
-    if num_row >= 2048 or num_col >= 2048:
-        print(f"[PyCAT Batch]   Upscaling skipped — already at/above 2048px "
-              f"({image.shape}).")
-        return
+    selected_names = params.get('selected_layers')
+    roles = _selected_upscale_roles(state, selected_names) if selected_names else None
+    upscale_all = roles is None   # legacy config: no recorded selection -> old broad behaviour
 
     upscale_factor = 2
-    upscaled = upscale_image_interp(image, num_row, num_col, upscale_factor=upscale_factor)
-    upscaled = np.clip(upscaled, 0, None).astype(np.float32)
+    did_upscale = False
 
-    state['image'] = upscaled
-    state['preprocessed'] = upscaled.copy()
+    # ── Segmentation channel ────────────────────────────────────────────────
+    if upscale_all or 'segmentation' in roles:
+        num_row, num_col = image.shape[-2], image.shape[-1]
+        if num_row >= 2048 or num_col >= 2048:
+            print(f"[PyCAT Batch]   Segmentation channel upscaling skipped — "
+                  f"already at/above 2048px ({image.shape}).")
+        else:
+            upscaled = upscale_image_interp(image, num_row, num_col, upscale_factor=upscale_factor)
+            upscaled = np.clip(upscaled, 0, None).astype(np.float32)
+            state['image'] = upscaled
+            state['preprocessed'] = upscaled.copy()
+            did_upscale = True
+    elif not upscale_all:
+        print(f"[PyCAT Batch]   Segmentation channel upscaling skipped — "
+              f"not in the recorded selection ({selected_names}).")
 
-    if params.get('update_data_class', True):
+    # Also upscale the fluorescence channel if it was separately loaded
+    # (multi-channel files where seg and fluor are different channels) AND
+    # it was part of the recorded selection. Only fires for a channel that is
+    # NOT already reachable through channels_by_name below (a split-file or
+    # channel_assignment recording aliases state['fluorescence_image'] to a
+    # channels_by_name entry BY OBJECT IDENTITY -- see _replay_split_file_
+    # companion / replay_open_image -- and that loop's alias-sync, below,
+    # already keeps it correct in that case; this is the fallback for the
+    # rarer shape where no such alias exists).
+    fluor = state.get('fluorescence_image')
+    fluor_is_named_alias = any(
+        fluor is v for v in (state.get('channels_by_name') or {}).values())
+    if (fluor is not None and fluor is not image and not fluor_is_named_alias
+            and (upscale_all or 'fluorescence' in roles)):
+        fr, fc = fluor.shape[-2], fluor.shape[-1]
+        if fr < 2048 and fc < 2048:
+            fluor_up = upscale_image_interp(fluor, fr, fc, upscale_factor=upscale_factor)
+            state['fluorescence_image'] = np.clip(fluor_up, 0, None).astype(np.float32)
+            did_upscale = True
+
+    # Update channels_by_name (raw) and channels_processed_by_name (if a named
+    # channel's preprocessing/background-removal already ran BEFORE upscaling —
+    # an unusual order, but one the recorded config is free to produce) too --
+    # only the named channels that were actually part of the selection.
+    #
+    # ALIAS SYNC: a split-file (or channel_assignment) recording points
+    # state['fluorescence_image'] / state['preprocessed_fluorescence'] at the
+    # SAME array object as a channels_by_name / channels_processed_by_name
+    # entry (see _replay_split_file_companion, replay_open_image,
+    # replay_preprocessing). Reassigning the dict entry here would otherwise
+    # leave that other reference stale (pre-upscale, wrong shape) while the
+    # dict holds the new (upscaled) array -- two state slots that are
+    # supposed to mean "the same channel" silently diverge, producing a
+    # shape-mismatch crash wherever a later step resolves the channel through
+    # the stale reference instead of the dict (reported by Meet Raval: a
+    # split-file recording's Cellpose/cell_analysis crashed with a 512 vs
+    # 1024 boolean-index mismatch). Every state slot pointing at the SAME
+    # pre-upscale array is updated to the SAME new array, keeping the
+    # identity relationship intact.
+    for channels_key, fluor_slot in (('channels_by_name', 'fluorescence_image'),
+                                     ('channels_processed_by_name', 'preprocessed_fluorescence')):
+        channel_dict = state.get(channels_key) or {}
+        for name, arr in list(channel_dict.items()):
+            if arr is None or arr is image:
+                continue
+            if not (upscale_all or ('channel', name) in roles):
+                continue
+            cr, cc = arr.shape[-2], arr.shape[-1]
+            if cr >= 2048 or cc >= 2048:
+                continue
+            arr_up = upscale_image_interp(arr, cr, cc, upscale_factor=upscale_factor)
+            arr_up = np.clip(arr_up, 0, None).astype(np.float32)
+            channel_dict[name] = arr_up
+            if state.get(fluor_slot) is arr:
+                state[fluor_slot] = arr_up
+            did_upscale = True
+
+    # data_repository scaling: once per click in the GUI (the first processed
+    # layer's scale factor -- but every layer shares the same fixed 2x factor,
+    # so which one triggered it is immaterial); applied here once if ANYTHING
+    # in this step actually got upscaled.
+    if did_upscale and params.get('update_data_class', True):
         data_instance.data_repository['cell_diameter'] = (
             _get_data(data_instance, 'cell_diameter', 100) * upscale_factor
         )
@@ -192,30 +331,9 @@ def replay_upscaling(state: dict, image_path: Path, params: dict, output_dir: Pa
             _get_data(data_instance, 'microns_per_pixel_sq', 1.0) / (upscale_factor ** 2)
         )
 
-    # Also upscale the fluorescence channel if it was separately loaded
-    # (multi-channel files where seg and fluor are different channels).
-    # In the GUI the user selects both layers before clicking upscale.
-    fluor = state.get('fluorescence_image')
-    if fluor is not None and fluor is not image:
-        fr, fc = fluor.shape[-2], fluor.shape[-1]
-        if fr < 2048 and fc < 2048:
-            fluor_up = upscale_image_interp(fluor, fr, fc, upscale_factor=upscale_factor)
-            state['fluorescence_image'] = np.clip(fluor_up, 0, None).astype(np.float32)
-
-    # Update channels_by_name (raw) and channels_processed_by_name (if a named
-    # channel's preprocessing/background-removal already ran BEFORE upscaling —
-    # an unusual order, but one the recorded config is free to produce) too.
-    for channels_key in ('channels_by_name', 'channels_processed_by_name'):
-        for name, arr in state.get(channels_key, {}).items():
-            if arr is not None and arr is not image:
-                cr, cc = arr.shape[-2], arr.shape[-1]
-                if cr < 2048 and cc < 2048:
-                    arr_up = upscale_image_interp(arr, cr, cc, upscale_factor=upscale_factor)
-                    state[channels_key][name] = np.clip(arr_up, 0, None).astype(np.float32)
-
-    _save_array(upscaled, output_dir / f"{image_path.stem}_upscaled.tiff")
+    _save_array(state['image'], output_dir / f"{image_path.stem}_upscaled.tiff")
     selected = params.get('selected_layers', params.get('active_layer', '?'))
-    print(f"[PyCAT Batch]   Upscaling done: {image.shape} -> {upscaled.shape}  "
+    print(f"[PyCAT Batch]   Upscaling done: {orig_shape} -> {state['image'].shape}  "
           f"(layers: {selected})")
 
 

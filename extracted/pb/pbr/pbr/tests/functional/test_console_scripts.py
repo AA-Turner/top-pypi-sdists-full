@@ -86,9 +86,7 @@ class TestConsoleScripts(base.BaseTestCase):
             'install_scripts', '--install-dir=%s' % self.temp_dir
         )
 
-        existing = os.environ.get('PYTHONPATH')
-        pythonpath = '.:' + existing if existing else '.'
-        self.useFixture(fixtures.EnvironmentVariable('PYTHONPATH', pythonpath))
+        self.useFixture(fixtures.EnvironmentVariable('PYTHONPATH', '.'))
 
         self.check_script_install(stdout)
 

@@ -1085,7 +1085,7 @@ class ChoppinessIndex(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Creates a new ChoppinessIndex indicator using the specified period and moving average type
         
         :param name: The name of this indicator
-        :param period: The period used for rolling windows for highs and lows
+        :param period: The period used for rolling windows for highs and lows, must be greater than one
         """
         ...
 
@@ -1094,7 +1094,7 @@ class ChoppinessIndex(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         """
         Creates a new ChoppinessIndex indicator using the specified period
         
-        :param period: The period used for rolling windows for highs and lows
+        :param period: The period used for rolling windows for highs and lows, must be greater than one
         """
         ...
 
@@ -10394,6 +10394,10 @@ class PythonIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IB
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
         """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
         ...
 
     def set_indicator(self, indicator: typing.Any) -> None:

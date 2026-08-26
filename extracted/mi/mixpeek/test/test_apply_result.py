@@ -43,7 +43,13 @@ class TestApplyResult(unittest.TestCase):
                         name = '', 
                         resource_id = '', 
                         status = 'created', 
-                        error = '', )
+                        error = '', 
+                        drift = [
+                            ''
+                            ], 
+                        drift_not_compared = [
+                            ''
+                            ], )
                     ],
                 created_count = 56,
                 failed_count = 56,

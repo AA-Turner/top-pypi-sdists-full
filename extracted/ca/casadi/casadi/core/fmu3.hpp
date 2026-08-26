@@ -122,7 +122,8 @@ class CASADI_EXPORT Fmu3 : public FmuInternal {
   Value aux_value_;
 
   // Name of system, per the FMI specification
-  std::string system_infix() const override;
+  static std::string dll_infix();
+  std::string system_infix() const override { return dll_infix(); }
 
   // New memory object
   void* instantiate() const override;
@@ -147,13 +148,16 @@ class CASADI_EXPORT Fmu3 : public FmuInternal {
 
   int get_derivatives(void* instance, double* derivatives, size_t nx) const override;
 
+  // Set current time
+  int set_time(void* instance, double t) const override;
+
   // Set real values
   int set_real(void* instance, const unsigned int* vr, size_t n_vr,
     const double* values, size_t n_values) const override;
 
   // Get/evaluate real values
   int get_real(void* instance, const unsigned int* vr, size_t n_vr,
-    double* values, size_t n_values) const override;
+    double* values, size_t n_values, FmuMemory* m = nullptr) const override;
 
   // Forward mode AD
   int get_directional_derivative(void* instance, const unsigned int* vr_out, size_t n_out,

@@ -66,7 +66,7 @@ class Encoder:
         self.file_ext = os.path.splitext(filename)[1][1:]
         supported_extensions = self.ENCODERS.keys() | self.ENCODER_ALIASES.keys()
         if self.file_ext not in supported_extensions:
-            raise Exception(
+            raise Exception(  # noqa: TRY002 (raise-vanilla-class)
                 f"Unsupported file type extension {self.file_ext}. "
                 f"Supported extensions are: {', '.join(sorted(supported_extensions))}"
             )
@@ -78,7 +78,7 @@ class Encoder:
             if self.file_encoder.pkg_postimport:
                 self.file_encoder.pkg_postimport(self.pkg)
         except ModuleNotFoundError as e:
-            raise Exception(
+            raise Exception(  # noqa: TRY002 (raise-vanilla-class)
                 f'Package "{self.file_encoder.pkg}" for {self.file_ext} '
                 "file type support was not found"
             ) from e

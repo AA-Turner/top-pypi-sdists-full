@@ -24,6 +24,8 @@ from langchain.agents.middleware.types import (
     ModelRequest,
     ModelResponse,
     ResponseT,
+    TracePolicy,
+    omit_payload,
 )
 from langchain.tools import ToolRuntime
 from langchain.tools.tool_node import ToolCallRequest
@@ -1215,7 +1217,7 @@ class ExecuteSchema(BaseModel):
 
     timeout: int | None = Field(
         default=None,
-        description="Optional timeout in seconds for this command. Overrides the default timeout. Use 0 for no-timeout execution on backends that support it.",
+        description="Optional timeout in seconds for this command. Overrides the default timeout.",
     )
 
 
@@ -1316,7 +1318,7 @@ _EXECUTE_TOOL_DESCRIPTION_TEMPLATE = """Executes a shell command in an isolated 
 Usage:
 - Quote paths containing spaces (e.g. cd "/path/with spaces").
 - Chain commands with ';' or '&&' (use '&&' when a command depends on the previous); do not use newlines except inside quoted strings.
-- Use absolute paths and avoid `cd` so the working directory stays stable; use the optional timeout to override the default (0 disables it on backends that support that).
+- Use absolute paths and avoid `cd` so the working directory stays stable; use the optional timeout to override the default.
 - {search_guidance}Use read_file rather than cat/head/tail.{glob_bad_example}{grep_bad_example}
 
 Only available on backends implementing SandboxBackendProtocol; otherwise it returns an error."""
@@ -1614,6 +1616,9 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
         agent = create_agent(middleware=[FilesystemMiddleware(backend=sandbox)])
         ```
     """
+
+    trace_policy = TracePolicy(process_inputs=omit_payload)
+    """Omit hook inputs from traces by default; set a `TracePolicy` to override."""
 
     state_schema: type[FilesystemState]
 

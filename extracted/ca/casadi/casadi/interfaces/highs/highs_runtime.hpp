@@ -74,14 +74,14 @@ struct casadi_highs_data {
 
 // SYMBOL "highs_init_mem"
 template<typename T1>
-int highs_init_mem(casadi_highs_data<T1>* d) {
+int casadi_highs_init_mem(casadi_highs_data<T1>* d) {
   d->highs = Highs_create();
   return 0;
 }
 
 // SYMBOL "highs_free_mem"
 template<typename T1>
-void highs_free_mem(casadi_highs_data<T1>* d) {
+void casadi_highs_free_mem(casadi_highs_data<T1>* d) {
   Highs_destroy(d->highs);
 }
 
@@ -91,9 +91,9 @@ void casadi_highs_work(const casadi_highs_prob<T1>* p, casadi_int* sz_arg, casad
   casadi_qp_work(p->qp, sz_arg, sz_res, sz_iw, sz_w);
 }
 
-// SYMBOL "highs_init"
+// SYMBOL "highs_set_work"
 template<typename T1>
-void casadi_highs_init(casadi_highs_data<T1>* d, const T1*** arg, T1*** res, casadi_int** iw, T1** w) {
+void casadi_highs_set_work(casadi_highs_data<T1>* d, const T1*** arg, T1*** res, casadi_int** iw, T1** w) {
   
 
 }

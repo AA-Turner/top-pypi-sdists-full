@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: napari
-Version: 0.8.0
+Version: 0.9.0
 Summary: n-dimensional array viewer in Python
 Author-email: napari team <napari-steering-council@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -44,7 +44,7 @@ Requires-Dist: magicgui>=0.7.0
 Requires-Dist: napari-console>=0.1.4
 Requires-Dist: napari-plugin-engine>=0.2.1
 Requires-Dist: napari-svg>=0.1.8
-Requires-Dist: npe2>=0.8.1
+Requires-Dist: npe2>=0.9.0
 Requires-Dist: numpy>=1.25
 Requires-Dist: pandas>=1.5.0
 Requires-Dist: Pillow>=10.0
@@ -91,6 +91,7 @@ Requires-Dist: zarr>=3.0.8; extra == "optional-base"
 Requires-Dist: aiohttp; extra == "optional-base"
 Requires-Dist: napari-metadata>=0.1.0; extra == "optional-base"
 Requires-Dist: napari-plugin-manager<0.2.0,>=0.1.10; extra == "optional-base"
+Requires-Dist: rapidfuzz>=3; extra == "optional-base"
 Provides-Extra: optional-numba
 Requires-Dist: numba<=0.62.1,>=0.58.0; (platform_system == "Darwin" and platform_machine == "x86_64") and extra == "optional-numba"
 Requires-Dist: numba>=0.58.0; (platform_system != "Darwin" or platform_machine != "x86_64") and extra == "optional-numba"
@@ -118,7 +119,7 @@ Requires-Dist: pytest-qt>=4.4.0; extra == "testing"
 Requires-Dist: pytest-pretty>=1.1.0; extra == "testing"
 Requires-Dist: pytest>=8.3.5; extra == "testing"
 Requires-Dist: pytest-rerunfailures>=15.1; extra == "testing"
-Requires-Dist: tensorstore>=0.1.32; extra == "testing"
+Requires-Dist: tensorstore>=0.1.43; extra == "testing"
 Requires-Dist: virtualenv>=20.24.7; extra == "testing"
 Requires-Dist: xarray>=2023.5.0; extra == "testing"
 Requires-Dist: IPython>=7.25.0; extra == "testing"
@@ -140,6 +141,8 @@ Requires-Dist: tifffile[codecs]; extra == "gallery"
 Requires-Dist: meshio; extra == "gallery"
 Requires-Dist: trackastra>=0.4.2; extra == "gallery"
 Requires-Dist: gdown; extra == "gallery"
+Requires-Dist: geopandas; extra == "gallery"
+Requires-Dist: contextily; extra == "gallery"
 Provides-Extra: docs
 Requires-Dist: napari[gallery]; extra == "docs"
 Requires-Dist: napari-meshio; extra == "docs"
@@ -171,22 +174,14 @@ Requires-Dist: bermuda>=0.1.4; extra == "docs"
 Requires-Dist: pytest; extra == "docs"
 Requires-Dist: linkify-it-py; extra == "docs"
 Requires-Dist: numba!=0.62.0,!=0.62.1; extra == "docs"
-Provides-Extra: release
-Requires-Dist: PyGithub>=1.46; extra == "release"
-Requires-Dist: twine>=3.1.1; extra == "release"
-Requires-Dist: gitpython>=3.1.0; extra == "release"
-Requires-Dist: requests-cache>=0.9.2; extra == "release"
 Provides-Extra: dev
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: check-manifest>=0.42; extra == "dev"
+Requires-Dist: prek>=0.4.0; extra == "dev"
 Requires-Dist: pre-commit>=2.9.0; extra == "dev"
-Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: tox-min-req; extra == "dev"
 Requires-Dist: napari[testing]; extra == "dev"
 Provides-Extra: build
-Requires-Dist: ruff; extra == "build"
-Requires-Dist: pyqt5; extra == "build"
+Requires-Dist: pyqt6; extra == "build"
 Dynamic: license-file
 
 # napari
@@ -236,7 +231,7 @@ In the `File` menu, select `Open Sample` and select a sample image to get starte
 For a full installation, we recommend installing napari into a virtual environment, like this:
 
 ```sh
-conda create -y -n napari-env -c conda-forge python=3.11
+conda create -y -n napari-env -c conda-forge python=3.13
 conda activate napari-env
 python -m pip install "napari[all]"
 ```

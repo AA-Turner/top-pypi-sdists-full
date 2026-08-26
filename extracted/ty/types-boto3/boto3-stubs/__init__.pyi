@@ -203,6 +203,7 @@ from types_boto3_health.client import HealthClient
 from types_boto3_healthlake.client import HealthLakeClient
 from types_boto3_iam.client import IAMClient
 from types_boto3_iam.service_resource import IAMServiceResource
+from types_boto3_iam_toolbox.client import IAMToolboxPreviewClient
 from types_boto3_identitystore.client import IdentityStoreClient
 from types_boto3_imagebuilder.client import ImagebuilderClient
 from types_boto3_importexport.client import ImportExportClient
@@ -3746,6 +3747,24 @@ def client(
 ) -> IAMClient:
     """
     Create client for IAM service.
+    """
+
+@overload
+def client(
+    service_name: Literal["iam-toolbox"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> IAMToolboxPreviewClient:
+    """
+    Create client for IAMToolboxPreview service.
     """
 
 @overload

@@ -13,11 +13,11 @@ def Helpers_arrayFrom[T](xs: IEnumerable_1[T]) -> Array[T]:
     return of_seq(xs)
 
 
-def Helpers_allocateArray[T](len_1: int32) -> Array[T]:
+def Helpers_allocateArray[T](len_1: int) -> Array[T]:
     return create(len_1, cast(Any, None))
 
 
-def Helpers_allocateArrayFromCons[T](cons: FSharpCons[T], len_1: int32) -> Array[T]:
+def Helpers_allocateArrayFromCons[T](cons: FSharpCons[T], len_1: int) -> Array[T]:
     if Operators_IsNull(cons):
         return create(len_1, cast(Any, None))
 
@@ -25,24 +25,24 @@ def Helpers_allocateArrayFromCons[T](cons: FSharpCons[T], len_1: int32) -> Array
         return cons.allocate(len_1)
 
 
-def Helpers_fillImpl[T](array: Array[T], value: T, start: int32, count: int32) -> Array[T]:
-    for i in range(int32.ZERO, count - int32.ONE, 1):
-        array[i + start] = value
+def Helpers_fillImpl[T](array: Array[T], value: T, start: int, count: int) -> Array[T]:
+    for i in range(0, (count - 1) if (count >= -2147483647) else int32(count - 1), 1):
+        array[tmp if (-2147483648 <= (tmp := i + start) <= 2147483647) else int32(tmp)] = value
     return array
 
 
-def Helpers_spliceImpl[T](array: Array[T], start: int32, delete_count: int32) -> Array[T]:
-    for _ in range(int32.ONE, delete_count, 1):
+def Helpers_spliceImpl[T](array: Array[T], start: int, delete_count: int) -> Array[T]:
+    for _ in range(1, delete_count, 1):
         array.pop(start)
     return array
 
 
-def Helpers_indexOfImpl[T](array: Array[T], item: T, start: int32) -> Any:
+def Helpers_indexOfImpl[T](array: Array[T], item: T, start: int) -> Any:
     try:
         return array.index(item, start)
 
     except Exception as ex:
-        return int32.NEG_ONE
+        return -1
 
 
 __all__ = [

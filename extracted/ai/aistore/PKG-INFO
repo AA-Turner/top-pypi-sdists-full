@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aistore
-Version: 1.25.0
+Version: 1.26.0
 Summary: Client-side APIs to access and utilize clusters, buckets, and objects on AIStore.
 Project-URL: Homepage, https://aistore.nvidia.com
 Project-URL: Documentation, https://aistore.nvidia.com/docs/python-sdk
@@ -29,7 +29,7 @@ Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: requests>=2.28.2
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: urllib3>=1.26.18
-Requires-Dist: xxhash>=3.3.0
+Requires-Dist: xxhash==3.5.0
 Provides-Extra: botocore
 Requires-Dist: wrapt; extra == 'botocore'
 Provides-Extra: etl
@@ -40,7 +40,7 @@ Requires-Dist: gunicorn>=23.0.0; extra == 'etl'
 Requires-Dist: httpx>=0.28.0; extra == 'etl'
 Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'etl'
 Provides-Extra: mcp
-Requires-Dist: mcp[cli]>=1.4.1; extra == 'mcp'
+Requires-Dist: mcp[cli]<3,>=1.4.1; extra == 'mcp'
 Provides-Extra: pytorch
 Requires-Dist: alive-progress>=3.1.0; extra == 'pytorch'
 Requires-Dist: torch; extra == 'pytorch'

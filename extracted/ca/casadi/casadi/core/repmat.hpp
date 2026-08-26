@@ -67,7 +67,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{20m} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Evaluate the MX node on a const/linear/nonlinear partition
 
@@ -75,6 +76,13 @@ namespace casadi {
     void eval_linear(const std::vector<std::array<MX, 3> >& arg,
         std::vector<std::array<MX, 3> >& res) const override {
         eval_linear_rearrange(arg, res);
+    }
+
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2iz} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override {
+      return sp_forward(arg, res, iw, w);
     }
 
     /** \brief  Propagate sparsity forward
@@ -165,7 +173,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{20y} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief  Propagate sparsity forward
 

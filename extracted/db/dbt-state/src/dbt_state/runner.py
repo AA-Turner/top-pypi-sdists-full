@@ -584,21 +584,37 @@ class RunnerOverride:
                         self._disabled = True
                         return None
 
-                    sso = None
                     run_cache_config = RunCacheConfig.from_runtime_config(config)
-                    if is_ci_environment() or is_non_interactive_environment():
-                        sso = sso_auth(org_id=run_cache_config.org_id)
-                        if not sso.is_logged_in() and not run_cache_config.oauth_client_secret:
-                            events.fire_warn_event(
-                                "dbt State disabled: not authenticated and no OAuth client credentials configured. "
-                                "To authenticate, either configure OAuth credentials via environment variables "
-                                "(DBT_ENGINE_STATE_OAUTH_CLIENT_ID and DBT_ENV_SECRET_STATE_OAUTH_CLIENT_SECRET; "
-                                "the RUN_CACHE_ prefixed names are also accepted), "
-                                "in profiles.yml (run_cache_oauth_client_id and run_cache_oauth_client_secret), "
-                                "or run dbt from an attached terminal to log in through the browser."
-                            )
-                            self._disabled = True
-                            return None
+                    sso = None
+                    try:
+                        sso = sso_auth(
+                            org_id=run_cache_config.org_id,
+                            client_id=run_cache_config.oauth_client_id,
+                            client_secret=run_cache_config.oauth_client_secret,
+                            dbt_platform_tokens=run_cache_config.dbt_platform_tokens,
+                        )
+                    except Exception as e:
+                        # Fails open: an inability to even construct the auth helper (e.g. an
+                        # unwritable/foreign-owned config dir) shouldn't block the run. The
+                        # headless pre-check below is skipped in this case, and real auth is
+                        # still attempted inside _get_or_create_client further down.
+                        events.fire_debug_event(
+                            "Failed to construct dbt State auth client: {}", str(e)
+                        )
+
+                    if (
+                        sso is not None
+                        and (is_ci_environment() or is_non_interactive_environment())
+                        and not sso.has_noninteractive_credential()
+                    ):
+                        events.fire_warn_event(
+                            "No credentials for dbt State detected. To authenticate without a browser, "
+                            "set DBT_CLOUD_TOKEN and DBT_CLOUD_ACCOUNT_HOST environment variables. "
+                            "Otherwise, invoke dbt from an attached terminal to log in through the browser. "
+                            "See https://docs.getdbt.com/docs/deploy/dbt-state-cicd for more information."
+                        )
+                        self._disabled = True
+                        return None
 
                     try:
                         client = self._get_or_create_client(run_cache_config)

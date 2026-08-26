@@ -1906,6 +1906,9 @@ def AthenaSource(
 def ClickhouseSource(
     *,
     name: str,
+    unload_path: Optional[str] = ...,
+    unload_aws_role_arn: Optional[str] = ...,
+    unload_chalk_aws_role_arn: Optional[str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
@@ -1929,6 +1932,9 @@ def ClickhouseSource(
 def ClickhouseSource(
     *,
     name: str,
+    unload_path: Optional[str] = ...,
+    unload_aws_role_arn: Optional[str] = ...,
+    unload_chalk_aws_role_arn: Optional[str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
     permission_tags: list[str] | None = ...,
@@ -1945,6 +1951,15 @@ def ClickhouseSource(
     ----------
     name
         Name of the integration, as configured in your dashboard.
+    unload_path
+        Optional S3 destination prefix for ClickHouse unload files. Pass an empty string to disable
+        a destination configured on the named integration.
+    unload_aws_role_arn
+        Optional AWS IAM role that ClickHouse assumes when writing unload files to S3. Pass an empty
+        string to override a role configured on the named integration.
+    unload_chalk_aws_role_arn
+        Optional AWS IAM role that Chalk assumes when listing and reading unload files from S3. Pass
+        an empty string to override a role configured on the named integration.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine. These arguments will be
         merged with any default arguments from the named integration.
@@ -1971,6 +1986,9 @@ def ClickhouseSource(
     user: str = ...,
     password: str = ...,
     use_tls: Union[bool, str] = ...,
+    unload_path: Optional[str] = ...,
+    unload_aws_role_arn: Optional[str] = ...,
+    unload_chalk_aws_role_arn: Optional[str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
     permission_tags: list[str] | None = ...,
@@ -1997,6 +2015,12 @@ def ClickhouseSource(
     use_tls
         Whether to use tls protocol when communicating with the clickhouse engine, required for certain ports.
         See https://clickhouse.com/docs/guides/sre/network-ports for more details. Defaults to True.
+    unload_path
+        Optional S3 destination prefix for ClickHouse unload files. When omitted, Chalk uses the direct-query path.
+    unload_aws_role_arn
+        Optional AWS IAM role that ClickHouse assumes when writing unload files to S3.
+    unload_chalk_aws_role_arn
+        Optional AWS IAM role that Chalk assumes when listing and reading unload files from S3.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
     async_engine_args:
@@ -2035,6 +2059,9 @@ def ClickhouseSource(
     user: Optional[str] = None,
     password: Optional[str] = None,
     use_tls: Optional[Union[bool, str]] = None,
+    unload_path: Optional[str] = None,
+    unload_aws_role_arn: Optional[str] = None,
+    unload_chalk_aws_role_arn: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
     permission_tags: list[str] | None = None,
@@ -2056,6 +2083,9 @@ def ClickhouseSource(
         user=user,
         password=password,
         use_tls=use_tls,
+        unload_path=unload_path,
+        unload_aws_role_arn=unload_aws_role_arn,
+        unload_chalk_aws_role_arn=unload_chalk_aws_role_arn,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
         permission_tags=permission_tags,

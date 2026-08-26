@@ -153,6 +153,7 @@ from .literals import (
     FleetInstanceMetadataEndpointStateType,
     FleetOnDemandAllocationStrategyType,
     FleetReplacementStrategyType,
+    FleetReservationTypeType,
     FleetStateCodeType,
     FleetTypeType,
     FlexibleEnaQueuesSupportType,
@@ -2047,6 +2048,7 @@ __all__ = (
     "FirewallStatefulRuleTypeDef",
     "FirewallStatelessRuleTypeDef",
     "FleetBlockDeviceMappingRequestTypeDef",
+    "FleetCapacityReservationTargetRequestTypeDef",
     "FleetCapacityReservationTypeDef",
     "FleetDataTypeDef",
     "FleetEbsBlockDeviceRequestTypeDef",
@@ -2944,6 +2946,8 @@ __all__ = (
     "ReservationResponseTypeDef",
     "ReservationTypeDef",
     "ReservationValueTypeDef",
+    "ReservedCapacityFallbackOptionsRequestTypeDef",
+    "ReservedCapacityFallbackOptionsTypeDef",
     "ReservedCapacityOptionsRequestTypeDef",
     "ReservedCapacityOptionsTypeDef",
     "ReservedInstanceLimitPriceTypeDef",
@@ -4418,9 +4422,6 @@ class CreateDefaultVpcRequestTypeDef(TypedDict):
 class NewDhcpConfigurationTypeDef(TypedDict):
     Key: NotRequired[str]
     Values: NotRequired[Sequence[str]]
-
-class ReservedCapacityOptionsRequestTypeDef(TypedDict):
-    ReservationTypes: NotRequired[Sequence[Literal["interruptible-capacity-reservation"]]]
 
 class TargetCapacitySpecificationRequestTypeDef(TypedDict):
     TotalTargetCapacity: int
@@ -6356,8 +6357,9 @@ class FleetEbsBlockDeviceRequestTypeDef(TypedDict):
     VolumeSize: NotRequired[int]
     VolumeType: NotRequired[VolumeTypeType]
 
-class ReservedCapacityOptionsTypeDef(TypedDict):
-    ReservationTypes: NotRequired[list[Literal["interruptible-capacity-reservation"]]]
+class FleetCapacityReservationTargetRequestTypeDef(TypedDict):
+    CapacityReservationIds: NotRequired[Sequence[str]]
+    CapacityReservationResourceGroupArns: NotRequired[Sequence[str]]
 
 class TargetCapacitySpecificationTypeDef(TypedDict):
     TotalTargetCapacity: NotRequired[int]
@@ -8266,6 +8268,12 @@ class ReplaceVpnTunnelRequestTypeDef(TypedDict):
     VpnTunnelOutsideIpAddress: str
     ApplyPendingMaintenance: NotRequired[bool]
     DryRun: NotRequired[bool]
+
+class ReservedCapacityFallbackOptionsRequestTypeDef(TypedDict):
+    MarketTypes: NotRequired[Sequence[Literal["on-demand"]]]
+
+class ReservedCapacityFallbackOptionsTypeDef(TypedDict):
+    MarketTypes: NotRequired[list[Literal["on-demand"]]]
 
 class ReservedInstancesIdTypeDef(TypedDict):
     ReservedInstancesId: NotRequired[str]
@@ -15684,6 +15692,17 @@ class RegisterTransitGatewayMulticastGroupMembersResultTypeDef(TypedDict):
 class RegisterTransitGatewayMulticastGroupSourcesResultTypeDef(TypedDict):
     RegisteredMulticastGroupSources: TransitGatewayMulticastRegisteredGroupSourcesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ReservedCapacityOptionsRequestTypeDef(TypedDict):
+    AllocationStrategy: NotRequired[Literal["prioritized"]]
+    ReservationTypes: NotRequired[Sequence[FleetReservationTypeType]]
+    CapacityReservationTarget: NotRequired[FleetCapacityReservationTargetRequestTypeDef]
+    ReservedCapacityFallbackOptions: NotRequired[ReservedCapacityFallbackOptionsRequestTypeDef]
+
+class ReservedCapacityOptionsTypeDef(TypedDict):
+    AllocationStrategy: NotRequired[Literal["prioritized"]]
+    ReservationTypes: NotRequired[list[FleetReservationTypeType]]
+    ReservedCapacityFallbackOptions: NotRequired[ReservedCapacityFallbackOptionsTypeDef]
 
 class ResourceTypeRequestTypeDef(TypedDict):
     ResourceType: NotRequired[ImageReferenceResourceTypeType]

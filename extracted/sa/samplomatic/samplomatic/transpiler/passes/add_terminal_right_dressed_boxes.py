@@ -19,6 +19,7 @@ from qiskit.circuit import BoxOp, QuantumCircuit, Qubit
 from qiskit.dagcircuit import DAGCircuit, DAGOpNode
 from qiskit.transpiler.basepasses import TransformationPass
 
+from samplomatic.annotations.decomposition_mode import DecompositionLiteral
 from samplomatic.annotations.group_mode import GroupLiteral
 
 from ...annotations import ChangeBasis, Twirl
@@ -76,11 +77,13 @@ class AddTerminalRightDressedBoxes(TransformationPass):
 
     Args:
         group: The group to use for the box.
+        decomposition: The decomposition to use for the box.
     """
 
-    def __init__(self, group: GroupLiteral = "pauli"):
+    def __init__(self, group: GroupLiteral = "pauli", decomposition: DecompositionLiteral = "rzsx"):
         super().__init__()
         self.group = group
+        self.decomposition = decomposition
 
     def _new_box(self, qubits: Iterable[Qubit], qubit_map: dict[Qubit, int]) -> BoxOp:
         # we go a bit out of our way to use the same qubit instances as the original circuit and
@@ -89,7 +92,12 @@ class AddTerminalRightDressedBoxes(TransformationPass):
         # the latter minimizes surprise to users.
         qubits = sorted(qubits, key=qubit_map.get)
         body = QuantumCircuit(qubits)
-        return qubits, BoxOp(body=body, annotations=[Twirl(dressing="right", group=self.group)])
+        return qubits, BoxOp(
+            body=body,
+            annotations=[
+                Twirl(dressing="right", group=self.group, decomposition=self.decomposition)
+            ],
+        )
 
     @classmethod
     def _get_terminal_qubits(cls, node: DAGOpNode) -> tuple[set[Qubit], set[Qubit], set[Qubit]]:
@@ -127,7 +135,7 @@ class AddTerminalRightDressedBoxes(TransformationPass):
                 measured_qubits = set()
                 qubit_map = None  # don't compute this unless necessary
                 for instr in node.op.body:
-                    if instr.operation.name == "measure":
+                    if instr.operation.name.startswith("meas"):
                         qubit_map = qubit_map or (qubit_map := _inverse_box_qubit_map(node))
                         measured_qubits.update(qubit_map[qubit] for qubit in instr.qubits)
 
@@ -138,8 +146,8 @@ class AddTerminalRightDressedBoxes(TransformationPass):
             # it to be less lazy and traverse the contents to find out.
             return set(node.qargs), _EMPTY_SET, _EMPTY_SET
 
-        if node.op.name == "barrier":
-            # it's always okay to postpone termination until after a barrier
+        if node.op.name in ("barrier", "delay"):
+            # it's always okay to postpone termination until after a barrier or delay
             return _EMPTY_SET, _EMPTY_SET, _EMPTY_SET
 
         # we treat every other kind of operation (multi-qubit gates, measurements, etc.) as "unsafe"

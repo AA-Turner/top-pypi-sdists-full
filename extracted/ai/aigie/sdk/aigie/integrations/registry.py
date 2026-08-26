@@ -109,6 +109,16 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         kind="agent_framework",
         handler_class="aigie.integrations.openai_agents.processor.OpenAIAgentsProcessor",
     ),
+    "pipecat": IntegrationInfo(
+        name="pipecat",
+        display_name="Pipecat",
+        description="Pipecat voice pipelines — conversation, turn, LLM, STT/TTS tracing.",
+        package_name="pipecat-ai",
+        import_name="pipecat",
+        patch_function="aigie.integrations.pipecat.lifecycle.install_pipecat_patches",
+        kind="agent_framework",
+        handler_class="aigie.integrations.pipecat.native_callback.PipecatObserver",
+    ),
     # LLM Providers (direct patching)
     "openai": IntegrationInfo(
         name="openai",
@@ -400,7 +410,7 @@ def get_handler(integration: str) -> Any:
     return _import_from_path(info.handler_class)
 
 
-def register_integration(
+def register_integration(  # noqa: PLR0917 — pre-existing public signature; keyword-only would break third-party positional callers
     name: str,
     display_name: str,
     description: str,

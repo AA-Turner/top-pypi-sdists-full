@@ -4459,7 +4459,7 @@ class IsolatorLimitResultProvider(System.Object):
 
     @staticmethod
     @overload
-    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
+    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor, name: str = None) -> None:
         """
         Executes the provided code block and while the code block is running, continually consume from
         the limit result provided one token each minute. This function allows the code to run for the

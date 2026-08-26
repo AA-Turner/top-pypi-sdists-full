@@ -1,5 +1,7 @@
 """Methods to build the toctree used in the html pages."""
 
+import posixpath
+
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import cache
@@ -157,11 +159,22 @@ def add_toctree_functions(
                 # sanitize page title for use in the html output if needed
                 if title is None:
                     title = ""
-                    for node in app.env.titles[page].children:
-                        if isinstance(node, nodes.math):
-                            title += add_inline_math(node)
-                        else:
-                            title += node.astext()
+                    if page in app.env.titles:
+                        for node in app.env.titles[page].children:
+                            if isinstance(node, nodes.math):
+                                title += add_inline_math(node)
+                            else:
+                                title += node.astext()
+                    elif page == "genindex":
+                        title = _("Index")
+                    elif page == "modindex":
+                        title = _("Python Module Index")
+                    elif page == "search":
+                        title = _("Search")
+                    else:
+                        raise RuntimeError(
+                            f"Could not find title for toctree entry: {page!r}"
+                        )
 
                 # set up the status of the link and the path
                 # if the path is relative then we use the context for the path
@@ -169,7 +182,13 @@ def add_toctree_functions(
                 # If it's an absolute one then we use the external class and
                 # the complete url.
                 is_absolute = bool(urlparse(page).netloc)
-                link_href = page if is_absolute else context["pathto"](page)
+                link_href = (
+                    page
+                    if is_absolute
+                    else context["pathto"](
+                        "py-modindex" if page == "modindex" else page
+                    )
+                )
 
                 links_data.append(
                     LinkInfo(
@@ -321,7 +340,8 @@ def add_toctree_functions(
         It also modifies the generated TocTree slightly for Bootstrap classes
         and structure (via BeautifulSoup).
 
-        Arguments are passed to Sphinx "toctree" function (context["toctree"] below).
+        Arguments are passed to the Sphinx `_get_local_toctree` function
+        (`context["toctree"]` below).
 
         ref: https://www.sphinx-doc.org/en/master/templating.html#toctree
 
@@ -336,15 +356,16 @@ def add_toctree_functions(
                 page load. By default, this level is 1, and only top-level pages are
                 shown, with drop-boxes to reveal children. Increasing `show_nav_level`
                 will show child levels as well.
-            kwargs : passed to the Sphinx `toctree` template function.
+            kwargs : passed to the Sphinx `_get_local_toctree` template function.
 
         Returns:
             HTML string (if kind == "sidebar") OR BeautifulSoup object
                 (if kind == "raw")
         """
-        if startdepth == 0:
-            html_toctree = context["toctree"](**kwargs)
-        else:
+        show_nav_level = int(show_nav_level)
+
+        ancestorname = toctree_obj = None
+        if startdepth > 0:
             # find relevant ancestor page; some pages (search, genindex) won't have one
             ancestorname, toctree_obj = _get_ancestor_pagename(
                 app=app, pagename=pagename, startdepth=startdepth
@@ -355,6 +376,27 @@ def add_toctree_functions(
                     "ancestor found to act as root node. Please report this to theme "
                     "developers."
                 )
+
+        # Resolving and soup-ifying the sidebar toctree below is expensive on
+        # large sites, so where possible we serve it from a cache instead
+        # (see _sidebar_cache_key for when and _patch_cached_sidebar for how)
+        cache_key = _sidebar_cache_key(
+            kind,
+            ancestorname,
+            app.builder.get_target_uri(pagename),
+            show_nav_level,
+            kwargs,
+        )
+        if cache_key is not None:
+            cached_html = _patch_cached_sidebar(
+                app, cache_key, pagename, show_nav_level
+            )
+            if cached_html is not None:
+                return cached_html
+
+        if startdepth == 0:
+            html_toctree = context["toctree"](**kwargs)
+        else:
             # select the "active" subset of the navigation tree for the sidebar
             toctree_element = get_nonroot_toctree(
                 app, pagename, ancestorname, toctree_obj, **kwargs
@@ -405,9 +447,14 @@ def add_toctree_functions(
             add_collapse_checkboxes(soup)
 
             # Open the sidebar navigation to the proper depth
-            for ii in range(int(show_nav_level)):
+            for ii in range(show_nav_level):
                 for details in soup.select(f"li.toctree-l{ii} > details"):
                     details["open"] = "open"
+
+        if cache_key is not None and soup.find("a", href="#") is not None:
+            # only cache a soup containing this page's own entry (rendered with
+            # href="#") so that a later cache hit can find and demote that entry
+            _sidebar_cache(app)[cache_key] = [pagename, soup]
 
         return soup
 
@@ -481,6 +528,146 @@ def add_toctree_functions(
     context["generate_toctree_html"] = generate_toctree_html
     context["generate_toc_html"] = generate_toc_html
     context["navbar_align_class"] = navbar_align_class
+
+
+def _sidebar_cache_key(
+    kind: str,
+    ancestorname: str | None,
+    page_uri: str,
+    show_nav_level: int,
+    kwargs: dict,
+) -> tuple | None:
+    """Return the sidebar toctree cache key for this page, or None if uncacheable.
+
+    When `collapse=False` (i.e., theme option `collapse_navigation=False`, which
+    is our default; note that Sphinx's `_get_local_toctree` defaults to
+    `collapse=True`), the resolved toctree has the same structure for every page
+    under the same ancestor -- only the "current" markers (`current`/`active`
+    classes and open `<details>`) and the relative link targets differ. So the
+    finished soup can be shared by all pages written to the same output
+    directory (same relative link targets) below the same ancestor, provided the
+    "current" markers are moved to each page's own toctree entry
+    (_patch_cached_sidebar).
+
+    `page_uri` is this page's output URI (`builder.get_target_uri()`), not its
+    docname: builders whose page URIs are directories rather than files (e.g.
+    "dirhtml") give every page its own output directory, so no two pages can
+    share a sidebar and nothing is cached for them.
+    """
+    if kind != "sidebar" or ancestorname is None or kwargs.get("collapse", True):
+        return None
+    if not page_uri or page_uri.endswith("/"):
+        return None
+    return (
+        ancestorname,
+        posixpath.dirname(page_uri),
+        show_nav_level,
+        tuple(sorted(kwargs.items())),
+    )
+
+
+def _sidebar_cache(app: Sphinx) -> dict:
+    """Return the per-build sidebar toctree cache, stored on the Sphinx app."""
+    if not hasattr(app, "_pst_sidebar_toctree_cache"):
+        app._pst_sidebar_toctree_cache = {}
+    return app._pst_sidebar_toctree_cache
+
+
+def _patch_cached_sidebar(
+    app: Sphinx, cache_key: tuple, pagename: str, show_nav_level: int
+) -> str | None:
+    """Return this page's sidebar HTML by patching a cached sibling page's soup.
+
+    Return None (and leave the cache unmodified) if no soup is cached under
+    `cache_key` yet, or if the cached soup contains no entry for this page
+    (e.g., it was pruned by `maxdepth`) -- the caller then builds the sidebar
+    the slow way.
+    """
+    cached = _sidebar_cache(app).get(cache_key)
+    if cached is None:
+        return None
+    cached_pagename, cached_soup = cached
+    patched = _move_current_markers(
+        cached_soup,
+        old_href=app.builder.get_relative_uri(pagename, cached_pagename),
+        new_href=app.builder.get_relative_uri(cached_pagename, pagename),
+        show_nav_level=show_nav_level,
+    )
+    if not patched:
+        return None
+    cached[0] = pagename  # the "current" markers are now on this page's entry
+    return str(cached_soup)
+
+
+def _move_current_markers(
+    soup: BeautifulSoup, *, old_href: str, new_href: str, show_nav_level: int
+) -> bool:
+    """Move the "current page" markers in a rendered sidebar toctree.
+
+    ``soup`` was rendered for another page in the same directory, whose entry (as
+    seen from the page at ``new_href``) is at ``old_href``. Relocate the
+    ``current``/``active`` classes and the ``open`` state of ``<details>``
+    disclosure widgets from that page's entry chain to the entry for the page at
+    ``new_href``. Return ``False`` (leaving ``soup`` unmodified) if no entry for
+    ``new_href`` exists.
+    """
+    if old_href == new_href:
+        return True  # same page, nothing to move
+    new_anchors = soup.find_all("a", href=new_href)
+    if not new_anchors:
+        return False
+    # Demote the previous page's entry; its self-link is rendered as href="#"
+    for anchor in soup.find_all("a", href="#"):
+        anchor["href"] = old_href
+        anchor["class"] = [cls for cls in anchor.get("class", []) if cls != "current"]
+        _set_current_chain(anchor, current=False, show_nav_level=show_nav_level)
+    # Promote this page's entry
+    for anchor in new_anchors:
+        anchor["href"] = "#"
+        anchor["class"] = ["current", *anchor.get("class", [])]
+        _set_current_chain(anchor, current=True, show_nav_level=show_nav_level)
+    return True
+
+
+def _set_current_chain(anchor, *, current: bool, show_nav_level: int) -> None:
+    """Add or remove current/active/open markers on an entry's ancestor chain."""
+    for parent in anchor.parents:
+        if parent.name == "li":
+            classes = parent.get("class", [])
+            # `li.toctree-l0` is a wrapper the theme synthesizes around a part's
+            # caption when `show_nav_level=0`; fresh builds never mark it current
+            is_part = "toctree-l0" in classes
+            if not is_part:
+                classes = [cls for cls in classes if cls not in ("current", "active")]
+                if current:
+                    # match the class order of a freshly built toctree, where
+                    # Sphinx adds "current" right after "toctree-l*"
+                    classes[1:1] = ["current", "active"]
+                parent["class"] = classes
+            # Every <details> disclosure widget added by `add_collapse_checkboxes`
+            # is a direct child of an <li> on the chain -- including the current
+            # entry's own <li> (when the current page has child pages), whose
+            # <details> is a *sibling* of `anchor` rather than an ancestor.
+            details = parent.find("details", recursive=False)
+            if details is not None:
+                if current:
+                    # fresh builds give an open part a bare `open` attribute
+                    details["open"] = None if is_part else "open"
+                elif not any(
+                    f"toctree-l{level}" in classes for level in range(show_nav_level)
+                ):
+                    # (keep <details> open where mandated by ``show_nav_level``)
+                    details.attrs.pop("open", None)
+        elif parent.name == "ul":
+            classes = [cls for cls in parent.get("class", []) if cls != "current"]
+            # `ul.list-caption` is the theme-synthesized wrapper around all parts
+            # (`show_nav_level=0`); fresh builds never mark it current
+            if current and "list-caption" not in classes:
+                classes.insert(0, "current")
+            if classes:
+                parent["class"] = classes
+            else:
+                parent.attrs.pop("class", None)
 
 
 def add_collapse_checkboxes(soup: BeautifulSoup) -> None:
@@ -615,6 +802,8 @@ def get_nonroot_toctree(
         kwargs["maxdepth"] = 0
     kwargs["maxdepth"] = int(kwargs["maxdepth"])
     # starting from ancestor page, recursively parse `toctree::` elements
+    if ancestorname not in toctree.env.tocs:
+        return None
     ancestor_doctree = toctree.env.tocs[ancestorname].deepcopy()
     toctrees = []
 

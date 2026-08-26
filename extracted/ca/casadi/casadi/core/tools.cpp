@@ -28,7 +28,6 @@
 #include "casadi_misc.hpp"
 #include "importer.hpp"
 #include "serializer.hpp"
-#include <casadi/config.h>
 #include "casadi_os.hpp"
 #include "casadi_meta.hpp"
 
@@ -47,7 +46,7 @@ Function external_transform(const std::string& name,
                     const Function& f,
                     const Dict& opts) {
     std::string signature = "f";
-    Importer li(name + SHARED_LIBRARY_SUFFIX, "dll");
+    Importer li(name + CasadiMeta::shared_library_suffix(), "dll");
     std::string op_full = op + "__" + signature;
     external_transform_t t = (external_transform_t) li.get_function(op_full);
     if (!t) {
@@ -83,7 +82,7 @@ const char* external_transform_test_success__f(char api_version, const char* cas
         casadi::external_print_callback_t cb_stdout, casadi::external_print_callback_t cb_stderr) {
     if (api_version != 0) {
         cb_stderr("version mismatch");
-        return 0;
+        return nullptr;
     }
     casadi::StringDeserializer sd(in);
     casadi::Function f = sd.unpack_function();
@@ -108,5 +107,5 @@ const char* external_transform_test_fail__f(char api_version, const char* casadi
         casadi::external_print_callback_t cb_stdout, casadi::external_print_callback_t cb_stderr) {
     cb_stdout("This is going to fail\n");
     cb_stderr("Fatal error\n");
-    return 0;
+    return nullptr;
 }

@@ -65,7 +65,7 @@ def lines_with_leading_tabs_expanded(s: str) -> list[str]:
 
 
 def fix_multiline_docstring(docstring: str, prefix: str) -> str:
-    # https://www.python.org/dev/peps/pep-0257/#handling-docstring-indentation
+    # https://peps.python.org/pep-0257/#handling-docstring-indentation
     assert docstring, "INTERNAL ERROR: Multiline docstrings cannot be empty"
     lines = lines_with_leading_tabs_expanded(docstring)
     # Determine minimum indentation (first line doesn't count):
@@ -291,9 +291,11 @@ def normalize_fstring_quotes(
         # edge case:
         new_segments[-1] = new_segments[-1][:-1] + '\\"'
 
+    orig_escape_count = 0
+    new_escape_count = 0
     for middle, new_segment in zip(middles, new_segments, strict=True):
-        orig_escape_count = middle.value.count("\\")
-        new_escape_count = new_segment.count("\\")
+        orig_escape_count += middle.value.count("\\")
+        new_escape_count += new_segment.count("\\")
 
     if new_escape_count > orig_escape_count:
         return middles, quote  # Do not introduce more escaping

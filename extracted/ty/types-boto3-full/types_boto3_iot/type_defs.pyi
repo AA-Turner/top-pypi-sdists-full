@@ -68,6 +68,9 @@ from .literals import (
     FieldTypeType,
     FleetMetricUnitType,
     IndexStatusType,
+    InfluxDBSecretTypeType,
+    InfluxDBTimestampUnitType,
+    InfluxDBVersionType,
     JobEndBehaviorType,
     JobExecutionFailureTypeType,
     JobExecutionStatusType,
@@ -486,6 +489,13 @@ __all__ = (
     "ImplicitDenyTypeDef",
     "IndexingFilterOutputTypeDef",
     "IndexingFilterTypeDef",
+    "InfluxDBActionOutputTypeDef",
+    "InfluxDBActionTypeDef",
+    "InfluxDBActionUnionTypeDef",
+    "InfluxDBBatchConfigTypeDef",
+    "InfluxDBDestinationConfigurationTypeDef",
+    "InfluxDBDestinationPropertiesTypeDef",
+    "InfluxDBDestinationSummaryTypeDef",
     "IotAnalyticsActionTypeDef",
     "IotEventsActionTypeDef",
     "IotSiteWiseActionOutputTypeDef",
@@ -1993,6 +2003,33 @@ class HttpUrlDestinationPropertiesTypeDef(TypedDict):
 
 class HttpUrlDestinationSummaryTypeDef(TypedDict):
     confirmationUrl: NotRequired[str]
+
+class InfluxDBBatchConfigTypeDef(TypedDict):
+    maxBatchSize: NotRequired[int]
+    maxBatchOpenMs: NotRequired[int]
+    maxBatchSizeBytes: NotRequired[int]
+    batchAcrossTopics: NotRequired[bool]
+
+class InfluxDBDestinationConfigurationTypeDef(TypedDict):
+    endpoint: str
+    influxDBVersion: InfluxDBVersionType
+    secretId: str
+    secretType: NotRequired[InfluxDBSecretTypeType]
+    secretKey: NotRequired[str]
+
+class InfluxDBDestinationPropertiesTypeDef(TypedDict):
+    endpoint: NotRequired[str]
+    influxDBVersion: NotRequired[InfluxDBVersionType]
+    secretId: NotRequired[str]
+    secretType: NotRequired[InfluxDBSecretTypeType]
+    secretKey: NotRequired[str]
+
+class InfluxDBDestinationSummaryTypeDef(TypedDict):
+    endpoint: NotRequired[str]
+    influxDBVersion: NotRequired[InfluxDBVersionType]
+    secretId: NotRequired[str]
+    secretType: NotRequired[InfluxDBSecretTypeType]
+    secretKey: NotRequired[str]
 
 class IssuerCertificateIdentifierTypeDef(TypedDict):
     issuerCertificateSubject: NotRequired[str]
@@ -4203,6 +4240,26 @@ class ThingGroupMetadataTypeDef(TypedDict):
 class HttpAuthorizationTypeDef(TypedDict):
     sigv4: NotRequired[SigV4AuthorizationTypeDef]
 
+class InfluxDBActionOutputTypeDef(TypedDict):
+    destinationArn: str
+    roleArn: str
+    databaseName: str
+    tableName: str
+    organization: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    timestampUnit: NotRequired[InfluxDBTimestampUnitType]
+    batchConfig: NotRequired[InfluxDBBatchConfigTypeDef]
+
+class InfluxDBActionTypeDef(TypedDict):
+    destinationArn: str
+    roleArn: str
+    databaseName: str
+    tableName: str
+    organization: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    timestampUnit: NotRequired[InfluxDBTimestampUnitType]
+    batchConfig: NotRequired[InfluxDBBatchConfigTypeDef]
+
 class JobExecutionTypeDef(TypedDict):
     jobId: NotRequired[str]
     status: NotRequired[JobExecutionStatusType]
@@ -4468,6 +4525,7 @@ class TimestreamActionTypeDef(TypedDict):
 class TopicRuleDestinationConfigurationTypeDef(TypedDict):
     httpUrlConfiguration: NotRequired[HttpUrlDestinationConfigurationTypeDef]
     vpcConfiguration: NotRequired[VpcDestinationConfigurationTypeDef]
+    influxDBConfiguration: NotRequired[InfluxDBDestinationConfigurationTypeDef]
 
 class TopicRuleDestinationSummaryTypeDef(TypedDict):
     arn: NotRequired[str]
@@ -4477,6 +4535,7 @@ class TopicRuleDestinationSummaryTypeDef(TypedDict):
     statusReason: NotRequired[str]
     httpUrlSummary: NotRequired[HttpUrlDestinationSummaryTypeDef]
     vpcDestinationSummary: NotRequired[VpcDestinationSummaryTypeDef]
+    influxDBSummary: NotRequired[InfluxDBDestinationSummaryTypeDef]
 
 class TopicRuleDestinationTypeDef(TypedDict):
     arn: NotRequired[str]
@@ -4486,6 +4545,7 @@ class TopicRuleDestinationTypeDef(TypedDict):
     statusReason: NotRequired[str]
     httpUrlProperties: NotRequired[HttpUrlDestinationPropertiesTypeDef]
     vpcProperties: NotRequired[VpcDestinationPropertiesTypeDef]
+    influxDBProperties: NotRequired[InfluxDBDestinationPropertiesTypeDef]
 
 class ValidateSecurityProfileBehaviorsResponseTypeDef(TypedDict):
     valid: bool
@@ -4774,6 +4834,8 @@ class HttpActionTypeDef(TypedDict):
     auth: NotRequired[HttpAuthorizationTypeDef]
     enableBatching: NotRequired[bool]
     batchConfig: NotRequired[BatchConfigTypeDef]
+
+InfluxDBActionUnionTypeDef = Union[InfluxDBActionTypeDef, InfluxDBActionOutputTypeDef]
 
 class DescribeJobExecutionResponseTypeDef(TypedDict):
     execution: JobExecutionTypeDef
@@ -5302,6 +5364,7 @@ ActionOutputTypeDef = TypedDict(
         "kafka": NotRequired[KafkaActionOutputTypeDef],
         "openSearch": NotRequired[OpenSearchActionTypeDef],
         "location": NotRequired[LocationActionTypeDef],
+        "influxDB": NotRequired[InfluxDBActionOutputTypeDef],
     },
 )
 
@@ -5481,6 +5544,7 @@ ActionTypeDef = TypedDict(
         "kafka": NotRequired[KafkaActionUnionTypeDef],
         "openSearch": NotRequired[OpenSearchActionTypeDef],
         "location": NotRequired[LocationActionTypeDef],
+        "influxDB": NotRequired[InfluxDBActionUnionTypeDef],
     },
 )
 CodeSigningUnionTypeDef = Union[CodeSigningTypeDef, CodeSigningOutputTypeDef]

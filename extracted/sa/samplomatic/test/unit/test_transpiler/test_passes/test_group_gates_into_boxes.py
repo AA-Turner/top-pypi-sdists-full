@@ -1,6 +1,6 @@
 # This code is a Qiskit project.
 #
-# (C) Copyright IBM 2025.
+# (C) Copyright IBM 2025, 2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,6 +20,8 @@ from qiskit.transpiler.exceptions import TranspilerError
 
 from samplomatic.annotations import Twirl
 from samplomatic.transpiler.passes import GroupGatesIntoBoxes
+
+from .utils import NamedMeasure, NamedReset
 
 
 def make_circuits():
@@ -228,7 +230,7 @@ def make_circuits():
     circuit.cx(0, 1)
     circuit.x(0)
     circuit.t(1)
-    circuit.measure(1, 0)
+    circuit.append(NamedMeasure("measure_2"), [1], [0])
     circuit.measure(2, 0)
     circuit.cx(2, 3)
     circuit.barrier()
@@ -242,7 +244,7 @@ def make_circuits():
         expected_circuit.cx(0, 1)
     expected_circuit.x(0)
     expected_circuit.t(1)
-    expected_circuit.measure(1, 0)
+    expected_circuit.append(NamedMeasure("measure_2"), [1], [0])
     expected_circuit.measure(2, 0)
     with expected_circuit.box([Twirl(dressing="left")]):
         expected_circuit.cx(2, 3)
@@ -326,6 +328,11 @@ def pytest_generate_tests(metafunc):
         real_and_expected = [(test[0], test[1]) for test in circuits_to_compare]
         descriptions = [test[2] for test in circuits_to_compare]
         metafunc.parametrize("circuits_to_compare", real_and_expected, ids=descriptions)
+    if "alap_circuits_to_compare" in metafunc.fixturenames:
+        alap_circuits = [*make_alap_circuits()]
+        real_and_expected = [(test[0], test[1]) for test in alap_circuits]
+        descriptions = [test[2] for test in alap_circuits]
+        metafunc.parametrize("alap_circuits_to_compare", real_and_expected, ids=descriptions)
 
 
 def test_transpiled_circuits_have_correct_boxops(circuits_to_compare):
@@ -362,6 +369,142 @@ def test_annotations(annotations):
     assert transpiled_circuit == expected_circuit
 
 
+def make_alap_circuits():
+    """Yield (circuit, expected_alap_circuit, description) triples for ALAP-specific tests."""
+    theta = Parameter("theta")
+    phi = Parameter("phi")
+    lam = Parameter("lambda")
+
+    circuit = QuantumCircuit(6)
+    circuit.x(0)
+    circuit.rx(theta, 0)
+    circuit.rz(phi, 1)
+    circuit.z(0)
+    circuit.y(1)
+    circuit.cx(1, 2)
+    circuit.cx(4, 3)
+    circuit.ecr(0, 1)
+    circuit.y(1)
+    circuit.sx(3)
+    circuit.rz(lam, 5)
+    circuit.sx(5)
+
+    expected_circuit = QuantumCircuit(6)
+    expected_circuit.rz(phi, 1)
+    expected_circuit.y(1)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(1, 2)
+    expected_circuit.x(0)
+    expected_circuit.rx(theta, 0)
+    expected_circuit.z(0)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.ecr(0, 1)
+        expected_circuit.cx(4, 3)
+    expected_circuit.y(1)
+    expected_circuit.sx(3)
+    expected_circuit.rz(lam, 5)
+    expected_circuit.sx(5)
+
+    yield circuit, expected_circuit, "alap_groups_independent_gate_with_latest_box"
+
+    circuit = QuantumCircuit(4)
+    circuit.cx(0, 1)
+    circuit.x(0)
+    circuit.z(1)
+    circuit.y(2)
+    circuit.h(3)
+    circuit.barrier(1, 2)
+    circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+    expected_circuit.x(0)
+    expected_circuit.z(1)
+    expected_circuit.y(2)
+    expected_circuit.barrier(1, 2)
+    expected_circuit.h(3)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(2, 3)
+
+    yield circuit, expected_circuit, "alap_circuit_with_partial_width_barrier"
+
+    circuit = QuantumCircuit(4)
+    circuit.cx(0, 1)
+    circuit.barrier()
+    circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+    expected_circuit.barrier()
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(2, 3)
+
+    yield circuit, expected_circuit, "alap_circuit_with_full_width_barrier"
+
+    circuit = QuantumCircuit(4, 1)
+    circuit.cx(0, 1)
+    circuit.measure(1, 0)
+    circuit.cx(2, 3)
+    circuit.barrier()
+    circuit.cx(0, 1)
+    circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4, 1)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+        expected_circuit.cx(2, 3)
+    expected_circuit.measure(1, 0)
+    expected_circuit.barrier()
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+        expected_circuit.cx(2, 3)
+
+    yield circuit, expected_circuit, "alap_circuit_with_measurements"
+
+    circuit = QuantumCircuit(3)
+    circuit.cx(0, 1)
+    circuit.reset(1)
+    circuit.cx(1, 2)
+
+    expected_circuit = QuantumCircuit(3)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+    expected_circuit.reset(1)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(1, 2)
+
+    yield circuit, expected_circuit, "alap_circuit_with_reset"
+
+    circuit = QuantumCircuit(3)
+    circuit.cx(0, 1)
+    circuit.append(NamedReset("reset_2"), [1], [])
+    circuit.cx(1, 2)
+
+    expected_circuit = QuantumCircuit(3)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+    expected_circuit.append(NamedReset("reset_2"), [1], [])
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(1, 2)
+
+    yield circuit, expected_circuit, "alap_circuit_with_named_reset"
+
+    circuit = QuantumCircuit(4)
+    circuit.cx(0, 1)
+    circuit.delay(100, 2, unit="dt")
+    circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4)
+    expected_circuit.delay(100, 2, unit="dt")
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+        expected_circuit.cx(2, 3)
+
+    yield circuit, expected_circuit, "alap_circuit_with_delay"
+
+
 def test_raises_for_unsupported_ops():
     """Test that `GroupGatesIntoBoxes` raises when the circuit contains unsupported ops."""
     pm = PassManager(passes=[GroupGatesIntoBoxes()])
@@ -381,3 +524,92 @@ def test_raises_for_unsupported_ops():
 
     with pytest.raises(TranspilerError, match="``'if_else'`` is not supported"):
         pm.run(circuit)
+
+
+def test_reset_acts_as_delimiter():
+    """Test that reset instructions act as delimiters, flushing open groups on their qubit."""
+    circuit = QuantumCircuit(3)
+    circuit.cx(0, 1)
+    circuit.reset(1)
+    circuit.cx(1, 2)
+
+    expected_circuit = QuantumCircuit(3)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+    expected_circuit.reset(1)
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(1, 2)
+
+    pm = PassManager(passes=[GroupGatesIntoBoxes()])
+    assert pm.run(circuit) == expected_circuit
+
+
+def test_global_phase_gate():
+    """Test that a GlobalPhaseGate passes through."""
+    from qiskit.circuit.library import GlobalPhaseGate
+
+    circuit = QuantumCircuit(2)
+    circuit.append(GlobalPhaseGate(0.1), [], [])
+    circuit.cx(0, 1)
+
+    pm = PassManager(passes=[GroupGatesIntoBoxes()])
+    assert any(op.name == "global_phase" for op in pm.run(circuit))
+
+
+def test_zero_width_barrier_passes_through():
+    """Test that a zero-width barrier does not crash and is left in place."""
+    circuit = QuantumCircuit(2)
+    circuit.cx(0, 1)
+    circuit.barrier([])
+    circuit.cx(0, 1)
+
+    pm = PassManager(passes=[GroupGatesIntoBoxes()])
+    result = pm.run(circuit)
+    # Both CX gates should end up boxed; zero-width barrier does not cause a crash
+    assert any(instr.operation.name == "box" for instr in result.data)
+
+
+def test_delay_does_not_act_as_delimiter():
+    """Test that delay instructions are transparent and do not split groups."""
+    circuit = QuantumCircuit(4)
+    circuit.cx(0, 1)
+    circuit.delay(100, 2, unit="dt")
+    circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4)
+    expected_circuit.delay(100, 2, unit="dt")
+    with expected_circuit.box([Twirl(dressing="left")]):
+        expected_circuit.cx(0, 1)
+        expected_circuit.cx(2, 3)
+
+    pm = PassManager(passes=[GroupGatesIntoBoxes()])
+    assert pm.run(circuit) == expected_circuit
+
+
+def test_alap_transpiled_circuits_have_correct_boxops(alap_circuits_to_compare):
+    """Test ``GroupGatesIntoBoxes`` with ``alap=True``.
+
+    Args:
+        alap_circuits_to_compare: A tuple containing a ``(circuit, expected_circuit)`` pair where
+            the expected circuit reflects ALAP box grouping.
+    """
+    circuit, expected_circuit = alap_circuits_to_compare
+    pm = PassManager(passes=[GroupGatesIntoBoxes(strategy="alap")])
+    transpiled_circuit = pm.run(circuit)
+
+    assert transpiled_circuit == expected_circuit
+
+
+def test_alap_and_asap_agree_on_fully_constrained_circuits():
+    """Test that ALAP and ASAP produce the same result when gate order is uniquely determined."""
+    circuit = QuantumCircuit(6)
+    circuit.cx(0, 1)
+    circuit.cx(1, 2)
+    circuit.cx(2, 3)
+    circuit.cx(3, 4)
+    circuit.cx(4, 5)
+
+    pm_asap = PassManager(passes=[GroupGatesIntoBoxes()])
+    pm_alap = PassManager(passes=[GroupGatesIntoBoxes(strategy="alap")])
+
+    assert pm_asap.run(circuit) == pm_alap.run(circuit)

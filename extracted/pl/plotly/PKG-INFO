@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: plotly
-Version: 6.9.0
+Version: 7.0.0
 Summary: An open-source interactive data visualization library for Python
 Project-URL: Homepage, https://plotly.com/python/
 Project-URL: Documentation, https://plotly.com/python/
@@ -29,6 +29,7 @@ Requires-Dist: colorcet; extra == 'dev'
 Requires-Dist: fiona<=1.9.6; (python_version <= '3.8') and extra == 'dev'
 Requires-Dist: geopandas; extra == 'dev'
 Requires-Dist: inflect; extra == 'dev'
+Requires-Dist: jupyter-builder; extra == 'dev'
 Requires-Dist: jupyterlab; extra == 'dev'
 Requires-Dist: kaleido>=1.3.0; extra == 'dev'
 Requires-Dist: numpy>=1.22; extra == 'dev'
@@ -36,26 +37,28 @@ Requires-Dist: orjson; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'
 Requires-Dist: pdfrw; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
-Requires-Dist: plotly-geo; extra == 'dev'
 Requires-Dist: polars[timezone]; extra == 'dev'
 Requires-Dist: pyarrow; extra == 'dev'
-Requires-Dist: pyshp; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytz; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
 Requires-Dist: ruff==0.11.12; extra == 'dev'
 Requires-Dist: scikit-image; extra == 'dev'
 Requires-Dist: scipy; extra == 'dev'
-Requires-Dist: shapely; extra == 'dev'
 Requires-Dist: statsmodels; extra == 'dev'
 Requires-Dist: vaex; (python_version <= '3.9') and extra == 'dev'
 Requires-Dist: xarray; extra == 'dev'
 Provides-Extra: dev-build
 Requires-Dist: build; extra == 'dev-build'
-Requires-Dist: jupyterlab; extra == 'dev-build'
+Requires-Dist: jupyter-builder; extra == 'dev-build'
 Requires-Dist: pytest; extra == 'dev-build'
 Requires-Dist: requests; extra == 'dev-build'
 Requires-Dist: ruff==0.11.12; extra == 'dev-build'
+Provides-Extra: dev-codegen
+Requires-Dist: inflect; extra == 'dev-codegen'
+Requires-Dist: pytest; extra == 'dev-codegen'
+Requires-Dist: requests; extra == 'dev-codegen'
+Requires-Dist: ruff==0.11.12; extra == 'dev-codegen'
 Provides-Extra: dev-core
 Requires-Dist: pytest; extra == 'dev-core'
 Requires-Dist: requests; extra == 'dev-core'
@@ -67,6 +70,7 @@ Requires-Dist: colorcet; extra == 'dev-optional'
 Requires-Dist: fiona<=1.9.6; (python_version <= '3.8') and extra == 'dev-optional'
 Requires-Dist: geopandas; extra == 'dev-optional'
 Requires-Dist: inflect; extra == 'dev-optional'
+Requires-Dist: jupyter-builder; extra == 'dev-optional'
 Requires-Dist: jupyterlab; extra == 'dev-optional'
 Requires-Dist: kaleido>=1.3.0; extra == 'dev-optional'
 Requires-Dist: numpy>=1.22; extra == 'dev-optional'
@@ -74,17 +78,14 @@ Requires-Dist: orjson; extra == 'dev-optional'
 Requires-Dist: pandas; extra == 'dev-optional'
 Requires-Dist: pdfrw; extra == 'dev-optional'
 Requires-Dist: pillow; extra == 'dev-optional'
-Requires-Dist: plotly-geo; extra == 'dev-optional'
 Requires-Dist: polars[timezone]; extra == 'dev-optional'
 Requires-Dist: pyarrow; extra == 'dev-optional'
-Requires-Dist: pyshp; extra == 'dev-optional'
 Requires-Dist: pytest; extra == 'dev-optional'
 Requires-Dist: pytz; extra == 'dev-optional'
 Requires-Dist: requests; extra == 'dev-optional'
 Requires-Dist: ruff==0.11.12; extra == 'dev-optional'
 Requires-Dist: scikit-image; extra == 'dev-optional'
 Requires-Dist: scipy; extra == 'dev-optional'
-Requires-Dist: shapely; extra == 'dev-optional'
 Requires-Dist: statsmodels; extra == 'dev-optional'
 Requires-Dist: vaex; (python_version <= '3.9') and extra == 'dev-optional'
 Requires-Dist: xarray; extra == 'dev-optional'
@@ -210,13 +211,10 @@ conda install jupyter anywidget
 ### Static Image Export
 
 plotly.py supports [static image export](https://plotly.com/python/static-image-export/),
-using either the [`kaleido`](https://github.com/plotly/Kaleido)
-package (recommended, supported as of `plotly` version 4.9) or the [orca](https://github.com/plotly/orca)
-command line utility (legacy as of `plotly` version 4.9).
+using the [`kaleido`](https://github.com/plotly/Kaleido)
+package (version 1.0 or greater).
 
-#### Kaleido
-
-The [`kaleido`](https://github.com/plotly/Kaleido) package has no dependencies and can be installed
+Kaleido has minimal dependencies and can be installed
 using pip
 
 ```
@@ -229,23 +227,11 @@ or conda
 conda install -c conda-forge python-kaleido
 ```
 
-### Extended Geo Support
+Kaleido requires Chrome or Chromium to generate images. By default, Kaleido will use the Chrome or Chromium version already installed on your system. If you don't have it installed or Kaleido can't find it, you may need to install it by running the command:
 
-Some plotly.py features rely on fairly large geographic shape files. The county
-choropleth figure factory is one such example. These shape files are distributed as a
-separate `plotly-geo` package. This package can be installed using pip...
+`plotly_get_chrome`
 
-```
-pip install plotly-geo==1.0.0
-```
-
-or conda
-
-```
-conda install -c plotly plotly-geo=1.0.0
-```
-
-`plotly-geo` can be found on Github at https://github.com/plotly/plotly-geo.
+on your command line.
 
 ## Copyright and Licenses
 

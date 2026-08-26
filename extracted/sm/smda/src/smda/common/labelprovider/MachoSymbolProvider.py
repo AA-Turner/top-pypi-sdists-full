@@ -4,6 +4,7 @@ import logging
 
 import lief
 
+from smda.utility.lief_helper import lief_name
 from smda.utility.MachoBinary import (
     get_active_macho_binary,
     get_macho_address_adjustment,
@@ -11,7 +12,7 @@ from smda.utility.MachoBinary import (
 
 from .AbstractLabelProvider import AbstractLabelProvider
 from .import_parsers import parse_macho_bindings
-from .MachoDemangler import demangle_macho_symbol
+from .MachoDemangler import demangle_macho_symbol, primeSwiftSymbols
 
 lief.logging.disable()
 LOGGER = logging.getLogger(__name__)
@@ -56,26 +57,30 @@ class MachoSymbolProvider(AbstractLabelProvider):
             architecture=getattr(binary_info, "architecture", "") if binary_info else "",
         )
 
-    @staticmethod
-    def _get_symbol_name(symbol):
-        try:
-            raw_name = symbol.name
-        except (AttributeError, UnicodeDecodeError):
-            return ""
-        return raw_name if isinstance(raw_name, str) else ""
+    _get_symbol_name = staticmethod(lief_name)
 
     @classmethod
     def _format_symbol_name(cls, symbol):
         raw_name = cls._get_symbol_name(symbol)
         if not raw_name:
             return ""
-        try:
-            demangled = getattr(symbol, "demangled_name", None)
-        except (AttributeError, UnicodeDecodeError):
-            demangled = None
+        demangled = lief_name(symbol, "demangled_name")
         if demangled and demangled != raw_name:
             return demangled
         return demangle_macho_symbol(raw_name)
+
+    @classmethod
+    def _collectSymbolNames(cls, lief_binary):
+        names = []
+        for attribute in ("symbols", "exported_symbols"):
+            try:
+                for symbol in getattr(lief_binary, attribute, []) or []:
+                    name = cls._get_symbol_name(symbol)
+                    if name:
+                        names.append(name)
+            except Exception as exc:
+                LOGGER.debug("Failed collecting Mach-O %s for demangling: %s", attribute, exc)
+        return names
 
     def _filter_symbols_to_code(self, symbols, binary_info):
         if not binary_info:
@@ -91,6 +96,7 @@ class MachoSymbolProvider(AbstractLabelProvider):
         if not lief_binary or not isinstance(lief_binary, lief.MachO.Binary):
             return
 
+        primeSwiftSymbols(self._collectSymbolNames(lief_binary))
         adjustment = self._get_address_adjustment(lief_binary)
 
         if hasattr(lief_binary, "entrypoint"):
@@ -115,8 +121,8 @@ class MachoSymbolProvider(AbstractLabelProvider):
                     and adjusted_stub_addr not in self._func_symbols
                 ):
                     self._func_symbols[adjusted_stub_addr] = f"stub_{adjusted_stub_addr:x}"
-        except Exception:
-            pass
+        except Exception as e:
+            LOGGER.warning("Failed to collect Mach-O symbol stubs: %s", e)
 
         self._api_map = self.parseImports(lief_binary)
 
@@ -133,7 +139,7 @@ class MachoSymbolProvider(AbstractLabelProvider):
                     adjusted_val = symbol.value + adjustment
                     exported[adjusted_val] = demangle_macho_symbol(symbol_name)
         except Exception as e:
-            LOGGER.debug("Failed to parse Mach-O exports: %s", e)
+            LOGGER.warning("Failed to parse Mach-O exports: %s", e)
         return exported
 
     def parseSymbols(self, lief_binary):
@@ -149,7 +155,7 @@ class MachoSymbolProvider(AbstractLabelProvider):
                     adjusted_val = symbol.value + adjustment
                     symbols[adjusted_val] = symbol_name
         except Exception as e:
-            LOGGER.debug("Failed to parse Mach-O symbols: %s", e)
+            LOGGER.warning("Failed to parse Mach-O symbols: %s", e)
         return symbols
 
     def parseImports(self, lief_binary):

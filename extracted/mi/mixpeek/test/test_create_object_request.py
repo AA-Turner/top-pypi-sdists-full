@@ -36,17 +36,28 @@ class TestCreateObjectRequest(unittest.TestCase):
         model = CreateObjectRequest()
         if include_optional:
             return CreateObjectRequest(
-                key_prefix = '/contract-2024',
-                blobs = [{data={num_pages=5, title=Service Agreement 2024}, key_prefix=/content.pdf, metadata={author=John Doe, department=Legal}, property=content, type=PDF}],
+                key_prefix = '',
+                blobs = [
+                    mixpeek.models.create_blob_request.CreateBlobRequest(
+                        property = '0', 
+                        key_prefix = '', 
+                        type = 'string', 
+                        data = null, 
+                        upload_id = 'upl_z', 
+                        checksum = '', 
+                        metadata = { }, 
+                        canonicalize_source = True, 
+                        force_remirror = True, )
+                    ],
+                skip_duplicates = True,
+                canonicalize_source = True,
+                force_remirror = True,
                 edges = [
                     {
                         'key' : null
                         }
                     ],
-                idempotency_key = '',
-                skip_duplicates = True,
-                canonicalize_source = True,
-                force_remirror = True
+                idempotency_key = ''
             )
         else:
             return CreateObjectRequest(

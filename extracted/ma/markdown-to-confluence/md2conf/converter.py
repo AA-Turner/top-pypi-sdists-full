@@ -123,6 +123,7 @@ def fix_absolute_path(path: Path, root_path: Path) -> Path:
 
 _UNSAFE_CHAR_REGEXP = re.compile(r"[^A-Za-z0-9._~()'!*:@,;+?-]+")
 _MULTIPLE_SPACE_REGEXP = re.compile(r"\s\s+")
+_LINE_BREAK = re.compile(r"[ \t]*\n[ \t]*")
 
 
 def encode_title(text: str) -> str:
@@ -524,8 +525,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         path: Path,
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
-        page_metadata: ConfluencePageCollection,
-        user_metadata: ConfluenceUserCollection,
+        page_metadata: ConfluencePageCollection | None = None,
+        user_metadata: ConfluenceUserCollection | None = None,
     ) -> None:
         super().__init__()
 
@@ -540,8 +541,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         self.links = []
         self.attachments = AttachmentCatalog()
         self.site_metadata = site_metadata
-        self.page_metadata = page_metadata
-        self.user_metadata = user_metadata
+        self.page_metadata = page_metadata or ConfluencePageCollection()
+        self.user_metadata = user_metadata or ConfluenceUserCollection()
 
         self.image_generator = ImageGenerator(
             self.base_dir,
@@ -1172,8 +1173,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         :param blockquote: HTML element tree to transform to Confluence Storage Format (CSF).
         :param class_name: Corresponds to `name` attribute for CSF `structured-macro`.
 
-        :see: https://docs.github.com/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts
-        :see: https://docs.gitlab.com/ee/development/documentation/styleguide/#alert-boxes
+        :see: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts
+        :see: https://docs.gitlab.com/user/markdown/#alerts
         """
 
         return AC_ELEM(
@@ -1584,6 +1585,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         Transforms a list of tasks into an action widget.
 
         :see: https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists
+        :see: https://docs.gitlab.com/user/markdown/#task-lists
         """
 
         if elem.tag != "ul":
@@ -1630,10 +1632,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         """
 
         # replace line breaks with regular space in element text to minimize phantom changes
+        # a soft line break, plus any indentation the continuation line carries (e.g. the hanging indent of a wrapped list item)
         if child.text:
-            child.text = child.text.replace("\n", " ")
+            child.text = _LINE_BREAK.sub(" ", child.text)
         if child.tail:
-            child.tail = child.tail.replace("\n", " ")
+            child.tail = _LINE_BREAK.sub(" ", child.tail)
 
         if not isinstance(child.tag, str):
             return ElementAction.RECURSE
@@ -1746,7 +1749,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             #   <li>[x] ...</li>
             # </ul>
             case "ul":
-                if len(child) > 0 and all(element_text_starts_with_any(item, ["[ ]", "[x]", "[X]"]) for item in child):
+                if self.options.task_lists and len(child) > 0 and all(element_text_starts_with_any(item, ["[ ]", "[x]", "[X]"]) for item in child):
                     return self._transform_tasklist(child)
 
                 return ElementAction.RECURSE

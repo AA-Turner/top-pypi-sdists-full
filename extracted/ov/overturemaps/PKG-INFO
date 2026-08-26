@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: overturemaps
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python tools for interacting with Overture Maps (overturemaps.org) data.
 Project-URL: Homepage, https://overturemaps.org
 Project-URL: Source, https://github.com/OvertureMaps/overturemaps-py

@@ -37,7 +37,12 @@ namespace casadi {
     if (compiler=="none") {
       own(new ImporterInternal(name));
     } else if (compiler=="dll") {
-      own(new DllLibrary(name));
+      std::string dll_name = name;
+      // If no extension is given, add shared library suffix
+      if (dll_name.find('.')==std::string::npos) {
+        dll_name = name + CasadiMeta::shared_library_suffix();
+      }
+      own(new DllLibrary(dll_name));
     } else {
       own(ImporterInternal::getPlugin(compiler).creator(name));
     }
@@ -101,7 +106,7 @@ namespace casadi {
   }
 
   void Importer::serialize(SerializingStream &s) const {
-    return (*this)->serialize(s);
+    (*this)->serialize(s);
   }
 
   Importer Importer::deserialize(DeserializingStream& s) {

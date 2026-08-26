@@ -1,3 +1,19 @@
+import re
+
+FLAT_SEGMENT_OVERRIDE_RE = re.compile(r"\b(?:cs|ds|es|ss):")
+
+
+def stripFlatSegmentOverride(op_str):
+    """Return op_str without a zero-base segment override, leaving fs:/gs: in place.
+
+    CS/DS/ES/SS have a zero base in 64-bit long mode and in the 32-bit flat model every
+    supported container uses, so such an operand is an ordinary image address once the
+    override is gone. FS/GS carry a thread-local base that is not in the image, so their
+    operands stay unresolvable and keep the prefix that marks them so.
+    """
+    return FLAT_SEGMENT_OVERRIDE_RE.sub("", op_str, count=1)
+
+
 # some mnemonics as specific to capstone
 # (frozensets: membership-tested per instruction on the analysis hot path)
 CJMP_INS = frozenset(
@@ -27,6 +43,19 @@ LOOP_INS = frozenset({"loop", "loopne", "loope"})
 JMP_INS = frozenset({"jmp", "ljmp"})
 CALL_INS = frozenset({"call", "lcall"})
 RET_INS = frozenset({"ret", "retn", "retf", "retfq", "iret", "iretd", "iretq"})
+# A backward def-use walk models a few mnemonics and may only carry a value past one that is
+# known to leave the register it is chasing alone. A branch touches rip and the flags, the rest
+# compare or read. LOOP_INS is absent deliberately: `loop` decrements rcx.
+#
+# `push` is the exception to the heading and is here on narrower grounds: it writes rsp. The
+# jump-table walk never chases rsp, because a table base arrives from a rip-relative `lea`. The
+# indirect-call walk can be handed one, since the slot pattern it starts from accepts any base
+# register and a spilled function pointer is called through `[rsp + disp]`; there a `push`
+# between the spill and the call is wrongly read as leaving rsp alone. Nothing in that walk
+# assigns a value to a destination spelled rsp, so today it can only miss a clobber rather than
+# resolve a wrong target. Excluding push here would stop that walk more often, and stopping it
+# costs recovered functions rather than API names -- measure before changing it.
+VALUE_PRESERVING_MNEMONICS = frozenset({"cmp", "test", "push", "bt", "nop"}) | CJMP_INS | JMP_INS
 END_INS = frozenset(
     {
         "ret",
@@ -70,6 +99,40 @@ REGS_64BIT = frozenset(
     }
 )
 DOUBLE_ZERO = bytearray(b"\x00\x00")
+
+
+def _buildRegisterAliases():
+    aliases = {}
+    for spellings in (
+        ("rax", "eax", "ax", "ah", "al"),
+        ("rbx", "ebx", "bx", "bh", "bl"),
+        ("rcx", "ecx", "cx", "ch", "cl"),
+        ("rdx", "edx", "dx", "dh", "dl"),
+        ("rsi", "esi", "si", "sil"),
+        ("rdi", "edi", "di", "dil"),
+        ("rbp", "ebp", "bp", "bpl"),
+        ("rsp", "esp", "sp", "spl"),
+    ):
+        for spelling in spellings:
+            aliases[spelling] = spellings[0]
+    for number in range(8, 16):
+        wide = f"r{number}"
+        for suffix in ("", "d", "w", "b"):
+            aliases[wide + suffix] = wide
+    return aliases
+
+
+REGISTER_ALIASES = _buildRegisterAliases()
+
+
+def canonicalRegister(name):
+    """Map any spelling of a general-purpose register to its widest name, or None.
+
+    "al", "ax" and "eax" all name parts of "rax", so a value written through one is
+    readable through the others and a def-use chase has to treat them as one register.
+    """
+    return REGISTER_ALIASES.get(name.strip().lower())
+
 
 DEFAULT_PROLOGUES = [
     b"\x8b\xff\x55\x8b\xec",

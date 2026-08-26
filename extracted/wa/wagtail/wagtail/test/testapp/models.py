@@ -5,6 +5,7 @@ import random
 import string
 import uuid
 
+import swapper
 from django import forms
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
@@ -36,6 +37,7 @@ from wagtail.admin.panels import (
     TabbedInterface,
     TitleFieldPanel,
 )
+from wagtail.api import APIField
 from wagtail.blocks import (
     CharBlock,
     FieldBlock,
@@ -49,12 +51,12 @@ from wagtail.compat import HTTPMethod
 from wagtail.contrib.forms.forms import FormBuilder, WagtailAdminFormPageForm
 from wagtail.contrib.forms.models import (
     FORM_FIELD_CHOICES,
-    AbstractEmailForm,
     AbstractFormField,
     AbstractFormSubmission,
+    EmailFormMixin,
+    FormMixin,
 )
 from wagtail.contrib.forms.panels import FormSubmissionsPanel
-from wagtail.contrib.forms.views import SubmissionsListView
 from wagtail.contrib.settings.models import (
     BaseGenericSetting,
     BaseSiteSetting,
@@ -73,7 +75,6 @@ from wagtail.models import (
     DraftStateMixin,
     LockableMixin,
     Orderable,
-    Page,
     PageManager,
     PagePermissionTester,
     PageQuerySet,
@@ -88,9 +89,18 @@ from wagtail.search import index
 from wagtail.snippets.blocks import SnippetChooserBlock
 from wagtail.snippets.models import register_snippet
 
+if swapper.is_swapped("wagtailcore", "Page"):
+    from wagtail.test.basepage.models import BasePage as Page
+else:
+    from wagtail.models import Page
+
 from ...locks import WorkflowLock
 from .fields import CommentableJSONField
-from .forms import FormClassAdditionalFieldPageForm, ValidatedPageForm
+from .forms import (
+    FormClassAdditionalFieldPageForm,
+    UUIDSnippetWithRelationsAPIForm,
+    ValidatedPageForm,
+)
 
 EVENT_AUDIENCE_CHOICES = (
     ("public", _("Public")),
@@ -98,7 +108,10 @@ EVENT_AUDIENCE_CHOICES = (
 )
 
 
-COMMON_PANELS = ("slug", "seo_title", "show_in_menus", "search_description")
+if swapper.is_swapped("wagtailcore", "Page"):
+    COMMON_PANELS = ("slug", "importance")
+else:
+    COMMON_PANELS = ("slug", "seo_title", "show_in_menus", "search_description")
 
 CUSTOM_PREVIEW_SIZES = [
     {
@@ -122,7 +135,7 @@ CUSTOM_PREVIEW_SIZES = [
 class LinkFields(models.Model):
     link_external = models.URLField("External link", blank=True)
     link_page = models.ForeignKey(
-        "wagtailcore.Page",
+        swapper.get_model_name("wagtailcore", "Page"),
         null=True,
         blank=True,
         related_name="+",
@@ -442,7 +455,7 @@ class EventPage(Page):
         index.FilterField("audience"),
     ]
 
-    password_required_template = "tests/event_page_password_required.html"
+    password_required_template = "tests/event_page_password_required.html"  # noqa: S105 -  false positive
     base_form_class = EventPageForm
 
     content_panels = [
@@ -613,18 +626,16 @@ class FormField(AbstractFormField):
     page = ParentalKey("FormPage", related_name="form_fields", on_delete=models.CASCADE)
 
 
-class FormPage(AbstractEmailForm):
+class FormPage(EmailFormMixin, FormMixin, Page):
     def get_context(self, request):
         context = super().get_context(request)
         context["greeting"] = "hello world"
         return context
 
-    # This is redundant (SubmissionsListView is the default view class), but importing
-    # SubmissionsListView in this models.py helps us to confirm that this recipe
-    # https://docs.wagtail.org/en/stable/reference/contrib/forms/customization.html#customise-form-submissions-listing-in-wagtail-admin
-    # works without triggering circular dependency issues -
-    # see https://github.com/wagtail/wagtail/issues/6265
-    submissions_list_view_class = SubmissionsListView
+    def get_submissions_list_view_class(self):
+        from wagtail.contrib.forms.views import SubmissionsListView
+
+        return SubmissionsListView
 
     content_panels = [
         TitleFieldPanel("title", classname="title"),
@@ -682,7 +693,7 @@ class JadeFormField(AbstractFormField):
     )
 
 
-class JadeFormPage(AbstractEmailForm):
+class JadeFormPage(EmailFormMixin, FormMixin, Page):
     template = "tests/form_page.jade"
 
     content_panels = [
@@ -708,9 +719,9 @@ class RedirectFormField(AbstractFormField):
     )
 
 
-class FormPageWithRedirect(AbstractEmailForm):
+class FormPageWithRedirect(EmailFormMixin, FormMixin, Page):
     thank_you_redirect_page = models.ForeignKey(
-        "wagtailcore.Page",
+        swapper.get_model_name("wagtailcore", "Page"),
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -764,7 +775,7 @@ class FormPageWithCustomSubmissionForm(WagtailAdminFormPageForm):
         return cleaned_data
 
 
-class FormPageWithCustomSubmission(AbstractEmailForm):
+class FormPageWithCustomSubmission(EmailFormMixin, FormMixin, Page):
     """
     A ``FormPage`` with a custom FormSubmission and other extensive customizations:
 
@@ -879,7 +890,7 @@ class FormFieldForCustomListViewPage(AbstractFormField):
     )
 
 
-class FormPageWithCustomSubmissionListView(AbstractEmailForm):
+class FormPageWithCustomSubmissionListView(EmailFormMixin, FormMixin, Page):
     """Form Page with customised submissions listing view"""
 
     intro = RichTextField(blank=True)
@@ -1024,7 +1035,7 @@ class FormBuilderWithCustomWidget(FormBuilder):
         return super().create_hidden_field(field, options)
 
 
-class FormPageWithCustomFormBuilder(AbstractEmailForm):
+class FormPageWithCustomFormBuilder(EmailFormMixin, FormMixin, Page):
     """
     A Form page that has a custom form builder and uses a custom
     form field model with additional field_type choices.
@@ -1049,7 +1060,9 @@ class FormPageWithCustomFormBuilder(AbstractEmailForm):
 # Snippets
 class AdvertPlacement(models.Model):
     page = ParentalKey(
-        "wagtailcore.Page", related_name="advert_placements", on_delete=models.CASCADE
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="advert_placements",
+        on_delete=models.CASCADE,
     )
     advert = models.ForeignKey(
         "tests.Advert", related_name="+", on_delete=models.CASCADE
@@ -1075,6 +1088,12 @@ class Advert(ClusterableModel):
         FieldPanel("tags"),
     ]
 
+    api_fields = (
+        APIField("url", writable=True),
+        APIField("text", writable=True),
+        APIField("tags", writable=True),
+    )
+
     def __str__(self):
         return self.text
 
@@ -1091,6 +1110,11 @@ class AdvertWithCustomPrimaryKey(ClusterableModel):
         FieldPanel("url"),
         FieldPanel("text"),
     ]
+
+    api_fields = (
+        APIField("url", writable=True),
+        APIField("text", writable=True),
+    )
 
     def __str__(self):
         return self.text
@@ -1123,6 +1147,125 @@ class AdvertWithCustomUUIDPrimaryKey(index.Indexed, PreviewableMixin, Clusterabl
 
 
 register_snippet(AdvertWithCustomUUIDPrimaryKey)
+
+
+class UUIDSnippetWithRelationsSection(models.Model):
+    snippet = ParentalKey(
+        "UUIDSnippetWithRelations", related_name="sections", on_delete=models.CASCADE
+    )
+    caption = models.CharField(max_length=255, blank=True)
+    link_external = models.URLField(blank=True)
+    link_document = models.ForeignKey(
+        "wagtaildocs.Document", null=True, blank=True, on_delete=models.CASCADE
+    )
+    internal_note = models.CharField(max_length=255, blank=True)
+
+    def clean(self):
+        if not self.link_external and not self.link_document:
+            raise ValidationError(
+                "You must provide a related document or an external URL"
+            )
+
+    api_fields = (
+        APIField("caption", writable=True),
+        APIField("link_external", writable=True),
+        APIField("link_document", writable=True),
+        APIField("internal_note"),  # listed but not writable
+    )
+
+    panels = [
+        FieldPanel("caption"),
+        FieldPanel("link_external"),
+        FieldPanel("link_document"),
+    ]
+
+
+class UUIDSnippetWithRelations(index.Indexed, ClusterableModel):
+    """FK, StreamField, rich text, and child-relation coverage, with a UUID PK."""
+
+    api_base_form_class = UUIDSnippetWithRelationsAPIForm
+
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    text = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    intro = models.CharField(max_length=255, blank=True)
+    rich_body = RichTextField(
+        blank=True,
+        features=["image", "italic", "link", "quotation", "embed"],
+    )
+    feed_image = models.ForeignKey(
+        Image,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    body = StreamField(
+        [
+            ("text", CharBlock()),
+            ("rich_text", RichTextBlock()),
+            ("image", ImageChooserBlock()),
+            (
+                "product",
+                StructBlock(
+                    [
+                        ("name", CharBlock()),
+                        ("price", CharBlock()),
+                    ]
+                ),
+            ),
+            ("raw_html", RawHTMLBlock()),
+            (
+                "books",
+                StreamBlock(
+                    [
+                        ("title", CharBlock()),
+                        ("author", CharBlock()),
+                    ]
+                ),
+            ),
+            (
+                "title_list",
+                ListBlock(CharBlock()),
+            ),
+            ("image_with_alt", ImageBlock()),
+        ],
+        blank=True,
+    )
+
+    @property
+    def display_text(self):
+        return f"{self.text} ({self.subtitle})" if self.subtitle else self.text
+
+    # `intro` is a real field deliberately left out of api_fields entirely.
+    api_fields = (
+        APIField("text", writable=True),
+        APIField("subtitle"),  # listed but not writable
+        APIField("display_text"),  # a property, not a real field
+        APIField("rich_body", writable=True),
+        APIField("feed_image", writable=True),
+        APIField("body", writable=True),
+        APIField("sections", writable=True),
+    )
+
+    panels = [
+        FieldPanel("text"),
+        FieldPanel("subtitle"),
+        FieldPanel("rich_body"),
+        FieldPanel("feed_image"),
+        FieldPanel("body"),
+        InlinePanel("sections", label="section"),
+    ]
+
+    search_fields = [
+        index.SearchField("text"),
+    ]
+
+    def __str__(self):
+        return self.text
+
+
+register_snippet(UUIDSnippetWithRelations)
 
 
 class AdvertWithTabbedInterface(models.Model):
@@ -1181,6 +1324,12 @@ class RevisableModel(RevisionMixin, models.Model):
 class RevisableChildModel(RevisableModel):
     secret_text = models.TextField(blank=True, default="")
 
+    api_fields = (
+        APIField("id"),
+        APIField("text", writable=True),
+        APIField("secret_text", writable=True),
+    )
+
     # The edit_handler is defined on the viewset
 
 
@@ -1207,6 +1356,8 @@ class DraftStateCustomPrimaryKeyModel(DraftStateMixin, RevisionMixin, models.Mod
         FieldPanel("first_published_at"),
         PublishingPanel(),
     ]
+
+    api_fields = (APIField("text", writable=True),)
 
     def __str__(self):
         return self.text
@@ -1356,11 +1507,20 @@ class FullFeaturedSnippet(
 
     panels = ["text", "country_code", "some_number"]
 
+    api_fields = (
+        APIField("text", writable=True),
+        APIField("country_code", writable=True),
+        APIField("some_number", writable=True),
+    )
+
     search_fields = [
         index.SearchField("text"),
         index.AutocompleteField("text"),
         index.FilterField("text"),
         index.FilterField("country_code"),
+        index.FilterField("locale"),
+        index.FilterField("translation_key"),
+        index.FilterField("id"),
     ]
 
     def __str__(self):
@@ -1462,7 +1622,7 @@ class VariousOnDeleteModel(models.Model):
         related_name="+",
     )
     protected_page = models.ForeignKey(
-        "wagtailcore.Page",
+        swapper.get_model_name("wagtailcore", "Page"),
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1523,12 +1683,20 @@ class StandardIndex(Page):
 
     # A custom panel setup where all Promote fields are placed in the Content tab instead;
     # we use this to test that the 'promote' tab is left out of the output when empty
-    content_panels = [
-        TitleFieldPanel("title", classname="title"),
-        FieldPanel("seo_title"),
-        FieldPanel("slug"),
-        InlinePanel("advert_placements", heading="Adverts", label="advert"),
-    ]
+    if swapper.is_swapped("wagtailcore", "Page"):
+        content_panels = [
+            TitleFieldPanel("title", classname="title"),
+            FieldPanel("importance"),
+            FieldPanel("slug"),
+            InlinePanel("advert_placements", heading="Adverts", label="advert"),
+        ]
+    else:
+        content_panels = [
+            TitleFieldPanel("title", classname="title"),
+            FieldPanel("seo_title"),
+            FieldPanel("slug"),
+            InlinePanel("advert_placements", heading="Adverts", label="advert"),
+        ]
 
     promote_panels = []
 
@@ -1634,7 +1802,9 @@ class SingletonPageViaMaxCount(Page):
 
 class PageChooserModel(models.Model):
     page = models.ForeignKey(
-        "wagtailcore.Page", help_text="help text", on_delete=models.CASCADE
+        swapper.get_model_name("wagtailcore", "Page"),
+        help_text="help text",
+        on_delete=models.CASCADE,
     )
 
 
@@ -1782,8 +1952,10 @@ class ExtendedImageChooserBlock(ImageChooserBlock):
 
     def get_api_representation(self, value, context=None):
         image_id = super().get_api_representation(value, context=context)
-        if "request" in context and context["request"].query_params.get(
-            "extended", False
+        if (
+            context
+            and context.get("request")
+            and context["request"].GET.get("extended", False)
         ):
             return {"id": image_id, "title": value.title}
         return image_id
@@ -1819,10 +1991,11 @@ class StreamPage(Page):
                 ListBlock(CharBlock()),
             ),
             ("image_with_alt", ImageBlock()),
+            ("table", TableBlock()),
         ],
     )
 
-    api_fields = ("body",)
+    api_fields = (APIField("body", writable=True),)
 
     content_panels = [
         TitleFieldPanel("title"),
@@ -1961,26 +2134,44 @@ class TestPermissionedSiteSetting(BaseSiteSetting):
 @register_setting
 class ImportantPagesSiteSetting(BaseSiteSetting):
     sign_up_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
     general_terms_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
     privacy_policy_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
 
 
 @register_setting(name="important-pages-generic-setting")
 class ImportantPagesGenericSetting(BaseGenericSetting):
     sign_up_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
     general_terms_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
     privacy_policy_page = models.ForeignKey(
-        "wagtailcore.Page", related_name="+", null=True, on_delete=models.SET_NULL
+        swapper.get_model_name("wagtailcore", "Page"),
+        related_name="+",
+        null=True,
+        on_delete=models.SET_NULL,
     )
 
     class Meta:
@@ -2065,9 +2256,15 @@ class OneToOnePage(Page):
     """
 
     body = RichTextBlock(blank=True)
-    page_ptr = models.OneToOneField(
-        Page, parent_link=True, related_name="+", on_delete=models.CASCADE
-    )
+
+    if swapper.is_swapped("wagtailcore", "Page"):
+        basepage_ptr = models.OneToOneField(
+            Page, parent_link=True, related_name="+", on_delete=models.CASCADE
+        )
+    else:
+        page_ptr = models.OneToOneField(
+            Page, parent_link=True, related_name="+", on_delete=models.CASCADE
+        )
 
 
 class GenericSnippetPage(Page):
@@ -2160,6 +2357,8 @@ class DefaultRichTextFieldPage(Page):
         FieldPanel("body"),
     ]
 
+    api_fields = (APIField("body", writable=True),)
+
 
 class DefaultRichBlockFieldPage(Page):
     body = StreamField(
@@ -2169,6 +2368,8 @@ class DefaultRichBlockFieldPage(Page):
     )
 
     content_panels = Page.content_panels + [FieldPanel("body")]
+
+    api_fields = (APIField("body", writable=True),)
 
 
 class CustomRichTextFieldPage(Page):
@@ -2184,6 +2385,10 @@ class CustomRichBlockFieldPage(Page):
     body = StreamField(
         [
             ("rich_text", RichTextBlock(editor="custom")),
+            (
+                "rich_text_limited",
+                RichTextBlock(features=["quotation", "embed"]),
+            ),
         ],
     )
 
@@ -2191,6 +2396,8 @@ class CustomRichBlockFieldPage(Page):
         TitleFieldPanel("title", classname="title"),
         FieldPanel("body"),
     ]
+
+    api_fields = (APIField("body", writable=True),)
 
 
 class RichTextFieldWithFeaturesPage(Page):
@@ -2200,6 +2407,8 @@ class RichTextFieldWithFeaturesPage(Page):
         TitleFieldPanel("title", classname="title"),
         FieldPanel("body"),
     ]
+
+    api_fields = (APIField("body", writable=True),)
 
 
 # a page that only contains RichTextField within an InlinePanel,
@@ -2625,10 +2834,13 @@ class GenericSnippetNoFieldIndexPage(GenericSnippetPage):
     snippet_content_type_nonindexed.wagtail_reference_index_ignore = True
 
 
+QUOTE_CHRS = '":/_#?;@&=+$,"[]<>%\n\\'
+QUOTABLE_PK = QUOTE_CHRS + "a1"
+
+
 def random_quotable_pk():
-    quote_chrs = '":/_#?;@&=+$,"[]<>%\n\\'
-    components = (quote_chrs, string.ascii_letters, string.digits)
-    return "".join(random.choice(components[i % len(components)]) for i in range(10))
+    components = (QUOTE_CHRS, string.ascii_letters, string.digits)
+    return "".join(random.choice(components[i % len(components)]) for i in range(10))  # noqa: S311 - random not used cryptographically
 
 
 # Models to be registered with a ModelViewSet

@@ -543,6 +543,21 @@ class ToolboxFunctionsUI(BaseUIClass, _DiagnosticsWidgetsMixin, _FilteringWidget
             # Step 1: pre-processing → adds "Pre-Processed {name}" (suppression baked in).
             self.on_general_button_clicked(
                 run_pre_process_image, None, self.central_manager.active_data_class, self.viewer)
+
+            # napari's add_image (inside run_pre_process_image) selects the layer it
+            # just created as active -- capture THAT layer object directly rather
+            # than reconstructing its name and looking it up by name afterward.
+            # ``f"Pre-Processed {active_name}"`` is a FIXED string: on a re-run
+            # against the same source image, that name still belongs to the
+            # FIRST run's layer, because napari auto-suffixes a newly added
+            # layer whose name collides with an existing one (" [1]", " [2]",
+            # ...) rather than replacing it. Looking the name up again here
+            # would silently re-select that stale first-run layer every time
+            # this button runs again on the same image. Using the just-created
+            # layer object sidesteps the naming collision entirely.
+            pre_processed_layer = self.viewer.layers.selection.active
+            pp_name = pre_processed_layer.name if pre_processed_layer is not None else None
+
             dr = self.central_manager.active_data_class.data_repository
             rec = {
                 'active_layer': active_name,
@@ -558,12 +573,9 @@ class ToolboxFunctionsUI(BaseUIClass, _DiagnosticsWidgetsMixin, _FilteringWidget
 
             # Step 2: enhanced background removal on the just-created Pre-Processed
             # layer → adds "Enhanced Background Removed Pre-Processed {name}".
-            # run_pre_process_image selects its new layer as active, so the BG
-            # removal (which operates on the active layer) targets it directly.
-            pp_name = f"Pre-Processed {active_name}" if active_name else None
             try:
-                if pp_name and pp_name in self.viewer.layers:
-                    self.viewer.layers.selection.active = self.viewer.layers[pp_name]
+                if pre_processed_layer is not None:
+                    self.viewer.layers.selection.active = pre_processed_layer  # defensive re-affirm; already true
                 self.on_general_button_clicked(
                     run_enhanced_rb_gaussian_bg_removal, None,
                     self.central_manager.active_data_class, self.viewer)

@@ -23,6 +23,7 @@
 #include <core/range_scan_orchestrator.hxx>
 #include <core/timeout_defaults.hxx>
 #include <core/utils/connection_string.hxx>
+#include <stdexcept>
 
 namespace pycbc
 {
@@ -57,6 +58,12 @@ Connection::~Connection()
   cluster_.close([barrier]() {
     barrier->set_value();
   });
+
+  // Release the GIL while we block waiting on cluster close / IO thread join.
+  // Callbacks running on the IO thread call PyGILState_Ensure(), so holding
+  // the GIL here would deadlock against them.
+  PyThreadState* pyThreadState = PyEval_SaveThread();
+
   if (f.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
     CB_LOG_WARNING("PYCBC: Cluster close timed out in destructor.");
   }
@@ -72,6 +79,8 @@ Connection::~Connection()
       t.join();
     }
   }
+
+  PyEval_RestoreThread(pyThreadState);
 }
 
 void
@@ -91,7 +100,18 @@ Connection::handle_connection_operation_callback(std::error_code ec,
     msg += operation;
     result = build_exception(ec, __FILE__, __LINE__, msg.c_str());
 
-    if (pyObj_errback != nullptr) {
+    if (result == nullptr) {
+      // Exception object construction failed and an exception is pending. Report
+      // it here: the barrier path has no thread state on the main thread to
+      // inherit it (it would otherwise be silently dropped when this IO thread's
+      // GIL state is released), and the callback path has no error channel from
+      // this IO thread at all.
+      PyErr_WriteUnraisable(pyObj_errback != nullptr ? pyObj_errback : pyObj_callback);
+      CB_LOG_WARNING("PYCBC: Failed to build exception object for '{}'.", operation);
+      if (barrier != nullptr) {
+        barrier->set_value(nullptr);
+      }
+    } else if (pyObj_errback != nullptr) {
       PyObject* ret = PyObject_CallFunctionObjArgs(pyObj_errback, result, nullptr);
       Py_XDECREF(ret);
       Py_XDECREF(result);
@@ -147,7 +167,10 @@ Connection::connect(PyObject* kwargs)
   }
 
   try {
-    std::string conn_str = std::string(PyUnicode_AsUTF8(pyObj_connstr));
+    std::string conn_str;
+    if (!safe_utf8_string(pyObj_connstr, conn_str)) {
+      throw std::invalid_argument("connstr must be a valid UTF-8 string");
+    }
     auto connstr = couchbase::core::utils::parse_connection_string(conn_str);
     auto creds = py_to_cbpp<couchbase::core::cluster_credentials>(pyObj_auth);
 
@@ -169,14 +192,21 @@ Connection::connect(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -218,14 +248,21 @@ Connection::close(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -251,7 +288,10 @@ Connection::open_bucket(PyObject* kwargs)
   }
 
   try {
-    std::string bucket_name = std::string(PyUnicode_AsUTF8(pyObj_bucket_name));
+    std::string bucket_name;
+    if (!safe_utf8_string(pyObj_bucket_name, bucket_name)) {
+      throw std::invalid_argument("bucket_name must be a valid UTF-8 string");
+    }
 
     Py_BEGIN_ALLOW_THREADS
     {
@@ -267,14 +307,21 @@ Connection::open_bucket(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -300,7 +347,10 @@ Connection::close_bucket(PyObject* kwargs)
   }
 
   try {
-    std::string bucket_name = std::string(PyUnicode_AsUTF8(pyObj_bucket_name));
+    std::string bucket_name;
+    if (!safe_utf8_string(pyObj_bucket_name, bucket_name)) {
+      throw std::invalid_argument("bucket_name must be a valid UTF-8 string");
+    }
 
     Py_BEGIN_ALLOW_THREADS
     {
@@ -316,14 +366,21 @@ Connection::close_bucket(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -362,7 +419,7 @@ Connection::get_connection_info()
     return cluster_options_to_py(opts, creds);
 
   } catch (const std::exception& e) {
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     return nullptr;
   }
 }
@@ -403,14 +460,21 @@ Connection::diagnostics(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -461,14 +525,21 @@ Connection::ping(PyObject* kwargs)
     {
       PyObject* result = nullptr;
       Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS return result;
+      Py_END_ALLOW_THREADS if (result == nullptr)
+      {
+        // The IO thread's result construction failed; that failure was already
+        // reported via PyErr_WriteUnraisable there, so nothing is pending on this
+        // thread.
+        set_runtime_error_if_unset("Failed to process operation result.");
+      }
+      return result;
     }
     Py_RETURN_NONE;
   } catch (const std::exception& e) {
     if (barrier) {
       barrier->set_value(nullptr);
     }
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     Py_XDECREF(pyObj_callback);
     Py_XDECREF(pyObj_errback);
     return nullptr;
@@ -488,9 +559,18 @@ Connection::handle_range_scan_op(PyObject* kwargs)
         "bucket, scope, and collection are required", __FILE__, __LINE__);
     }
 
-    std::string bucket_name = PyUnicode_AsUTF8(pyObj_bucket);
-    std::string scope_name = PyUnicode_AsUTF8(pyObj_scope);
-    std::string collection_name = PyUnicode_AsUTF8(pyObj_collection);
+    std::string bucket_name;
+    if (!safe_utf8_string(pyObj_bucket, bucket_name)) {
+      throw std::invalid_argument("bucket must be a valid UTF-8 string");
+    }
+    std::string scope_name;
+    if (!safe_utf8_string(pyObj_scope, scope_name)) {
+      throw std::invalid_argument("scope must be a valid UTF-8 string");
+    }
+    std::string collection_name;
+    if (!safe_utf8_string(pyObj_collection, collection_name)) {
+      throw std::invalid_argument("collection_name must be a valid UTF-8 string");
+    }
 
     PyObject* pyObj_scan_type = PyDict_GetItemString(kwargs, "scan_type");
     if (!pyObj_scan_type) {
@@ -582,9 +662,13 @@ Connection::handle_range_scan_op(PyObject* kwargs)
     }
 
     pycbc_scan_iterator* iter = create_pycbc_scan_iterator(std::move(scan_result.value()));
+    if (iter == nullptr) {
+      return raise_unsuccessful_operation(
+        "Cannot perform kv scan operation.  Unable to create scan iterator.", __FILE__, __LINE__);
+    }
     return reinterpret_cast<PyObject*>(iter);
   } catch (const std::exception& e) {
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+    set_runtime_error_if_unset(e.what());
     return nullptr;
   }
 }

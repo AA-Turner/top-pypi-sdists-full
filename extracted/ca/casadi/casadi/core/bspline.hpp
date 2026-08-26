@@ -61,8 +61,7 @@ namespace casadi {
 
     template<class M>
     static M derivative_coeff(casadi_int i,
-        const std::vector<double>& knots,
-        const std::vector<casadi_int>& offset,
+        const std::vector< std::vector<double> >& knots,
         const std::vector<casadi_int>& degree,
         const std::vector<casadi_int>& coeffs_dims,
         const M& coeffs,
@@ -204,7 +203,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{1yr} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Generate code for the operation
 
@@ -261,6 +261,13 @@ namespace casadi {
           casadi_int m,
           const Dict& opts);
 
+    /// Parametric knots version (always inlined)
+    static MX create(const MX& x, const MX& coeffs,
+          const std::vector<MX>& knots,
+          const std::vector<casadi_int>& degree,
+          casadi_int m,
+          const Dict& opts);
+
     /// Constructor
     BSplineParametric(const MX& x, const MX& coeffs,
             const std::vector<double>& knots,
@@ -278,7 +285,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{1yx} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     MX jac_cached() const override;
 

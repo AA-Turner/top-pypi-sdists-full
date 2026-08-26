@@ -245,7 +245,7 @@ MULTI_FIELDS = (
 # a mapping of removed keywords to the version of setuptools that they were deprecated in
 REMOVED_KEYWORDS = {
     # https://setuptools.pypa.io/en/stable/history.html#v72-0-0
-    'tests_require': '72.0.0',
+    'tests_requires': '72.0.0',
 }
 
 # setup() arguments that can have mapping values in setup.cfg
@@ -563,16 +563,8 @@ def setup_cfg_to_setup_kwargs(config, script_args=None):
                 dist = st_dist.Distribution()
                 for cls_name in in_cfg_value:
                     cls = resolve_name(cls_name)
-                    # Try grabbing command_name from the class attribute
-                    # first to avoid the setuptools warning about setup.py
-                    # deprecation. This path isn't actually using setup.py.
-                    # If there are any external commands without command_name
-                    # attributes (naughty) fall back to the original
-                    # behavior.
-                    name = getattr(cls, 'command_name', None)
-                    if name is None:
-                        name = cls(dist).get_command_name()
-                    cmdclass[name] = cls
+                    cmd = cls(dist)
+                    cmdclass[cmd.get_command_name()] = cls
                 in_cfg_value = cmdclass
 
         kwargs[arg] = in_cfg_value
@@ -624,20 +616,12 @@ def setup_cfg_to_setup_kwargs(config, script_args=None):
     for req_group in all_requirements:
         for requirement, env_marker in all_requirements[req_group]:
             if env_marker:
-                if 'bdist_wheel' in script_args:
-                    # For wheel builds, use PEP 508 inline markers.
-                    # The legacy extras_require key format
-                    # (e.g. ':(marker)') is no longer supported by
-                    # setuptools >= 83 and results in silently dropped
-                    # dependencies.
-                    extras_key = req_group
-                    requirement = '%s; %s' % (requirement, env_marker)
-                else:
-                    # For non-wheel builds (sdist, direct install),
-                    # evaluate markers locally. sdists always re-create
-                    # the egg_info at install time and pip will never
-                    # call multiple setup.py commands at once.
-                    extras_key = '%s:(%s)' % (req_group, env_marker)
+                extras_key = '%s:(%s)' % (req_group, env_marker)
+                # We do not want to poison wheel creation with locally
+                # evaluated markers.  sdists always re-create the egg_info
+                # and as such do not need guarded, and pip will never call
+                # multiple setup.py commands at once.
+                if 'bdist_wheel' not in script_args:
                     try:
                         if packaging_compat.evaluate_marker(
                             '(%s)' % env_marker
@@ -754,6 +738,16 @@ def split_multiline(value):
     return value
 
 
+def split_csv(value):
+    """Special behaviour when we have a comma separated options"""
+    value = [
+        element
+        for element in (chunk.strip() for chunk in value.split(','))
+        if element
+    ]
+    return value
+
+
 def pbr(dist, attr, value):
     """Implements the pbr setup() keyword.
 
@@ -775,14 +769,13 @@ def pbr(dist, attr, value):
     """
 
     # Distribution.finalize_options() is what calls this method. That means
-    # there is potential for recursion here: our call to
-    # super().finalize_options() below re-triggers keyword processing.
-    # We avoid the recursion by setting this canary before calling super().
-    # _pbr_initialized is only set on the setup.cfg path; on the no-setup.cfg
-    # path we return without calling super(), so there is no recursion risk
-    # and the finalize_distribution_options hook can still run.
+    # there is potential for recursion here. Recursion seems to be an issue
+    # particularly when using PEP517 build-system configs without
+    # setup_requires in setup.py. We can avoid the recursion by setting
+    # this canary so we don't repeat ourselves.
     if hasattr(dist, '_pbr_initialized'):
         return
+    dist._pbr_initialized = True
 
     if not value:
         return
@@ -792,14 +785,10 @@ def pbr(dist, attr, value):
     else:
         path = os.path.abspath('setup.cfg')
 
-    if not os.path.exists(path) and os.path.exists('pyproject.toml'):
-        # The finalize_distribution_options hook will handle version and
-        # install_requires injection once finalize_options() continues past
-        # keyword processing
-        return
-
-    # Set recursion guard before calling super().finalize_options() below.
-    dist._pbr_initialized = True
+    if not os.path.exists(path):
+        raise errors.DistutilsFileError(
+            'The setup.cfg file %s does not exist.' % path
+        )
 
     # Converts the setup.cfg file to setup() arguments
     try:

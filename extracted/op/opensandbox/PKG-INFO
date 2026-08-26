@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: opensandbox
-Version: 0.1.15
+Version: 0.1.16
 Summary: OpenSandbox Python SDK - Secure, isolated execution environments
 Project-URL: Homepage, https://open-sandbox.ai
 Project-URL: Repository, https://github.com/opensandbox-group/OpenSandbox
@@ -224,6 +224,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: attrs>=21.3.0
+Requires-Dist: httpx-sse<0.5,>=0.4.3
 Requires-Dist: httpx<1.0,>=0.27.0
 Requires-Dist: pydantic<3.0,>=2.4.2
 Requires-Dist: python-dateutil<3.0,>=2.8.2
@@ -463,6 +464,10 @@ Notes:
   idle buffer. `release_all_idle()` is only a best-effort cleanup pass in distributed
   mode because another primary may put new idle sandboxes concurrently unless the
   shared target has already been reduced.
+- `release_all_idle()` preserves the original serial cleanup behavior. Use
+  `release_all_idle_parallel(max_workers=50)` for bounded parallel cleanup. The
+  parallel method requires a positive worker count and returns only after every ID
+  drained from the store has received a best-effort kill attempt.
 - Configure `primary_lock_ttl` greater than `warmup_ready_timeout` plus expected
   warmup preparer time and buffer.
 - Redis outages are surfaced as pool state store errors. The pool fails closed; it

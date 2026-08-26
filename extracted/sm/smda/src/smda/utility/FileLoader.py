@@ -1,3 +1,4 @@
+import logging
 import os
 
 from smda.utility.DelphiKbFileLoader import DelphiKbFileLoader
@@ -5,6 +6,8 @@ from smda.utility.DexFileLoader import DexFileLoader
 from smda.utility.ElfFileLoader import ElfFileLoader
 from smda.utility.MachoFileLoader import MachoFileLoader
 from smda.utility.PeFileLoader import PeFileLoader
+
+LOGGER = logging.getLogger(__name__)
 
 
 class FileLoader:
@@ -17,6 +20,7 @@ class FileLoader:
     _abi = ""
     _architecture = ""
     _has_backend = False
+    _format_recognized = False
     _code_areas = None
     file_loaders = [PeFileLoader, ElfFileLoader, MachoFileLoader, DelphiKbFileLoader, DexFileLoader]
 
@@ -46,6 +50,7 @@ class FileLoader:
         self._abi = ""
         self._architecture = ""
         self._has_backend = False
+        self._format_recognized = False
         self._code_areas = []
         self._raw_data = buffer if buffer is not None else self._loadRawFileContent()
         if self._map_file:
@@ -61,6 +66,10 @@ class FileLoader:
                     # distinguishes "caller did not supply" from
                     # "caller already tried and got None".
                     kw = {"parsed": loader.parseBinary(self._raw_data)} if hasattr(loader, "parseBinary") else {}
+                    # isCompatible() has confirmed the format, so a failed shared parse means
+                    # every accessor below silently yields nothing for a real PE/ELF/Mach-O
+                    if "parsed" in kw and not kw["parsed"]:
+                        LOGGER.warning("%s: failed to parse the binary, no data will be mapped", loader.__name__)
                     self._data = loader.mapBinary(self._raw_data, **kw)
                     self._base_addr = loader.getBaseAddress(self._raw_data, **kw)
                     self._bitness = loader.getBitness(self._raw_data, **kw)
@@ -71,7 +80,14 @@ class FileLoader:
                         self._has_backend = loader.getHasBackend(self._raw_data, **kw)
                     else:
                         self._has_backend = bool(self._architecture)
+                    self._format_recognized = True
                     break
+            else:
+                # No format loader claimed the input, so there is no mapping to apply and
+                # the bytes are already whatever they are. Returning them keeps getData()
+                # honest; every format-derived field stays unset, which is what tells the
+                # caller the instruction set and load address are unknown.
+                self._data = self._raw_data
         else:
             self._data = self._raw_data
 
@@ -92,6 +108,14 @@ class FileLoader:
 
     def getHasBackend(self):
         return self._has_backend
+
+    def getFormatRecognized(self):
+        """Whether a format loader claimed the input, regardless of what it read from it.
+
+        A recognized container whose machine type SMDA has no backend for and an input
+        no loader claims at all both end up with an empty architecture, and they need
+        opposite advice."""
+        return self._format_recognized
 
     def getBitness(self):
         return self._bitness

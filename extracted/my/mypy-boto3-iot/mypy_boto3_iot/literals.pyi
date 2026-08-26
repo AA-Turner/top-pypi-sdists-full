@@ -76,6 +76,9 @@ __all__ = (
     "FleetMetricUnitType",
     "GetBehaviorModelTrainingSummariesPaginatorName",
     "IndexStatusType",
+    "InfluxDBSecretTypeType",
+    "InfluxDBTimestampUnitType",
+    "InfluxDBVersionType",
     "IoTServiceName",
     "JobEndBehaviorType",
     "JobExecutionFailureTypeType",
@@ -342,6 +345,9 @@ FleetMetricUnitType = Literal[
 ]
 GetBehaviorModelTrainingSummariesPaginatorName = Literal["get_behavior_model_training_summaries"]
 IndexStatusType = Literal["ACTIVE", "BUILDING", "REBUILDING"]
+InfluxDBSecretTypeType = Literal["SecretBinary", "SecretString"]
+InfluxDBTimestampUnitType = Literal["ms", "ns", "s", "us"]
+InfluxDBVersionType = Literal["V2", "V3"]
 JobEndBehaviorType = Literal["CANCEL", "FORCE_CANCEL", "STOP_ROLLOUT"]
 JobExecutionFailureTypeType = Literal["ALL", "FAILED", "REJECTED", "TIMED_OUT"]
 JobExecutionStatusType = Literal[
@@ -477,8 +483,11 @@ IoTServiceName = Literal["iot"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -653,6 +662,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -667,8 +677,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -695,6 +703,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -762,10 +772,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -783,6 +793,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -848,7 +859,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -869,6 +879,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

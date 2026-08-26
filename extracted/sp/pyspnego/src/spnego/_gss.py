@@ -46,9 +46,8 @@ GSSAPI_IMP_ERR = None
 try:
     import gssapi
     import krb5
-    from gssapi.raw import ChannelBindings, GSSError
+    from gssapi.raw import ChannelBindings, GSSError, inquire_sec_context_by_oid, set_cred_option
     from gssapi.raw import exceptions as gss_errors
-    from gssapi.raw import inquire_sec_context_by_oid, set_cred_option
 except ImportError as e:
     GSSAPI_IMP_ERR = str(e)
     HAS_GSSAPI = False
@@ -246,7 +245,7 @@ def _kinit(
         cred = krb5.get_init_creds_password(ctx, princ, init_opt, password=password)
 
     mem_ccache = krb5.cc_new_unique(ctx, b"MEMORY")
-    krb5.cc_initialize(ctx, mem_ccache, princ)
+    krb5.cc_initialize(ctx, mem_ccache, cred.client)
     krb5.cc_store_cred(ctx, mem_ccache, cred)
 
     return _gss_acquire_cred_from_ccache(mem_ccache, None)

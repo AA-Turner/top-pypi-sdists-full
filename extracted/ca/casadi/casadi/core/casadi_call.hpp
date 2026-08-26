@@ -74,21 +74,6 @@ namespace casadi {
         \identifier{6n} */
     void add_dependency(CodeGenerator& g) const override;
 
-    /** \brief Is reference counting needed in codegen?
-
-        \identifier{6o} */
-    bool has_refcount() const override;
-
-    /** \brief Codegen incref
-
-        \identifier{6p} */
-    void codegen_incref(CodeGenerator& g, std::set<void*>& added) const override;
-
-    /** \brief Codegen decref
-
-        \identifier{6q} */
-    void codegen_decref(CodeGenerator& g, std::set<void*>& added) const override;
-
     /** \brief Generate code for the operation
 
         \identifier{6r} */
@@ -107,7 +92,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{6s} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -125,6 +111,11 @@ namespace casadi {
 
         \identifier{6v} */
     int sp_forward(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override;
+
+    /** \brief Propagate signal activity forward (recurses into the callee)
+
+        \identifier{2is} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override;
 
     /** \brief  Propagate sparsity backwards
 

@@ -12,7 +12,6 @@
 
 """generate_boxing_pass_manager"""
 
-import warnings
 from typing import Literal
 
 from qiskit.transpiler import PassManager
@@ -49,6 +48,7 @@ from .passes.insert_noops import AddNoopsActiveAccum, AddNoopsActiveCircuit, Add
     "inject_noise_site",
     "remove_barriers",
     "add_tags",
+    "boxing_strategy",
 )
 def generate_boxing_pass_manager(
     *,
@@ -64,11 +64,12 @@ def generate_boxing_pass_manager(
     inject_noise_strategy: Literal[
         "no_modification", "uniform_modification", "individual_modification"
     ] = "no_modification",
-    inject_noise_site: Literal["before", "after", None] = None,
+    inject_noise_site: Literal["before", "after"] = "after",
     remove_barriers: Literal[
         "immediately", "finally", "after_stratification", "never", True, False
     ] = "after_stratification",
     add_tags: Literal["none", "unique_box", "unique_instance", "noise_ref"] = "none",
+    boxing_strategy: Literal["asap", "alap"] = "asap",
 ) -> PassManager:
     """Construct a pass manager to group the operations in a circuit into boxes.
 
@@ -214,6 +215,14 @@ def generate_boxing_pass_manager(
             Boolean values are deprecated such that ``True`` corresponds to ``'immediately'`` and
             ``False`` corresponds to ``'never'``.
 
+        boxing_strategy: The strategy used by the :class:`~.GroupGatesIntoBoxes` pass to assign
+            two-qubit gates to boxes. The supported values are:
+
+            * ``'asap'``: Each two-qubit gate is placed in the earliest possible box, given the
+              circuit's dependency constraints and any barriers or existing boxes.
+            * ``'alap'``: Each two-qubit gate is placed in the latest possible box, given the
+              circuit's dependency constraints and any barriers or existing boxes.
+
         add_tags: Whether and how to add a :class:`~.Tag` annotation to every box using the
             :class:`~.AddTags` pass. Boxes with pre-existing :class:`~.Tag` annotations are left
             unchanged. The supported values are:
@@ -247,22 +256,16 @@ def generate_boxing_pass_manager(
     elif remove_barriers is False:
         remove_barriers = "never"
 
-    if inject_noise_targets != "none" and inject_noise_site is None:
-        warnings.warn(
-            "The default of the 'inject_noise_site' argument will be changed from "
-            "'before' to 'after' no sooner than version 0.21.0.",
-            FutureWarning,
-            stacklevel=1,
-        )
-        inject_noise_site = "before"
-
     passes = []
     if remove_barriers == "immediately":
         passes.append(RemoveBarriers())
 
     if enable_gates:
         passes.append(
-            GroupGatesIntoBoxes([Twirl(group=twirling_group, decomposition=decomposition)])
+            GroupGatesIntoBoxes(
+                [Twirl(group=twirling_group, decomposition=decomposition)],
+                strategy=boxing_strategy,
+            )
         )
 
     if enable_measures:
@@ -280,7 +283,7 @@ def generate_boxing_pass_manager(
         passes.append(AddNoopsAll())
 
     terminal_group = "phase" if twirling_group == "local_pauli" else "pauli"
-    passes.append(AddTerminalRightDressedBoxes(group=terminal_group))
+    passes.append(AddTerminalRightDressedBoxes(group=terminal_group, decomposition=decomposition))
 
     if remove_barriers == "after_stratification":
         passes.append(RemoveBarriers())

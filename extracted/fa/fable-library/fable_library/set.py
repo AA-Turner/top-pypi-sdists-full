@@ -40,7 +40,7 @@ from .system import NotSupportedException__ctor_Z721C83C5
 from .util import UNIT, Disposable, Unit, get_enumerator, ignore, nullable, structural_hash
 
 
-def _expr194(gen0: TypeInfo) -> TypeInfo:
+def _expr175(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeLeaf`1", Array([gen0]), SetTreeLeaf_1)
 
 
@@ -49,7 +49,7 @@ class SetTreeLeaf_1[T]:
         self.k: Any = k
 
 
-SetTreeLeaf_1_reflection = _expr194
+SetTreeLeaf_1_reflection = _expr175
 
 
 def SetTreeLeaf_1__ctor_2B595[T](k: T = UNIT) -> SetTreeLeaf_1[T]:
@@ -60,23 +60,23 @@ def SetTreeLeaf_1__get_Key[T](_: SetTreeLeaf_1[T]) -> T:
     return _.k
 
 
-def _expr195(gen0: TypeInfo) -> TypeInfo:
+def _expr176(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeNode`1", Array([gen0]), SetTreeNode_1, SetTreeLeaf_1_reflection(gen0))
 
 
 class SetTreeNode_1[T](SetTreeLeaf_1):
-    def __init__(self, v: T, left: SetTreeLeaf_1[T] | None, right: SetTreeLeaf_1[T] | None, h: int32) -> None:
+    def __init__(self, v: T, left: SetTreeLeaf_1[T] | None, right: SetTreeLeaf_1[T] | None, h: int) -> None:
         super().__init__(v)
         self.left: SetTreeLeaf_1[Any] | None = left
         self.right: SetTreeLeaf_1[Any] | None = right
-        self.h: int32 = h
+        self.h: int = h
 
 
-SetTreeNode_1_reflection = _expr195
+SetTreeNode_1_reflection = _expr176
 
 
 def SetTreeNode_1__ctor_5F465FC9[T](
-    v: T, left: SetTreeLeaf_1[T] | None, right: SetTreeLeaf_1[T] | None, h: int32
+    v: T, left: SetTreeLeaf_1[T] | None, right: SetTreeLeaf_1[T] | None, h: int
 ) -> SetTreeNode_1[T]:
     return SetTreeNode_1(v, left, right, h)
 
@@ -89,7 +89,7 @@ def SetTreeNode_1__get_Right[T](_: SetTreeNode_1[T]) -> SetTreeLeaf_1[T] | None:
     return _.right
 
 
-def SetTreeNode_1__get_Height[T](_: SetTreeNode_1[T]) -> int32:
+def SetTreeNode_1__get_Height[T](_: SetTreeNode_1[T]) -> int:
     return _.h
 
 
@@ -97,7 +97,7 @@ def SetTreeModule_empty[T](__unit: Unit = UNIT) -> SetTreeLeaf_1[T] | None:
     return None
 
 
-def SetTreeModule_countAux[T](t_mut: SetTreeLeaf_1[T] | None, acc_mut: int32) -> int32:
+def SetTreeModule_countAux[T](t_mut: SetTreeLeaf_1[T] | None, acc_mut: int) -> int:
     while True:
         (t, acc) = (t_mut, acc_mut)
         if t is not None:
@@ -105,11 +105,13 @@ def SetTreeModule_countAux[T](t_mut: SetTreeLeaf_1[T] | None, acc_mut: int32) ->
             if isinstance(t2, SetTreeNode_1):
                 tn: SetTreeNode_1[Any] = t2
                 t_mut = SetTreeNode_1__get_Left(tn)
-                acc_mut = SetTreeModule_countAux(SetTreeNode_1__get_Right(tn), acc + int32.ONE)
+                acc_mut = SetTreeModule_countAux(
+                    SetTreeNode_1__get_Right(tn), (acc + 1) if (acc <= 2147483646) else int32(acc + 1)
+                )
                 continue
 
             else:
-                return acc + int32.ONE
+                return (acc + 1) if (acc <= 2147483646) else int32(acc + 1)
 
         else:
             return acc
@@ -117,73 +119,73 @@ def SetTreeModule_countAux[T](t_mut: SetTreeLeaf_1[T] | None, acc_mut: int32) ->
         break
 
 
-def SetTreeModule_count[_A](s: SetTreeLeaf_1[_A] | None = None) -> int32:
-    return SetTreeModule_countAux(s, int32.ZERO)
+def SetTreeModule_count[_A](s: SetTreeLeaf_1[_A] | None = None) -> int:
+    return SetTreeModule_countAux(s, 0)
 
 
 def SetTreeModule_mk[T](l: SetTreeLeaf_1[T] | None, k: T, r: SetTreeLeaf_1[T] | None = None) -> SetTreeLeaf_1[T] | None:
-    hl: int32
+    hl: int
     t: SetTreeLeaf_1[Any] | None = l
     if t is not None:
         t2: SetTreeLeaf_1[Any] = t
-        hl = SetTreeNode_1__get_Height(t2) if isinstance(t2, SetTreeNode_1) else int32.ONE
+        hl = SetTreeNode_1__get_Height(t2) if isinstance(t2, SetTreeNode_1) else 1
 
     else:
-        hl = int32.ZERO
+        hl = 0
 
-    hr: int32
+    hr: int
     t_1: SetTreeLeaf_1[Any] | None = r
     if t_1 is not None:
         t2_1: SetTreeLeaf_1[Any] = t_1
-        hr = SetTreeNode_1__get_Height(t2_1) if isinstance(t2_1, SetTreeNode_1) else int32.ONE
+        hr = SetTreeNode_1__get_Height(t2_1) if isinstance(t2_1, SetTreeNode_1) else 1
 
     else:
-        hr = int32.ZERO
+        hr = 0
 
-    m: int32 = hr if (hl < hr) else hl
-    if m == int32.ZERO:
+    m: int = hr if (hl < hr) else hl
+    if m == 0:
         return SetTreeLeaf_1__ctor_2B595(k)
 
     else:
-        return SetTreeNode_1__ctor_5F465FC9(k, l, r, m + int32.ONE)
+        return SetTreeNode_1__ctor_5F465FC9(k, l, r, (m + 1) if (m <= 2147483646) else int32(m + 1))
 
 
 def SetTreeModule_rebalance[T](
     t1: SetTreeLeaf_1[T] | None, v: T, t2: SetTreeLeaf_1[T] | None = None
 ) -> SetTreeLeaf_1[T] | None:
-    t1h: int32
+    t1h: int
     t: SetTreeLeaf_1[Any] | None = t1
     if t is not None:
         t2_1: SetTreeLeaf_1[Any] = t
-        t1h = SetTreeNode_1__get_Height(t2_1) if isinstance(t2_1, SetTreeNode_1) else int32.ONE
+        t1h = SetTreeNode_1__get_Height(t2_1) if isinstance(t2_1, SetTreeNode_1) else 1
 
     else:
-        t1h = int32.ZERO
+        t1h = 0
 
-    t2h: int32
+    t2h: int
     t_1: SetTreeLeaf_1[Any] | None = t2
     if t_1 is not None:
         t2_2: SetTreeLeaf_1[Any] = t_1
-        t2h = SetTreeNode_1__get_Height(t2_2) if isinstance(t2_2, SetTreeNode_1) else int32.ONE
+        t2h = SetTreeNode_1__get_Height(t2_2) if isinstance(t2_2, SetTreeNode_1) else 1
 
     else:
-        t2h = int32.ZERO
+        t2h = 0
 
-    if t2h > (t1h + int32.TWO):
+    if t2h > ((t1h + 2) if (t1h <= 2147483645) else int32(t1h + 2)):
         match_value: SetTreeLeaf_1[Any] = value_1(t2)
         if isinstance(match_value, SetTreeNode_1):
             t2_0027: SetTreeNode_1[Any] = match_value
 
-            def _arrow196(__unit: Unit = UNIT) -> int32:
+            def _arrow177(__unit: Unit = UNIT) -> int:
                 t_2: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Left(t2_0027))
                 if t_2 is not None:
                     t2_3: SetTreeLeaf_1[Any] = t_2
-                    return SetTreeNode_1__get_Height(t2_3) if isinstance(t2_3, SetTreeNode_1) else int32.ONE
+                    return SetTreeNode_1__get_Height(t2_3) if isinstance(t2_3, SetTreeNode_1) else 1
 
                 else:
-                    return int32.ZERO
+                    return 0
 
-            if _arrow196() > (t1h + int32.ONE):
+            if _arrow177() > ((t1h + 1) if (t1h <= 2147483646) else int32(t1h + 1)):
                 match_value_1: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Left(t2_0027))
                 if isinstance(match_value_1, SetTreeNode_1):
                     t2l: SetTreeNode_1[Any] = match_value_1
@@ -214,21 +216,21 @@ def SetTreeModule_rebalance[T](
         else:
             raise Exception("internal error: Set.rebalance")
 
-    elif t1h > (t2h + int32.TWO):
+    elif t1h > ((t2h + 2) if (t2h <= 2147483645) else int32(t2h + 2)):
         match_value_2: SetTreeLeaf_1[Any] = value_1(t1)
         if isinstance(match_value_2, SetTreeNode_1):
             t1_0027: SetTreeNode_1[Any] = match_value_2
 
-            def _arrow197(__unit: Unit = UNIT) -> int32:
+            def _arrow178(__unit: Unit = UNIT) -> int:
                 t_3: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Right(t1_0027))
                 if t_3 is not None:
                     t2_4: SetTreeLeaf_1[Any] = t_3
-                    return SetTreeNode_1__get_Height(t2_4) if isinstance(t2_4, SetTreeNode_1) else int32.ONE
+                    return SetTreeNode_1__get_Height(t2_4) if isinstance(t2_4, SetTreeNode_1) else 1
 
                 else:
-                    return int32.ZERO
+                    return 0
 
-            if _arrow197() > (t2h + int32.ONE):
+            if _arrow178() > ((t2h + 1) if (t2h <= 2147483646) else int32(t2h + 1)):
                 match_value_3: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Right(t1_0027))
                 if isinstance(match_value_3, SetTreeNode_1):
                     t1r: SetTreeNode_1[Any] = match_value_3
@@ -266,10 +268,10 @@ def SetTreeModule_rebalance[T](
 def SetTreeModule_add[T](comparer: IComparer_1[T], k: T, t: SetTreeLeaf_1[T] | None = None) -> SetTreeLeaf_1[T] | None:
     if t is not None:
         t2: SetTreeLeaf_1[Any] = t
-        c: int32 = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
+        c: int = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
         if isinstance(t2, SetTreeNode_1):
             tn: SetTreeNode_1[Any] = t2
-            if c < int32.ZERO:
+            if c < 0:
                 return erase(
                     SetTreeModule_rebalance(
                         SetTreeModule_add(comparer, k, SetTreeNode_1__get_Left(tn)),
@@ -278,7 +280,7 @@ def SetTreeModule_add[T](comparer: IComparer_1[T], k: T, t: SetTreeLeaf_1[T] | N
                     )
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 return t
 
             else:
@@ -291,15 +293,15 @@ def SetTreeModule_add[T](comparer: IComparer_1[T], k: T, t: SetTreeLeaf_1[T] | N
                 )
 
         else:
-            c_1: int32 = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
-            if c_1 < int32.ZERO:
-                return SetTreeNode_1__ctor_5F465FC9(k, SetTreeModule_empty(), t, int32.TWO)
+            c_1: int = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
+            if c_1 < 0:
+                return SetTreeNode_1__ctor_5F465FC9(k, SetTreeModule_empty(), t, 2)
 
-            elif c_1 == int32.ZERO:
+            elif c_1 == 0:
                 return t
 
             else:
-                return SetTreeNode_1__ctor_5F465FC9(k, t, SetTreeModule_empty(), int32.TWO)
+                return SetTreeNode_1__ctor_5F465FC9(k, t, SetTreeModule_empty(), 2)
 
     else:
         return SetTreeLeaf_1__ctor_2B595(k)
@@ -316,7 +318,11 @@ def SetTreeModule_balance[T](
                 t1n: SetTreeNode_1[Any] = t1_0027
                 if isinstance(t2_0027, SetTreeNode_1):
                     t2n: SetTreeNode_1[Any] = t2_0027
-                    if (SetTreeNode_1__get_Height(t1n) + int32.TWO) < SetTreeNode_1__get_Height(t2n):
+                    if (
+                        tmp
+                        if (-2147483648 <= (tmp := SetTreeNode_1__get_Height(t1n) + 2) <= 2147483647)
+                        else int32(tmp)
+                    ) < SetTreeNode_1__get_Height(t2n):
                         return erase(
                             SetTreeModule_rebalance(
                                 SetTreeModule_balance(comparer, t1, k, SetTreeNode_1__get_Left(t2n)),
@@ -325,7 +331,11 @@ def SetTreeModule_balance[T](
                             )
                         )
 
-                    elif (SetTreeNode_1__get_Height(t2n) + int32.TWO) < SetTreeNode_1__get_Height(t1n):
+                    elif (
+                        tmp_1
+                        if (-2147483648 <= (tmp_1 := SetTreeNode_1__get_Height(t2n) + 2) <= 2147483647)
+                        else int32(tmp_1)
+                    ) < SetTreeNode_1__get_Height(t1n):
                         return erase(
                             SetTreeModule_rebalance(
                                 SetTreeNode_1__get_Left(t1n),
@@ -361,8 +371,8 @@ def SetTreeModule_split[T](
         t2: SetTreeLeaf_1[Any] = t
         if isinstance(t2, SetTreeNode_1):
             tn: SetTreeNode_1[Any] = t2
-            c: int32 = comparer.Compare(pivot, SetTreeLeaf_1__get_Key(tn))
-            if c < int32.ZERO:
+            c: int = comparer.Compare(pivot, SetTreeLeaf_1__get_Key(tn))
+            if c < 0:
                 pattern_input: tuple[SetTreeLeaf_1[Any] | None, bool, SetTreeLeaf_1[Any] | None] = SetTreeModule_split(
                     comparer, pivot, SetTreeNode_1__get_Left(tn)
                 )
@@ -374,7 +384,7 @@ def SetTreeModule_split[T](
                     ),
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 return (SetTreeNode_1__get_Left(tn), True, SetTreeNode_1__get_Right(tn))
 
             else:
@@ -390,11 +400,11 @@ def SetTreeModule_split[T](
                 )
 
         else:
-            c_1: int32 = comparer.Compare(SetTreeLeaf_1__get_Key(t2), pivot)
-            if c_1 < int32.ZERO:
+            c_1: int = comparer.Compare(SetTreeLeaf_1__get_Key(t2), pivot)
+            if c_1 < 0:
                 return (t, False, SetTreeModule_empty())
 
-            elif c_1 == int32.ZERO:
+            elif c_1 == 0:
                 return (SetTreeModule_empty(), True, SetTreeModule_empty())
 
             else:
@@ -433,10 +443,10 @@ def SetTreeModule_remove[T](
 ) -> SetTreeLeaf_1[T] | None:
     if t is not None:
         t2: SetTreeLeaf_1[Any] = t
-        c: int32 = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
+        c: int = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
         if isinstance(t2, SetTreeNode_1):
             tn: SetTreeNode_1[Any] = t2
-            if c < int32.ZERO:
+            if c < 0:
                 return erase(
                     SetTreeModule_rebalance(
                         SetTreeModule_remove(comparer, k, SetTreeNode_1__get_Left(tn)),
@@ -445,7 +455,7 @@ def SetTreeModule_remove[T](
                     )
                 )
 
-            elif c == int32.ZERO:
+            elif c == 0:
                 if SetTreeNode_1__get_Left(tn) is None:
                     return erase(SetTreeNode_1__get_Right(tn))
 
@@ -467,7 +477,7 @@ def SetTreeModule_remove[T](
                     )
                 )
 
-        elif c == int32.ZERO:
+        elif c == 0:
             return erase(SetTreeModule_empty())
 
         else:
@@ -482,16 +492,16 @@ def SetTreeModule_mem[T](comparer_mut: IComparer_1[T], k_mut: T, t_mut: SetTreeL
         (comparer, k, t) = (comparer_mut, k_mut, t_mut)
         if t is not None:
             t2: SetTreeLeaf_1[Any] = t
-            c: int32 = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
+            c: int = comparer.Compare(k, SetTreeLeaf_1__get_Key(t2))
             if isinstance(t2, SetTreeNode_1):
                 tn: SetTreeNode_1[Any] = t2
-                if c < int32.ZERO:
+                if c < 0:
                     comparer_mut = comparer
                     k_mut = k
                     t_mut = SetTreeNode_1__get_Left(tn)
                     continue
 
-                elif c == int32.ZERO:
+                elif c == 0:
                     return True
 
                 else:
@@ -501,7 +511,7 @@ def SetTreeModule_mem[T](comparer_mut: IComparer_1[T], k_mut: T, t_mut: SetTreeL
                     continue
 
             else:
-                return c == int32.ZERO
+                return c == 0
 
         else:
             return False
@@ -629,24 +639,24 @@ def SetTreeModule_exists[T](f_mut: Callable[[T], bool], t_mut: SetTreeLeaf_1[T] 
 def SetTreeModule_subset[_A](
     comparer: IComparer_1[_A], a: SetTreeLeaf_1[_A] | None = None, b: SetTreeLeaf_1[_A] | None = None
 ) -> bool:
-    def _arrow198(x: _A = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
+    def _arrow179(x: _A = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
         return SetTreeModule_mem(comparer, x, b)
 
-    return SetTreeModule_forall(_arrow198, a)
+    return SetTreeModule_forall(_arrow179, a)
 
 
 def SetTreeModule_properSubset[T](
     comparer: IComparer_1[T], a: SetTreeLeaf_1[T] | None = None, b: SetTreeLeaf_1[T] | None = None
 ) -> bool:
-    def _arrow199(x: T = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
+    def _arrow180(x: T = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
         return SetTreeModule_mem(comparer, x, b)
 
-    if SetTreeModule_forall(_arrow199, a):
+    if SetTreeModule_forall(_arrow180, a):
 
-        def _arrow200(x_1: T = UNIT, comparer: Any = comparer, a: Any = a) -> bool:
+        def _arrow181(x_1: T = UNIT, comparer: Any = comparer, a: Any = a) -> bool:
             return not SetTreeModule_mem(comparer, x_1, a)
 
-        return SetTreeModule_exists(_arrow200, b)
+        return SetTreeModule_exists(_arrow181, b)
 
     else:
         return False
@@ -965,12 +975,15 @@ def SetTreeModule_maximumElement[_A](s: SetTreeLeaf_1[_A] | None = None) -> _A:
         return value_1(match_value)
 
 
-def _expr201(gen0: TypeInfo) -> TypeInfo:
+def _expr182(gen0: TypeInfo) -> TypeInfo:
     return record_type(
         "Set.SetTreeModule.SetIterator`1",
         Array([gen0]),
         SetTreeModule_SetIterator_1,
-        lambda: [("stack_", list_type(option_type(SetTreeLeaf_1_reflection(gen0)))), ("started_", bool_type)],
+        lambda: [
+            ("stack", list_type(option_type(SetTreeLeaf_1_reflection(gen0))), "stack_"),
+            ("started", bool_type, "started_"),
+        ],
     )
 
 
@@ -983,7 +996,7 @@ class SetTreeModule_SetIterator_1[T](Record):
         return int(self.GetHashCode())
 
 
-SetTreeModule_SetIterator_1_reflection = _expr201
+SetTreeModule_SetIterator_1_reflection = _expr182
 
 
 def SetTreeModule_collapseLHS[T](stack_mut: FSharpList[SetTreeLeaf_1[T] | None]) -> FSharpList[SetTreeLeaf_1[T] | None]:
@@ -1077,7 +1090,7 @@ def SetTreeModule_moveNext[T](i: SetTreeModule_SetIterator_1[T]) -> bool:
 def SetTreeModule_mkIEnumerator[A](s: SetTreeLeaf_1[A] | None = None) -> IEnumerator[A]:
     i: SetTreeModule_SetIterator_1[Any] = SetTreeModule_mkIterator(s)
 
-    class ObjectExpr202(EnumeratorBase[Any], DisposableBase):
+    class ObjectExpr183(EnumeratorBase[Any], DisposableBase):
         def System_Collections_Generic_IEnumerator_1_get_Current(self, __unit: Unit = UNIT) -> A:
             return SetTreeModule_current(i)
 
@@ -1094,14 +1107,14 @@ def SetTreeModule_mkIEnumerator[A](s: SetTreeLeaf_1[A] | None = None) -> IEnumer
         def Dispose(self, __unit: Unit = UNIT) -> None:
             pass
 
-    return ObjectExpr202()
+    return ObjectExpr183()
 
 
 def SetTreeModule_compareStacks[T](
     comparer_mut: IComparer_1[T],
     l1_mut: FSharpList[SetTreeLeaf_1[T] | None],
     l2_mut: FSharpList[SetTreeLeaf_1[T] | None],
-) -> int32:
+) -> int:
     """Set comparison.  Note this can be expensive."""
     while True:
         (comparer, l1, l2) = (comparer_mut, l1_mut, l2_mut)
@@ -1119,10 +1132,10 @@ def SetTreeModule_compareStacks[T](
                                 if isinstance(x2_3, SetTreeNode_1):
                                     x2n_2: SetTreeNode_1[Any] = x2_3
                                     if SetTreeNode_1__get_Left(x2n_2) is None:
-                                        c: int32 = comparer.Compare(
+                                        c: int = comparer.Compare(
                                             SetTreeLeaf_1__get_Key(x1n_2), SetTreeLeaf_1__get_Key(x2n_2)
                                         )
-                                        if c != int32.ZERO:
+                                        if c != 0:
                                             return c
 
                                         else:
@@ -1133,7 +1146,7 @@ def SetTreeModule_compareStacks[T](
 
                                     else:
                                         (pattern_matching_result, t1_6, x1_4, t2_6, x2_4) = nullable[
-                                            int32,
+                                            int,
                                             FSharpList[SetTreeLeaf_1[Any] | None],
                                             SetTreeLeaf_1[Any],
                                             FSharpList[SetTreeLeaf_1[Any] | None],
@@ -1141,35 +1154,35 @@ def SetTreeModule_compareStacks[T](
                                         ]()
                                         if not is_empty_1(l1):
                                             if head(l1) is not None:
-                                                pattern_matching_result = int32(0)
+                                                pattern_matching_result = 0
                                                 t1_6 = tail(l1)
                                                 x1_4 = value_1(head(l1))
 
                                             elif not is_empty_1(l2):
                                                 if head(l2) is not None:
-                                                    pattern_matching_result = int32(1)
+                                                    pattern_matching_result = 1
                                                     t2_6 = tail(l2)
                                                     x2_4 = value_1(head(l2))
 
                                                 else:
-                                                    pattern_matching_result = int32(2)
+                                                    pattern_matching_result = 2
 
                                             else:
-                                                pattern_matching_result = int32(2)
+                                                pattern_matching_result = 2
 
                                         elif not is_empty_1(l2):
                                             if head(l2) is not None:
-                                                pattern_matching_result = int32(1)
+                                                pattern_matching_result = 1
                                                 t2_6 = tail(l2)
                                                 x2_4 = value_1(head(l2))
 
                                             else:
-                                                pattern_matching_result = int32(2)
+                                                pattern_matching_result = 2
 
                                         else:
-                                            pattern_matching_result = int32(2)
+                                            pattern_matching_result = 2
 
-                                        if pattern_matching_result == int32.ZERO:
+                                        if pattern_matching_result == 0:
                                             if isinstance(x1_4, SetTreeNode_1):
                                                 x1n_3: SetTreeNode_1[Any] = x1_4
                                                 comparer_mut = comparer
@@ -1181,7 +1194,7 @@ def SetTreeModule_compareStacks[T](
                                                                 SetTreeLeaf_1__get_Key(x1n_3),
                                                                 SetTreeModule_empty(),
                                                                 SetTreeNode_1__get_Right(x1n_3),
-                                                                int32.ZERO,
+                                                                0,
                                                             ),
                                                         ]
                                                     ),
@@ -1204,7 +1217,7 @@ def SetTreeModule_compareStacks[T](
                                                 l2_mut = l2
                                                 continue
 
-                                        elif pattern_matching_result == int32.ONE:
+                                        elif pattern_matching_result == 1:
                                             if isinstance(x2_4, SetTreeNode_1):
                                                 x2n_3: SetTreeNode_1[Any] = x2_4
                                                 comparer_mut = comparer
@@ -1217,7 +1230,7 @@ def SetTreeModule_compareStacks[T](
                                                                 SetTreeLeaf_1__get_Key(x2n_3),
                                                                 SetTreeModule_empty(),
                                                                 SetTreeNode_1__get_Right(x2n_3),
-                                                                int32.ZERO,
+                                                                0,
                                                             ),
                                                         ]
                                                     ),
@@ -1243,10 +1256,10 @@ def SetTreeModule_compareStacks[T](
                                             raise Exception("unexpected state in SetTree.compareStacks")
 
                                 else:
-                                    c_1: int32 = comparer.Compare(
+                                    c_1: int = comparer.Compare(
                                         SetTreeLeaf_1__get_Key(x1n_2), SetTreeLeaf_1__get_Key(x2_3)
                                     )
-                                    if c_1 != int32.ZERO:
+                                    if c_1 != 0:
                                         return c_1
 
                                     else:
@@ -1257,7 +1270,7 @@ def SetTreeModule_compareStacks[T](
 
                             else:
                                 (pattern_matching_result_1, t1_7, x1_5, t2_7, x2_5) = nullable[
-                                    int32,
+                                    int,
                                     FSharpList[SetTreeLeaf_1[Any] | None],
                                     SetTreeLeaf_1[Any],
                                     FSharpList[SetTreeLeaf_1[Any] | None],
@@ -1265,35 +1278,35 @@ def SetTreeModule_compareStacks[T](
                                 ]()
                                 if not is_empty_1(l1):
                                     if head(l1) is not None:
-                                        pattern_matching_result_1 = int32(0)
+                                        pattern_matching_result_1 = 0
                                         t1_7 = tail(l1)
                                         x1_5 = value_1(head(l1))
 
                                     elif not is_empty_1(l2):
                                         if head(l2) is not None:
-                                            pattern_matching_result_1 = int32(1)
+                                            pattern_matching_result_1 = 1
                                             t2_7 = tail(l2)
                                             x2_5 = value_1(head(l2))
 
                                         else:
-                                            pattern_matching_result_1 = int32(2)
+                                            pattern_matching_result_1 = 2
 
                                     else:
-                                        pattern_matching_result_1 = int32(2)
+                                        pattern_matching_result_1 = 2
 
                                 elif not is_empty_1(l2):
                                     if head(l2) is not None:
-                                        pattern_matching_result_1 = int32(1)
+                                        pattern_matching_result_1 = 1
                                         t2_7 = tail(l2)
                                         x2_5 = value_1(head(l2))
 
                                     else:
-                                        pattern_matching_result_1 = int32(2)
+                                        pattern_matching_result_1 = 2
 
                                 else:
-                                    pattern_matching_result_1 = int32(2)
+                                    pattern_matching_result_1 = 2
 
-                                if pattern_matching_result_1 == int32.ZERO:
+                                if pattern_matching_result_1 == 0:
                                     if isinstance(x1_5, SetTreeNode_1):
                                         x1n_4: SetTreeNode_1[Any] = x1_5
                                         comparer_mut = comparer
@@ -1305,7 +1318,7 @@ def SetTreeModule_compareStacks[T](
                                                         SetTreeLeaf_1__get_Key(x1n_4),
                                                         SetTreeModule_empty(),
                                                         SetTreeNode_1__get_Right(x1n_4),
-                                                        int32.ZERO,
+                                                        0,
                                                     ),
                                                 ]
                                             ),
@@ -1328,7 +1341,7 @@ def SetTreeModule_compareStacks[T](
                                         l2_mut = l2
                                         continue
 
-                                elif pattern_matching_result_1 == int32.ONE:
+                                elif pattern_matching_result_1 == 1:
                                     if isinstance(x2_5, SetTreeNode_1):
                                         x2n_4: SetTreeNode_1[Any] = x2_5
                                         comparer_mut = comparer
@@ -1341,7 +1354,7 @@ def SetTreeModule_compareStacks[T](
                                                         SetTreeLeaf_1__get_Key(x2n_4),
                                                         SetTreeModule_empty(),
                                                         SetTreeNode_1__get_Right(x2n_4),
-                                                        int32.ZERO,
+                                                        0,
                                                     ),
                                                 ]
                                             ),
@@ -1369,10 +1382,8 @@ def SetTreeModule_compareStacks[T](
                         elif isinstance(x2_3, SetTreeNode_1):
                             x2n_5: SetTreeNode_1[Any] = x2_3
                             if SetTreeNode_1__get_Left(x2n_5) is None:
-                                c_2: int32 = comparer.Compare(
-                                    SetTreeLeaf_1__get_Key(x1_3), SetTreeLeaf_1__get_Key(x2n_5)
-                                )
-                                if c_2 != int32.ZERO:
+                                c_2: int = comparer.Compare(SetTreeLeaf_1__get_Key(x1_3), SetTreeLeaf_1__get_Key(x2n_5))
+                                if c_2 != 0:
                                     return c_2
 
                                 else:
@@ -1383,7 +1394,7 @@ def SetTreeModule_compareStacks[T](
 
                             else:
                                 (pattern_matching_result_2, t1_8, x1_6, t2_8, x2_6) = nullable[
-                                    int32,
+                                    int,
                                     FSharpList[SetTreeLeaf_1[Any] | None],
                                     SetTreeLeaf_1[Any],
                                     FSharpList[SetTreeLeaf_1[Any] | None],
@@ -1391,35 +1402,35 @@ def SetTreeModule_compareStacks[T](
                                 ]()
                                 if not is_empty_1(l1):
                                     if head(l1) is not None:
-                                        pattern_matching_result_2 = int32(0)
+                                        pattern_matching_result_2 = 0
                                         t1_8 = tail(l1)
                                         x1_6 = value_1(head(l1))
 
                                     elif not is_empty_1(l2):
                                         if head(l2) is not None:
-                                            pattern_matching_result_2 = int32(1)
+                                            pattern_matching_result_2 = 1
                                             t2_8 = tail(l2)
                                             x2_6 = value_1(head(l2))
 
                                         else:
-                                            pattern_matching_result_2 = int32(2)
+                                            pattern_matching_result_2 = 2
 
                                     else:
-                                        pattern_matching_result_2 = int32(2)
+                                        pattern_matching_result_2 = 2
 
                                 elif not is_empty_1(l2):
                                     if head(l2) is not None:
-                                        pattern_matching_result_2 = int32(1)
+                                        pattern_matching_result_2 = 1
                                         t2_8 = tail(l2)
                                         x2_6 = value_1(head(l2))
 
                                     else:
-                                        pattern_matching_result_2 = int32(2)
+                                        pattern_matching_result_2 = 2
 
                                 else:
-                                    pattern_matching_result_2 = int32(2)
+                                    pattern_matching_result_2 = 2
 
-                                if pattern_matching_result_2 == int32.ZERO:
+                                if pattern_matching_result_2 == 0:
                                     if isinstance(x1_6, SetTreeNode_1):
                                         x1n_5: SetTreeNode_1[Any] = x1_6
                                         comparer_mut = comparer
@@ -1431,7 +1442,7 @@ def SetTreeModule_compareStacks[T](
                                                         SetTreeLeaf_1__get_Key(x1n_5),
                                                         SetTreeModule_empty(),
                                                         SetTreeNode_1__get_Right(x1n_5),
-                                                        int32.ZERO,
+                                                        0,
                                                     ),
                                                 ]
                                             ),
@@ -1454,7 +1465,7 @@ def SetTreeModule_compareStacks[T](
                                         l2_mut = l2
                                         continue
 
-                                elif pattern_matching_result_2 == int32.ONE:
+                                elif pattern_matching_result_2 == 1:
                                     if isinstance(x2_6, SetTreeNode_1):
                                         x2n_6: SetTreeNode_1[Any] = x2_6
                                         comparer_mut = comparer
@@ -1467,7 +1478,7 @@ def SetTreeModule_compareStacks[T](
                                                         SetTreeLeaf_1__get_Key(x2n_6),
                                                         SetTreeModule_empty(),
                                                         SetTreeNode_1__get_Right(x2n_6),
-                                                        int32.ZERO,
+                                                        0,
                                                     ),
                                                 ]
                                             ),
@@ -1493,8 +1504,8 @@ def SetTreeModule_compareStacks[T](
                                     raise Exception("unexpected state in SetTree.compareStacks")
 
                         else:
-                            c_3: int32 = comparer.Compare(SetTreeLeaf_1__get_Key(x1_3), SetTreeLeaf_1__get_Key(x2_3))
-                            if c_3 != int32.ZERO:
+                            c_3: int = comparer.Compare(SetTreeLeaf_1__get_Key(x1_3), SetTreeLeaf_1__get_Key(x2_3))
+                            if c_3 != 0:
                                 return c_3
 
                             else:
@@ -1506,7 +1517,7 @@ def SetTreeModule_compareStacks[T](
                     else:
                         x2: SetTreeLeaf_1[Any] = value_1(head(l2))
                         (pattern_matching_result_3, t1_2, x1, t2_2, x2_1) = nullable[
-                            int32,
+                            int,
                             FSharpList[SetTreeLeaf_1[Any] | None],
                             SetTreeLeaf_1[Any],
                             FSharpList[SetTreeLeaf_1[Any] | None],
@@ -1514,35 +1525,35 @@ def SetTreeModule_compareStacks[T](
                         ]()
                         if not is_empty_1(l1):
                             if head(l1) is not None:
-                                pattern_matching_result_3 = int32(0)
+                                pattern_matching_result_3 = 0
                                 t1_2 = tail(l1)
                                 x1 = value_1(head(l1))
 
                             elif not is_empty_1(l2):
                                 if head(l2) is not None:
-                                    pattern_matching_result_3 = int32(1)
+                                    pattern_matching_result_3 = 1
                                     t2_2 = tail(l2)
                                     x2_1 = value_1(head(l2))
 
                                 else:
-                                    pattern_matching_result_3 = int32(2)
+                                    pattern_matching_result_3 = 2
 
                             else:
-                                pattern_matching_result_3 = int32(2)
+                                pattern_matching_result_3 = 2
 
                         elif not is_empty_1(l2):
                             if head(l2) is not None:
-                                pattern_matching_result_3 = int32(1)
+                                pattern_matching_result_3 = 1
                                 t2_2 = tail(l2)
                                 x2_1 = value_1(head(l2))
 
                             else:
-                                pattern_matching_result_3 = int32(2)
+                                pattern_matching_result_3 = 2
 
                         else:
-                            pattern_matching_result_3 = int32(2)
+                            pattern_matching_result_3 = 2
 
-                        if pattern_matching_result_3 == int32.ZERO:
+                        if pattern_matching_result_3 == 0:
                             if isinstance(x1, SetTreeNode_1):
                                 x1n: SetTreeNode_1[Any] = x1
                                 comparer_mut = comparer
@@ -1554,7 +1565,7 @@ def SetTreeModule_compareStacks[T](
                                                 SetTreeLeaf_1__get_Key(x1n),
                                                 SetTreeModule_empty(),
                                                 SetTreeNode_1__get_Right(x1n),
-                                                int32.ZERO,
+                                                0,
                                             ),
                                         ]
                                     ),
@@ -1574,7 +1585,7 @@ def SetTreeModule_compareStacks[T](
                                 l2_mut = l2
                                 continue
 
-                        elif pattern_matching_result_3 == int32.ONE:
+                        elif pattern_matching_result_3 == 1:
                             if isinstance(x2_1, SetTreeNode_1):
                                 x2n: SetTreeNode_1[Any] = x2_1
                                 comparer_mut = comparer
@@ -1587,7 +1598,7 @@ def SetTreeModule_compareStacks[T](
                                                 SetTreeLeaf_1__get_Key(x2n),
                                                 SetTreeModule_empty(),
                                                 SetTreeNode_1__get_Right(x2n),
-                                                int32.ZERO,
+                                                0,
                                             ),
                                         ]
                                     ),
@@ -1612,7 +1623,7 @@ def SetTreeModule_compareStacks[T](
                 elif head(l1) is not None:
                     x1_1: SetTreeLeaf_1[Any] = value_1(head(l1))
                     (pattern_matching_result_4, t1_4, x1_2, t2_4, x2_2) = nullable[
-                        int32,
+                        int,
                         FSharpList[SetTreeLeaf_1[Any] | None],
                         SetTreeLeaf_1[Any],
                         FSharpList[SetTreeLeaf_1[Any] | None],
@@ -1620,35 +1631,35 @@ def SetTreeModule_compareStacks[T](
                     ]()
                     if not is_empty_1(l1):
                         if head(l1) is not None:
-                            pattern_matching_result_4 = int32(0)
+                            pattern_matching_result_4 = 0
                             t1_4 = tail(l1)
                             x1_2 = value_1(head(l1))
 
                         elif not is_empty_1(l2):
                             if head(l2) is not None:
-                                pattern_matching_result_4 = int32(1)
+                                pattern_matching_result_4 = 1
                                 t2_4 = tail(l2)
                                 x2_2 = value_1(head(l2))
 
                             else:
-                                pattern_matching_result_4 = int32(2)
+                                pattern_matching_result_4 = 2
 
                         else:
-                            pattern_matching_result_4 = int32(2)
+                            pattern_matching_result_4 = 2
 
                     elif not is_empty_1(l2):
                         if head(l2) is not None:
-                            pattern_matching_result_4 = int32(1)
+                            pattern_matching_result_4 = 1
                             t2_4 = tail(l2)
                             x2_2 = value_1(head(l2))
 
                         else:
-                            pattern_matching_result_4 = int32(2)
+                            pattern_matching_result_4 = 2
 
                     else:
-                        pattern_matching_result_4 = int32(2)
+                        pattern_matching_result_4 = 2
 
-                    if pattern_matching_result_4 == int32.ZERO:
+                    if pattern_matching_result_4 == 0:
                         if isinstance(x1_2, SetTreeNode_1):
                             x1n_1: SetTreeNode_1[Any] = x1_2
                             comparer_mut = comparer
@@ -1660,7 +1671,7 @@ def SetTreeModule_compareStacks[T](
                                             SetTreeLeaf_1__get_Key(x1n_1),
                                             SetTreeModule_empty(),
                                             SetTreeNode_1__get_Right(x1n_1),
-                                            int32.ZERO,
+                                            0,
                                         ),
                                     ]
                                 ),
@@ -1680,7 +1691,7 @@ def SetTreeModule_compareStacks[T](
                             l2_mut = l2
                             continue
 
-                    elif pattern_matching_result_4 == int32.ONE:
+                    elif pattern_matching_result_4 == 1:
                         if isinstance(x2_2, SetTreeNode_1):
                             x2n_1: SetTreeNode_1[Any] = x2_2
                             comparer_mut = comparer
@@ -1693,7 +1704,7 @@ def SetTreeModule_compareStacks[T](
                                             SetTreeLeaf_1__get_Key(x2n_1),
                                             SetTreeModule_empty(),
                                             SetTreeNode_1__get_Right(x2n_1),
-                                            int32.ZERO,
+                                            0,
                                         ),
                                     ]
                                 ),
@@ -1722,29 +1733,29 @@ def SetTreeModule_compareStacks[T](
                     continue
 
             else:
-                return int32.ONE
+                return 1
 
         elif is_empty_1(l2):
-            return int32.ZERO
+            return 0
 
         else:
-            return int32.NEG_ONE
+            return -1
 
         break
 
 
 def SetTreeModule_compare[T](
     comparer: IComparer_1[T], t1: SetTreeLeaf_1[T] | None = None, t2: SetTreeLeaf_1[T] | None = None
-) -> int32:
+) -> int:
     if t1 is None:
         if t2 is None:
-            return int32.ZERO
+            return 0
 
         else:
-            return int32.NEG_ONE
+            return -1
 
     elif t2 is None:
-        return int32.ONE
+        return 1
 
     else:
         return SetTreeModule_compareStacks(comparer, singleton_1(t1), singleton_1(t2))
@@ -1777,20 +1788,20 @@ def SetTreeModule_toList[T](t: SetTreeLeaf_1[T] | None = None) -> FSharpList[T]:
     return loop(t, empty_1())
 
 
-def SetTreeModule_copyToArray[_A](s: SetTreeLeaf_1[_A] | None, arr: Array[_A], i: int32) -> None:
-    j: int32 = i
+def SetTreeModule_copyToArray[_A](s: SetTreeLeaf_1[_A] | None, arr: Array[_A], i: int) -> None:
+    j: int = i
 
-    def _arrow203(x: _A = UNIT, arr: Any = arr) -> None:
+    def _arrow192(x: _A = UNIT, arr: Any = arr) -> None:
         nonlocal j
         arr[j] = x
-        j = j + int32.ONE
+        j = (j + 1) if (j <= 2147483646) else int32(j + 1)
 
-    SetTreeModule_iter(_arrow203, s)
+    SetTreeModule_iter(_arrow192, s)
 
 
 def SetTreeModule_toArray[_A](s: SetTreeLeaf_1[_A] | None = None) -> Array[_A]:
     res: Array[Any] = zero_create(SetTreeModule_count(s), cast(Any, None))
-    SetTreeModule_copyToArray(s, res, int32.ZERO)
+    SetTreeModule_copyToArray(s, res, 0)
     return res
 
 
@@ -1812,17 +1823,17 @@ def SetTreeModule_mkFromEnumerator[_A](
 
 
 def SetTreeModule_ofArray[_A](comparer: IComparer_1[_A], l: Array[_A]) -> SetTreeLeaf_1[_A] | None:
-    def _arrow204(acc: SetTreeLeaf_1[_A] | None, k: _A, comparer: Any = comparer) -> SetTreeLeaf_1[_A] | None:
+    def _arrow195(acc: SetTreeLeaf_1[_A] | None, k: _A, comparer: Any = comparer) -> SetTreeLeaf_1[_A] | None:
         return erase(SetTreeModule_add(comparer, k, acc))
 
-    return erase(fold_1(_arrow204, SetTreeModule_empty(), l))
+    return erase(fold_1(_arrow195, SetTreeModule_empty(), l))
 
 
 def SetTreeModule_ofList[_A](comparer: IComparer_1[_A], l: FSharpList[_A]) -> SetTreeLeaf_1[_A] | None:
-    def _arrow205(acc: SetTreeLeaf_1[_A] | None, k: _A, comparer: Any = comparer) -> SetTreeLeaf_1[_A] | None:
+    def _arrow197(acc: SetTreeLeaf_1[_A] | None, k: _A, comparer: Any = comparer) -> SetTreeLeaf_1[_A] | None:
         return erase(SetTreeModule_add(comparer, k, acc))
 
-    return erase(fold_2(_arrow205, SetTreeModule_empty(), l))
+    return erase(fold_2(_arrow197, SetTreeModule_empty(), l))
 
 
 def SetTreeModule_ofSeq[T](comparer: IComparer_1[T], c: IEnumerable_1[T]) -> SetTreeLeaf_1[T] | None:
@@ -1837,7 +1848,7 @@ def SetTreeModule_ofSeq[T](comparer: IComparer_1[T], c: IEnumerable_1[T]) -> Set
             return erase(SetTreeModule_mkFromEnumerator(comparer, SetTreeModule_empty(), ie))
 
 
-def _expr207(gen0: TypeInfo) -> TypeInfo:
+def _expr206(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.FSharpSet", Array([gen0]), FSharpSet)
 
 
@@ -1846,7 +1857,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         self.comparer: IComparer_1[Any] = comparer
         self.tree: SetTreeLeaf_1[Any] | None = tree
 
-    def GetHashCode(self, __unit: Unit = UNIT) -> int32:
+    def GetHashCode(self, __unit: Unit = UNIT) -> int:
         this: FSharpSet[Any] = self
         return FSharpSet__ComputeHashCode(this)
 
@@ -1857,7 +1868,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
                 SetTreeModule_compare(
                     FSharpSet__get_Comparer(this), FSharpSet__get_Tree(this), FSharpSet__get_Tree(other)
                 )
-                == int32.ZERO
+                == 0
             )
             if isinstance(other, FSharpSet)
             else False
@@ -1871,21 +1882,21 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 x_1: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
 
-                def _arrow206(__unit: Unit = UNIT) -> str:
+                def _arrow200(__unit: Unit = UNIT) -> str:
                     x: Any = x_1
                     match_value: Any = x
                     return (('"' + match_value) + '"') if (str(type(match_value)) == "<class 'str'>") else to_string(x)
 
-                result = (result if first else (result + "; ")) + _arrow206()
+                result = (result if first else (result + "; ")) + _arrow200()
                 first = False
         return result + "]"
 
-    def CompareTo(self, other: Any = None) -> int32:
+    def CompareTo(self, other: Any = None) -> int:
         this: FSharpSet[Any] = self
         return (
             SetTreeModule_compare(FSharpSet__get_Comparer(this), FSharpSet__get_Tree(this), FSharpSet__get_Tree(other))
             if isinstance(other, FSharpSet)
-            else int32.ONE
+            else 1
         )
 
     def System_Collections_Generic_ICollection_1_Add2B595(self, x: T = UNIT) -> None:
@@ -1903,18 +1914,18 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         s: FSharpSet[Any] = self
         return SetTreeModule_mem(FSharpSet__get_Comparer(s), x, FSharpSet__get_Tree(s))
 
-    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, arr: Array[T], i: int32) -> None:
+    def System_Collections_Generic_ICollection_1_CopyToZ3B4C077E(self, arr: Array[T], i: int) -> None:
         s: FSharpSet[Any] = self
         SetTreeModule_copyToArray(FSharpSet__get_Tree(s), arr, i)
 
     def System_Collections_Generic_ICollection_1_get_IsReadOnly(self, __unit: Unit = UNIT) -> bool:
         return True
 
-    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_ICollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         s: FSharpSet[Any] = self
         return FSharpSet__get_Count(s)
 
-    def System_Collections_Generic_IReadOnlyCollection_1_get_Count(self, __unit: Unit = UNIT) -> int32:
+    def System_Collections_Generic_IReadOnlyCollection_1_get_Count(self, __unit: Unit = UNIT) -> int:
         s: FSharpSet[Any] = self
         return FSharpSet__get_Count(s)
 
@@ -1931,7 +1942,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         return FSharpSet__Contains(this, value)
 
     @property
-    def Count(self, __unit: Unit = UNIT) -> int32:
+    def Count(self, __unit: Unit = UNIT) -> int:
         this: FSharpSet[Any] = self
         return FSharpSet__get_Count(this)
 
@@ -1945,7 +1956,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         return to_iterator(self.GetEnumerator())
 
 
-FSharpSet_reflection = _expr207
+FSharpSet_reflection = _expr206
 
 
 def FSharpSet__ctor[T](comparer: IComparer_1[T], tree: SetTreeLeaf_1[T] | None = None) -> FSharpSet[T]:
@@ -1976,7 +1987,7 @@ def FSharpSet__Remove[T](s: FSharpSet[T], value: T) -> FSharpSet[T]:
     )
 
 
-def FSharpSet__get_Count[T](s: FSharpSet[T]) -> int32:
+def FSharpSet__get_Count[T](s: FSharpSet[T]) -> int:
     return SetTreeModule_count(FSharpSet__get_Tree(s))
 
 
@@ -2087,12 +2098,10 @@ def FSharpSet_IntersectionMany[T](sets: IEnumerable_1[FSharpSet[T]]) -> FSharpSe
 
 
 def FSharpSet_Equality[T](a: FSharpSet[T], b: FSharpSet[T]) -> bool:
-    return (
-        SetTreeModule_compare(FSharpSet__get_Comparer(a), FSharpSet__get_Tree(a), FSharpSet__get_Tree(b)) == int32.ZERO
-    )
+    return SetTreeModule_compare(FSharpSet__get_Comparer(a), FSharpSet__get_Tree(a), FSharpSet__get_Tree(b)) == 0
 
 
-def FSharpSet_Compare[T](a: FSharpSet[T], b: FSharpSet[T]) -> int32:
+def FSharpSet_Compare[T](a: FSharpSet[T], b: FSharpSet[T]) -> int:
     return SetTreeModule_compare(FSharpSet__get_Comparer(a), FSharpSet__get_Tree(a), FSharpSet__get_Tree(b))
 
 
@@ -2136,12 +2145,12 @@ def FSharpSet__ToArray[T](x: FSharpSet[T]) -> Array[T]:
     return SetTreeModule_toArray(FSharpSet__get_Tree(x))
 
 
-def FSharpSet__ComputeHashCode[T](this: FSharpSet[T]) -> int32:
-    res: int32 = int32.ZERO
+def FSharpSet__ComputeHashCode[T](this: FSharpSet[T]) -> int:
+    res: int = 0
     with Disposable(get_enumerator(this)) as enumerator:
         while enumerator.System_Collections_IEnumerator_MoveNext():
             x_1: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
-            res = ((res << int32.ONE) + structural_hash(x_1)) + int32(631)
+            res = int32(((res << 1) + structural_hash(x_1)) + 631)
     return abs(res)
 
 
@@ -2217,7 +2226,7 @@ def map[T, U](mapping: Callable[[T], U], set_1: FSharpSet[T], comparer: ICompare
     return FSharpSet__Map(set_1, mapping, comparer)
 
 
-def count[T](set_1: FSharpSet[T]) -> int32:
+def count[T](set_1: FSharpSet[T]) -> int:
     return FSharpSet__get_Count(set_1)
 
 

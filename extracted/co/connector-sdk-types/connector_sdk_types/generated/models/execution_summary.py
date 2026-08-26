@@ -15,7 +15,6 @@ import re
 import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.effect import Effect
 from connector_sdk_types.generated.models.error import Error
 from typing import Optional, Set
 from typing_extensions import Self
@@ -102,9 +101,7 @@ class ExecutionSummary(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
             {
-                "effect": Effect.from_dict(obj["effect"])
-                if obj.get("effect") is not None
-                else None,
+                "effect": obj.get("effect"),
                 "request_fingerprint": obj.get("request_fingerprint"),
                 "is_idempotent": obj.get("is_idempotent"),
                 "description": obj.get("description"),

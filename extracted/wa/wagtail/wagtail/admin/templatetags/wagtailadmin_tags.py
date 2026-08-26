@@ -54,12 +54,12 @@ from wagtail.coreutils import (
 )
 from wagtail.coreutils import cautious_slugify as _cautious_slugify
 from wagtail.models import (
+    AbstractPage,
     Locale,
-    Page,
     PageViewRestriction,
 )
 from wagtail.users.utils import get_gravatar_url
-from wagtail.utils.deprecation import RemovedInWagtail80Warning
+from wagtail.utils.deprecation import RemovedInWagtail90Warning
 
 register = template.Library()
 
@@ -175,7 +175,7 @@ def is_page(obj):
     False otherwise. Useful in shared templates that accept both Page and
     non-Page objects (e.g. snippets with the optional features enabled).
     """
-    return isinstance(obj, Page)
+    return isinstance(obj, AbstractPage)
 
 
 @register.simple_tag(takes_context=True)
@@ -203,7 +203,7 @@ def admin_url_name(obj, action):
     'wagtailadmin_pages:edit' for a Page object and 'edit' action.
     Works with pages and snippets only.
     """
-    if isinstance(obj, Page):
+    if isinstance(obj, AbstractPage):
         return f"wagtailadmin_pages:{action}"
     return obj.snippet_viewset.get_url_name(action)
 
@@ -310,7 +310,7 @@ def hook_output(hook_name):
     """
     snippets = [fn() for fn in hooks.get_hooks(hook_name)]
 
-    return mark_safe("".join(snippets))
+    return mark_safe("".join(snippets))  # noqa: S308 - not this function's responsibility to escape unsafe content
 
 
 @register.simple_tag
@@ -483,7 +483,7 @@ def page_header_buttons(context, page, user, view_name):
     warnings.warn(
         "`{% page_header_buttons %}` tag is deprecated. "
         "Use the `register_page_header_buttons` hook instead.",
-        category=RemovedInWagtail80Warning,
+        category=RemovedInWagtail90Warning,
     )
     next_url = context["request"].path
     buttons = get_page_header_buttons(page, user, next_url, view_name)
@@ -989,7 +989,7 @@ class FragmentNode(template.Node):
         # Then, use mark_safe because the SafeString returned by
         # NodeList.render() is lost after stripping.
         if self.stripped:
-            fragment = mark_safe(fragment.strip())
+            fragment = mark_safe(fragment.strip())  # noqa: S308 - Template-rendered HTML is safe
         context[self.target_var] = fragment
         return ""
 

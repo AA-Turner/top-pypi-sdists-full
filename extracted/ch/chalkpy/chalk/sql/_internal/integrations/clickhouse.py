@@ -19,6 +19,9 @@ _CLICKHOUSE_DATABASE_NAME = "CLICKHOUSE_DATABASE"
 _CLICKHOUSE_USER_NAME = "CLICKHOUSE_USER"
 _CLICKHOUSE_PWD_NAME = "CLICKHOUSE_PWD"
 _CLICKHOUSE_USE_TLS = "CLICKHOUSE_USE_TLS"
+_CLICKHOUSE_UNLOAD_PATH_NAME = "CLICKHOUSE_UNLOAD_PATH"
+_CLICKHOUSE_UNLOAD_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_AWS_ROLE_ARN"
+_CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN"
 
 # For parsing the USE_TLS flag
 _TRUTHY_VALUES = {"1", "true", "yes", "t", "y"}
@@ -34,6 +37,9 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         user: Optional[str] = None,
         password: Optional[str] = None,
         use_tls: Optional[Union[bool, str]] = None,
+        unload_path: Optional[str] = None,
+        unload_aws_role_arn: Optional[str] = None,
+        unload_chalk_aws_role_arn: Optional[str] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
@@ -81,6 +87,33 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                     override=integration_variable_override,
                     parser=lambda x: x in _TRUTHY_VALUES,
                 )
+            )
+        )
+        self.unload_path = (
+            unload_path
+            if unload_path is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_UNLOAD_PATH_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+            )
+        )
+        self.unload_aws_role_arn = (
+            unload_aws_role_arn
+            if unload_aws_role_arn is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_UNLOAD_AWS_ROLE_ARN_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+            )
+        )
+        self.unload_chalk_aws_role_arn = (
+            unload_chalk_aws_role_arn
+            if unload_chalk_aws_role_arn is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME,
+                integration_name=name,
+                override=integration_variable_override,
             )
         )
         self.ingested_tables: Dict[str, Any] = {}
@@ -140,6 +173,17 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                 create_integration_variable(_CLICKHOUSE_DATABASE_NAME, self.name, self.db),
                 create_integration_variable(_CLICKHOUSE_USER_NAME, self.name, self.user),
                 create_integration_variable(_CLICKHOUSE_PWD_NAME, self.name, self.password),
+                create_integration_variable(_CLICKHOUSE_UNLOAD_PATH_NAME, self.name, self.unload_path),
+                create_integration_variable(
+                    _CLICKHOUSE_UNLOAD_AWS_ROLE_ARN_NAME,
+                    self.name,
+                    self.unload_aws_role_arn,
+                ),
+                create_integration_variable(
+                    _CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME,
+                    self.name,
+                    self.unload_chalk_aws_role_arn,
+                ),
             ]
             if v is not None
         }

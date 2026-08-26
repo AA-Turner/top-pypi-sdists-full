@@ -14,6 +14,8 @@
 
 from collections import defaultdict
 from collections.abc import Iterable
+from enum import IntEnum
+from typing import Literal
 
 from qiskit.circuit import Annotation, Bit
 from qiskit.dagcircuit import DAGCircuit
@@ -22,15 +24,33 @@ from qiskit.transpiler.exceptions import TranspilerError
 
 from ...aliases import DAGOpNode
 from ...annotations import Twirl
-from .utils import make_and_insert_box, validate_op_is_supported
+from ...utils import validate_literals
+from .utils import (
+    alap_topological_nodes,
+    asap_topological_nodes,
+    make_and_insert_box,
+    validate_op_is_supported,
+)
+
+
+class _TraversalDirection(IntEnum):
+    """The direction the DAG is scanned in.
+
+    Expressed as the offset applied to a group index each time a boundary is pushed further along
+    the traversal.
+    """
+
+    FORWARD = 1
+    BACKWARD = -1
 
 
 class GroupGatesIntoBoxes(TransformationPass):
     """Collect the two-qubit gates in a circuit inside left-dressed boxes.
 
-    This pass collects all 2-qubit gates in the input circuit into left-dressed boxes. To assign the
-    gates to these boxes, it uses a greedy collection strategy that tries to collect gates in the
-    earliest possible box that they can fit.
+    This pass collects all 2-qubit gates in the input circuit into left-dressed boxes. To assign
+    the gates to these boxes, it uses a greedy collection strategy. By default (``strategy="asap"``)
+    it places each gate in the earliest possible box. When ``strategy="alap"`` it places each gate
+    in the latest possible box.
 
     .. note::
         Barriers and boxes that are present in the input circuit act as delimiters. This means that
@@ -40,54 +60,74 @@ class GroupGatesIntoBoxes(TransformationPass):
         placed outside of any boxes.
 
     .. note::
-        Measurements also act as delimiters.
+        Measurements and resets also act as delimiters.
 
     .. note::
         The circuits returned by this pass may not be buildable. To make them buildable, one can
         either use :class:`~.AddTerminalRightDressedBoxes` to add right-dressed "collector" boxes.
     """
 
-    def __init__(self, annotations: Iterable[Annotation] = (Twirl(),)):
+    @validate_literals("strategy")
+    def __init__(
+        self,
+        annotations: Iterable[Annotation] = (Twirl(),),
+        strategy: Literal["asap", "alap"] = "asap",
+    ):
         super().__init__()
         self.annotations = list(annotations)
+        self.strategy = strategy
 
     def run(self, dag: DAGCircuit) -> DAGCircuit:
         """Collect the operations in the dag inside left-dressed boxes.
 
         The collection strategy undertakes the following steps:
-            *   Loop through the DAG's op nodes in topological order.
+            *   Loop through the DAG's op nodes in topological order (ASAP) or reverse topological
+                order (ALAP).
             *   Group together two-qubit gate nodes that need to be placed in the same box.
             *   Whenever a node can be placed in more than one group, place it in the earliest
-                possible group--where "earliest" is with reference to topological ordering.
+                possible group (ASAP) or the latest possible group (ALAP).
             *   When looping is complete, replace each group with a box.
         """
-        # A list of groups that need to be placed in the same box, expressed as a dict for fast
-        # access. Every node in each group either contains a single- or two-qubit gate--when
-        # constructing this dictionary, we explicitly leave out nodes that contain different ops
+        if self.strategy == "alap":
+            return self._run(dag, alap_topological_nodes(dag), _TraversalDirection.BACKWARD)
+        return self._run(dag, asap_topological_nodes(dag), _TraversalDirection.FORWARD)
+
+    def _run(
+        self, dag: DAGCircuit, ordered_nodes: Iterable[DAGOpNode], direction: _TraversalDirection
+    ) -> DAGCircuit:
+        # A list of groups that need to be placed in the same box
         groups: dict[int, list[DAGOpNode]] = defaultdict(list)
 
-        # A map from bits (qubits and clbits) to the index of the earliest group that is able to
-        # collect operations on those bits
+        # A map from bits to the index of the group that is able to collect operations on those bits
         group_indices: dict[Bit, int] = defaultdict(int)
 
-        for node in dag.topological_op_nodes():
+        # How to compare groups in different traversal directions
+        pick_group = max if direction == _TraversalDirection.FORWARD else min
+
+        for node in ordered_nodes:
             validate_op_is_supported(node)
 
-            # The index of the earliest group able to collect ops on all the bits in this node
-            group_idx: int = max(group_indices[bit] for bit in node.qargs + node.cargs)
+            # The index of the group able to collect ops on all the bits in this node
+            group_idx: int = pick_group(
+                (group_indices[bit] for bit in node.qargs + node.cargs), default=0
+            )
 
             if (name := node.op.name) in ["barrier", "box"]:
-                # Flush the single-qubit gate nodes and place them in a group
+                # Flush: push the boundary one step further in the traversal direction
                 for qubit in node.qargs:
-                    group_indices[qubit] = group_idx + 1
-            elif name == "measure":
+                    group_indices[qubit] = group_idx + direction
+            elif name.startswith("meas"):
                 # Flush the single-qubit gate nodes without placing them in a group
                 qubit = node.qargs[0]
                 clbit = node.cargs[0]
 
                 group_indices[qubit] = group_indices[clbit] = group_idx
-            elif node.is_standard_gate() and node.op.num_qubits == 1:
-                # Leave single-qubit gates alone
+            elif name.startswith("reset"):
+                group_indices[node.qargs[0]] = group_idx
+            elif name == "delay":
+                continue
+            elif node.is_standard_gate() and node.op.num_qubits <= 1:
+                # Leave zero- and single-qubit gates alone (global phase gate is 0 qubits)
                 continue
             elif node.is_standard_gate() and node.op.num_qubits == 2:
                 # Flush the two-qubit gate nodes into a group
@@ -95,11 +135,12 @@ class GroupGatesIntoBoxes(TransformationPass):
 
                 # Update trackers
                 for qubit in node.qargs:
-                    group_indices[qubit] = group_idx + 1
+                    group_indices[qubit] = group_idx + direction
             else:
                 raise TranspilerError(f"'{name}' operation is not supported.")
 
-        for nodes in groups.values():
+        # Sort by ascending key so boxes are inserted in left-to-right circuit order
+        for nodes in dict(sorted(groups.items())).values():
             make_and_insert_box(dag, nodes, annotations=self.annotations)
 
         return dag

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iterm2
-Version: 2.20
+Version: 2.22
 Summary: Python interface to iTerm2's scripting API
 Home-page: http://github.com/gnachman/iTerm2
 Author: George Nachman

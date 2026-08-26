@@ -22,6 +22,13 @@ endmacro()
 # there is so much similarity in plugins/libraries, we just
 # use a flag and wrap this with casadi_plugin or casadi_library (above)
 macro(casadi_library name)
+  if(DEFINED CASADI_BUILTIN_BLAS_TARGET AND "${name}" STREQUAL "${CASADI_BUILTIN_BLAS_TARGET}")
+    add_library(${name} STATIC ${ARGN})
+    set_target_properties(${name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    generate_export_header(${name})
+    target_link_libraries(casadi PRIVATE ${name})
+    set_property(GLOBAL APPEND PROPERTY CASADI_MODULES ${name})
+  else()
   if(ENABLE_STATIC)
 	if(DEFINED CASADI_LIBRARY_PREFIX)
 		SET_TARGET_PROPERTIES(${name} PROPERTIES PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX}${CASADI_LIBRARY_PREFIX})
@@ -34,6 +41,13 @@ macro(casadi_library name)
 	if(DEFINED CASADI_LIBRARY_PREFIX)
 		SET_TARGET_PROPERTIES(${name} PROPERTIES PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX}${CASADI_LIBRARY_PREFIX})
 	endif()
+    # Generate dSYM bundle for debugging on macOS
+    if(APPLE AND CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
+      add_custom_command(TARGET ${name} POST_BUILD
+        COMMAND dsymutil "$<TARGET_FILE:${name}>" -o "$<TARGET_FILE:${name}>.dSYM"
+        COMMENT "Generating dSYM for ${name}"
+      )
+    endif()
   endif()
   generate_export_header(${name})
   
@@ -60,6 +74,21 @@ macro(casadi_library name)
     )
   endif()
 
+  # Install dSYM bundle on macOS (must be after install(TARGETS) since we need the lib path)
+  # Use glob to handle SOVERSION in filename (e.g., libcasadi.3.7.dylib.dSYM)
+  if(APPLE AND ENABLE_SHARED AND CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
+    set(_dsym_lib_pattern "${CMAKE_SHARED_LIBRARY_PREFIX}${name}")
+    if(DEFINED CASADI_LIBRARY_PREFIX)
+      set(_dsym_lib_pattern "${CMAKE_SHARED_LIBRARY_PREFIX}${CASADI_LIBRARY_PREFIX}${name}")
+    endif()
+    install(CODE "
+      file(GLOB _dsym_sources \"${LIBRARY_OUTPUT_PATH}/${_dsym_lib_pattern}*${CMAKE_SHARED_LIBRARY_SUFFIX}.dSYM\")
+      foreach(_dsym_source IN LISTS _dsym_sources)
+        file(INSTALL \"\${_dsym_source}\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${TREL_LIB_PREFIX}\")
+      endforeach()
+    ")
+  endif()
+
   if(WITH_SO_VERSION)
     SET_TARGET_PROPERTIES(${name} PROPERTIES SOVERSION ${PACKAGE_SO_VERSION})
   endif()
@@ -82,6 +111,7 @@ macro(casadi_library name)
   endif()
 
   set_property(GLOBAL APPEND PROPERTY CASADI_MODULES ${name})
+  endif()
 endmacro()
 
 macro(casadi_plugin Type name)
@@ -156,7 +186,12 @@ if(NOT SKIP_CONFIG_H_GENERATION)
     set(EXTRA_CXX_FLAGS_FROM_DEFS "${EXTRA_CXX_FLAGS_FROM_DEFS} ${DEF}")
   endforeach()
 
-  configure_file(config.h.cmake "${CMAKE_CURRENT_BINARY_DIR}/config.h" ESCAPE_QUOTES)
+  # Configure to a temporary file first, then only update if different
+  # This preserves the timestamp of config.h when content hasn't changed
+  configure_file(config.h.cmake "${CMAKE_CURRENT_BINARY_DIR}/config.h.tmp" ESCAPE_QUOTES)
+  execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  "${CMAKE_CURRENT_BINARY_DIR}/config.h.tmp"
+                  "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 endif()
 install(FILES casadi.hpp mem.h casadi_c.h "${CMAKE_CURRENT_BINARY_DIR}/config.h"
         DESTINATION ${INCLUDE_PREFIX}/casadi)

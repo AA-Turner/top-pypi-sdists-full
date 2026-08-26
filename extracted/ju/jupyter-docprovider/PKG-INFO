@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter-docprovider
-Version: 3.0.1
+Version: 3.0.2
 Summary: JupyterLab/Jupyter Notebook 7+ extension integrating collaborative shared models.
 Project-URL: Documentation, https://jupyterlab-realtime-collaboration.readthedocs.io/
 Project-URL: Repository, https://github.com/jupyterlab/jupyter-collaboration

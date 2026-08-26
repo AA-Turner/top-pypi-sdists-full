@@ -9,7 +9,6 @@ from typing import Any, dataclass_transform
 
 from .array_ import Array
 from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
-from .core import int32
 from .protocols import IComparable
 from .util import combine_hash_codes, compare, equal_arrays, number_hash, structural_hash
 
@@ -26,7 +25,7 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
 
     __slots__: list[str] = ["fields", "tag"]
 
-    tag: int32
+    tag: int
     fields: Array[Any]
 
     def __init__(self) -> None:
@@ -90,7 +89,7 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
     # Hashable (HashableBase provides __hash__ from GetHashCode)
     # -------------------------------------------------------------------------
 
-    def GetHashCode(self) -> int32:
+    def GetHashCode(self) -> int:
         # Hash the tag and each field structurally instead of hashing a Python
         # tuple, which would hash fields that only implement F# `GetHashCode`
         # by identity.

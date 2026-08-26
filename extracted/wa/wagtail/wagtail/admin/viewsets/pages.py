@@ -1,12 +1,24 @@
+import swapper
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.http import Http404
 from django.urls import path
 from django.utils.functional import cached_property, classproperty
 
+from wagtail.admin.views.page_privacy import SetPrivacyView
 from wagtail.admin.views.pages.choose_parent import (
     ChooseParentView,
     GenericChooseParentView,
+)
+from wagtail.admin.views.pages.convert_alias import ConvertAliasView
+from wagtail.admin.views.pages.copy import CopyView
+from wagtail.admin.views.pages.create import AddSubpageView, CreateView
+from wagtail.admin.views.pages.delete import DeleteView
+from wagtail.admin.views.pages.edit import EditView
+from wagtail.admin.views.pages.history import (
+    PageHistoryView,
+    WorkflowHistoryDetailView,
+    WorkflowHistoryView,
 )
 from wagtail.admin.views.pages.listing import (
     ExplorableIndexView,
@@ -14,12 +26,35 @@ from wagtail.admin.views.pages.listing import (
     IndexView,
     PageFilterSet,
 )
-from wagtail.admin.views.pages.usage import ContentTypeUseView
+from wagtail.admin.views.pages.lock import LockView, UnlockView
+from wagtail.admin.views.pages.move import MoveChooseDestinationView, MoveConfirmView
+from wagtail.admin.views.pages.ordering import SetPagePositionView
+from wagtail.admin.views.pages.preview import (
+    PreviewOnCreateView,
+    PreviewOnEditView,
+    ViewDraftView,
+)
+from wagtail.admin.views.pages.revisions import (
+    RevisionsCompareView,
+    RevisionsRevertView,
+    RevisionsUnscheduleView,
+    RevisionsView,
+)
+from wagtail.admin.views.pages.search import SearchView
+from wagtail.admin.views.pages.unpublish import UnpublishView
+from wagtail.admin.views.pages.usage import ContentTypeUseView, UsageView
+from wagtail.admin.views.pages.workflow import (
+    CollectWorkflowActionDataView,
+    ConfirmWorkflowCancellationView,
+    PreviewRevisionForTaskView,
+    WorkflowActionView,
+)
 from wagtail.admin.viewsets.listing import ListingViewSetMixin
-from wagtail.models import Page
 from wagtail.utils.registry import ObjectTypeRegistry
 
 from .base import ViewSet
+
+Page = swapper.load_model("wagtailcore", "Page")
 
 
 class PageListingViewSet(ListingViewSetMixin, ViewSet):
@@ -143,10 +178,162 @@ class PageViewSet(PageListingViewSet):
     The view class to use for the flat per-page-type index view; must be a subclass of
     ``wagtail.admin.views.pages.usage.ContentTypeUseView``.
     """
+    add_view_class = CreateView
+    """
+    The view class to use for the create view; must be a subclass of
+    ``wagtail.admin.views.pages.create.CreateView``.
+    """
+    add_subpage_view_class = AddSubpageView
+    """
+    The view class to use for the add subpage view; must be a subclass of
+    ``wagtail.admin.views.pages.create.AddSubpageView``.
+    """
+    collect_workflow_action_data_view_class = CollectWorkflowActionDataView
+    """
+    The view class to use for performing a workflow action that returns the
+    validated data in the response; must be a subclass of
+    ``wagtail.admin.views.pages.workflow.CollectWorkflowActionDataView``.
+    """
+    confirm_workflow_cancellation_view_class = ConfirmWorkflowCancellationView
+    """
+    The view class to use for confirming the cancellation of a workflow;
+    must be a subclass of
+    ``wagtail.admin.views.pages.workflow.ConfirmWorkflowCancellationView``.
+    """
+    convert_alias_view_class = ConvertAliasView
+    """
+    The view class to use for the convert alias view; must be a subclass of
+    ``wagtail.admin.views.pages.convert_alias.ConvertAliasView``.
+    """
+    copy_view_class = CopyView
+    """
+    The view class to use for the copy view; must be a subclass of
+    ``wagtail.admin.views.pages.copy.CopyView``.
+    """
+    delete_view_class = DeleteView
+    """
+    The view class to use for the delete view; must be a subclass of
+    ``wagtail.admin.views.pages.delete.DeleteView``.
+    """
+    edit_view_class = EditView
+    """
+    The view class to use for the edit view; must be a subclass of
+    ``wagtail.admin.views.pages.edit.EditView``.
+    """
+    history_view_class = PageHistoryView
+    """
+    The view class to use for the history view; must be a subclass of
+    ``wagtail.admin.views.pages.history.PageHistoryView``.
+    """
     index_view_class = ExplorableIndexView
     """
     The view class to use for the index view; must be a subclass of
     ``wagtail.admin.views.pages.listing.ExplorableIndexView``.
+    """
+    lock_view_class = LockView
+    """
+    The view class to use for locking a page; must be a subclass of
+    ``wagtail.admin.views.pages.lock.LockView``.
+    """
+    move_view_class = MoveChooseDestinationView
+    """
+    The view class to use for choosing a destination when moving a page;
+    must be a subclass of
+    ``wagtail.admin.views.pages.move.MoveChooseDestinationView``.
+    """
+    move_confirm_view_class = MoveConfirmView
+    """
+    The view class to use for the confirmation view when moving a page;
+    must be a subclass of
+    ``wagtail.admin.views.pages.move.MoveConfirmView``.
+    """
+    preview_on_add_view_class = PreviewOnCreateView
+    """
+    The view class to use for the preview on create view; must be a subclass of
+    ``wagtail.admin.views.pages.preview.PreviewOnCreateView``.
+    """
+    preview_on_edit_view_class = PreviewOnEditView
+    """
+    The view class to use for the preview on edit view; must be a subclass of
+    ``wagtail.admin.views.pages.preview.PreviewOnEditView``.
+    """
+    revisions_view_class = RevisionsView
+    """
+    The view class to use for previewing revisions; must be a subclass of
+    ``wagtail.admin.views.pages.revisions.RevisionsView``.
+    """
+    revisions_compare_view_class = RevisionsCompareView
+    """
+    The view class to use for comparing revisions; must be a subclass of
+    ``wagtail.admin.views.pages.revisions.RevisionsCompareView``.
+    """
+    revisions_revert_view_class = RevisionsRevertView
+    """
+    The view class to use for the revisions revert view; must be a subclass of
+    ``wagtail.admin.views.pages.revisions.RevisionsRevertView``.
+    """
+    revisions_unschedule_view_class = RevisionsUnscheduleView
+    """
+    The view class to use for unscheduling revisions; must be a subclass of
+    ``wagtail.admin.views.pages.revisions.RevisionsUnscheduleView``.
+    """
+    search_view_class = SearchView
+    """
+    The view class to use for the page search view; must be a subclass of
+    ``wagtail.admin.views.pages.search.SearchView``.
+
+    This is only used by the base ``Page`` model's viewset.
+    """
+    set_page_position_view_class = SetPagePositionView
+    """
+    The view class to use for the set page position view; must be a subclass of
+    ``wagtail.admin.views.pages.ordering.SetPagePositionView``.
+    """
+    set_privacy_view_class = SetPrivacyView
+    """
+    The view class to use for the set privacy view; must be a subclass of
+    ``wagtail.admin.views.page_privacy.SetPrivacyView``.
+    """
+    unlock_view_class = UnlockView
+    """
+    The view class to use for unlocking a page; must be a subclass of
+    ``wagtail.admin.views.pages.lock.UnlockView``.
+    """
+    unpublish_view_class = UnpublishView
+    """
+    The view class to use for unpublishing a page; must be a subclass of
+    ``wagtail.admin.views.pages.unpublish.UnpublishView``.
+    """
+    usage_view_class = UsageView
+    """
+    The view class to use for the usage view; must be a subclass of
+    ``wagtail.admin.views.pages.usage.UsageView``.
+    """
+    view_draft_view_class = ViewDraftView
+    """
+    The view class to use for the view draft view; must be a subclass of
+    ``wagtail.admin.views.pages.preview.ViewDraftView``.
+    """
+    workflow_action_view_class = WorkflowActionView
+    """
+    The view class to use for performing a workflow action; must be a subclass of
+    ``wagtail.admin.views.pages.workflow.WorkflowActionView``.
+    """
+    workflow_history_view_class = WorkflowHistoryView
+    """
+    The view class to use for the workflow history view; must be a subclass of
+    ``wagtail.admin.views.pages.history.WorkflowHistoryView``.
+    """
+    workflow_history_detail_view_class = WorkflowHistoryDetailView
+    """
+    The view class to use for the workflow history detail view; must be a subclass of
+    ``wagtail.admin.views.pages.history.WorkflowHistoryDetailView``.
+    """
+    workflow_preview_view_class = PreviewRevisionForTaskView
+    """
+    The view class to use for previewing a revision for a specific task;
+    must be a subclass of
+    ``wagtail.admin.views.pages.workflow.PreviewRevisionForTaskView``.
     """
     menu_url = None
     """Unused. There is no specific URL to link to for the menu item."""
@@ -154,11 +341,42 @@ class PageViewSet(PageListingViewSet):
     @cached_property
     def views(self):
         return {
+            "add": self.add_view,
+            "add_subpage": self.add_subpage_view,
             "choose_parent": self.choose_parent_view,
+            "collect_workflow_action_data": self.collect_workflow_action_data_view,
+            "confirm_workflow_cancellation": self.confirm_workflow_cancellation_view,
             "content_type_use": self.content_type_use_view,
             "content_type_use_results": self.content_type_use_results_view,
+            "convert_alias": self.convert_alias_view,
+            "copy": self.copy_view,
+            "delete": self.delete_view,
+            "edit": self.edit_view,
+            "history": self.history_view,
+            "history_results": self.history_results_view,
             "index": self.index_view,
             "index_results": self.index_results_view,
+            "lock": self.lock_view,
+            "move": self.move_view,
+            "move_confirm": self.move_confirm_view,
+            "preview_on_add": self.preview_on_add_view,
+            "preview_on_edit": self.preview_on_edit_view,
+            "revisions_compare": self.revisions_compare_view,
+            "revisions_view": self.revisions_view,
+            "revisions_unschedule": self.revisions_unschedule_view,
+            "revisions_revert": self.revisions_revert_view,
+            "search": self.search_view,
+            "search_results": self.search_results_view,
+            "set_page_position": self.set_page_position_view,
+            "set_privacy": self.set_privacy_view,
+            "unlock": self.unlock_view,
+            "unpublish": self.unpublish_view,
+            "usage": self.usage_view,
+            "view_draft": self.view_draft_view,
+            "workflow_action": self.workflow_action_view,
+            "workflow_history": self.workflow_history_view,
+            "workflow_history_detail": self.workflow_history_detail_view,
+            "workflow_preview": self.workflow_preview_view,
         }
 
     def get_view_by_name(self, name):
@@ -180,6 +398,133 @@ class PageViewSet(PageListingViewSet):
         )
 
     @cached_property
+    def add_view(self):
+        return self.construct_view(self.add_view_class)
+
+    @cached_property
+    def add_subpage_view(self):
+        return self.construct_view(self.add_subpage_view_class)
+
+    @cached_property
+    def collect_workflow_action_data_view(self):
+        return self.construct_view(self.collect_workflow_action_data_view_class)
+
+    @cached_property
+    def confirm_workflow_cancellation_view(self):
+        return self.construct_view(self.confirm_workflow_cancellation_view_class)
+
+    @cached_property
+    def convert_alias_view(self):
+        return self.construct_view(self.convert_alias_view_class)
+
+    @cached_property
+    def copy_view(self):
+        return self.construct_view(self.copy_view_class)
+
+    @cached_property
+    def delete_view(self):
+        return self.construct_view(self.delete_view_class)
+
+    @cached_property
+    def edit_view(self):
+        return self.construct_view(self.edit_view_class)
+
+    @cached_property
+    def history_view(self):
+        return self.construct_view(self.history_view_class)
+
+    @cached_property
+    def history_results_view(self):
+        return self.construct_view(
+            self.history_view_class,
+            results_only=True,
+        )
+
+    @cached_property
+    def lock_view(self):
+        return self.construct_view(self.lock_view_class)
+
+    @cached_property
+    def move_view(self):
+        return self.construct_view(self.move_view_class)
+
+    @cached_property
+    def move_confirm_view(self):
+        return self.construct_view(self.move_confirm_view_class)
+
+    @cached_property
+    def preview_on_add_view(self):
+        return self.construct_view(self.preview_on_add_view_class)
+
+    @cached_property
+    def preview_on_edit_view(self):
+        return self.construct_view(self.preview_on_edit_view_class)
+
+    @cached_property
+    def revisions_view(self):
+        return self.construct_view(self.revisions_view_class)
+
+    @cached_property
+    def revisions_compare_view(self):
+        return self.construct_view(self.revisions_compare_view_class)
+
+    @cached_property
+    def revisions_revert_view(self):
+        return self.construct_view(self.revisions_revert_view_class)
+
+    @cached_property
+    def revisions_unschedule_view(self):
+        return self.construct_view(self.revisions_unschedule_view_class)
+
+    @cached_property
+    def search_view(self):
+        return self.construct_view(self.search_view_class)
+
+    @cached_property
+    def search_results_view(self):
+        return self.construct_view(self.search_view_class, results_only=True)
+
+    @cached_property
+    def set_page_position_view(self):
+        return self.construct_view(self.set_page_position_view_class)
+
+    @cached_property
+    def set_privacy_view(self):
+        return self.construct_view(self.set_privacy_view_class)
+
+    @cached_property
+    def unlock_view(self):
+        return self.construct_view(self.unlock_view_class)
+
+    @cached_property
+    def unpublish_view(self):
+        return self.construct_view(self.unpublish_view_class)
+
+    @cached_property
+    def usage_view(self):
+        return self.construct_view(self.usage_view_class)
+
+    @cached_property
+    def view_draft_view(self):
+        return self.construct_view(self.view_draft_view_class)
+
+    @cached_property
+    def workflow_action_view(self):
+        return self.construct_view(self.workflow_action_view_class)
+
+    @cached_property
+    def workflow_history_view(self):
+        return self.construct_view(self.workflow_history_view_class)
+
+    @cached_property
+    def workflow_history_detail_view(self):
+        return self.construct_view(self.workflow_history_detail_view_class)
+
+    @cached_property
+    def workflow_preview_view(self):
+        return self.construct_view(self.workflow_preview_view_class)
+
+    @cached_property
     def parent_models(self):
         """
         The parent page models to associate in the main page explorer, so this
@@ -188,9 +533,9 @@ class PageViewSet(PageListingViewSet):
         fields of a specific child page model in the explorer.
 
         By default, if the main :attr:`model`
-        :attr:`~wagtail.models.Page.parent_page_types` is defined, this will be
+        :attr:`~wagtail.models.AbstractPage.parent_page_types` is defined, this will be
         every model in the list that also defines
-        :attr:`~wagtail.models.Page.subpage_types` with only this viewset's
+        :attr:`~wagtail.models.AbstractPage.subpage_types` with only this viewset's
         model (or its subclasses). In other words, this will apply to this
         viewset model's parents that only allow this viewset model (or its
         subclasses) as children.
@@ -286,9 +631,11 @@ class PageViewSetRegistry(ObjectTypeRegistry):
     def as_view(
         self,
         view_name,
+        page_id_kwarg=None,
         parent_page_id_kwarg=None,
         app_label_kwarg=None,
         model_name_kwarg=None,
+        is_base_page=False,
     ):
         """
         Create a view function that routes to the appropriate view based on the
@@ -298,20 +645,46 @@ class PageViewSetRegistry(ObjectTypeRegistry):
         using the same URL pattern for all page types.
         """
 
+        if page_id_kwarg:
+
+            def get_viewset(kwargs):
+                return self.get_by_page_id(kwargs.get(page_id_kwarg))
+
+        elif parent_page_id_kwarg:
+
+            def get_viewset(kwargs):
+                return self.get_by_parent_page_id(kwargs.get(parent_page_id_kwarg))
+
+        elif app_label_kwarg and model_name_kwarg:
+
+            def get_viewset(kwargs):
+                return self.get_by_content_type_natural_key(
+                    kwargs.get(app_label_kwarg),
+                    kwargs.get(model_name_kwarg),
+                )
+
+        elif is_base_page:
+
+            def get_viewset(kwargs):
+                return self.get_by_type(Page)
+
+        else:
+            raise ImproperlyConfigured(
+                f"PageViewSetRegistry.as_view('{view_name}', …) requires one "
+                "of the following combinations of kwargs:\n"
+                "- page_id_kwarg,\n"
+                "- parent_page_id_kwarg,\n"
+                "- app_label_kwarg and model_name_kwarg, or\n"
+                "- is_base_page."
+            )
+
         def view_router(request, *args, **kwargs):
             try:
-                if parent_page_id_kwarg:
-                    viewset = self.get_by_parent_page_id(
-                        kwargs.get(parent_page_id_kwarg)
-                    )
-                elif app_label_kwarg and model_name_kwarg:
-                    viewset = self.get_by_content_type_natural_key(
-                        kwargs.get(app_label_kwarg), kwargs.get(model_name_kwarg)
-                    )
-            except ObjectDoesNotExist as e:
-                # Page or ContentType not found
+                viewset = get_viewset(kwargs)
+                view = viewset.get_view_by_name(view_name)
+            except (ObjectDoesNotExist, KeyError) as e:
+                # Page, ContentType, or view name not found
                 raise Http404 from e
-            view = viewset.get_view_by_name(view_name)
             return view(request, *args, **kwargs)
 
         return view_router

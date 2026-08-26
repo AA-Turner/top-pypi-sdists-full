@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tako-sdk
-Version: 2.2.20
+Version: 2.2.21
 Summary: The official Python library for the tako API
 Project-URL: Homepage, https://tako.com
 Project-URL: Documentation, https://docs.tako.com
@@ -95,7 +95,7 @@ for card in results.cards or []:
 | Method | Description |
 | ------ | ----------- |
 | `client.search(SearchRequest(...))` | Search the Tako knowledge base; returns matching cards and web results. |
-| `client.answer(SearchRequest(...))` | Get a written answer with supporting cards. |
+| `client.answer(AnswerRequest(...))` | Get a written answer with supporting cards. |
 | `client.create_card(CreateCardRequest(...))` | Build a visualization card from component configurations. |
 | `client.contents(ContentsRequest(...))` | Fetch downloadable content (e.g. a CSV) for a card or web URL. |
 

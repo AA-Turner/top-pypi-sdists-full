@@ -30,7 +30,10 @@ from tako.models.answer_agent_run_list import AnswerAgentRunList
 from tako.models.answer_agent_run_request import AnswerAgentRunRequest
 from tako.models.answer_agent_run_summary import AnswerAgentRunSummary
 from tako.models.answer_agent_stream_envelope import AnswerAgentStreamEnvelope
+from tako.models.answer_request import AnswerRequest
 from tako.models.answer_response import AnswerResponse
+from tako.models.answer_structured_output_error import AnswerStructuredOutputError
+from tako.models.answer_structured_output_error_code import AnswerStructuredOutputErrorCode
 from tako.models.base_api_error import BaseAPIError
 from tako.models.block import Block
 from tako.models.block1 import Block1

@@ -8,26 +8,19 @@ from typing import TYPE_CHECKING, Literal
 from lamin_utils import logger
 
 from ._settings_save import save_instance_settings
-from ._settings_storage import (
-    LEGACY_STORAGE_UID_FILE_KEY,
-    STORAGE_UID_FILE_KEY,
-    StorageSettings,
-    get_storage_type,
-    init_storage,
-    instance_uid_from_uuid,
-)
 from ._settings_store import current_instance_settings_file, instance_settings_file
 from .cloud_sqlite_locker import (
     EXPIRATION_TIME,
     InstanceLockedException,
 )
-from .upath import LocalPathClasses, UPath
 
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from ._settings_storage import StorageSettings
     from ._settings_user import UserSettings
     from .types import AnyPathStr
+    from .upath import UPath
 
 LOCAL_STORAGE_MESSAGE = "No local storage location found in current environment: defaulting to cloud storage"
 
@@ -48,12 +41,31 @@ def is_local_db_url(db_url: str) -> bool:
 
 
 def check_is_instance_remote(root: AnyPathStr, db: str | None) -> bool:
+    from ._settings_storage import get_storage_type
+
     root_str = str(root)
     is_local_storage = (
         not root_str.startswith("create-s3") and get_storage_type(root_str) == "local"
     )
     is_local_db = db is None or db.startswith("sqlite://") or is_local_db_url(db)
     return not (is_local_storage and is_local_db)
+
+
+def should_contact_hub_during_init(root: AnyPathStr, db: str | None) -> bool:
+    """Whether init needs hub access for this storage/database combination."""
+    return check_is_instance_remote(root=root, db=db)
+
+
+def should_register_instance_on_hub(
+    root: AnyPathStr,
+    db: str | None,
+    instance_state: str,
+) -> bool:
+    """Whether init should auto-register the instance on LaminHub."""
+    return (
+        should_contact_hub_during_init(root=root, db=db)
+        and instance_state != "instance-corrupted-or-deleted"
+    )
 
 
 class InstanceSettings:
@@ -111,21 +123,27 @@ class InstanceSettings:
         for attr in attrs:
             value = getattr(self, attr)
             if attr == "storage":
+
+                def _format_storage(root: str, region: str | None) -> str:
+                    return f"{root} ({region})" if region is not None else root
+
                 if self.keep_artifacts_local:
                     import lamindb as ln
 
                     self._local_storage = ln.setup.settings.instance._local_storage
                 if self._local_storage is not None:
                     value_local = self.local_storage
-                    representation += f"\n - local storage: {value_local.root_as_str} ({value_local.region})"
+                    representation += (
+                        f"\n - local storage: "
+                        f"{_format_storage(value_local.root_as_str, value_local.region)}"
+                    )
                     if value is not None:
                         representation += (
-                            f"\n - cloud storage: {value.root_as_str} ({value.region})"
+                            f"\n - cloud storage: "
+                            f"{_format_storage(value.root_as_str, value.region)}"
                         )
                 elif value is not None:
-                    representation += (
-                        f"\n - storage: {value.root_as_str} ({value.region})"
-                    )
+                    representation += f"\n - storage: {_format_storage(value.root_as_str, value.region)}"
             elif attr == "db":
                 if self.dialect != "sqlite":
                     # dynamic import to avoid importing pydantic at root
@@ -164,6 +182,12 @@ class InstanceSettings:
     ) -> StorageSettings | None:
         from django.db.utils import ProgrammingError
         from lamindb.models import Storage
+
+        from ._settings_storage import (
+            LEGACY_STORAGE_UID_FILE_KEY,
+            STORAGE_UID_FILE_KEY,
+            StorageSettings,
+        )
 
         if local_root is not None:
             local_records = Storage.objects.filter(root=local_root)
@@ -267,6 +291,9 @@ class InstanceSettings:
     @local_storage.setter
     def local_storage(self, local_root_host: tuple[Path | str, str]):
         from lamindb_setup._init_instance import register_storage_in_instance
+
+        from ._settings_storage import StorageSettings, init_storage
+        from .upath import LocalPathClasses, UPath
 
         if not isinstance(local_root_host, tuple):
             local_root = local_root_host
@@ -415,6 +442,8 @@ class InstanceSettings:
     @property
     def uid(self) -> str:
         """The user-facing instance id."""
+        from ._settings_storage import instance_uid_from_uuid
+
         return instance_uid_from_uuid(self._id)
 
     @property
@@ -612,12 +641,16 @@ class InstanceSettings:
     def _get_settings_file(self) -> Path:
         return instance_settings_file(self.name, self.owner)
 
-    def _persist(self, write_to_disk: bool = True) -> None:
+    def _persist(
+        self, write_to_disk: bool = True, write_current_instance_file: bool = True
+    ) -> None:
         """Set these instance settings as the current instance.
 
         Args:
             write_to_disk: Save these instance settings to disk and
                 overwrite the current instance settings file.
+            write_current_instance_file: Whether to update the global
+                current instance settings file in `~/.lamin`.
         """
         if write_to_disk and self.slug != "none/none":
             assert self.name is not None
@@ -625,7 +658,8 @@ class InstanceSettings:
             # persist under filepath for later reference
             save_instance_settings(self, filepath)
             # persist under current file for auto load
-            shutil.copy2(filepath, current_instance_settings_file())
+            if write_current_instance_file:
+                shutil.copy2(filepath, current_instance_settings_file())
             # persist under settings class for same session reference
             # need to import here to avoid circular import
         from ._settings import settings

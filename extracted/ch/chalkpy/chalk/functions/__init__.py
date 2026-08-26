@@ -8375,6 +8375,35 @@ def catalog_call(qualified_name: str, *args: Any, output_type: "pa.DataType | No
     return UnderscoreFunction("catalog_call", qualified_name, *args, **kwargs)
 
 
+def catalog_call_async(qualified_name: str, *args: Any, output_type: "pa.DataType | None" = None, **kwargs: Any):
+    """Like :func:`catalog_call`, but the engine enqueues the call and awaits the
+    result asynchronously, unlocking long-horizon or heavier model inference.
+
+    Parameters
+    ----------
+    qualified_name
+        Same as :func:`catalog_call`.
+    *args
+        Same as :func:`catalog_call`.
+    output_type
+        Same as :func:`catalog_call`.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import features, _
+    >>> @features
+    ... class MyModel:
+    ...     id: int
+    ...     x_1: float
+    ...     x_2: float
+    ...     y: float = F.catalog_call_async("model.my-model-sg", _.x_1, _.x_2)
+    """
+    if output_type is not None:
+        kwargs["output_type"] = output_type
+    return UnderscoreFunction("catalog_call_async", qualified_name, *args, **kwargs)
+
+
 def call_resolver(resolver_fqn: str, output_type: "pa.DataType", *args: Any):
     """Call another resolver as a blocking expression inside a static resolver.
 
@@ -8447,6 +8476,7 @@ def get_server_context(name: ServerContextVariable):
 __all__ = (
     "call_resolver",
     "catalog_call",
+    "catalog_call_async",
     "DayOfWeek",
     "Frame",
     "Then",

@@ -1,18 +1,24 @@
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+#[cfg(target_os = "linux")]
+use std::time::{Duration, UNIX_EPOCH};
 
 #[cfg(feature = "tokio")]
 use std::io::Read;
 
 #[cfg(feature = "tokio")]
 use encoding_rs_io::DecodeReaderBytes;
+#[cfg(target_os = "linux")]
+use rustix::fs::{AtFlags, CWD as RUSTIX_CWD, StatxFlags, statx};
 use tempfile::NamedTempFile;
 use tracing::{debug, warn};
 
 pub use crate::locked_file::*;
 pub use crate::path::*;
 pub use crate::read::ValidatedReader;
-pub use crate::space::{PhysicalSpaceError, physical_space, supports_physical_space};
+pub use crate::space::{PhysicalSpaceError, physical_space, supports_fine_grained_accounting};
 
 pub mod cachedir;
 pub mod link;
@@ -21,6 +27,50 @@ mod path;
 mod read;
 mod space;
 pub mod which;
+
+/// Return a path's creation time, including on Linux targets where [`std::fs::Metadata::created`]
+/// does not expose the filesystem birth time.
+pub fn created_time(path: &Path, metadata: &std::fs::Metadata) -> io::Result<SystemTime> {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = metadata;
+
+        let metadata = statx(
+            RUSTIX_CWD,
+            path,
+            AtFlags::empty(),
+            StatxFlags::BASIC_STATS | StatxFlags::BTIME,
+        )?;
+
+        if metadata.stx_mask & StatxFlags::BTIME.bits() == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "creation time is not available for the filesystem",
+            ));
+        }
+
+        let birth_time = metadata.stx_btime;
+        let seconds = Duration::from_secs(birth_time.tv_sec.unsigned_abs());
+        let created = if birth_time.tv_sec < 0 {
+            UNIX_EPOCH.checked_sub(seconds)
+        } else {
+            UNIX_EPOCH.checked_add(seconds)
+        };
+
+        created
+            .filter(|_| birth_time.tv_nsec < 1_000_000_000)
+            .and_then(|created| {
+                created.checked_add(Duration::from_nanos(u64::from(birth_time.tv_nsec)))
+            })
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid creation time"))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = path;
+        metadata.created()
+    }
+}
 
 /// Attempt to check if the two paths refer to the same file.
 ///
@@ -282,6 +332,7 @@ pub fn remove_symlink(path: impl AsRef<Path>) -> io::Result<()> {
 
 #[cfg(all(test, windows))]
 mod windows_tests {
+    use std::assert_matches;
     use std::os::windows::ffi::OsStrExt;
 
     use super::*;
@@ -335,10 +386,10 @@ mod windows_tests {
 
         let err = create_junction(&target, &link).unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidFilename);
-        assert!(matches!(
+        assert_matches!(
             fs_err::symlink_metadata(&link),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound
-        ));
+        );
         Ok(())
     }
 }
@@ -934,6 +985,8 @@ pub fn clear_virtualenv(location: &Path) -> io::Result<bool> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -947,10 +1000,10 @@ mod tests {
         create_symlink(&target, &link)?;
         remove_symlink(&link)?;
 
-        assert!(matches!(
+        assert_matches!(
             fs_err::symlink_metadata(&link),
             Err(err) if err.kind() == io::ErrorKind::NotFound
-        ));
+        );
         assert_eq!(fs_err::read_to_string(target.join("file"))?, "content");
         Ok(())
     }
@@ -967,10 +1020,10 @@ mod tests {
 
         remove_virtualenv(&environment)?;
 
-        assert!(matches!(
+        assert_matches!(
             fs_err::symlink_metadata(environment),
             Err(err) if err.kind() == io::ErrorKind::NotFound
-        ));
+        );
         assert!(marker.is_file());
         Ok(())
     }

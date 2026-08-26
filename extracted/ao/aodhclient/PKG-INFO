@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aodhclient
-Version: 3.11.0
+Version: 3.12.0
 Summary: Python client library for Aodh
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -15,12 +15,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0
@@ -31,7 +31,7 @@ Requires-Dist: oslo.serialization>=1.4.0
 Requires-Dist: oslo.utils>=2.0.0
 Requires-Dist: osprofiler>=1.4.0
 Requires-Dist: keystoneauth1>=1.0.0
-Requires-Dist: pyparsing>2.1.0
+Requires-Dist: pyparsing>3.0.0
 Dynamic: license-file
 Dynamic: requires-dist
 

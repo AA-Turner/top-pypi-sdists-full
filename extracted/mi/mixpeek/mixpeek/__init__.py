@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.454"
+__version__ = "1.3.465"
 
 # Define package exports
 __all__ = [
@@ -184,6 +184,7 @@ __all__ = [
     "AppResponse",
     "AppUserResponse",
     "ApplyClusterEnrichmentRequest",
+    "ApplyMode",
     "ApplyPromoRequest",
     "ApplyPromoResponse",
     "ApplyResult",
@@ -1560,6 +1561,7 @@ from mixpeek.models.app_logs_response import AppLogsResponse as AppLogsResponse
 from mixpeek.models.app_response import AppResponse as AppResponse
 from mixpeek.models.app_user_response import AppUserResponse as AppUserResponse
 from mixpeek.models.apply_cluster_enrichment_request import ApplyClusterEnrichmentRequest as ApplyClusterEnrichmentRequest
+from mixpeek.models.apply_mode import ApplyMode as ApplyMode
 from mixpeek.models.apply_promo_request import ApplyPromoRequest as ApplyPromoRequest
 from mixpeek.models.apply_promo_response import ApplyPromoResponse as ApplyPromoResponse
 from mixpeek.models.apply_result import ApplyResult as ApplyResult

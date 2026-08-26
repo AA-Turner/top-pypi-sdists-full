@@ -4,7 +4,6 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from .choice import Choice1Of2, Choice2Of2, FSharpChoice_2
-from .core import int32
 from .fsharp_collections import ComparisonIdentity_Structural, HashIdentity_Structural
 from .option import value as value_1
 from .protocols import IComparer_1, IDisposable, IEqualityComparer, IEqualityComparer_1
@@ -18,7 +17,7 @@ class ObjectExpr5(IEqualityComparer):
     def Equals(self, x: Any = None, y: Any = None) -> bool:
         return equals(x, y)
 
-    def GetHashCode(self, x_1: Any = None) -> int32:
+    def GetHashCode(self, x_1: Any = None) -> int:
         return structural_hash(x_1)
 
 
@@ -29,7 +28,7 @@ class ObjectExpr6(IEqualityComparer):
     def Equals(self, x: Any = None, y: Any = None) -> bool:
         return equals(x, y)
 
-    def GetHashCode(self, x_1: Any = None) -> int32:
+    def GetHashCode(self, x_1: Any = None) -> int:
         return structural_hash(x_1)
 
 

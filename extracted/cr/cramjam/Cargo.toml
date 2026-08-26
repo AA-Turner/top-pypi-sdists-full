@@ -1,6 +1,6 @@
 [package]
 name = "cramjam-python"
-version = "2.12.0"
+version = "2.12.1"
 authors = ["Miles Granger <miles59923@gmail.com>"]
 edition = "2021"
 rust-version = "1.83"
@@ -36,9 +36,6 @@ default = [
 experimental = ["blosc2", "igzip", "ideflate", "izlib"]
 
 extension-module = ["pyo3/extension-module"]
-generate-import-lib = [
-  "pyo3/generate-import-lib",
-] # needed for Windows PyPy builds
 
 snappy = ["libcramjam/snappy"]
 lz4 = ["libcramjam/lz4"]

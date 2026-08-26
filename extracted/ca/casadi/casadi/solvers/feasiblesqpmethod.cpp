@@ -458,7 +458,7 @@ namespace casadi {
     set_feasiblesqpmethod_prob();
     // Allocate memory
     casadi_int sz_w, sz_iw;
-    casadi_feasiblesqpmethod_work(&p_, &sz_iw, &sz_w, sz_anderson_memory_);
+    casadi_feasiblesqpmethod_work(&p_, &sz_iw, &sz_w);
     alloc_iw(sz_iw, true);
     alloc_w(sz_w, true);
     if (convexify_) {
@@ -475,6 +475,7 @@ namespace casadi {
     // p_.merit_memsize = merit_memsize_;
     // p_.max_iter_ls = max_iter_ls_;
     p_.nlp = &p_nlp_;
+    p_.sz_anderson_memory = sz_anderson_memory_;
   }
 
   void Feasiblesqpmethod::set_work(void* mem, const double**& arg, double**& res,
@@ -485,7 +486,7 @@ namespace casadi {
     Nlpsol::set_work(mem, arg, res, iw, w);
 
     m->d.prob = &p_;
-    casadi_feasiblesqpmethod_init(&m->d, &iw, &w, sz_anderson_memory_);
+    casadi_feasiblesqpmethod_set_work(&m->d, &arg, &res, &iw, &w);
 
     m->iter_count = -1;
   }
@@ -1071,7 +1072,8 @@ int Feasiblesqpmethod::solve(void* mem) const {
             if (calc_function(m, "nlp_hess_l")) return 1;
             if (convexify_) {
               ScopedTiming tic(m->fstats.at("convexify"));
-              if (convexify_eval(&convexify_data_.config, d->Bk, d->Bk, m->iw, m->w)) return 1;
+              if (casadi_convexify_eval(&convexify_data_.config,
+                d->Bk, d->Bk, m->iw, m->w)) return 1;
             }
           } else if (m->iter_count==0) {
             ScopedTiming tic(m->fstats.at("BFGS"));
@@ -1136,7 +1138,8 @@ int Feasiblesqpmethod::solve(void* mem) const {
             if (calc_function(m, "nlp_hess_l")) return 1;
             if (convexify_) {
               ScopedTiming tic(m->fstats.at("convexify"));
-              if (convexify_eval(&convexify_data_.config, d->Bk, d->Bk, m->iw, m->w)) return 1;
+              if (casadi_convexify_eval(&convexify_data_.config,
+                d->Bk, d->Bk, m->iw, m->w)) return 1;
             }
           } else if (m->iter_count==0) {
             ScopedTiming tic(m->fstats.at("BFGS"));
@@ -1454,7 +1457,8 @@ void Feasiblesqpmethod::codegen_declarations(CodeGenerator& g) const {
     g << "p.sp_h = " << g.sparsity(Hsp_) << ";\n";
     g << "p.sp_a = " << g.sparsity(Asp_) << ";\n";
     g << "p.nlp = &p_nlp;\n";
-    g << "casadi_feasiblesqpmethod_init(&d, &iw, &w, " << sz_anderson_memory_ << ");\n";
+    g << "p.sz_anderson_memory = " << sz_anderson_memory_ << ";\n";
+    g << "casadi_feasiblesqpmethod_set_work(&d, &arg, &res, &iw, &w);\n";
 
     g.local("m_w", "casadi_real", "*");
     g << "m_w = w;\n";
@@ -1611,7 +1615,8 @@ void Feasiblesqpmethod::codegen_declarations(CodeGenerator& g) const {
         //     if (calc_function(m, "nlp_hess_l")) return 1;
         //     if (convexify_) {
         //       ScopedTiming tic(m->fstats.at("convexify"));
-        //       if (convexify_eval(&convexify_data_.config, d->Bk, d->Bk, m->iw, m->w)) return 1;
+        //       if (casadi_convexify_eval(&convexify_data_.config,
+        //         d->Bk, d->Bk, m->iw, m->w)) return 1;
         //     }
         //   } else if (m->iter_count==0) {
         //     ScopedTiming tic(m->fstats.at("BFGS"));
@@ -1704,7 +1709,8 @@ void Feasiblesqpmethod::codegen_declarations(CodeGenerator& g) const {
         //     if (calc_function(m, "nlp_hess_l")) return 1;
         //     if (convexify_) {
         //       ScopedTiming tic(m->fstats.at("convexify"));
-        //       if (convexify_eval(&convexify_data_.config, d->Bk, d->Bk, m->iw, m->w)) return 1;
+        //       if (casadi_convexify_eval(&convexify_data_.config,
+        //         d->Bk, d->Bk, m->iw, m->w)) return 1;
         //     }
         //   } else if (m->iter_count==0) {
         //     ScopedTiming tic(m->fstats.at("BFGS"));

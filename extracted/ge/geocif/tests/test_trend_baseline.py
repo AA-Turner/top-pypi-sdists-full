@@ -139,13 +139,18 @@ class TrendBaselineTests(unittest.TestCase):
         )._predict_baseline(self.X_test, self.df_region)
         self.assertTrue(np.isclose(pred_t[0], pred_ta[0], atol=1e-9))
 
-    def test_trend_min_years_guard_differs_from_trend_all(self):
-        """The only difference between `trend` and `trend_all` is the minimum
-        training length: `trend` needs >= 10 years (else the per-unit mean),
-        `trend_all` needs >= 3. With 7 training years `trend` falls back to the
-        mean while `trend_all` still fits a slope."""
+    def test_trend_and_trend_all_share_min_years_guard(self):
+        """`trend` and `trend_all` share one minimum training length: >= 5
+        years, else the per-unit mean. Below the bar BOTH fall back; at or
+        above it both fit a Theil-Sen slope.
+
+        History: `trend` required 10 and `trend_all` 3 until 0.4.943. At ~10
+        observed years per region the 10-year bar silently degraded `trend`
+        into `null` on smallholder panels (Kenya admin_2: only 162/2845 rows
+        differed from the mean), while 3 points made `trend_all`'s slope
+        mostly noise."""
         forecast_season = 2013
-        years = list(range(2005, 2012))  # 7 years, none == forecast_season
+        years = list(range(2005, 2009))  # 4 years -> below the shared bar
         df_train = _make_monotonic_df(
             "A", years, slope=0.05, intercept=-99.55,
         )
@@ -162,10 +167,20 @@ class TrendBaselineTests(unittest.TestCase):
         )._predict_baseline(X_test, df_region)
 
         mean_expected = float(df_train["Yield (tn per ha)"].mean())
-        slope_expected = -99.55 + 0.05 * float(forecast_season)
+        # 4 training years is below the shared bar -> BOTH return the mean
         self.assertAlmostEqual(pred_trend[0], mean_expected, places=6)
-        self.assertAlmostEqual(pred_trend_all[0], slope_expected, places=6)
-        self.assertFalse(np.isclose(pred_trend[0], pred_trend_all[0]))
+        self.assertAlmostEqual(pred_trend_all[0], mean_expected, places=6)
+        self.assertTrue(np.isclose(pred_trend[0], pred_trend_all[0]))
+
+        # ... and at 5 years both fit the slope instead
+        years5 = list(range(2005, 2010))  # 5 years
+        df5 = _make_monotonic_df("A", years5, slope=0.05, intercept=-99.55)
+        slope_expected = -99.55 + 0.05 * float(forecast_season)
+        for name in ("trend", "trend_all"):
+            pred, _, _ = _build_stub(
+                name, df5, "Yield (tn per ha)", forecast_season,
+            )._predict_baseline(X_test, df_region)
+            self.assertAlmostEqual(pred[0], slope_expected, places=6, msg=name)
 
     def test_null_filters_by_region_not_region_id(self):
         """`null` must compute per-region mean using the admin name, NOT
@@ -343,7 +358,7 @@ class TrendBaselineTests(unittest.TestCase):
         self.assertNotIn("Trend All", stub.df_train.columns)
 
     def test_trend_falls_back_to_mean_below_min_years(self):
-        """`trend` with fewer than 10 training years returns the mean of the
+        """`trend` with fewer than 5 training years returns the mean of the
         available years rather than a fitted slope."""
         forecast_season = 2003
         df_train = pd.DataFrame({

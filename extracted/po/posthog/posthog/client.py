@@ -703,6 +703,9 @@ class Client(object):
         secret_key=None,
         metrics: Optional[dict] = None,
         enable_full_ai_capture=False,
+        # Appended rather than grouped with the other `capture_*` options so
+        # existing positional arguments keep their slots.
+        capture_trace_context=False,
         _use_ai_lane=False,
         _enable_multimodal_capture=False,
     ):
@@ -778,6 +781,13 @@ class Client(object):
                 sharing feature flag definitions across workers.
             capture_exception_code_variables: Capture local variable values on
                 exception stack frames.
+            capture_trace_context: When OpenTelemetry is installed and a valid span is
+                active at capture time, add its trace and span IDs as ``$trace_id`` and
+                ``$span_id`` properties to events captured with ``capture()`` and
+                ``capture_ai()``, so they can be correlated with backend traces. Explicit
+                ``$trace_id``/``$span_id`` values passed in ``properties`` win. Exception
+                events (``capture_exception``) always attach these IDs regardless of this
+                setting. Defaults to False.
             code_variables_mask_patterns: Variable-name patterns to mask when
                 capturing code variables.
             code_variables_ignore_patterns: Variable-name patterns to omit when
@@ -925,6 +935,7 @@ class Client(object):
         # server reports it, so full events are the fail-safe.
         self._minimal_flag_called_events: bool = False
 
+        self.capture_trace_context = capture_trace_context
         self.capture_exception_code_variables = capture_exception_code_variables
         self.code_variables_mask_patterns = (
             code_variables_mask_patterns
@@ -1589,6 +1600,9 @@ class Client(object):
         property_allowlist = kwargs.get("_property_allowlist", None)
 
         properties = {**(properties or {}), **system_context()}
+
+        if self.capture_trace_context:
+            properties = {**_get_current_otel_span_properties(), **properties}
 
         properties = add_context_tags(properties)
         assert properties is not None  # Type hint for mypy
@@ -4044,12 +4058,12 @@ class Client(object):
             only_evaluate_locally: If True, never fall back to remote evaluation —
                 flags that can't be evaluated locally are simply omitted from the snapshot.
             disable_geoip: Whether to disable GeoIP lookup.
-            flag_keys: Optional non-empty list that scopes local evaluation, the underlying
-                ``/flags`` request, and the returned snapshot. An empty list is treated like
-                ``None`` and evaluates all flags. A requested key absent from loaded local
-                definitions is included in one remote fallback per ``evaluate_flags`` call unless
-                ``only_evaluate_locally`` is True. If the server also does not know the key, it is
-                omitted from the snapshot.
+            flag_keys: Optional list that scopes local evaluation, the underlying
+                ``/flags`` request, and the returned snapshot. When omitted or ``None``, all
+                flags are evaluated. An empty list returns an empty snapshot without evaluating
+                flags. A requested key absent from loaded local definitions is included in one
+                remote fallback per ``evaluate_flags`` call unless ``only_evaluate_locally`` is
+                True. If the server also does not know the key, it is omitted from the snapshot.
             device_id: Optional device ID override. If not provided, falls back to the
                 context device_id (which may be set via tracing headers). Used by
                 experience-continuity flags to match users across distinct_id changes.
@@ -4088,6 +4102,15 @@ class Client(object):
             # is_enabled()/get_flag() on it won't emit events.
             return FeatureFlagEvaluations(host=host, distinct_id="", flags={})
 
+        if flag_keys == []:
+            return FeatureFlagEvaluations(
+                host=host,
+                distinct_id=str(distinct_id),
+                flags={},
+                groups=groups,
+                disable_geoip=disable_geoip,
+            )
+
         person_properties, group_properties = (
             self._add_local_person_and_group_properties(
                 groups or {},
@@ -4096,7 +4119,6 @@ class Client(object):
             )
         )
         groups = groups or {}
-        # Keep the existing API convention that an empty list means no scope.
         requested_keys = set(flag_keys) if flag_keys else None
 
         records: Dict[str, _EvaluatedFlagRecord] = {}

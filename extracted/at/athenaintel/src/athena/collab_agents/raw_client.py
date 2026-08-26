@@ -31,6 +31,7 @@ class RawCollabAgentsClient:
         asset_id: str,
         *,
         message: str,
+        channel: typing.Optional[str] = OMIT,
         client_thread_key: typing.Optional[str] = OMIT,
         voice_update_handle: typing.Optional[str] = OMIT,
         wait: typing.Optional[bool] = OMIT,
@@ -46,6 +47,9 @@ class RawCollabAgentsClient:
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.
+
+        channel : typing.Optional[str]
+            Optional custom-channel id from the agent's Channels tab. Selects that channel's configuration overrides (model, prompt, tools) and stamps the session's origin. External SSO viewers MUST select a channel whose settings admit external viewers — they are refused everywhere else. Distinct channels hold distinct conversations even under the same clientThreadKey.
 
         client_thread_key : typing.Optional[str]
             Optional caller-chosen conversation key. Submissions from the same caller with the same key continue one agent session (until 24 hours of inactivity); different keys hold independent conversations. Omitted, all of a caller's submissions to this agent share one 'default' thread.
@@ -68,6 +72,7 @@ class RawCollabAgentsClient:
             f"api/v0/collab-agents/{jsonable_encoder(asset_id)}/messages",
             method="POST",
             json={
+                "channel": channel,
                 "clientThreadKey": client_thread_key,
                 "message": message,
                 "voiceUpdateHandle": voice_update_handle,
@@ -181,6 +186,7 @@ class AsyncRawCollabAgentsClient:
         asset_id: str,
         *,
         message: str,
+        channel: typing.Optional[str] = OMIT,
         client_thread_key: typing.Optional[str] = OMIT,
         voice_update_handle: typing.Optional[str] = OMIT,
         wait: typing.Optional[bool] = OMIT,
@@ -196,6 +202,9 @@ class AsyncRawCollabAgentsClient:
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.
+
+        channel : typing.Optional[str]
+            Optional custom-channel id from the agent's Channels tab. Selects that channel's configuration overrides (model, prompt, tools) and stamps the session's origin. External SSO viewers MUST select a channel whose settings admit external viewers — they are refused everywhere else. Distinct channels hold distinct conversations even under the same clientThreadKey.
 
         client_thread_key : typing.Optional[str]
             Optional caller-chosen conversation key. Submissions from the same caller with the same key continue one agent session (until 24 hours of inactivity); different keys hold independent conversations. Omitted, all of a caller's submissions to this agent share one 'default' thread.
@@ -218,6 +227,7 @@ class AsyncRawCollabAgentsClient:
             f"api/v0/collab-agents/{jsonable_encoder(asset_id)}/messages",
             method="POST",
             json={
+                "channel": channel,
                 "clientThreadKey": client_thread_key,
                 "message": message,
                 "voiceUpdateHandle": voice_update_handle,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.2.122"
+version = "2.2.125"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"

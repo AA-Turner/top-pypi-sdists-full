@@ -100,7 +100,8 @@ namespace casadi {
     return join_primitives_gen<DM>(it);
   }
 
-  void ConstantMX::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const {
+  void ConstantMX::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+      const std::vector<bool>& unique) const {
     res[0] = shared_from_this<MX>();
   }
 
@@ -119,6 +120,17 @@ namespace casadi {
   int ConstantMX::sp_forward(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const {
     std::fill_n(res[0], nnz(), 0);
     return 0;
+  }
+
+  int ConstantMX::eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const {
+    // Sound default for an unknown constant flavor; value-bearing subclasses refine per nonzero
+    std::fill_n(res[0], nnz(), ~static_cast<bvec_t>(0));
+    return 0;
+  }
+
+  void ConstantMX::nonzeros_to_activity(const double* v, bvec_t* res) const {
+    // Helper: set bit per nonzero where the stored value is nonzero
+    for (casadi_int k=0; k<nnz(); ++k) res[k] = (v[k]!=0) ? ~static_cast<bvec_t>(0) : 0;
   }
 
   int ConstantMX::sp_reverse(bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const {
@@ -220,6 +232,30 @@ namespace casadi {
     return x_.is_minus_one();
   }
 
+  bool ConstantDM::is_half() const {
+    return x_.is_half();
+  }
+
+  bool ConstantDM::is_value(double val) const {
+    return x_.is_value(val);
+  }
+
+  bool ConstantDM::is_inf() const {
+    return x_.is_inf();
+  }
+
+  bool ConstantDM::is_minus_inf() const {
+    return x_.is_minus_inf();
+  }
+
+  bool ConstantDM::is_integer() const {
+    return x_.is_integer();
+  }
+
+  bool ConstantDM::is_nonnegative() const {
+    return x_.is_nonnegative();
+  }
+
   bool ConstantDM::is_eye() const {
     return x_.is_eye();
   }
@@ -264,11 +300,12 @@ namespace casadi {
     return "0x0";
   }
 
-  MX ZeroByZero::get_project(const Sparsity& sp) const {
+  MX ZeroByZero::get_project(const Sparsity& sp, bool unique) const {
     return shared_from_this<MX>();
   }
 
-  MX ZeroByZero::get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz) const {
+  MX ZeroByZero::get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz,
+      bool unique) const {
     casadi_assert_dev(nz.empty());
     return MX::zeros(sp);
   }
@@ -281,11 +318,12 @@ namespace casadi {
     return shared_from_this<MX>();
   }
 
-  MX ZeroByZero::get_unary(casadi_int op) const {
+  MX ZeroByZero::get_unary(casadi_int op, bool unique) const {
     return shared_from_this<MX>();
   }
 
-  MX ZeroByZero::_get_binary(casadi_int op, const MX& y, bool ScX, bool ScY) const {
+  MX ZeroByZero::_get_binary(casadi_int op, const MX& y, bool ScX, bool ScY,
+      bool unique_x, bool unique_y) const {
     return shared_from_this<MX>();
   }
 
@@ -377,6 +415,10 @@ namespace casadi {
     casadi_error("Not defined for ConstantFile");
   }
 
+  casadi_int ConstantFile::to_int() const {
+    casadi_error("Not defined for ConstantFile");
+  }
+
   Matrix<double> ConstantFile::get_DM() const {
     casadi_error("Not defined for ConstantFile");
   }
@@ -413,6 +455,10 @@ namespace casadi {
   }
 
   double ConstantPool::to_double() const {
+    casadi_error("Not defined for ConstantPool");
+  }
+
+  casadi_int ConstantPool::to_int() const {
     casadi_error("Not defined for ConstantPool");
   }
 

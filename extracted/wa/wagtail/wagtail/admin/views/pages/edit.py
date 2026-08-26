@@ -1,6 +1,7 @@
 import json
 from urllib.parse import quote
 
+import swapper
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -40,13 +41,14 @@ from wagtail.models import (
     COMMENTS_RELATION_NAME,
     Comment,
     CommentReply,
-    Page,
     PageSubscription,
     Revision,
     WorkflowState,
     get_default_page_content_type,
 )
 from wagtail.utils.timestamps import render_timestamp
+
+Page = swapper.load_model("wagtailcore", "Page")
 
 
 class EditView(
@@ -563,10 +565,12 @@ class EditView(
             return self.form_invalid(self.form)
 
     def workflow_action_is_valid(self):
-        self.workflow_action = self.request.POST["workflow-action-name"]
-        available_actions = self.page.current_workflow_task.get_actions(
-            self.page, self.request.user
-        )
+        # The workflow might have been cancelled/ended after the page was loaded
+        workflow_task = self.page.current_workflow_task
+        if not workflow_task:
+            return False
+        self.workflow_action = self.request.POST.get("workflow-action-name")
+        available_actions = workflow_task.get_actions(self.page, self.request.user)
         available_action_names = [
             name for name, verbose_name, modal in available_actions
         ]
@@ -1039,7 +1043,12 @@ class EditView(
             session,
             reverse(
                 "wagtailadmin_editing_sessions:ping",
-                args=("wagtailcore", "page", self.page.pk, session.id),
+                args=(
+                    Page._meta.app_label,
+                    Page._meta.model_name,
+                    self.page.pk,
+                    session.id,
+                ),
             ),
             reverse(
                 "wagtailadmin_editing_sessions:release",

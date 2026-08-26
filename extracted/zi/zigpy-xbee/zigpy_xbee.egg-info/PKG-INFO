@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: zigpy-xbee
-Version: 0.21.1
+Version: 0.22.0
 Summary: A library which communicates with XBee radios for zigpy
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0
 Project-URL: repository, https://github.com/zigpy/zigpy-xbee
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: zigpy>=0.70.0
+Requires-Dist: zigpy>=2.0.0
 Provides-Extra: testing
 Requires-Dist: pytest>=7.1.2; extra == "testing"
-Requires-Dist: asynctest>=0.13.0; extra == "testing"
 Requires-Dist: pytest-asyncio>=0.19.0; extra == "testing"
 Dynamic: license-file
 

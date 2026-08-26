@@ -65,6 +65,30 @@ class TestRemoteExecutionUtils(unittest.TestCase):
         )
         self.assertEqual(result, expected)
 
+        # Test case 8: non-git (S3) bucket name begins with "dev-". Only the
+        # trailing "/dev" scope segment must become "/shared"; the bucket name
+        # must be preserved (regression for unanchored replace corrupting the
+        # bucket, e.g. "s3://dev-bucket/.../dev" -> "s3://shared-bucket/.../shared").
+        project_s3_path = "s3://dev-mybucket-use1/domain/project/dev"
+        local_file_path = "shared/getting_started.ipynb"
+        is_git_project = False
+        expected = "s3://dev-mybucket-use1/domain/project/shared/getting_started.ipynb"
+        result = RemoteExecutionUtils.pack_s3_path_for_input_file(
+            project_s3_path, local_file_path, is_git_project
+        )
+        self.assertEqual(result, expected)
+
+        # Test case 9: non-git (S3) intermediate path segment contains "dev".
+        # Only the terminal scope is rewritten; intermediate segments are kept.
+        project_s3_path = "s3://dev-bucket/domain/dev-project/dev"
+        local_file_path = "shared/getting_started.ipynb"
+        is_git_project = False
+        expected = "s3://dev-bucket/domain/dev-project/shared/getting_started.ipynb"
+        result = RemoteExecutionUtils.pack_s3_path_for_input_file(
+            project_s3_path, local_file_path, is_git_project
+        )
+        self.assertEqual(result, expected)
+
     def test_pack_full_path_for_input_file(self):
         local_file_path = "src/getting_started.ipynb"
         result = RemoteExecutionUtils.pack_full_path_for_input_file(local_file_path)

@@ -1,3 +1,4 @@
+import swapper
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
@@ -10,14 +11,17 @@ from wagtail.admin import messages
 from wagtail.admin.action_menu import PageActionMenu
 from wagtail.admin.auth import user_has_any_page_permission, user_passes_test
 from wagtail.admin.views.generic.models import (
-    RevisionsCompareView,
-    RevisionsUnscheduleView,
+    RevisionsCompareView as GenericRevisionsCompareView,
+)
+from wagtail.admin.views.generic.models import (
+    RevisionsUnscheduleView as GenericRevisionsUnscheduleView,
 )
 from wagtail.admin.views.generic.preview import PreviewRevision
 from wagtail.admin.views.pages.edit import EditView
 from wagtail.admin.views.pages.utils import GenericPageBreadcrumbsMixin
-from wagtail.models import Page
 from wagtail.utils.timestamps import render_timestamp
+
+Page = swapper.load_model("wagtailcore", "Page")
 
 
 def revisions_index(request, page_id):
@@ -59,7 +63,7 @@ class RevisionsRevertView(EditView):
             {"user": self.previous_revision.user},
         )
 
-        return mark_safe(
+        return mark_safe(  # noqa: S308 - uses template-rendered HTML
             _(
                 "You are viewing a previous version of this page from <b>%(created_at)s</b> by %(user)s"
             )
@@ -96,7 +100,7 @@ class RevisionsView(PreviewRevision):
         return page
 
 
-class RevisionsCompare(GenericPageBreadcrumbsMixin, RevisionsCompareView):
+class RevisionsCompareView(GenericPageBreadcrumbsMixin, GenericRevisionsCompareView):
     history_url_name = "wagtailadmin_pages:history"
     edit_url_name = "wagtailadmin_pages:edit"
     header_icon = "doc-empty-inverse"
@@ -122,7 +126,7 @@ class RevisionsCompare(GenericPageBreadcrumbsMixin, RevisionsCompareView):
         return self.object.get_admin_display_title()
 
 
-class RevisionsUnschedule(RevisionsUnscheduleView):
+class RevisionsUnscheduleView(GenericRevisionsUnscheduleView):
     model = Page
     edit_url_name = "wagtailadmin_pages:edit"
     history_url_name = "wagtailadmin_pages:history"

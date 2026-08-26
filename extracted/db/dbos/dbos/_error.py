@@ -65,6 +65,9 @@ class DBOSErrorCode(Enum):
     AwaitedWorkflowCancelled = 13
     AwaitedWorkflowMaxRecoveryAttemptsExceeded = 14
     PatchNondeterminism = 15
+    StreamTimeout = 16
+    StreamNondeterminism = 17
+    StepTimeout = 18
     ConflictingRegistrationError = 25
 
 
@@ -123,6 +126,49 @@ class DBOSNonExistentWorkflowError(DBOSException):
         )
 
 
+class DBOSStreamTimeoutError(DBOSException):
+    """Exception raised when no value arrives on a stream within its timeout."""
+
+    def __init__(
+        self, workflow_id: str, key: str, timeout_seconds: Optional[float] = None
+    ):
+        self.workflow_id = workflow_id
+        self.key = key
+        self.timeout_seconds = timeout_seconds
+        # No timeout means the stream ended without reaching the value, so none ever will.
+        within = (
+            f" within {timeout_seconds} seconds" if timeout_seconds is not None else ""
+        )
+        super().__init__(
+            f"No value arrived on stream {key} of workflow {workflow_id}{within}",
+            dbos_error_code=DBOSErrorCode.StreamTimeout.value,
+        )
+
+    def __reduce__(self) -> Any:
+        # Pickle rebuilds an exception by calling cls(*args); without this it would pass the
+        # message alone to a three-argument constructor and fail to load.
+        return (self.__class__, (self.workflow_id, self.key, self.timeout_seconds))
+
+
+class DBOSStreamNondeterminismError(DBOSException):
+    """Exception raised when concurrent stream reads would make replay depend on scheduling."""
+
+    def __init__(self, workflow_id: str, key: str):
+        self.workflow_id = workflow_id
+        self.key = key
+        super().__init__(
+            f"Cannot deterministically read stream {key} in workflow {workflow_id}: another "
+            "stream read in the same workflow is still in progress, so which read records which "
+            "value would depend on task scheduling. Read streams from sequential workflow code, "
+            "or read them from a step.",
+            dbos_error_code=DBOSErrorCode.StreamNondeterminism.value,
+        )
+
+    def __reduce__(self) -> Any:
+        # Pickle rebuilds an exception by calling cls(*args); see DBOSStreamTimeoutError.
+        return (self.__class__, (self.workflow_id, self.key))
+
+
 class MaxRecoveryAttemptsExceededError(DBOSException):
     """Exception raised when a workflow exceeds its max recovery attempts."""
 
@@ -169,6 +215,22 @@ class DBOSMaxStepRetriesExceeded(DBOSException):
     def __reduce__(self) -> Any:
         # Tell pickle how to reconstruct this object
         return (self.__class__, (self.step_name, self.max_retries, self.errors))
+
+
+class DBOSStepTimeoutError(DBOSException):
+    """Exception raised when a step was cancelled because it exceeded its timeout."""
+
+    def __init__(self, step_name: str, timeout_seconds: float) -> None:
+        self.step_name = step_name
+        self.timeout_seconds = timeout_seconds
+        super().__init__(
+            f"Step {step_name} was cancelled after exceeding its timeout of {timeout_seconds} seconds",
+            dbos_error_code=DBOSErrorCode.StepTimeout.value,
+        )
+
+    def __reduce__(self) -> Any:
+        # Tell pickle how to reconstruct this object
+        return (self.__class__, (self.step_name, self.timeout_seconds))
 
 
 class DBOSConflictingRegistrationError(DBOSException):

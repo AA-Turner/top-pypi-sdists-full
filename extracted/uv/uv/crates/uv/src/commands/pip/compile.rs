@@ -30,7 +30,7 @@ use uv_git::ResolvedRepositoryReference;
 use uv_install_wheel::LinkMode;
 use uv_normalize::PackageName;
 use uv_pep440::Version;
-use uv_preview::Preview;
+use uv_preview::{Preview, PreviewFeature};
 use uv_pypi_types::{Conflicts, SupportedEnvironments};
 use uv_python::{
     EnvironmentPreference, PythonDownloads, PythonEnvironment, PythonInstallation,
@@ -414,9 +414,9 @@ pub(crate) async fn pip_compile(
     // Generate, but don't enforce hashes for the requirements. PEP 751 _requires_ a hash to be
     // present, but otherwise, we omit them by default.
     let hasher = if generate_hashes || matches!(format, PipCompileFormat::PylockToml) {
-        HashStrategy::Generate(HashGeneration::All)
+        HashStrategy::generate(HashGeneration::All)
     } else {
-        HashStrategy::None
+        HashStrategy::default()
     };
 
     // Incorporate any index locations from the provided sources.
@@ -516,7 +516,7 @@ pub(crate) async fn pip_compile(
     };
 
     // Don't enforce hashes in `pip compile`.
-    let build_hashes = HashStrategy::None;
+    let build_hashes = HashStrategy::default();
     let build_constraints = Constraints::from_requirements(
         build_constraints
             .iter()
@@ -568,7 +568,7 @@ pub(crate) async fn pip_compile(
         .build();
 
     // Resolve the requirements.
-    let resolution = match operations::resolve(
+    let mut resolution = match operations::resolve(
         requirements,
         constraints,
         overrides,
@@ -607,6 +607,10 @@ pub(crate) async fn pip_compile(
                 .map_or(Ok(ExitStatus::Failure), |err| Err(err.into()));
         }
     };
+
+    if generate_hashes && preview.is_enabled(PreviewFeature::ArtifactHashFiltering) {
+        resolution.retain_allowed_distribution_hashes(&build_options);
+    }
 
     // Write the resolved dependencies to the output channel.
     let mut writer = OutputWriter::new(!quiet || output_file.is_none(), output_file);

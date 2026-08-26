@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.156.2
+Version: 2.156.5
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -52,6 +52,7 @@ Requires-Dist: python-dotenv; extra == "dev"
 Requires-Dist: sqlalchemy2-stubs; extra == "dev"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "dev"
 Requires-Dist: temporalio<2,>=1.7; extra == "dev"
+Requires-Dist: tomli>=2.0; python_version < "3.11" and extra == "dev"
 Requires-Dist: types-protobuf<6; extra == "dev"
 Requires-Dist: types-psycopg2; extra == "dev"
 Requires-Dist: types-pymysql; extra == "dev"
@@ -164,7 +165,6 @@ Requires-Dist: s3fs>=2024.2.0; extra == "postgresql"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "postgresql"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "postgresql"
 Provides-Extra: snowflake
-Requires-Dist: cryptography<49; extra == "snowflake"
 Requires-Dist: snowflake-connector-python<5,>=3.12.4; extra == "snowflake"
 Requires-Dist: snowflake-sqlalchemy<1.11,>=1.5.0; extra == "snowflake"
 Requires-Dist: adlfs; extra == "snowflake"
@@ -282,7 +282,6 @@ Requires-Dist: chalk-sqlalchemy-redshift<0.9,>=0.8.11; extra == "all"
 Requires-Dist: clickhouse-driver; extra == "all"
 Requires-Dist: clickhouse-sqlalchemy; extra == "all"
 Requires-Dist: cohere==5.11.4; extra == "all"
-Requires-Dist: cryptography<49; extra == "all"
 Requires-Dist: databricks-sdk<1.0.0,>=0.29.0; extra == "all"
 Requires-Dist: databricks-sql-connector<3.5,>=2.5.2; extra == "all"
 Requires-Dist: duckdb<1.2.0,>=0.6; extra == "all"

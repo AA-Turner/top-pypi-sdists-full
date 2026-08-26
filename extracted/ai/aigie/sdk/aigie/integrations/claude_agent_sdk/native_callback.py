@@ -428,6 +428,18 @@ class ClaudeAgentSDKEvents(
         else:
             self._local_total_turns = value
 
+    def increment_turn(self) -> int:
+        """The only way a turn is recorded.
+
+        Storage is split -- a session shares its counter, a bare query owns
+        one -- and every caller that chose a side for itself eventually chose
+        the wrong one.
+        """
+        if self._session_context:
+            return self._session_context.increment_turn()
+        self._local_total_turns += 1
+        return self._local_total_turns
+
     @property
     def total_tool_calls(self) -> int:
         if self._session_context:

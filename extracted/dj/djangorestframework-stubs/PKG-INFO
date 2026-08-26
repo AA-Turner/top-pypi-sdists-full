@@ -1,21 +1,19 @@
 Metadata-Version: 2.4
 Name: djangorestframework-stubs
-Version: 3.18.0
+Version: 3.18.1
 Summary: PEP-484 stubs for django-rest-framework
 Author: Maksim Kurnikov
 Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
 License-Expression: MIT
 License-File: LICENSE.txt
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Framework :: Django
-Requires-Dist: django-stubs>=6.0.9
+Requires-Dist: django-stubs>=6.1.0
 Requires-Dist: typing-extensions>=4.0
 Requires-Dist: types-pyyaml
 Requires-Dist: mypy>=1.13,<2.4 ; extra == 'compatible-mypy'
@@ -25,7 +23,7 @@ Requires-Dist: types-markdown>=0.1.5 ; extra == 'markdown'
 Requires-Dist: types-requests ; extra == 'requests'
 Maintainer: Marti Raudsepp, Nikita Sobolev
 Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Homepage, https://github.com/typeddjango/djangorestframework-stubs
 Project-URL: Funding, https://github.com/sponsors/typeddjango
 Project-URL: Release notes, https://github.com/typeddjango/djangorestframework-stubs/releases
@@ -46,7 +44,7 @@ Description-Content-Type: text/markdown
 
 
 Mypy stubs for [Django REST Framework](https://pypi.org/project/djangorestframework/).
-Supports Python 3.10 and up.
+Supports Python 3.11 and up.
 
 ## Installation
 

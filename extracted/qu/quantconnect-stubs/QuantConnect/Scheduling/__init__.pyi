@@ -179,6 +179,27 @@ class TimeConsumer(System.Object):
     def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
+    @property
+    def name(self) -> str:
+        """
+        Name of the work being executed, if any, e.g. the scheduled event's name. Used to name the
+        long-running work in logs when additional time is requested
+        """
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def additional_minutes_requested(self) -> int:
+        """The number of additional minutes that have been requested for this consumer so far"""
+        ...
+
+    @additional_minutes_requested.setter
+    def additional_minutes_requested(self, value: int) -> None:
+        ...
+
 
 class TimeMonitor(System.Object, System.IDisposable):
     """
@@ -194,6 +215,18 @@ class TimeMonitor(System.Object, System.IDisposable):
         
         This Property is protected.
         """
+        ...
+
+    @property
+    def user_warning_handler(self) -> typing.Callable[[str], typing.Any]:
+        """
+        Optional handler used to also surface long-running work warnings to the user,
+        e.g. through the result handler's debug messages. Engine logs alone don't reach the user's logs
+        """
+        ...
+
+    @user_warning_handler.setter
+    def user_warning_handler(self, value: typing.Callable[[str], typing.Any]) -> None:
         ...
 
     @property

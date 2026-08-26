@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: query-cache-protobuf
-Version: 1.20.0
+Version: 1.21.0
 Summary: Generated protobuf code for Query Cache
 License: 
                                          Apache License

@@ -16,7 +16,7 @@ def _get_turnstile_token_sync(model: str) -> str:
     """
     import time
 
-    for attempt in range(3):
+    for attempt in range(1):
         session = SyncCDPSession(headless=False)
         session.start_chrome()
 
@@ -212,6 +212,7 @@ class DeepInfra(OpenaiTemplate):
         cls, model, messages, api_key=None, headers=None, **kwargs
     ):
         if not api_key or not cls.is_provider_api_key(api_key):
+            api_key = None # Ensure no API key is sent for web-page requests
             # Generate a Turnstile token for each request (required without an API key)
             token = await get_turnstile_token_async(model)
             if token:

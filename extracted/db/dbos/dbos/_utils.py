@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Optional, Set, Tuple, Type
 
 import psycopg
+from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.exc import DBAPIError
 
 INTERNAL_QUEUE_NAME = "_dbos_internal_queue"
@@ -135,6 +136,21 @@ class GlobalParams:
         dbos_version = "unknown"
 
 
+# A "named" paramstyle keeps the preparer from doubling % in identifiers: these names go
+# into sa.text(), whose own compilation doubles them for the pyformat driver.
+# PGDialect's constructor is untyped in SQLAlchemy's annotations.
+_identifier_preparer = PGDialect(  # type: ignore[no-untyped-call]
+    paramstyle="named"
+).identifier_preparer
+
+
+def quote_identifier(name: str) -> str:
+    """Quote a schema, table, or role name for interpolation into hand-built DDL.
+
+    Escapes embedded quotes, which hand-written quoting around an f-string does not."""
+    return _identifier_preparer.quote_identifier(name)
+
+
 def retriable_postgres_exception(e: Exception) -> bool:
     if not isinstance(e, DBAPIError):
         return False
@@ -168,7 +184,8 @@ def retriable_postgres_exception(e: Exception) -> bool:
 
 
 def retriable_sqlite_exception(e: Exception) -> bool:
-    if "database is locked" in str(e):
+    orig = getattr(e, "orig", None)
+    if "database is locked" in str(e if orig is None else orig):
         return True
     return False
 

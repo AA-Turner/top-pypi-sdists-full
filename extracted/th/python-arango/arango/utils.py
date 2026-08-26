@@ -6,10 +6,9 @@ __all__ = [
     "is_none_or_str",
 ]
 
-import json
 import logging
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional, Sequence, Union
+from typing import Any, Iterator, Optional, Sequence, Tuple, Union
 
 from arango.exceptions import DocumentParseError, SortValidationError
 from arango.typings import Json, Jsons
@@ -109,23 +108,48 @@ def get_batches(elements: Sequence[Json], batch_size: int) -> Iterator[Sequence[
         yield elements[index : index + batch_size]
 
 
-def build_filter_conditions(filters: Json) -> str:
+def _build_attribute_expression(field: str, prefix: str, bind_vars: Json) -> str:
+    """Build a bind-safe AQL document attribute expression."""
+    bind_vars[prefix] = field
+    field_access = f"doc[@{prefix}]"
+
+    if "." not in field:
+        return field_access
+
+    nested_access = "doc"
+    for field_index, field_part in enumerate(field.split(".")):
+        field_var = f"{prefix}_{field_index}"
+        bind_vars[field_var] = field_part
+        nested_access += f"[@{field_var}]"
+
+    return f"(HAS(doc, @{prefix}) ? {field_access} : {nested_access})"
+
+
+def build_filter_conditions(filters: Json) -> Tuple[str, Json]:
     """Build a filter condition for an AQL query.
 
     :param filters: Document filters.
     :type filters: Dict[str, Any]
-    :return: The complete AQL filter condition.
-    :rtype: str
+    :return: The complete AQL filter condition and its bind variables.
+    :rtype: tuple[str, dict]
     """
     if not filters:
-        return ""
+        return "", {}
 
     conditions = []
-    for k, v in filters.items():
-        field = k if "." in k else f"`{k}`"
-        conditions.append(f"doc.{field} == {json.dumps(v)}")
+    bind_vars: Json = {}
+    for filter_index, (field, value) in enumerate(filters.items()):
+        field_access = _build_attribute_expression(
+            field,
+            f"filter_field_{filter_index}",
+            bind_vars,
+        )
 
-    return "FILTER " + " AND ".join(conditions)
+        value_var = f"filter_value_{filter_index}"
+        bind_vars[value_var] = value
+        conditions.append(f"{field_access} == @{value_var}")
+
+    return "FILTER " + " AND ".join(conditions), bind_vars
 
 
 def validate_sort_parameters(sort: Jsons) -> bool:
@@ -148,20 +172,26 @@ def validate_sort_parameters(sort: Jsons) -> bool:
     return True
 
 
-def build_sort_expression(sort: Optional[Jsons]) -> str:
+def build_sort_expression(sort: Optional[Jsons]) -> Tuple[str, Json]:
     """Build a sort condition for an AQL query.
 
     :param sort: Document sort parameters.
     :type sort: Jsons | None
-    :return: The complete AQL sort condition.
-    :rtype: str
+    :return: The complete AQL sort condition and its bind variables.
+    :rtype: tuple[str, dict]
     """
     if not sort:
-        return ""
+        return "", {}
 
     sort_chunks = []
-    for sort_param in sort:
-        chunk = f"doc.{sort_param['sort_by']} {sort_param['sort_order']}"
+    bind_vars: Json = {}
+    for sort_index, sort_param in enumerate(sort):
+        field_access = _build_attribute_expression(
+            sort_param["sort_by"],
+            f"sort_field_{sort_index}",
+            bind_vars,
+        )
+        chunk = f"{field_access} {sort_param['sort_order'].upper()}"
         sort_chunks.append(chunk)
 
-    return "SORT " + ", ".join(sort_chunks)
+    return "SORT " + ", ".join(sort_chunks), bind_vars

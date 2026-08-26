@@ -137,6 +137,7 @@ def add_neighbor_features(
     year_col: str = "Harvest Year",
     yield_col: str = "Yield (tn per ha)",
     prefix: str = "nbr_",
+    df_source: pd.DataFrame = None,
 ) -> pd.DataFrame:
     """Add neighbor-aggregated features to the DataFrame.
 
@@ -157,11 +158,23 @@ def add_neighbor_features(
         year_col: Year column name.
         yield_col: Yield column for computing nbr_mean_yield_hist.
         prefix: Prefix for new columns.
+        df_source: Frame the per-region yield medians and last-N-year feature
+            fallbacks are computed from. MUST be the TRAINING frame when ``df``
+            is a test/holdout frame: a LOOCV test frame contains only the
+            held-out year, so computing ``yield_medians`` from ``df`` itself
+            made ``nbr_mean_yield_hist`` the weighted mean of the neighbors'
+            OBSERVED yields in the very year being predicted — direct
+            test-target leakage. Same-year neighbor lookups for the regular
+            ``nbr_<feature>`` columns still come from ``df`` (in-season EO is
+            legitimately observable). Default None keeps the train-side
+            behavior (df is its own source).
 
     Returns:
         DataFrame with nbr_* columns appended.
     """
     df = df.copy()
+    if df_source is None:
+        df_source = df
     n_rows = len(df)
     n_feat = len(feature_cols)
 
@@ -180,13 +193,17 @@ def add_neighbor_features(
     for (r, y), idx in grouped_idx.items():
         first_row[(r, y)] = idx[0]
 
-    # Pre-compute per-region yield medians
-    yield_medians = df.groupby(admin_col)[yield_col].median().to_dict()
+    # Pre-compute per-region yield medians — from df_source (the training
+    # frame on the test-side call), never from a holdout frame's own
+    # observed target values.
+    yield_medians = df_source.groupby(admin_col)[yield_col].median().to_dict()
 
-    # Pre-compute last-N-year feature averages per region (numpy arrays)
+    # Pre-compute last-N-year feature averages per region (numpy arrays) —
+    # also from df_source, so a missing-neighbor fallback on a test row is
+    # backed by training years rather than the held-out year itself.
     region_avg = {}
     for region in neighbor_graph:
-        region_rows = df[df[admin_col] == region].sort_values(year_col, ascending=False)
+        region_rows = df_source[df_source[admin_col] == region].sort_values(year_col, ascending=False)
         recent = region_rows.drop_duplicates(subset=[year_col]).head(_N_FALLBACK_YEARS)
         if not recent.empty:
             region_avg[region] = recent[feature_cols].values.astype(float).mean(axis=0)

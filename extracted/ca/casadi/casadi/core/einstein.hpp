@@ -81,7 +81,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{34} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -119,6 +120,24 @@ namespace casadi {
     bool is_equal(const MXNode* node, casadi_int depth) const override {
       return sameOpAndDeps(node, depth) && dynamic_cast<const Einstein*>(node)!=nullptr;
     }
+
+    /** \brief Serialize an object without type information
+
+        \identifier{2g6} */
+    void serialize_body(SerializingStream& s) const override;
+
+    /** \brief Deserialize without type information
+
+        \identifier{2g7} */
+    static MXNode* deserialize(DeserializingStream& s) { return new Einstein(s); }
+
+  protected:
+    /** \brief Deserializing constructor
+
+        \identifier{2g8} */
+    explicit Einstein(DeserializingStream& s);
+
+  public:
 
     /** \brief Get required length of w field
 

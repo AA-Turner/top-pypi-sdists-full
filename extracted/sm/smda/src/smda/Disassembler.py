@@ -5,9 +5,11 @@ import traceback
 from typing import Any, List, Optional
 
 from smda.aarch64.AArch64Disassembler import AArch64Disassembler
+from smda.aarch64.definitions import looksLikeAArch64
 from smda.cil.CilDisassembler import CilDisassembler
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.ExceptionHandling import reraise_non_operational_exception
+from smda.common.instruction_set_probe import detectUnsupportedInstructionSet
 from smda.common.labelprovider.GoLabelProvider import GoSymbolProvider
 from smda.common.SmdaReport import SmdaReport
 from smda.dalvik.DalvikDisassembler import DalvikDisassembler
@@ -43,6 +45,7 @@ class Disassembler:
         self._start_time = None
         self._timeout = 0
         self._last_timeout_log_second = -1
+        self._timeout_reported = False
         # cache the last DisassemblyResult
         self.disassembly = None
 
@@ -81,6 +84,14 @@ class Disassembler:
         time_diff = datetime.datetime.now(datetime.timezone.utc) - start_time
         elapsed_seconds = int(time_diff.total_seconds())
         if elapsed_seconds >= self._timeout:
+            if not self._timeout_reported:
+                self._timeout_reported = True
+                LOGGER.warning(
+                    "Analysis stopped after %ds by the configured timeout (%ds): the report is "
+                    'incomplete, its function set is a lower bound, and its status is "timeout".',
+                    elapsed_seconds,
+                    self._timeout,
+                )
             LOGGER.debug("Current analysis callback time %s", time_diff)
             return True
         # Log on 30s bucket transitions (not exact-second boundaries) so the message
@@ -130,7 +141,6 @@ class Disassembler:
             if architecture == "dalvik":
                 # DEX strings are part of the parsed file structure, not the raw
                 # buffer bytes: the generic StringExtractor cannot see them either.
-                smda_function.stringrefs = analyzer_provided
                 continue
             function_strings = analyzer_provided
             for string_result in extract_strings(smda_function, mode=mode):
@@ -160,6 +170,7 @@ class Disassembler:
         binary_info.abi = loader.getAbi()
         binary_info.code_areas = loader.getCodeAreas()
         binary_info.has_backend = loader.getHasBackend()
+        binary_info.format_recognized = loader.getFormatRecognized()
         return binary_info
 
     def _ensureHashes(self, binary_info):
@@ -226,19 +237,33 @@ class Disassembler:
         bitness: Optional[int] = None,
         code_areas: Optional[List[Any]] = None,
         oep: Optional[int] = None,
-        architecture: str = "intel",
+        architecture: str = "",
     ) -> SmdaReport:
         """
         Disassemble a given buffer (file_content), with given base_addr.
-        Optionally specify bitness, the areas to which disassembly should be limited to (code_areas) and an entry point (oep)
+        Optionally specify bitness, the areas to which disassembly should be limited to (code_areas), an entry point (oep)
+        and the architecture. Leaving the architecture empty asks for auto-detection and falls back to intel;
+        naming one is honoured as given, so a caller can hand foreign bytes to a specific backend deliberately.
         """
-        # Auto-detect DEX when the caller did not explicitly override architecture.
-        # disassembleUnmappedBuffer / disassembleFile already use FileLoader for detection;
-        # this path bypasses it, so we check the magic bytes manually here.
-        if not self._explicit_backend and architecture == "intel" and DexFileLoader.isCompatible(file_content):
-            architecture = "dalvik"
-            if bitness is None:
-                bitness = DexFileLoader.getBitness(file_content)
+        # disassembleUnmappedBuffer / disassembleFile detect the architecture through
+        # FileLoader; this path bypasses it, so an unspecified architecture is decided
+        # from the bytes here.
+        unsupported_instruction_set = None
+        if not self._explicit_backend and not architecture:
+            if DexFileLoader.isCompatible(file_content):
+                architecture = "dalvik"
+                if bitness is None:
+                    bitness = DexFileLoader.getBitness(file_content)
+            elif looksLikeAArch64(file_content):
+                # A dump carries no container header to read the instruction set from, and
+                # decoding AArch64 as x86 produces a full report whose every block is wrong.
+                LOGGER.warning("Buffer contains AArch64 machine code; disassembling as aarch64 rather than intel.")
+                architecture = "aarch64"
+                if bitness is None:
+                    bitness = 64
+            else:
+                unsupported_instruction_set = detectUnsupportedInstructionSet(file_content)
+        architecture = architecture or "intel"
         binary_info = BinaryInfo(file_content)
         binary_info.base_addr = base_addr
         binary_info.bitness = bitness
@@ -249,6 +274,12 @@ class Disassembler:
         self.initDisassembler(binary_info.architecture)
         start = datetime.datetime.now(datetime.timezone.utc)
         try:
+            if unsupported_instruction_set:
+                raise RuntimeError(
+                    f"The buffer holds {unsupported_instruction_set} machine code, which SMDA has no "
+                    "backend for. Disassembling it as intel would return a report whose every block is "
+                    "wrong, so nothing is analysed. Name an architecture explicitly to override this."
+                )
             smda_report = self._disassemble(binary_info, timeout=self.config.TIMEOUT)
             if self.config.WITH_STRINGS:
                 go_pclntab_offset = GoSymbolProvider(None).getPcLntabOffset(binary_info)
@@ -268,11 +299,23 @@ class Disassembler:
         self._start_time = datetime.datetime.now(datetime.timezone.utc)
         self._timeout = timeout
         self._last_timeout_log_second = -1
+        self._timeout_reported = False
         self._ensureHashes(binary_info)
         if self.disassembler:
             self.disassembly = self.disassembler.analyzeBuffer(binary_info, self._callbackAnalysisTimeout)
             return SmdaReport(self.disassembly, config=self.config)
         if not binary_info.has_backend:
+            if not binary_info.architecture:
+                if binary_info.format_recognized:
+                    raise RuntimeError(
+                        "The container was recognized but names an instruction set SMDA has no "
+                        "backend for, so there is nothing to disassemble it with."
+                    )
+                raise RuntimeError(
+                    "Input is not a PE, ELF, Mach-O, DEX or Delphi knowledge base, so neither its "
+                    "instruction set nor its load address can be read from it. A memory dump has to "
+                    "be passed to disassembleBuffer() with its base address."
+                )
             raise RuntimeError(f"No disassembly backend available for architecture '{binary_info.architecture}'.")
         raise RuntimeError("Disassembler backend not initialized.")
 

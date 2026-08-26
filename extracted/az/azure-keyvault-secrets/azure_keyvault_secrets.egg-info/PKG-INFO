@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-keyvault-secrets
-Version: 4.11.1
+Version: 4.11.2
 Summary: Microsoft Corporation Key Vault Secrets Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License: MIT License
@@ -405,6 +405,12 @@ contact opencode@microsoft.com with any additional questions or comments.
 
 
 # Release History
+
+## 4.11.2 (2026-08-25)
+
+### Bugs Fixed
+
+- Fixed the challenge authentication policy to cache the authentication challenge only after the challenge resource is verified, so that a rejected challenge is not cached and reused by subsequent requests.
 
 ## 4.11.1 (2026-08-12)
 

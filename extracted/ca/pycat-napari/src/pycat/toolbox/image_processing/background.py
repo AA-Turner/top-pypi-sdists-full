@@ -294,7 +294,7 @@ def run_rb_gaussian_background_removal(eq_int_input, data_instance, viewer):
 def rb_gaussian_bg_removal_with_edge_enhancement(image, ball_radius, roi_mask=None):
     """
     Applies background removal and edge enhancement to an image using a combination of processing techniques.
-    The method involves rolling ball and Gaussian background subtraction followed by edge enhancement 
+    The method involves rolling ball and Gaussian background subtraction followed by edge enhancement
     through Gabor filtering and adaptive histogram equalization to improve feature visibility, particularly
     useful in microscopic image analysis.
 
@@ -314,10 +314,9 @@ def rb_gaussian_bg_removal_with_edge_enhancement(image, ball_radius, roi_mask=No
 
     Note
     ----
-    The sequence of image processing steps integrates background subtraction with texture and edge enhancement 
+    The sequence of image processing steps integrates background subtraction with texture and edge enhancement
     to enhance microscopic images or similar detailed visual data.
     """
-    
     input_dtype = str(image.dtype) # Store the input image's data type for later conversion back
     img = dtype_conversion_func(image, 'float32') # Convert the image data type to float32 for processing
 
@@ -593,15 +592,24 @@ def run_enhanced_rb_gaussian_bg_removal(data_instance, viewer):
     Refine the active image layer for condensate detection and display the result
     as a new layer in the napari viewer.
 
-    Historically this ran a full rolling-ball + Gaussian background subtraction with
-    edge enhancement. On a preprocessed condensate image that step is destructive:
-    it subtracts the nucleoplasm baseline and collapses the IQR noise floor to zero,
-    leaving only the brightest peaks and erasing the diffuse signal that dim
-    candidate condensates sit in. This runner now detects whether the active layer
-    is already preprocessed and, in that case, applies a soft foreground-suppression
-    refinement instead — dim candidates are attenuated (dimmed but still visible)
-    while the baseline is preserved and bright peaks are left intact. A genuinely raw
-    image (not yet preprocessed) still receives the original enhancement path.
+    Always runs the full rolling-ball + Gaussian background subtraction with edge
+    enhancement (``rb_gaussian_bg_removal_with_edge_enhancement``) -- the
+    v1.0.0-structure destructive chain -- on whatever image is active, including
+    Step 1's own just-created output when triggered from the one-click
+    "Pre-process Image" button.
+
+    This used to auto-detect whether the input already looked preprocessed
+    (sparse, peaked intensity distribution) and route to a non-destructive
+    ``soft_foreground_suppression`` refinement instead in that case -- which
+    meant Step 2, on the "Pre-process Image" button's normal one-click path,
+    almost always took the non-destructive branch (Step 1's own output reliably
+    looks "already enhanced"), silently skipping the destructive chain entirely.
+    Removed at Meet Raval's request: that auto-detect made background clearing
+    too weak by default, and the choice of algorithm should not be made
+    silently by a heuristic. ``soft_foreground_suppression`` itself is
+    unchanged and still used directly by ``pre_process_image``'s own foreground
+    suppression step and by the "Foreground Suppression Tuner" diagnostics dock
+    -- only THIS function no longer routes to it automatically.
 
     Parameters
     ----------
@@ -632,36 +640,9 @@ def run_enhanced_rb_gaussian_bg_removal(data_instance, viewer):
     # Process the active image layer
     image = active_layer.data
 
-    # Detect whether the input is already preprocessed. A preprocessed condensate
-    # image (/max -> LoG -> WBNS -> morph -> Gauss -> CLAHE) has a sparse, peaked
-    # intensity distribution: the median of its non-zero pixels after /max
-    # normalisation is small (< 0.05). This mirrors the bypass heuristic in
-    # segment_subcellular_objects so both paths agree on what "already enhanced"
-    # means.
-    _norm = dtype_conversion_func(image, output_bit_depth='float32')
-    _pmax = float(_norm.max())
-    if _pmax > 0:
-        _norm = _norm / _pmax
-    _nz = _norm[_norm > 0.001]
-    _already_enhanced = (_nz.size > 10 and float(np.median(_nz)) < 0.05)
-
-    if _already_enhanced:
-        # Non-destructive refinement: attenuate noise-like foreground, keep the
-        # nucleoplasm baseline and real puncta. This replaces the old subtractive
-        # chain that collapsed the noise floor to zero. Uses the same session
-        # suppression params as pre_process_image so behaviour is consistent.
-        # (As of 1.5.128 pre_process_image already applies suppression, so on a
-        # freshly-preprocessed layer this button is largely redundant; running it
-        # with the same params is near-idempotent rather than double-destructive.)
-        sp = data_instance.data_repository.get('foreground_suppression_params', None) or {}
-        enhanced_image = soft_foreground_suppression(
-            image, ball_radius,
-            strength=sp.get('strength'), log_p=sp.get('log_p'),
-            con_p=sp.get('con_p'), min_area=sp.get('min_area'),
-            border_grow=sp.get('border_grow'))
-    else:
-        # Genuinely raw input: retain the original enhancement behaviour.
-        enhanced_image = rb_gaussian_bg_removal_with_edge_enhancement(image, ball_radius)
+    # Always the destructive rolling-ball + Gaussian + Gabor chain -- no "does
+    # this already look preprocessed" branch. See docstring.
+    enhanced_image = rb_gaussian_bg_removal_with_edge_enhancement(image, ball_radius)
 
     # Add the processed image as a new layer with an indicative name
     _add_image(enhanced_image, viewer, name=f'Enhanced Background Removed {active_layer.name}')

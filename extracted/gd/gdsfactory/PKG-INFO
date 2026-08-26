@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gdsfactory
-Version: 9.48.0
+Version: 9.49.0
 Summary: python library to generate GDS layouts
 Keywords: eda,photonics,python
 Author-email: gdsfactory community <contact@gdsfactory.com>
@@ -86,7 +86,7 @@ Provides-Extra: docs
 Provides-Extra: full
 Provides-Extra: maintainer
 
-# GDSFactory 9.48.0
+# GDSFactory 9.49.0
 
 [![docs](https://github.com/gdsfactory/gdsfactory/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gdsfactory/)
 [![PyPI](https://img.shields.io/pypi/v/gdsfactory)](https://pypi.org/project/gdsfactory/)
@@ -95,6 +95,7 @@ Provides-Extra: maintainer
 [![MIT](https://img.shields.io/github/license/gdsfactory/gdsfactory)](https://choosealicense.com/licenses/mit/)
 [![codecov](https://img.shields.io/codecov/c/github/gdsfactory/gdsfactory)](https://codecov.io/gh/gdsfactory/gdsfactory/tree/main/gdsfactory)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/gdsfactory/binder-sandbox/HEAD)
+[![inspect.software](https://raw.githubusercontent.com/inspect-software/badges/main/v1/g/gdsfactory/gdsfactory.svg)](https://inspect.software/software/gdsfactory/gdsfactory)
 
 GDSFactory is a Python library for designing chips (Photonics, Analog, Quantum, MEMS), PCBs, and 3D-printable objects. We aim to make hardware design accessible, intuitive, and fun—empowering everyone to build the future.
 

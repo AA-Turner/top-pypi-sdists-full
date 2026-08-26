@@ -122,9 +122,9 @@ void casadi_nlpsol_work(const casadi_nlpsol_prob<T1>* p, casadi_int* sz_arg, cas
 }
 
 
-// SYMBOL "nlpsol_init"
+// SYMBOL "nlpsol_set_work"
 template<typename T1>
-void casadi_nlpsol_init(casadi_nlpsol_data<T1>* d, const T1*** arg, T1*** res,
+void casadi_nlpsol_set_work(casadi_nlpsol_data<T1>* d, const T1*** arg, T1*** res,
     casadi_int** iw, T1** w) {
   // Local variables
   casadi_int nx, ng;
@@ -155,7 +155,7 @@ void casadi_nlpsol_init(casadi_nlpsol_data<T1>* d, const T1*** arg, T1*** res,
 
 // SYMBOL "nlpsol_detect_bounds_before"
 template<typename T1>
-int casadi_detect_bounds_before(casadi_nlpsol_data<T1>* d_nlp) {
+int casadi_nlpsol_detect_bounds_before(casadi_nlpsol_data<T1>* d_nlp) {
   const casadi_nlpsol_prob<T1>* p_nlp = d_nlp->prob;
   casadi_nlpsol_detect_bounds_data<T1>* d_bounds = &d_nlp->detect_bounds;
   const casadi_nlpsol_detect_bounds_prob<T1>* p_bounds = &p_nlp->detect_bounds;
@@ -242,7 +242,7 @@ int casadi_detect_bounds_before(casadi_nlpsol_data<T1>* d_nlp) {
 
 // SYMBOL "nlpsol_detect_bounds_after"
 template<typename T1>
-int casadi_detect_bounds_after(casadi_nlpsol_data<T1>* d_nlp) {
+int casadi_nlpsol_detect_bounds_after(casadi_nlpsol_data<T1>* d_nlp) {
   const casadi_nlpsol_prob<T1>* p_nlp = d_nlp->prob;
   casadi_nlpsol_detect_bounds_data<T1>* d_bounds = &d_nlp->detect_bounds;
   const casadi_nlpsol_detect_bounds_prob<T1>* p_bounds = &p_nlp->detect_bounds;

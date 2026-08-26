@@ -66,9 +66,8 @@ def push(
         The timezone used for scheduling is the one specified in the logged-in
         user's profile.
 
-        You can also use Quartz Cron syntax. Use the following site to
-        construct it:
-        https://www.freeformatter.com/cron-expression-generator-quartz.html
+        You can also use Quartz Cron syntax. Any cron expression generator
+        you use must produce Quartz-compatible expressions.
 
     spread : str, default None
         A time period over which to spread out the jobs. This should generally

@@ -1,1 +1,0 @@
-import{a as e}from"./rolldown-runtime-CNC7AqOf.js";import{n as t,r as n}from"./react-dom-zTxdCqxJ.js";var r=e(n(),1),i=t(),a=(0,r.createContext)(`loading`);function o({info:e,children:t}){return(0,i.jsx)(a.Provider,{value:e,children:t})}function s(){return(0,r.useContext)(a)}export{s as n,o as t};

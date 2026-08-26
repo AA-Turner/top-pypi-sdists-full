@@ -78,9 +78,8 @@ def schedule(
         offset:
         >>> spy.options.default_timezone = dateutil.tz.tzoffset("my_tzoffset", datetime.timedelta(hours=-8))
 
-        You can also use Quartz Cron syntax. Use the following site to
-        construct it:
-        https://www.freeformatter.com/cron-expression-generator-quartz.html
+        You can also use Quartz Cron syntax. Any cron expression generator
+        you use must produce Quartz-compatible expressions.
 
     datalab_notebook_url : str, default None
         A datalab notebook URL. If the value is not specified the currently

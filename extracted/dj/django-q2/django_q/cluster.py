@@ -41,7 +41,10 @@ from django_q.worker import worker
 
 
 def get_mp_context():
-    return multiprocessing.get_context("fork")
+    if "fork" in multiprocessing.get_all_start_methods():
+        return multiprocessing.get_context("fork")
+    else:
+        return multiprocessing.get_context()
 
 
 class Cluster:

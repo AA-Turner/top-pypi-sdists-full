@@ -151,6 +151,14 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                             if has_content or has_usage:
                                 await handler.handle_llm_response(message, model, response_index)
                                 response_index += 1
+                                # A model round is a turn. handle_turn_start
+                                # only runs on the client path, so without this
+                                # the query root reports every run as a single
+                                # turn. The counter is session-scoped on
+                                # purpose: inside claude_session every query
+                                # updates one shared root span, so that root
+                                # reports the session's turns, not this call's.
+                                handler.increment_turn()
 
                         if hasattr(message, "content") and isinstance(message.content, list):
                             task_tools = []

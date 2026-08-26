@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib
 import os
+import sys
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import unquote, urlparse
 from uuid import UUID
@@ -11,20 +13,24 @@ from lamin_utils import logger
 
 from ._disconnect import disconnect
 from ._silence_loggers import silence_loggers
-from .core import InstanceSettings
 from .core._docs import doc_args
 from .core._settings import settings
-from .core._settings_instance import check_is_instance_remote
-from .core._settings_storage import StorageSettings, init_storage
-from .core.upath import UPath
 from .errors import InstanceNotCreated
 
 if TYPE_CHECKING:
     from lamindb.models import Storage
     from pydantic import PostgresDsn
 
+    from .core._settings_instance import InstanceSettings
+    from .core._settings_storage import StorageSettings
     from .core._settings_user import UserSettings
     from .types import AnyPathStr
+elif "sphinx" in sys.modules:
+    # keep docs signature fidelity when Sphinx evaluates type hints
+    PostgresDsn = importlib.import_module("pydantic").PostgresDsn
+    AnyPathStr = importlib.import_module("lamindb_setup.types").AnyPathStr
+    # Resolve nested forward refs inside AnyPathStr aliases.
+    UPath = importlib.import_module("upath").UPath
 
 
 def get_schema_module_name(module_name, raise_import_error: bool = True) -> str | None:
@@ -186,7 +192,8 @@ def validate_init_args(
     ],
     str,
 ]:
-    from ._connect_instance import connect
+    from .core._settings_instance import should_contact_hub_during_init
+    from .core._settings_store import instance_settings_file
 
     if storage is None:
         raise SystemExit("✗ `storage` argument can't be `None`")
@@ -195,14 +202,25 @@ def validate_init_args(
     owner_str = settings.user.handle if _user is None else _user.handle
     # test whether instance exists by trying to load it
     instance_slug = f"{owner_str}/{name_str}"
-    response = connect(
-        instance_slug,
-        _db=db,
-        _raise_not_found_error=False,
-        _test=_test,
-        _write_settings=_write_settings,
-        _user=_user,
+    settings_file = instance_settings_file(name_str, owner_str)
+    should_skip_hub_contact = (
+        not settings_file.exists()
+        and not should_contact_hub_during_init(root=storage, db=db)
     )
+    response: str | tuple | None
+    if should_skip_hub_contact:
+        response = "instance-not-found"
+    else:
+        from ._connect_instance import connect
+
+        response = connect(
+            instance_slug,
+            _db=db,
+            _raise_not_found_error=False,
+            _test=_test,
+            _write_settings=_write_settings,
+            _user=_user,
+        )
     instance_id: UUID
     instance_state: Literal[
         "connected",
@@ -218,11 +236,13 @@ def validate_init_args(
     return name_str, instance_id, instance_state, instance_slug
 
 
-DOC_STORAGE_ARG = "A local or remote folder (`'s3://...'` or `'gs://...'`). Defaults to current working directory."
-DOC_INSTANCE_NAME = (
-    "Instance name. If not passed, it will equal the folder name passed to `storage`."
+DEFAULT_STORAGE_PATH = "./storage"
+DOC_STORAGE_ARG = (
+    "A local or remote folder (`'s3://...'` or `'gs://...'`). "
+    f"Defaults to `{DEFAULT_STORAGE_PATH}`."
 )
-DOC_DB = "Database connection URL. Defaults to `None`, which implies an SQLite file in the storage location."
+DOC_INSTANCE_NAME = "Instance name. If no storage location is passed, uses the current working directory name (like git). Otherwise uses the name of the storage location."
+DOC_DB = "PostgreSQL connection URI. Defaults to `None`, which implies an SQLite file in the storage location."
 DOC_MODULES = "Comma-separated string of schema modules."
 DOC_LOW_LEVEL_KWARGS = "Keyword arguments for low-level control."
 
@@ -272,6 +292,7 @@ def init_template_database(
     from django.conf import settings as django_settings
 
     from .core import django as django_lamin
+    from .core._settings_instance import InstanceSettings
 
     if django_lamin.IS_SETUP or django_settings.configured:
         raise RuntimeError(
@@ -304,7 +325,7 @@ def init_template_database(
 @doc_args(DOC_STORAGE_ARG, DOC_INSTANCE_NAME, DOC_DB, DOC_MODULES, DOC_LOW_LEVEL_KWARGS)
 def init(
     *,
-    storage: AnyPathStr = ".",
+    storage: AnyPathStr = DEFAULT_STORAGE_PATH,
     name: str | None = None,
     db: PostgresDsn | None = None,
     modules: str | None = None,
@@ -320,20 +341,25 @@ def init(
         **kwargs: {}
 
     See Also:
-        Init an instance for via the CLI, see `here <https://docs.lamin.ai/cli#init>`__.
+        Init an instance via the CLI, see `here <https://docs.lamin.ai/cli#init>`__.
     """
     from ._check_setup import _check_instance_setup
     from ._connect_instance import (
         reset_django_module_variables,
         validate_connection_state,
     )
-    from .core._hub_core import init_instance_hub
+    from .core._settings_instance import (
+        InstanceSettings,
+        should_register_instance_on_hub,
+    )
+    from .core._settings_storage import init_storage
 
     silence_loggers()
 
     isettings = None
     ssettings = None
     did_reset_django = False
+    created_instance_hub_record = False
 
     _write_settings: bool = kwargs.get("_write_settings", True)
     if modules is None:
@@ -375,17 +401,21 @@ def init(
             # to lock passed user in isettings._cloud_sqlite_locker.lock()
             _locker_user=_user,  # only has effect if cloud sqlite
         )
-        register_on_hub = (
-            check_is_instance_remote(root=storage, db=db)
-            and instance_state != "instance-corrupted-or-deleted"
+        register_on_hub = should_register_instance_on_hub(
+            root=storage,
+            db=db,
+            instance_state=instance_state,
         )
         if register_on_hub:
+            from .core._hub_core import init_instance_hub
+
             init_instance_hub(
                 isettings,
                 account_id=user__uuid,
                 resource_db_server_id=_resource_db_server_id,
                 access_token=access_token,
             )
+            created_instance_hub_record = True
         ssettings, _ = init_storage(
             storage,
             instance_id=instance_id,
@@ -402,7 +432,13 @@ def init(
             )
         validate_sqlite_state(isettings)
         # why call it here if it is also called in load_from_isettings?
-        isettings._persist(write_to_disk=_write_settings)
+        isettings._persist(
+            write_to_disk=_write_settings, write_current_instance_file=False
+        )
+        if _write_settings:
+            dev_dir = Path.cwd().resolve()
+            settings.dev_dir = dev_dir
+            logger.important(f"set dev-dir: {dev_dir}")
         if _test:
             return None
         isettings._init_db()
@@ -453,7 +489,7 @@ def init(
                 )
             if is_authenticated and ssettings.is_on_hub:
                 delete_storage_record(ssettings, access_token=access_token)
-        if is_authenticated and isettings is not None and isettings.is_on_hub:
+        if is_authenticated and isettings is not None and created_instance_hub_record:
             delete_instance_record(isettings._id, access_token=access_token)
         raise e
     return None
@@ -484,7 +520,9 @@ def load_from_isettings(
             # do not try to update the user on fine grained access instances
             # this is blocked anyways, only select and insert are allowed
             register_user(user, update_user=not isettings._fine_grained_access)
-    isettings._persist(write_to_disk=write_settings)
+    isettings._persist(
+        write_to_disk=write_settings, write_current_instance_file=not init
+    )
     # clear branch & space cache after reconnecting
     settings._branch = None
     settings._space = None
@@ -512,6 +550,8 @@ def infer_instance_name(
     name: str | None = None,
     db: PostgresDsn | None = None,
 ) -> str:
+    from .core.upath import UPath
+
     if name is not None:
         if "/" in name:
             raise ValueError("Invalid instance name: '/' delimiter not allowed.")
@@ -523,6 +563,8 @@ def infer_instance_name(
         return str(db).split("/")[-1]
     if storage == "create-s3":
         raise ValueError("pass name to init if storage = 'create-s3'")
+    if str(storage) == DEFAULT_STORAGE_PATH:
+        return Path.cwd().resolve().name.lower()
     storage_path = UPath(storage).resolve()
     name = storage_path.path.rstrip("/").split("/")[-1]
     return name.lower()

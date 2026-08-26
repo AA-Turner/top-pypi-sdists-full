@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-harness
-Version: 0.1.9
+Version: 0.1.10
 Summary: The simplest, thinnest, and most powerful harness to control your real browser with your agent.
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/browser-use/browser-harness

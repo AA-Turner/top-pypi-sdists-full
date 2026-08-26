@@ -233,7 +233,8 @@ class ChronosSessionMixin:
         for field_name in self._workspaces:
             repo_to_field[self.workspace_repo_name(field_name)] = field_name
 
-        workspace_specs: dict[str, tuple[str | None, str]] = {}
+        # field -> (source repo override, "session:step" ref, download token)
+        workspace_specs: dict[str, tuple[str | None, str, str | None]] = {}
         for key, val in raw_workspace_specs.items():
             if isinstance(val, (dict, WorkspaceSourceSpec)):
                 spec = val if isinstance(val, WorkspaceSourceSpec) else WorkspaceSourceSpec(**val)
@@ -243,7 +244,7 @@ class ChronosSessionMixin:
                         key,
                     )
                     continue
-                workspace_specs[key] = (spec.repo, spec.ref)
+                workspace_specs[key] = (spec.repo, spec.ref, spec.token or None)
             elif isinstance(val, str):
                 field = repo_to_field.get(key) or (key if key in self._workspaces else None)
                 if field is None:
@@ -253,7 +254,7 @@ class ChronosSessionMixin:
                         list(repo_to_field.keys()) + list(self._workspaces.keys()),
                     )
                     continue
-                workspace_specs[field] = (None, val)
+                workspace_specs[field] = (None, val, None)
         use_workspace_specs_mode = bool(workspace_specs)
         sid = session_id or self.chronos.session_id
         if not sid and not use_workspace_specs_mode:
@@ -288,7 +289,7 @@ class ChronosSessionMixin:
                             name,
                         )
                         continue
-                    override_repo_from_spec, ref_spec = ws_entry
+                    override_repo_from_spec, ref_spec, seed_token = ws_entry
                     ref_spec = ref_spec.strip()
                     if not ref_spec:
                         self.logger.debug(
@@ -311,9 +312,14 @@ class ChronosSessionMixin:
                         raise RuntimeError(
                             f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')"
                         )
+                    if seed_token and not override_repo_from_spec:
+                        raise RuntimeError(
+                            f"Workspace seed spec for '{name}' carries a download token but no source repo"
+                        )
                     should_record_resume_input = source_session_id != (self.chronos.session_id or "")
                 else:
                     override_repo_from_spec = None
+                    seed_token = None
                     if not snap:
                         self.logger.debug(
                             "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
@@ -336,6 +342,7 @@ class ChronosSessionMixin:
                     "repo_id": workspace.repo_id,
                     "s3_bucket": workspace.s3_bucket,
                     "s3_prefix": workspace.s3_prefix,
+                    "api_key": workspace.api_key,
                 }
                 source_session_public_id: str | None = None
                 source_repo_name: str | None = None
@@ -355,7 +362,17 @@ class ChronosSessionMixin:
                         and snap.repo_name
                     ):
                         override_repo = snap.repo_name
-                    if override_repo and source_session_id:
+                    if seed_token and override_repo:
+                        # The source is readable only through the token (e.g. it
+                        # lives in another org): resolve it from what the token
+                        # authorizes, never through /resolve.
+                        await workspace.adopt_download_source(
+                            token=seed_token,
+                            session_id=source_session_id,
+                            repo_name=override_repo,
+                            step_name=exact_step,
+                        )
+                    elif override_repo and source_session_id:
                         resolved = await self._resolve_workspace_repo_by_name(override_repo)
                         workspace.repo_name = override_repo
                         workspace.repo_id = resolved.repo_id
@@ -397,6 +414,22 @@ class ChronosSessionMixin:
                         # heartbeat TTL mid-checkout.
                         await asyncio.to_thread(checkout_main_from_bare, bare_repo_path=bare, worktree_path=repo)
                         self.logger.debug(f"Re-checked out repo/ from restored bare repo for workspace '{name}'")
+                    if seed_token and workspace._lazy_mounts:
+                        # A lazy restore leaves the blobs under the SOURCE prefix and
+                        # smart_commit uploads only overlay files — so once the
+                        # token expires nothing could read them. Pull the whole
+                        # tree into the overlay now: the first checkpoint then
+                        # copies every blob into this world's own repo (a fork),
+                        # and every later read is served from the overlay.
+                        await workspace.materialize_current_tree_into_overlay()
+                        self.logger.info(
+                            "Materialized workspace '%s' seeded through a download token "
+                            "(source repo=%s, step=%s); first checkpoint copies it into %s",
+                            name,
+                            workspace.repo_name,
+                            exact_step,
+                            original["repo_name"],
+                        )
                     self.logger.debug(f"Restored workspace '{name}' from step '{exact_step}'")
                     restored_any = True
                     if self._state and name in self._state.workspaces:
@@ -422,10 +455,27 @@ class ChronosSessionMixin:
                     workspace.repo_id = original["repo_id"]
                     workspace.s3_bucket = original["s3_bucket"]
                     workspace.s3_prefix = original["s3_prefix"]
+                    workspace.api_key = original["api_key"]
                     workspace._sts_credentials = {}
                     workspace._sts_expires_at = 0
 
-                if should_record_resume_input:
+                if seed_token:
+                    # Lineage across tenants: Chronos resolves the source ref in
+                    # the caller's org, so the token rides along as proof that
+                    # this session was allowed to read it.
+                    if not source_ref_public_id:
+                        raise RuntimeError(
+                            f"Failed to record seed lineage for workspace '{name}' "
+                            f"(repo={workspace.repo_name}, step={exact_step}): the source ref has no public id"
+                        )
+                    await workspace._record_workspace_ref(
+                        exact_step,
+                        "input",
+                        getattr(workspace, "_last_restored_dvc_files", None) or {},
+                        source_ref_public_id=source_ref_public_id,
+                        source_download_token=seed_token,
+                    )
+                elif should_record_resume_input:
                     restored_dvc_files = getattr(workspace, "_last_restored_dvc_files", None) or {}
                     if source_ref_public_id:
                         await workspace._record_workspace_ref(

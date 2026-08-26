@@ -374,11 +374,11 @@ def connected_components(
   binary_image = binary_image or (dtype == bool)
 
   # EPL saves time for multilabel because it helps us reduce the size of 
-  # the union-find allocation. However, for 2D binary images, we can use
+  # the union-find allocation. However, for binary images, we can use
   # a static calculation to save 1/2 to 1/8 of the allocation. We unfortunately
   # lose hyperfast calculation of extremely sparse images (e.g. 1 pixel or line of pixels)
   # but reducing passes on the image improves times significantly for typical images.
-  if binary_image and connectivity in (4,8):
+  if binary_image:
     epl = voxels
     first_foreground_row = 0
     last_foreground_row = sy
@@ -1370,3 +1370,20 @@ def each(
   if in_place:
     return InPlaceImageIterator()
   return ImageIterator()
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def offset_foreground(
+  cnp.ndarray[cnp.uint64_t, ndim=3] labels,
+  cnp.uint64_t offset,
+):
+  cdef:
+    Py_ssize_t i
+    Py_ssize_t n = labels.size
+    cnp.uint64_t* data = <cnp.uint64_t*>labels.data
+
+  with nogil:
+    for i in range(n):
+      if data[i] != 0:
+        data[i] += offset
+

@@ -122,7 +122,8 @@ namespace casadi {
     return 0;
   }
 
-  void Einstein::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const {
+  void Einstein::eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+      const std::vector<bool>& unique) const {
     res[0] = einstein(arg[1], arg[2], arg[0], dim_a_, dim_b_, dim_c_, a_, b_, c_);
   }
 
@@ -167,6 +168,35 @@ namespace casadi {
     g << "*rr += *cr**cs;\n";
 
     g << "}\n";
+  }
+
+  void Einstein::serialize_body(SerializingStream& s) const {
+    MXNode::serialize_body(s);
+    s.pack("Einstein::dim_c", dim_c_);
+    s.pack("Einstein::dim_a", dim_a_);
+    s.pack("Einstein::dim_b", dim_b_);
+    s.pack("Einstein::c", c_);
+    s.pack("Einstein::a", a_);
+    s.pack("Einstein::b", b_);
+    s.pack("Einstein::iter_dims", iter_dims_);
+    s.pack("Einstein::strides_a", strides_a_);
+    s.pack("Einstein::strides_b", strides_b_);
+    s.pack("Einstein::strides_c", strides_c_);
+    s.pack("Einstein::n_iter", n_iter_);
+  }
+
+  Einstein::Einstein(DeserializingStream& s) : MXNode(s) {
+    s.unpack("Einstein::dim_c", dim_c_);
+    s.unpack("Einstein::dim_a", dim_a_);
+    s.unpack("Einstein::dim_b", dim_b_);
+    s.unpack("Einstein::c", c_);
+    s.unpack("Einstein::a", a_);
+    s.unpack("Einstein::b", b_);
+    s.unpack("Einstein::iter_dims", iter_dims_);
+    s.unpack("Einstein::strides_a", strides_a_);
+    s.unpack("Einstein::strides_b", strides_b_);
+    s.unpack("Einstein::strides_c", strides_c_);
+    s.unpack("Einstein::n_iter", n_iter_);
   }
 
 } // namespace casadi

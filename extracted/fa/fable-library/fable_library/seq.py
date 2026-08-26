@@ -32,7 +32,7 @@ from .array_ import try_find_back as try_find_back_1
 from .array_ import try_find_index_back as try_find_index_back_1
 from .array_ import windowed as windowed_1
 from .bases import DisposableBase, EnumerableBase, EnumeratorBase, StringableBase
-from .core import float64, int32
+from .core import int32
 from .exceptions import to_string
 from .fsharp_core import Operators_NullArgCheck
 from .global_ import IGenericAdder_1, IGenericAverager_1, SR_indexOutOfBounds
@@ -107,16 +107,16 @@ class Enumerator_Seq[T](StringableBase, EnumerableBase[Any]):
 
     def ToString(self, __unit: Unit = UNIT) -> str:
         xs: Enumerator_Seq[Any] = self
-        i: int32 = int32.ZERO
+        i: int = 0
         str_1: str = "seq ["
         with Disposable(get_enumerator(xs)) as e:
-            while e.System_Collections_IEnumerator_MoveNext() if (i < int32.FOUR) else False:
-                if i > int32.ZERO:
+            while e.System_Collections_IEnumerator_MoveNext() if (i < 4) else False:
+                if i > 0:
                     str_1 = str_1 + "; "
 
                 str_1 = str_1 + to_string(e.System_Collections_Generic_IEnumerator_1_get_Current())
-                i = i + int32.ONE
-            if i == int32.FOUR:
+                i = (i + 1) if (i <= 2147483646) else int32(i + 1)
+            if i == 4:
                 str_1 = str_1 + "; ..."
 
             return str_1 + "]"
@@ -473,14 +473,14 @@ def generate[_A, _B](
 
 
 def generate_indexed[_A, _B](
-    create: Callable[[], _A], compute: Callable[[int32, _A], Option[_B]], dispose: Callable[[_A], None]
+    create: Callable[[], _A], compute: Callable[[int, _A], Option[_B]], dispose: Callable[[_A], None]
 ) -> IEnumerable_1[_B]:
     def _arrow109(create: Any = create, compute: Any = compute, dispose: Any = dispose) -> IEnumerator[_B]:
-        i: int32 = int32.NEG_ONE
+        i: int = -1
 
         def _arrow108(x: _A = UNIT) -> Option[_B]:
             nonlocal i
-            i = i + int32.ONE
+            i = (i + 1) if (i <= 2147483646) else int32(i + 1)
             return compute(i, x)
 
         return Enumerator_generateWhileSome(create, _arrow108, dispose)
@@ -495,32 +495,32 @@ def cast[T](xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return mk_seq(_arrow110)
 
 
-def compare_with[T](comparer: Callable[[T, T], int32], xs: IEnumerable_1[T], ys: IEnumerable_1[T]) -> int32:
+def compare_with[T](comparer: Callable[[T, T], int], xs: IEnumerable_1[T], ys: IEnumerable_1[T]) -> int:
     with Disposable(of_seq(xs)) as e1:
         with Disposable(of_seq(ys)) as e2:
-            c: int32 = int32.ZERO
+            c: int = 0
             b1: bool = e1.System_Collections_IEnumerator_MoveNext()
             b2: bool = e2.System_Collections_IEnumerator_MoveNext()
-            while b2 if (b1 if (c == int32.ZERO) else False) else False:
+            while b2 if (b1 if (c == 0) else False) else False:
                 c = comparer(
                     e1.System_Collections_Generic_IEnumerator_1_get_Current(),
                     e2.System_Collections_Generic_IEnumerator_1_get_Current(),
                 )
-                if c == int32.ZERO:
+                if c == 0:
                     b1 = e1.System_Collections_IEnumerator_MoveNext()
                     b2 = e2.System_Collections_IEnumerator_MoveNext()
 
-            if c != int32.ZERO:
+            if c != 0:
                 return c
 
             elif b1:
-                return int32.ONE
+                return 1
 
             elif b2:
-                return int32.NEG_ONE
+                return -1
 
             else:
-                return int32.ZERO
+                return 0
 
 
 def contains[T](value: T, xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> bool:
@@ -582,10 +582,10 @@ def enumerate_using[T: IDisposable, _A: IEnumerable, U](resource: T, source: Cal
 
 
 def enumerate_while[T](guard: Callable[[], bool], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow115(i: int32, guard: Any = guard, xs: Any = xs) -> tuple[IEnumerable_1[T], int32] | None:
-        return ((xs, i + int32.ONE)) if guard() else None
+    def _arrow115(i: int, guard: Any = guard, xs: Any = xs) -> tuple[IEnumerable_1[T], int] | None:
+        return ((xs, (i + 1) if (i <= 2147483646) else int32(i + 1))) if guard() else None
 
-    return concat(unfold(_arrow115, int32.ZERO))
+    return concat(unfold(_arrow115, 0))
 
 
 def _expr116(gen0: TypeInfo) -> TypeInfo:
@@ -594,8 +594,8 @@ def _expr116(gen0: TypeInfo) -> TypeInfo:
         Array([gen0]),
         EnumerateTryWithState_1,
         lambda: [
-            ("source", option_type(class_type("System.Collections.Generic.IEnumerator`1", Array([gen0])))),
-            ("caught", bool_type),
+            ("Source", option_type(class_type("System.Collections.Generic.IEnumerator`1", Array([gen0]))), "source"),
+            ("Caught", bool_type, "caught"),
         ],
     )
 
@@ -614,7 +614,7 @@ EnumerateTryWithState_1_reflection = _expr116
 
 def enumerate_try_with[T](
     source: IEnumerable_1[T],
-    catch_filter: Callable[[Exception], int32],
+    catch_filter: Callable[[Exception], int],
     catch_handler: Callable[[Exception], IEnumerable_1[T]],
 ) -> IEnumerable_1[T]:
     def _arrow117(__unit: Unit = UNIT) -> EnumerateTryWithState_1[T]:
@@ -649,7 +649,7 @@ def enumerate_try_with[T](
 
             except Exception as ex:
                 ex_: Exception = ex
-                if (catch_filter(ex_) != int32.ZERO) if (not state.caught) else False:
+                if (catch_filter(ex_) != 0) if (not state.caught) else False:
                     match_value_1: IEnumerator[Any] | None = state.source
                     if match_value_1 is None:
                         pass
@@ -769,10 +769,10 @@ def find_back[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> T:
         return value_1(match_value)
 
 
-def try_find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int32 | None:
+def try_find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int | None:
     with Disposable(of_seq(xs)) as e:
 
-        def loop(i_mut: int32, predicate: Any = predicate) -> int32 | None:
+        def loop(i_mut: int, predicate: Any = predicate) -> int | None:
             while True:
                 (i,) = (i_mut,)
                 if e.System_Collections_IEnumerator_MoveNext():
@@ -780,7 +780,7 @@ def try_find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> i
                         return i
 
                     else:
-                        i_mut = i + int32.ONE
+                        i_mut = (i + 1) if (i <= 2147483646) else int32(i + 1)
                         continue
 
                 else:
@@ -788,28 +788,28 @@ def try_find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> i
 
                 break
 
-        return loop(int32.ZERO)
+        return loop(0)
 
 
-def find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int32:
-    match_value: int32 | None = erase(try_find_index(predicate, xs))
+def find_index[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int:
+    match_value: int | None = erase(try_find_index(predicate, xs))
     if match_value is None:
         index_not_found()
-        return int32.NEG_ONE
+        return -1
 
     else:
         return match_value
 
 
-def try_find_index_back[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int32 | None:
+def try_find_index_back[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int | None:
     return erase(try_find_index_back_1(predicate, to_array(xs)))
 
 
-def find_index_back[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int32:
-    match_value: int32 | None = erase(try_find_index_back(predicate, xs))
+def find_index_back[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> int:
+    match_value: int | None = erase(try_find_index_back(predicate, xs))
     if match_value is None:
         index_not_found()
-        return int32.NEG_ONE
+        return -1
 
     else:
         return match_value
@@ -849,9 +849,9 @@ def fold_back2[T1, T2, STATE](
 ) -> STATE:
     xs_1: Array[Any] = to_array(xs)
     ys_1: Array[Any] = to_array(ys)
-    len_1: int32 = min_1(compare_primitives, int32(len(xs_1)), int32(len(ys_1)))
+    len_1: int = min_1(compare_primitives, len(xs_1), len(ys_1))
     acc: Any = state
-    for i in range(len_1 - int32.ONE, int32.ZERO, -1):
+    for i in range((len_1 - 1) if (len_1 >= -2147483647) else int32(len_1 - 1), 0, -1):
         acc = folder(xs_1[i], ys_1[i], acc)
     return acc
 
@@ -870,20 +870,20 @@ def for_all2[_A, _B](predicate: Callable[[_A, _B], bool], xs: IEnumerable_1[_A],
     return not exists2(_arrow121, xs, ys)
 
 
-def initialize[_A](count: int32, f: Callable[[int32], _A]) -> IEnumerable_1[_A]:
-    def _arrow122(i: int32, count: Any = count, f: Any = f) -> tuple[_A, int32] | None:
-        return ((f(i), i + int32.ONE)) if (i < count) else None
+def initialize[_A](count: int, f: Callable[[int], _A]) -> IEnumerable_1[_A]:
+    def _arrow122(i: int, count: Any = count, f: Any = f) -> tuple[_A, int] | None:
+        return ((f(i), (i + 1) if (i <= 2147483646) else int32(i + 1))) if (i < count) else None
 
-    return unfold(_arrow122, int32.ZERO)
+    return unfold(_arrow122, 0)
 
 
-def initialize_infinite[_A](f: Callable[[int32], _A]) -> IEnumerable_1[_A]:
-    return initialize(int32(2147483647), f)
+def initialize_infinite[_A](f: Callable[[int], _A]) -> IEnumerable_1[_A]:
+    return initialize(2147483647, f)
 
 
 def is_empty[T](xs: IEnumerable_1[T]) -> bool:
     if isinstance(xs, Array):
-        return len(xs) == int32.ZERO
+        return len(xs) == 0
 
     elif isinstance(xs, FSharpList):
         return is_empty_1(xs)
@@ -907,22 +907,22 @@ def iterate2[_A, _B](action: Callable[[_A, _B], None], xs: IEnumerable_1[_A], ys
     fold2(_arrow124, None, xs, ys)
 
 
-def iterate_indexed[_A](action: Callable[[int32, _A], None], xs: IEnumerable_1[_A]) -> None:
-    def _arrow125(i: int32, x: _A, action: Any = action) -> int32:
+def iterate_indexed[_A](action: Callable[[int, _A], None], xs: IEnumerable_1[_A]) -> None:
+    def _arrow125(i: int, x: _A, action: Any = action) -> int:
         action(i, x)
-        return i + int32.ONE
+        return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold(_arrow125, int32.ZERO, xs))
+    ignore(fold(_arrow125, 0, xs))
 
 
 def iterate_indexed2[_A, _B](
-    action: Callable[[int32, _A, _B], None], xs: IEnumerable_1[_A], ys: IEnumerable_1[_B]
+    action: Callable[[int, _A, _B], None], xs: IEnumerable_1[_A], ys: IEnumerable_1[_B]
 ) -> None:
-    def _arrow126(i: int32, x: _A, y: _B, action: Any = action) -> int32:
+    def _arrow126(i: int, x: _A, y: _B, action: Any = action) -> int:
         action(i, x, y)
-        return i + int32.ONE
+        return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold2(_arrow126, int32.ZERO, xs, ys))
+    ignore(fold2(_arrow126, 0, xs, ys))
 
 
 def try_last[T](xs: IEnumerable_1[T]) -> Option[T]:
@@ -956,23 +956,23 @@ def last[T](xs: IEnumerable_1[T]) -> T:
         return value_1(match_value)
 
 
-def length[T](xs: IEnumerable_1[T]) -> int32:
+def length[T](xs: IEnumerable_1[T]) -> int:
     if isinstance(xs, Array):
-        return int32(len(xs))
+        return len(xs)
 
     elif isinstance(xs, FSharpList):
         return length_1(xs)
 
     else:
         with Disposable(of_seq(xs)) as e:
-            count: int32 = int32.ZERO
+            count: int = 0
             while e.System_Collections_IEnumerator_MoveNext():
-                count = count + int32.ONE
+                count = (count + 1) if (count <= 2147483646) else int32(count + 1)
             return count
 
 
-def indexed[T](xs: IEnumerable_1[T]) -> IEnumerable_1[tuple[int32, T]]:
-    def mapping(i: int32, x: T) -> tuple[int32, T]:
+def indexed[T](xs: IEnumerable_1[T]) -> IEnumerable_1[tuple[int, T]]:
+    def mapping(i: int, x: T) -> tuple[int, T]:
         return (i, x)
 
     return map_indexed(mapping, xs)
@@ -1027,33 +1027,33 @@ def cache[T](source: IEnumerable_1[T]) -> IEnumerable_1[T]:
         def action_1(__unit: Unit = UNIT) -> None:
             nonlocal enumerator_r
             clear(prefix)
-            (pattern_matching_result, e) = nullable[int32, IEnumerator[Any]]()
+            (pattern_matching_result, e) = nullable[int, IEnumerator[Any]]()
             if enumerator_r is not None:
                 if value_1(enumerator_r) is not None:
-                    pattern_matching_result = int32(0)
+                    pattern_matching_result = 0
                     e = value_1(value_1(enumerator_r))
 
                 else:
-                    pattern_matching_result = int32(1)
+                    pattern_matching_result = 1
 
             else:
-                pattern_matching_result = int32(1)
+                pattern_matching_result = 1
 
-            if pattern_matching_result == int32.ZERO:
+            if pattern_matching_result == 0:
                 dispose_2(e)
 
             enumerator_r = None
 
         lock(prefix, action_1)
 
-    def _arrow129(i_1: int32) -> tuple[T, int32] | None:
-        def action(__unit: Unit = UNIT) -> tuple[T, int32] | None:
+    def _arrow129(i_1: int) -> tuple[T, int] | None:
+        def action(__unit: Unit = UNIT) -> tuple[T, int] | None:
             nonlocal enumerator_r
-            if i_1 < int32(len(prefix)):
-                return (prefix[i_1], i_1 + int32.ONE)
+            if i_1 < len(prefix):
+                return (prefix[i_1], (i_1 + 1) if (i_1 <= 2147483646) else int32(i_1 + 1))
 
             else:
-                if i_1 >= int32(len(prefix)):
+                if i_1 >= len(prefix):
                     opt_enumerator_2: IEnumerator[Any] | None
                     if enumerator_r is not None:
                         opt_enumerator_2 = value_1(enumerator_r)
@@ -1075,15 +1075,15 @@ def cache[T](source: IEnumerable_1[T]) -> IEnumerable_1[T]:
                             dispose_2(enumerator)
                             enumerator_r = some(None)
 
-                if i_1 < int32(len(prefix)):
-                    return (prefix[i_1], i_1 + int32.ONE)
+                if i_1 < len(prefix):
+                    return (prefix[i_1], (i_1 + 1) if (i_1 <= 2147483646) else int32(i_1 + 1))
 
                 else:
                     return None
 
         return erase(lock(prefix, action))
 
-    return CachedSeq_1__ctor_Z7A8347D4(cleanup, unfold(_arrow129, int32.ZERO))
+    return CachedSeq_1__ctor_Z7A8347D4(cleanup, unfold(_arrow129, 0))
 
 
 def all_pairs[T1, T2](xs: IEnumerable_1[T1], ys: IEnumerable_1[T2]) -> IEnumerable_1[tuple[T1, T2]]:
@@ -1156,15 +1156,15 @@ def reduce[T](folder: Callable[[T, T], T], xs: IEnumerable_1[T]) -> T:
 
 def reduce_back[T](folder: Callable[[T, T], T], xs: IEnumerable_1[T]) -> T:
     arr: Array[Any] = to_array(xs)
-    if int32(len(arr)) > int32.ZERO:
+    if len(arr) > 0:
         return reduce_back_1(folder, arr)
 
     else:
         raise Exception(SR_inputSequenceEmpty)
 
 
-def replicate[_A](n: int32, x: _A) -> IEnumerable_1[_A]:
-    def _arrow131(_arg: int32, x: Any = x) -> _A:
+def replicate[_A](n: int, x: _A) -> IEnumerable_1[_A]:
+    def _arrow131(_arg: int, x: Any = x) -> _A:
         return x
 
     return initialize(n, _arrow131)
@@ -1200,11 +1200,11 @@ def scan_back[T, STATE](
     return delay(_arrow134)
 
 
-def skip[T](count: int32, source: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def skip[T](count: int, source: IEnumerable_1[T]) -> IEnumerable_1[T]:
     def _arrow135(count: Any = count, source: Any = source) -> IEnumerator[T]:
         e: IEnumerator[Any] = of_seq(source)
         try:
-            for _ in range(int32.ONE, count, 1):
+            for _ in range(1, count, 1):
                 if not e.System_Collections_IEnumerator_MoveNext():
                     raise Exception(SR_notEnoughElements + " (Parameter 'source')")
 
@@ -1238,7 +1238,7 @@ def skip_while[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> IEnum
 
 
 def tail[T](xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    return skip(int32.ONE, xs)
+    return skip(1, xs)
 
 
 def zip[T1, T2](xs: IEnumerable_1[T1], ys: IEnumerable_1[T2]) -> IEnumerable_1[tuple[T1, T2]]:
@@ -1268,14 +1268,14 @@ def pairwise[T](xs: IEnumerable_1[T]) -> IEnumerable_1[tuple[T, T]]:
     return delay(_arrow139)
 
 
-def split_into[T](chunks: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
+def split_into[T](chunks: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
     def _arrow140(chunks: Any = chunks, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(split_into_1(chunks, to_array(xs)))
 
     return delay(_arrow140)
 
 
-def windowed[T](window_size: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
+def windowed[T](window_size: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
     def _arrow141(window_size: Any = window_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(windowed_1(window_size, to_array(xs)))
 
@@ -1292,7 +1292,7 @@ def transpose[_A: IEnumerable, T](xss: IEnumerable_1[_A]) -> IEnumerable_1[IEnum
     return delay(_arrow142)
 
 
-def sort_with[T](comparer: Callable[[T, T], int32], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def sort_with[T](comparer: Callable[[T, T], int], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     def _arrow143(comparer: Any = comparer, xs: Any = xs) -> IEnumerable_1[T]:
         arr: Array[Any] = to_array(xs)
         sort_in_place_with(comparer, arr)
@@ -1302,22 +1302,22 @@ def sort_with[T](comparer: Callable[[T, T], int32], xs: IEnumerable_1[T]) -> IEn
 
 
 def sort[T](xs: IEnumerable_1[T], comparer: IComparer_1[T]) -> IEnumerable_1[T]:
-    def _arrow144(x: T, y: T, comparer: Any = comparer) -> int32:
+    def _arrow144(x: T, y: T, comparer: Any = comparer) -> int:
         return comparer.Compare(x, y)
 
     return sort_with(_arrow144, xs)
 
 
 def sort_by[T, U](projection: Callable[[T], U], xs: IEnumerable_1[T], comparer: IComparer_1[U]) -> IEnumerable_1[T]:
-    def _arrow145(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int32:
+    def _arrow145(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
         return comparer.Compare(projection(x), projection(y))
 
     return sort_with(_arrow145, xs)
 
 
 def sort_descending[T](xs: IEnumerable_1[T], comparer: IComparer_1[T]) -> IEnumerable_1[T]:
-    def _arrow146(x: T, y: T, comparer: Any = comparer) -> int32:
-        return comparer.Compare(x, y) * int32.NEG_ONE
+    def _arrow146(x: T, y: T, comparer: Any = comparer) -> int:
+        return int32(comparer.Compare(x, y) * -1)
 
     return sort_with(_arrow146, xs)
 
@@ -1325,8 +1325,8 @@ def sort_descending[T](xs: IEnumerable_1[T], comparer: IComparer_1[T]) -> IEnume
 def sort_by_descending[T, U](
     projection: Callable[[T], U], xs: IEnumerable_1[T], comparer: IComparer_1[U]
 ) -> IEnumerable_1[T]:
-    def _arrow147(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int32:
-        return comparer.Compare(projection(x), projection(y)) * int32.NEG_ONE
+    def _arrow147(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
+        return int32(comparer.Compare(projection(x), projection(y)) * -1)
 
     return sort_with(_arrow147, xs)
 
@@ -1347,42 +1347,42 @@ def sum_by[T, U](f: Callable[[T], U], xs: IEnumerable_1[T], adder: IGenericAdder
 
 def max_by[T, U](projection: Callable[[T], U], xs: IEnumerable_1[T], comparer: IComparer_1[U]) -> T:
     def _arrow150(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
-        return y if (comparer.Compare(projection(y), projection(x)) > int32.ZERO) else x
+        return y if (comparer.Compare(projection(y), projection(x)) > 0) else x
 
     return reduce(_arrow150, xs)
 
 
 def max[T](xs: IEnumerable_1[T], comparer: IComparer_1[T]) -> T:
     def _arrow151(x: T, y: T, comparer: Any = comparer) -> T:
-        return y if (comparer.Compare(y, x) > int32.ZERO) else x
+        return y if (comparer.Compare(y, x) > 0) else x
 
     return reduce(_arrow151, xs)
 
 
 def min_by[T, U](projection: Callable[[T], U], xs: IEnumerable_1[T], comparer: IComparer_1[U]) -> T:
     def _arrow152(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
-        return x if (comparer.Compare(projection(y), projection(x)) > int32.ZERO) else y
+        return x if (comparer.Compare(projection(y), projection(x)) > 0) else y
 
     return reduce(_arrow152, xs)
 
 
 def min[T](xs: IEnumerable_1[T], comparer: IComparer_1[T]) -> T:
     def _arrow153(x: T, y: T, comparer: Any = comparer) -> T:
-        return x if (comparer.Compare(y, x) > int32.ZERO) else y
+        return x if (comparer.Compare(y, x) > 0) else y
 
     return reduce(_arrow153, xs)
 
 
 def average[T](xs: IEnumerable_1[T], averager: IGenericAverager_1[T]) -> T:
-    count: int32 = int32.ZERO
+    count: int = 0
 
     def folder(acc: T, x: T, averager: Any = averager) -> T:
         nonlocal count
-        count = count + int32.ONE
+        count = (count + 1) if (count <= 2147483646) else int32(count + 1)
         return averager.Add(acc, x)
 
     total: Any = fold(folder, averager.GetZero(), xs)
-    if count == int32.ZERO:
+    if count == 0:
         raise Exception(SR_inputSequenceEmpty + " (Parameter 'source')")
 
     else:
@@ -1390,44 +1390,44 @@ def average[T](xs: IEnumerable_1[T], averager: IGenericAverager_1[T]) -> T:
 
 
 def average_by[T, U](f: Callable[[T], U], xs: IEnumerable_1[T], averager: IGenericAverager_1[U]) -> U:
-    count: int32 = int32.ZERO
+    count: int = 0
 
     def _arrow154(acc: U, x: T, f: Any = f, averager: Any = averager) -> U:
         nonlocal count
-        count = count + int32.ONE
+        count = (count + 1) if (count <= 2147483646) else int32(count + 1)
         return averager.Add(acc, f(x))
 
     total: Any = fold(_arrow154, averager.GetZero(), xs)
-    if count == int32.ZERO:
+    if count == 0:
         raise Exception(SR_inputSequenceEmpty + " (Parameter 'source')")
 
     else:
         return averager.DivideByInt(total, count)
 
 
-def permute[T](f: Callable[[int32], int32], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def permute[T](f: Callable[[int], int], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     def _arrow155(f: Any = f, xs: Any = xs) -> IEnumerable_1[T]:
         return of_array(permute_1(f, to_array(xs)))
 
     return delay(_arrow155)
 
 
-def chunk_by_size[T](chunk_size: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
+def chunk_by_size[T](chunk_size: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
     def _arrow156(chunk_size: Any = chunk_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(chunk_by_size_1(chunk_size, to_array(xs)))
 
     return delay(_arrow156)
 
 
-def insert_at[T](index: int32, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def insert_at[T](index: int, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     is_done: bool = False
-    if index < int32.ZERO:
+    if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
     def _arrow157(xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
-    def _arrow158(i: int32, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
+    def _arrow158(i: int, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
         nonlocal is_done
         if e.System_Collections_IEnumerator_MoveNext() if (True if is_done else (i < index)) else False:
             return some(e.System_Collections_Generic_IEnumerator_1_get_Current())
@@ -1448,28 +1448,28 @@ def insert_at[T](index: int32, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return generate_indexed(_arrow157, _arrow158, _arrow159)
 
 
-def insert_many_at[T](index: int32, ys: IEnumerable_1[T], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    status: int32 = int32.NEG_ONE
-    if index < int32.ZERO:
+def insert_many_at[T](index: int, ys: IEnumerable_1[T], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+    status: int = -1
+    if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
     def _arrow160(ys: Any = ys, xs: Any = xs) -> tuple[IEnumerator[T], IEnumerator[T]]:
         return (of_seq(xs), of_seq(ys))
 
-    def _arrow161(i: int32, tupled_arg: tuple[IEnumerator[T], IEnumerator[T]], index: Any = index) -> Option[T]:
+    def _arrow161(i: int, tupled_arg: tuple[IEnumerator[T], IEnumerator[T]], index: Any = index) -> Option[T]:
         nonlocal status
         e1: IEnumerator[Any] = tupled_arg[0]
         e2: IEnumerator[Any] = tupled_arg[1]
         if i == index:
-            status = int32.ZERO
+            status = 0
 
         inserted: Option[Any]
-        if status == int32.ZERO:
+        if status == 0:
             if e2.System_Collections_IEnumerator_MoveNext():
                 inserted = some(e2.System_Collections_Generic_IEnumerator_1_get_Current())
 
             else:
-                status = int32.ONE
+                status = 1
                 inserted = None
 
         else:
@@ -1480,7 +1480,7 @@ def insert_many_at[T](index: int32, ys: IEnumerable_1[T], xs: IEnumerable_1[T]) 
                 return some(e1.System_Collections_Generic_IEnumerator_1_get_Current())
 
             else:
-                if status < int32.ONE:
+                if status < 1:
                     raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
                 return None
@@ -1495,15 +1495,15 @@ def insert_many_at[T](index: int32, ys: IEnumerable_1[T], xs: IEnumerable_1[T]) 
     return generate_indexed(_arrow160, _arrow161, _arrow162)
 
 
-def remove_at[T](index: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def remove_at[T](index: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     is_done: bool = False
-    if index < int32.ZERO:
+    if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
     def _arrow163(xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
-    def _arrow164(i: int32, e: IEnumerator[T], index: Any = index) -> Option[T]:
+    def _arrow164(i: int, e: IEnumerator[T], index: Any = index) -> Option[T]:
         nonlocal is_done
         if e.System_Collections_IEnumerator_MoveNext() if (True if is_done else (i < index)) else False:
             return some(e.System_Collections_Generic_IEnumerator_1_get_Current())
@@ -1528,14 +1528,14 @@ def remove_at[T](index: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return generate_indexed(_arrow163, _arrow164, _arrow165)
 
 
-def remove_many_at[T](index: int32, count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    if index < int32.ZERO:
+def remove_many_at[T](index: int, count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+    if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
     def _arrow166(xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
-    def _arrow167(i: int32, e: IEnumerator[T], index: Any = index, count: Any = count) -> Option[T]:
+    def _arrow167(i: int, e: IEnumerator[T], index: Any = index, count: Any = count) -> Option[T]:
         if i < index:
             if e.System_Collections_IEnumerator_MoveNext():
                 return some(e.System_Collections_Generic_IEnumerator_1_get_Current())
@@ -1545,7 +1545,7 @@ def remove_many_at[T](index: int32, count: int32, xs: IEnumerable_1[T]) -> IEnum
 
         else:
             if i == index:
-                for _ in range(int32.ONE, count, 1):
+                for _ in range(1, count, 1):
                     if not e.System_Collections_IEnumerator_MoveNext():
                         raise Exception(SR_indexOutOfBounds + " (Parameter 'count')")
 
@@ -1561,15 +1561,15 @@ def remove_many_at[T](index: int32, count: int32, xs: IEnumerable_1[T]) -> IEnum
     return generate_indexed(_arrow166, _arrow167, _arrow168)
 
 
-def update_at[T](index: int32, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def update_at[T](index: int, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     is_done: bool = False
-    if index < int32.ZERO:
+    if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
     def _arrow169(xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
-    def _arrow170(i: int32, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
+    def _arrow170(i: int, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
         nonlocal is_done
         if e.System_Collections_IEnumerator_MoveNext() if (True if is_done else (i < index)) else False:
             return some(e.System_Collections_Generic_IEnumerator_1_get_Current())
@@ -1590,14 +1590,14 @@ def update_at[T](index: int32, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return generate_indexed(_arrow169, _arrow170, _arrow171)
 
 
-def random_shuffle_by[T](randomizer: Callable[[], float64], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def random_shuffle_by[T](randomizer: Callable[[], float], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     arr: Array[Any] = to_array(xs)
     random_shuffle_in_place_by(randomizer, arr)
     return of_array(arr)
 
 
 def random_shuffle_with[T](random: Any, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow172(random: Any = random) -> float64:
+    def _arrow172(random: Any = random) -> float:
         return random_double(random)
 
     return random_shuffle_by(_arrow172, xs)
@@ -1607,7 +1607,7 @@ def random_shuffle[T](xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return random_shuffle_with(create_random(), xs)
 
 
-def random_choice_by[T](randomizer: Callable[[], float64], xs: IEnumerable_1[T]) -> T:
+def random_choice_by[T](randomizer: Callable[[], float], xs: IEnumerable_1[T]) -> T:
     return random_choice_by_1(randomizer, to_array(xs))
 
 
@@ -1619,33 +1619,33 @@ def random_choice[T](xs: IEnumerable_1[T]) -> T:
     return random_choice_1(to_array(xs))
 
 
-def random_choices_by[T](randomizer: Callable[[], float64], count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def random_choices_by[T](randomizer: Callable[[], float], count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return of_array(random_choices_by_1(randomizer, count, to_array(xs)))
 
 
-def random_choices_with[T](random: Any, count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow173(random: Any = random) -> float64:
+def random_choices_with[T](random: Any, count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+    def _arrow173(random: Any = random) -> float:
         return random_double(random)
 
     return random_choices_by(_arrow173, count, xs)
 
 
-def random_choices[T](count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def random_choices[T](count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return random_choices_with(create_random(), count, xs)
 
 
-def random_sample_by[T](randomizer: Callable[[], float64], count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def random_sample_by[T](randomizer: Callable[[], float], count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return of_array(random_sample_by_1(randomizer, count, to_array(xs)))
 
 
-def random_sample_with[T](random: Any, count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow174(random: Any = random) -> float64:
+def random_sample_with[T](random: Any, count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+    def _arrow174(random: Any = random) -> float:
         return random_double(random)
 
     return random_sample_by(_arrow174, count, xs)
 
 
-def random_sample[T](count: int32, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
+def random_sample[T](count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     return random_sample_with(create_random(), count, xs)
 
 

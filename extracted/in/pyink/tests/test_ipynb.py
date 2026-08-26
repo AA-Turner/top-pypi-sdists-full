@@ -6,8 +6,8 @@ from contextlib import ExitStack as does_not_raise
 from dataclasses import replace
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 from click.testing import CliRunner
+from pytest import MonkeyPatch
 
 from pyink import (
     Mode,
@@ -18,7 +18,12 @@ from pyink import (
     format_file_in_place,
     main,
 )
-from pyink.handle_ipynb_magics import jupyter_dependencies_are_installed
+from pyink.handle_ipynb_magics import (
+    Replacement,
+    create_token,
+    jupyter_dependencies_are_installed,
+    unmask_cell,
+)
 from tests.util import DATA_DIR, get_case_path, read_jupyter_notebook
 
 with contextlib.suppress(ModuleNotFoundError):
@@ -32,7 +37,6 @@ PYINK_JUPYTER_MODE = Mode(
     is_ipynb=True,
     pyink_indentation=2,
     pyink_ipynb_indentation=2,
-    pyink_ipynb_unicode_escape=True,
 )
 
 EMPTY_CONFIG = DATA_DIR / "empty_pyproject.toml"
@@ -45,6 +49,17 @@ def test_noop() -> None:
     src = 'foo = "a"'
     with pytest.raises(NothingChanged):
         format_cell(src, fast=True, mode=JUPYTER_MODE)
+
+
+@pytest.mark.parametrize("n_chars", [1, 2, 3, 4, 5, 17])
+def test_create_token_uses_requested_length(n_chars: int) -> None:
+    assert len(create_token(n_chars)) == n_chars
+
+
+def test_unmask_cell_raises_when_token_is_not_unique() -> None:
+    replacement = Replacement(mask='b"dead"', src="%time")
+    with pytest.raises(NothingChanged):
+        unmask_cell(f"{replacement.mask}\nvalue = {replacement.mask}", [replacement])
 
 
 @pytest.mark.parametrize("fast", [True, False])
@@ -450,8 +465,8 @@ def test_entire_notebook_with_pyink_overrides() -> None:
         '        "%%time\\n",\n'
         '        "\\n",\n'
         '        "a = 1\\n",\n'
-        '        "if a \\u003c 1 or a \\u003e 1:\\n",\n'
-        '        "    print(\\"\\u0026\\u003c\\u003e\\")"\n'
+        '        "if a < 1 or a > 1:\\n",\n'
+        '        "    print(\\"&<>\\")"\n'
         "      ]\n"
         "    }\n"
         "  ],\n"

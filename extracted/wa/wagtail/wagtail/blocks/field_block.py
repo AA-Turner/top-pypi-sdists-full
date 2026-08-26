@@ -2,9 +2,10 @@ import copy
 import datetime
 from decimal import Decimal
 
+import swapper
+from django import VERSION as DJANGO_VERSION
 from django import forms
 from django.db.models import Model
-from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils.choices import CallableChoiceIterator
 from django.utils.dateparse import parse_date, parse_datetime, parse_time
 from django.utils.encoding import force_str
@@ -15,6 +16,7 @@ from django.utils.translation import gettext as _
 
 from wagtail.admin.staticfiles import versioned_static
 from wagtail.admin.telepath import Adapter, register
+from wagtail.api.rich_text import APIRichText
 from wagtail.compat import URLField
 from wagtail.coreutils import camelcase_to_underscore, resolve_model_string
 from wagtail.rich_text import (
@@ -36,14 +38,13 @@ class FieldBlock(Block):
 
     def value_from_form(self, value):
         """
+        Perform any necessary conversion from the form field value to the block's native value.
+        As standard, this returns the form field value unchanged.
+
         The value that we get back from the form field might not be the type
         that this block works with natively; for example, the block may want to
         wrap a simple value such as a string in an object that provides a fancy
         HTML rendering (e.g. EmbedBlock).
-
-        We therefore provide this method to perform any necessary conversion
-        from the form field value to the block's native value. As standard,
-        this returns the form field value unchanged.
         """
         return value
 
@@ -589,7 +590,16 @@ class BaseChoiceBlock(FieldBlock):
                         break
 
             if not has_blank_choice:
-                return BLANK_CHOICE_DASH + local_choices
+                # Once we drop support for Django < 6.1, remove this and use the
+                # label from Django directly.
+                choice = [("", _("- Select an option -"))]
+
+                if DJANGO_VERSION >= (6, 1):
+                    from django.db.models.fields import BLANK_CHOICE_LABEL
+
+                    choice = [("", BLANK_CHOICE_LABEL)]
+
+                return choice + local_choices
 
             return local_choices
 
@@ -775,6 +785,13 @@ class RichTextBlock(FieldBlock):
         # the JSONish representation
         return value.source
 
+    def get_api_representation(self, value, context=None):
+        rich_text_format = None
+        if request := (context and context.get("request")):
+            rich_text_format = request.GET.get("rich_text_format")
+        rich_text_format = APIRichText.resolve_format(rich_text_format)
+        return APIRichText.serialize(value.source, format=rich_text_format)
+
     def normalize(self, value):
         if isinstance(value, RichText):
             return value
@@ -837,10 +854,10 @@ class RawHTMLBlock(FieldBlock):
         return self.normalize(self._evaluate_callable(self.meta.default or ""))
 
     def to_python(self, value):
-        return mark_safe(value)
+        return mark_safe(value)  # noqa: S308 - raw html is allowed
 
     def normalize(self, value):
-        return mark_safe(value)
+        return mark_safe(value)  # noqa: S308 - raw html is allowed
 
     def get_prep_value(self, value):
         # explicitly convert to a plain string, just in case we're using some serialisation method
@@ -852,7 +869,7 @@ class RawHTMLBlock(FieldBlock):
         return str(value) + ""
 
     def value_from_form(self, value):
-        return mark_safe(value)
+        return mark_safe(value)  # noqa: S308 - raw html is allowed
 
     class Meta:
         icon = "code"
@@ -987,7 +1004,7 @@ class PageChooserBlock(ChooserBlock):
         if len(self.target_models) == 1:
             return self.target_models[0]
 
-        return resolve_model_string("wagtailcore.Page")
+        return swapper.load_model("wagtailcore", "Page")
 
     @cached_property
     def target_models(self):

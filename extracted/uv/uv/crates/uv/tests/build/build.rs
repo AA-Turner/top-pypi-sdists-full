@@ -109,8 +109,8 @@ fn build_basic() -> Result<()> {
       Caused by: [TEMP_DIR]/ does not appear to be a Python project, as neither `pyproject.toml` nor `setup.py` are present in the directory
     ");
 
-    // Build to a specified path.
-    uv_snapshot!(context.filters(), context.build().arg("--out-dir").arg("out").current_dir(project.path()), @"
+    // Build to a specified path, even if builds are disabled for the project by name.
+    uv_snapshot!(context.filters(), context.build().arg("--out-dir").arg("out").arg("--no-build-package").arg("project").current_dir(project.path()), @"
     exit_code: 0 (success)
     ----- stderr -----
     Building source distribution...
@@ -125,6 +125,27 @@ fn build_basic() -> Result<()> {
         .assert(predicate::path::is_file());
     project
         .child("out")
+        .child("project-0.1.0-py3-none-any.whl")
+        .assert(predicate::path::is_file());
+
+    // A global build restriction still allows explicitly building the project and its sdist.
+    project.child("uv.toml").write_str("no-build = true\n")?;
+
+    uv_snapshot!(context.filters(), context.build().current_dir(project.path()), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Building source distribution...
+    Building wheel from source distribution...
+    Successfully built dist/project-0.1.0.tar.gz
+    Successfully built dist/project-0.1.0-py3-none-any.whl
+    ");
+
+    project
+        .child("dist")
+        .child("project-0.1.0.tar.gz")
+        .assert(predicate::path::is_file());
+    project
+        .child("dist")
         .child("project-0.1.0-py3-none-any.whl")
         .assert(predicate::path::is_file());
 
@@ -402,8 +423,8 @@ fn build_wheel() -> Result<()> {
         .touch()?;
     project.child("README").touch()?;
 
-    // Build the specified path.
-    uv_snapshot!(context.filters(), context.build().arg("--wheel").current_dir(&project), @"
+    // Explicit wheel builds are allowed even when dependency builds are disabled.
+    uv_snapshot!(context.filters(), context.build().arg("--wheel").arg("--no-build").current_dir(&project), @"
     exit_code: 0 (success)
     ----- stderr -----
     Building wheel...
@@ -533,8 +554,8 @@ fn build_wheel_from_sdist() -> Result<()> {
       Caused by: Building an `--sdist` from a source distribution is not supported
     ");
 
-    // Build the wheel from the sdist.
-    uv_snapshot!(context.filters(), context.build().arg("./dist/project-0.1.0.tar.gz").arg("--wheel").current_dir(&project), @"
+    // Explicit wheel builds from an sdist are allowed even when dependency builds are disabled.
+    uv_snapshot!(context.filters(), context.build().arg("./dist/project-0.1.0.tar.gz").arg("--wheel").arg("--no-build").current_dir(&project), @"
     exit_code: 0 (success)
     ----- stderr -----
     Building wheel from source distribution...
@@ -1808,6 +1829,35 @@ fn build_tool_uv_sources() -> Result<()> {
         .touch()?;
     project.child("README").touch()?;
 
+    // Build restrictions still apply to dependencies. Check before building the backend so a
+    // cached wheel cannot make these commands succeed.
+    uv_snapshot!(context.filters(), context.build().arg("--no-build").current_dir(project.path()), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building source distribution...
+    error: Failed to build `[TEMP_DIR]/project`
+      Caused by: Failed to install requirements from `build-system.requires`
+      Caused by: Building source distributions is disabled, but attempted to build `backend`
+    ");
+
+    uv_snapshot!(context.filters(), context.build().arg("--no-build-package").arg("backend").current_dir(project.path()), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building source distribution...
+    error: Failed to build `[TEMP_DIR]/project`
+      Caused by: Failed to install requirements from `build-system.requires`
+      Caused by: Building source distributions is disabled, but attempted to build `backend`
+    ");
+
+    project
+        .child("dist")
+        .child("project-0.1.0.tar.gz")
+        .assert(predicate::path::missing());
+    project
+        .child("dist")
+        .child("project-0.1.0-py3-none-any.whl")
+        .assert(predicate::path::missing());
+
     uv_snapshot!(context.filters(), context.build().current_dir(project.path()), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -2094,6 +2144,47 @@ fn build_fast_path() -> Result<()> {
         .child("output4")
         .child("built_by_uv-0.1.0-py3-none-any.whl")
         .assert(predicate::path::is_file());
+
+    Ok(())
+}
+
+/// Warn about an unbounded build backend only when producing a source distribution.
+#[test]
+fn build_fast_path_unbounded_backend() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let filters = context
+        .filters()
+        .into_iter()
+        .chain([(r"such as `<\d+\.\d+`", "such as `<[NEXT_BREAKING]`")])
+        .collect::<Vec<_>>();
+    let project = context.temp_dir.child("project");
+
+    project.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [build-system]
+        requires = ["uv-build"]
+        build-backend = "uv_build"
+    "#})?;
+    project.child("src/project/__init__.py").touch()?;
+
+    uv_snapshot!(&filters, context.build().arg("project").arg("--wheel"), @r"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Building wheel...
+    Successfully built project/dist/project-0.1.0-py3-none-any.whl
+    ");
+
+    uv_snapshot!(&filters, context.build().arg("project").arg("--sdist"), @r#"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Building source distribution...
+    warning: `build_system.requires = ["uv-build"]` is missing an upper bound on the `uv_build` version such as `<[NEXT_BREAKING]`. Without bounding the `uv_build` version, the source distribution will break when a future, breaking version of `uv_build` is released.
+    Successfully built project/dist/project-0.1.0.tar.gz
+    "#);
 
     Ok(())
 }
@@ -2726,6 +2817,7 @@ fn force_pep517() -> Result<()> {
 /// Check that we show a hint when there's a venv in the source distribution.
 ///
 /// <https://github.com/astral-sh/uv/issues/15096>
+/// <https://github.com/astral-sh/uv/issues/21128>
 // Windows uses trampolines instead of symlinks. You don't want those in your source distribution
 // either, but that's for the build backend to catch, we're only checking for the unix error hint
 // in uv here.
@@ -2777,8 +2869,14 @@ fn venv_included_in_sdist() -> Result<()> {
     hint: The source distribution includes a virtual environment. Virtual environments must be excluded from source distributions.
     ");
 
+    // Point the virtual environment at the test interpreter's `python/3.12/python3` shim to
+    // exercise a base interpreter outside `bin`, as in Gentoo's test layout.
+    let venv_python = context.venv.child("bin").child("python");
+    fs_err::remove_file(&venv_python)?;
+    venv_python.symlink_to_file(context.root.child("python").child("3.12").child("python3"))?;
+
     // The preview tar-codec backend reports a structured unsafe-link error and preserves the same
-    // user-facing hint.
+    // user-facing hint, regardless of the base interpreter's installation layout.
     uv_snapshot!(context.filters(), context
         .build()
         .arg("--preview-features")

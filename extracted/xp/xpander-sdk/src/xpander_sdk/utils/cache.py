@@ -52,11 +52,14 @@ class TTLCache:
     fresh, else awaits ``factory`` and stores the result. Exceptions from
     ``factory`` propagate and are NOT cached."""
 
-    def __init__(self, ttl_seconds: float = DEFAULT_CONFIG_CACHE_TTL):
+    def __init__(
+        self, ttl_seconds: float = DEFAULT_CONFIG_CACHE_TTL, maxsize: Optional[int] = None
+    ):
         """Create a cache whose entries expire ``ttl_seconds`` after they are
-        written."""
+        written; ``maxsize`` bounds the store with LRU eviction (None = unbounded)."""
         self._ttl = ttl_seconds
-        self._store: Dict[str, Tuple[Any, float]] = {}
+        self._maxsize = maxsize
+        self._store: "OrderedDict[str, Tuple[Any, float]]" = OrderedDict()
 
     async def get_or_fetch(
         self, key: str, factory: Callable[[], Awaitable[Any]]
@@ -67,9 +70,19 @@ class TTLCache:
         now = time.monotonic()
         hit = self._store.get(key)
         if hit is not None and hit[1] > now:
+            self._store.move_to_end(key)
             return hit[0]
         value = await factory()
-        self._store[key] = (value, time.monotonic() + self._ttl)
+        # expired keys are never re-read, so purge on write or they pin memory forever
+        deadline = time.monotonic()
+        expired = [k for k, (_, exp) in self._store.items() if exp <= deadline]
+        for k in expired:
+            self._store.pop(k, None)
+        self._store[key] = (value, deadline + self._ttl)
+        self._store.move_to_end(key)
+        if self._maxsize is not None:
+            while len(self._store) > self._maxsize:
+                self._store.popitem(last=False)
         return value
 
     def invalidate(self, key: Optional[str] = None) -> None:
@@ -82,6 +95,11 @@ class TTLCache:
 
 # Process-wide cache for backend config reads (60s TTL).
 backend_config_cache = TTLCache()
+
+# Agent payloads are mutable state, not config: 5s only coalesces one build_agent_args.
+AGENT_PAYLOAD_CACHE_TTL = 5.0
+# bounded: payloads are large and keyed per agent+version+tenant, so cardinality is open-ended
+agent_payload_cache = TTLCache(ttl_seconds=AGENT_PAYLOAD_CACHE_TTL, maxsize=256)
 
 
 # Cap on distinct tool schemas memoized per process. Bounded so a multi-tenant,

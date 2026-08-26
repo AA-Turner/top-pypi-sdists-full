@@ -37,6 +37,14 @@
 #include <iomanip>
 #include <chrono>
 
+#ifdef CASADI_WITH_THREAD
+#ifdef CASADI_WITH_THREAD_MINGW
+#include <mingw.mutex.h>
+#else // CASADI_WITH_THREAD_MINGW
+#include <mutex>
+#endif // CASADI_WITH_THREAD_MINGW
+#endif //CASADI_WITH_THREAD
+
 #include <fatrop_runtime_str.h>
 
 namespace casadi {
@@ -515,14 +523,14 @@ namespace casadi {
     if (Nlpsol::init_mem(mem)) return 1;
     if (!mem) return 1;
     auto m = static_cast<FatropMemory*>(mem);
-    fatrop_init_mem(&m->d);
+    casadi_fatrop_init_mem(&m->d);
 
     return 0;
   }
 
   void FatropInterface::free_mem(void* mem) const {
     auto m = static_cast<FatropMemory*>(mem);
-    fatrop_free_mem(&m->d);
+    casadi_fatrop_free_mem(&m->d);
     delete static_cast<FatropMemory*>(mem);
   }
 
@@ -537,7 +545,7 @@ namespace casadi {
     m->d.prob = &p_;
     m->d.nlp = &m->d_nlp;
 
-    casadi_fatrop_init(&m->d, &arg, &res, &iw, &w);
+    casadi_fatrop_set_work(&m->d, &arg, &res, &iw, &w);
 
     m->d.nlp->oracle->m = static_cast<void*>(m);
 
@@ -547,29 +555,43 @@ namespace casadi {
   int FatropInterface::solve(void* mem) const {
     auto m = static_cast<FatropMemory*>(mem);
 
-    casadi_fatrop_presolve(&m->d);
+    // Cache the solver: presolve (re)creates it only when needed
+    bool new_solver = (m->d.solver == 0);
+    // fatrop's solve repoints a process-wide singleton stream via
+    // fatrop::OutputStreamManager::set_stream, which is not thread-safe.
+    // Serialize across threads.
+    {
+#ifdef CASADI_WITH_THREAD
+      static std::mutex mutex_fatrop_create;
+      std::lock_guard<std::mutex> lock(mutex_fatrop_create);
+#endif //CASADI_WITH_THREAD
+      casadi_fatrop_presolve(&m->d);
+    }
 
-    for (const auto& kv : opts_) {
-      switch (fatrop_ocp_c_option_type(kv.first.c_str())) {
-        case 0:
-          fatrop_ocp_c_set_option_double(m->d.solver, kv.first.c_str(), kv.second);
-          break;
-        case 1:
-          fatrop_ocp_c_set_option_int(m->d.solver, kv.first.c_str(), kv.second.to_int());
-          break;
-        case 2:
-          fatrop_ocp_c_set_option_bool(m->d.solver, kv.first.c_str(), kv.second.to_bool());
-          break;
-        case 3:
-          {
-            std::string s = kv.second.to_string();
-            fatrop_ocp_c_set_option_string(m->d.solver, kv.first.c_str(), s.c_str());
-          }
-          break;
-        case -1:
-          casadi_error("Fatrop option not supported: " + kv.first);
-        default:
-          casadi_error("Unknown option type.");
+    // Set options only when a new solver was created (options persist across solves)
+    if (new_solver) {
+      for (const auto& kv : opts_) {
+        switch (fatrop_ocp_c_option_type(kv.first.c_str())) {
+          case 0:
+            fatrop_ocp_c_set_option_double(m->d.solver, kv.first.c_str(), kv.second);
+            break;
+          case 1:
+            fatrop_ocp_c_set_option_int(m->d.solver, kv.first.c_str(), kv.second.to_int());
+            break;
+          case 2:
+            fatrop_ocp_c_set_option_bool(m->d.solver, kv.first.c_str(), kv.second.to_bool());
+            break;
+          case 3:
+            {
+              std::string s = kv.second.to_string();
+              fatrop_ocp_c_set_option_string(m->d.solver, kv.first.c_str(), s.c_str());
+            }
+            break;
+          case -1:
+            casadi_error("Fatrop option not supported: " + kv.first);
+          default:
+            casadi_error("Unknown option type.");
+        }
       }
     }
 
@@ -612,12 +634,12 @@ namespace casadi {
   }
 
   void FatropInterface::codegen_init_mem(CodeGenerator& g) const {
-    g << "fatrop_init_mem(&" + codegen_mem(g) + ");\n";
+    g << "casadi_fatrop_init_mem(&" + codegen_mem(g) + ");\n";
     g << "return 0;\n";
   }
 
   void FatropInterface::codegen_free_mem(CodeGenerator& g) const {
-    g << "fatrop_free_mem(&" + codegen_mem(g) + ");\n";
+    g << "casadi_fatrop_free_mem(&" + codegen_mem(g) + ");\n";
   }
 
 void FatropInterface::codegen_declarations(CodeGenerator& g) const {
@@ -676,15 +698,33 @@ void FatropInterface::codegen_body(CodeGenerator& g) const {
   g.local("p", "struct casadi_fatrop_prob");
   set_fatrop_prob(g);
 
-  g << "casadi_fatrop_init(d, &arg, &res, &iw, &w);\n";
-  g << "casadi_oracle_init(d->nlp->oracle, &arg, &res, &iw, &w);\n";
-  g << "casadi_fatrop_presolve(d);\n";
+  g << "casadi_fatrop_set_work(d, &arg, &res, &iw, &w);\n";
+  g << "casadi_oracle_set_work(d->nlp->oracle, &arg, &res, &iw, &w);\n";
+
+  // Cache the solver: presolve (re)creates it only when needed
+  g << "{\n";
+  g << "int new_solver = (d->solver == 0);\n";
+  // fatrop's solve repoints a process-wide singleton stream via
+  // fatrop::OutputStreamManager::set_stream, which is not thread-safe.
+  // Serialize across threads.
+  if (g.thread_safe()) {
+    Function F = shared_from_this<Function>();
+    std::string mutex_name = codegen_name(g, false) + "_fatrop_create_mutex";
+    g.define_local_mutex(F, mutex_name);
+    std::string mtx = g.local_mutex(F, mutex_name);
+    g << "CASADI_MUTEX_LOCK(&" << mtx << ");\n";
+    g << "casadi_fatrop_presolve(d);\n";
+    g << "CASADI_MUTEX_UNLOCK(&" << mtx << ");\n";
+  } else {
+    g << "casadi_fatrop_presolve(d);\n";
+  }
+  g << "if (new_solver) {\n";
 
   for (const auto& kv : opts_) {
     switch (fatrop_ocp_c_option_type(kv.first.c_str())) {
       case 0:
         g << "fatrop_ocp_c_set_option_double(d->solver, \"" + kv.first + "\", "
-              + str(kv.second) + ");\n";
+              + g.constant(kv.second.to_double()) + ");\n";
         break;
       case 1:
         g << "fatrop_ocp_c_set_option_int(d->solver, \"" + kv.first + "\", "
@@ -708,7 +748,8 @@ void FatropInterface::codegen_body(CodeGenerator& g) const {
     }
   }
 
-  // Options
+  g << "}\n";
+  g << "}\n";
   g << "casadi_fatrop_solve(d);\n";
 
   codegen_body_exit(g);

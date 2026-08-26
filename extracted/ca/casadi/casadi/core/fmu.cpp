@@ -27,6 +27,8 @@
 #include "fmu_function.hpp"
 #include "dae_builder_internal.hpp"
 #include "filesystem_impl.hpp"
+#include "archiver_impl.hpp"
+#include "importer.hpp"
 
 #ifdef WITH_FMI2
 #include "fmu2.hpp"
@@ -95,7 +97,7 @@ FmuMemory* Fmu::alloc_mem(const FmuFunction& f) const {
 }
 
 void Fmu::free_mem(void *mem) const {
-  return (*this)->free_mem(mem);
+  (*this)->free_mem(mem);
 }
 
 FmuInternal* Fmu::get() const {
@@ -276,7 +278,7 @@ int Fmu::init_mem(FmuMemory* m) const {
 
 void Fmu::free_instance(void* instance) const {
   try {
-    return (*this)->free_instance(instance);
+    (*this)->free_instance(instance);
   } catch(std::exception& e) {
     THROW_ERROR("free_instance", e.what());
   }
@@ -284,7 +286,7 @@ void Fmu::free_instance(void* instance) const {
 
 void Fmu::set(FmuMemory* m, size_t ind, const double* value) const {
   try {
-    return (*this)->set(m, ind, value);
+    (*this)->set(m, ind, value);
   } catch(std::exception& e) {
     THROW_ERROR("set", e.what());
   }
@@ -292,7 +294,7 @@ void Fmu::set(FmuMemory* m, size_t ind, const double* value) const {
 
 void Fmu::request(FmuMemory* m, size_t ind) const {
   try {
-    return (*this)->request(m, ind);
+    (*this)->request(m, ind);
   } catch(std::exception& e) {
     THROW_ERROR("request", e.what());
   }
@@ -308,7 +310,7 @@ int Fmu::eval(FmuMemory* m) const {
 
 void Fmu::get(FmuMemory* m, size_t id, double* value) const {
   try {
-    return (*this)->get(m, id, value);
+    (*this)->get(m, id, value);
   } catch(std::exception& e) {
     THROW_ERROR("get", e.what());
   }
@@ -316,7 +318,7 @@ void Fmu::get(FmuMemory* m, size_t id, double* value) const {
 
 void Fmu::set_fwd(FmuMemory* m, casadi_int nseed, const casadi_int* id, const double* v) const {
   try {
-    return (*this)->set_fwd(m, nseed, id, v);
+    (*this)->set_fwd(m, nseed, id, v);
   } catch(std::exception& e) {
     THROW_ERROR("set_fwd", e.what());
   }
@@ -324,7 +326,7 @@ void Fmu::set_fwd(FmuMemory* m, casadi_int nseed, const casadi_int* id, const do
 
 void Fmu::set_fwd(FmuMemory* m, size_t ind, const double* v) const {
   try {
-    return (*this)->set_fwd(m, ind, v);
+    (*this)->set_fwd(m, ind, v);
   } catch(std::exception& e) {
     THROW_ERROR("set_fwd", e.what());
   }
@@ -333,7 +335,7 @@ void Fmu::set_fwd(FmuMemory* m, size_t ind, const double* v) const {
 void Fmu::request_fwd(FmuMemory* m, casadi_int nsens, const casadi_int* id,
     const casadi_int* wrt_id) const {
   try {
-    return (*this)->request_fwd(m, nsens, id, wrt_id);
+    (*this)->request_fwd(m, nsens, id, wrt_id);
   } catch(std::exception& e) {
     THROW_ERROR("request_fwd", e.what());
   }
@@ -341,7 +343,7 @@ void Fmu::request_fwd(FmuMemory* m, casadi_int nsens, const casadi_int* id,
 
 void Fmu::request_fwd(FmuMemory* m, casadi_int ind) const {
   try {
-    return (*this)->request_fwd(m, ind);
+    (*this)->request_fwd(m, ind);
   } catch(std::exception& e) {
     THROW_ERROR("request_fwd", e.what());
   }
@@ -357,7 +359,7 @@ int Fmu::eval_fwd(FmuMemory* m, bool independent_seeds) const {
 
 void Fmu::get_fwd(FmuMemory* m, casadi_int nsens, const casadi_int* id, double* v) const {
   try {
-    return (*this)->get_fwd(m, nsens, id, v);
+    (*this)->get_fwd(m, nsens, id, v);
   } catch(std::exception& e) {
     THROW_ERROR("get_fwd", e.what());
   }
@@ -365,7 +367,7 @@ void Fmu::get_fwd(FmuMemory* m, casadi_int nsens, const casadi_int* id, double* 
 
 void Fmu::get_fwd(FmuMemory* m, size_t ind, double* v) const {
   try {
-    return (*this)->get_fwd(m, ind, v);
+    (*this)->get_fwd(m, ind, v);
   } catch(std::exception& e) {
     THROW_ERROR("get_fwd", e.what());
   }
@@ -373,7 +375,7 @@ void Fmu::get_fwd(FmuMemory* m, size_t ind, double* v) const {
 
 void Fmu::set_adj(FmuMemory* m, casadi_int nseed, const casadi_int* id, const double* v) const {
   try {
-    return (*this)->set_adj(m, nseed, id, v);
+    (*this)->set_adj(m, nseed, id, v);
   } catch(std::exception& e) {
     THROW_ERROR("set_adj", e.what());
   }
@@ -381,7 +383,7 @@ void Fmu::set_adj(FmuMemory* m, casadi_int nseed, const casadi_int* id, const do
 
 void Fmu::set_adj(FmuMemory* m, size_t ind, const double* v) const {
   try {
-    return (*this)->set_adj(m, ind, v);
+    (*this)->set_adj(m, ind, v);
   } catch(std::exception& e) {
     THROW_ERROR("set_adj", e.what());
   }
@@ -390,7 +392,7 @@ void Fmu::set_adj(FmuMemory* m, size_t ind, const double* v) const {
 void Fmu::request_adj(FmuMemory* m, casadi_int nsens, const casadi_int* id,
     const casadi_int* wrt_id) const {
   try {
-    return (*this)->request_adj(m, nsens, id, wrt_id);
+    (*this)->request_adj(m, nsens, id, wrt_id);
   } catch(std::exception& e) {
     THROW_ERROR("request_adj", e.what());
   }
@@ -398,7 +400,7 @@ void Fmu::request_adj(FmuMemory* m, casadi_int nsens, const casadi_int* id,
 
 void Fmu::request_adj(FmuMemory* m, casadi_int ind) const {
   try {
-    return (*this)->request_adj(m, ind);
+    (*this)->request_adj(m, ind);
   } catch(std::exception& e) {
     THROW_ERROR("request_adj", e.what());
   }
@@ -414,7 +416,7 @@ int Fmu::eval_adj(FmuMemory* m) const {
 
 void Fmu::get_adj(FmuMemory* m, casadi_int nsens, const casadi_int* id, double* v) const {
   try {
-    return (*this)->get_adj(m, nsens, id, v);
+    (*this)->get_adj(m, nsens, id, v);
   } catch(std::exception& e) {
     THROW_ERROR("get_adj", e.what());
   }
@@ -422,7 +424,7 @@ void Fmu::get_adj(FmuMemory* m, casadi_int nsens, const casadi_int* id, double* 
 
 void Fmu::get_adj(FmuMemory* m, size_t ind, double* v) const {
   try {
-    return (*this)->get_adj(m, ind, v);
+    (*this)->get_adj(m, ind, v);
   } catch(std::exception& e) {
     THROW_ERROR("get_adj", e.what());
   }
@@ -431,7 +433,7 @@ void Fmu::get_adj(FmuMemory* m, size_t ind, double* v) const {
 void Fmu::get_stats(FmuMemory* m, Dict* stats,
     const std::vector<std::string>& name_in, const InputStruct* in) const {
   try {
-    return (*this)->get_stats(m, stats, name_in, in);
+    (*this)->get_stats(m, stats, name_in, in);
   } catch(std::exception& e) {
     THROW_ERROR("get_stats", e.what());
   }
@@ -455,10 +457,11 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
   instance_name_ = dae->model_identifier_;
   instantiation_token_ = dae->instantiation_token_;
   logging_on_ = dae->debug_;
-  number_of_event_indicators_ = dae->number_of_event_indicators_;
+  number_of_event_indicators_ = dae->nzero_;
   provides_directional_derivatives_ = dae->provides_directional_derivatives_;
   provides_adjoint_derivatives_ = dae->provides_adjoint_derivatives_;
   can_be_instantiated_only_once_per_process_ = dae->can_be_instantiated_only_once_per_process_;
+  start_time_ = dae->start_time_;
   nx_ = dae->size(Category::X);
   do_evaluation_dance_ = dae->generation_tool_.rfind("Simulink", 0) == 0;
 
@@ -466,6 +469,7 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
   size_t numel = 0;
   std::vector<bool> lookup(dae->n_variables(), false);
   for (auto&& n : scheme_in_) {
+    casadi_assert(scheme_.find(n) != scheme_.end(), "Unsupported input: '" + n + "'");
     for (size_t i : scheme_.at(n)) {
       casadi_assert(!lookup.at(i), "Duplicate variable: " + dae->variable(i).name);
       lookup.at(i) = true;
@@ -487,6 +491,7 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
   numel = 0;
   std::fill(lookup.begin(), lookup.end(), false);
   for (auto&& n : scheme_out_) {
+    casadi_assert(scheme_.find(n) != scheme_.end(), "Unsupported output: '" + n + "'");
     for (size_t i : scheme_.at(n)) {
       casadi_assert(!lookup.at(i), "Duplicate variable: " + dae->variable(i).name);
       lookup.at(i) = true;
@@ -540,8 +545,9 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
     vn_in_.push_back(v.name);
     vr_in_.push_back(v.value_reference);
     if (v.causality == Causality::INDEPENDENT) {
-      if (i != 0) casadi_error("Independent variable must be first input of FMU");
+      if (i != 0) casadi_error("Independent variable must be the first model variable");
       has_independent_ = true;
+      independent_vr_ = vr_in_.back();
     }
   }
   // Collect meta information for outputs
@@ -567,6 +573,14 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
 
   // Get Hessian sparsity information
   hess_sp_ = dae->hess_sparsity(oind_, iind_);
+
+  // Path to resource directory
+  resource_loc_ = resource_.path();
+  if (Filesystem::is_enabled()) resource_loc_ = Filesystem::absolute(resource_loc_);
+  resource_loc_ += "/resources";
+
+  // Use forward slashes (supported by all file systems)
+  std::replace(resource_loc_.begin(), resource_loc_.end(), '\\', '/');
 }
 
 int FmuInternal::get_adjoint_derivative(void* instance, const unsigned int* vr_out, size_t n_out,
@@ -592,18 +606,6 @@ void FmuInternal::finalize() {
   // Get FMI C functions
   load_functions();
 
-  // Path to resource directory
-  std::string url = "";
-  if (Filesystem::is_enabled()) {
-    url = "file://" + Filesystem::absolute(resource_.path()) + "/resources";
-  } else {
-    url = "file://" + resource_.path() + "/resources";
-  }
-  // Forward slashes
-  std::replace(url.begin(), url.end(), '\\', '/');
-
-  resource_loc_ = url;
-
   // Create a temporary instance
   void* c = instantiate();
   // Set all values
@@ -616,8 +618,26 @@ void FmuInternal::finalize() {
   }
   // Get input values
   if (!value_in_.empty()) {
-    if (get_real(c, get_ptr(vr_in_), vr_in_.size(), get_ptr(value_in_), value_in_.size())) {
-      casadi_error("FmuInternal::get_in failed");
+    // Value references
+    const unsigned int* vr = get_ptr(vr_in_);
+    size_t n_vr = vr_in_.size();
+    // Values
+    double* value = get_ptr(value_in_);
+    size_t n_value = value_in_.size();
+    // Set time variable, if any
+    if (has_independent_) {
+      *value = start_time_;
+      // Skip when getting remaining inputs
+      vr++;
+      n_vr--;
+      value++;
+      n_value--;
+    }
+    // Set remaining
+    if (n_value > 0) {
+      if (get_real(c, vr, n_vr, value, n_value)) {
+        casadi_error("FmuInternal::get_in failed");
+      }
     }
   }
   // Get auxilliary variables
@@ -713,6 +733,75 @@ std::string FmuInternal::dll_suffix() {
 #endif
 }
 
+Dict FmuInternal::compile_fmu(const std::string& name, const Dict& files, const Dict& opts) {
+  // Options
+  Dict compiler_opts;
+  std::string compiler_plugin = "shell";
+  std::vector<std::string> include_dirs;
+  for (auto&& op : opts) {
+    if (op.first == "compiler") {
+      compiler_plugin = op.second.to_string();
+    } else if (op.first == "compiler_options") {
+      compiler_opts = op.second;
+    } else if (op.first == "include_dirs") {
+      include_dirs = op.second.to_string_vector();
+    } else {
+      casadi_error("No such option: " + op.first);
+    }
+  }
+  // The C sources to compile are the .c entries of the export_fmu map (flat in CWD)
+  std::vector<std::string> csources;
+  for (auto&& kv : files) {
+    const std::string& local = kv.first;
+    if (local.size() > 2 && local.substr(local.size() - 2) == ".c") csources.push_back(local);
+  }
+  // Amalgamation translation unit: a single .c that #includes every generated source,
+  // because the shell Importer compiles exactly one source file. The compile runs in
+  // the working directory, so quoted includes resolve against the loose files there.
+  // This is a build scratch file, NOT FMU content, so it is removed below.
+  std::string amalg = name + "_all.c";
+  {
+    auto f = Filesystem::ofstream_ptr(amalg);
+    for (const std::string& c : csources) *f << "#include \"" << c << "\"\n";
+  }
+  // Compile the amalgamation into a shared library via the Importer plugin.
+  // Pass include dirs through the OS-agnostic 'include_dirs' option (the plugin
+  // prefixes each with the compiler's own include flag: -I on gcc/clang, /I on MSVC).
+  Dict cop = compiler_opts;
+  if (!include_dirs.empty()) cop["include_dirs"] = include_dirs;
+  Importer compiler(amalg, compiler_plugin, cop);
+  // Lift the binary to a stable path before the Importer destructor removes it, then
+  // discard the amalgamation scratch file (compilation is done once the Importer exists)
+  std::string dll = name + dll_suffix();
+  Filesystem::copy_file(compiler.library(), dll);
+  Filesystem::remove(amalg);
+  // Augment the file map with the compiled binary
+  // (FMI-3 layout: binaries/<dll_infix>/<modelIdentifier><suffix>)
+  Dict ret = files;
+  ret[dll] = "binaries/" + Fmu3::dll_infix() + "/" + name + dll_suffix();
+  return ret;
+}
+
+std::string FmuInternal::pack_fmu(const Dict& files, const std::string& path) {
+  casadi_assert(Archiver::has_plugin("libzip"),
+    "pack_fmu requires libzip. Compile CasADi with WITH_LIBZIP=ON.");
+  // The {local_file -> archive path} map is exactly the set of zip entries: no staging
+  // directory or copies required.
+  std::vector<std::pair<std::string, std::string>> entries;
+  for (auto&& kv : files) {
+    std::string arc = kv.second.to_string();
+    if (arc.substr(0, 2) == "./") arc = arc.substr(2);  // zip entries are root-relative
+    entries.push_back({kv.first, arc});
+  }
+  std::string out = path;
+  if (out.size() < 4 || out.substr(out.size() - 4) != ".fmu") out += ".fmu";
+  casadi_assert(Archiver::getPlugin("libzip").exposed.pack_entries(entries, out),
+    "Packing FMU '" + out + "' failed.");
+  // Clean up the loose files
+  for (auto&& e : entries) Filesystem::remove(e.first);
+  return out;
+}
+
 std::string FmuInternal::desc_in(FmuMemory* m, size_t id, bool more) const {
   // Create description
   if (more) {
@@ -747,14 +836,20 @@ int FmuInternal::eval_adj(FmuMemory* m) const {
   gather_adj(m);
   // Quick return if nothing to be calculated
   if (m->id_in_.size() == 0) return 0;
-  // Evaluate adjoint derivatives
-  if (get_adjoint_derivative(m->instance,
-      get_ptr(m->vr_out_), m->id_out_.size(),
-      get_ptr(m->vr_in_), m->id_in_.size(),
-      get_ptr(m->d_out_), m->id_out_.size(),
-      get_ptr(m->d_in_), m->id_in_.size())) {
-    casadi_warning("FMU adjoint derivative failed");
-    return 1;
+  // Check if no seeds
+  if (m->id_out_.size() == 0) {
+    // Sensitivities are zero, trivially
+    std::fill(m->d_in_.begin(), m->d_in_.end(), 0);
+  } else {
+    // Evaluate adjoint derivatives
+    if (get_adjoint_derivative(m->instance,
+        get_ptr(m->vr_out_), m->id_out_.size(),
+        get_ptr(m->vr_in_), m->id_in_.size(),
+        get_ptr(m->d_out_), m->id_out_.size(),
+        get_ptr(m->d_in_), m->id_in_.size())) {
+      casadi_warning("FMU adjoint derivative failed");
+      return 1;
+    }
   }
   // Collect requested variables
   auto it = m->d_in_.begin();
@@ -771,8 +866,13 @@ int FmuInternal::eval_ad(FmuMemory* m) const {
   size_t n_unknown = m->id_out_.size();
   // Quick return if nothing to be calculated
   if (n_unknown == 0) return 0;
+  // Quick return if no seeds
+  if (n_known == 0) {
+    std::fill(m->d_out_.begin(), m->d_out_.end(), 0);
+    return 0;
+  }
   // Evalute (should not be necessary)
-  if (get_real(m->instance, get_ptr(m->vr_out_), n_unknown, get_ptr(m->v_out_), n_unknown)) {
+  if (get_real(m->instance, get_ptr(m->vr_out_), n_unknown, get_ptr(m->v_out_), n_unknown, m)) {
     casadi_warning("FMU evaluation failed");
     return 1;
   }
@@ -800,8 +900,13 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
   size_t n_unknown = m->id_out_.size();
   // Quick return if nothing to be calculated
   if (n_unknown == 0) return 0;
+  // Quick return if no seeds
+  if (n_known == 0) {
+    std::fill(m->d_out_.begin(), m->d_out_.end(), 0);
+    return 0;
+  }
   // Evalute (should not be necessary)
-  if (get_real(m->instance, get_ptr(m->vr_out_), n_unknown, get_ptr(m->v_out_), n_unknown)) {
+  if (get_real(m->instance, get_ptr(m->vr_out_), n_unknown, get_ptr(m->v_out_), n_unknown, m)) {
     casadi_warning("Evaluating FMU failed");
     return 1;
   }
@@ -854,7 +959,7 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
     }
   }
   // All perturbed outputs
-  const double* yk_all[5] = {0};
+  const double* yk_all[5] = {nullptr};
 
   // Calculate all perturbed outputs
   for (casadi_int k = 0; k < n_points; ++k) {
@@ -881,15 +986,9 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
       m->v_pert_[i] = m->in_bounds_[i] ? test : m->v_in_[i];
     }
     // Pass perturbed inputs to FMU
-    if (set_real(m->instance, get_ptr(m->vr_in_), n_known, get_ptr(m->v_pert_), n_known)) {
-      casadi_warning("Setting FMU variables failed");
-      return 1;
-    }
+    if (set_all(m, get_ptr(m->v_pert_), m->v_pert_.size())) return 1;
     // Evaluate perturbed FMU
-    if (get_real(m->instance, get_ptr(m->vr_out_), n_unknown, yk, n_unknown)) {
-      casadi_warning("Evaluation failed");
-      return 1;
-    }
+    if (get_all(m, yk, n_unknown)) return 1;
     // Post-process yk if there was any scaling
     if (independent_seeds) {
       for (size_t i = 0; i < n_unknown; ++i) {
@@ -903,7 +1002,7 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
           if (m->id_in_[wrt_i] == wrt_id) break;
         }
         // Check if in bounds
-        if (m->in_bounds_.at(wrt_i)) {
+        if (m->in_bounds_.at(wrt_i) && (m->self.fd_flip_ || !m->flip_[i])) {
           // Input was in bounds: Keep output, make dimensionless
           yk[i] /= nominal_out_[m->id_out_[i]];
         } else {
@@ -914,10 +1013,7 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
     }
   }
   // Restore FMU inputs
-  if (set_real(m->instance, get_ptr(m->vr_in_), n_known, get_ptr(m->v_in_), n_known)) {
-    casadi_warning("Setting FMU variables failed");
-    return 1;
-  }
+  if (set_all(m, get_ptr(m->v_in_), m->v_in_.size())) return 1;
   // Step size
   double h = m->self.step_;
 
@@ -1045,9 +1141,12 @@ void FmuInternal::get_fwd(FmuMemory* m, size_t ind, double* v) const {
 void FmuInternal::set_adj(FmuMemory* m, casadi_int nseed,
     const casadi_int* id, const double* v) const {
   for (casadi_int i = 0; i < nseed; ++i) {
-    m->osens_.at(*id) = *v++;
-    m->omarked_.at(*id) = true;
+    if (*v != 0.) {
+      m->osens_.at(*id) = *v;
+      m->omarked_.at(*id) = true;
+    }
     id++;
+    v++;
   }
 }
 
@@ -1065,7 +1164,7 @@ void FmuInternal::request_adj(FmuMemory* m, casadi_int nsens, const casadi_int* 
     const casadi_int* wrt_id) const {
   for (casadi_int i = 0; i < nsens; ++i) {
     m->imarked_.at(*id) = true;
-    m->wrt_.at(*id) = *wrt_id++;
+    m->wrt_.at(*id) = wrt_id ? *wrt_id++ : -1;
     id++;
   }
 }
@@ -1147,7 +1246,7 @@ int FmuInternal::discrete_states_iter(void* instance) const {
 
 int FmuInternal::init_mem(FmuMemory* m) const {
   // Ensure not already instantiated
-  casadi_assert(m->instance == 0, "Already instantiated");
+  casadi_assert(m->instance == nullptr, "Already instantiated");
   // Create instance
   m->instance = instantiate();
   // Set all values
@@ -1219,25 +1318,53 @@ void FmuInternal::request(FmuMemory* m, size_t ind) const {
   }
 }
 
-int FmuInternal::eval(FmuMemory* m) const {
-  // Gather inputs and outputs
-  gather_io(m);
-  // Number of inputs and outputs
-  size_t n_set = m->id_in_.size();
-  size_t n_out = m->id_out_.size();
-  // Set all variables
-  if (set_real(m->instance, get_ptr(m->vr_in_), n_set, get_ptr(m->v_in_), n_set)) {
+int FmuInternal::set_all(FmuMemory* m, const double* values, size_t n_values) const {
+  // Quick return if nothing to set
+  if (n_values == 0) return 0;
+  // Value references
+  const unsigned int* vr = get_ptr(m->vr_in_);
+  size_t n_vr = m->vr_in_.size();
+  // Set time variable, if any
+  if (has_independent_ && *vr == independent_vr_) {
+    // Update FMU time
+    if (set_time(m->instance, *values)) return 1;
+    // Skip when setting remaining variables
+    vr++;
+    n_vr--;
+    values++;
+    n_values--;
+    // Quick return if nothing left to set
+    if (n_vr == 0) return 0;
+  }
+
+  // Set remaining variables
+  if (set_real(m->instance, vr, n_vr, values, n_values)) {
     casadi_warning("Setting FMU variables failed");
     return 1;
   }
-  // Quick return if nothing requested
-  if (n_out == 0) return 0;
-  // Calculate all variables
-  m->v_out_.resize(n_out);
-  if (get_real(m->instance, get_ptr(m->vr_out_), n_out, get_ptr(m->v_out_), n_out)) {
+
+  return 0;
+}
+
+int FmuInternal::get_all(FmuMemory* m, double* values, size_t n_values) const {
+  // Quick return if nothing to get
+  if (n_values == 0) return 0;
+  // Retrieve from FMU
+  if (get_real(m->instance, get_ptr(m->vr_out_), m->vr_out_.size(), values, n_values, m)) {
     casadi_warning("Evaluation failed");
     return 1;
   }
+  // Successful return
+  return 0;
+}
+
+int FmuInternal::eval(FmuMemory* m) const {
+  // Gather inputs and outputs
+  gather_io(m);
+  // Pass inputs to FMU
+  if (set_all(m, get_ptr(m->v_in_), m->v_in_.size())) return 1;
+  // Get outputs from FMU
+  if (get_all(m, get_ptr(m->v_out_), m->v_out_.size())) return 1;
   // Collect requested variables
   auto it = m->v_out_.begin();
   for (size_t id : m->id_out_) {
@@ -1257,9 +1384,12 @@ void FmuInternal::get(FmuMemory* m, size_t ind, double* value) const {
 void FmuInternal::set_fwd(FmuMemory* m, casadi_int nseed,
     const casadi_int* id, const double* v) const {
   for (casadi_int i = 0; i < nseed; ++i) {
-    m->isens_.at(*id) = *v++;
-    m->imarked_.at(*id) = true;
+    if (*v != 0.) {
+      m->isens_.at(*id) = *v;
+      m->imarked_.at(*id) = true;
+    }
     id++;
+    v++;
   }
 }
 
@@ -1307,10 +1437,12 @@ void FmuInternal::gather_io(FmuMemory* m) const {
   // Collect output indices, corresponding value references
   m->id_out_.clear();
   m->vr_out_.clear();
+  m->v_out_.clear();
   for (size_t id = 0; id < m->omarked_.size(); ++id) {
     if (m->omarked_[id]) {
       m->id_out_.push_back(id);
       m->vr_out_.push_back(vr_out_[id]);
+      m->v_out_.push_back(nan);
       m->omarked_[id] = false;
     }
   }
@@ -1319,8 +1451,7 @@ void FmuInternal::gather_io(FmuMemory* m) const {
 void FmuInternal::gather_fwd(FmuMemory* m) const {
   // Gather input and output indices
   gather_io(m);
-  // Number of inputs and outputs
-  size_t n_known = m->id_in_.size();
+  // Number of outputs
   size_t n_unknown = m->id_out_.size();
   // Get/clear seeds
   m->d_in_.clear();
@@ -1328,8 +1459,6 @@ void FmuInternal::gather_fwd(FmuMemory* m) const {
     m->d_in_.push_back(m->isens_[id]);
     m->isens_[id] = 0;
   }
-  // Ensure at least one seed
-  casadi_assert(n_known != 0, "No seeds");
   // Allocate result vectors
   m->v_out_.resize(n_unknown);
   m->d_out_.resize(n_unknown);
@@ -1340,22 +1469,19 @@ void FmuInternal::gather_adj(FmuMemory* m) const {
   gather_io(m);
   // Number of inputs and outputs
   size_t n_known = m->id_in_.size();
-  size_t n_unknown = m->id_out_.size();
   // Get/clear seeds
   m->d_out_.clear();
   for (size_t id : m->id_out_) {
     m->d_out_.push_back(m->osens_[id]);
     m->osens_[id] = 0;
   }
-  // Ensure at least one seed
-  casadi_assert(n_unknown != 0, "No seeds");
   // Allocate result vectors
   m->v_in_.resize(n_known);
   m->d_in_.resize(n_known);
 }
 
 void Fmu::serialize(SerializingStream &s) const {
-  return (*this)->serialize(s);
+  (*this)->serialize(s);
 }
 
 Fmu Fmu::deserialize(DeserializingStream& s) {
@@ -1416,6 +1542,7 @@ void FmuInternal::serialize_body(SerializingStream& s) const {
   s.pack("FmuInternal::provides_adjoint_derivatives", provides_adjoint_derivatives_);
   s.pack("FmuInternal::can_be_instantiated_only_once_per_process",
     can_be_instantiated_only_once_per_process_);
+  s.pack("FmuInternal::start_time", start_time_);
   s.pack("FmuInternal::nx", nx_);
   s.pack("FmuInternal::do_evaluation_dance", do_evaluation_dance_);
 }
@@ -1459,6 +1586,7 @@ FmuInternal::FmuInternal(DeserializingStream& s) {
   s.unpack("FmuInternal::provides_adjoint_derivatives", provides_adjoint_derivatives_);
   s.unpack("FmuInternal::can_be_instantiated_only_once_per_process",
     can_be_instantiated_only_once_per_process_);
+  s.unpack("FmuInternal::start_time", start_time_);
   s.unpack("FmuInternal::nx", nx_);
   s.unpack("FmuInternal::do_evaluation_dance", do_evaluation_dance_);
 }

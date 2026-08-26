@@ -1,3 +1,4 @@
+import logging
 import struct
 import unittest
 from types import SimpleNamespace
@@ -141,6 +142,43 @@ class TestDelphiPythiaProvider(unittest.TestCase):
         self.assertNotIn(DelphiPythiaProvider, {type(provider) for provider in engine.api_providers})
 
 
+class TestDelphiReSymDeadEndLogging(unittest.TestCase):
+    """Both paths run after the MZ + TObject signature match, so they are real dead ends."""
+
+    def setUp(self):
+        # another test module's import-time logging.disable() would hide these records
+        previous_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+        self.addCleanup(logging.disable, previous_disable)
+
+    @staticmethod
+    def _delphi_binary_info(code_areas):
+        binary = bytearray(0x2000)
+        binary[:2] = b"MZ"
+        binary[0x100:0x107] = b"TObject"
+        binary_info = BinaryInfo(bytes(binary))
+        binary_info.base_addr = 0x400000
+        binary_info.bitness = 32
+        binary_info.code_areas = code_areas
+        return binary_info
+
+    def test_a_binary_without_code_areas_is_reported_at_warning(self):
+        provider = DelphiReSymProvider(None)
+
+        with self.assertLogs("smda.common.labelprovider.DelphiReSymProvider", level="WARNING") as logged:
+            provider.update(self._delphi_binary_info([]))
+
+        self.assertIn("No code areas found", logged.output[0])
+
+    def test_out_of_bounds_code_area_offsets_are_reported_at_warning(self):
+        provider = DelphiReSymProvider(None)
+
+        with self.assertLogs("smda.common.labelprovider.DelphiReSymProvider", level="WARNING") as logged:
+            provider.update(self._delphi_binary_info([(0x400000, 0x409000)]))
+
+        self.assertIn("out of bounds", logged.output[0])
+
+
 class TestDelphiReSymNegativeOffsets(unittest.TestCase):
     def test_method_entry_below_the_image_is_rejected(self):
         parser = DelphiReSymProvider.__new__(DelphiReSymProvider)
@@ -149,6 +187,56 @@ class TestDelphiReSymNegativeOffsets(unittest.TestCase):
         parser._settings = SimpleNamespace(ptr_size=4, jump_dist=0)
 
         self.assertIsNone(parser._extract_method_info(-1))
+
+
+class TestDelphiTableWalksStopAtTheImageEdge(unittest.TestCase):
+    """Both walks take their entry count from a 16-bit field in the image, so a corrupt or
+    hostile table declares up to 65535 entries. The read offset only grows, so the first
+    unreadable entry means every later one is unreadable too: the walk has to stop there
+    instead of running out the declared count."""
+
+    def test_dynamic_method_walk_stops_at_the_image_edge(self):
+        provider = DelphiPythiaProvider.__new__(DelphiPythiaProvider)
+        provider._base_addr = 0x400000
+        provider._bitness = 32
+        provider._binary_info = SimpleNamespace(isInCodeAreas=lambda addr: True)
+        table_length = 0xFFFF
+        # the pointer array follows the 2-byte count plus one word per declared entry
+        pointers_offset = 2 + 2 * table_length
+        binary = bytearray(pointers_offset + 8)
+        binary[0:2] = struct.pack("<H", table_length)
+        binary[pointers_offset : pointers_offset + 8] = struct.pack("<II", 0x401000, 0x402000)
+        provider._binary = bytes(binary)
+        reads = []
+        read_ptr = provider._read_ptr
+        provider._read_ptr = lambda offset, ptr_size: reads.append(offset) or read_ptr(offset, ptr_size)
+        class_info = SimpleNamespace(dynamic_table_addr=provider._base_addr)
+        function_offsets = set()
+
+        provider._extract_dynamic_methods(class_info, function_offsets)
+
+        self.assertEqual(function_offsets, {0x401000, 0x402000})
+        self.assertEqual(len(reads), 3)
+
+    def test_method_definition_table_walk_stops_at_the_image_edge(self):
+        provider = DelphiReSymProvider.__new__(DelphiReSymProvider)
+        provider._base_addr = 0x400000
+        provider._settings = SimpleNamespace(ptr_size=4, jump_dist=0)
+        entry_stride = provider._settings.ptr_size + 4
+        binary = bytearray(4 + 2 * entry_stride)
+        binary[2:4] = struct.pack("<H", 0xFFFF)
+        binary[4:8] = struct.pack("<I", 0x401000)
+        binary[4 + entry_stride : 8 + entry_stride] = struct.pack("<I", 0x402000)
+        provider._binary = bytes(binary)
+        provider._extract_method_info = lambda offset: {"offset": offset}
+        reads = []
+        read_ptr = provider._read_ptr
+        provider._read_ptr = lambda offset: reads.append(offset) or read_ptr(offset)
+
+        methods = provider._parse_mdt(0)
+
+        self.assertEqual(methods, [{"offset": 0x1000}, {"offset": 0x2000}])
+        self.assertEqual(len(reads), 3)
 
 
 if __name__ == "__main__":

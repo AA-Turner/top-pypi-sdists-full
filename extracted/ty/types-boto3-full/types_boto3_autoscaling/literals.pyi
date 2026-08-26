@@ -68,6 +68,7 @@ __all__ = (
     "ScalingActivityStatusCodeType",
     "ServiceName",
     "StandbyInstancesType",
+    "TargetCapacityTypeType",
     "WarmPoolStateType",
     "WarmPoolStatusType",
 )
@@ -193,6 +194,12 @@ ScalingActivityStatusCodeType = Literal[
     "WaitingForSpotInstanceRequestId",
 ]
 StandbyInstancesType = Literal["Ignore", "Terminate", "Wait"]
+TargetCapacityTypeType = Literal[
+    "capacity-block",
+    "interruptible-capacity-reservation",
+    "on-demand",
+    "on-demand-capacity-reservation",
+]
 WarmPoolStateType = Literal["Hibernated", "Running", "Stopped"]
 WarmPoolStatusType = Literal["PendingDelete"]
 AutoScalingServiceName = Literal["autoscaling"]
@@ -378,6 +385,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

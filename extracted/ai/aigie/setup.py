@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.4.5",
+    version="0.4.6",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -119,6 +119,12 @@ setup(
         "gemini": [
             "google-generativeai>=0.3.0",
         ],
+        "bedrock": [
+            "boto3>=1.34.0",
+        ],
+        "cohere": [
+            "cohere>=5.0.0",
+        ],
         # LangChain integration
         "langchain": [
             "langchain-core>=0.1.0",
@@ -138,6 +144,11 @@ setup(
         ],
         "openai-agents": [
             "openai-agents>=0.9,<1",
+        ],
+        # Pipecat voice-pipeline integration (requires Python 3.11+; the SDK
+        # otherwise supports 3.10, so the marker keeps that leg installable).
+        "pipecat": [
+            "pipecat-ai>=1.7,<2; python_version>='3.11'",
         ],
         # Vector Database integrations
         "pinecone": [
@@ -191,8 +202,13 @@ setup(
             "respx>=0.20.0",
             "black>=23.0.0",
             "isort>=5.12.0",
-            "mypy>=1.5.0",
-            "ruff>=0.1.0",
+            # Exact pins: CI's typecheck job installs this extra, while
+            # its lint job, .pre-commit-config.yaml and
+            # scripts/agent-check.sh pin their own copies. Floors here let
+            # those drift a major version apart. Keep all five call sites in
+            # step (see the note in pyproject.toml).
+            "mypy==2.3.1",
+            "ruff==0.15.12",
             "pytest-timeout",
             "pytest-repeat>=0.9.3",
             "tenacity>=8.2.0",
@@ -201,6 +217,7 @@ setup(
             # protobuf gencode version baked into the committed _pb/ stubs.
             "grpcio-tools==1.80.0",
             "import-linter>=2.0",
+            "diff-cover==10.5.1",
         ],
         # Documentation
         "docs": [
@@ -216,12 +233,15 @@ setup(
             "openai>=1.0.0,<3",
             "anthropic>=0.18.0",
             "google-generativeai>=0.3.0",
+            "boto3>=1.34.0",
+            "cohere>=5.0.0",
             # Frameworks
             "langchain-core>=0.1.0",
             "langgraph>=0.0.20",
             "claude-agent-sdk>=0.0.10",
             "strands-agents>=1.0",
             "openai-agents>=0.9,<1",
+            "pipecat-ai>=1.7,<2; python_version>='3.11'",
             # Observability
             "opentelemetry-api>=1.20.0",
             "opentelemetry-sdk>=1.20.0",
@@ -234,6 +254,7 @@ setup(
             "claude-agent-sdk>=0.0.10",
             "strands-agents>=1.0",
             "openai-agents>=0.9,<1",
+            "pipecat-ai>=1.7,<2; python_version>='3.11'",
         ],
     },
     # Entry points for CLI tools and pytest plugins

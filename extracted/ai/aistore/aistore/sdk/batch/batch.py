@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Generator, List, Tuple, Union, Optional
 from urllib3.response import HTTPResponse
 
-from aistore.sdk.batch.extractor.extractor_manager import ExtractorManager
+from aistore.sdk.batch.extractor.extractor_registry import get_extractor
 from aistore.sdk.batch.multipart.multipart_decoder import MultipartDecoder
 from aistore.sdk.batch.types import MossIn, MossOut, MossReq, MossResp
 from aistore.sdk.bucket import Bucket
@@ -63,7 +63,12 @@ class Batch:
                 - Single Object instance
                 - List of Object instances
                 - None (add objects later via add())
-                Note: if objects are specified as raw names (str or list of str), bucket must be provided
+            Note:
+                - If objects are specified as raw names (str or list of str), bucket must be provided
+                - This is a convenience path for the common case of a flat list of names/Objects
+                    sharing the default bucket. It does not carry per-item metadata: archpath, byte
+                    ranges (start/length), opaque data, or a per-item bck/provider override. For any of
+                    that, use add() per object instead.
             bucket (Bucket): Default bucket for all objects
             output_format (str): Archive format (tar, tgz, zip)
             cont_on_err (bool): Continue on errors (missing files under __404__/). Defaults to True
@@ -72,7 +77,11 @@ class Batch:
             colocation (Colocation): Colocation hint for optimization. Defaults to Colocation.NONE.
                 - Colocation.NONE: no optimization - suitable for uniformly distributed data
                 - Colocation.TARGET_AWARE: target-aware - objects are collocated on few targets
-                - Colocation.TARGET_AND_SHARD_AWARE: target and shard-aware - enables archive handle reuse
+                - Colocation.TARGET_AND_SHARD_AWARE: implies TARGET_AWARE; also enables archive handle
+                  reuse when multiple archpaths come from the same shard (not yet implemented)
+
+        Raises:
+            NotImplementedError: If colocation is Colocation.TARGET_AND_SHARD_AWARE.
 
         Example:
             # Quick batch with string names
@@ -94,10 +103,11 @@ class Batch:
             or colocation > Colocation.TARGET_AND_SHARD_AWARE
         ):
             raise ValueError(
-                f"Invalid colocation value: {colocation}. Must be 0, 1, or 2:\n"
-                "  - 0 (Colocation.NONE): no optimization - suitable for uniformly distributed data\n"
-                "  - 1 (Colocation.TARGET_AWARE): target-aware - objects are collocated on few targets\n"
-                "  - 2 (Colocation.TARGET_AND_SHARD_AWARE): target and shard-aware - enables archive handle reuse"
+                f"Invalid colocation value: {colocation}. Must be a Colocation enum member."
+            )
+        if colocation == Colocation.TARGET_AND_SHARD_AWARE:
+            raise NotImplementedError(
+                "Colocation.TARGET_AND_SHARD_AWARE is not yet implemented on the server side."
             )
 
         # Initialize MossReq
@@ -112,9 +122,14 @@ class Batch:
 
         # Process initial objects if provided
         if objects is not None:
-            self._add_objects(objects)
+            for obj in objects if isinstance(objects, list) else [objects]:
+                if isinstance(obj, (Object, str)):
+                    self.add(obj)
+                else:
+                    logger.error("Unsupported object type: %s", type(obj))
+                    raise ValueError(f"Unsupported object type: {type(obj)}")
 
-        self.extractor = ExtractorManager().get_extractor(output_format)
+        self.extractor = get_extractor(output_format)
 
     @property
     def requests_list(self) -> List[MossIn]:
@@ -123,59 +138,7 @@ class Batch:
         """
         return self.request.moss_in
 
-    def _add_objects(self, objects: Union[List[Object], Object, str, List[str]]):
-        """
-        Internal helper to add objects in bulk.
-        Supports strings, Object instances, or lists of either.
-        """
-        if isinstance(objects, list):
-            for obj in objects:
-                if isinstance(obj, Object):
-                    self.request.add(
-                        MossIn(
-                            obj_name=obj.name,
-                            bck=obj.bucket_name,
-                            provider=obj.bucket_provider.value,
-                        )
-                    )
-                elif isinstance(obj, str):
-                    if not self.bucket:
-                        logger.error(
-                            "Cannot add string object '%s': no bucket provided", obj
-                        )
-                        raise ValueError(_BUCKET_REQUIRED_MSG)
-                    self.request.add(
-                        MossIn(
-                            obj_name=obj,
-                            bck=self.bucket.name,
-                            provider=self.bucket.provider.value,
-                        )
-                    )
-                else:
-                    logger.error("Unsupported object type: %s", type(obj))
-                    raise ValueError(f"Unsupported object type: {type(obj)}")
-        elif isinstance(objects, Object):
-            self.request.add(
-                MossIn(
-                    obj_name=objects.name,
-                    bck=objects.bucket_name,
-                    provider=objects.bucket_provider.value,
-                )
-            )
-        elif isinstance(objects, str):
-            if not self.bucket:
-                logger.error(
-                    "Cannot add string object '%s': no bucket provided", objects
-                )
-                raise ValueError(_BUCKET_REQUIRED_MSG)
-            self.request.add(
-                MossIn(
-                    obj_name=objects,
-                    bck=self.bucket.name,
-                    provider=self.bucket.provider.value,
-                )
-            )
-
+    # pylint: disable=too-many-arguments, too-many-positional-arguments
     def add(
         self,
         obj: Union[Object, str],
@@ -183,65 +146,120 @@ class Batch:
         archpath: Optional[str] = None,
         start: Optional[int] = None,
         length: Optional[int] = None,
+        bck: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> "Batch":
         """
         Add object with advanced parameters (archpath, byte ranges, opaque data).
 
         For simple objects, prefer passing them to __init__ instead.
 
-        Note: if objects are specified as raw names (str), default bucket must be provided in __init__
+        Note: if objects are specified as raw names (str), a bucket must be resolved either
+        from the default bucket provided in __init__, or per-call via bck/provider.
 
         Args:
             obj (Union[Object, str]): Object or object name string
             opaque (Optional[bytes]): User-provided binary identifier (returned unchanged)
             archpath (Optional[str]): Extract file from archive (e.g., "images/photo.jpg")
-            start (Optional[int]): Byte range start offset
-            length (Optional[int]): Byte range length
+            start (Optional[int]): Byte range start offset. When archpath is empty the range
+                applies to the object bytes as stored; when archpath is set it applies to the
+                extracted archived file. A non-zero start requires a length.
+            length (Optional[int]): Number of bytes to read starting at start. Pass -1 to read
+                from start to the end of the object (open-ended); a positive value reads exactly
+                that many bytes (and the corresponding MossOut.size equals length).
+            bck (Optional[str]): Bucket name for this object, overriding the default bucket.
+                Only valid when obj is a string, and must be paired with provider (both or
+                neither). Use this (instead of bucket.object(obj_name)) for batches spanning
+                multiple buckets/providers, since it skips constructing an Object/BucketDetails
+                wrapper per call.
+            provider (Optional[str]): Provider for this object (e.g. "s3", "ais"). Only valid
+                when obj is a string; must be paired with bck (both or neither).
 
         Returns:
             Batch: Self for method chaining
+
+        Raises:
+            ValueError: If the byte range is invalid (negative start, length < -1, or a
+                non-zero start without a length), if bck/provider is combined with an
+                Object instance, or if exactly one of bck/provider is set without the other.
 
         Example:
             batch = Batch(client, ["simple1.txt", "simple2.txt"])
             batch.add("shard.tar", archpath="data/file.json")  # Archive extraction
             batch.add("tracked.txt", opaque=b"user-id-123")  # With tracking data
+            batch.add("large.bin", start=1024, length=2048)  # Byte range read
+            batch.add("large.bin", start=1024, length=-1)  # Open-ended range: offset 1024 to EOF
+            batch.add("shard.tar", archpath="data/file.json", start=128, length=512)  # Range within an archived file
+            batch.add("other.txt", bck="other-bucket", provider="s3")  # Object in a different bucket
         """
-        # TODO: Implement byte range support on server-side
+        # Skip when there's nothing to validate since we requires
+        # start or length to be nonzero (negative numbers are truthy)
         if start or length:
-            logger.warning(
-                "Byte range request not yet supported: start=%s, length=%s",
-                start,
-                length,
-            )
-            raise NotImplementedError("Batch byte range support is not yet implemented")
+            self._validate_byte_range(start, length)
 
-        # Build MossIn
+        if (bck is None) != (provider is None):
+            raise ValueError("bck and provider must be set together, or not at all")
+
+        # Build MossIn (frozen, so optional fields must be passed at construction time)
+        extra = {}
+        if opaque:
+            extra["opaque"] = base64.urlsafe_b64encode(opaque).decode("utf-8")
+        if archpath:
+            extra["archpath"] = archpath
+        if start:
+            extra["start"] = start
+        if length:
+            extra["length"] = length
+
         if isinstance(obj, Object):
+            if bck is not None or provider is not None:
+                raise ValueError(
+                    "bck/provider cannot be combined with an Object instance"
+                )
             moss_in = MossIn(
                 obj_name=obj.name,
                 bck=obj.bucket_name,
                 provider=obj.bucket_provider.value,
+                **extra,
             )
         else:
-            if not self.bucket:
-                logger.error("Cannot add string object '%s': no bucket provided", obj)
-                raise ValueError(_BUCKET_REQUIRED_MSG)
+            # Per-call bck/provider let callers with heterogeneous buckets skip building an
+            # Object/BucketDetails wrapper (bucket.object(obj_name)) for every add() call
+            if bck is None:
+                if not self.bucket:
+                    logger.error(
+                        "Cannot add string object '%s': no bucket provided", obj
+                    )
+                    raise ValueError(_BUCKET_REQUIRED_MSG)
+                bck = self.bucket.name
+                provider = self.bucket.provider.value
             moss_in = MossIn(
-                obj_name=obj, bck=self.bucket.name, provider=self.bucket.provider.value
+                obj_name=obj,
+                bck=bck,
+                provider=provider,
+                **extra,
             )
-
-        # Add optional parameters
-        if opaque:
-            moss_in.opaque = base64.urlsafe_b64encode(opaque).decode("utf-8")
-        if archpath:
-            moss_in.archpath = archpath
-        if start:
-            moss_in.start = start
-        if length:
-            moss_in.length = length
 
         self.request.add(moss_in)
         return self  # Allow chaining
+
+    @staticmethod
+    def _validate_byte_range(start: Optional[int], length: Optional[int]) -> None:
+        """Mirrors server-side apc.MossIn checks: start must be >= 0; length is
+        either > 0 (bounded) or -1 to read from start to the end of the object.
+        A non-zero start requires an explicit length (use length=-1 to read to
+        the end)."""
+        if start and start < 0:
+            raise ValueError(f"Invalid byte range: start={start} must be >= 0")
+        if length is not None and length < -1:
+            raise ValueError(
+                f"Invalid byte range: length={length} must be > 0, or -1 to read to the end"
+            )
+        if start and (length is None or length == 0):
+            raise ValueError(
+                f"Invalid byte range: start={start} requires length > 0 or -1 "
+                "(use -1 to read to the end)"
+            )
 
     def clear(self) -> "Batch":
         """
@@ -326,10 +344,9 @@ class Batch:
         )
 
         if clear_batch:
-            # Create a deep copy of the request for the extractor to use.
-            # This allows us to clear the batch immediately while the generator
-            # (which may be consumed later) still has access to the request data.
-            request_snapshot = self.request.model_copy(deep=True)
+            # A shallow copy of the MossReq shell is sufficient since MossIn objects
+            # are never mutated by clear() or the generator
+            request_snapshot = self.request.model_copy()
             self.clear()
         else:
             request_snapshot = self.request
@@ -339,7 +356,7 @@ class Batch:
             return response.raw
 
         # TODO: Handle error response, create customized errors
-        if self.request.streaming_get:
+        if request_snapshot.streaming_get:
             return self._extract_streaming(response, request_snapshot)
         return self._extract_multipart(response, decode_as_stream, request_snapshot)
 

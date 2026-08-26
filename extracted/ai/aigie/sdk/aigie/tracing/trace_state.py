@@ -1,7 +1,7 @@
 """Unified trace state: ambient (per-call) + registry (cross-call).
 
-ONE module exposing two API surfaces because they answer the same question
-("what trace am I in?") at different timescales:
+ONE module exposing several API surfaces because they answer the same question
+("what trace am I in?") at different timescales and for different consumers:
 
 - Surface A (Ambient): within a single run. Per-asyncio-task ContextVar.
   Replaces the old SpanContext concept and absorbs the role of the previous
@@ -10,6 +10,15 @@ ONE module exposing two API surfaces because they answer the same question
 - Surface B (Registry): across runs. Module-level dict + lock. Maps a
   framework's resume_key (e.g. LangGraph thread_id) to the trace object so
   call N+1 can reuse the trace opened in call N (interrupt/resume).
+
+- Surface B2 / C (Registries): traces whose root has already closed, and
+  in-flight spans registered with a finalize callable so an unclean shutdown
+  still ships them as interrupted.
+
+- Surface D (Provider-span claim): which threads have an integration that
+  already emits the ``llm`` span for any provider call made there. Thread-keyed
+  because the frameworks that need it (Pipecat) run on tasks Surface A cannot
+  reach. Read only by the bare provider patch's suppression predicate.
 
 Cross-task isolation comes free from ContextVar semantics: asyncio.gather
 fans out via ``copy_context()`` so each task gets its own span_stack copy.
@@ -103,21 +112,36 @@ _thread_counter: dict[int, int] = {}
 _thread_counter_lock = threading.Lock()
 
 
-def _inc_thread_counter() -> None:
+def _counter_inc(counter: dict[int, int], lock: threading.Lock) -> None:
+    """Add one to this thread's entry in a thread-keyed reentrancy counter."""
     tid = threading.get_ident()
-    with _thread_counter_lock:
-        _thread_counter[tid] = _thread_counter.get(tid, 0) + 1
+    with lock:
+        counter[tid] = counter.get(tid, 0) + 1
+
+
+def _counter_dec(counter: dict[int, int], lock: threading.Lock) -> None:
+    """Remove one, flooring at zero and dropping the key so the dict stays bounded."""
+    tid = threading.get_ident()
+    with lock:
+        remaining = max(0, counter.get(tid, 0) - 1)
+        if remaining:
+            counter[tid] = remaining
+        else:
+            counter.pop(tid, None)
+
+
+def _counter_active(counter: dict[int, int], lock: threading.Lock) -> bool:
+    """True when this thread holds at least one entry."""
+    with lock:
+        return counter.get(threading.get_ident(), 0) > 0
+
+
+def _inc_thread_counter() -> None:
+    _counter_inc(_thread_counter, _thread_counter_lock)
 
 
 def _dec_thread_counter() -> None:
-    tid = threading.get_ident()
-    with _thread_counter_lock:
-        cur = _thread_counter.get(tid, 0)
-        new = max(0, cur - 1)
-        if new == 0:
-            _thread_counter.pop(tid, None)
-        else:
-            _thread_counter[tid] = new
+    _counter_dec(_thread_counter, _thread_counter_lock)
 
 
 # ─── Surface B: Cross-call registry ─────────────────────────────────────
@@ -234,3 +258,39 @@ def drain_open_spans_as_interrupted() -> list[dict[str, Any]]:
         payload["status"] = SpanStatus.INTERRUPTED.value
         payloads.append(payload)
     return payloads
+
+
+# ─── Surface D: Provider-span ownership (thread-keyed) ───────────────────
+#
+# An integration whose framework drives its pipeline from several
+# independently-created asyncio tasks on one event loop (Pipecat) cannot rely
+# on Surface A to suppress the bare LLM-provider patch: the ambient state is
+# opened in the task that observed the conversation start, and every task
+# asyncio creates gets its own ``copy_context()``, so the task the framework's
+# LLM service runs in sees no ambient trace at all. The provider patch would
+# then open a whole second trace for a call the integration is already
+# emitting a priceable ``llm`` span for.
+#
+# Keyed by thread rather than process-global so the claim reaches the sibling
+# tasks of one event loop (they share a thread) and nothing else: a provider
+# call issued from another thread — another framework's run, or a worker pool —
+# is left untouched. Deliberately consulted ONLY by the provider patch's
+# suppression predicate; it must not gate whether a run opens its own root.
+
+_provider_span_claims: dict[int, int] = {}
+_provider_span_claims_lock = threading.Lock()
+
+
+def claim_provider_spans() -> None:
+    """Declare that this thread's integration owns ``llm`` spans for its runs."""
+    _counter_inc(_provider_span_claims, _provider_span_claims_lock)
+
+
+def release_provider_spans() -> None:
+    """Drop one claim made by ``claim_provider_spans`` (idempotent at zero)."""
+    _counter_dec(_provider_span_claims, _provider_span_claims_lock)
+
+
+def provider_spans_claimed() -> bool:
+    """True when an integration on this thread already emits the ``llm`` spans."""
+    return _counter_active(_provider_span_claims, _provider_span_claims_lock)

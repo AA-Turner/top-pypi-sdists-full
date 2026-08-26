@@ -103,6 +103,7 @@ from bernstein.core.agents.spawner_worktree import (
 from bernstein.core.context import TaskContextBuilder
 from bernstein.core.context_recommendations import RecommendationEngine
 from bernstein.core.defaults import SPAWN
+from bernstein.core.evidence.run_artifacts import record_persistent_agent_step
 from bernstein.core.lessons import gather_lessons_for_context
 from bernstein.core.lifecycle import transition_agent
 from bernstein.core.models import (
@@ -1618,6 +1619,7 @@ class AgentSpawner:
         # dashboard can observe pending jobs and so merge-tree conflict checks
         # can be inserted on the queue's boundary ( fix).
         self._merge_queue: Any = None
+        self._quality_gate_config: Any = None
         self._traces: dict[str, AgentTrace] = {}
         self._trace_store = TraceStore(workdir / ".sdd" / "traces")
         self._runtime_bridge = runtime_bridge
@@ -1958,6 +1960,10 @@ class AgentSpawner:
         """
         self._merge_queue = merge_queue
 
+    def set_quality_gate_config(self, config: Any) -> None:
+        """Wire in the orchestrator's :class:`QualityGatesConfig` (#4393)."""
+        self._quality_gate_config = config
+
     def _merge_and_cleanup_worktree(
         self,
         session: AgentSession,
@@ -1978,6 +1984,7 @@ class AgentSpawner:
             workdir=self._workdir,
             merge_worktree_branch_fn=self._merge_worktree_branch,
             merge_queue=self._merge_queue,
+            quality_gate_config=self._quality_gate_config,
         )
 
     def _touch_prespawn_heartbeat(self, session_id: str) -> None:
@@ -2081,6 +2088,7 @@ class AgentSpawner:
             traces=self._traces,
             trace_store=self._trace_store,
             merge_queue=self._merge_queue,
+            quality_gate_config=self._quality_gate_config,
         )
         # Artifact-mode session (issue #2996): no worktree, so the merge path
         # above was a structural no-op; remove the plain workspace directory
@@ -4878,6 +4886,10 @@ class AgentSpawner:
             except Exception as exc:
                 logger.warning("Failed to write initial trace for %s: %s", session_id, exc)
 
+            # Record persistent-agent step for each task if adapter is persistent
+            for _t in tasks:
+                record_persistent_agent_step(self._workdir / ".sdd", _t.id, adapter_name)
+
             get_plugin_manager().fire_agent_spawned(
                 session_id=session.id, role=session.role, model=session.model_config.model
             )
@@ -5239,6 +5251,10 @@ class AgentSpawner:
 
         # Track worktree so reap_completed_agent can merge+clean up
         self._worktree_paths[session_id] = worktree_path
+
+        # Record persistent-agent step for each task if adapter is persistent
+        for _t in tasks:
+            record_persistent_agent_step(self._workdir / ".sdd", _t.id, self._adapter.name())
 
         return session
 

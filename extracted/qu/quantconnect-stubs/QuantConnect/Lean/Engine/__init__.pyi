@@ -1,6 +1,7 @@
 from typing import overload
 from enum import IntEnum
 import datetime
+import typing
 
 import QuantConnect
 import QuantConnect.Interfaces
@@ -213,7 +214,19 @@ class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResult
         """
         ...
 
-    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta) -> None:
+    @property
+    def user_warning_handler(self) -> typing.Callable[[str], typing.Any]:
+        """
+        Optional handler used to also surface the slow time step warning to the user,
+        e.g. through the result handler's debug messages. Engine logs alone don't reach the user's logs
+        """
+        ...
+
+    @user_warning_handler.setter
+    def user_warning_handler(self, value: typing.Callable[[str], typing.Any]) -> None:
+        ...
+
+    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta, time_loop_warning_threshold: typing.Optional[datetime.timedelta] = None) -> None:
         """
         Initializes a new instance of AlgorithmTimeLimitManager to manage the
         creation of IsolatorLimitResult instances as it pertains to the
@@ -224,6 +237,8 @@ class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResult
         :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to
         spend in a single time loop. This value can be overriden if certain actions are taken by the
         algorithm, such as invoking the training methods.
+        :param time_loop_warning_threshold: Elapsed time of a single time loop after which a warning is logged,
+        once per time step. Defaults to three minutes; a non positive value disables the warning
         """
         ...
 

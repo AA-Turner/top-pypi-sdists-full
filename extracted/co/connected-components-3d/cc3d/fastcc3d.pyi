@@ -240,12 +240,12 @@ def region_graph(
 def statistics(
     out_labels: NDArray[Any],
     no_slice_conversion: Literal[False] = False,
-) -> StatisticsDict: ...
+) -> StatisticsSlicesDict: ...
 @overload
 def statistics(
     out_labels: NDArray[Any],
     no_slice_conversion: Literal[True],
-) -> StatisticsSlicesDict: ...
+) -> StatisticsDict: ...
 def statistics(  # type: ignore[misc]
     out_labels: NDArray[Any],
     no_slice_conversion: bool = False,
@@ -359,3 +359,10 @@ def draw(
 ) -> NDArray[UnsignedIntegerT]:
     """Draws label onto the provided image according to runs."""
     ...
+
+def offset_foreground(
+  labels:NDArray[np.uint64],
+  offset:int,
+):
+    ...
+

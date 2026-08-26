@@ -1,6 +1,6 @@
 # This code is a Qiskit project.
 #
-# (C) Copyright IBM 2025.
+# (C) Copyright IBM 2025, 2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,8 +18,10 @@ from qiskit.circuit import Parameter, QuantumCircuit
 from qiskit.transpiler import PassManager
 from qiskit.transpiler.exceptions import TranspilerError
 
-from samplomatic.annotations import Twirl
+from samplomatic.annotations import DecompositionMode, GroupMode, Twirl
 from samplomatic.transpiler.passes import AddTerminalRightDressedBoxes
+
+from .utils import NamedMeasure
 
 
 def make_circuits():
@@ -217,6 +219,44 @@ def make_circuits():
 
     yield (circuit, expected_circuit, "circuit_ghz_blocked_gates")
 
+    circuit = QuantumCircuit(4)
+    with circuit.box([Twirl()]):
+        circuit.cx(0, 1)
+    with circuit.box([Twirl()]):
+        circuit.cx(1, 2)
+    circuit.delay(100, 1, unit="dt")
+    with circuit.box([Twirl()]):
+        circuit.cx(2, 3)
+
+    expected_circuit = QuantumCircuit(4)
+    with expected_circuit.box([Twirl()]):
+        expected_circuit.cx(0, 1)
+    with expected_circuit.box([Twirl()]):
+        expected_circuit.cx(1, 2)
+    expected_circuit.delay(100, 1, unit="dt")
+    with expected_circuit.box([Twirl()]):
+        expected_circuit.cx(2, 3)
+    with expected_circuit.box([Twirl(dressing="right")]):
+        expected_circuit.noop([0, 1, 2, 3])
+
+    yield (circuit, expected_circuit, "circuit_ghz_with_delay")
+
+    circuit = QuantumCircuit(1, 2)
+    with circuit.box([Twirl()]):
+        circuit.x(0)
+    circuit.append(NamedMeasure("measure_2"), [0], [0])
+    circuit.append(NamedMeasure("measure_2"), [0], [1])
+
+    expected_circuit = QuantumCircuit(1, 2)
+    with expected_circuit.box([Twirl()]):
+        expected_circuit.x(0)
+    with expected_circuit.box([Twirl(dressing="right")]):
+        expected_circuit.noop(0)
+    expected_circuit.append(NamedMeasure("measure_2"), [0], [0])
+    expected_circuit.append(NamedMeasure("measure_2"), [0], [1])
+
+    yield circuit, expected_circuit, "circuit_with_measure_2"
+
 
 def pytest_generate_tests(metafunc):
     if "circuit" in metafunc.fixturenames:
@@ -229,6 +269,22 @@ def pytest_generate_tests(metafunc):
         real_and_expected = [(test[0], test[1]) for test in circuits_to_compare]
         descriptions = [test[2] for test in circuits_to_compare]
         metafunc.parametrize("circuits_to_compare", real_and_expected, ids=descriptions)
+
+
+def test_non_default():
+    """Test `AddTerminalRightDressedBoxes` with non-defaults."""
+    the_pass = AddTerminalRightDressedBoxes("local_c1", "rzrx")
+    assert the_pass.decomposition == "rzrx"
+    assert the_pass.group == "local_c1"
+
+    circuit = QuantumCircuit(1)
+    with circuit.box([Twirl()]):
+        circuit.noop(0)
+
+    boxed_circuit = PassManager(passes=[the_pass]).run(circuit)
+    twirl = boxed_circuit[-1].operation.annotations[0]
+    assert twirl.group is GroupMode.LOCAL_C1
+    assert twirl.decomposition is DecompositionMode.RZRX
 
 
 def test_transpiled_circuits_have_correct_boxops(circuits_to_compare):

@@ -24,6 +24,18 @@
 #include "exception.hpp"
 #include "global_options.hpp"
 #include <bitset>
+#include <cstdlib>
+#include <cstring>
+#ifdef CASADI_WITH_THREAD
+#ifdef CASADI_WITH_THREAD_MINGW
+#include <mingw.mutex.h>
+#else // CASADI_WITH_THREAD_MINGW
+#include <mutex>
+#endif // CASADI_WITH_THREAD_MINGW
+#endif //CASADI_WITH_THREAD
+#ifdef __EMSCRIPTEN__
+#include <set>
+#endif
 
 #ifndef _WIN32
 #ifdef WITH_DEEPBIND
@@ -47,7 +59,7 @@ namespace casadi {
 // http://stackoverflow.com/questions/303562/c-format-macro-inline-ostringstream
 #define STRING(ITEMS) \
   ((dynamic_cast<std::ostringstream &>(std::ostringstream() \
-    . seekp(0, std::ios_base::cur) << ITEMS)) . str())
+    . seekp(0, std::ios_base::cur) << (ITEMS))) . str())
 
 char pathsep() {
     #ifdef _WIN32
@@ -68,6 +80,18 @@ std::vector<std::string> get_search_paths() {
 
     // Build up search paths;
     std::vector<std::string> search_paths;
+
+    // Search path: CASADI_PLUGIN_SEARCH_PATH env variable
+    // (highest priority; takes precedence over the bundled install dir
+    //  that the Python wrapper writes into GlobalOptions::casadipath)
+    char* pPLUGIN = getenv("CASADI_PLUGIN_SEARCH_PATH");
+    if (pPLUGIN!=nullptr) {
+        std::stringstream pluginpaths(pPLUGIN);
+        std::string pluginpath;
+        while (std::getline(pluginpaths, pluginpath, pathsep())) {
+            search_paths.push_back(pluginpath);
+        }
+    }
 
     // Search path: global casadipath option
     std::stringstream casadipaths(GlobalOptions::getCasadiPath());
@@ -103,7 +127,65 @@ std::vector<std::string> get_search_paths() {
     return search_paths;
 }
 
+#ifdef _WIN32
+// Forward declaration; defined below.
+std::wstring utf8_to_utf16(const std::string& s);
+#endif
+
 #ifdef WITH_DL
+
+#ifndef _WIN32
+#ifdef WITH_DEEPBIND
+#if !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+#if __GLIBC__
+namespace {
+  // Copy relocation gives a process two distinct `environ` objects: the live one in the
+  // executable's .bss, and a permanently-NULL one in glibc's .bss. Code loaded under
+  // RTLD_DEEPBIND binds to the latter and therefore sees no environment at all --
+  // getenv() is unaffected, but anything iterating environ directly (every OpenMP
+  // runtime does, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111556) silently
+  // reads nothing. See also https://github.com/conda-forge/casadi-feedstock/issues/93
+  //
+  // We publish a snapshot into that dead slot. The snapshot is ours, so glibc can never
+  // free it and it never has to be restored -- restoring is what caused casadi#4317
+  // (writes NULL back, later readers null-deref) and casadi#4373 (leaves a pointer that
+  // glibc's setenv may realloc away).
+  //
+  // A superseded snapshot can still be held by an earlier plugin, so it is never freed.
+  // valgrind reports those as definitely lost; see the casadi/environ_snapshot entry in
+  // test/internal/valgrind-casadi.supp.
+  char** environ_snapshot = nullptr;
+  std::size_t environ_snapshot_n = 0;
+#ifdef CASADI_WITH_THREAD
+  std::mutex environ_snapshot_mutex;
+#endif //CASADI_WITH_THREAD
+
+  void publish_environ_snapshot() {
+    char*** slot = reinterpret_cast<char***>(dlsym(RTLD_NEXT, "environ"));
+    if (!slot || slot == &environ) return;   // no duplicate symbol: nothing to do
+#ifdef CASADI_WITH_THREAD
+    std::lock_guard<std::mutex> lock(environ_snapshot_mutex);
+#endif //CASADI_WITH_THREAD
+    std::size_t n = 0;
+    if (environ) while (environ[n]) ++n;
+    if (environ_snapshot && n == environ_snapshot_n &&
+        std::memcmp(environ_snapshot, environ, n * sizeof(char*)) == 0) {
+      *slot = environ_snapshot;              // unchanged: republish, allocate nothing
+      return;
+    }
+    char** fresh = static_cast<char**>(std::malloc((n + 1) * sizeof(char*)));
+    if (!fresh) return;                      // OOM: leave the slot as it was
+    if (n) std::memcpy(fresh, environ, n * sizeof(char*));
+    fresh[n] = nullptr;
+    environ_snapshot = fresh;                // previous snapshot deliberately leaked:
+    environ_snapshot_n = n;                  // an earlier plugin may still hold it
+    *slot = environ_snapshot;
+  }
+}  // namespace
+#endif
+#endif
+#endif
+#endif
 
 handle_t open_shared_library(const std::string& lib, const std::vector<std::string> &search_paths,
     const std::string& caller, bool global) {
@@ -122,7 +204,7 @@ int close_shared_library(handle_t handle) {
 handle_t open_shared_library(const std::string& lib, const std::vector<std::string> &search_paths,
         std::string& resultpath, const std::string& caller, bool global) {
     // Alocate a handle
-    handle_t handle = 0;
+    handle_t handle = nullptr;
 
     // Alocate a handle pointer
     #ifndef _WIN32
@@ -137,24 +219,9 @@ handle_t open_shared_library(const std::string& lib, const std::vector<std::stri
         flag |= RTLD_DEEPBIND;
 
         #if __GLIBC__
-        // Workaround for https://github.com/conda-forge/casadi-feedstock/issues/93
-        // and https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111556
-        // In a nutshell, if RTLD_DEEPBIND is used and multiple symbols of environ
-        // (one in executable's .bss and one in glibc .bss)
-        // are present in the process due to copy relocations, make sure that the
-        // environ in glibc .bss has the same value of environ in executable .bss
-        // To avoid that over time the two values diverse due to the use of setenv,
-        // we restore the original value of glibc .bss's environ at the end of the function
-
-        // Check if there is a duplicate environ
-        char*** p_environ_rtdl_next = reinterpret_cast<char ***>(dlsym(RTLD_NEXT, "environ"));
-        bool environ_rtdl_next_overridden = false;
-        char** environ_rtld_next_original_value = NULL;
-        if (p_environ_rtdl_next && p_environ_rtdl_next != &environ) {
-          environ_rtld_next_original_value = *p_environ_rtdl_next;
-          *p_environ_rtdl_next = environ;
-          environ_rtdl_next_overridden = true;
-        }
+        // Hand DEEPBIND-loaded code an environment it can iterate. Never restored;
+        // see the comment on publish_environ_snapshot above.
+        publish_environ_snapshot();
         #endif
     #endif
     #endif
@@ -166,19 +233,64 @@ handle_t open_shared_library(const std::string& lib, const std::vector<std::stri
     errors << caller << ": Cannot load shared library '"
            << lib << "': " << std::endl;
     errors << "   (\n"
-           << "    Searched directories: 1. casadipath from GlobalOptions\n"
-           << "                          2. CASADIPATH env var\n"
-           << "                          3. PATH env var (Windows)\n"
-           << "                          4. LD_LIBRARY_PATH env var (Linux)\n"
-           << "                          5. DYLD_LIBRARY_PATH env var (osx)\n"
+           << "    Searched directories: 1. CASADI_PLUGIN_SEARCH_PATH env var\n"
+           << "                          2. casadipath from GlobalOptions\n"
+           << "                          3. CASADIPATH env var\n"
+           << "                          4. PATH env var (Windows)\n"
+           << "                          5. LD_LIBRARY_PATH env var (Linux)\n"
+           << "                          6. DYLD_LIBRARY_PATH env var (osx)\n"
            << "    A library may be 'not found' even if the file exists:\n"
-           << "          * library is not compatible (different compiler/bitness)\n"
+           << "          * library is not ABI-compatible (different compiler/bitness)\n"
            << "          * the dependencies are not found\n"
+           << "          * the dependencies are found but have an ABI-incompatible version/compiler/bitness\n" // NOLINT(whitespace/line_length)
            << "   )";
 
     std::string searchpath;
 
-    // Try getting a handle
+#ifdef _WIN32
+    // Pass 1 (Windows): strict per-path search.
+    //
+    // For each non-empty searchpath, do AddDllDirectory + LoadLibraryEx with
+    //   LOAD_LIBRARY_SEARCH_USER_DIRS | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
+    //   | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR.
+    // PATH and CWD are NOT consulted in this pass. Transitive deps in the
+    // same folder as the wrapper resolve via DLL_LOAD_DIR; deps already in
+    // the process resolve via the loaded-module list (a pre-filesystem
+    // rule). Pass 1 succeeds only when the search dir is self-contained for
+    // anything not already loaded -- on failure we fall through to pass 2,
+    // which preserves CasADi's legacy semantics (incl. PATH).
+    {
+        std::wstring libW = utf8_to_utf16(lib);
+        for (const std::string& sp : search_paths) {
+            if (sp.empty()) continue;
+            std::wstring spW = utf8_to_utf16(sp);
+            DLL_DIRECTORY_COOKIE cookie = AddDllDirectory(spW.c_str());
+            handle = LoadLibraryExW(libW.c_str(), NULL,
+                LOAD_LIBRARY_SEARCH_USER_DIRS |
+                LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+            if (cookie) RemoveDllDirectory(cookie);
+            if (handle) {
+                resultpath = sp;
+                break;
+            }
+        }
+    }
+#endif // _WIN32
+
+    // Pass 2 (Windows fallback; sole pass on Linux/macOS):
+    // Existing legacy loop. On Windows, preserves SetDllDirectory's slot-2
+    // hint for transitive deps and the standard search incl. PATH.
+    if (!handle) {
+#ifdef __EMSCRIPTEN__
+    // Emscripten resolves "lib" and "./lib" to the SAME MEMFS module, and a
+    // first dlopen that can't complete synchronously (module not resident --
+    // e.g. a not-yet-fetched lazy plugin) leaves a poisoned "loading" entry;
+    // a second dlopen of the same module then aborts with "...a second time".
+    // So attempt each canonical name at most once.  (Native loaders keep the
+    // full per-search-path loop below.)
+    std::set<std::string> em_tried;
+#endif // __EMSCRIPTEN__
     for (casadi_int i=0;i<search_paths.size();++i) {
       searchpath = search_paths[i];
 #ifdef _WIN32
@@ -187,6 +299,10 @@ handle_t open_shared_library(const std::string& lib, const std::vector<std::stri
       SetDllDirectory(NULL);
 #else // _WIN32
       std::string libname = searchpath.empty() ? lib : searchpath + filesep() + lib;
+#ifdef __EMSCRIPTEN__
+      if (libname.rfind("./", 0) == 0) libname.erase(0, 2);  // canonicalize
+      if (!em_tried.insert(libname).second) continue;        // already tried
+#endif // __EMSCRIPTEN__
       handle = dlopen(libname.c_str(), flag);
 #endif // _WIN32
       if (handle) {
@@ -201,15 +317,16 @@ handle_t open_shared_library(const std::string& lib, const std::vector<std::stri
 #endif // _WIN32
       }
     }
+    }
 
     #ifndef _WIN32
     #ifdef WITH_DEEPBIND
-    #ifndef __APPLE__
+    #if !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
     #if __GLIBC__
-        if (environ_rtdl_next_overridden) {
-          *p_environ_rtdl_next = environ_rtld_next_original_value;
-          environ_rtdl_next_overridden = false;
-        }
+        // Pick up any setenv the constructors just performed, so code that reads environ
+        // lazily (rather than at load time) does not lag a load behind. Allocates nothing
+        // unless they changed something.
+        publish_environ_snapshot();
     #endif
     #endif
     #endif
@@ -425,7 +542,11 @@ std::unique_ptr<std::ostream> ofstream_compat(const std::string& utf8_path,
 
     int flags = (mode & std::ios::in) ? _O_RDWR : _O_WRONLY;
     if (mode & std::ios::app) flags |= _O_APPEND;
-    if (mode & std::ios::binary) flags |= _O_BINARY;
+    if (mode & std::ios::binary) {
+        flags |= _O_BINARY;
+    } else {
+        flags |= _O_TEXT;
+    }
 
     int fd = _open_osfhandle(reinterpret_cast<intptr_t>(h), flags);
     if (fd == -1) {

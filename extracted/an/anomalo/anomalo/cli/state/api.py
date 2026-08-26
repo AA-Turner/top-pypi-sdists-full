@@ -162,7 +162,7 @@ class APIDriver:
         for table_ref, table in other_state.tables.items():
             if table.config:
                 self.load_table(table_ref)
-            for check_ref in table.checks.keys():
+            for check_ref in table.checks:
                 with suppress(CheckNotFound):
                     self.load_single_check(table_ref, check_ref)
 

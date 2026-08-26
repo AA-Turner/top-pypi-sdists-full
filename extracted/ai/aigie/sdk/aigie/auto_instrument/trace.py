@@ -18,6 +18,8 @@ from aigie.tracing.retention import is_retention_suppressed
 from aigie.tracing.trace_state import (
     _dec_thread_counter,
     _inc_thread_counter,
+    is_inside_traced_run,
+    provider_spans_claimed,
 )
 from aigie.tracing.trace_state import (
     _thread_counter as _callback_counts,  # noqa: F401
@@ -29,9 +31,6 @@ from aigie.tracing.trace_state import (
     get_resumed_trace as get_thread_trace,  # noqa: F401
 )
 from aigie.tracing.trace_state import (
-    is_inside_traced_run as is_in_callback_context,  # noqa: F401
-)
-from aigie.tracing.trace_state import (
     pop_resumable_trace as pop_thread_trace,  # noqa: F401
 )
 from aigie.tracing.trace_state import (
@@ -39,6 +38,26 @@ from aigie.tracing.trace_state import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def is_in_callback_context() -> bool:
+    """The bare LLM-provider patch's suppression predicate: is this call already
+    being traced by an integration that emits its own ``llm`` span?
+
+    Consumed only by the provider patches in ``auto_instrument.llm`` — every
+    other caller asks ``is_inside_traced_run()`` directly. Kept under the legacy
+    name because that is where the question is asked from.
+
+    ``is_inside_traced_run`` answers it for integrations whose run state reaches
+    the provider call (a ContextVar, or the thread counter when a callback fires
+    from a raw thread). ``provider_spans_claimed`` covers the ones where it
+    cannot: Pipecat hands each observer its own asyncio task, so the ambient
+    trace opened there is invisible in the task its LLM service runs in, and the
+    patch would otherwise open a second trace for a call already priced from
+    Pipecat's own usage metrics.
+    """
+    return is_inside_traced_run() or provider_spans_claimed()
+
 
 # Context variable to track current trace
 _current_trace: ContextVar[Any | None] = ContextVar("_current_trace", default=None)

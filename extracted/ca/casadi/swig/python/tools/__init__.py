@@ -26,13 +26,12 @@
 from .graph import *
 from .bounds import *
 import os
+import casadi
+from casadi import CasadiMeta
 
 import sys
-if sys.version_info >= (3,0):
-  from .structure3 import repeated, entry, struct_symSX, struct_symMX, struct_SX, struct_MX, struct_MX_mutable, nesteddict, index, indexf, struct, struct_load
-else:
-  from .structure import repeated, entry, struct_symSX, struct_symMX, struct_SX, struct_MX, struct_MX_mutable, nesteddict, index, indexf, struct, struct_load
-from .in_out import nice_stdout, capture_stdout
+from .structure import repeated, entry, struct_symSX, struct_symMX, struct_SX, struct_MX, struct_MX_mutable, nesteddict, index, indexf, struct, struct_load
+from .in_out import nice_stdout as nice_stdout, capture_stdout as capture_stdout
 
 def print_subclasses(myclass, depth=0):
   print(("  " * depth) + " - " + myclass.__name__)
@@ -46,8 +45,8 @@ def loadAllCompiledPlugins():
     if "SKIP_" + name.upper() + "_TESTS" in os.environ:
         print("Skipping")
         continue
-    if cls in ("XmlFile"):
-      pass
+    if cls in ("XmlFile", "Onnx"):
+      pass  # Onnx runtime backend has no load_onnx free function
     elif cls in ("Importer","Linsol"):
       getattr(casadi,cls).load_plugin(name)
     else:

@@ -66,6 +66,13 @@ namespace casadi {
         eval_linear_rearrange(arg, res);
     }
 
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2i3} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override {
+      return sp_forward(arg, res, iw, w);
+    }
+
     /** \brief  Propagate sparsity forward
 
         \identifier{147} */
@@ -86,7 +93,8 @@ namespace casadi {
                           std::vector<bool>& res_is_ref) const override;
 
     /// Get the nonzeros of matrix
-    MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz) const override;
+    MX get_nzref(const Sparsity& sp, const std::vector<casadi_int>& nz,
+        bool unique=false) const override;
 
     /** \brief Check if two nodes are equivalent up to a given depth
 
@@ -151,7 +159,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{14j} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -235,7 +244,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{14u} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -320,7 +330,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{155} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 

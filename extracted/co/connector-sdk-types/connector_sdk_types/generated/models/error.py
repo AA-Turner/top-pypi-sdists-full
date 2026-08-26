@@ -23,7 +23,6 @@ from pydantic import (
     model_validator,
 )
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.connector_error_code_union import ConnectorErrorCodeUnion
 from connector_sdk_types.generated.models.connector_error_metadata import ConnectorErrorMetadata
 from typing import Optional, Set
 from typing_extensions import Self

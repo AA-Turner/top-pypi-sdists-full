@@ -117,6 +117,7 @@ WHAT_ALL_RUNNING_STATUS = "running_all"
 WHAT_QUERY_XACT_STATS = "qryxstats"
 WHAT_NODE_STATS_AND_STATUS = "node_status"
 WHAT_LOG = "log"
+WHAT_CLUSTER_CONFIG = "cluster_config"
 
 # Log query params (see api/apc/query.go)
 QPARAM_LOG_SEV = "severity"
@@ -175,6 +176,7 @@ ACT_TRANSFORM_OBJECTS = "etl-listrange"
 ACT_ARCHIVE_OBJECTS = "archive"
 # Job actions
 ACT_START = "start"
+ACT_XACT_STOP = "stop"  # a.k.a. abort (see api/apc/actmsg.go: ActXactStop)
 # Multipart upload actions
 ACT_MPT_UPLOAD = "mpt-upload"
 ACT_MPT_COMPLETE = "mpt-complete"

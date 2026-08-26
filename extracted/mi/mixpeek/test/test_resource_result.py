@@ -40,7 +40,13 @@ class TestResourceResult(unittest.TestCase):
                 name = '',
                 resource_id = '',
                 status = 'created',
-                error = ''
+                error = '',
+                drift = [
+                    ''
+                    ],
+                drift_not_compared = [
+                    ''
+                    ]
             )
         else:
             return ResourceResult(

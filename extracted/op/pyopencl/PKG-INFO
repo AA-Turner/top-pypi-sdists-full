@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyopencl
-Version: 2026.1.3
+Version: 2026.1.4
 Summary: Python wrapper for OpenCL
 Author-Email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT

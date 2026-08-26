@@ -109,9 +109,29 @@ class ExecutionState:
         return out
 
     def to_execution_plan(self, *, agent_name: str, status: str) -> dict[str, Any]:
-        return {
-            "agent": agent_name,
-            "tool_calls": self.tool_call_count,
-            "turn_count": self.turn_count,
-            "status": status,
-        }
+        return build_execution_plan(
+            agent=agent_name,
+            tool_calls=self.tool_call_count,
+            turn_count=self.turn_count,
+            status=status,
+        )
+
+
+def build_execution_plan(
+    *, agent: str, tool_calls: int, turn_count: int, status: str
+) -> dict[str, Any]:
+    """The run summary every framework integration stamps on its run root.
+
+    Goal Adherence & Drift binds ``{{execution_plan}}`` to this payload, so the
+    four keys are a wire contract shared across the integrations rather than a
+    detail of whichever one emits it. Kept as a free function because only the
+    LangChain family accumulates an :class:`ExecutionState`; the other
+    integrations already carry their own run-level counters and need the shape,
+    not the aggregator.
+    """
+    return {
+        "agent": agent,
+        "tool_calls": tool_calls,
+        "turn_count": turn_count,
+        "status": status,
+    }

@@ -28,6 +28,7 @@
 
 #include "sx_node.hpp"
 #include "serializing_stream.hpp"
+#include "matrix_decl.hpp"
 #include <cassert>
 
 /// \cond INTERNAL
@@ -68,6 +69,15 @@ bool is_constant() const override { return true; }
     \identifier{1jm} */
 casadi_int op() const override { return OP_CONST;}
 
+/** \brief  Properties
+
+    \identifier{2ei} */
+bool is_value(double v) const override {
+  return casadi_limits<double>::is_value(to_double(), v);
+}
+bool is_half() const override { return casadi_limits<double>::is_half(to_double()); }
+bool is_integer() const override { return casadi_limits<double>::is_integer(to_double()); }
+
 /** \brief Check if two nodes are equivalent up to a given depth
 
     \identifier{1jn} */
@@ -83,6 +93,13 @@ protected:
     \identifier{1jo} */
 std::string print(const std::string& arg1, const std::string& arg2) const override {
    std::stringstream ss;
+   ss.precision(Matrix<SXElem>::get_precision());
+   ss.width(Matrix<SXElem>::get_width());
+   if (Matrix<SXElem>::get_scientific()) {
+     ss.setf(std::ios::scientific);
+   } else {
+     ss.unsetf(std::ios::scientific);
+   }
    ss << to_double();
    return ss.str();
  }

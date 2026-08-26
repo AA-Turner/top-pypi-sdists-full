@@ -244,6 +244,12 @@ namespace casadi {
                   bool ind1=false);
 
     MX operator-() const;
+    MX operator+() const { return *this; }
+
+    /** \brief Element-wise inverse
+
+        \identifier{2dz} */
+    MX inv() const;
 
 #ifndef SWIG
     /// \cond INTERNAL
@@ -295,6 +301,14 @@ namespace casadi {
 
     /// Check if constant
     bool is_constant() const;
+
+    /// Check if integer
+    bool is_integer() const;
+
+    /** \brief Check if the node is the sum of two equal expressions
+
+        \identifier{2e0} */
+    bool is_doubled() const;
 
     /// Check if evaluation
     bool is_call() const;
@@ -387,15 +401,35 @@ namespace casadi {
         \identifier{qv} */
     bool is_zero() const;
 
-    /** \brief  check if zero (note that false negative answers are possible)
+    /** \brief  check if one (note that false negative answers are possible)
 
         \identifier{qw} */
     bool is_one() const;
 
-    /** \brief  check if zero (note that false negative answers are possible)
+    /** \brief  check if minus one (note that false negative answers are possible)
 
         \identifier{qx} */
     bool is_minus_one() const;
+
+    /** \brief  check if 0.5 (note that false negative answers are possible)
+
+        \identifier{2ep} */
+    bool is_half() const;
+
+    /** \brief  check if a certain value (note that false negative answers are possible)
+
+        \identifier{2eq} */
+    bool is_value(double val) const;
+
+    /** \brief  check if inf (note that false negative answers are possible)
+
+        \identifier{2e1} */
+    bool is_inf() const;
+
+    /** \brief  check if -inf (note that false negative answers are possible)
+
+        \identifier{2e2} */
+    bool is_minus_inf() const;
 
     /** \brief  Is the expression a transpose?
 
@@ -407,6 +441,11 @@ namespace casadi {
 
     /// Is binary operation
     bool is_binary() const;
+
+    /** \brief Check if a value is always nonnegative (false negatives are allowed)
+
+        \identifier{2e3} */
+    bool is_nonnegative() const;
 
     /// Is unary operation
     bool is_unary() const;
@@ -439,8 +478,9 @@ namespace casadi {
     /** \brief  Create nodes by their ID
 
         \identifier{r1} */
-    static MX binary(casadi_int op, const MX &x, const MX &y);
-    static MX unary(casadi_int op, const MX &x);
+    static MX binary(casadi_int op, const MX &x, const MX &y,
+        bool unique_x=false, bool unique_y=false);
+    static MX unary(casadi_int op, const MX &x, bool unique=false);
     ///@}
 
     ///@{
@@ -470,6 +510,15 @@ namespace casadi {
     /// Get a const pointer to the node
     MXNode* get() const;
 #endif // SWIG
+
+    /// \cond INTERNAL
+    /** \brief Low-level access to get_nzref
+    *
+    * Intended for writing unittests
+
+        \identifier{2er} */
+    MX nzref(const Sparsity& sp, const std::vector<casadi_int>& nz) const;
+    /// \endcond
 
     ///@{
     /// Get a submatrix, single argument
@@ -587,17 +636,21 @@ namespace casadi {
                                      const std::vector<casadi_int>& offset2);
     static std::vector<MX> vertsplit(const MX& x, const std::vector<casadi_int>& offset);
     static MX blockcat(const std::vector< std::vector<MX > > &v);
-    static MX mtimes(const MX& x, const MX& y);
-    static MX mac(const MX& x, const MX& y, const MX& z);
+    static MX mtimes(const MX& x, const MX& y,
+                     const std::string& blas = "reference");
+    static MX mac(const MX& x, const MX& y, const MX& z,
+                  const std::string& blas = "reference");
     static MX reshape(const MX& x, casadi_int nrow, casadi_int ncol);
     static MX reshape(const MX& x, const Sparsity& sp);
     static MX sparsity_cast(const MX& x, const Sparsity& sp);
     static MX kron(const MX& x, const MX& b);
+    static MX kron_contract(const MX& m, const MX& x, bool inner);
     static MX repmat(const MX& x, casadi_int n, casadi_int m=1);
     ///@}
 
     ///@{
     /// Functions called by friend functions defined for GenericMatrix
+    static MX linspace(const MX& a, const MX& b, casadi_int nsteps);
     static MX jacobian(const MX& f, const MX& x, const Dict& opts = Dict());
     static MX hessian(const MX& f, const MX& x, const Dict& opts = Dict());
     static MX hessian(const MX& f, const MX& x, MX& g, const Dict& opts = Dict());
@@ -645,6 +698,12 @@ namespace casadi {
     static bool contains_all(const std::vector<MX>& v, const std::vector<MX> &n);
     static bool contains_any(const std::vector<MX>& v, const std::vector<MX> &n);
     static MX simplify(const MX& x);
+    static MX transform(const MX& x, const Dict& opts = Dict());
+    static MX transform(const MX& x,
+        const std::vector<std::vector<GenericType> >& passes, const Dict& opts = Dict());
+    static std::vector<MX> transform(const std::vector<MX>& x, const Dict& opts = Dict());
+    static std::vector<MX> transform(const std::vector<MX>& x,
+        const std::vector<std::vector<GenericType> >& passes, const Dict& opts = Dict());
     static MX dot(const MX& x, const MX& y);
     static MX mrdivide(const MX& a, const MX& b);
     static MX mldivide(const MX& a, const MX& b);
@@ -659,6 +718,7 @@ namespace casadi {
     static MX sum1(const MX& x);
     static MX polyval(const MX& p, const MX& x);
     static MX det(const MX& x);
+    static MX det(const MX& x, const std::string& lsolver, const Dict& opts=Dict());
     static std::vector<MX> symvar(const MX& x);
     static MX nullspace(const MX& A);
     static MX repsum(const MX& x, casadi_int n, casadi_int m=1);
@@ -709,6 +769,11 @@ namespace casadi {
             const std::vector<casadi_int>& degree,
             casadi_int m,
             const Dict& opts = Dict());
+    static MX bspline(const MX& x, const MX& coeffs,
+            const std::vector<MX>& knots,
+            const std::vector<casadi_int>& degree,
+            casadi_int m,
+            const Dict& opts = Dict());
     static MX convexify(const MX& H, const Dict& opts = Dict());
     static MX stop_diff(const MX& expr, casadi_int order);
     static MX stop_diff(const MX& expr, const MX& var, casadi_int order);
@@ -717,6 +782,21 @@ namespace casadi {
     /// \endcond
 
 #endif // SWIG
+
+    // Simplification with reference counting awareness
+    static bool simplify_ref_count(std::vector<MX>& arg,
+                                   std::vector<MX>& res,
+                                   const Dict& opts = Dict());
+
+    // Simplification with constant folding
+    static bool simplify_const_folding(std::vector<MX>& arg,
+                                   std::vector<MX>& res,
+                                   const Dict& opts = Dict());
+
+    // Simplification by combining like terms in linear combinations
+    static bool simplify_combine_terms(std::vector<MX>& arg,
+                                   std::vector<MX>& res,
+                                   const Dict& opts = Dict());
 
     static DM bspline_dual(const std::vector<double>& x,
             const std::vector< std::vector<double> >& knots,
@@ -837,6 +917,14 @@ namespace casadi {
       return MX::bspline(x, coeffs, knots, degree, m, opts);
     }
 
+    inline friend MX bspline(const MX& x, const MX& coeffs,
+            const std::vector<MX>& knots,
+            const std::vector<casadi_int>& degree,
+            casadi_int m,
+            const Dict& opts = Dict()) {
+      return MX::bspline(x, coeffs, knots, degree, m, opts);
+    }
+
     inline friend DM bspline_dual(const std::vector<double>& x,
             const std::vector< std::vector<double> >& knots,
             const std::vector<casadi_int>& degree,
@@ -929,6 +1017,18 @@ namespace casadi {
         \identifier{rh} */
     MX monitor(const std::string& comment) const;
 
+    /** \brief Dump an expression
+
+    * Returns itself, but with the side effect of dumping values to file
+    * Allowed options: "dir" (dump directory), "format" (file format, default "mtx"),
+    * "verbose" (print filename on each dump, default false)
+
+        \identifier{2f9} */
+    MX dump(const std::string& base_filename, const Dict& opts=Dict()) const;
+
+    /// Reset the dump counter
+    void reset_dump_count();
+
     /// Transpose the matrix
     MX T() const;
 
@@ -966,7 +1066,8 @@ namespace casadi {
     /** \brief Evaluate the MX node with new symbolic dependencies
 
         \identifier{rn} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& SWIG_OUTPUT(res)) const;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& SWIG_OUTPUT(res),
+        const std::vector<bool>& unique=std::vector<bool>()) const;
 
 #ifndef SWIG
     ///@{
@@ -1008,6 +1109,18 @@ namespace casadi {
   typedef std::vector<MXVector> MXVectorVector;
   typedef std::map<std::string, MX> MXDict;
   ///@}
+
+  /** \brief Kronecker contraction
+   *
+   * `inner = true`:  Y[i, j] = sum over (r, s) of M[i*mB+r, j*nB+s] * X[r, s]
+   * `inner = false`: Y[r, s] = sum over (i, j) of X[i, j] * M[i*mB+r, j*nB+s]
+   *
+   * Closes the AD algebra of kron under arbitrary-order differentiation.
+
+      \identifier{2ho} */
+  inline MX kron_contract(const MX& m, const MX& x, bool inner) {
+    return MX::kron_contract(m, x, inner);
+  }
 
 } // namespace casadi
 

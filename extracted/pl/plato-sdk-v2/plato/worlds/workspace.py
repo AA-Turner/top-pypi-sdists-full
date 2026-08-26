@@ -734,10 +734,17 @@ class Workspace:
         source_session_public_id: str | None = None,
         source_repo_name: str | None = None,
         source_step_name: str | None = None,
+        source_download_token: str | None = None,
         changed: bool | None = None,
         trigger_span_id: str = "",
     ) -> str | None:
-        """Record a workspace ref with Chronos. Returns the ref public_id if available."""
+        """Record a workspace ref with Chronos. Returns the ref public_id if available.
+
+        ``source_download_token`` is the ``wdt_`` token a seed was restored
+        through: Chronos resolves ``source_ref_public_id`` inside the caller's
+        org, so lineage to a source in another org is only recordable with the
+        token as proof of read access.
+        """
         if not self.chronos_url or not self.repo_name or not self.session_id:
             return None
         has_source_ref = bool(source_ref_public_id)
@@ -748,6 +755,8 @@ class Workspace:
             raise ValueError(
                 "source_session_public_id, source_repo_name, and source_step_name must be provided together"
             )
+        if source_download_token and not has_source_ref:
+            raise ValueError("source_download_token requires source_ref_public_id")
         payload: dict[str, Any] = {
             "repo_name": self.repo_name,
             "step_name": step_name,
@@ -761,6 +770,8 @@ class Workspace:
             payload["trigger_span_id"] = trigger_span_id
         if has_source_ref:
             payload["source_ref_public_id"] = source_ref_public_id
+            if source_download_token:
+                payload["source_download_token"] = source_download_token
         elif has_source_parts:
             payload["source_session_public_id"] = source_session_public_id
             payload["source_repo_name"] = source_repo_name
@@ -802,6 +813,51 @@ class Workspace:
                 return ref
         return None
 
+    async def adopt_download_source(
+        self, *, token: str, session_id: str, repo_name: str, step_name: str
+    ) -> dict[str, Any]:
+        """Point this workspace at a source readable only through a ``wdt_`` token.
+
+        A workspace download token authorizes exactly two Chronos routes — the
+        pinned session's workspace-refs listing and that repo's read-only S3
+        credentials — which is all ``restore()`` needs. The repo is therefore
+        resolved from the ref listing (``repo_public_id``) and its bucket/prefix
+        from the credentials reply, never via ``/resolve``: that route needs a
+        full principal and resolves-or-creates the *name* in the caller's org,
+        i.e. an empty repo when the source lives in another org.
+
+        Mutates identity in place (api_key, session_id, repo_*); callers restore
+        the original identity after the restore, as ``load_state`` does for
+        every cross-repo source. Returns the ref that will be restored.
+        """
+        self.api_key = token
+        self.session_id = session_id
+        self.repo_name = repo_name
+        self.repo_id = ""
+        self.s3_bucket = ""
+        self.s3_prefix = ""
+        self._sts_credentials = {}
+        self._sts_expires_at = 0
+        ref = await self._fetch_workspace_ref(step_name)
+        if not ref:
+            raise RuntimeError(
+                f"Download token for workspace '{self.name}' grants no ref for step '{step_name}' "
+                f"(session={session_id}, repo={repo_name})"
+            )
+        repo_id = str(ref.get("repo_public_id") or "")
+        if not repo_id:
+            raise RuntimeError(
+                f"Chronos returned no repo_public_id for workspace '{self.name}' "
+                f"(session={session_id}, repo={repo_name}, step={step_name})"
+            )
+        self.repo_id = repo_id
+        await self._refresh_credentials()
+        if not self.s3_bucket or not self.s3_prefix:
+            raise RuntimeError(
+                f"Chronos credentials for workspace '{self.name}' carry no bucket/prefix (repo={repo_name})"
+            )
+        return ref
+
     async def _refresh_credentials(self) -> None:
         """Fetch STS credentials from Chronos scoped to this repo's S3 prefix."""
         if not self.chronos_url or not self.repo_id:
@@ -811,6 +867,13 @@ class Workspace:
             f"/api/workspace-repos/{self.repo_id}/credentials",
         )
         data = resp.json()
+        # The reply names the prefix the credentials are scoped to. A workspace
+        # resolved by name already knows it; one adopted through a download
+        # token (no /resolve) learns it here.
+        if not self.s3_bucket and data.get("bucket"):
+            self.s3_bucket = str(data["bucket"])
+        if not self.s3_prefix and data.get("prefix"):
+            self.s3_prefix = str(data["prefix"])
         self._sts_credentials = {
             "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
             "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],

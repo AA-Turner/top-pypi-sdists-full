@@ -50,7 +50,8 @@ namespace casadi {
     /** \brief  Evaluate symbolically (MX)
 
         \identifier{1os} */
-    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res) const override;
+    void eval_mx(const std::vector<MX>& arg, std::vector<MX>& res,
+        const std::vector<bool>& unique={}) const override;
 
     /** \brief Calculate forward mode directional derivatives
 
@@ -76,6 +77,13 @@ namespace casadi {
     void eval_linear(const std::vector<std::array<MX, 3> >& arg,
             std::vector<std::array<MX, 3> >& res) const override {
         eval_linear_rearrange(arg, res);
+    }
+
+    /** \brief Propagate signal activity forward (bit set = active)
+
+        \identifier{2it} */
+    int eval_activity(const bvec_t** arg, bvec_t** res, casadi_int* iw, bvec_t* w) const override {
+      return sp_forward(arg, res, iw, w);
     }
 
     /** \brief  Propagate sparsity forward

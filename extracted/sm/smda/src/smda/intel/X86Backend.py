@@ -19,6 +19,7 @@ from .definitions import (
     REGS_32BIT,
     REGS_64BIT,
     RET_INS,
+    stripFlatSegmentOverride,
 )
 from .FunctionAnalysisState import FunctionAnalysisState
 from .FunctionCandidateManager import FunctionCandidateManager
@@ -28,11 +29,44 @@ from .MnemonicTfIdf import MnemonicTfIdf
 
 LOGGER = logging.getLogger(__name__)
 
+# what a toolchain that emits CET landing pads aligns a function entry to
+_ENTRY_ALIGNMENT = 16
+
 # a call/jmp through a pointer slot the sample computes itself ("dword ptr [ebx + 0x2c]"),
 # the shape a runtime-built import table is used through. An index register is excluded on
 # purpose: the slot is then not a single address, and those operands belong to jump tables.
 # capstone prints a displacement below 10 as a bare decimal digit, so "[esi + 8]" - the most
 # common slot stride - has no 0x prefix to match on.
+# an absolute memory operand: "dword ptr [0x401000]", "[0x401000]". A base or index
+# register, or a rip-relative displacement, makes the effective address unknown here, so
+# those forms deliberately do not match.
+# A bracket whose first character is a hex prefix or a lone decimal digit: the only two forms
+# the full operand pattern below can accept. Scanning for that once over the whole operand
+# string is cheaper than splitting it and matching each part, and this runs per instruction.
+ABSOLUTE_OPERAND_HINT = re.compile(r"\[(?:0x|[0-9]\])")
+
+ABSOLUTE_MEM_OPERAND_RE = re.compile(
+    r"^(?:(?P<width>byte|word|dword|qword|xword|tbyte|xmmword|ymmword|zmmword) ptr )?"
+    r"\[(?P<address>0x[0-9a-fA-F]{1,16}|[0-9])\]$"
+)
+
+# What each size keyword capstone prints is worth in bytes, so a reference covers the whole
+# datum rather than only its first byte. Both 80-bit keywords are here and they are not
+# interchangeable: capstone prints `xword ptr` for the x87 extended-precision operand of
+# fld/fstp, and `tbyte ptr` only for the packed-BCD operand of fbld/fbstp. An operand capstone
+# prints with no size keyword names no width, and stays at one byte.
+_OPERAND_WIDTHS = {
+    "byte": 1,
+    "word": 2,
+    "dword": 4,
+    "qword": 8,
+    "xword": 10,
+    "tbyte": 10,
+    "xmmword": 16,
+    "ymmword": 32,
+    "zmmword": 64,
+}
+
 MEM_REG_SLOT_RE = re.compile(
     r"^(?P<size>dword|qword) ptr \[(?P<reg>[a-z][a-z0-9]{1,3})"
     r"(?: (?P<sign>[+-]) (?P<disp>0x[0-9a-f]{1,16}|[0-9]))?\]$"
@@ -88,6 +122,10 @@ SYSCALL_IMPLICIT_RAX_WRITERS = {
     "aam",
     "daa",
     "das",
+    # capstone spells the 32-bit pop-all forms popal/popad and popaw; both restore eax
+    # from the stack with no explicit operand, so nothing else here can see the write.
+    "popal",
+    "popaw",
 }
 
 SYSCALL_READ_ONLY_INS = {"cmp", "test", "push", "bt"}
@@ -171,6 +209,7 @@ class X86Backend(ArchBackend):
                 continue
             if mnemonic != "jmp":
                 return None
+            op_str = stripFlatSegmentOverride(op_str)
             if op_str.startswith("qword ptr [rip"):
                 return address + size + d.getReferencedAddr(op_str)
             if op_str.startswith("dword ptr [0x"):
@@ -194,15 +233,27 @@ class X86Backend(ArchBackend):
         # segment selector. There is no in-image target to book, so drop it like _analyzeJmp.
         if i_mnemonic.split(" ")[-1] == "lcall":
             return
+        i_op_str = stripFlatSegmentOverride(i_op_str)
+        # case = "LONG-CALL-INDIRECT": FF /3 loads a seg:offset pair from memory. capstone
+        # renders it with a bare "ptr " where a near indirect call (FF /2) always names its
+        # width, and that is the only difference between them once a segment override is
+        # normalized away. No arm below claims it today; saying so keeps it that way.
+        if i_op_str.startswith("ptr "):
+            return
         call_destination = d.getReferencedAddr(i_op_str)
         if i_op_str.startswith("dword ptr ["):
             if i_op_str.startswith("dword ptr [0x"):
                 # case = "DWORD-PTR"
                 dereferenced = d.disassembly.dereferenceDword(call_destination)
-                if dereferenced is not None:
+                if dereferenced and d.disassembly.isAddrWithinMemoryImage(dereferenced):
                     state.addCodeRef(i_address, dereferenced)
                     d._handleCallTarget(state, i_address, dereferenced)
                     d._handleApiTarget(i_address, call_destination, dereferenced, slot=call_destination)
+                else:
+                    # import-like case: keep the reference on the slot itself
+                    state.addCodeRef(i_address, call_destination)
+                    if dereferenced is not None:
+                        d._handleApiTarget(i_address, call_destination, dereferenced, slot=call_destination)
             else:
                 # case = "DWORD-PTR-REG"
                 self._collectMemRegSlot(state, i_address, i_op_str)
@@ -210,7 +261,7 @@ class X86Backend(ArchBackend):
             rip = i_address + i_size
             call_destination = rip + d.getReferencedAddr(i_op_str)
             dereferenced = d.disassembly.dereferenceQword(call_destination)
-            if dereferenced is not None and d.disassembly.isAddrWithinMemoryImage(dereferenced):
+            if dereferenced and d.disassembly.isAddrWithinMemoryImage(dereferenced):
                 # the slot holds an in-image target (thunk/local function): book the call
                 # against the real destination, like the 32-bit dword-ptr path does
                 state.addCodeRef(i_address, dereferenced)
@@ -238,6 +289,43 @@ class X86Backend(ArchBackend):
             self._collectMemRegSlot(state, i_address, i_op_str)
 
     @staticmethod
+    def _recordAbsoluteDataRefs(d, i_address, i_op_str, state):
+        """Book a data reference for every absolute memory operand naming an image address.
+
+        Until now the intel backend recorded a data reference only from JumpTableAnalyzer, so
+        an address a function loads outright - a dispatch table, a global, a stored method
+        pointer - left no trace in the report at all, and nothing downstream could see it.
+        The AArch64 backend has always recorded these from its own operands.
+
+        A direct branch names its target as a bare immediate, so it cannot match the bracketed
+        form read here. A bracketed branch operand names the pointer slot the branch reads
+        through, which is data whatever the branch analyzers do with the value found in it.
+        """
+        # This runs for every instruction the engine decodes, so the two cheapest facts about
+        # the form being looked for come first: an absolute memory operand is written in
+        # brackets, and only an operand carrying a segment override needs one stripped. On a
+        # static x86-64 ELF two thirds of operands have no bracket at all.
+        if not i_op_str or ABSOLUTE_OPERAND_HINT.search(i_op_str) is None:
+            return
+        binary_info = d.disassembly.binary_info
+        if binary_info is None:
+            return
+        declares_code_areas = bool(getattr(binary_info, "code_areas", None))
+        emitted = set()
+        normalized = stripFlatSegmentOverride(i_op_str) if ":" in i_op_str else i_op_str
+        for operand in normalized.split(", "):
+            match = ABSOLUTE_MEM_OPERAND_RE.match(operand.strip())
+            if match is None:
+                continue
+            address = int(match.group("address"), 0)
+            if address in emitted or not d.disassembly.isAddrWithinMemoryImage(address):
+                continue
+            if declares_code_areas and binary_info.isInCodeAreas(address):
+                continue
+            emitted.add(address)
+            state.addDataRef(i_address, address, size=_OPERAND_WIDTHS.get(match.group("width"), 1))
+
+    @staticmethod
     def _collectMemRegSlot(state, i_address, i_op_str):
         match = MEM_REG_SLOT_RE.match(i_op_str)
         if match is None:
@@ -254,6 +342,7 @@ class X86Backend(ArchBackend):
         for i_address, i_size, i_mnemonic, i_op_str, _ in state.instructions:
             if i_mnemonic.split(" ")[-1] != "mov":
                 continue
+            i_op_str = stripFlatSegmentOverride(i_op_str)
             match = IMPORT_SLOT_LOAD_RE.match(i_op_str)
             if match is None:
                 continue
@@ -311,9 +400,15 @@ class X86Backend(ArchBackend):
 
     def _analyzeJmpInstruction(self, d, i, state):
         i_address, i_size, i_mnemonic, i_op_str = i
+        i_op_str = stripFlatSegmentOverride(i_op_str)
+        i = (i_address, i_size, i_mnemonic, i_op_str)
         # case = "FALLTHROUGH"
-        if ":" in i_op_str:
-            # case = "LONG-JMP"
+        if i_op_str.startswith("ptr ") or ":" in i_op_str:
+            # case = "LONG-JMP": a far branch names a segment and an offset, so it reaches no
+            # address in this image. The direct form (ljmp) holds a colon; the indirect form
+            # (FF /5) is told from a near indirect branch by the missing width - capstone
+            # renders "ptr [0x402000]" where a near one renders "dword ptr [0x402000]".
+            # Also the arm for an fs:/gs: operand whose base is not in the image.
             pass
         elif i_op_str.startswith("dword ptr [0x"):
             # case = "DWORD-PTR"
@@ -372,6 +467,32 @@ class X86Backend(ArchBackend):
             # the entire function body is this one jmp-to-import: a thunk, not a real routine
             state.setThunkCall(True)
         return resolved_api
+
+    @staticmethod
+    def _isPaddedLandingPad(d, state, i_address, previous_instruction, start_addr):
+        """Whether this landing pad starts the function the decode is about to absorb.
+
+        Only a pad reached by falling through padding qualifies. One that begins a block is
+        the target of a branch already inside this function - which is how a switch case body
+        is spelled in CET code - and cutting there would carve every one of them out.
+
+        A function that has already booked an instruction past this address wraps around it,
+        so cutting there would leave one function nested inside another. The alignment cut
+        below declines for the same reason.
+
+        Being a candidate is the weakest of these: every landing pad inside a code area is one,
+        because the prologue scan seeds them all. It only rules out an address that candidate
+        discovery already refused - one outside the code areas, or past the candidate cap.
+        """
+        if (
+            previous_instruction is None
+            or i_address == start_addr
+            or i_address % _ENTRY_ALIGNMENT
+            or previous_instruction[2].rpartition(" ")[2] != "nop"
+            or not d.fc_manager.isFunctionCandidate(i_address)
+        ):
+            return False
+        return state.max_instruction_start <= i_address
 
     def _analyzeEndInstruction(self, state):
         state.setSanelyEnding(True)
@@ -446,7 +567,28 @@ class X86Backend(ArchBackend):
         i_mnemonic_noprefix = i_mnemonic
         if " " in i_mnemonic_noprefix:
             i_mnemonic_noprefix = i_mnemonic_noprefix.rpartition(" ")[2]
+        if i_mnemonic_noprefix == "endbr64" and self._isPaddedLandingPad(
+            d, state, i_address, previous_instruction, start_addr
+        ):
+            # The alignment cut below fires only where the padding follows a call, so a
+            # function that ends any other way and is padded up to the next entry runs
+            # straight into it and reports the pair as one. A CET landing pad is emitted only
+            # where an indirect branch can arrive, which is the entry-shape evidence that
+            # alignment and padding alone do not carry.
+            #
+            # The fall-through reference is deliberately kept. Where the pad belongs to
+            # another function this edge is what a tail call into it looks like, and where it
+            # is a switch case body the dispatch already owns, removing it would delete a real
+            # edge and leave the block before it with no successor at all.
+            state.setBlockEndingInstruction(True)
+            state.endBlock()
+            state.setSanelyEnding(True)
+            return True
         i_kind = _INS_KIND.get(i_mnemonic_noprefix)
+        # the engine calls this for every decoded instruction, so the operand is screened for a
+        # bracket here rather than paying a call to find out there is nothing to record
+        if i_op_str and "[" in i_op_str:
+            self._recordAbsoluteDataRefs(d, i_address, i_op_str, state)
         if i_kind == _KIND_CALL:
             self._analyzeCallInstruction(d, i, state)
         elif i_kind == _KIND_JMP:
@@ -473,7 +615,7 @@ class X86Backend(ArchBackend):
                 )
             if previous_address is not None and previous_mnemonic == "push":
                 push_ret_destination = d.getReferencedAddr(previous_instruction[3].strip())
-                if d.disassembly.isAddrWithinMemoryImage(push_ret_destination):
+                if push_ret_destination and d.disassembly.isAddrWithinMemoryImage(push_ret_destination):
                     LOGGER.debug(
                         "  analyzeFunction() found push-return jump obfuscation: @0x%08x",
                         i_address,

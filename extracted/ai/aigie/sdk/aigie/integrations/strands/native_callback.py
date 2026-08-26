@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from aigie.auto_instrument.trace import get_or_create_trace_sync
 from aigie.context_manager import merge_metadata
 from aigie.integrations.strands import _spans
+from aigie.tracing.execution_state import build_execution_plan
 from aigie.tracing.session import current_workflow_root, trace_session
 from aigie.tracing.span_event_handler import SpanEventHandler
 from aigie.tracing.trace_state import (
@@ -28,6 +29,30 @@ class _Boundary:
     root_inv_key: str | None = None
     ambient_token: Any = None
     tool_catalog_stamped: bool = False
+    # Run-level counters for the root's execution_plan. Strands has no
+    # ExecutionState (that is the LangChain family's aggregator), so the
+    # boundary — already reachable from every hook — is their home.
+    turn_count: int = 0
+    tool_call_count: int = 0
+    errored: bool = False
+    # Counted, not just flagged, so a nested orchestrator can ask "did anything
+    # fail while I was open?" instead of "did the run fail?". Keyed by ma-span.
+    error_count: int = 0
+    ma_errors_at_open: dict[str, int] = field(default_factory=dict)
+
+    def note_failure(self) -> None:
+        self.errored = True
+        self.error_count += 1
+
+    def plan_metadata(self, name: str) -> dict[str, Any]:
+        return {
+            "execution_plan": build_execution_plan(
+                agent=name,
+                tool_calls=self.tool_call_count,
+                turn_count=self.turn_count,
+                status="error" if self.errored else "success",
+            )
+        }
 
 
 _boundary: ContextVar[_Boundary | None] = ContextVar("_aigie_strands_boundary", default=None)
@@ -154,6 +179,18 @@ class StrandsHookProvider:
         if (root := current_workflow_root()) is not None:
             root.note_input(input_value)
 
+    @staticmethod
+    def _mark_errored() -> None:
+        """Remember that some step failed, so the root's plan can say so.
+
+        Strands never computes a status for its root — close_span defaults to
+        "success" — and child failures are not aggregated upward. Without this
+        the plan would report "success" on every failed run, which is worse for
+        a goal-adherence judge than reporting nothing.
+        """
+        if (boundary := _boundary.get()) is not None:
+            boundary.note_failure()
+
     def _stamp_tool_catalog(
         self, agent: Any, metadata: dict[str, Any], trace_id: str | None
     ) -> None:
@@ -177,23 +214,37 @@ class StrandsHookProvider:
         output_value = (
             _spans.result_output(result, self._limit()) if self._flag("capture_outputs") else None
         )
+        metadata_updates = _spans.usage_metadata(result)
+        is_root = key == boundary.root_inv_key
+        if is_root:
+            metadata_updates = {
+                **(metadata_updates or {}),
+                **boundary.plan_metadata(_spans.agent_name(event.agent)),
+            }
         self.spans.close_span(
             run_id=key,
             output=output_value,
-            metadata_updates=_spans.usage_metadata(result),
+            metadata_updates=metadata_updates,
+            # Without this the root reports "success" carrying a plan that says
+            # "error" — the span and its own summary disagreeing about the run.
+            status="error" if is_root and boundary.errored else "success",
         )
         if (root := current_workflow_root()) is not None:
             root.note_output(output_value)
-        if key == boundary.root_inv_key:
+        if is_root:
             self._finalize_trace()
 
     # -- Model call ------------------------------------------------------------
 
     def _on_before_model(self, event: Any) -> None:
-        if not self._flag("trace_model_calls"):
-            return
         boundary = _boundary.get()
         if boundary is None:
+            return
+        # Counted before the flag check: trace_model_calls governs whether a
+        # child span is emitted, not whether the run did the work. A judge
+        # reading turn_count 0 hears "no turns", not "not tracked".
+        boundary.turn_count += 1
+        if not self._flag("trace_model_calls"):
             return
         self._reassert_ambient()
         run_id = f"model:{boundary.trace_id}:{id(event)}"
@@ -210,6 +261,9 @@ class StrandsHookProvider:
         )
 
     def _on_after_model(self, event: Any) -> None:
+        exc = getattr(event, "exception", None)
+        if exc is not None:
+            self._mark_errored()  # a failure is a fact about the run, not about tracing
         if not self._flag("trace_model_calls"):
             return
         stack = _model_stack.get()
@@ -218,7 +272,6 @@ class StrandsHookProvider:
         run_id = stack[-1]
         _model_stack.set(stack[:-1])
         self._reassert_ambient()
-        exc = getattr(event, "exception", None)
         if exc is not None:
             self.spans.fail_span(run_id=run_id, error=exc)
             return
@@ -238,7 +291,10 @@ class StrandsHookProvider:
     # -- Tool call -------------------------------------------------------------
 
     def _on_before_tool(self, event: Any) -> None:
-        if not self._flag("trace_tools") or _boundary.get() is None:
+        if (boundary := _boundary.get()) is None:
+            return
+        boundary.tool_call_count += 1  # counted even when tool spans are off
+        if not self._flag("trace_tools"):
             return
         self._reassert_ambient()
         tool_use = event.tool_use
@@ -254,11 +310,13 @@ class StrandsHookProvider:
         )
 
     def _on_after_tool(self, event: Any) -> None:
+        exc = getattr(event, "exception", None)
+        if exc is not None:
+            self._mark_errored()
         if not self._flag("trace_tools") or _boundary.get() is None:
             return
         run_id = event.tool_use["toolUseId"]
         self._reassert_ambient()
-        exc = getattr(event, "exception", None)
         if exc is not None:
             self.spans.fail_span(run_id=run_id, error=exc)
             return
@@ -282,6 +340,7 @@ class StrandsHookProvider:
         is_root = boundary.root_inv_key is None
         if is_root:
             boundary.root_inv_key = key
+        boundary.ma_errors_at_open[key] = boundary.error_count
         self.spans.open_span(
             run_id=key,
             parent_run_id=None,
@@ -301,9 +360,28 @@ class StrandsHookProvider:
         key = f"ma:{id(event.source)}"
         self._reassert_ambient()
         self._sweep_open_nodes(event.source)
-        self.spans.close_span(run_id=key, output=None)
-        if key == boundary.root_inv_key:
+        # Swept nodes can mark the run errored, so build the plan after the sweep.
+        is_root = key == boundary.root_inv_key
+        self.spans.close_span(
+            run_id=key,
+            output=None,
+            metadata_updates=(boundary.plan_metadata("Strands Multi-Agent") if is_root else None),
+            # Without a status this closes "success" over failed children; the
+            # scoping keeps a clean nested orchestrator out of it.
+            status="error" if self._ma_failed(boundary, key, is_root) else "success",
+        )
+        boundary.ma_errors_at_open.pop(key, None)
+        if is_root:
             self._finalize_trace()
+
+    @staticmethod
+    def _ma_failed(boundary: _Boundary, key: str, is_root: bool) -> bool:
+        """The root owns the whole run; a nested one owns only what failed
+        after it opened, so a sibling's failure is not charged to it."""
+        if is_root:
+            return boundary.errored
+        opened_at = boundary.ma_errors_at_open.get(key)
+        return opened_at is not None and boundary.error_count > opened_at
 
     # -- Multi-agent nodes -----------------------------------------------------
 
@@ -325,9 +403,11 @@ class StrandsHookProvider:
         )
 
     def _on_after_node(self, event: Any) -> None:
-        if not self._flag("trace_multi_agent") or _boundary.get() is None:
+        if _boundary.get() is None:
             return
         self._reassert_ambient()
+        # Called even with trace_multi_agent off: close_span/fail_span no-op for a
+        # span that was never opened, but the run still has to learn a node failed.
         self._finish_node(event.source, event.node_id)
 
     def _finish_node(self, source: Any, node_id: str) -> None:
@@ -335,6 +415,7 @@ class StrandsHookProvider:
         run_id = f"node:{node_id}"
         error = _spans.node_failure(source, node_id)
         if error is not None:
+            self._mark_errored()
             self.spans.fail_span(run_id=run_id, error=error)
         else:
             self.spans.close_span(run_id=run_id, output=None)
@@ -387,8 +468,30 @@ def strands_session(name: str = "Strands Session") -> Iterator[str | None]:
         if trace_id is None or _boundary.get() is not None:
             yield trace_id
             return
-        token = _boundary.set(_Boundary(trace_id=trace_id, root_inv_key=_SESSION_SENTINEL))
+        boundary = _Boundary(trace_id=trace_id, root_inv_key=_SESSION_SENTINEL)
+        token = _boundary.set(boundary)
+        failure: BaseException | None = None
         try:
             yield trace_id
+        except BaseException as exc:
+            # Nothing inside the session reports a failure that never reached a
+            # model or tool hook, so without this the root closes "success" on a
+            # run the caller saw raise.
+            boundary.note_failure()
+            failure = exc
+            raise
         finally:
             _boundary.reset(token)
+            # Closed here rather than by trace_session so the root carries the
+            # run summary, which is only known now. WorkflowRoot.close() is
+            # idempotent, so trace_session's own close becomes a no-op.
+            if (root := current_workflow_root()) is not None:
+                # A tool hook can set ``errored`` without anything propagating
+                # out of the session, so the status is driven by the boundary
+                # rather than by ``failure`` alone — otherwise the span says
+                # "success" while the plan it carries says "error".
+                root.close(
+                    error=failure,
+                    status="error" if boundary.errored else None,
+                    metadata_updates=boundary.plan_metadata(name),
+                )

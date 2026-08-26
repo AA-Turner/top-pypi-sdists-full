@@ -1129,13 +1129,13 @@ class Client:
         )
 
     def poll_for_task_completion(self, task_id, *, timeout=30, interval=2):
-        timeout_time = datetime.now() + timedelta(seconds=timeout)
+        timeout_time = datetime.now() + timedelta(seconds=timeout)  # noqa: DTZ005 (call-datetime-now-without-tzinfo)
         while True:
             task_result = self.get_task(task_id=task_id)
             if task_result.get("state") in ["success", "failure"]:
                 return task_result
-            if datetime.now() > timeout_time:
-                raise Exception("Timeout exceeded")
+            if datetime.now() > timeout_time:  # noqa: DTZ005 (call-datetime-now-without-tzinfo)
+                raise Exception("Timeout exceeded")  # noqa: TRY002 (raise-vanilla-class)
             sleep(interval)
 
     def get_notification_channel(self, channel_id):

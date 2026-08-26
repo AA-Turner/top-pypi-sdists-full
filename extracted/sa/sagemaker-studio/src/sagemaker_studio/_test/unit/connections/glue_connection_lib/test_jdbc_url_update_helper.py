@@ -779,6 +779,8 @@ class TestMongoDBAuthenticationTypeMarker(unittest.TestCase):
             "url": url,
             "fullUrl": url,
             "authenticationType": "IAM",
+            # enforceSSL=false must NOT disable TLS for IAM auth -- see the
+            # TestMongoDBIamTlsEnforcement cases below.
             "enforceSSL": "false",
         }
 
@@ -789,6 +791,7 @@ class TestMongoDBAuthenticationTypeMarker(unittest.TestCase):
             "IAM",
             f"authenticationType marker was not propagated. Got: {result}",
         )
+        self.assertIn("ssl=true", result["connection.uri"])
 
     def test_update_url_in_props_documentdb_propagates_authentication_type_iam(self):
         """Test updateUrlInProps for DocumentDB propagates authenticationType=IAM marker."""
@@ -807,6 +810,7 @@ class TestMongoDBAuthenticationTypeMarker(unittest.TestCase):
             "IAM",
             f"authenticationType marker was not propagated. Got: {result}",
         )
+        self.assertIn("ssl=true", result["connection.uri"])
 
     def test_update_url_in_props_mongodb_no_authentication_type_when_absent(self):
         """Test updateUrlInProps for MongoDB does not add authenticationType when absent."""
@@ -816,6 +820,164 @@ class TestMongoDBAuthenticationTypeMarker(unittest.TestCase):
         result = JDBCUrlUpdateHelper.update_url_in_props("mongodb", url, props, {})
 
         self.assertNotIn("authenticationType", result)
+        self.assertNotIn("ssl=true", result["connection.uri"])
+
+
+# ==========================================================================
+# MongoDB / DocumentDB -- TLS enforcement.
+#
+# The MONGODB-AWS SASL exchange carries the access key id, the session token,
+# and a signed GetCallerIdentity payload, so TLS is mandatory for IAM auth.
+# `enforceSSL` arrives verbatim from customer-supplied ConnectionProperties
+# via CreateConnection/UpdateConnection, so it cannot be relied on: the
+# console form that sets ENFORCE_SSL=true for DocumentDB IAM is not an
+# enforcement point. These cases lock in that the URI is never IAM-marked
+# without TLS, that the enforceSSL comparison is case-insensitive, and that
+# the disableUpdateUri path fails closed instead of dropping TLS silently.
+# ==========================================================================
+
+
+class TestMongoDBIamTlsEnforcement(unittest.TestCase):
+    """Test TLS enforcement for MongoDB/DocumentDB IAM authentication."""
+
+    URL = "mongodb://docdbhost:27017"
+
+    def test_iam_auth_forces_ssl_when_enforce_ssl_false(self):
+        """IAM auth appends ssl=true even when enforceSSL is explicitly false."""
+        props = {"url": self.URL, "fullUrl": self.URL, "authenticationType": "IAM"}
+        props["enforceSSL"] = "false"
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", self.URL, props, {})
+
+        self.assertEqual(result["connection.uri"], f"{self.URL}/?ssl=true")
+
+    def test_iam_auth_forces_ssl_when_enforce_ssl_absent(self):
+        """IAM auth appends ssl=true when enforceSSL is not supplied at all."""
+        props = {"url": self.URL, "fullUrl": self.URL, "authenticationType": "IAM"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", self.URL, props, {})
+
+        self.assertEqual(result["connection.uri"], f"{self.URL}/?ssl=true")
+
+    def test_iam_auth_case_insensitive_marker(self):
+        """IAM detection tolerates the marker's casing."""
+        props = {"url": self.URL, "fullUrl": self.URL, "authenticationType": "iam"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", self.URL, props, {})
+
+        self.assertIn("ssl=true", result["connection.uri"])
+
+    def test_iam_auth_does_not_duplicate_ssl_already_in_url(self):
+        """No duplicate ssl=true when the URL already declares TLS."""
+        url = f"{self.URL}/?ssl=true"
+        props = {"url": url, "fullUrl": url, "authenticationType": "IAM"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", url, props, {})
+
+        self.assertEqual(result["connection.uri"].count("ssl=true"), 1)
+
+    def test_iam_auth_accepts_tls_true_in_url(self):
+        """`tls=true` in the URL satisfies the requirement -- it is the driver's synonym."""
+        url = f"{self.URL}/?tls=true"
+        props = {"url": url, "fullUrl": url, "authenticationType": "IAM"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", url, props, {})
+
+        self.assertEqual(result["connection.uri"], url)
+        self.assertNotIn("ssl=true", result["connection.uri"])
+
+    def test_iam_auth_ignores_ssl_domain_match_false(self):
+        """`ssl.domain_match=false` does not disable hostname verification under IAM."""
+        props = {"url": self.URL, "fullUrl": self.URL, "authenticationType": "IAM"}
+        additional_options = {"ssl.domain_match": "false"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props(
+            "documentdb", self.URL, props, additional_options
+        )
+
+        self.assertIn("ssl=true", result["connection.uri"])
+        self.assertNotIn("sslInvalidHostNameAllowed", result["connection.uri"])
+
+    def test_basic_auth_still_honors_ssl_domain_match_false(self):
+        """Non-IAM connections keep the existing ssl.domain_match behavior."""
+        props = {"url": self.URL, "fullUrl": self.URL, "enforceSSL": "true"}
+        additional_options = {"ssl.domain_match": "false"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props(
+            "documentdb", self.URL, props, additional_options
+        )
+
+        self.assertIn("sslInvalidHostNameAllowed=true", result["connection.uri"])
+
+    def test_enforce_ssl_comparison_is_case_insensitive(self):
+        """enforceSSL="TRUE" enables TLS -- casing must not fail open."""
+        for value in ("TRUE", "True", "tRuE"):
+            with self.subTest(enforce_ssl=value):
+                props = {"url": self.URL, "fullUrl": self.URL, "enforceSSL": value}
+
+                result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", self.URL, props, {})
+
+                self.assertIn("ssl=true", result["connection.uri"])
+
+    def test_enforce_ssl_false_without_iam_leaves_url_untouched(self):
+        """TLS is not forced for non-IAM connections that did not ask for it."""
+        props = {"url": self.URL, "fullUrl": self.URL, "enforceSSL": "false"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", self.URL, props, {})
+
+        self.assertEqual(result["connection.uri"], self.URL)
+
+    def test_disable_update_uri_rejects_iam_without_tls_in_url(self):
+        """disableUpdateUri + IAM without TLS in the URL fails closed."""
+        props = {"url": self.URL, "fullUrl": self.URL, "authenticationType": "IAM"}
+        additional_options = {"disableUpdateUri": "true"}
+
+        with self.assertRaises(ValueError) as context:
+            JDBCUrlUpdateHelper.update_url_in_props(
+                "documentdb", self.URL, props, additional_options
+            )
+
+        self.assertIn("TLS is required", str(context.exception))
+        # Same rationale as validateMongoUri: the URL may carry credentials.
+        self.assertNotIn(self.URL, str(context.exception))
+
+    def test_disable_update_uri_rejects_enforce_ssl_without_tls_in_url(self):
+        """disableUpdateUri + enforceSSL=true without TLS in the URL fails closed."""
+        props = {"url": self.URL, "fullUrl": self.URL, "enforceSSL": "true"}
+        additional_options = {"disableUpdateUri": "true"}
+
+        with self.assertRaises(ValueError):
+            JDBCUrlUpdateHelper.update_url_in_props(
+                "documentdb", self.URL, props, additional_options
+            )
+
+    def test_disable_update_uri_accepts_tls_declared_in_url(self):
+        """disableUpdateUri + IAM is fine when the URL already declares TLS."""
+        url = f"{self.URL}/?ssl=true"
+        props = {"url": url, "fullUrl": url, "authenticationType": "IAM"}
+        additional_options = {"disableUpdateUri": "true"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props(
+            "documentdb", url, props, additional_options
+        )
+
+        self.assertEqual(result["connection.uri"], url)
+        self.assertEqual(result["authenticationType"], "IAM")
+        # The translated key is not honored by the downstream connector, which
+        # reads connection settings only from connection.uri -- do not ship it.
+        self.assertNotIn("ssl", result)
+
+    def test_disable_update_uri_without_tls_requirement_unchanged(self):
+        """disableUpdateUri with no TLS requirement keeps the existing behavior."""
+        props = {"url": self.URL, "fullUrl": self.URL, "enforceSSL": "false"}
+        additional_options = {"disableUpdateUri": "true"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props(
+            "documentdb", self.URL, props, additional_options
+        )
+
+        self.assertEqual(result["connection.uri"], self.URL)
+        self.assertNotIn("ssl", result)
 
 
 # ==========================================================================

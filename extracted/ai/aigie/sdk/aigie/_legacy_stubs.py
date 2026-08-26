@@ -365,15 +365,6 @@ GraphRetryContext = RetryContext
 GraphPlan = _NoOpPlan
 WorkflowPlan = _NoOpPlan
 
-# Pipecat voice variants
-PipelineExecutionError = AgentExecutionError
-VoiceServiceError = AgentExecutionError
-VoiceServiceRetry = RetryContext
-VoiceErrorType = ErrorType
-DetectedVoiceError = DetectedError
-VoiceErrorStats = ErrorStats
-VoiceDriftType = DriftType
-VoicePipelineExpectations = _NoOpPlan
 TurnExecution = _NoOpExecution
 
 

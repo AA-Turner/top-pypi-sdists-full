@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp
-Version: 2.1.0
+Version: 2.1.1
 Summary: Model Context Protocol SDK
 Project-URL: Homepage, https://modelcontextprotocol.io
 Project-URL: Documentation, https://py.sdk.modelcontextprotocol.io/
@@ -25,7 +25,7 @@ Requires-Dist: anyio>=4.10; python_version >= '3.14'
 Requires-Dist: anyio>=4.9; python_version < '3.14'
 Requires-Dist: httpx2>=2.5.0
 Requires-Dist: jsonschema>=4.20.0
-Requires-Dist: mcp-types==2.1.0
+Requires-Dist: mcp-types==2.1.1
 Requires-Dist: opentelemetry-api>=1.28.0
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: pyjwt[crypto]>=2.10.1

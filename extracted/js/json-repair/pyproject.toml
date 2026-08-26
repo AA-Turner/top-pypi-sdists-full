@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "json_repair"
-version = "0.63.3"
+version = "0.63.4"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -85,6 +85,8 @@ json_repair = "json_repair.__main__:cli"
 # Same as Black.
 indent-width = 4
 line-length = 120
+# Keep documentation code examples outside Ruff's formatter scope.
+extend-exclude = ["*.md"]
 # Assume Python 3.13
 target-version = "py313"
 [tool.ruff.lint]

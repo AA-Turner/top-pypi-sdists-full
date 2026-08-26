@@ -83,13 +83,13 @@ struct casadi_ipopt_data {
 
 // SYMBOL "ipopt_init_mem"
 template<typename T1>
-int ipopt_init_mem(casadi_ipopt_data<T1>* d) {
+int casadi_ipopt_init_mem(casadi_ipopt_data<T1>* d) {
   return 0;
 }
 
 // SYMBOL "ipopt_free_mem"
 template<typename T1>
-void ipopt_free_mem(casadi_ipopt_data<T1>* d) {
+void casadi_ipopt_free_mem(casadi_ipopt_data<T1>* d) {
   //Highs_destroy(d->ipopt);
   
 }
@@ -103,9 +103,9 @@ void casadi_ipopt_work(const casadi_ipopt_prob<T1>* p, casadi_int* sz_arg, casad
   *sz_w += p->nlp->nx; // z_U
 }
 
-// SYMBOL "ipopt_init"
+// SYMBOL "ipopt_set_work"
 template<typename T1>
-void casadi_ipopt_init(casadi_ipopt_data<T1>* d, const T1*** arg, T1*** res, casadi_int** iw, T1** w) {
+void casadi_ipopt_set_work(casadi_ipopt_data<T1>* d, const T1*** arg, T1*** res, casadi_int** iw, T1** w) {
   // Problem structure
   const casadi_ipopt_prob<T1>* p = d->prob;
   const casadi_nlpsol_prob<T1>* p_nlp = p->nlp;

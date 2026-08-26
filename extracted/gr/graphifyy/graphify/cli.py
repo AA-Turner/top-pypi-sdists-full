@@ -2274,7 +2274,11 @@ def dispatch_command(cmd: str) -> None:
             # Try to recover the scan root saved by the last full build
             saved = Path(_GRAPHIFY_OUT) / ".graphify_root"
             if saved.exists():
-                watch_path = Path(saved.read_text(encoding="utf-8").strip())
+                # utf-8-sig: a marker written by Windows PowerShell 5.1 carries a
+                # UTF-8 BOM that plain utf-8 keeps as U+FEFF (not stripped by
+                # .strip()), which would make this recovered path fail exists()
+                # (#3028). Match the other .graphify_root readers.
+                watch_path = Path(saved.read_text(encoding="utf-8-sig").strip())
             else:
                 watch_path = Path(".")
         if not watch_path.exists():
@@ -2537,11 +2541,25 @@ def dispatch_command(cmd: str) -> None:
         # diagnosis in PR #1691). Collect every input's prefixed hyperedges
         # and re-attach the union after composing.
         collected_hyperedges: list = []
+        # Offset each input's community ids into a shared id space as it is
+        # prefixed: every input numbers its communities from 0, so ids carried
+        # across unchanged collide in the merged graph and the aggregated
+        # community view fuses unrelated communities into one meta-node (#3014).
+        # The first input keeps its original ids (offset 0); local_community on
+        # the prefixed nodes preserves each repo's own partition.
+        community_offset = 0
         for G, repo_tag in zip(graphs, repo_tags):
-            prefixed = _to_simple(_prefix(G, repo_tag))
+            prefixed = _to_simple(_prefix(G, repo_tag, community_offset=community_offset))
             hes = prefixed.graph.get("hyperedges")
             if isinstance(hes, list):
                 collected_hyperedges.extend(h for h in hes if isinstance(h, dict))
+            cids = [
+                d["community"]
+                for _, d in prefixed.nodes(data=True)
+                if isinstance(d.get("community"), int)
+            ]
+            if cids:
+                community_offset = max(community_offset, max(cids) + 1)
             merged = _nx.compose(merged, prefixed)
         # A contract type both repos declare arrives as two unconnected nodes,
         # since every id is repo-prefixed. Link them so a traversal can cross

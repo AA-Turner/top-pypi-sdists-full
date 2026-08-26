@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from tako.models.answer_structured_output_error import AnswerStructuredOutputError
 from tako.models.tako_card import TakoCard
 from tako.models.usage import Usage
 from tako.models.web_result import WebResult
@@ -35,7 +36,9 @@ class AnswerResponse(BaseModel):
     web_results: Optional[List[WebResult]] = None
     request_id: StrictStr
     usage: Optional[Usage] = None
-    __properties: ClassVar[List[str]] = ["answer", "cards", "web_results", "request_id", "usage"]
+    structured_output: Optional[Dict[str, Any]] = Field(default=None, description="Your output_schema, filled. Absent when the request carried no output_schema, or when Tako couldn't fill it — check structured_output_error.")
+    structured_output_error: Optional[AnswerStructuredOutputError] = Field(default=None, description="Why structured_output is absent. Present only on a structured request that failed.")
+    __properties: ClassVar[List[str]] = ["answer", "cards", "web_results", "request_id", "usage", "structured_output", "structured_output_error"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -93,10 +96,23 @@ class AnswerResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of usage
         if self.usage:
             _dict['usage'] = self.usage.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of structured_output_error
+        if self.structured_output_error:
+            _dict['structured_output_error'] = self.structured_output_error.to_dict()
         # set to None if usage (nullable) is None
         # and model_fields_set contains the field
         if self.usage is None and "usage" in self.model_fields_set:
             _dict['usage'] = None
+
+        # set to None if structured_output (nullable) is None
+        # and model_fields_set contains the field
+        if self.structured_output is None and "structured_output" in self.model_fields_set:
+            _dict['structured_output'] = None
+
+        # set to None if structured_output_error (nullable) is None
+        # and model_fields_set contains the field
+        if self.structured_output_error is None and "structured_output_error" in self.model_fields_set:
+            _dict['structured_output_error'] = None
 
         return _dict
 
@@ -114,7 +130,9 @@ class AnswerResponse(BaseModel):
             "cards": [TakoCard.from_dict(_item) for _item in obj["cards"]] if obj.get("cards") is not None else None,
             "web_results": [WebResult.from_dict(_item) for _item in obj["web_results"]] if obj.get("web_results") is not None else None,
             "request_id": obj.get("request_id"),
-            "usage": Usage.from_dict(obj["usage"]) if obj.get("usage") is not None else None
+            "usage": Usage.from_dict(obj["usage"]) if obj.get("usage") is not None else None,
+            "structured_output": obj.get("structured_output"),
+            "structured_output_error": AnswerStructuredOutputError.from_dict(obj["structured_output_error"]) if obj.get("structured_output_error") is not None else None
         })
         return _obj
 

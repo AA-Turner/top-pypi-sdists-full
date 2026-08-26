@@ -185,13 +185,19 @@ class GoSymbolProvider(AbstractLabelProvider):
         pclntab_offset = self.getPcLntabOffset(binary_info)
         # if we found a valid offset, do the pclntab parsing
         if pclntab_offset is not None:
+            cached = getattr(binary_info, "_go_pclntab_symbols", None)
+            if cached is not None:
+                self._func_symbols = dict(cached)
+                return
             try:
                 result = self._parse_pclntab(pclntab_offset, binary, self.getTextStart(binary_info))
                 if result:
                     self._func_symbols = result
             except Exception as exc:
                 reraise_non_operational_exception(exc)
+                LOGGER.warning("Failed to parse Go pclntab at offset 0x%x: %s", pclntab_offset, exc)
                 return
+            binary_info._go_pclntab_symbols = dict(self._func_symbols)
 
     def isSymbolProvider(self):
         return True

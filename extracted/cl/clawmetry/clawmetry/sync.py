@@ -31,6 +31,7 @@ from typing import Any
 # Leaf module (typing-only deps) — safe to import at package load, no cycle.
 from clawmetry import error_signal as _error_signal
 from clawmetry import session_titles as _session_titles
+from clawmetry.adapters import phase as _phase
 
 
 def _get_openclaw_dir():
@@ -7170,6 +7171,23 @@ def _build_node_meta() -> dict:
         meta.update(_machine_specs())
     except Exception:
         pass
+    # Which secret opens this machine's shareable content. The FINGERPRINT
+    # only -- a hash of the key, never the key. It rides the plaintext
+    # heartbeat on purpose: a member who holds the wrong organisation key must
+    # be told exactly that, and the cloud cannot say so about a secret it has
+    # no identifier for. The alternative is the screen we already ship for a
+    # teammate's node: empty, with no way to tell "no sessions" from "wrong
+    # key". A hash of a 256-bit random key is not a way back to the key.
+    try:
+        from clawmetry import org_key as _ok
+
+        _cfg_ok = load_config() or {}
+        meta["content_key_scope"] = "organisation" if _ok.is_org_sealed(_cfg_ok) else "node"
+        _fp = _ok.fingerprint(_ok.content_key(_cfg_ok))
+        if _fp:
+            meta["content_key_fingerprint"] = _fp
+    except Exception:
+        pass
     # Pro-adapter + auto-update status so the cloud Fleet can show whether an
     # entitled node is actually running clawmetry-pro (the paid runtime
     # adapters) and keeping itself current — turning the "I'm on Pro but Claude
@@ -7199,6 +7217,8 @@ _LITE_RT_LABELS = {
     "gemini_cli": "Gemini CLI",
     "cline": "Cline",
     "openhands": "OpenHands",
+    "openworker": "OpenWorker",
+
 }
 
 # Activity thresholds (seconds) for classifying a detected runtime. Detecting a
@@ -7253,6 +7273,23 @@ def _xdg_data_home() -> str:
     return os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
 
 
+def _goose_data_dirs() -> list:
+    """Goose's data dir candidates, from the adapter that actually reads them.
+
+    Goose does NOT anchor at ``~/.local/share`` on every platform: Windows
+    lives under ``%APPDATA%\\Block\\goose\\data`` and ``GOOSE_PATH_ROOT``
+    relocates everything. Importing the adapter's resolver keeps detection and
+    ingestion from drifting apart — a hardcoded copy here is exactly how a
+    Windows install reads as "Goose not present" while the adapter is happily
+    ingesting it. Falls back to the POSIX default if the adapter is missing.
+    """
+    try:
+        from clawmetry.adapters.goose import data_dir_candidates
+        return list(data_dir_candidates())
+    except Exception:
+        return [os.path.join(os.path.expanduser("~"), ".local", "share", "goose")]
+
+
 def _runtime_data_paths(rid: str) -> list:
     """Native on-disk data location(s) for a runtime, used to compute recency.
     Mirrors the per-adapter stores (the same dirs the lite/pro detectors read).
@@ -7272,7 +7309,7 @@ def _runtime_data_paths(rid: str) -> list:
         "codex": [os.path.join(home, ".codex", "sessions")],
         "qwen_code": [os.path.join(home, ".qwen")],
         "opencode": [os.path.join(home, ".local", "share", "opencode", "opencode.db")],
-        "goose": [os.path.join(home, ".local", "share", "goose")],
+        "goose": _goose_data_dirs(),
         "hermes": [os.path.join(home, ".hermes", "state.db")],
         "aider": [os.path.join(home, ".aider")],
         "picoclaw": [os.path.join(home, ".picoclaw")],
@@ -7420,7 +7457,7 @@ def _detect_runtimes_lite() -> list:
     # Presence-only (non-JSONL formats — count unknown) → report with 0 sessions.
     _present = {
         "cursor": [os.path.join(home, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb")],
-        "goose": [os.path.join(home, ".local", "share", "goose")],
+        "goose": _goose_data_dirs(),
         "opencode": [os.path.join(home, ".local", "share", "opencode")],
         "hermes": [os.path.join(home, ".hermes", "state.db")],
         "picoclaw": [os.path.join(home, ".picoclaw")],
@@ -8610,6 +8647,13 @@ def send_heartbeat(config: dict) -> bool:
             pending = (resp_json or {}).get("pending_queries") or []
             if pending:
                 _dispatch_pending_queries(config, pending)
+            # Sessions their owner asked to share with their organisation. We
+            # seal each with the ORGANISATION key and upload it once, so a
+            # colleague can read it without this machine being awake and
+            # without holding this machine's key.
+            shares = (resp_json or {}).get("share_requests") or []
+            if shares:
+                _seal_shared_traces(config, shares)
             return True
         except Exception as e:
             last_err = e
@@ -11169,6 +11213,66 @@ def _build_q1_cache_pushes(config: dict) -> list:
     return pushes
 
 
+def _seal_shared_traces(config: dict, session_ids: list) -> None:
+    """Seal each requested session's trace with the ORGANISATION key and upload.
+
+    This is the only path by which one person's session becomes readable by
+    their colleagues, and the key choice is the whole design:
+
+    * With an organisation key, the trace is sealed so every member can open
+      it, and the cloud stores ciphertext it cannot read.
+    * WITHOUT one we upload NOTHING. Sealing with this machine's own key would
+      produce a blob no colleague could open, and the share would sit there
+      looking successful forever. A share that cannot be read is worse than a
+      share that plainly failed, so we log what is missing and leave the
+      session in `sealing` until a key exists.
+
+    Failures are per-session and never raise: one unreadable session must not
+    stop the heartbeat or the other shares.
+    """
+    try:
+        from clawmetry import org_key as _ok
+    except Exception:
+        return
+    api_key = config.get("api_key")
+    if not api_key:
+        return
+
+    org = _ok.get(config)
+    if not org:
+        log.warning(
+            "share: %d session(s) are marked shared but this machine has no "
+            "organisation key, so nothing can be sealed for colleagues. Run "
+            "`clawmetry team key create`, or accept your organisation's key "
+            "with `clawmetry team key set --file KEYFILE`.",
+            len(session_ids),
+        )
+        return
+    fp = _ok.fingerprint(org)
+
+    for sid in list(session_ids)[:5]:
+        sid = str(sid or "").strip()
+        if not sid:
+            continue
+        try:
+            from routes.local_query import _dispatch as _local_dispatch
+            body = _local_dispatch("transcript", {"session_id": sid,
+                                                  "limit": 5000})
+            rows = (body or {}).get("rows") or []
+            if not rows:
+                log.info("share: %s has no recorded events; nothing to seal", sid)
+                continue
+            blob = encrypt_payload({"rows": rows, "count": len(rows),
+                                    "session_id": sid}, org)
+            _post("/ingest/shared-trace",
+                  {"session_id": sid, "blob": blob, "key_fingerprint": fp},
+                  api_key)
+            log.info("share: sealed %s (%d events) for the organisation",
+                     sid, len(rows))
+        except Exception as exc:
+            log.warning("share: could not seal %s: %s", sid, exc)
+
+
 def _dispatch_pending_queries(config: dict, pending: list) -> None:
     """Run each cloud-requested query against the local store, encrypt the
     result, and POST back to /ingest/cache. Failures on individual queries
@@ -12904,6 +13008,25 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
                     }
                 )
                 last_mtimes[fpath.name] = current_mtime
+                # Phase, on the same durable record every runtime writes to.
+                # OpenClaw is the one runtime that emits a real end signal, so
+                # its ``end_reason`` reaches the resolver as an asserted end
+                # and beats recency; without one the same recency windows the
+                # family runtimes use apply, and both come from
+                # clawmetry/adapters/phase.py rather than from a second rule
+                # invented here.
+                try:
+                    from clawmetry import local_store as _ls_phase
+                    _phase_store = _ls_phase.get_store()
+                except Exception:
+                    _phase_store = None
+                if _phase_store is not None:
+                    _record_session_phase(
+                        _phase_store, sid, "openclaw",
+                        end_reason=end_reason,
+                        last_activity_at=_iso_to_epoch(updated_at),
+                        started_at=_iso_to_epoch(started_at),
+                    )
                 if len(batch) >= BATCH_SIZE:
                     total_uploaded += _flush(batch)
                     batch = []
@@ -13485,6 +13608,10 @@ _FAMILY_ADAPTER_SPECS = (
     # the ACP tool-call records. Devin Cloud sessions are API-only and
     # deliberately not ingested here.
     ("clawmetry_pro.adapters.devin", "DevinAdapter"),
+    # OpenWorker (github.com/andrewyng/openworker) -- a generalist desktop
+    # worker, not a coding CLI: its sessions are SaaS-connector work as
+    # often as file edits.
+    ("clawmetry_pro.adapters.openworker", "OpenWorkerAdapter"),
 )
 
 
@@ -13760,12 +13887,111 @@ def _epoch_to_iso(epoch) -> str | None:
         return None
 
 
+def _iso_to_epoch(iso) -> float | None:
+    """Inverse of :func:`_epoch_to_iso`: ISO-8601 (or epoch) to epoch seconds.
+
+    OpenClaw stamps ISO strings while the phase model works in epoch seconds.
+    Tolerates a trailing ``Z`` (Python 3.9's ``fromisoformat`` rejects it) and
+    returns ``None`` on anything unparseable, so a bad timestamp reads as "no
+    signal" rather than as a session that has been idle since 1970.
+    """
+    if not iso:
+        return None
+    if isinstance(iso, (int, float)):
+        try:
+            return float(iso) or None
+        except (TypeError, ValueError):
+            return None
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except (ValueError, TypeError, OSError, OverflowError):
+        return None
+
+
 # Session liveness buckets. Deliberately the SAME thresholds the subagent
 # reader already derives (routes/sessions.py ``_try_local_store_subagents``:
 # <120s active, <600s idle, else stale) so the two surfaces cannot disagree
 # about what "right now" means.
-_SESSION_ACTIVE_SECS = 120
-_SESSION_IDLE_SECS = 600
+# One definition of "recent", shared with the session phase model. These used
+# to be two literals here; ``clawmetry/adapters/phase.py`` now owns them so the
+# phase a session reports and the status this function buckets it into cannot
+# drift apart. Same values as before, so no bucket moved.
+_SESSION_ACTIVE_SECS = int(_phase.DEFAULT_WORKING_SECS)
+_SESSION_IDLE_SECS = int(_phase.DEFAULT_STALE_SECS)
+
+
+def _record_session_phase(store, session_id: str, runtime: str, *,
+                          phase=None, status=None, end_reason: str = "",
+                          last_activity_at=None, started_at=None,
+                          archived: bool = False, pid=None,
+                          cwd: str = "", initial_cwd: str = "",
+                          resolvable=None) -> dict:
+    """Resolve one session's phase and stamp the durable transition.
+
+    Called on EVERY observed session on every pass, before the high-water
+    skip -- a session that stopped advancing is exactly the one whose phase
+    must move on (working -> idle -> ended), and skipping it would freeze it at
+    "working" forever.
+
+    The stored row is the ONE place a phase lives. It is deliberately not
+    mirrored onto the session's metadata blob: a second copy updated on a
+    different cadence is how two surfaces come to disagree, which is the bug
+    the phase model exists to remove.
+
+    Never raises. A phase that fails to record leaves the session with no
+    durable transition time, which reads as unknown rather than as wrong.
+    """
+    try:
+        verdict = _phase.resolve(
+            now=time.time(),
+            phase=phase,
+            status=status,
+            end_reason=end_reason,
+            last_activity_at=last_activity_at,
+            started_at=started_at,
+            archived=archived,
+            pid=pid,
+            pid_alive=_pid_alive_for_phase(),
+        )
+        return store.record_session_phase(
+            session_id,
+            phase=verdict.phase,
+            runtime=runtime,
+            status=verdict.status,
+            phase_basis=verdict.basis,
+            end_reason=verdict.end_reason,
+            resolvable=resolvable,
+            cwd=cwd,
+            # An adapter that genuinely knows the LAUNCH directory passes it
+            # here; the store seeds from ``cwd`` only when this is empty.
+            # Dropping it would silently downgrade a known launch directory to
+            # "wherever it was when we first looked".
+            initial_cwd=initial_cwd,
+            # The daemon does not read the row back, and it records one for
+            # every observed session on every pass. Skipping the read-back
+            # halves the statements against the writer's CPU budget (§1e).
+            return_row=False,
+        ) or {}
+    except Exception as exc:
+        log.debug("session phase record failed (%s): %s", session_id, exc)
+        return {}
+
+
+def _pid_alive_for_phase():
+    """``process_control.is_alive`` where it imports, else ``None``.
+
+    Injected rather than imported by the adapter layer so the phase model
+    stays free of process syscalls. ``None`` means "no pid evidence", which
+    falls through to recency instead of asserting a dead process.
+    """
+    try:
+        from clawmetry import process_control
+        return process_control.is_alive
+    except Exception:
+        return None
 
 
 def _session_liveness(last_activity_iso: str | None) -> tuple[str, str | None]:
@@ -14305,6 +14531,27 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 ns_id = f"{runtime}:{s.id}"
                 started = _epoch_to_iso(s.started_at)
                 ended = _epoch_to_iso(s.ended_at)
+                # Phase FIRST, before the high-water skip below. A session that
+                # stopped advancing is precisely the one whose phase has to move
+                # on (working -> idle -> ended); recording it after the skip
+                # would freeze every quiet session at whatever it was last doing.
+                # Cheap: adapter fields only, no event read.
+                _s_extra = s.extra if isinstance(s.extra, dict) else {}
+                _record_session_phase(
+                    store, ns_id, runtime,
+                    phase=getattr(s, "phase", None),
+                    status=getattr(s, "status", None),
+                    end_reason=getattr(s, "end_reason", "") or "",
+                    last_activity_at=(getattr(s, "last_activity_at", None)
+                                      or s.ended_at or s.started_at),
+                    started_at=s.started_at,
+                    archived=bool(_s_extra.get("archived")),
+                    pid=_s_extra.get("pid"),
+                    cwd=(getattr(s, "cwd", "") or _s_extra.get("cwd") or ""),
+                    initial_cwd=(getattr(s, "initial_cwd", "")
+                                 or _s_extra.get("initialCwd")
+                                 or _s_extra.get("initial_cwd") or ""),
+                )
                 # High-water mark = newest event ts we've already ingested for
                 # this session. Skip sessions that haven't advanced since: the
                 # adapter would re-read the whole file (potentially thousands of
@@ -14932,6 +15179,7 @@ _RUNTIME_PREFIXES = frozenset({
     "gemini_cli",
     "cline",
     "openhands",
+    "openworker",
 })
 
 
@@ -18980,7 +19228,7 @@ DETECT_EVAL_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_DETECT_INTERVAL", "60")
 # Map detector severity to a count that clears that gate so an incident actually
 # surfaces; the count is illustrative (it is the alert's "how loud", not a tool
 # tally for the discrepancy/failure kinds).
-_DETECT_SEVERITY_COUNT = {"warning": 8, "info": 5}
+_DETECT_SEVERITY_COUNT = {"critical": 12, "warning": 8, "info": 5}
 
 
 def _candidate_active_sessions(store) -> list[dict]:
@@ -19007,6 +19255,177 @@ def _candidate_active_sessions(store) -> list[dict]:
             break  # ordered most-recent-active first -> tail is all stale
         out.append(s)
     return out
+
+
+# ── What the detectors cannot see for themselves ───────────────────────────
+# A detector is pure: it reads a session's event sequence and nothing else. It
+# therefore cannot know what the session cost, how long it has been off track,
+# or where its workspace root is — and all three change what an incident MEANS.
+# The daemon already touches every candidate session on this tick, so gathering
+# them here is free, where a per-session store read would not be.
+def _detector_session_facts(sessions: list, state: dict, now: float) -> dict:
+    """``session_id -> {cost_usd, bad_for_seconds, session_seconds, cwd,
+    runtime, agent_id}``.
+
+    ``bad_for_seconds`` comes from a first-sighting memo in daemon state rather
+    than a DuckDB read: we only need "since when has this looked wrong", and
+    the tick that first saw it is the cheapest possible answer.
+    """
+    first_seen = state.setdefault("detector_first_seen", {})
+    if not isinstance(first_seen, dict):
+        first_seen = {}
+        state["detector_first_seen"] = first_seen
+    facts: dict = {}
+    for s in sessions or []:
+        if not isinstance(s, dict):
+            continue
+        sid = str(s.get("session_id") or "")
+        if not sid:
+            continue
+        meta = s.get("metadata")
+        meta = meta if isinstance(meta, dict) else {}
+        cwd = ""
+        for key in ("cwd", "workspace", "project_dir", "working_dir", "path"):
+            val = meta.get(key)
+            if isinstance(val, str) and val.strip():
+                cwd = val.strip()
+                break
+        try:
+            cost = float(s.get("cost_usd") or 0)
+        except (TypeError, ValueError):
+            cost = 0.0
+        # How long the SESSION has run, for the burn rate. Distinct from
+        # bad_for_seconds, which is how long it has been off track: pricing a
+        # stuck stretch needs both (dollars per minute x minutes stuck).
+        session_seconds = 0.0
+        try:
+            if s.get("started_at"):
+                session_seconds = max(0.0, float(_seconds_since(s.get("started_at"))))
+        except Exception:
+            session_seconds = 0.0
+        started = first_seen.get(sid)
+        facts[sid] = {
+            "cost_usd": cost,
+            "bad_for_seconds": max(0.0, now - started) if started else 0.0,
+            "session_seconds": session_seconds,
+            "runtime": _detector_runtime(sid, s.get("agent_type") or ""),
+            "cwd": cwd,
+            "agent_id": str(s.get("agent_id") or ""),
+        }
+    return facts
+
+
+# ── Learned baselines: what "normal" looks like for this cohort ────────────
+# Thresholds stop being constants here. Each session contributes its own shape
+# (tool calls, files mutated, hosts reached) to a COHORT, and the cohort's
+# measured mean/stddev is what the next tick's thresholds are derived from.
+#
+# Cohort choice is deliberately two-tier: an individual agent is the sharpest
+# comparison ("this agent normally makes 12 tool calls, it has made 300"), but
+# most agents have not run enough sessions to have a distribution, so we fall
+# back to the runtime. Read once per tick per cohort, not per session.
+_BASELINE_PRUNE_INTERVAL_SEC = 6 * 3600
+
+
+def _detector_runtime(session_id: str, agent_type: str) -> str:
+    """Which runtime is this session, really?
+
+    The ``sessions`` table's ``agent_type`` is NOT it. On a real install every
+    row reads ``openclaw`` while the session id says ``claude_code:...``, so
+    trusting the column would label a Claude Code incident "openclaw looping",
+    give it OpenClaw's write vocabulary, and file every runtime under one
+    ``runtime:openclaw`` cohort, which quietly destroys the point of a
+    per-runtime baseline.
+
+    The session-id prefix is the identity the rest of the product uses
+    (memory: prefix = runtime), and it is what ``detectors._runtime_of``
+    already uses to label the incident, so deriving it the same way here keeps
+    the label and the cohort in agreement. ``agent_type`` remains the fallback
+    for a resolver failure.
+    """
+    try:
+        from clawmetry import waste_flags as _wf
+        rt = str(_wf.runtime_from_session_id(session_id) or "").strip().lower()
+    except Exception:
+        rt = ""
+    return rt or str(agent_type or "").strip().lower()
+
+
+def _guard_cohorts(runtime: str, agent_id: str) -> tuple:
+    """``(preferred, fallback)`` cohort keys for one session."""
+    rt = (runtime or "unknown").strip().lower()
+    aid = (agent_id or "").strip().lower()
+    runtime_cohort = f"runtime:{rt}"
+    if aid:
+        return (f"agent:{rt}:{aid}", runtime_cohort)
+    return (runtime_cohort, "")
+
+
+def _guard_baseline_for(store, cache: dict, runtime: str,
+                        agent_id: str) -> dict:
+    """The cohort baseline to judge one session against, most specific first.
+
+    Falls back from the agent to the runtime when the agent has not run enough
+    sessions to have a distribution, and to ``{}`` (static thresholds) when
+    neither has. Cached per tick and per COHORT — a fleet of 40 sessions on one
+    runtime would otherwise run the same aggregate 40 times.
+
+    A session therefore appears in the baseline it is judged against, from its
+    second tick onward. That is deliberate and bounded: the cohort needs
+    ``BASELINE_MIN_SESSIONS`` members before it moves a threshold at all, one
+    member can shift a mean by at most 1/n, and ``_clamp_learned`` caps the
+    total movement either way. The alternative — a per-session exclusion —
+    would turn one cheap aggregate per cohort into one per session per tick to
+    buy a correction smaller than the clamp.
+    """
+    try:
+        from clawmetry import detectors as _det
+        min_sessions = _det.BASELINE_MIN_SESSIONS
+    except Exception:
+        min_sessions = 20
+    preferred, fallback = _guard_cohorts(runtime, agent_id)
+    for cohort in (preferred, fallback):
+        if not cohort:
+            continue
+        if cohort not in cache:
+            try:
+                cache[cohort] = store.query_guard_baseline(cohort) or {}
+            except Exception as e:  # noqa: BLE001
+                log.debug("guard: baseline read failed for %s: %s", cohort, e)
+                cache[cohort] = {}
+        base = cache[cohort]
+        if base and int(base.get("sessions") or 0) >= min_sessions:
+            return base
+    # Nothing qualifies: static thresholds, and the incident says so.
+    return {}
+
+
+def _record_guard_observation(store, sid: str, runtime: str, agent_id: str,
+                              profile: dict) -> None:
+    """Teach this session's cohorts what it looked like.
+
+    Written on EVERY tick: the row upserts on session_id, so re-reading an
+    active session updates it rather than duplicating, and the baseline stays
+    current even for sessions that never end cleanly. Both cohorts are fed —
+    the agent-scoped one is the sharp comparison, but it is also the one most
+    likely to be too small to use.
+    """
+    cohort, runtime_cohort = _guard_cohorts(runtime, agent_id)
+    try:
+        store.record_guard_observation(
+            sid, cohort, runtime=runtime, agent_id=agent_id,
+            tool_calls=profile["tool_calls"], write_files=profile["write_files"],
+            wrote=profile["wrote"], hosts=profile["hosts"])
+        if runtime_cohort and runtime_cohort != cohort:
+            # A composite key: one session contributes a row to each cohort,
+            # and the PK is the session id, so the second row needs its own.
+            store.record_guard_observation(
+                f"{runtime_cohort}|{sid}", runtime_cohort, runtime=runtime,
+                agent_id=agent_id, tool_calls=profile["tool_calls"],
+                write_files=profile["write_files"], wrote=profile["wrote"],
+                hosts=profile["hosts"])
+    except Exception as e:  # noqa: BLE001
+        log.debug("guard: baseline observation failed for %s: %s", sid, e)
 
 
 def _emit_detector_incidents(store, state: dict) -> int:
@@ -19036,6 +19455,16 @@ def _emit_detector_incidents(store, state: dict) -> int:
     reemit = max(30, STUCK_MIN_SECONDS // 2)
 
     heartbeat_items: list[dict] = []
+    # Facts (spend, how long it has been bad, workspace root) are built BEFORE
+    # the loop so a detector can price an incident and judge a path escape on
+    # the same tick it finds it.
+    facts_by_session = _detector_session_facts(candidates, state, now)
+    first_seen_memo = state.setdefault("detector_first_seen", {})
+    if not isinstance(first_seen_memo, dict):
+        first_seen_memo = {}
+        state["detector_first_seen"] = first_seen_memo
+    baseline_cache: dict = {}
+    bad_sessions: set = set()
     emitted = 0
     for s in candidates:
         sid = s.get("session_id") or ""
@@ -19046,16 +19475,42 @@ def _emit_detector_incidents(store, state: dict) -> int:
         except Exception as e:  # noqa: BLE001
             log.warning("detectors: query_events failed for %s: %s", sid, e)
             continue
+
+        facts = facts_by_session.get(sid) or {}
+        # Derived from the session id, not from agent_type: see
+        # _detector_runtime. Getting this wrong silently merges every runtime
+        # into one cohort.
+        runtime = _detector_runtime(sid, s.get("agent_type") or "") or None
+        baseline = _guard_baseline_for(store, baseline_cache, runtime or "",
+                                       facts.get("agent_id") or "")
         try:
-            incidents = _det.run_all(events, sid) or []
+            thresholds = _det.resolve_thresholds(runtime or "", baseline)
+            steps = _det.normalize_events(events)
+        except Exception as e:  # noqa: BLE001
+            log.warning("detectors: normalize failed for %s: %s", sid, e)
+            continue
+
+        _record_guard_observation(
+            store, sid, runtime or "", facts.get("agent_id") or "",
+            _det.session_profile(steps, thresholds.get("write_tools")))
+
+        try:
+            incidents = _det.run_all(events, sid, runtime, facts=facts,
+                                     thresholds=thresholds, steps=steps) or []
         except Exception as e:  # noqa: BLE001
             log.warning("detectors: run_all errored for %s: %s", sid, e)
             continue
         if not incidents:
             continue
 
-        # Fold the highest-severity incident (run_all sorts warning-first) into
-        # the heartbeat slice so the device alert shows the loudest one.
+        # Remember when this session FIRST looked wrong, so the next tick can
+        # say how long it has been that way (and price the stretch).
+        bad_sessions.add(sid)
+        first_seen_memo.setdefault(sid, now)
+
+        # Fold the LOUDEST incident into the heartbeat slice. run_all orders by
+        # spend at risk first and severity second, so on a session with a known
+        # cost this is the most expensive finding, not merely the most severe.
         top = incidents[0]
         heartbeat_items.append({
             "runtime": str(top.get("runtime") or "openclaw"),
@@ -19063,6 +19518,13 @@ def _emit_detector_incidents(store, state: dict) -> int:
             "tool_calls": int((top.get("evidence") or {}).get("total_tool_calls")
                               or (top.get("evidence") or {}).get("tool_calls") or 0),
             "since_seconds": 0,
+            # No cost or severity here on purpose. _heartbeat_stuck_payload
+            # projects each item down to exactly four keys before it rides the
+            # heartbeat, so anything else added here is dead on arrival, and
+            # widening that projection is a four-repo device contract change
+            # (pro adapter -> this daemon -> cloud relay -> firmware render).
+            # The money lives in the loop_signals row, which every non-device
+            # consumer reads.
             "message": str(top.get("title") or "")[:_STUCK_HEARTBEAT_MAX_MSG],
         })
 
@@ -19082,7 +19544,7 @@ def _emit_detector_incidents(store, state: dict) -> int:
                     # up; distinct from the stuck detector's "daemon_stuck".
                     signature=f"daemon_detect_{kind}",
                     repeat_count=count,
-                    severity="warning" if sev == "warning" else "info",
+                    severity=sev if sev in _DETECT_SEVERITY_COUNT else "info",
                     agent_type=str(inc.get("runtime") or "openclaw"),
                     details={
                         "source": "daemon_detector",
@@ -19091,6 +19553,11 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         "detail": inc.get("detail"),
                         "evidence": inc.get("evidence"),
                         "first_bad_step": inc.get("first_bad_step"),
+                        # Money, so every consumer can rank by what it costs to
+                        # ignore rather than by which detector spoke last.
+                        "spend_at_risk_usd": inc.get("spend_at_risk_usd"),
+                        "spend_basis": inc.get("spend_basis"),
+                        "burn_rate_usd_per_min": inc.get("burn_rate_usd_per_min"),
                     },
                 )
                 memo[memo_key] = now
@@ -19100,6 +19567,25 @@ def _emit_detector_incidents(store, state: dict) -> int:
                 log.warning("detectors: ingest_loop_signal failed for %s: %s",
                             sid, e)
                 continue
+
+    # A session that recovered drops out of the memo so its "bad for" clock
+    # restarts if it goes wrong again later. This also bounds the memo: it can
+    # never grow past the set of currently-bad sessions.
+    for stale_sid in [k for k in first_seen_memo if k not in bad_sessions]:
+        first_seen_memo.pop(stale_sid, None)
+
+    # The baseline is a rolling memory, not an archive. Pruned on a slow clock
+    # (every 6h) rather than per tick: it is a DELETE over a small table and
+    # nothing downstream needs it to be prompt.
+    try:
+        last_prune = float(state.get("guard_baseline_pruned_at") or 0)
+        if (now - last_prune) > _BASELINE_PRUNE_INTERVAL_SEC:
+            state["guard_baseline_pruned_at"] = now
+            dropped = store.prune_guard_baseline()
+            if dropped:
+                log.info("guard: pruned %d stale baseline row(s)", dropped)
+    except Exception as _pe:  # noqa: BLE001
+        log.debug("guard: baseline prune skipped: %s", _pe)
 
     # Fold detector incidents into the heartbeat slice WITHOUT clobbering a
     # fresh stuck-detector result: only append (the stuck detector owns the
@@ -19157,6 +19643,73 @@ _LOOPS_KIND_BY_SIGNATURE = {
     "daemon_detect_action_discrepancy": "action_discrepancy",
 }
 _LOOPS_VALID_KINDS = frozenset(_LOOPS_KIND_BY_SIGNATURE.values())
+
+
+#: Repo AI-readiness snapshot slice (WO-5). The hosted dashboard has no
+#: filesystem to scan -- the cloud container never sees the user's repos -- so
+#: the DAEMON scores them here and ships the finished report. Capped hard:
+#: five reports at roughly 3 kB each is a rounding error next to the snapshot,
+#: and a 200-repo machine must not be able to inflate it.
+_READINESS_SLICE_MAX = int(os.environ.get("CLAWMETRY_READINESS_SLICE_MAX", "5"))
+_READINESS_WINDOW_DAYS = int(os.environ.get("CLAWMETRY_READINESS_DAYS", "30"))
+
+
+def _build_repo_readiness_slice(store):
+    """Score the repos this node's agents actually work in.
+
+    Returns ``{"windowDays": n, "scope": "all_runtimes", "repos": [...]}``
+    where each repo carries its readiness report AND the stuck-signal
+    pairing. ``scope`` is load-bearing: the daemon scores against EVERY
+    runtime's declared instruction files because it cannot know which
+    runtime the viewer has selected, so a hosted renderer must label this
+    "all runtimes" rather than presenting it as runtime-scoped.
+
+    Repos that no longer exist on disk are listed (their history is real)
+    but carry ``report: None`` -- there is nothing left to read, and an
+    invented grade for a deleted checkout is worse than an honest gap.
+
+    Never raises: an empty slice paints the honest "nothing scored yet"
+    state rather than breaking the snapshot.
+    """
+    try:
+        from clawmetry import repo_readiness
+    except Exception as e:  # noqa: BLE001
+        log.debug("readiness-slice: module unavailable: %s", e)
+        return {}
+    try:
+        rows = store.query_repo_activity(
+            since_days=_READINESS_WINDOW_DAYS, limit=5000) or []
+    except Exception as e:  # noqa: BLE001
+        log.debug("readiness-slice: query_repo_activity failed: %s", e)
+        return {}
+
+    ranked = repo_readiness.rank_repos(
+        rows, window_days=_READINESS_WINDOW_DAYS, limit=_READINESS_SLICE_MAX)
+    out = []
+    for repo in ranked:
+        entry = {
+            "path": repo["path"],
+            "name": repo["name"],
+            "exists": repo["exists"],
+            "lastActiveAt": repo["last_active_at"],
+            "signals": repo["signals"],
+            "report": None,
+        }
+        if repo["exists"]:
+            try:
+                entry["report"] = repo_readiness.score_repo(
+                    repo["path"], signals=repo["signals"])
+            except Exception as e:  # noqa: BLE001
+                log.debug("readiness-slice: score failed for %s: %s",
+                          repo["path"], e)
+        out.append(entry)
+    if not out:
+        return {}
+    return {
+        "windowDays": _READINESS_WINDOW_DAYS,
+        "scope": "all_runtimes",
+        "repos": out,
+    }
 
 
 def _build_loops_slice(store):
@@ -20220,6 +20773,20 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     except Exception as _e_loops:
         log.debug("snapshot: loops slice failed: %s", _e_loops)
 
+    # Repo AI-readiness (WO-5). Scored HERE, on the daemon, because the cloud
+    # container has no filesystem to scan: every input is a file in a repo on
+    # this machine. Same store handle as above (never a read_only re-open --
+    # FLYWHEEL section 1). Empty dict == nothing scored, which the hosted card
+    # renders as an honest empty state.
+    _readiness_slice: dict = {}
+    try:
+        from clawmetry import local_store as _ls_rr
+        _rr_store = _ls_rr.get_store()
+        if _rr_store is not None:
+            _readiness_slice = _build_repo_readiness_slice(_rr_store)
+    except Exception as _e_rr:
+        log.debug("snapshot: repo-readiness slice failed: %s", _e_rr)
+
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
         "system": system,
@@ -20244,6 +20811,11 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # path strips the id). Self-clearing 30-min window; empty == nothing
         # looping. Sourced from the detector pass's loop_signals (no recompute).
         "loops": _loops_slice,
+        # WO-5: per-repo readiness grade + the stuck-signal pairing, scored on
+        # this machine because the cloud has no repo to read. Carries
+        # ``scope: "all_runtimes"`` so a hosted renderer labels it instead of
+        # passing node-wide data off as runtime-scoped.
+        "repoReadiness": _readiness_slice,
         "subagentCounts": {
             "active": active_count,
             "idle": len([s for s in subagents_list if s["status"] == "idle"]),

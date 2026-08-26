@@ -853,6 +853,7 @@ from ._create_dbcluster_request import CreateDBClusterRequestTag
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestAtmConfig
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestGpuElasticPlanRules
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestGpuElasticPlan
+from ._create_dbresource_group_request import CreateDBResourceGroupRequestRayConfigStorageMounts
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestRayConfigWorkerGroups
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestRayConfig
 from ._create_dbresource_group_request import CreateDBResourceGroupRequestRules
@@ -1966,6 +1967,7 @@ __all__ = [
     CreateDBResourceGroupRequestAtmConfig,
     CreateDBResourceGroupRequestGpuElasticPlanRules,
     CreateDBResourceGroupRequestGpuElasticPlan,
+    CreateDBResourceGroupRequestRayConfigStorageMounts,
     CreateDBResourceGroupRequestRayConfigWorkerGroups,
     CreateDBResourceGroupRequestRayConfig,
     CreateDBResourceGroupRequestRules,

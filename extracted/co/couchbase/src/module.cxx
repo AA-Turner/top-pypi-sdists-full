@@ -129,8 +129,6 @@ static PyModuleDef pycbc_core_module = {
 PyMODINIT_FUNC
 PyInit__core(void)
 {
-  Py_Initialize();
-
   PyObject* module = PyModule_Create(&pycbc_core_module);
   if (module == nullptr) {
     return nullptr;
@@ -177,9 +175,15 @@ PyInit__core(void)
   }
 
   // Cache exception classes for efficient access
-  pycbc::cache_exception_classes();
+  if (pycbc::cache_exception_classes() < 0) {
+    Py_DECREF(module);
+    return nullptr;
+  }
 
-  init_pycbc_dict_keys();
+  if (init_pycbc_dict_keys() < 0) {
+    Py_DECREF(module);
+    return nullptr;
+  }
 
   return module;
 }

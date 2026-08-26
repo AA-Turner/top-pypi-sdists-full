@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from aigie.context_manager import merge_metadata
 from aigie.integrations.claude_agent_sdk._events import _tool_catalog
 from aigie.integrations.claude_agent_sdk._events.completion import CompletionEvents
+from aigie.integrations.claude_agent_sdk._plan import root_execution_plan
 from aigie.integrations.claude_agent_sdk.native_callback import (
     _sanitize_error,
     _usage_dict,
@@ -170,6 +171,12 @@ class SessionTurnEvents(CompletionEvents):
             }
             if self._last_response_text is not None:
                 session_output["response"] = self._last_response_text
+            # merge_metadata folds in the global metadata every sibling span
+            # carries; the root used to skip it. session_update aliases the
+            # merged dict, so the session_id added below still reaches the wire.
+            session_metadata = merge_metadata(
+                {"execution_plan": root_execution_plan(self, success, turn_count)}
+            )
             session_update = {
                 "id": self.session_span_id,
                 "trace_id": self.trace_id,
@@ -186,10 +193,11 @@ class SessionTurnEvents(CompletionEvents):
                 "total_tokens": session_tokens,
                 "total_cost": total_cost,
                 "turn_count": turn_count,  # Top-level for backend indexing
+                "metadata": session_metadata,
             }
             if self.session_id:
                 session_update["session_id"] = self.session_id
-                session_update["metadata"] = {"claude_session_id": self.session_id}
+                session_metadata["claude_session_id"] = self.session_id
 
             if error:
                 session_update["error"] = error
@@ -227,15 +235,10 @@ class SessionTurnEvents(CompletionEvents):
         if not aigie or not aigie._initialized or not self.trace_id:
             return ""
 
-        # Use session context turn number if not provided
         if turn_number is None:
-            if self._session_context:
-                turn_number = self._session_context.increment_turn()
-            else:
-                self._local_total_turns += 1
-                turn_number = self._local_total_turns
+            turn_number = self.increment_turn()
         else:
-            # Update total_turns to match provided turn_number
+            # The SDK handed us the number; adopt it rather than counting.
             self.total_turns = turn_number
 
         span_id = str(uuid.uuid4())

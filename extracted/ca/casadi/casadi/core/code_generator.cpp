@@ -27,6 +27,7 @@
 #include "code_generator.hpp"
 #include "function_internal.hpp"
 #include "convexify.hpp"
+#include "blas_impl.hpp"
 #include <casadi_runtime_str.h>
 #include "global_options.hpp"
 #include "filesystem_impl.hpp"
@@ -41,6 +42,8 @@ namespace casadi {
     this->mex = false;
     this->with_sfunction = false;
     this->unroll_args = false;
+    this->static_aux = false;
+    this->inline_aux = false;
     this->cpp = false;
     this->main = false;
     this->casadi_real_type = "double";
@@ -56,14 +59,18 @@ namespace casadi {
     this->real_min = "";
     bool prefix_set = false;
     this->prefix = "";
+    this->dump_dir_prefix = "";
+    this->dump_dir_suffix = "";
     this->max_declarations_per_line = 12;
     this->max_initializer_elements_per_line = 8;
     this->force_canonical = false;
+    this->l1_blas = false;
 
     avoid_stack_ = false;
     indent_ = 2;
     sz_zeros_ = 0;
     sz_ones_ = 0;
+    thread_safe_ = false;
 
     // Read options
     for (auto&& e : opts) {
@@ -77,6 +84,10 @@ namespace casadi {
         this->with_sfunction = e.second;
       } else if (e.first=="unroll_args") {
         this->unroll_args = e.second;
+      } else if (e.first=="static_aux") {
+        this->static_aux = e.second;
+      } else if (e.first=="inline_aux") {
+        this->inline_aux = e.second;
       } else if (e.first=="cpp") {
         this->cpp = e.second;
       } else if (e.first=="main") {
@@ -111,6 +122,10 @@ namespace casadi {
       } else if (e.first=="prefix") {
         this->prefix = e.second.to_string();
         prefix_set = true;
+      } else if (e.first=="dump_dir_prefix") {
+        this->dump_dir_prefix = e.second.to_string();
+      } else if (e.first=="dump_dir_suffix") {
+        this->dump_dir_suffix = e.second.to_string();
       } else if (e.first=="max_declarations_per_line") {
         this->max_declarations_per_line = e.second;
         casadi_assert(this->max_declarations_per_line>=0,
@@ -121,9 +136,18 @@ namespace casadi {
           "Option max_initializer_elements_per_line must be >=0");
       } else if (e.first=="force_canonical") {
         this->force_canonical = e.second;
+      } else if (e.first=="l1_blas") {
+        this->l1_blas = e.second;
+      } else if (e.first=="thread_safe") {
+        thread_safe_ = e.second;
       } else {
         casadi_error("Unrecognized option: " + str(e.first));
       }
+    }
+
+    if (with_mem && !force_canonical) {
+      casadi_error("Codegen options 'with_mem' and 'force_canonical=false' (the default) "
+      "are incompatible. If you rely on with_mem, please explicitly set force_canonical=true.");
     }
 
     // If real_min is not specified, make an educated guess
@@ -140,6 +164,8 @@ namespace casadi {
         this->real_min = "<NOT SPECIFIED>";
       }
     }
+
+    if (thread_safe_) add_auxiliary(AUX_THREADS);
 
     // Start at new line with no indentation
     newline_ = true;
@@ -203,6 +229,32 @@ namespace casadi {
   void CodeGenerator::scope_enter() {
     local_variables_.clear();
     local_default_.clear();
+    local_cleanup_.clear();
+    local_void_ = true;
+  }
+
+  void CodeGenerator::scope_return(const std::string& value) {
+    local_void_ = false;
+    if (local_cleanup_.empty()) {
+      *this << "return " << value << ";\n";
+      return;
+    }
+    local("ret", "int");
+    *this << "ret = " << value << ";\n";
+    *this << "goto done" << local_cleanup_.size() << ";\n";
+  }
+
+  void CodeGenerator::scope_return() {
+    if (local_cleanup_.empty()) {
+      *this << "return;\n";
+      return;
+    }
+    *this << "goto done" << local_cleanup_.size() << ";\n";
+  }
+
+
+  void CodeGenerator::scope_add_cleanup(const std::string& code) {
+    local_cleanup_.push_back(code);
   }
 
   void CodeGenerator::scope_exit() {
@@ -231,6 +283,19 @@ namespace casadi {
         cnt++;
       }
       body << ";\n";
+    }
+
+    // Loop over local_cleanup_ in reverse order
+    if (!local_cleanup_.empty()) {
+      *this << "done" << local_cleanup_.size() << ":\n";
+      for (casadi_int i=local_cleanup_.size()-1; i>=0; --i) {
+        *this << local_cleanup_[i];
+      }
+      if (local_void_) {
+        *this << "return;\n";
+      } else {
+        *this << "return ret;\n";
+      }
     }
   }
 
@@ -263,46 +328,36 @@ namespace casadi {
     // Print to file
     f->codegen(*this, fname);
 
-    // Codegen reference count functions, if needed
-    if (f->has_refcount_) {
-      // Increase reference counter
-      *this << "void " << fname << "_incref(void) {\n";
-      f->codegen_incref(*this);
-      *this << "}\n\n";
-
-      // Decrease reference counter
-      *this << "void " << fname << "_decref(void) {\n";
-      f->codegen_decref(*this);
-      *this << "}\n\n";
-    }
-
-    bool fun_needs_mem = !f->codegen_mem_type().empty();
+    bool fun_needs_mem = f->codegen_needs_mem();
     needs_mem_ |= fun_needs_mem;
 
     if (fun_needs_mem) {
-      // Alloc memory
-      *this << "int " << fname << "_alloc_mem(void) {\n";
-      flush(this->body);
-      scope_enter();
-      f->codegen_alloc_mem(*this);
-      scope_exit();
-      *this << "}\n\n";
 
-      // Initialize memory
-      *this << "int " << fname << "_init_mem(int mem) {\n";
-      flush(this->body);
-      scope_enter();
-      f->codegen_init_mem(*this);
-      scope_exit();
-      *this << "}\n\n";
+      if (!f->codegen_mem_is_opaque()) {
+        // Alloc memory
+        *this << "int " << fname << "_alloc_mem(void) {\n";
+        flush(this->body);
+        scope_enter();
+        f->codegen_alloc_mem(*this);
+        scope_exit();
+        *this << "}\n\n";
 
-      // Clear memory
-      *this << "void " << fname << "_free_mem(int mem) {\n";
-      flush(this->body);
-      scope_enter();
-      f->codegen_free_mem(*this);
-      scope_exit();
-      *this << "}\n\n";
+        // Initialize memory
+        *this << "int " << fname << "_init_mem(int mem) {\n";
+        flush(this->body);
+        scope_enter();
+        f->codegen_init_mem(*this);
+        scope_exit();
+        *this << "}\n\n";
+
+        // Clear memory
+        *this << "void " << fname << "_free_mem(int mem) {\n";
+        flush(this->body);
+        scope_enter();
+        f->codegen_free_mem(*this);
+        scope_exit();
+        *this << "}\n\n";
+      }
 
       // Checkout
       *this << "int " << fname << "_checkout(void) {\n";
@@ -320,6 +375,19 @@ namespace casadi {
       scope_exit();
       *this << "}\n\n";
 
+    }
+
+    // Codegen reference count functions, if needed
+    if (f->has_refcount_in_deps_) {
+      // Increase reference counter
+      *this << "void " << fname << "_incref(void) {\n";
+      f->codegen_incref(*this);
+      *this << "}\n\n";
+
+      // Decrease reference counter
+      *this << "void " << fname << "_decref(void) {\n";
+      f->codegen_decref(*this);
+      *this << "}\n\n";
     }
 
     // Flush to body
@@ -838,6 +906,36 @@ namespace casadi {
     return "casadi_pd" + str(it->second);
   }
 
+  void CodeGenerator::define_local_mutex(const Function& f,
+                                         const std::string& name) {
+    if (!thread_safe()) return;
+    if (!local_mutexes_[f.get()].insert(name).second) return;  // already defined
+    std::string sh = shorthand(name);
+    auxiliaries << "#if CASADI_MUTEX_USE_STATIC_INIT == 0\n";
+    auxiliaries << "static CASADI_MUTEX_TYPE " << sh << ";\n";
+    auxiliaries << "#else\n";
+    auxiliaries << "static CASADI_MUTEX_TYPE " << sh
+               << " = CASADI_MUTEX_STATIC_INIT;\n";
+    auxiliaries << "#endif\n";
+  }
+
+  std::string CodeGenerator::local_mutex(const Function& f,
+                                         const std::string& name) const {
+    auto it = local_mutexes_.find(f.get());
+    casadi_assert(it != local_mutexes_.end() && it->second.count(name),
+                  "Mutex not defined: " + name);
+    return shorthand(name);
+  }
+
+  static const std::set<std::string> empty_mutex_set_;
+
+  const std::set<std::string>& CodeGenerator::local_mutexes(
+      const Function& f) const {
+    auto it = local_mutexes_.find(f.get());
+    if (it == local_mutexes_.end()) return empty_mutex_set_;
+    return it->second;
+  }
+
   void CodeGenerator::dump(std::ostream& s) {
     // Consistency check
     casadi_assert_dev(current_indent_ == 0);
@@ -1077,6 +1175,20 @@ namespace casadi {
     return s.str();
   }
 
+  std::string CodeGenerator::fprintf_scalar(const std::string& f, const std::string& arg) {
+    add_auxiliary(AUX_FPRINTF_SCALAR);
+    std::stringstream s;
+    s << "casadi_fprintf_scalar(" << f << ", " << arg << ");";
+    return s.str();
+  }
+
+  std::string CodeGenerator::fprintf_vector(const std::string& f, casadi_int sz,
+      const std::string& arg, const std::string& sep) {
+    add_auxiliary(AUX_FPRINTF_VECTOR);
+    std::stringstream s;
+    s << "casadi_fprintf_vector(" << f << ", " << sz << ", " << arg << ", \"" << sep << "\");";
+    return s.str();
+  }
 
   std::string CodeGenerator::print_op(casadi_int op, const std::string& a0) {
     switch (op) {
@@ -1142,7 +1254,7 @@ namespace casadi {
 
   void CodeGenerator::setup_callback(const std::string& s, const Function& f) {
     std::string name = add_dependency(f);
-    bool needs_mem = !f->codegen_mem_type().empty();
+    bool needs_mem = f->codegen_needs_mem();
     if (needs_mem) {
       *this << s << ".checkout = " << name << "_checkout;\n";
     } else {
@@ -1162,16 +1274,32 @@ namespace casadi {
              const std::string& res, const std::string& iw,
              const std::string& w, const std::string& failure_ret) {
     std::string name = add_dependency(f);
-    bool needs_mem = !f->codegen_mem_type().empty();
+
+    std::string cg_name = f->codegen_name(*this, false);
+    bool needs_mem = f->codegen_needs_mem();
     if (needs_mem) {
       std::string mem = "mid";
       local("flag", "int");
       local(mem, "int");
-      *this << mem << " = " << name << "_checkout();\n";
-      *this << "if (" << mem << "<0) return " << failure_ret << ";\n";
+      std::string checkout = shorthand(cg_name + "_checkout");
+      *this << mem << " = " << checkout << "();\n";
+      if (failure_ret.empty()) {
+        *this << "if (" << mem << "<0) {\n";
+        *this << "flag = 1;\n";
+        *this << "} else {\n";
+      } else {
+        *this << "if (" << mem << "<0) return " << failure_ret << ";\n";
+      }
+
       *this << "flag = " + name + "(" + arg + ", " + res + ", "
-              + iw + ", " + w + ", " << mem << ");\n";
-      *this << name << "_release(" << mem << ");\n";
+                + iw + ", " + w + ", " << mem << ");\n";
+
+      if (failure_ret.empty()) {
+        *this << "}\n";
+      }
+
+      std::string release = shorthand(cg_name + "_release");
+      *this << release << "(" << mem << ");\n";
       return "flag";
     } else {
       return name + "(" + arg + ", " + res + ", "
@@ -1385,7 +1513,11 @@ namespace casadi {
     // Add the appropriate function
     switch (f) {
     case AUX_COPY:
-      this->auxiliaries << sanitize_source(casadi_copy_str, inst);
+      if (this->l1_blas) {
+        Blas::codegen_copy_aux(*this, inst);
+      } else {
+        this->auxiliaries << sanitize_source(casadi_copy_str, inst);
+      }
       break;
     case AUX_SCALED_COPY:
       this->auxiliaries << sanitize_source(casadi_scaled_copy_str, inst);
@@ -1394,21 +1526,61 @@ namespace casadi {
       this->auxiliaries << sanitize_source(casadi_swap_str, inst);
       break;
     case AUX_SCAL:
-      this->auxiliaries << sanitize_source(casadi_scal_str, inst);
+      if (!(this->l1_blas && Blas::codegen_scal_aux(*this, inst)))
+        this->auxiliaries << sanitize_source(casadi_scal_str, inst);
       break;
     case AUX_AXPY:
-      this->auxiliaries << sanitize_source(casadi_axpy_str, inst);
+      if (!(this->l1_blas && Blas::codegen_axpy_aux(*this, inst)))
+        this->auxiliaries << sanitize_source(casadi_axpy_str, inst);
       break;
     case AUX_DOT:
-      this->auxiliaries << sanitize_source(casadi_dot_str, inst);
+      if (!(this->l1_blas && Blas::codegen_dot_aux(*this, inst)))
+        this->auxiliaries << sanitize_source(casadi_dot_str, inst);
       break;
     case AUX_BILIN:
       this->auxiliaries << sanitize_source(casadi_bilin_str, inst);
+      break;
+    case AUX_KRON:
+      this->auxiliaries << sanitize_source(casadi_kron_str, inst);
+      break;
+    case AUX_KRON_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_dense_str, inst);
+      break;
+    case AUX_KRON_DENSE_SPARSE:
+      this->auxiliaries << sanitize_source(casadi_kron_dense_sparse_str, inst);
+      break;
+    case AUX_KRON_SPARSE_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_sparse_dense_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_INNER:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_inner_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_INNER_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_inner_dense_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_INNER_DENSE_SPARSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_inner_dense_sparse_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_INNER_SPARSE_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_inner_sparse_dense_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_OUTER:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_outer_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_OUTER_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_outer_dense_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_OUTER_DENSE_SPARSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_outer_dense_sparse_str, inst);
+      break;
+    case AUX_KRON_CONTRACT_OUTER_SPARSE_DENSE:
+      this->auxiliaries << sanitize_source(casadi_kron_contract_outer_sparse_dense_str, inst);
       break;
     case AUX_RANK1:
       this->auxiliaries << sanitize_source(casadi_rank1_str, inst);
       break;
     case AUX_IAMAX:
+      add_auxiliary(AUX_FABS);
       this->auxiliaries << sanitize_source(casadi_iamax_str, inst);
       break;
     case AUX_INTERPN:
@@ -1426,12 +1598,14 @@ namespace casadi {
     case AUX_DE_BOOR:
       this->auxiliaries << sanitize_source(casadi_de_boor_str, inst);
       break;
+    case AUX_TENSOR_TTV:
+      this->auxiliaries << sanitize_source(casadi_tensor_ttv_str, inst);
+      break;
     case AUX_ND_BOOR_EVAL:
       add_auxiliary(AUX_DE_BOOR);
+      add_auxiliary(AUX_TENSOR_TTV);
       add_auxiliary(AUX_FILL);
-      add_auxiliary(AUX_FILL, {"casadi_int"});
       add_auxiliary(AUX_CLEAR);
-      add_auxiliary(AUX_CLEAR, {"casadi_int"});
       add_auxiliary(AUX_LOW);
       this->auxiliaries << sanitize_source(casadi_nd_boor_eval_str, inst);
       break;
@@ -1449,14 +1623,20 @@ namespace casadi {
       this->auxiliaries << sanitize_source(casadi_interpn_interpolate_str, inst);
       break;
     case AUX_NORM_1:
-      this->auxiliaries << sanitize_source(casadi_norm_1_str, inst);
+      if (!(this->l1_blas && Blas::codegen_norm_1_aux(*this, inst))) {
+        add_auxiliary(AUX_FABS);
+        this->auxiliaries << sanitize_source(casadi_norm_1_str, inst);
+      }
       break;
     case AUX_NORM_2:
-      add_auxiliary(AUX_DOT);
-      this->auxiliaries << sanitize_source(casadi_norm_2_str, inst);
+      if (!(this->l1_blas && Blas::codegen_norm_2_aux(*this, inst))) {
+        add_auxiliary(AUX_DOT);
+        this->auxiliaries << sanitize_source(casadi_norm_2_str, inst);
+      }
       break;
     case AUX_NORM_INF:
       add_auxiliary(AUX_FMAX);
+      add_auxiliary(AUX_FABS);
       this->auxiliaries << sanitize_source(casadi_norm_inf_str, inst);
       break;
     case AUX_VECTOR_FMAX:
@@ -1469,6 +1649,7 @@ namespace casadi {
       break;
     case AUX_MASKED_NORM_INF:
       add_auxiliary(AUX_FMAX);
+      add_auxiliary(AUX_FABS);
       this->auxiliaries << sanitize_source(casadi_masked_norm_inf_str, inst);
       break;
     case AUX_CLIP_MIN:
@@ -1493,6 +1674,12 @@ namespace casadi {
       break;
     case AUX_MTIMES:
       this->auxiliaries << sanitize_source(casadi_mtimes_str, inst);
+      break;
+    case AUX_MTIMES_DENSE:
+      this->auxiliaries << sanitize_source(casadi_mtimes_dense_str, inst);
+      break;
+    case AUX_MTIMES_DENSE_SPARSE:
+      this->auxiliaries << sanitize_source(casadi_mtimes_dense_sparse_str, inst);
       break;
     case AUX_TRILSOLVE:
       this->auxiliaries << sanitize_source(casadi_trilsolve_str, inst);
@@ -1540,6 +1727,9 @@ namespace casadi {
       break;
     case AUX_FINITE_DIFF:
       add_auxiliary(AUX_FMAX);
+      add_auxiliary(AUX_FABS);
+      add_auxiliary(AUX_NAN);
+      add_auxiliary(AUX_ISFINITE);
       this->auxiliaries << sanitize_source(casadi_finite_diff_str, inst);
       break;
     case AUX_QR:
@@ -1548,6 +1738,9 @@ namespace casadi {
       add_auxiliary(AUX_DOT);
       add_auxiliary(AUX_CLEAR);
       this->auxiliaries << sanitize_source(casadi_qr_str, inst);
+      break;
+    case AUX_DET:
+      this->auxiliaries << sanitize_source(casadi_det_str, inst);
       break;
     case AUX_LSQR:
       add_auxiliary(AUX_COPY);
@@ -1561,6 +1754,10 @@ namespace casadi {
     case AUX_QP:
       this->auxiliaries << sanitize_source(casadi_qp_str, inst);
       break;
+    case AUX_SOCP:
+      add_auxiliary(AUX_INF);
+      this->auxiliaries << sanitize_source(casadi_socp_str, inst);
+      break;
     case AUX_QRQP:
       add_auxiliary(AUX_QP);
       add_auxiliary(AUX_COPY);
@@ -1568,6 +1765,7 @@ namespace casadi {
       add_auxiliary(AUX_MAX);
       add_auxiliary(AUX_FMIN);
       add_auxiliary(AUX_FMAX);
+      add_auxiliary(AUX_FABS);
       add_auxiliary(AUX_TRANS);
       add_auxiliary(AUX_AXPY);
       add_auxiliary(AUX_MV);
@@ -1701,19 +1899,25 @@ namespace casadi {
                         << "(" << (this->cpp ? "static_cast<x>(y)" : "(x) y") << ")\n\n";
       break;
     case AUX_SQ:
-      shorthand("sq");
-      this->auxiliaries << "casadi_real casadi_sq(casadi_real x) { return x*x;}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"sq\"\n"
+          "casadi_real casadi_sq(casadi_real x) { return x*x;}\n\n",
+          inst);
       break;
     case AUX_SIGN:
-      shorthand("sign");
-      this->auxiliaries << "casadi_real casadi_sign(casadi_real x) "
-                        << "{ return x<0 ? -1 : x>0 ? 1 : x;}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"sign\"\n"
+          "casadi_real casadi_sign(casadi_real x) "
+          "{ return x<0 ? -1 : x>0 ? 1 : x;}\n\n",
+          inst);
       break;
     case AUX_IF_ELSE:
-      shorthand("if_else");
-      this->auxiliaries << "casadi_real casadi_if_else"
-                        << "(casadi_real c, casadi_real x, casadi_real y) "
-                        << "{ return c!=0 ? x : y;}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"if_else\"\n"
+          "casadi_real casadi_if_else"
+          "(casadi_real c, casadi_real x, casadi_real y) "
+          "{ return c!=0 ? x : y;}\n\n",
+          inst);
       break;
     case AUX_PRINTF:
       this->auxiliaries << "#ifndef CASADI_PRINTF\n";
@@ -1733,58 +1937,85 @@ namespace casadi {
       this->auxiliaries << "#endif\n\n";
       break;
     case AUX_FMIN:
-      shorthand("fmin");
-      this->auxiliaries << "casadi_real casadi_fmin(casadi_real x, casadi_real y) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return x<y ? x : y;\n"
-                        << "#else\n"
-                        << "  return fmin(x, y);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"fmin\"\n"
+          "casadi_real casadi_fmin(casadi_real x, casadi_real y) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return x<y ? x : y;\n"
+          "#else\n"
+          "  return fmin(x, y);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_FMAX:
-      shorthand("fmax");
-      this->auxiliaries << "casadi_real casadi_fmax(casadi_real x, casadi_real y) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return x>y ? x : y;\n"
-                        << "#else\n"
-                        << "  return fmax(x, y);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"fmax\"\n"
+          "casadi_real casadi_fmax(casadi_real x, casadi_real y) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return x>y ? x : y;\n"
+          "#else\n"
+          "  return fmax(x, y);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_FABS:
-      shorthand("fabs");
-      this->auxiliaries << "casadi_real casadi_fabs(casadi_real x) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return x>0 ? x : -x;\n"
-                        << "#else\n"
-                        << "  return fabs(x);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"fabs\"\n"
+          "casadi_real casadi_fabs(casadi_real x) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return x>0 ? x : -x;\n"
+          "#else\n"
+          "  return fabs(x);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_ISINF:
-      shorthand("isinf");
-      this->auxiliaries << "casadi_real casadi_isinf(casadi_real x) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return x== INFINITY || x==-INFINITY;\n"
-                        << "#else\n"
-                        << "  return isinf(x);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"isinf\"\n"
+          "casadi_real casadi_isinf(casadi_real x) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return x== INFINITY || x==-INFINITY;\n"
+          "#else\n"
+          "  return isinf(x);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
+      break;
+    case AUX_ISFINITE:
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"isfinite\"\n"
+          "casadi_real casadi_isfinite(casadi_real x) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return x==x && x!=INFINITY && x!=-INFINITY;\n"
+          "#else\n"
+          "  return isfinite(x);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_MIN:
-      this->auxiliaries << "casadi_int casadi_min(casadi_int x, casadi_int y) {\n"
-                        << "  return x>y ? y : x;\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"min\"\n"
+          "casadi_int casadi_min(casadi_int x, casadi_int y) {\n"
+          "  return x>y ? y : x;\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_MAX:
-      this->auxiliaries << "casadi_int casadi_max(casadi_int x, casadi_int y) {\n"
-                        << "  return x>y ? x : y;\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"max\"\n"
+          "casadi_int casadi_max(casadi_int x, casadi_int y) {\n"
+          "  return x>y ? x : y;\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_MMIN:
       add_auxiliary(AUX_VFMIN);
@@ -1812,55 +2043,69 @@ namespace casadi {
                         << "#endif\n\n";
       break;
     case AUX_LOG1P:
-      shorthand("log1p");
-      this->auxiliaries << "casadi_real casadi_log1p(casadi_real x) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return log(1+x);\n"
-                        << "#else\n"
-                        << "  return log1p(x);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"log1p\"\n"
+          "casadi_real casadi_log1p(casadi_real x) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return log(1+x);\n"
+          "#else\n"
+          "  return log1p(x);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_EXPM1:
-      shorthand("expm1");
-      this->auxiliaries << "casadi_real casadi_expm1(casadi_real x) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return exp(x)-1;\n"
-                        << "#else\n"
-                        << "  return expm1(x);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"expm1\"\n"
+          "casadi_real casadi_expm1(casadi_real x) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return exp(x)-1;\n"
+          "#else\n"
+          "  return expm1(x);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
     case AUX_HYPOT:
-      shorthand("hypot");
-      this->auxiliaries << "casadi_real casadi_hypot(casadi_real x, casadi_real y) {\n"
-                        << "/* Pre-c99 compatibility */\n"
-                        << "#if __STDC_VERSION__ < 199901L\n"
-                        << "  return sqrt(x*x+y*y);\n"
-                        << "#else\n"
-                        << "  return hypot(x, y);\n"
-                        << "#endif\n"
-                        << "}\n\n";
+      this->auxiliaries << sanitize_source(
+          "// SYMBOL \"hypot\"\n"
+          "casadi_real casadi_hypot(casadi_real x, casadi_real y) {\n"
+          "/* Pre-c99 compatibility */\n"
+          "#if __STDC_VERSION__ < 199901L\n"
+          "  return sqrt(x*x+y*y);\n"
+          "#else\n"
+          "  return hypot(x, y);\n"
+          "#endif\n"
+          "}\n\n",
+          inst);
       break;
-    case AUX_BLAZING_DE_BOOR:
-      this->auxiliaries << sanitize_source(casadi_blazing_de_boor_str, inst);
+    case AUX_BLAZING_COMMON:
+      add_auxiliary(AUX_LOW);
+      add_include("simde/x86/avx2.h");
+      add_include("simde/x86/fma.h");
+      this->auxiliaries << sanitize_source(casadi_blazing_common_str, inst);
       break;
     case AUX_BLAZING_1D_BOOR_EVAL:
-      add_auxiliary(AUX_LOW);
-      add_auxiliary(AUX_BLAZING_DE_BOOR);
+      add_auxiliary(AUX_BLAZING_COMMON);
       this->auxiliaries << sanitize_source(casadi_blazing_1d_boor_eval_str, inst);
       break;
     case AUX_BLAZING_2D_BOOR_EVAL:
-      add_auxiliary(AUX_LOW);
-      add_auxiliary(AUX_BLAZING_DE_BOOR);
+      add_auxiliary(AUX_BLAZING_COMMON);
       this->auxiliaries << sanitize_source(casadi_blazing_2d_boor_eval_str, inst);
       break;
     case AUX_BLAZING_3D_BOOR_EVAL:
-      add_auxiliary(AUX_LOW);
-      add_auxiliary(AUX_BLAZING_DE_BOOR);
+      add_auxiliary(AUX_BLAZING_COMMON);
       this->auxiliaries << sanitize_source(casadi_blazing_3d_boor_eval_str, inst);
+      break;
+    case AUX_BLAZING_4D_BOOR_EVAL:
+      add_auxiliary(AUX_BLAZING_COMMON);
+      this->auxiliaries << sanitize_source(casadi_blazing_4d_boor_eval_str, inst);
+      break;
+    case AUX_BLAZING_5D_BOOR_EVAL:
+      add_auxiliary(AUX_BLAZING_COMMON);
+      this->auxiliaries << sanitize_source(casadi_blazing_5d_boor_eval_str, inst);
       break;
     case AUX_PRINTME:
       add_auxiliary(AUX_PRINTF);
@@ -1877,6 +2122,23 @@ namespace casadi {
     case AUX_PRINT_CANONICAL:
       add_auxiliary(AUX_PRINT_VECTOR);
       this->auxiliaries << sanitize_source(casadi_print_canonical_str, inst);
+      break;
+    case AUX_FPRINTF_SCALAR:
+      add_include("stdio.h");
+      add_auxiliary(AUX_INF);
+      this->auxiliaries << sanitize_source(casadi_fprintf_scalar_str, inst);
+      break;
+    case AUX_FPRINTF_VECTOR:
+      add_auxiliary(AUX_FPRINTF_SCALAR);
+      this->auxiliaries << sanitize_source(casadi_fprintf_vector_str, inst);
+      break;
+    case AUX_TO_FILE:
+      add_include("stdio.h");
+      add_auxiliary(AUX_FPRINTF_SCALAR);
+      this->auxiliaries << sanitize_source(casadi_to_file_str, inst);
+      break;
+    case AUX_THREADS:
+      this->auxiliaries << sanitize_source(casadi_threads_str, inst);
       break;
     }
   }
@@ -2246,6 +2508,21 @@ namespace casadi {
       + z + ", " + sparsity(sp_z) + ", " + w + ", " +  (tr ? "1" : "0") + ");";
   }
 
+  std::string CodeGenerator::mtimes(const std::string& x, casadi_int nrow_x, casadi_int ncol_x,
+                                    const std::string& y, casadi_int ncol_y,
+                                    const std::string& z, bool tr) {
+    add_auxiliary(AUX_MTIMES_DENSE);
+    return "casadi_mtimes_dense(" + x + ", " + str(nrow_x) + ", " + str(ncol_x) + ", "
+      + y + ", " + str(ncol_y) + ", " + z + ", " + (tr ? "1" : "0") + ");";
+  }
+
+  std::string CodeGenerator::mtimes_dense_sparse(const std::string& x, casadi_int nrow_x,
+      const std::string& y, const Sparsity& sp_y, const std::string& z) {
+    add_auxiliary(AUX_MTIMES_DENSE_SPARSE);
+    return "casadi_mtimes_dense_sparse(" + x + ", " + str(nrow_x) + ", "
+      + y + ", " + sparsity(sp_y) + ", " + z + ");";
+  }
+
   std::string CodeGenerator::trilsolve(const Sparsity& sp_x, const std::string& x,
       const std::string& y, bool tr, bool unity, casadi_int nrhs) {
     add_auxiliary(AUX_TRILSOLVE);
@@ -2355,6 +2632,28 @@ namespace casadi {
     local_default_.insert(std::make_pair(name, def));
   }
 
+  // Read the next double-quoted token from line, starting at pos.
+  // Backslash escapes the next character, so \" and \\ may appear inside.
+  // On return, pos points just past the closing quote.
+  static std::string next_quoted_token(const std::string& line, size_t& pos) {
+    size_t n1 = line.find('"', pos);
+    casadi_assert(n1 != std::string::npos, "Missing quoted token in: " + line);
+    std::string r;
+    size_t i = n1 + 1;
+    for (; i < line.size(); ++i) {
+      if (line[i] == '\\' && i + 1 < line.size()) {
+        r += line[++i];
+      } else if (line[i] == '"') {
+        break;
+      } else {
+        r += line[i];
+      }
+    }
+    casadi_assert(i < line.size(), "Unterminated quoted token in: " + line);
+    pos = i + 1;
+    return r;
+  }
+
   std::string CodeGenerator::
   sanitize_source(const std::string& src,
                   const std::vector<std::string>& inst, bool add_shorthand) {
@@ -2378,6 +2677,13 @@ namespace casadi {
     // Process C++ source
     std::string line;
     std::istringstream stream(src);
+
+    bool filter_macros = true; // Macro definitions are ignored
+
+    // Set by `// SYMBOL "X"` to "casadi_X"; cleared when the matching
+    // function signature is found and the prefix is prepended.
+    std::string active_symbol;
+
     while (std::getline(stream, line)) {
       size_t n1, n2;
 
@@ -2385,13 +2691,18 @@ namespace casadi {
       if (line.find("template")==0) continue;
 
       // Macro definitions are ignored
-      if (line.find("#define")==0) continue;
-      if (line.find("#undef")==0) continue;
+      if (filter_macros && line.find("#define")==0) continue;
+      if (filter_macros && line.find("#undef")==0) continue;
+
+      // casadi_assert and error are ignored
+      if (line.find("casadi_assert") != std::string::npos) continue;
+      if (line.find("casadi_error") != std::string::npos) continue;
+      if (line.find("casadi_message") != std::string::npos) continue;
 
       // Inline declaration
       if (line == "inline") continue;
 
-      // If line starts with "// SYMBOL", add shorthand
+      // If line starts with "// SYMBOL", add shorthand and track the symbol
       if (line.find("// SYMBOL") != std::string::npos) {
         n1 = line.find("\"");
         n2 = line.find("\"", n1+1);
@@ -2400,19 +2711,16 @@ namespace casadi {
         if (!suffix.empty()) {
           rep.push_back(std::make_pair(sym, sym + suffix));
         }
+        active_symbol = "casadi_" + sym;
         continue;
       }
 
       // If line starts with "// C-REPLACE", add to list of replacements
       if (line.find("// C-REPLACE") != std::string::npos) {
-        // Get C++ string
-        n1 = line.find("\"");
-        n2 = line.find("\"", n1+1);
-        std::string key = line.substr(n1+1, n2-n1-1);
-        // Get C string
-        n1 = line.find("\"", n2+1);
-        n2 = line.find("\"", n1+1);
-        std::string sub = line.substr(n1+1, n2-n1-1);
+        // Get C++ string, then C string; \" and \\ are unescaped
+        size_t pos = line.find("// C-REPLACE");
+        std::string key = next_quoted_token(line, pos);
+        std::string sub = next_quoted_token(line, pos);
         // Add to replacements
         rep.push_back(std::make_pair(key, sub));
         continue;
@@ -2425,14 +2733,34 @@ namespace casadi {
         continue;
       }
 
+      if (line.find("// FILTER-MACROS ON") != std::string::npos) {
+        filter_macros = true;
+      }
+
+      if (line.find("// FILTER-MACROS OFF") != std::string::npos) {
+        filter_macros = false;
+      }
+
       // Ignore other C++ style comment
-      if ((n1 = line.find("//")) != std::string::npos) line.erase(n1);
+      n1 = line.find("//");
+      if (n1 != std::string::npos) line.erase(n1);
 
       // Remove trailing spaces
-      if ((n1 = line.find_last_not_of(' ')) != std::string::npos) {
+      n1 = line.find_last_not_of(' ');
+      if (n1 != std::string::npos) {
         line.erase(n1 + 1);
       } else {
         continue;
+      }
+
+      // Prepend storage-class/inline-hint to the symbol's signature line
+      if (!active_symbol.empty() &&
+          line.find(active_symbol + "(") != std::string::npos) {
+        std::string sig_prefix;
+        if (this->static_aux) sig_prefix += "static ";
+        if (this->inline_aux) sig_prefix += "inline ";
+        if (!sig_prefix.empty()) line = sig_prefix + line;
+        active_symbol.clear();
       }
 
       // Perform string replacements
@@ -2490,6 +2818,13 @@ namespace casadi {
     return "casadi_qr(" + sp + ", " + A + ", " + w + ", "
            + sp_v + ", " + v + ", " + sp_r + ", " + r + ", "
            + beta + ", " + prinv + ", " + pc + ");";
+  }
+
+  std::string CodeGenerator::
+  det(const std::string& sp_v, const std::string& v,
+      const std::string& sp_r, const std::string& r, const std::string& beta) {
+    add_auxiliary(CodeGenerator::AUX_DET);
+    return "casadi_det(" + sp_v + ", " + v + ", " + sp_r + ", " + r + ", " + beta + ")";
   }
 
   std::string CodeGenerator::
@@ -2660,10 +2995,104 @@ namespace casadi {
   }
 
   std::string CodeGenerator::
+  to_file(const std::string& f, const Sparsity& sp, const std::string& x) {
+    add_auxiliary(CodeGenerator::AUX_TO_FILE);
+    return "casadi_to_file(" + f + ", " + sparsity(sp) + ", " + x + ")";
+  }
+
+  void CodeGenerator::
+  generate_dump(const Function& f, const std::string& arr, bool is_input) {
+    casadi_int n = is_input ? f.n_in() : f.n_out();
+    std::string dump_format = f->dump_format_.empty() ? "mtx" : f->dump_format_;
+    std::string effective_dir = dump_dir_prefix + f->dump_dir_ + dump_dir_suffix;
+    std::string prefix;
+    if (!effective_dir.empty()) prefix = effective_dir + "/";
+    std::string inout = is_input ? "in" : "out";
+
+    // Ensure directory exists at codegen time
+    if (!effective_dir.empty() && Filesystem::is_enabled()) {
+      std::string dir = Filesystem::ensure_trailing_slash(effective_dir);
+      casadi_assert(Filesystem::ensure_directory_exists(dir),
+        "Unable to create the required directory for '" + dir + "'.");
+    }
+
+    // Assumes dump_id_local is declared in the enclosing scope
+    // Per-input/output format files (e.g. .mtx)
+    for (casadi_int i = 0; i < n; ++i) {
+      std::string io_name = is_input ? f.name_in(i) : f.name_out(i);
+      Sparsity sp = is_input ? f.sparsity_in(i) : f.sparsity_out(i);
+      std::string fixed_part = prefix + f.name() + "." + inout + "." + io_name + "." + dump_format;
+      casadi_int buf_size = fixed_part.size() + 1 + 6 + 1;  // +7 for the counter field
+      *this << "{\n";
+      *this << "char dump_fname[" << buf_size << "];\n";
+      *this << "FILE* dump_file;\n";
+      *this << "snprintf(dump_fname, " << buf_size << ", \""
+            << prefix << f.name() << ".%06d." << inout << "." << io_name
+            << "." << dump_format << "\", dump_id_local);\n";
+      if (f->verbose_) {
+        *this << printf("dump -> %s\\n", "dump_fname") << "\n";
+      }
+      *this << "dump_file = fopen(dump_fname, \"w\");\n";
+      *this << "if (dump_file) {\n";
+      *this << to_file("dump_file", sp, arr + "[" + str(i) + "]") << ";\n";
+      *this << "fclose(dump_file);\n";
+      *this << "}\n";
+      *this << "}\n";
+    }
+    // Combined .txt file (normalized doubles, one per line)
+    {
+      add_include("stdio.h");
+      std::string fixed_part = prefix + f.name() + "." + inout + ".txt";
+      casadi_int buf_size = fixed_part.size() + 1 + 6 + 1;
+      *this << "{\n";
+      *this << "char dump_fname[" << buf_size << "];\n";
+      *this << "FILE* dump_file;\n";
+      *this << "casadi_int dump_k;\n";
+      *this << "snprintf(dump_fname, " << buf_size << ", \""
+            << prefix << f.name() << ".%06d." << inout << ".txt\", dump_id_local);\n";
+      *this << "dump_file = fopen(dump_fname, \"w\");\n";
+      *this << "if (dump_file) {\n";
+      for (casadi_int i = 0; i < n; ++i) {
+        Sparsity sp = is_input ? f.sparsity_in(i) : f.sparsity_out(i);
+        casadi_int nnz = sp.nnz();
+        std::string a = arr + "[" + str(i) + "]";
+        if (nnz > 0) {
+          *this << "if (" << a << ") {\n";
+          *this << fprintf_vector("dump_file", nnz, a, "\\n") << "\n";
+          *this << "fprintf(dump_file, \"\\n\");\n";
+          *this << "} else {\n";
+          std::string zero_str = is_input ? "0.0000000000000000e+00" : "nan";
+          *this << "for (dump_k=0; dump_k<" << nnz << "; ++dump_k) "
+                << "fprintf(dump_file, \"" << zero_str << "\\n\");\n";
+          *this << "}\n";
+        }
+      }
+      *this << "fclose(dump_file);\n";
+      *this << "}\n";
+      *this << "}\n";
+    }
+  }
+
+  void CodeGenerator::
+  generate_print(const Function& f, const std::string& arr, bool is_input) {
+    casadi_int n = is_input ? f.n_in() : f.n_out();
+    std::string inout = is_input ? "Input" : "Output";
+
+    *this << printf("Function " + f.name() + "\\n") << "\n";
+    for (casadi_int i = 0; i < n; ++i) {
+      std::string io_name = is_input ? f.name_in(i) : f.name_out(i);
+      Sparsity sp = is_input ? f.sparsity_in(i) : f.sparsity_out(i);
+      *this << printf(inout + " " + str(i) + " (" + io_name + "): ") << "\n";
+      *this << print_canonical(sp, arr + "[" + str(i) + "]") << "\n";
+      *this << printf("\\n") << "\n";
+    }
+  }
+
+  std::string CodeGenerator::
   cache_check(const std::string& key, const std::string& cache, const std::string& loc,
         casadi_int stride, casadi_int sz, casadi_int key_sz, const std::string& val) {
     add_auxiliary(CodeGenerator::AUX_CACHE);
-    return "cache_check(" + key + ", " + cache + ", " + loc + ", " +
+    return "casadi_cache_check(" + key + ", " + cache + ", " + loc + ", " +
     str(stride) + ", " + str(sz) + ", " + str(key_sz) + ", " + val + ")";
   }
 

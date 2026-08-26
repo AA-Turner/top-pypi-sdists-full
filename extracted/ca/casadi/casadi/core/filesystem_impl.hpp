@@ -94,7 +94,13 @@ namespace casadi {
     static std::unique_ptr<std::istream> ifstream_ptr(const std::string& path,
         std::ios_base::openmode mode = std::ios_base::in, bool fail=true);
 
+    // Copy the contents of 'src' to 'dest' (binary, overwriting)
+    static void copy_file(const std::string& src, const std::string& dest);
+
     static bool exists(const std::string& path);
+
+    static bool is_absolute(const std::string& path);
+    static std::string ensure_trailing_slash(const std::string& path);
 
 #ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
     static std::mutex mutex_solvers_;

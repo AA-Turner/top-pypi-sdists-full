@@ -28,6 +28,7 @@
 
 #include "exception.hpp"
 #include "casadi_common.hpp"
+#include <cstring>
 
 /** \brief Convenience tools for C++ Standard Library vectors
 
@@ -95,6 +96,22 @@ private:
   CASADI_EXPORT std::string replace(const std::string& s,
     const std::string& p, const std::string& r);
 
+  /// Compare versions: returns true if version_left > version_right
+  CASADI_EXPORT bool version_gt(const std::string& version_left,
+    const std::string& version_right);
+
+  /// Compare versions: returns true if version_left >= version_right
+  CASADI_EXPORT bool version_ge(const std::string& version_left,
+    const std::string& version_right);
+
+  /// Compare versions: returns true if version_left < version_right
+  CASADI_EXPORT bool version_lt(const std::string& version_left,
+    const std::string& version_right);
+
+  /// Compare versions: returns true if version_left <= version_right
+  CASADI_EXPORT bool version_le(const std::string& version_left,
+    const std::string& version_right);
+
   /**  \brief Range function
 
   * \param stop
@@ -120,10 +137,6 @@ private:
   CASADI_EXPORT std::vector<casadi_int> boolvec_to_index(const std::vector<bool> &v);
 
   CASADI_EXPORT bool is_equally_spaced(const std::vector<double> &v);
-
-  /// Computes a mapping for a (dense) tensor permutation
-  CASADI_EXPORT std::vector<casadi_int> tensor_permute_mapping(const std::vector<casadi_int>& dims,
-      const std::vector<casadi_int>& order);
 
   CASADI_EXPORT int to_int(casadi_int rhs);
   CASADI_EXPORT std::vector<int> to_int(const std::vector<casadi_int>& rhs);
@@ -421,7 +434,9 @@ private:
   }
 
   // Create a temporary file
-  CASADI_EXPORT std::string temporary_file(const std::string& prefix, const std::string& suffix);
+  CASADI_EXPORT std::string temporary_file(const std::string& prefix,
+    const std::string& suffix,
+    const std::string& directory="");
 
   CASADI_EXPORT void normalized_setup(std::istream& stream);
   CASADI_EXPORT void normalized_setup(std::ostream& stream);
@@ -478,7 +493,7 @@ private:
         ret = std::numeric_limits<double>::infinity();
       } else if (non_reg=="-inf") {
         ret = -std::numeric_limits<double>::infinity();
-      } else if (non_reg=="nan") {
+      } else if (non_reg=="nan" || non_reg=="-nan") {
         ret = std::numeric_limits<double>::quiet_NaN();
       } else {
         ret = std::numeric_limits<double>::quiet_NaN();
@@ -491,44 +506,45 @@ private:
 } // namespace casadi
 
 #ifndef SWIG
-// In std namespace
-namespace std {
+
+// Implementations
+namespace casadi {
 
   /// Enables flushing an std::vector to a stream (prints representation)
   template<typename T>
-  ostream& operator<<(ostream& stream, const vector<T>& v) {
+  std::ostream& operator<<(std::ostream& stream, const std::vector<T>& v) {
     stream << casadi::str(v);
     return stream;
   }
 
-  /// Enables flushing an std::vector to a stream (prints representation)
+  /// Enables flushing an std::array to a stream (prints representation)
   template<typename T, size_t N>
-  ostream& operator<<(ostream& stream, const array<T, N>& v) {
+  std::ostream& operator<<(std::ostream& stream, const std::array<T, N>& v) {
     stream << casadi::str(v);
     return stream;
   }
 
   /// Enables flushing an std::set to a stream (prints representation)
   template<typename T>
-  ostream& operator<<(ostream& stream, const set<T>& v) {
+  std::ostream& operator<<(std::ostream& stream, const std::set<T>& v) {
     stream << casadi::str(v);
     return stream;
   }
 
   template<typename T1, typename T2>
-  ostream& operator<<(ostream& stream, const pair<T1, T2>& p) {
+  std::ostream& operator<<(std::ostream& stream, const std::pair<T1, T2>& p) {
     stream << casadi::str(p);
     return stream;
   }
 
   template<typename T1, typename T2>
-  ostream& operator<<(ostream& stream, const std::map<T1, T2>& p) {
+  std::ostream& operator<<(std::ostream& stream, const std::map<T1, T2>& p) {
     stream << casadi::str(p);
     return stream;
   }
 
   template<typename T2>
-  ostream& operator<<(ostream& stream, const std::map<std::string, T2>& p) {
+  std::ostream& operator<<(std::ostream& stream, const std::map<std::string, T2>& p) {
     stream << casadi::str(p);
     return stream;
   }
@@ -536,13 +552,8 @@ namespace std {
   template<typename T>
   bool mul_overflows(const T& a, const T& b) {
     if (a==0 || b==0) return false;
-    return abs(std::numeric_limits<T>::max()/a) < abs(b);
+    return std::abs(std::numeric_limits<T>::max()/a) < std::abs(b);
   }
-
-} // namespace std
-
-// Implementations
-namespace casadi {
 
   template<typename T, typename S>
   std::vector<T> vector_static_cast(const std::vector<S>& rhs) {
@@ -1015,6 +1026,63 @@ namespace casadi {
   /// Readability typedefs
   typedef std::vector<std::string> StringVector;
   ///@}
+
+  /** \brief Hash value of an integer
+
+      \identifier{do} */
+  template<typename T>
+  inline size_t hash_value(T v) { return size_t(v);}
+
+  /** \brief Generate a hash value incrementally (function taken from boost)
+
+      \identifier{dp} */
+  template<typename T>
+  inline void hash_combine(std::size_t& seed, T v) {
+    seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  }
+
+  /** \brief Generate a hash value incrementally, array
+
+      \identifier{dq} */
+  template<typename T>
+  inline void hash_combine(std::size_t& seed, const T* v, std::size_t sz) {
+    for (casadi_int i=0; i<sz; ++i) hash_combine(seed, v[i]);
+  }
+
+  /** \brief Generate a hash value incrementally (function taken from boost)
+
+      \identifier{dr} */
+  template<typename T>
+  inline void hash_combine(std::size_t& seed, const std::vector<T>& v) {
+    hash_combine(seed, get_ptr(v), v.size());
+  }
+
+  template<>
+  inline size_t hash_value(std::string v) {
+    size_t seed = 0;
+    hash_combine(seed, v.c_str(), v.size());
+    return seed;
+  }
+
+  /** \brief Hash value of a double
+
+      \identifier{2em} */
+  template<>
+  inline size_t hash_value(double v) {
+    std::uint64_t u;
+    std::memcpy(&u, &v, sizeof(double));
+
+    if (sizeof(size_t) == 8) {
+      // 64-bit: keep all bits
+      return static_cast<size_t>(u);
+    } else {
+      // 32-bit: fold with hash_combine
+      size_t seed = 0;
+      hash_combine(seed, static_cast<std::uint32_t>(u));
+      hash_combine(seed, static_cast<std::uint32_t>(u >> 32));
+      return seed;
+    }
+  }
 
 } // namespace casadi
 #endif // SWIG

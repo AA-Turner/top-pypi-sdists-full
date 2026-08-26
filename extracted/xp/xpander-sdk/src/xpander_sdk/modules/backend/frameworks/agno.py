@@ -6121,6 +6121,31 @@ async def _ensure_remote_mcp_ready(
     return False, None
 
 
+_WORKSPACE_MCP_REASON_MAX_CHARS = 200
+
+
+def _workspace_mcp_failure_reason(error: BaseException) -> str:
+    """The workspace's own classified start-failure message, when one rode the error."""
+    text = ""
+    response = getattr(error, "response", None)
+    if response is not None:
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                text = str(body.get("detail") or body.get("statement") or body.get("error") or "")
+        except Exception:
+            text = str(getattr(response, "text", "") or "")
+    if not text:
+        text = str(getattr(error, "description", "") or "")
+    text = " ".join(text.split())
+    # A bare status line carries nothing the generic note doesn't already say.
+    if not text or text.startswith("<"):
+        return ""
+    if len(text) > _WORKSPACE_MCP_REASON_MAX_CHARS:
+        text = text[:_WORKSPACE_MCP_REASON_MAX_CHARS] + "..."
+    return text
+
+
 async def _resolve_agent_tools(
     agent: Agent,
     task: Optional[Task] = None,
@@ -6332,9 +6357,12 @@ async def _resolve_agent_tools(
                 f"[workspace-mcp] '{mcp.name or mcp.command}' unavailable this run: "
                 f"{type(e).__name__}: {e}"
             )
+            reason = _workspace_mcp_failure_reason(e)
             notes.append(
-                f"{mcp.name or mcp.command}: temporarily unavailable (could not start in the "
-                f"agent's workspace this run)."
+                f"{mcp.name or mcp.command}: temporarily unavailable this run - {reason}"
+                if reason
+                else f"{mcp.name or mcp.command}: temporarily unavailable (could not start "
+                f"in the agent's workspace this run)."
             )
             return None
         if not toolkit.functions:

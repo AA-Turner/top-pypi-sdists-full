@@ -23,6 +23,7 @@ from .oauth_module_types import (
     RequestDataType,
     RequestMethod,
 )
+from .probe_module_types import DEFAULT_PROBE_CHECK_ORDER, ProbeSettings
 from .rate_limiting_types import (
     LIMIT_CEILING,
     MAXIMUM_RETRIES,
@@ -55,6 +56,8 @@ __all__ = [
     "ValidateCredentialConfigCallable",
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
+    "ProbeSettings",
+    "DEFAULT_PROBE_CHECK_ORDER",
     "AUTH_TYPE_MAP",
     "RateLimitConfig",
     "RateLimitConfigBase",

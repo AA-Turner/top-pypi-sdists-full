@@ -1,6 +1,6 @@
 [project]
 name = "scikit-base"
-version = "1.1.0"
+version = "1.1.1"
 description = "Base classes for sklearn-like parametric objects"
 authors = [
     {name = "sktime developers", email = "sktime.toolbox@gmail.com"},
@@ -144,15 +144,11 @@ exclude_dirs = ["*/tests/*", "*/testing/*"]
 zip-safe = true
 
 [tool.setuptools.package-data]
-sktime = [
+skbase = [
     "*.csv",
     "*.csv.gz",
-    "*.arff",
-    "*.arff.gz",
     "*.txt",
-    "*.ts",
-    "*.tsv",
 ]
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
+include = ["skbase", "skbase.*"]

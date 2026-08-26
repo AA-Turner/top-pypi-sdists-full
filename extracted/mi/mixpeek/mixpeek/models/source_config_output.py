@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.field_passthrough import FieldPassthrough
 from mixpeek.models.source_filters_output import SourceFiltersOutput
 from mixpeek.models.source_type import SourceType
 from typing import Optional, Set
@@ -37,7 +38,8 @@ class SourceConfigOutput(BaseModel):
     collection_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="List of collection IDs when type='collection' (multiple collections). Use this OR collection_id (not both). REQUIRED when type='collection' and processing multiple collections. NOT ALLOWED when type='bucket'. Used for operations that consolidate multiple upstream collections. Example: Clustering across multiple collections → cluster output collection. All collections must have compatible schemas for consolidation operations.")
     inherited_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="List of original bucket IDs that source collections originated from. OPTIONAL. Only used when type='collection'. Tracks the complete lineage chain: buckets → collections → derived collections. Extracted from upstream collection metadata at collection creation time. Enables tracing derived collections (like cluster outputs) back to original data sources. Example: Cluster output collection inherits bucket IDs from its source collections. Format: List of bucket IDs with 'bkt_' prefix.")
     source_filters: Optional[SourceFiltersOutput] = Field(default=None, description="Optional filters to apply to source data. When specified, only objects/documents matching these filters will be processed by this collection. Filters are evaluated at batch creation time. Uses same LogicalOperator model as list APIs for consistency.")
-    __properties: ClassVar[List[str]] = ["type", "bucket_ids", "source_namespace_id", "collection_id", "collection_ids", "inherited_bucket_ids", "source_filters"]
+    field_map: Optional[Dict[str, List[FieldPassthrough]]] = Field(default=None, description="Optional per-source field selection for multi-source collections (multiple bucket_ids or collection_ids, possibly with DIFFERENT schemas). Maps each source id (a bucket_id or collection_id) to a list of FieldPassthrough entries choosing which of THAT source's fields land in the merged collection, and where (source_path -> target_path). OMITTED SOURCE: a source declared in bucket_ids/collection_ids but absent from field_map passes ALL of its fields through unchanged — field_map is a narrowing, not a required allowlist. TARGET-PATH COLLISION: if two sources (or two entries) map fields to the same target_path, collection creation fails with 422 naming the colliding target_path and the source ids. No silent first/last-wins — rename one target_path to resolve.")
+    __properties: ClassVar[List[str]] = ["type", "bucket_ids", "source_namespace_id", "collection_id", "collection_ids", "inherited_bucket_ids", "source_filters", "field_map"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,6 +83,15 @@ class SourceConfigOutput(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of source_filters
         if self.source_filters:
             _dict['source_filters'] = self.source_filters.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each value in field_map (dict of array)
+        _field_dict_of_array = {}
+        if self.field_map:
+            for _key_field_map in self.field_map:
+                if self.field_map[_key_field_map] is not None:
+                    _field_dict_of_array[_key_field_map] = [
+                        _item.to_dict() for _item in self.field_map[_key_field_map]
+                    ]
+            _dict['field_map'] = _field_dict_of_array
         return _dict
 
     @classmethod
@@ -99,7 +110,15 @@ class SourceConfigOutput(BaseModel):
             "collection_id": obj.get("collection_id"),
             "collection_ids": obj.get("collection_ids"),
             "inherited_bucket_ids": obj.get("inherited_bucket_ids"),
-            "source_filters": SourceFiltersOutput.from_dict(obj["source_filters"]) if obj.get("source_filters") is not None else None
+            "source_filters": SourceFiltersOutput.from_dict(obj["source_filters"]) if obj.get("source_filters") is not None else None,
+            "field_map": dict(
+                (_k,
+                        [FieldPassthrough.from_dict(_item) for _item in _v]
+                        if _v is not None
+                        else None
+                )
+                for _k, _v in obj.get("field_map", {}).items()
+            )
         })
         return _obj
 

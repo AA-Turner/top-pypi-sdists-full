@@ -1440,13 +1440,14 @@ class AwsEnvConfiguration(pycarlo.lib.types.Enum):
 class BiContainerModelType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `CUSTOM_BI_CONNECTOR`: Custom BI
     * `LOOKER`: Looker
     * `POWER_BI`: Power BI
     * `TABLEAU`: Tableau
     """
 
     __schema__ = schema
-    __choices__ = ("LOOKER", "POWER_BI", "TABLEAU")
+    __choices__ = ("CUSTOM_BI_CONNECTOR", "LOOKER", "POWER_BI", "TABLEAU")
 
 
 class BigInt(sgqlc.types.Scalar):
@@ -1761,6 +1762,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
     * `CLICKHOUSE`None
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
+    * `CUSTOM_BI_CONNECTOR`None
     * `CUSTOM_CONNECTOR`None
     * `CUSTOM_ETL_CONNECTOR`None
     * `CUSTOM_INTEGRATION`None
@@ -1819,6 +1821,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
         "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
+        "CUSTOM_BI_CONNECTOR",
         "CUSTOM_CONNECTOR",
         "CUSTOM_ETL_CONNECTOR",
         "CUSTOM_INTEGRATION",
@@ -1925,6 +1928,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
     * `CLICKHOUSE`None
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
+    * `CUSTOM_BI_CONNECTOR`None
     * `CUSTOM_CONNECTOR`None
     * `CUSTOM_ETL_CONNECTOR`None
     * `CUSTOM_INTEGRATION`None
@@ -1983,6 +1987,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
         "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
+        "CUSTOM_BI_CONNECTOR",
         "CUSTOM_CONNECTOR",
         "CUSTOM_ETL_CONNECTOR",
         "CUSTOM_INTEGRATION",
@@ -9687,6 +9692,7 @@ class AgentEvalInput(sgqlc.types.Input):
         "is_agent_conversation_aggregation",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "transforms",
         "sampling_config",
     )
@@ -9777,6 +9783,8 @@ class AgentEvalInput(sgqlc.types.Input):
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     transforms = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("TransformInput")), graphql_name="transforms"
@@ -9883,6 +9891,7 @@ class AgentMetricInput(sgqlc.types.Input):
         "is_agent_conversation_aggregation",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -9971,6 +9980,8 @@ class AgentMetricInput(sgqlc.types.Input):
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
 
 class AgentSpanConditionInput(sgqlc.types.Input):
@@ -10076,6 +10087,7 @@ class AgentTrajectoryInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -10129,6 +10141,8 @@ class AgentTrajectoryInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -10188,6 +10202,7 @@ class AgentValidationInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -10243,6 +10258,8 @@ class AgentValidationInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -11329,6 +11346,7 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "agent_response_char_cap",
         "min_conversations",
         "classify_cadence_minutes",
+        "daily_classification_budget",
         "collection_lag_hours",
         "percentile_window_days",
         "eval_score_threshold",
@@ -11373,10 +11391,20 @@ class ClusteringConfigInput(sgqlc.types.Input):
     """Minimum minutes between COMPLETED runs of a kind before the
     orchestrator dispatches the next — it paces a space's runs (on
     intent spaces, classification and pre-taxonomy discovery dispatch;
-    on issue spaces, rule evaluation). A single failed run is retried
-    on the next tick rather than waiting out this interval;
+    on issue spaces, rule evaluation). A run that left backlog re-
+    dispatches on the next tick regardless. A single failed run is
+    retried on the next tick rather than waiting out this interval;
     consecutive failures back off exponentially, capped at this
     interval.
+    """
+
+    daily_classification_budget = sgqlc.types.Field(Int, graphql_name="dailyClassificationBudget")
+    """Maximum conversations classified per trailing 24 hours, summed
+    from COMPLETED runs' processed counts (bootstrap sweeps included;
+    rule evaluation is exempt). At or over budget the space isn't
+    dispatched — the coverage watermark holds and scanning resumes
+    oldest-first when budget frees, so nothing is dropped, only
+    delayed.
     """
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
@@ -11479,6 +11507,7 @@ class ComparisonMonitorInput(sgqlc.types.Input):
         "data_quality_dimension",
         "domains",
         "is_draft",
+        "auto_triage",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -11531,6 +11560,8 @@ class ComparisonMonitorInput(sgqlc.types.Input):
     )
 
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
 
 class ConfigureLinearIntegrationInput(sgqlc.types.Input):
@@ -13543,6 +13574,7 @@ class FreshnessSLOInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -13594,6 +13626,8 @@ class FreshnessSLOInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -15134,6 +15168,7 @@ class MetricInput(sgqlc.types.Input):
         "domains",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "sampling_config",
         "alert_grouping",
         "disable_look_back_bootstrap",
@@ -15230,6 +15265,8 @@ class MetricInput(sgqlc.types.Input):
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     sampling_config = sgqlc.types.Field("MonitorSamplingConfigInput", graphql_name="samplingConfig")
 
@@ -16514,6 +16551,7 @@ class SQLRuleInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -16567,6 +16605,8 @@ class SQLRuleInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -17528,6 +17568,7 @@ class TableMonitorInput(sgqlc.types.Input):
         "data_quality_dimension",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "enable_row_count_collection",
         "enable_row_count_collection_limit",
         "sensitivity",
@@ -17579,6 +17620,8 @@ class TableMonitorInput(sgqlc.types.Input):
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     enable_row_count_collection = sgqlc.types.Field(
         Boolean, graphql_name="enableRowCountCollection"
@@ -18737,6 +18780,7 @@ class ValidationInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -18792,6 +18836,8 @@ class ValidationInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -19039,6 +19085,7 @@ class VolumeSLOInput(sgqlc.types.Input):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -19090,6 +19137,8 @@ class VolumeSLOInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -19999,9 +20048,11 @@ class IMonitor(sgqlc.types.Interface):
     is_agent_conversation_aggregation = sgqlc.types.Field(
         Boolean, graphql_name="isAgentConversationAggregation"
     )
-    """If True, score whole conversations rather than individual spans;
-    if False, score individual spans. Null for non-agent-evaluation
-    monitors (or legacy monitors predating the field).
+    """If True, the monitor operates at the conversation grain — eval
+    monitors score whole conversations, metric monitors compute
+    conversation-level metrics; if False, it operates on individual
+    spans. Null for non-agent monitors (or legacy monitors predating
+    the field).
     """
 
     dashboards = sgqlc.types.Field(
@@ -20028,8 +20079,9 @@ class IMonitor(sgqlc.types.Interface):
     """
 
     is_auto_created = sgqlc.types.Field(Boolean, graphql_name="isAutoCreated")
-    """Whether this monitor was auto-created by the recommendation
-    service.
+    """Whether this monitor was auto-created by monitor recommendations.
+    Recommendations are no longer generated, so this identifies only
+    monitors created while that feature was active.
     """
 
     missing_required_fields = sgqlc.types.Field(
@@ -22195,6 +22247,7 @@ class AgentEvalOutput(sgqlc.types.Type):
         "is_agent_conversation_aggregation",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "transforms",
         "sampling_config",
         "audience_conditions",
@@ -22294,6 +22347,8 @@ class AgentEvalOutput(sgqlc.types.Type):
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     transforms = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("Transform")), graphql_name="transforms"
@@ -23348,6 +23403,7 @@ class AgentMetricOutput(sgqlc.types.Type):
         "is_agent_conversation_aggregation",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
@@ -23445,6 +23501,8 @@ class AgentMetricOutput(sgqlc.types.Type):
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     audience_conditions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AudienceCondition"))),
@@ -23700,6 +23758,7 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -23756,6 +23815,8 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -23828,6 +23889,7 @@ class AgentValidationOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -23886,6 +23948,8 @@ class AgentValidationOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -27758,6 +27822,7 @@ class ClusteringConfig(sgqlc.types.Type):
         "agent_response_char_cap",
         "min_conversations",
         "classify_cadence_minutes",
+        "daily_classification_budget",
         "collection_lag_hours",
         "percentile_window_days",
         "eval_score_threshold",
@@ -27820,10 +27885,22 @@ class ClusteringConfig(sgqlc.types.Type):
     """Minimum minutes between COMPLETED runs of a kind before the
     orchestrator dispatches the next — it paces a space's runs (on
     intent spaces, classification and pre-taxonomy discovery dispatch;
-    on issue spaces, rule evaluation). A single failed run is retried
-    on the next tick rather than waiting out this interval;
+    on issue spaces, rule evaluation). A run that left backlog re-
+    dispatches on the next tick regardless. A single failed run is
+    retried on the next tick rather than waiting out this interval;
     consecutive failures back off exponentially, capped at this
     interval.
+    """
+
+    daily_classification_budget = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="dailyClassificationBudget"
+    )
+    """Maximum conversations classified per trailing 24 hours, summed
+    from COMPLETED runs' processed counts (bootstrap sweeps included;
+    rule evaluation is exempt). At or over budget the space isn't
+    dispatched — the coverage watermark holds and scanning resumes
+    oldest-first when budget frees, so nothing is dropped, only
+    delayed.
     """
 
     collection_lag_hours = sgqlc.types.Field(
@@ -28230,6 +28307,7 @@ class ComparisonMonitorOutput(sgqlc.types.Type):
         "data_quality_dimension",
         "domains",
         "is_draft",
+        "auto_triage",
         "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
@@ -28285,6 +28363,8 @@ class ComparisonMonitorOutput(sgqlc.types.Type):
     )
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     audience_conditions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
@@ -29063,8 +29143,9 @@ class ConversationClusteringRunType(sgqlc.types.Type):
     conversations_submitted = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="conversationsSubmitted"
     )
-    """Conversations submitted to the run's LLM batch. Always 0 on a
-    rule-evaluation run, which has no LLM batch.
+    """Conversations the run classified and persisted — the daily
+    classification budget's spend unit, stamped after the assignment
+    write. Always 0 on a rule-evaluation run, which has no LLM batch.
     """
 
     error = sgqlc.types.Field(String, graphql_name="error")
@@ -29118,6 +29199,10 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
         "config",
         "clusters",
         "runs",
+        "classification_watermark",
+        "budget_limited",
+        "daily_classification_budget",
+        "trailing_day_spend",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Stable space id."""
@@ -29201,6 +29286,32 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    """
+
+    classification_watermark = sgqlc.types.Field(DateTime, graphql_name="classificationWatermark")
+    """Readiness time through which every conversation has been examined
+    (the coverage watermark the monitor gate reads); null before the
+    first watermark run.
+    """
+
+    budget_limited = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="budgetLimited")
+    """True when the trailing-24h classification spend is at the daily
+    budget AND backlog remains — classification is paused by budget,
+    not caught up. Scanning resumes oldest-first when budget frees.
+    """
+
+    daily_classification_budget = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="dailyClassificationBudget"
+    )
+    """The space's configured daily classification budget
+    (conversations/24h).
+    """
+
+    trailing_day_spend = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="trailingDaySpend"
+    )
+    """Conversations classified over the trailing 24 hours (completed
+    runs).
     """
 
 
@@ -38430,6 +38541,7 @@ class FreshnessSLOOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -38484,6 +38596,8 @@ class FreshnessSLOOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -43326,6 +43440,7 @@ class MetricOutput(sgqlc.types.Type):
         "domains",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "sampling_config",
         "alert_grouping",
         "disable_look_back_bootstrap",
@@ -43431,6 +43546,8 @@ class MetricOutput(sgqlc.types.Type):
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
 
@@ -44053,10 +44170,6 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -44146,9 +44259,6 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -48030,6 +48140,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
                     "data_quality_dimension",
@@ -48119,6 +48230,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -48846,6 +48964,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -48980,6 +49099,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -49075,6 +49201,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -49206,6 +49333,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -49290,6 +49424,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -49424,6 +49559,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -58279,6 +58421,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -58439,6 +58582,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -58529,6 +58679,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -58689,6 +58840,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -58878,6 +59036,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -58991,6 +59150,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -59069,6 +59235,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -59191,6 +59358,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -59268,6 +59442,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -59409,6 +59584,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -59469,6 +59651,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -59550,6 +59733,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -59594,6 +59784,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -59699,6 +59890,13 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -60896,6 +61094,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
                     "comparisons",
@@ -61068,6 +61267,14 @@ class Mutation(sgqlc.types.Type):
       that way), which stays the monitor's full audience set — a
       condition narrows when one of them is notified, it does not add
       one.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit. Honored for
+      metric (stats) monitors only; ignored for other types.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -61259,6 +61466,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "data_quality_dimension",
                     sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
@@ -61357,6 +61565,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `data_quality_dimension` (`String`): Data quality dimension.
     * `description` (`String!`): Description of monitor
     * `domain_uuids` (`[UUID!]`): Please provide one and only one
@@ -61431,6 +61646,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
                     "collection_lag_hours",
@@ -61581,6 +61797,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -61790,6 +62013,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
                     "collection_lag_hours",
@@ -61846,6 +62070,12 @@ class Mutation(sgqlc.types.Type):
                 (
                     "high_segment_count",
                     sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
+                ),
+                (
+                    "is_agent_conversation_aggregation",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="isAgentConversationAggregation", default=False
+                    ),
                 ),
                 (
                     "is_agent_trace_aggregation",
@@ -61923,6 +62153,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -61954,9 +62191,16 @@ class Mutation(sgqlc.types.Type):
     * `high_segment_count` (`Boolean`): Flag to apply additional
       limits which increase the supported segment count (default:
       `false`)
+    * `is_agent_conversation_aggregation` (`Boolean`): If true, the
+      monitor operates at the conversation grain: evaluation monitors
+      score whole conversations, and metric monitors compute
+      conversation-level metrics (turn_count, duration_seconds,
+      total_tokens, ...). Default (false) operates on individual
+      spans. (default: `false`)
     * `is_agent_trace_aggregation` (`Boolean`): If true, aggregates
       spans by trace_id for trace-level metrics. Default (false)
-      returns span-level data. (default: `false`)
+      returns span-level data. Mutually exclusive with
+      isAgentConversationAggregation. (default: `false`)
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
     * `notes` (`String`): Additional context for the monitor (default:
@@ -62038,6 +62282,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
                     "collection_lag_hours",
@@ -62181,6 +62426,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
       override. true forces auto-apply tuning on for this monitor,
       false forces it off, and null (or omitting the argument) clears
@@ -62212,9 +62464,12 @@ class Mutation(sgqlc.types.Type):
     * `high_segment_count` (`Boolean`): Flag to apply additional
       limits which increase the supported segment count (default:
       `false`)
-    * `is_agent_conversation_aggregation` (`Boolean`): If true,
-      evaluates whole conversations at the conversation grain. Default
-      (false) evaluates individual spans. (default: `false`)
+    * `is_agent_conversation_aggregation` (`Boolean`): If true, the
+      monitor operates at the conversation grain: evaluation monitors
+      score whole conversations, and metric monitors compute
+      conversation-level metrics (turn_count, duration_seconds,
+      total_tokens, ...). Default (false) operates on individual
+      spans. (default: `false`)
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
     * `notes` (`String`): Additional context for the monitor (default:
@@ -62268,6 +62523,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
                     "data_quality_dimension",
@@ -62361,6 +62617,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `data_quality_dimension` (`String`): Data quality dimension.
@@ -66814,10 +67077,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="jobTypes", default=None
                     ),
                 ),
-                (
-                    "key",
-                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
-                ),
+                ("key", sgqlc.types.Arg(String, graphql_name="key", default=None)),
                 ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
                 ("resource_id", sgqlc.types.Arg(UUID, graphql_name="resourceId", default=None)),
             )
@@ -66834,7 +67094,8 @@ class Mutation(sgqlc.types.Type):
       multiple collectors
     * `job_types` (`[String]`): Specify job types for the connection.
       Uses connection default otherwise
-    * `key` (`String!`): Temp key from testing connections
+    * `key` (`String`): Temp key for testing connections that require
+      credentials.
     * `name` (`String`): Provide a friendly name for the BI
       integration.
     * `resource_id` (`UUID`): BI Container UUID. Add the connection
@@ -69188,6 +69449,7 @@ class Mutation(sgqlc.types.Type):
                     "auto_prune_enabled",
                     sgqlc.types.Arg(Boolean, graphql_name="autoPruneEnabled", default=None),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "collection_lag_hours",
                     sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
@@ -69289,6 +69551,13 @@ class Mutation(sgqlc.types.Type):
       automatically remove child monitors after a successful first
       scan with no PII detected. Omitted values preserve the existing
       setting on update and default to false for new PII monitors.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `collection_lag_hours` (`Int`): Time to offset the collection
       time bucket by in hours. Should be a multiple of 24 if
       agg_time_interval is DAY. Defaults to 0 (no lag). (default: `0`)
@@ -75392,8 +75661,8 @@ class Query(sgqlc.types.Type):
     * `is_agent_conversation_aggregation` (`Boolean`): When true,
       return the conversation-grain schema (turn_count,
       duration_seconds, active_duration_seconds, status, etc.) instead
-      of the span-level schema. Required for conversation-scope eval
-      monitors.
+      of the span-level schema. Required for conversation-scope
+      monitors (eval and metric).
     * `transforms` (`[TransformInput!]`): Transforms to apply to the
       data source schema
     """
@@ -84745,10 +85014,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -84838,9 +85103,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -85059,10 +85321,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -85152,9 +85410,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -85373,10 +85628,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -85466,9 +85717,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -85687,10 +85935,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -85780,9 +86024,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -86001,10 +86242,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -86094,9 +86331,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -86315,10 +86549,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -86408,9 +86638,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -86629,10 +86856,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -86722,9 +86945,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -86943,10 +87163,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -87036,9 +87252,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -87257,10 +87470,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "is_auto_created",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
-                ),
-                (
                     "missing_required_fields",
                     sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
                 ),
@@ -87350,9 +87559,6 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
-    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
-      status. When true, returns only monitors auto-created by the
-      recommendation service.
     * `missing_required_fields` (`Boolean`): Filter monitors by
       whether they are missing a field this account requires. When
       true, returns only monitors missing at least one required field;
@@ -100195,6 +100401,7 @@ class SQLRuleOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -100251,6 +100458,8 @@ class SQLRuleOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -103955,6 +104164,7 @@ class TableMonitorOutput(sgqlc.types.Type):
         "data_quality_dimension",
         "is_draft",
         "auto_tuning",
+        "auto_triage",
         "enable_row_count_collection",
         "enable_row_count_collection_limit",
         "sensitivity",
@@ -104009,6 +104219,8 @@ class TableMonitorOutput(sgqlc.types.Type):
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     enable_row_count_collection = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="enableRowCountCollection"
@@ -109142,6 +109354,7 @@ class ValidationOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -109200,6 +109413,8 @@ class ValidationOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -109482,6 +109697,7 @@ class VolumeSLOOutput(sgqlc.types.Type):
         "failure_audiences",
         "notify_run_failure",
         "auto_tuning",
+        "auto_triage",
         "event_rollup_count",
         "event_rollup_until_changed",
         "alert_grouping",
@@ -109536,6 +109752,8 @@ class VolumeSLOOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
 
@@ -110423,8 +110641,8 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"
     )
-    """Timestamp when auto-recommended monitors were generated for this
-    trace table.
+    """Unused. Timestamp when the (removed) recommendation service last
+    ran for this trace table.
     """
 
     supports_conversation_eval = sgqlc.types.Field(
@@ -112530,6 +112748,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "lineage_narrowing_enabled",
         "table_limit",
         "deleted_by",
+        "auto_triage",
         "monitor_type",
         "asset_selection",
         "alert_conditions",
@@ -112628,6 +112847,15 @@ class BulkMonitor(sgqlc.types.Type, Node):
 
     deleted_by = sgqlc.types.Field("User", graphql_name="deletedBy")
     """User who deleted this bulk monitor"""
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
 
     monitor_type = sgqlc.types.Field(
         sgqlc.types.non_null(BulkMonitorTypeEnum), graphql_name="monitorType"
@@ -112872,6 +113100,7 @@ class ComparisonMonitorResponse(sgqlc.types.Type, Node):
         "created_time",
         "monitor_name",
         "last_update_time",
+        "auto_triage",
         "source",
         "target",
         "monitor_type",
@@ -112909,6 +113138,15 @@ class ComparisonMonitorResponse(sgqlc.types.Type, Node):
 
     last_update_time = sgqlc.types.Field(DateTime, graphql_name="lastUpdateTime")
     """When the monitor was last updated"""
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
 
     source = sgqlc.types.Field(sgqlc.types.non_null(ExtendedDataSource), graphql_name="source")
 
@@ -113225,6 +113463,9 @@ class CustomRule(sgqlc.types.Type, Node):
         "queries",
         "entity_mcons",
         "rendered_custom_sql",
+        "auto_tuning",
+        "effective_auto_tuning",
+        "auto_triage",
         "schedule_config",
         "data_collection_schedule_config",
         "notification_settings",
@@ -113329,19 +113570,13 @@ class CustomRule(sgqlc.types.Type, Node):
     """True if rule is a draft"""
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
-    """Was this monitor auto-created by the recommendation service?"""
+    """Was this monitor auto-created by the (removed) recommendation
+    service? Read-only historical marker; nothing sets this any more.
+    """
 
     auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
-    """Per-monitor override for auto-apply tuning (null = inherit from
-    domain/account, true/false = force enable/disable for this
-    monitor).
-    """
 
     auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
-    """Per-monitor override for auto-triage (null = inherit from
-    domain/account, true/false = force enable/disable for this
-    monitor).
-    """
 
     alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration. Null means legacy per-
@@ -113523,6 +113758,31 @@ class CustomRule(sgqlc.types.Type, Node):
     """MCONs for monitored tables/views"""
 
     rendered_custom_sql = sgqlc.types.Field(String, graphql_name="renderedCustomSql")
+
+    auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+    """Raw per-monitor auto-apply-tuning override: true forces auto-apply
+    tuning on for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTuning``
+    input.
+    """
+
+    effective_auto_tuning = sgqlc.types.Field(Boolean, graphql_name="effectiveAutoTuning")
+    """Effective auto-apply-tuning state after the hard gates and the
+    monitor → domain → account inherit chain. Null when the viewer
+    does not have access to the AI-agents settings, so the resolved
+    account/domain posture is not exposed to a monitor-only viewer.
+    """
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
 
     schedule_config = sgqlc.types.Field(ScheduleConfigOutput, graphql_name="scheduleConfig")
 
@@ -117028,8 +117288,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "paused_reason",
         "is_draft",
         "is_auto_created",
-        "auto_apply_tuning_override",
-        "auto_triage_override",
         "alert_grouping",
         "type",
         "warehouse_uuid",
@@ -117070,6 +117328,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "training_config",
         "sensitivity",
         "select_expressions",
+        "auto_tuning",
+        "effective_auto_tuning",
+        "auto_triage",
         "mcon",
         "full_table_id",
         "monitor_type",
@@ -117154,18 +117415,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     """Is this a draft monitor?"""
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
-    """Was this monitor auto-created by the recommendation service?"""
-
-    auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
-    """Per-monitor override for auto-apply tuning (null = inherit from
-    domain/account, true/false = force enable/disable for this
-    monitor).
-    """
-
-    auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
-    """Per-monitor override for auto-triage (null = inherit from
-    domain/account, true/false = force enable/disable for this
-    monitor).
+    """Was this monitor auto-created by the (removed) recommendation
+    service? Read-only historical marker; nothing sets this any more.
     """
 
     alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
@@ -117323,6 +117574,31 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         graphql_name="selectExpressions",
     )
 
+    auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+    """Raw per-monitor auto-apply-tuning override: true forces auto-apply
+    tuning on for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTuning``
+    input.
+    """
+
+    effective_auto_tuning = sgqlc.types.Field(Boolean, graphql_name="effectiveAutoTuning")
+    """Effective auto-apply-tuning state after the hard gates and the
+    monitor → domain → account inherit chain. Null when the viewer
+    does not have access to the AI-agents settings, so the resolved
+    account/domain posture is not exposed to a monitor-only viewer.
+    """
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
+
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
 
     full_table_id = sgqlc.types.Field(String, graphql_name="fullTableId")
@@ -117405,6 +117681,7 @@ class Monitor(
         "last_auto_applied_is_partial",
         "auto_tuning",
         "effective_auto_tuning",
+        "auto_triage",
         "finding",
         "parent_finding",
     )
@@ -117469,8 +117746,10 @@ class Monitor(
     auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
     """Raw per-monitor auto-apply-tuning override: true forces auto-apply
     tuning on for this monitor, false forces it off, null inherits the
-    domain/account setting. Set via the monitor create/update
-    mutation's ``autoTuning`` input.
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTuning``
+    input.
     """
 
     effective_auto_tuning = sgqlc.types.Field(Boolean, graphql_name="effectiveAutoTuning")
@@ -117478,6 +117757,15 @@ class Monitor(
     monitor → domain → account inherit chain. Null when the viewer
     does not have access to the AI-agents settings, so the resolved
     account/domain posture is not exposed to a monitor-only viewer.
+    """
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
     """
 
     finding = sgqlc.types.Field(Finding, graphql_name="finding")
@@ -117687,8 +117975,8 @@ class PlatformAgent(sgqlc.types.Type, Node):
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"
     )
-    """Timestamp when auto-recommended monitors were generated for this
-    platform agent.
+    """Unused. Timestamp when the (removed) recommendation service last
+    ran for this platform agent.
     """
 
     display_name = sgqlc.types.Field(String, graphql_name="displayName")
@@ -118293,6 +118581,9 @@ class TableMonitor(sgqlc.types.Type, Node):
         "enable_row_count_collection",
         "enable_row_count_collection_limit",
         "sensitivity",
+        "auto_tuning",
+        "effective_auto_tuning",
+        "auto_triage",
         "asset_selection",
         "audiences",
         "audience_conditions",
@@ -118378,6 +118669,31 @@ class TableMonitor(sgqlc.types.Type, Node):
         sgqlc.types.non_null(SensitivityLevels), graphql_name="sensitivity"
     )
     """Sensitivity level for the table monitor."""
+
+    auto_tuning = sgqlc.types.Field(Boolean, graphql_name="autoTuning")
+    """Raw per-monitor auto-apply-tuning override: true forces auto-apply
+    tuning on for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTuning``
+    input.
+    """
+
+    effective_auto_tuning = sgqlc.types.Field(Boolean, graphql_name="effectiveAutoTuning")
+    """Effective auto-apply-tuning state after the hard gates and the
+    monitor → domain → account inherit chain. Null when the viewer
+    does not have access to the AI-agents settings, so the resolved
+    account/domain posture is not exposed to a monitor-only viewer.
+    """
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
 
     asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
     """SQL blocks used on the monitor"""
@@ -120305,8 +120621,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "monitor_sql_blocks",
         "sampling_config",
         "alert_grouping",
-        "auto_apply_tuning_override",
-        "auto_triage_override",
         "agent_names",
         "entity_mcons",
         "agent_span_filters",
@@ -120506,14 +120820,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
 
     alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration from monitors"""
-
-    auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
-    """Per-monitor auto-apply tuning override from monitors (null =
-    inherit)
-    """
-
-    auto_triage_override = sgqlc.types.Field(Boolean, graphql_name="autoTriageOverride")
-    """Per-monitor auto-triage override from monitors (null = inherit)"""
 
     agent_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="agentNames"

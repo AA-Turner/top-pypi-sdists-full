@@ -232,7 +232,7 @@ CLI_OPTIONS: List[Dict[str, Any]] = [
         "type": "string",
         "required": False,
         "default": "0",
-        "description": "Hybrid backend request timeout in milliseconds (0 = no timeout). Default: 0",
+        "description": "Hybrid backend request timeout in milliseconds (0 = use the backend's own default; hancom-ai then caps a single call at 1 hour). Regardless of this value, hancom-ai makes up to 3 attempts per request when a failure looks transient. Default: 0",
     },
     {
         "name": "hybrid-fallback",
@@ -258,8 +258,8 @@ CLI_OPTIONS: List[Dict[str, Any]] = [
         "short_name": None,
         "type": "string",
         "required": False,
-        "default": "auto",
-        "description": "OCR strategy. Requires --hybrid=hancom-ai. Values: off (stream-only), auto (default; stream first, OCR fallback), force (OCR-only)",
+        "default": "off",
+        "description": "OCR strategy. Requires --hybrid=hancom-ai. Values: off (default; stream-only, uses the cheaper OCR-free layout module), auto (stream first, OCR fallback), force (OCR-only). Scanned documents need auto or force",
     },
     {
         "name": "hybrid-hancom-ai-image-cache",

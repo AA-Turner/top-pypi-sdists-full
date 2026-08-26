@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing
-from typing import Literal, Union, overload, TYPE_CHECKING
+from typing import Literal, Union, overload, TYPE_CHECKING, cast
 
 from . import fastcc3d
 from .fastcc3d import (
@@ -410,7 +410,11 @@ def connected_components_stack(
       return_N=True, out_dtype=np.uint64,
       binary_image=bool(binary_image),
     )
-    np.add(cc_labels, offset, out=cc_labels, where=(cc_labels != 0))
+    # np.add(cc_labels, offset, out=cc_labels, where=(cc_labels != 0))
+    fastcc3d.offset_foreground(
+      cast(NDArray[np.uint64], cc_labels),
+      offset
+    )
     offset += N
     binary = crackle.compress(cc_labels)
 
@@ -433,14 +437,33 @@ def connected_components_stack(
       equivalences.makeset(u)
 
     if connectivity == 6:
-      for y in range(image.shape[1]):
-        for x in range(image.shape[0]):
-          if bottom_cc_labels[x,y] == 0 or top_cc_labels[x,y] == 0:
-            continue
-          if ((not binary_image and bottom_cc_img[x,y] == image[x,y,0]) 
-            or (binary_image and bottom_cc_img[x,y] and image[x,y,0])):
+      mask = (
+        (bottom_cc_labels != 0)
+        & (top_cc_labels != 0)
+      )
+      if binary_image:
+        mask &= bottom_cc_img  > 0
+        mask &= image[:, :, 0] > 0
+      else:
+        mask &= (bottom_cc_img == image[:, :, 0])
 
-            equivalences.union(bottom_cc_labels[x,y], top_cc_labels[x,y])
+      mask = mask.reshape([mask.size], order="F")
+      bottom_labels = bottom_cc_labels.reshape([bottom_cc_labels.size], order="F")
+      top_labels = top_cc_labels.reshape([top_cc_labels.size], order="F")
+
+      bottom_labels = bottom_labels[mask]
+      top_labels = top_labels[mask]
+
+      del mask
+      edges = np.column_stack((bottom_labels, top_labels))
+      del bottom_labels
+      del top_labels
+
+      edges = fastremap.unique(edges, sorted=False, axis=0)
+
+      for b, t in edges:
+        equivalences.union(b, t)
+      del edges
     else:
       for y in range(image.shape[1]):
         for x in range(image.shape[0]):
